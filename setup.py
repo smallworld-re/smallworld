@@ -12,7 +12,7 @@ setup(
     version=smallworld.__version__,
     author=smallworld.__author__,
     author_email="smallworld@ll.mit.edu",
-    url="https://github.com/smallworld-re/smallworld",
+    url="https://github.com/smallworld/smallworld",
     description=smallworld.__description__,
     long_description=long_description,
     long_description_content_type="text/markdown",
