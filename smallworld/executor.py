@@ -81,8 +81,12 @@ class Executor(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def step(self) -> None:
-        """Single-step execution."""
+    def step(self) -> bool:
+        """Single-step execution.
+
+        Returns:
+           `True` if we have reached the program exit point, otherwise `False`.
+        """
 
         pass
 

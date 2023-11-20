@@ -90,6 +90,8 @@ class UnicornExecutor(executor.Executor):
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 
+        self.single_stepping = False
+
         self.engine = unicorn.Uc(self.arch, self.mode)
 
     def register(self, name: str) -> int:
@@ -164,7 +166,8 @@ class UnicornExecutor(executor.Executor):
 
         logger.info(f"loaded image (size: {len(image)} B) at 0x{base:x}")
 
-    def run(self) -> None:
+    # some checks to make sure ok to emulate
+    def run_check(self):
         if self.entrypoint is None:
             raise exceptions.ConfigurationError(
                 "no entrypoint provided, emulation cannot start"
@@ -174,10 +177,11 @@ class UnicornExecutor(executor.Executor):
                 "no exitpoint provided, emulation cannot start"
             )
 
+    def run(self) -> None:
+        self.run_check()
         logger.info(
             f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
         )
-
         try:
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
@@ -186,10 +190,35 @@ class UnicornExecutor(executor.Executor):
 
         logger.info("emulation complete")
 
-    def step(self) -> None:
-        raise NotImplementedError(
-            f"single stepping not yet implemented for {self.__class__.__name__}"
-        )
+    def get_pc(self):
+        if self.arch == unicorn.UC_ARCH_X86:
+            if self.mode == unicorn.UC_MODE_32:
+                return self.read_register("eip")
+            elif self.mode == unicorn.UC_MODE_64:
+                return self.read_register("rip")
+            else:
+                raise NotImplementedError(
+                    f"no idea how to get pc for x86 mode [{self.mode}]"
+                )
+        else:
+            raise NotImplementedError("no idea how to get pc for arch [{self.arch}]")
+
+    def step(self) -> bool:
+        self.run_check()
+        if self.single_stepping:
+            # emu already started.  use pc
+            pc = self.get_pc()
+        else:
+            pc = self.entrypoint
+            self.single_stepping = True
+        logger.info(f"single step 0x{pc:x}")
+        self.engine.emu_start(pc, self.exitpoint, count=1)
+        pc = self.get_pc()
+        if (pc >= self.exitpoint) or (pc < self.entrypoint):
+            # inform caller that we are done
+            self.single_stepping = False
+            return True
+        return False
 
     def __repr__(self) -> str:
         return f"Unicorn(mode={self.mode}, arch={self.arch})"
