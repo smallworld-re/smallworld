@@ -48,12 +48,11 @@ executor.load(target, 0x1000)
 done = False
 
 while not done:
-    try:
-        done = executor.step()
-        # load/apply the executor state into the cpu
-        cpu.load(executor)
-
-        print("=" * 80)
-        print("state:")
-        print(cpu.stringify(truncate=False))
-
+    done = executor.step()
+    # load/apply the executor state into the cpu
+    cpu.load(executor)
+    
+    print("=" * 80)
+    print("state:")
+    print(cpu.stringify(truncate=False))
+    
