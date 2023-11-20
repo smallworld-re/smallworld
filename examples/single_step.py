@@ -57,5 +57,3 @@ while not done:
         print("state:")
         print(cpu.stringify(truncate=False))
 
-    except exceptions.EmulationError:
-        pass
