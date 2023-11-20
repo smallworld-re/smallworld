@@ -1,5 +1,6 @@
-# Small World
+# SmallWorld
 
+[![commit-style-image]][conventional]
 [![code-style-image]][black]
 [![license-image]][mit]
 
@@ -11,7 +12,7 @@ Coming soon...
 
 ## Installation
 
-To install Small World from this repo, run:
+To install SmallWorld from this repo, run:
 
 ```bash
 pip install .
@@ -31,7 +32,7 @@ Pull requests and issues more than welcome.
 
 ### Development
 
-To set up a development environment from this repo, install Small World in
+To set up a development environment from this repo, install SmallWorld in
 editable mode with extras for development and testing.
 
 ```bash
@@ -75,6 +76,8 @@ work.
 
 [MIT License](LICENSE.txt)
 
+[commit-style-image]: https://img.shields.io/badge/commits-conventional-fe5196.svg
+[conventional]: https://www.conventionalcommits.org/en/v1.0.0/
 [code-style-image]: https://img.shields.io/badge/code%20style-black-000000.svg
 [black]: https://github.com/psf/black
 [license-image]: https://img.shields.io/badge/license-MIT-green.svg
