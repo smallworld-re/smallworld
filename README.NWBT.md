@@ -204,8 +204,7 @@ The available options are as follows:
 This triggers if the executor tries to dereference
 a symbolic expression that contains a ternary operator.
 
-This happens if you use conditional data flow 
-- such as a `cmov` instruction -
+This happens if you use conditional data flow, such as a `cmov` instruction,
 with an under-constrained test expression.
 angr's  method of resolving this kind of case sucks, so I extended it.
 
