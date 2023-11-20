@@ -198,7 +198,7 @@ class UnicornExecutor(executor.Executor):
                 return self.read_register("rip")
             else:
                 raise NotImplementedError(
-                    "No idea how to get pc for x86 mode [%s]" % (str(self.mode))
+                    f"no idea how to get pc for x86 mode [{self.mode}]"
                 )
         else:
             raise NotImplementedError(
