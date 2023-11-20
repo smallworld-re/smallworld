@@ -202,7 +202,7 @@ class UnicornExecutor(executor.Executor):
                 )
         else:
             raise NotImplementedError(
-                "No idea how to get pc for arch [%s]" % (str(self.arch))
+                "no idea how to get pc for arch [{self.arch}]"
             )
 
     def step(self) -> bool:
