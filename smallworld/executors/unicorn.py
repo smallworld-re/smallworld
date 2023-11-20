@@ -213,7 +213,7 @@ class UnicornExecutor(executor.Executor):
         else:
             pc = self.entrypoint
             self.single_stepping = True
-        logger.info("single step 0x%x" % pc)
+        logger.info(f"single step 0x{pc:x}")
         self.engine.emu_start(pc, self.exitpoint, count=1)
         pc = self.get_pc()
         if (pc >= self.exitpoint) or (pc < self.entrypoint):
