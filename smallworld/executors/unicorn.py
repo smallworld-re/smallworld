@@ -90,8 +90,6 @@ class UnicornExecutor(executor.Executor):
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 
-        self.single_stepping = False
-
         self.engine = unicorn.Uc(self.arch, self.mode)
 
     def register(self, name: str) -> int:
@@ -104,8 +102,27 @@ class UnicornExecutor(executor.Executor):
             The Unicorn constant corresponding to the given register name.
         """
 
+        name = name.lower()
+
+        # support some generic register references
+
+        if name == "pc":
+            if self.arch == unicorn.UC_ARCH_X86:
+                if self.mode == unicorn.UC_MODE_32:
+                    name = "eip"
+                elif self.mode == unicorn.UC_MODE_64:
+                    name = "rip"
+                else:
+                    raise NotImplementedError(
+                        f"no idea how to get pc for x86 mode [{self.mode}]"
+                    )
+            else:
+                raise NotImplementedError(
+                    f"no idea how to get pc for arch [{self.arch}]"
+                )
+
         try:
-            return self.REGISTERS[self.arch][self.mode][name.lower()]
+            return self.REGISTERS[self.arch][self.mode][name]
         except KeyError:
             raise ValueError(f"unknown or unsupported register '{name}'")
 
@@ -164,10 +181,13 @@ class UnicornExecutor(executor.Executor):
         self.entrypoint = base
         self.exitpoint = base + len(image)
 
+        self.write_register("pc", self.entrypoint)
+
         logger.info(f"loaded image (size: {len(image)} B) at 0x{base:x}")
 
-    # some checks to make sure ok to emulate
-    def run_check(self):
+    def check(self) -> None:
+        """Some checks to make sure ok to emulate."""
+
         if self.entrypoint is None:
             raise exceptions.ConfigurationError(
                 "no entrypoint provided, emulation cannot start"
@@ -178,10 +198,12 @@ class UnicornExecutor(executor.Executor):
             )
 
     def run(self) -> None:
-        self.run_check()
+        self.check()
+
         logger.info(
             f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
         )
+
         try:
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
@@ -190,36 +212,21 @@ class UnicornExecutor(executor.Executor):
 
         logger.info("emulation complete")
 
-    def get_pc(self):
-        if self.arch == unicorn.UC_ARCH_X86:
-            if self.mode == unicorn.UC_MODE_32:
-                return self.read_register("eip")
-            elif self.mode == unicorn.UC_MODE_64:
-                return self.read_register("rip")
-            else:
-                raise NotImplementedError(
-                    "No idea how to get pc for x86 mode [%s]" % (str(self.mode))
-                )
-        else:
-            raise NotImplementedError(
-                "No idea how to get pc for arch [%s]" % (str(self.arch))
-            )
-
     def step(self) -> bool:
-        self.run_check()
-        if self.single_stepping:
-            # emu already started.  use pc
-            pc = self.get_pc()
-        else:
-            pc = self.entrypoint
-            self.single_stepping = True
-        logger.info("single step 0x%x" % pc)
+        self.check()
+
+        pc = self.read_register("pc")
+        logger.info(f"single step at 0x{pc:x}")
+
         self.engine.emu_start(pc, self.exitpoint, count=1)
-        pc = self.get_pc()
-        if (pc >= self.exitpoint) or (pc < self.entrypoint):
+
+        pc = self.read_register("pc")
+        if self.entrypoint is None or self.exitpoint is None:
+            assert False, "impossible state"
+        if pc >= self.exitpoint or pc < self.entrypoint:
             # inform caller that we are done
-            self.single_stepping = False
             return True
+
         return False
 
     def __repr__(self) -> str:

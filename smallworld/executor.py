@@ -84,7 +84,8 @@ class Executor(metaclass=abc.ABCMeta):
     def step(self) -> bool:
         """Single-step execution.
 
-        returns a bool, indicating if we are done single stepping.
+        Returns:
+            `True` if we have reached the program exit point, otherwise `False`.
         """
 
         pass
