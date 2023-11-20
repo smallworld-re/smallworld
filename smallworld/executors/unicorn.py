@@ -201,9 +201,7 @@ class UnicornExecutor(executor.Executor):
                     f"no idea how to get pc for x86 mode [{self.mode}]"
                 )
         else:
-            raise NotImplementedError(
-                "no idea how to get pc for arch [{self.arch}]"
-            )
+            raise NotImplementedError("no idea how to get pc for arch [{self.arch}]")
 
     def step(self) -> bool:
         self.run_check()
