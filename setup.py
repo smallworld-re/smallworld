@@ -20,7 +20,7 @@ setup(
     license_files=["LICENSE.txt"],
     packages=find_packages(),
     python_requires=">=3.8",
-    install_requires=["angr", "capstone"],
+    install_requires=["unicorn", "angr", "capstone"],
     extras_require={
         "development": [
             "black",
