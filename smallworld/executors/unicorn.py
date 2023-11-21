@@ -90,6 +90,8 @@ class UnicornExecutor(executor.Executor):
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 
+        self.single_stepping = False
+
         self.engine = unicorn.Uc(self.arch, self.mode)
 
     def register(self, name: str) -> int:
@@ -203,7 +205,6 @@ class UnicornExecutor(executor.Executor):
         logger.info(
             f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
         )
-
         try:
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:

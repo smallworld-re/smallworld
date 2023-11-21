@@ -6,7 +6,6 @@ import argparse
 from smallworld import cpus
 from smallworld import executors
 from smallworld import initializer
-from smallworld import exceptions
 from smallworld import utils
 
 import unicorn
@@ -48,14 +47,10 @@ executor.load(target, 0x1000)
 done = False
 
 while not done:
-    try:
-        done = executor.step()
-        # load/apply the executor state into the cpu
-        cpu.load(executor)
+    done = executor.step()
+    # load/apply the executor state into the cpu
+    cpu.load(executor)
 
-        print("=" * 80)
-        print("state:")
-        print(cpu.stringify(truncate=False))
-
-    except exceptions.EmulationError:
-        pass
+    print("=" * 80)
+    print("state:")
+    print(cpu.stringify(truncate=False))
