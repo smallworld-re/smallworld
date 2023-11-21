@@ -6,6 +6,7 @@ from .. import executor
 from .. import exceptions
 
 import unicorn
+import capstone
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,23 @@ class UnicornExecutor(executor.Executor):
     This also contains information about supported architectures and modes.
     """
 
+    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: capstone.CS_ARCH_X86}
+    """Mapping from unicorn to capstone architecture constants.
+
+    For some reason these are not the same. Added as we add support for
+    different systems.
+    """
+
+    CAPSTONE_MODE_MAP = {
+        unicorn.UC_MODE_32: capstone.CS_MODE_32,
+        unicorn.UC_MODE_64: capstone.CS_MODE_64,
+    }
+    """Mapping from unicorn to capstone mode constants.
+
+    For some reason these are not the same. Added as we add support for
+    different systems.
+    """
+
     def __init__(self, arch: int, mode: int):
         super().__init__()
 
@@ -93,6 +111,9 @@ class UnicornExecutor(executor.Executor):
         self.single_stepping = False
 
         self.engine = unicorn.Uc(self.arch, self.mode)
+        self.disassembler = capstone.Cs(
+            self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
+        )
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -104,8 +125,27 @@ class UnicornExecutor(executor.Executor):
             The Unicorn constant corresponding to the given register name.
         """
 
+        name = name.lower()
+
+        # support some generic register references
+
+        if name == "pc":
+            if self.arch == unicorn.UC_ARCH_X86:
+                if self.mode == unicorn.UC_MODE_32:
+                    name = "eip"
+                elif self.mode == unicorn.UC_MODE_64:
+                    name = "rip"
+                else:
+                    raise NotImplementedError(
+                        f"no idea how to get pc for x86 mode [{self.mode}]"
+                    )
+            else:
+                raise NotImplementedError(
+                    f"no idea how to get pc for arch [{self.arch}]"
+                )
+
         try:
-            return self.REGISTERS[self.arch][self.mode][name.lower()]
+            return self.REGISTERS[self.arch][self.mode][name]
         except KeyError:
             raise ValueError(f"unknown or unsupported register '{name}'")
 
@@ -164,10 +204,40 @@ class UnicornExecutor(executor.Executor):
         self.entrypoint = base
         self.exitpoint = base + len(image)
 
+        self.write_register("pc", self.entrypoint)
+
         logger.info(f"loaded image (size: {len(image)} B) at 0x{base:x}")
 
-    # some checks to make sure ok to emulate
-    def run_check(self):
+    def disassemble(self, code: bytes, count: typing.Optional[int] = None) -> str:
+        """Disassemble the given bytes.
+
+        Arguments:
+            code (bytes): A collection of bytes to be disassembled.
+            count (int): Optional - specifies the maximum number of
+                instructions to disassemble.
+        """
+
+        # TODO: annotate that offsets are relative
+        #
+        # We don't know what the base address is at disassembly time - so we
+        # just set it to 0. This means relative address arguments aren't
+        # correctly calculated - we should annotate that relative arguments are
+        # relative e.g., with a "+" or something.
+        base = 0x0
+        instructions = self.disassembler.disasm(code, base)
+
+        disassembly = []
+        for i, instruction in enumerate(instructions):
+            if count is not None and i >= count:
+                break
+
+            disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
+
+        return "\n".join(disassembly)
+
+    def check(self) -> None:
+        """Some checks to make sure ok to emulate."""
+
         if self.entrypoint is None:
             raise exceptions.ConfigurationError(
                 "no entrypoint provided, emulation cannot start"
@@ -178,7 +248,8 @@ class UnicornExecutor(executor.Executor):
             )
 
     def run(self) -> None:
-        self.run_check()
+        self.check()
+
         logger.info(
             f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
         )
@@ -190,34 +261,27 @@ class UnicornExecutor(executor.Executor):
 
         logger.info("emulation complete")
 
-    def get_pc(self):
-        if self.arch == unicorn.UC_ARCH_X86:
-            if self.mode == unicorn.UC_MODE_32:
-                return self.read_register("eip")
-            elif self.mode == unicorn.UC_MODE_64:
-                return self.read_register("rip")
-            else:
-                raise NotImplementedError(
-                    f"no idea how to get pc for x86 mode [{self.mode}]"
-                )
-        else:
-            raise NotImplementedError("no idea how to get pc for arch [{self.arch}]")
-
     def step(self) -> bool:
-        self.run_check()
-        if self.single_stepping:
-            # emu already started.  use pc
-            pc = self.get_pc()
-        else:
-            pc = self.entrypoint
-            self.single_stepping = True
-        logger.info(f"single step 0x{pc:x}")
+        self.check()
+
+        pc = self.read_register("pc")
+
+        code = self.read_memory(pc, 15)  # longest possible instruction
+        if code is None:
+            assert False, "impossible state"
+        instruction = self.disassemble(code, 1)
+
+        logger.info(f"single step at 0x{pc:x}: {instruction}")
+
         self.engine.emu_start(pc, self.exitpoint, count=1)
-        pc = self.get_pc()
-        if (pc >= self.exitpoint) or (pc < self.entrypoint):
+
+        pc = self.read_register("pc")
+        if self.entrypoint is None or self.exitpoint is None:
+            assert False, "impossible state"
+        if pc >= self.exitpoint or pc < self.entrypoint:
             # inform caller that we are done
-            self.single_stepping = False
             return True
+
         return False
 
     def __repr__(self) -> str:

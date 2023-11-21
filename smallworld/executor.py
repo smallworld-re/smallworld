@@ -85,7 +85,7 @@ class Executor(metaclass=abc.ABCMeta):
         """Single-step execution.
 
         Returns:
-           `True` if we have reached the program exit point, otherwise `False`.
+            `True` if we have reached the program exit point, otherwise `False`.
         """
 
         pass
