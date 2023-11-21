@@ -6,6 +6,7 @@ from .. import executor
 from .. import exceptions
 
 import unicorn
+import capstone
 
 
 logger = logging.getLogger(__name__)
@@ -74,6 +75,23 @@ class UnicornExecutor(executor.Executor):
     This also contains information about supported architectures and modes.
     """
 
+    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: capstone.CS_ARCH_X86}
+    """Mapping from unicorn to capstone architecture constants.
+
+    For some reason these are not the same. Added as we add support for
+    different systems.
+    """
+
+    CAPSTONE_MODE_MAP = {
+        unicorn.UC_MODE_32: capstone.CS_MODE_32,
+        unicorn.UC_MODE_64: capstone.CS_MODE_64,
+    }
+    """Mapping from unicorn to capstone mode constants.
+
+    For some reason these are not the same. Added as we add support for
+    different systems.
+    """
+
     def __init__(self, arch: int, mode: int):
         super().__init__()
 
@@ -93,6 +111,9 @@ class UnicornExecutor(executor.Executor):
         self.single_stepping = False
 
         self.engine = unicorn.Uc(self.arch, self.mode)
+        self.disassembler = capstone.Cs(
+            self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
+        )
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -187,6 +208,33 @@ class UnicornExecutor(executor.Executor):
 
         logger.info(f"loaded image (size: {len(image)} B) at 0x{base:x}")
 
+    def disassemble(self, code: bytes, count: typing.Optional[int] = None) -> str:
+        """Disassemble the given bytes.
+
+        Arguments:
+            code (bytes): A collection of bytes to be disassembled.
+            count (int): Optional - specifies the maximum number of
+                instructions to disassemble.
+        """
+
+        # TODO: annotate that offsets are relative
+        #
+        # We don't know what the base address is at disassembly time - so we
+        # just set it to 0. This means relative address arguments aren't
+        # correctly calculated - we should annotate that relative arguments are
+        # relative e.g., with a "+" or something.
+        base = 0x0
+        instructions = self.disassembler.disasm(code, base)
+
+        disassembly = []
+        for i, instruction in enumerate(instructions):
+            if count is not None and i >= count:
+                break
+
+            disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
+
+        return "\n".join(disassembly)
+
     def check(self) -> None:
         """Some checks to make sure ok to emulate."""
 
@@ -217,7 +265,13 @@ class UnicornExecutor(executor.Executor):
         self.check()
 
         pc = self.read_register("pc")
-        logger.info(f"single step at 0x{pc:x}")
+
+        code = self.read_memory(pc, 15)  # longest possible instruction
+        if code is None:
+            assert False, "impossible state"
+        instruction = self.disassemble(code, 1)
+
+        logger.info(f"single step at 0x{pc:x}: {instruction}")
 
         self.engine.emu_start(pc, self.exitpoint, count=1)
 
