@@ -49,7 +49,7 @@ class SimpleTUI:
         )
         prompt = f"( {prompt} ) > "
         while True:
-            opt = input(prompt)
+            opt = input(prompt).lower()
             if opt == "":
                 if _default is None:
                     self.l.error("No default case available")

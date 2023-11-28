@@ -93,7 +93,7 @@ class ConditionalVisitor(ClaripyVisitor):
             old_out = out
             out = list()
             for res in self.visit(arg):
-                out.extend(map(lambda x: x + res, old_out))
+                out.extend(list(map(lambda x: x + res, old_out)))
         return out
 
     def visit_concat(self, v):
@@ -102,7 +102,7 @@ class ConditionalVisitor(ClaripyVisitor):
         out = self.visit(v.args[0])
         for arg in v.args[1:]:
             old_out = out
-            out = list
+            out = list()
             for res in self.visit(arg):
                 out.extend(map(lambda x: x.concat(res), old_out))
         return out
