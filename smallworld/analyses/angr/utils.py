@@ -2,8 +2,7 @@ import angr
 
 
 def print_state(log, state, tag):
-    """
-    Pretty-print data contained in an execution state
+    """Pretty-print data contained in an execution state
 
     This prints useful registers, memory, and state constraints.
     """

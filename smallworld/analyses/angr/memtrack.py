@@ -2,8 +2,7 @@ from angr.storage.memory_mixins import MemoryMixin
 
 
 class TrackerMemoryMixin(MemoryMixin):
-    """
-    Memory mixin for tracking used data.
+    """Memory mixin for tracking used data.
 
     Printing every AMD64 register is a pain,
     and finding used memory in angr is a pain.
@@ -35,8 +34,7 @@ class TrackerMemoryMixin(MemoryMixin):
         return o
 
     def _track_memory(self, addr, size):
-        """
-        Mark a memory range as 'in-use'
+        """Mark a memory range as 'in-use'
         """
         # TODO: Make this more efficient
         # Detecting overlapping ranges is a pain.

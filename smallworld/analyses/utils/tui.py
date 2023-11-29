@@ -2,8 +2,7 @@ import logging
 
 
 class TUIContinueException(Exception):
-    """
-    Exception for signaling that a TUI handler shouldn't exit the loop.
+    """Exception for signaling that a TUI handler shouldn't exit the loop.
     """
 
     pass

@@ -9,8 +9,7 @@ from ..utils.tui import SimpleTUI, TUIContinueException
 
 
 class DivergentAddressSignal(AnalysisSignal):
-    """
-    "Fault" for communicating divergent address data between plugins.
+    """Fault for communicating divergent address data between plugins.
 
     Divergent address concretizations are detected
     in the memory plugin, but can only be resolved
@@ -25,8 +24,7 @@ class DivergentAddressSignal(AnalysisSignal):
 
 class DivergenceMemoryMixin(BaseMemoryMixin):
     _visitor = ConditionalVisitor()
-    """
-    Mixin for handling memory-side address concretization
+    """Mixin for handling memory-side address concretization
     """
 
     def _setup_tui(self):
@@ -67,8 +65,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         return o
 
     def _concretize_addr(self, supercall, addr, strategies=None, condition=None):
-        """
-        Helper function for performing conditional concretization.
+        """Helper function for performing conditional concretization.
 
         This replaces the normal concretization strategy,
         which is to compute all possible suggestions for addr,
@@ -196,8 +193,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
 
 
 class DivergenceExplorationMixin:
-    """
-    Mixin for handling exploration-side address concretization
+    """Mixin for handling exploration-side address concretization
 
     A memory mixin can detect problematic address concretizations,
     but it can't do anything about them beyond modifying

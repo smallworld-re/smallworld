@@ -5,8 +5,7 @@ import logging
 
 
 class TypeDef(metaclass=abc.ABCMeta):
-    """
-    Base class for type definitions
+    """Base class for type definitions
 
     Defines a generic interface for type definition objects.
     """
@@ -16,8 +15,7 @@ class TypeDef(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __len__(self):
-        """
-        Get the length of this type in bytes
+        """Get the length of this type in bytes
         """
         return
 
@@ -27,21 +25,18 @@ class TypeDef(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def to_bv(self, prefix="sw"):
-        """
-        Create a claripy expression representing an instance of this type
+        """Create a claripy expression representing an instance of this type
         """
         return
 
     @abc.abstractmethod
     def bind(self, env, bv):
-        """
-        Bind a claripy expression to this type
+        """Bind a claripy expression to this type
         """
         pass
 
     def _allocate(self, state, env=None):
-        """
-        Internal method for allocating this type on the heap.
+        """Internal method for allocating this type on the heap.
         """
         addr = state.heap.allocate(len(self))
         self.log.debug(f"Allocating {self._name} of size {len(self)} at {addr:x}")
@@ -55,8 +50,7 @@ class TypeDef(metaclass=abc.ABCMeta):
 
 
 class PrimitiveDef(TypeDef):
-    """
-    Typedef for primitive values
+    """Typedef for primitive values
 
     These are irreducible byte fields,
     such as integers or pointers.
@@ -128,6 +122,11 @@ class PrimitiveDef(TypeDef):
 
 
 class PointerDef(PrimitiveDef):
+    """Typedef for pointer values
+
+    These are irreducible byte fields
+    that hold references to another typed bit of data.
+    """
     def __init__(self, size, endian, kind):
         super().__init__("pointer", size, endian)
         self._kind = kind
@@ -153,7 +152,11 @@ class PointerDef(PrimitiveDef):
 
 
 class StructDef(TypeDef):
-    log = logging.getLogger("smallworld.struct")
+    """Typedef for a struct
+
+    A struct is a sequence of fields of other types.
+    Its size is determined the sizes of its fields.
+    """
 
     def __init__(self, name):
         super().__init__(name)
@@ -216,8 +219,7 @@ class StructDef(TypeDef):
 
 
 class TypeDefPlugin(angr.SimStatePlugin):
-    """
-    Angr state plugin for tracking typedefs
+    """Angr state plugin for tracking typedefs
 
     This captures two concepts for a state:
 
@@ -252,8 +254,7 @@ class TypeDefPlugin(angr.SimStatePlugin):
         return dup
 
     def create_primitive(self, name, size):
-        """
-        Factory method for PrimitiveDef objects
+        """Factory method for PrimitiveDef objects
 
         This auto-populates the 'endian' field
         based on the architecture of the current analysis.
@@ -262,8 +263,7 @@ class TypeDefPlugin(angr.SimStatePlugin):
         return PrimitiveDef(name, size, endian)
 
     def create_pointer(self, kind):
-        """
-        Factory method for PointerDef objects
+        """Factory method for PointerDef objects
 
         This auto-populates the 'endian' field
         based on the architecture of the current analysis,
@@ -275,8 +275,7 @@ class TypeDefPlugin(angr.SimStatePlugin):
         return PointerDef(size, endian, kind)
 
     def create_struct(self, name):
-        """
-        Factory method for StructDef objects
+        """Factory method for StructDef objects
 
         This automatically performs add_struct()
         on the new StructDef.
@@ -288,38 +287,33 @@ class TypeDefPlugin(angr.SimStatePlugin):
         return out
 
     def add_struct(self, structdef):
-        """
-        Add a struct type to this context for easy lookup
+        """Add a struct type to this context for easy lookup
         """
         if structdef._name in self._structdefs:
             raise ValueError(f"Already have a struct def for {structdef._name}")
         self._structdefs[structdef._name] = structdef
 
     def get_struct(self, name):
-        """
-        Look up a struct type by its name
+        """Look up a struct type by its name
         """
         return self._structdefs[name]
 
     def bind_symbol(self, sym, typedef):
-        """
-        Bind a symbol to a typedef
+        """Bind a symbol to a typedef
         """
         if sym in self._symbols:
             raise ValueError(f"Already have a binding for {sym}")
         self._symbols[sym] = typedef
 
     def get_symbol_binding(self, sym):
-        """
-        Get the type binding for a symbol
+        """Get the type binding for a symbol
         """
         if sym in self._symbols:
             return self._symbols[sym]
         return None
 
     def set_symbol(self, sym, val):
-        """
-        Set a concrete value for a symbol
+        """Set a concrete value for a symbol
 
         Symbols are static-single-assignment,
         so if they are collapsed to a concrete value,
@@ -333,16 +327,14 @@ class TypeDefPlugin(angr.SimStatePlugin):
         self._sym_values[sym] = val
 
     def get_symbol(self, sym):
-        """
-        Get a concrete value for a symbol
+        """Get a concrete value for a symbol
         """
         if sym in self._sym_values:
             return self._sym_values[sym]
         return None
 
     def bind_register(self, name, typedef):
-        """
-        Bind a register to a typedef
+        """Bind a register to a typedef
 
         Registers themselves don't have specific types.
         However, this only gets used in uninitialized value analysis;
@@ -354,8 +346,7 @@ class TypeDefPlugin(angr.SimStatePlugin):
         self._registers[name] = typedef
 
     def get_register_binding(self, name):
-        """
-        Get the type binding for a register
+        """Get the type binding for a register
 
         Registers themselves don't have specific types.
         However, this only gets used in uninitialized value analysis;
