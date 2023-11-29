@@ -3,6 +3,7 @@ from angr.storage.memory_mixins import MemoryMixin
 
 log = logging.getLogger(__name__)
 
+
 class TrackerMemoryMixin(MemoryMixin):
     """Memory mixin for tracking used data.
 
