@@ -3,6 +3,8 @@ import angr
 import claripy
 import logging
 
+log = logging.getLogger(__name__)
+
 
 class TypeDef(metaclass=abc.ABCMeta):
     """Base class for type definitions
@@ -15,8 +17,7 @@ class TypeDef(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def __len__(self):
-        """Get the length of this type in bytes
-        """
+        """Get the length of this type in bytes"""
         return
 
     @abc.abstractmethod
@@ -25,23 +26,20 @@ class TypeDef(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def to_bv(self, prefix="sw"):
-        """Create a claripy expression representing an instance of this type
-        """
+        """Create a claripy expression representing an instance of this type"""
         return
 
     @abc.abstractmethod
     def bind(self, env, bv):
-        """Bind a claripy expression to this type
-        """
+        """Bind a claripy expression to this type"""
         pass
 
     def _allocate(self, state, env=None):
-        """Internal method for allocating this type on the heap.
-        """
+        """Internal method for allocating this type on the heap."""
         addr = state.heap.allocate(len(self))
-        self.log.debug(f"Allocating {self._name} of size {len(self)} at {addr:x}")
+        log.debug(f"Allocating {self._name} of size {len(self)} at {addr:x}")
         data = self.to_bv()
-        self.log.debug(f"Result: {data}")
+        log.debug(f"Result: {data}")
         if env is not None:
             self.bind(env, data)
         state.memory.store(addr, data)
@@ -127,6 +125,7 @@ class PointerDef(PrimitiveDef):
     These are irreducible byte fields
     that hold references to another typed bit of data.
     """
+
     def __init__(self, size, endian, kind):
         super().__init__("pointer", size, endian)
         self._kind = kind
@@ -287,27 +286,23 @@ class TypeDefPlugin(angr.SimStatePlugin):
         return out
 
     def add_struct(self, structdef):
-        """Add a struct type to this context for easy lookup
-        """
+        """Add a struct type to this context for easy lookup"""
         if structdef._name in self._structdefs:
             raise ValueError(f"Already have a struct def for {structdef._name}")
         self._structdefs[structdef._name] = structdef
 
     def get_struct(self, name):
-        """Look up a struct type by its name
-        """
+        """Look up a struct type by its name"""
         return self._structdefs[name]
 
     def bind_symbol(self, sym, typedef):
-        """Bind a symbol to a typedef
-        """
+        """Bind a symbol to a typedef"""
         if sym in self._symbols:
             raise ValueError(f"Already have a binding for {sym}")
         self._symbols[sym] = typedef
 
     def get_symbol_binding(self, sym):
-        """Get the type binding for a symbol
-        """
+        """Get the type binding for a symbol"""
         if sym in self._symbols:
             return self._symbols[sym]
         return None
@@ -327,8 +322,7 @@ class TypeDefPlugin(angr.SimStatePlugin):
         self._sym_values[sym] = val
 
     def get_symbol(self, sym):
-        """Get a concrete value for a symbol
-        """
+        """Get a concrete value for a symbol"""
         if sym in self._sym_values:
             return self._sym_values[sym]
         return None

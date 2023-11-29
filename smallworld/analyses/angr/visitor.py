@@ -2,8 +2,7 @@ import claripy
 
 
 class ClaripyVisitor:
-    """Abstract class for a claripy AST visitor
-    """
+    """Abstract class for a claripy AST visitor"""
 
     def visit_int(self, v, **kwargs):
         raise NotImplementedError(f"{type(self)} missing Integer")
@@ -30,8 +29,7 @@ class ClaripyVisitor:
         raise NotImplementedError(f"{type(self)} missing Reverse")
 
     def visit(self, v, **kwargs):
-        """Perform the visitor pattern on a claripy expression.
-        """
+        """Perform the visitor pattern on a claripy expression."""
         # TODO: This is very far from complete.
         # claripy supports a dizzying array of bitvector operations.
         # It's easier to populate them as I find them.
@@ -67,8 +65,7 @@ class ClaripyVisitor:
 
 
 class ConditionalVisitor(ClaripyVisitor):
-    """Visitor that splits a conditional expression into its possible evaluations.
-    """
+    """Visitor that splits a conditional expression into its possible evaluations."""
 
     def visit_int(self, v):
         # Integers are leaf ASTs, and never conditional.
@@ -134,6 +131,7 @@ class EvalVisitor(ClaripyVisitor):
     it will raise an exception if it encounters
     a symbol for which it does not have a value.
     """
+
     def visit_int(self, v, bindings=None):
         return v
 

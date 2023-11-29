@@ -5,6 +5,8 @@ from ..analyses.angr.nwbt import NWBTMemoryPlugin, NWBTExplorationTechnique
 from ..analyses.angr.utils import print_state
 from ..analyses.utils.tui import SimpleTUI
 
+log = logging.getLogger(__name__)
+
 
 class AngrNWBTExecutor(AngrExecutor):
     """
@@ -19,8 +21,6 @@ class AngrNWBTExecutor(AngrExecutor):
     and package them up into an environment
     once we're done.
     """
-
-    log = logging.getLogger("smallworld.nwbt")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -40,21 +40,21 @@ class AngrNWBTExecutor(AngrExecutor):
     def analysis_step(self):
         # Log the current frontier
         for state in self.mgr.active:
-            print_state(self.log.info, state, "active")
+            print_state(log.info, state, "active")
         for state in self.mgr.unconstrained:
-            print_state(self.log.info, state, "exited")
+            print_state(log.info, state, "exited")
         for state in self.mgr.deadended:
-            print_state(self.log.info, state, "halted")
+            print_state(log.info, state, "halted")
         for state in self.mgr.unsat:
-            print_state(self.log.info, state, "unsat")
+            print_state(log.info, state, "unsat")
         for err in self.mgr.errored:
-            print_state(self.log.info, err.state, "error")
-            self.log.error(
+            print_state(log.info, err.state, "error")
+            log.error(
                 "\tError:",
                 exc_info=(type(err.error), err.error, err.error.__traceback__),
             )
             err.debug()
-        self.log.info(f"Summary: {self.mgr}")
+        log.info(f"Summary: {self.mgr}")
         # In our case, return states are unconstrained.
         self.mgr.move(from_stash="deadended", to_stash="done")
         self.mgr.move(from_stash="unconstrained", to_stash="done")

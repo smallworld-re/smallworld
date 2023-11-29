@@ -1,5 +1,7 @@
+import logging
 from angr.storage.memory_mixins import MemoryMixin
 
+log = logging.getLogger(__name__)
 
 class TrackerMemoryMixin(MemoryMixin):
     """Memory mixin for tracking used data.
@@ -34,8 +36,7 @@ class TrackerMemoryMixin(MemoryMixin):
         return o
 
     def _track_memory(self, addr, size):
-        """Mark a memory range as 'in-use'
-        """
+        """Mark a memory range as 'in-use'"""
         # TODO: Make this more efficient
         # Detecting overlapping ranges is a pain.
         # This implementation is easy, but its memory usage
@@ -48,7 +49,7 @@ class TrackerMemoryMixin(MemoryMixin):
                 self.dirty[addr] = size
             self.dirty_addrs.add(addr + i)
         if track:
-            self.log.debug(f"Tracking {addr:x}, {size}")
+            log.debug(f"Tracking {addr:x}, {size}")
 
     def _default_value(self, addr, size, **kwargs):
         out = super()._default_value(addr, size, **kwargs)

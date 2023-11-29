@@ -6,8 +6,10 @@ from .visitor import EvalVisitor
 from .utils import print_state
 from ..utils.tui import SimpleTUI, TUIContinueException
 import claripy
+import logging
 
 
+log = logging.getLogger(__name__)
 visitor = EvalVisitor()
 
 
@@ -162,24 +164,24 @@ class ModelMemoryMixin(BaseMemoryMixin):
                 # - use an existing allocation
                 # - ignore this fork; it's a recurisve/boring case
                 # - abort execution; something's wrong here.
-                self.log.warn(f"Register {reg_name} has type {reg_def}, but no value")
-                self.log.warn("What do you want to do about it?")
+                log.warn(f"Register {reg_name} has type {reg_def}, but no value")
+                log.warn("What do you want to do about it?")
                 res = self._handle_typed_value(reg_def, res, reg_name)
             else:
-                self.log.warn(f"Register {reg_name} has no type")
-                self.log.warn("What do you want to do about it?")
+                log.warn(f"Register {reg_name} has no type")
+                log.warn("What do you want to do about it?")
                 res = self._handle_untyped_register(reg_name, res)
             if isinstance(res, int):
                 res = self.state.solver.BVV(res, size * 8)
         else:
             addr_def = environ.get_address_binding(addr)
             if addr_def is not None:
-                self.log.warn(f"Address {addr:x} has type {addr_def}, but no value")
-                self.log.warn("What do you want to do about it?")
+                log.warn(f"Address {addr:x} has type {addr_def}, but no value")
+                log.warn("What do you want to do about it?")
                 res = self._handle_typed_value(addr_def, res, addr)
             else:
-                self.log.warn(f"Address {addr:x} has no type")
-                self.log.warn("What do you want to do about it?")
+                log.warn(f"Address {addr:x} has no type")
+                log.warn("What do you want to do about it?")
                 self._handle_untyped_address(addr, res)
 
         return res
@@ -192,7 +194,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
         """
         environ = self.state.typedefs
 
-        self.log.debug(f"\tAddr:       {addr}")
+        log.debug(f"\tAddr:       {addr}")
         bindings = dict()
         complete = True
         for v in filter(lambda x: x.op == "BVS", addr.leaf_asts()):
@@ -200,25 +202,25 @@ class ModelMemoryMixin(BaseMemoryMixin):
             if value is None:
                 binding = environ.get_symbol_binding(v.args[0])
                 if binding is None:
-                    self.log.warn(
+                    log.warn(
                         f"Symbol {v} (part of address expression {addr}) has no type"
                     )
-                    self.log.warn("What do you want to do about it?")
+                    log.warn("What do you want to do about it?")
                     value = self._handle_untyped_symbol(v, None)
                     if value is None:
                         complete = False
                         continue
                 else:
-                    self.log.warn(
+                    log.warn(
                         f"Symbol {v} (part of address expression {addr}) has type {binding}, but no value"
                     )
-                    self.log.warn("What do you want to do about it?")
+                    log.warn("What do you want to do about it?")
                     while True:
                         value = self._handle_typed_value(binding, None, addr)
                         if value is not None and not self.state.solver.satisfiable(
                             extra_constraints=[v == value]
                         ):
-                            self.log.warn(
+                            log.warn(
                                 f"Selection {value:x} is not valid; please try again"
                             )
                             continue
@@ -227,9 +229,9 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         complete = False
                         continue
                 environ.set_symbol(v.args[0], value)
-                self.log.debug(f"\tNew Valuei for {v.args[0]}: {value:x}")
+                log.debug(f"\tNew Valuei for {v.args[0]}: {value:x}")
             else:
-                self.log.debug(f"\tExisting Value for {v.args[0]}: {value:x}")
+                log.debug(f"\tExisting Value for {v.args[0]}: {value:x}")
             bindings[v.args[0]] = claripy.BVV(value, 64)
         if complete:
             value = visitor.visit(addr, bindings=bindings)
@@ -238,22 +240,22 @@ class ModelMemoryMixin(BaseMemoryMixin):
             res = [value]
         else:
             res = supercall(addr, strategies=strategies, condition=condition)
-        self.log.debug("\tResults:")
+        log.debug("\tResults:")
         for v in res:
             if isinstance(v, int):
-                self.log.debug(f"\t\t{v:x}")
+                log.debug(f"\t\t{v:x}")
             else:
-                self.log.debug(f"\t\t{v}")
+                log.debug(f"\t\t{v}")
         return res
 
     def concretize_read_addr(self, addr, strategies=None, condition=None):
-        self.log.debug("Concretizing on read:")
+        log.debug("Concretizing on read:")
         return self._concretize_bindings(
             super().concretize_read_addr, addr, strategies, condition
         )
 
     def concretize_write_addr(self, addr, strategies=None, condition=None):
-        self.log.debug("Concretizing on write:")
+        log.debug("Concretizing on write:")
         return self._concretize_bindings(
             super().concretize_write_addr, addr, strategies, condition
         )
@@ -264,7 +266,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
         # User wants to allocate a new instance
         environ = self.state.typedefs
         res = environ.allocate(typedef)
-        self.log.warn(f"Allocated {len(typedef._kind)} bytes at {res:x}")
+        log.warn(f"Allocated {len(typedef._kind)} bytes at {res:x}")
         return res
 
     def typed_value_reuse(self, typedef=None, **kwargs):
@@ -273,17 +275,17 @@ class ModelMemoryMixin(BaseMemoryMixin):
         options = environ.get_allocs_for_type(typedef)
         if len(options) == 0:
             # No allocations for self data type.  Derp.
-            self.log.warn("No reusable values available in self state")
+            log.warn("No reusable values available in self state")
             raise TUIContinueException()
         choice = None
         # TODO: capture self in a TUI.
         # This is weird, since the list of options changes a lot.
         while True:
             # Mini-repl to ask them to pick one.
-            self.log.warn("Choices:")
+            log.warn("Choices:")
             idx = 1
             for addr in options:
-                self.log.warn(f"{idx}: {addr:x}")
+                log.warn(f"{idx}: {addr:x}")
                 if isinstance(typedef._kind, StructDef):
                     fields = typedef._kind.get_fields(self.state, addr)
                     for addr, name, expr in fields:
@@ -291,11 +293,11 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         if expr.op == "bvs":
                             value = environ.get_symbol(expr.args[0])
                         if value is not None:
-                            self.log.warn(f"\t{addr:x}: {name} = {expr} -> {value:x}")
+                            log.warn(f"\t{addr:x}: {name} = {expr} -> {value:x}")
                         else:
-                            self.log.warn(f"\t{addr:x}: {name} = {expr} -> (no value)")
+                            log.warn(f"\t{addr:x}: {name} = {expr} -> (no value)")
                 else:
-                    self.log.warn("\t(Not a struct)")
+                    log.warn("\t(Not a struct)")
                 idx += 1
             choice = input(f"( 1 - {idx - 1} | Back ) >").lower()
             if choice == "back" or choice == "b":
@@ -305,7 +307,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
             try:
                 choice = int(choice)
                 if choice < 1 or choice >= idx:
-                    self.log.error(
+                    log.error(
                         f"Invalid choice {choice}; must be between 1 and {idx - 1}"
                     )
                     continue
@@ -313,12 +315,12 @@ class ModelMemoryMixin(BaseMemoryMixin):
                 choice -= 1
                 break
             except:
-                self.log.error(f"Invalid choice {choice}")
+                log.error(f"Invalid choice {choice}")
                 continue
         if choice is None:
             # User didn't like the choices; go back to main loop
             raise TUIContinueException()
-        self.log.warn(
+        log.warn(
             "Reusing value from {options[choice][0]} -> {options[choice][1]:x}"
         )
         return options[choice]
@@ -326,67 +328,67 @@ class ModelMemoryMixin(BaseMemoryMixin):
     def typed_value_placeholder(self, typedef=None, **kwargs):
         # User wants to assign a placeholder symbol, not a real value.
         res = typedef.to_bv()
-        self.log.warn(f"Assigned placeholder {res}")
+        log.warn(f"Assigned placeholder {res}")
         return res
 
     def typed_value_const(self, **kwargs):
         # User wants to provide their own value
         res = input("( hex ) > ")
         res = int(res, 16)
-        self.log.warn(f"Using user-provided value {res:x}")
+        log.warn(f"Using user-provided value {res:x}")
         return res
 
     def typed_value_null(self, **kwargs):
-        self.log.warn("Using NULL")
+        log.warn("Using NULL")
         return 0
 
     def typed_value_ignore(self, default=None, **kwargs):
         if default is None:
-            self.log.warn("Will use default when determined.")
+            log.warn("Will use default when determined.")
         elif isinstance(default, int):
-            self.log.warn("Using default {default:x}")
+            log.warn("Using default {default:x}")
         else:
-            self.log.warn("Using default {default}")
+            log.warn("Using default {default}")
         return default
 
     def typed_value_details(self, typedef=None, default=None, pretty=None):
         environ = self.state.typedefs
-        self.log.warn("Details of missing value at {self.state.ip}:")
-        print_state(self.log.warn, self.state, "typed nwbt")
-        self.log.warn(f"Missing value: {pretty}")
-        self.log.warn(f"Typedef: {typedef}")
-        self.log.warn(f"Default: {default}")
+        log.warn("Details of missing value at {self.state.ip}:")
+        print_state(log.warn, self.state, "typed nwbt")
+        log.warn(f"Missing value: {pretty}")
+        log.warn(f"Typedef: {typedef}")
+        log.warn(f"Default: {default}")
         if isinstance(typedef, PointerDef) and isinstance(typedef._kind, StructDef):
-            self.log.warn("Available Instances:")
+            log.warn("Available Instances:")
             options = environ.get_allocs_for_type(typedef)
             for addr in options:
-                self.log.warn(f"- {addr:x}")
+                log.warn(f"- {addr:x}")
                 fields = typedef._kind.get_fields(self.state, addr)
                 for addr, name, expr in fields:
                     value = None
                     if expr.op == "bvs":
                         value = environ.get_symbol(expr.args[0])
                     if value is not None:
-                        self.log.warn(f"\t{addr:x}: {name:16s} = {expr} -> {value:x}")
+                        log.warn(f"\t{addr:x}: {name:16s} = {expr} -> {value:x}")
                     else:
-                        self.log.warn(f"\t{addr:x}: {name:16s} = {expr} -> (no value)")
+                        log.warn(f"\t{addr:x}: {name:16s} = {expr} -> (no value)")
         raise TUIContinueException()
 
     def typed_value_stop(self, **kwargs):
-        self.log.warn("Stopping execution path")
+        log.warn("Stopping execution path")
         raise PathTerminationSignal()
 
     def typed_value_quit(self, **kwargs):
-        self.log.warn("Aborting execution")
+        log.warn("Aborting execution")
         quit()
 
     def untyped_value_ignore(self, default=None, **kwargs):
         if default is None:
-            self.log.warn("Will use default when generated")
+            log.warn("Will use default when generated")
         elif isinstance(default, int):
-            self.log.warn("Using default value {default:x}")
+            log.warn("Using default value {default:x}")
         else:
-            self.log.warn("Using default value {default}")
+            log.warn("Using default value {default}")
         return default
 
     def untyped_reg_bind(**kwargs):
@@ -399,24 +401,24 @@ class ModelMemoryMixin(BaseMemoryMixin):
         raise NotImplementedError("Type binding not implemented for symbols")
 
     def untyped_reg_details(self, reg_name=None, default=None, **kwargs):
-        self.log.warn("Details of untyped register at {self.state.ip}")
-        print_state(self.log.warn, self.state, "untyped nwbt")
-        self.log.warn(f"Register: {reg_name}")
-        self.log.warn(f"Default:  {default}")
+        log.warn("Details of untyped register at {self.state.ip}")
+        print_state(log.warn, self.state, "untyped nwbt")
+        log.warn(f"Register: {reg_name}")
+        log.warn(f"Default:  {default}")
         raise TUIContinueException()
 
     def untyped_addr_details(self, addr=None, default=None, **kwargs):
-        self.log.warn("Details of untyped address at {self.state.ip}")
-        print_state(self.log.warn, self.state, "untyped nwbt")
-        self.log.warn(f"Address:  {addr:x}")
-        self.log.warn(f"Default:  {default}")
+        log.warn("Details of untyped address at {self.state.ip}")
+        print_state(log.warn, self.state, "untyped nwbt")
+        log.warn(f"Address:  {addr:x}")
+        log.warn(f"Default:  {default}")
         raise TUIContinueException()
 
     def untyped_sym_details(self, sym_name=None, default=None, **kwargs):
-        self.log.warn("Details of untyped symbol at {self.state.ip}")
-        print_state(self.log.warn, self.state, "untyped nwbt")
-        self.log.warn(f"Symbol:   {sym_name}")
-        self.log.warn(f"Default:  {default}")
+        log.warn("Details of untyped symbol at {self.state.ip}")
+        print_state(log.warn, self.state, "untyped nwbt")
+        log.warn(f"Symbol:   {sym_name}")
+        log.warn(f"Default:  {default}")
         raise TUIContinueException()
 
     def untyped_value_stop(self, **kwargs):
@@ -424,5 +426,5 @@ class ModelMemoryMixin(BaseMemoryMixin):
         raise PathTerminationSignal()
 
     def untyped_value_quit(self, **kwargs):
-        self.log.warn("Aborting execution")
+        log.warn("Aborting execution")
         quit()

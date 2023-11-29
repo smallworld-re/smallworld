@@ -6,6 +6,7 @@ from smallworld.executors import AngrNWBTExecutor
 from smallworld.state import Memory
 from smallworld.cpus.amd64 import AMD64CPUState
 from smallworld.initializer import OSRandomInitializer
+from smallworld.utils import setup_logging
 
 
 def parseint(val):
@@ -71,11 +72,13 @@ class AngrAMD64State(AMD64CPUState):
 
 if __name__ == "__main__":
     args = parse_args()
-    log = logging.getLogger("smallworld")
+
     if args.verbose:
-        log.setLevel("DEBUG")
+        setup_logging(level=logging.DEBUG)
+        # Silence angr's logger; it's too verbose.
+        logging.getLogger("angr").setLevel(logging.INFO)
     else:
-        log.setLevel("INFO")
+        setup_logging(level=logging.INFO)
 
     devrandom = OSRandomInitializer()
 

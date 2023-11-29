@@ -3,6 +3,7 @@ import argparse
 import logging
 import pathlib
 from smallworld.executors import AngrNWBTExecutor
+from smallworld.utils import setup_logging
 
 
 def parseint(val):
@@ -33,11 +34,12 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    log = logging.getLogger("smallworld")
     if args.verbose:
-        log.setLevel("DEBUG")
+        setup_logging(level=logging.DEBUG)
+        # Silence angr's logger; it's too verbose.
+        logging.getLogger("angr").setLevel(logging.INFO)
     else:
-        log.setLevel("INFO")
+        setup_logging(level=logging.INFO)
 
     driver = AngrNWBTExecutor(**vars(args))
     driver.run()

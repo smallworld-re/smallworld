@@ -1,16 +1,15 @@
 import logging
 
+log = logging.getLogger(__name__)
+
 
 class TUIContinueException(Exception):
-    """Exception for signaling that a TUI handler shouldn't exit the loop.
-    """
+    """Exception for signaling that a TUI handler shouldn't exit the loop."""
 
     pass
 
 
 class SimpleTUI:
-    log = logging.getLogger("smallworld.tui")
-
     def __init__(self, help_banner="Available commands:"):
         self._cases = dict()
         self._shorts = dict()
@@ -32,9 +31,9 @@ class SimpleTUI:
         self._hints[name] = hint
 
     def print_help(self, **kwargs):
-        self.log.warn(self._help_banner)
+        log.warn(self._help_banner)
         for name in self._cases:
-            self.log.warn(
+            log.warn(
                 f'- {name} | {name[0]}:\t\t\t{self._hints[name] if self._hints[name] is not None else ""}'
             )
         raise TUIContinueException()
@@ -51,7 +50,7 @@ class SimpleTUI:
             opt = input(prompt).lower()
             if opt == "":
                 if _default is None:
-                    self.log.error("No default case available")
+                    log.error("No default case available")
                     continue
                 opt = _default
 
@@ -59,11 +58,11 @@ class SimpleTUI:
                 opt = self._shorts[opt]
 
             if opt in _disabled:
-                self.log.error("Option {opt} not available")
+                log.error("Option {opt} not available")
                 continue
 
             if opt not in self._cases:
-                self.log.error("Unknown option {opt}")
+                log.error("Unknown option {opt}")
                 continue
 
             try:
