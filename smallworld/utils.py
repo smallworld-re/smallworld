@@ -42,8 +42,11 @@ class ColorLevelFilter(logging.Filter):
 
 
 def setup_logging(
-    level: int = logging.INFO, verbose: bool = False, colors: bool = True,
-clear_handlers: bool = True) -> None:
+    level: int = logging.INFO,
+    verbose: bool = False,
+    colors: bool = True,
+    clear_handlers: bool = True,
+) -> None:
     """Setup log handling.
 
     Note: this should only be called once.
@@ -61,7 +64,6 @@ clear_handlers: bool = True) -> None:
 
     if colors:
         format = f"%(levelcolor)s{format}{ColorLevelFilter.END}"
-
 
     root = logging.getLogger()
     root.setLevel(level)

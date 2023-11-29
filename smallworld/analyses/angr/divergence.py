@@ -8,7 +8,8 @@ from .visitor import ConditionalVisitor
 from .utils import print_state
 from ..utils.tui import SimpleTUI, TUIContinueException
 
-log = logging.getLogger('__name__')
+log = logging.getLogger("__name__")
+
 
 class DivergentAddressSignal(AnalysisSignal):
     """Fault for communicating divergent address data between plugins.

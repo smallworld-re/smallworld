@@ -320,9 +320,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
         if choice is None:
             # User didn't like the choices; go back to main loop
             raise TUIContinueException()
-        log.warn(
-            "Reusing value from {options[choice][0]} -> {options[choice][1]:x}"
-        )
+        log.warn("Reusing value from {options[choice][0]} -> {options[choice][1]:x}")
         return options[choice]
 
     def typed_value_placeholder(self, typedef=None, **kwargs):
