@@ -1,5 +1,5 @@
 from angr.storage.memory_mixins import MemoryMixin
-from .base import SWBaseMemoryMixin
+from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
 from .typedefs import PointerDef, StructDef
 from .visitor import EvalVisitor
@@ -11,7 +11,7 @@ import claripy
 visitor = EvalVisitor()
 
 
-class ModelMemoryMixin(SWBaseMemoryMixin):
+class ModelMemoryMixin(BaseMemoryMixin):
     """
     Mixin for detecting model violations in memory ops.
     """

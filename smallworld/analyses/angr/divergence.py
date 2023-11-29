@@ -1,6 +1,6 @@
 import angr
 from angr.storage.memory_mixins import MemoryMixin
-from .base import SWBaseMemoryMixin
+from .base import BaseMemoryMixin
 from .exceptions import AnalysisSignal
 from .terminate import PathTerminationSignal
 from .visitor import ConditionalVisitor
@@ -23,7 +23,7 @@ class DivergentAddressSignal(AnalysisSignal):
         self.results = results
 
 
-class DivergenceMemoryMixin(SWBaseMemoryMixin):
+class DivergenceMemoryMixin(BaseMemoryMixin):
     _visitor = ConditionalVisitor()
     """
     Mixin for handling memory-side address concretization
