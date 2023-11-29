@@ -33,17 +33,12 @@ Pull requests and issues more than welcome.
 ### Development
 
 To set up a development environment from this repo, install SmallWorld in
-editable mode with extras for development and testing.
+editable mode with extras for development and testing. Use the include
+constraints to install frozen versions and ensure a consistent development
+environment.
 
 ```bash
-pip install -e .[development]
-```
-
-It can also be helpful to install frozen versions of dependencies to ensure a
-consistent development environment. From this repo, run:
-
-```bash
-pip install -r requirements.txt
+pip install -e .[development] -c constraints.txt
 ```
 
 ### Code Style
