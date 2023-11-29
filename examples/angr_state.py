@@ -35,7 +35,7 @@ def parse_args():
 
 
 class AngrAMD64State(AMD64CPUState):
-    l = logging.getLogger("smallworld.state")
+    log = logging.getLogger("smallworld.state")
 
     def __init__(self, executor, stack_below=0x1000, stack_above=0x0, heap_size=0x1000):
         # Load control registers and other sensitive state from angr.
@@ -54,7 +54,7 @@ class AngrAMD64State(AMD64CPUState):
 
         stack_start = self.rsp.get() - stack_above
         stack_size = stack_below + stack_above
-        self.l.debug(
+        self.log.debug(
             f"Stack allocated from {stack_start:x} to {stack_start + stack_size:x}"
         )
         self.stack = Memory(stack_start, stack_size)
@@ -62,7 +62,7 @@ class AngrAMD64State(AMD64CPUState):
         # Unfortunately, there is no nice register for the heap break.
         heap_start = executor.entry.heap.heap_base
         executor.entry.heap.allocate(heap_size)
-        self.l.debug(
+        self.log.debug(
             f"Heap allocated from {heap_start:x} to {heap_start + heap_size:x}"
         )
         self.heap = Memory(heap_start, heap_size)
@@ -71,11 +71,11 @@ class AngrAMD64State(AMD64CPUState):
 
 if __name__ == "__main__":
     args = parse_args()
-    l = logging.getLogger("smallworld")
+    log = logging.getLogger("smallworld")
     if args.verbose:
-        l.setLevel("DEBUG")
+        log.setLevel("DEBUG")
     else:
-        l.setLevel("INFO")
+        log.setLevel("INFO")
 
     devrandom = OSRandomInitializer()
 

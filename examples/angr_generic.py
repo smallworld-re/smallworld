@@ -33,11 +33,11 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    l = logging.getLogger("smallworld")
+    log = logging.getLogger("smallworld")
     if args.verbose:
-        l.setLevel("DEBUG")
+        log.setLevel("DEBUG")
     else:
-        l.setLevel("INFO")
+        log.setLevel("INFO")
 
     driver = AngrNWBTExecutor(**vars(args))
     driver.run()

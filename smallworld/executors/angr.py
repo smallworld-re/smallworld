@@ -7,7 +7,7 @@ from ..executor import Executor
 
 
 class AngrExecutor(Executor):
-    l = logging.getLogger("smallworld.angr")
+    log = logging.getLogger("smallworld.angr")
     """
     Superclass for angr-based micro executors
 
@@ -62,7 +62,7 @@ class AngrExecutor(Executor):
                 "Reading registers not supported once execution begins."
             )
         elif name not in self.entry.arch.registers:
-            self.l.warn(f"Ignoring read of register {name}; it doesn't exist")
+            self.log.warn(f"Ignoring read of register {name}; it doesn't exist")
             return None
         else:
             (off, size) = self.entry.arch.registers[name]
@@ -79,7 +79,7 @@ class AngrExecutor(Executor):
                 "Writing registers not supported once execution begins."
             )
         elif reg not in self.entry.arch.registers:
-            self.l.warn(f"Ignoring write to register {reg}; it doesn't exist")
+            self.log.warn(f"Ignoring write to register {reg}; it doesn't exist")
         else:
             (off, size) = self.entry.arch.registers[reg]
             v = claripy.BVV(value, size * 8)

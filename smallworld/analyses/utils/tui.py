@@ -10,7 +10,7 @@ class TUIContinueException(Exception):
 
 
 class SimpleTUI:
-    l = logging.getLogger("smallworld.tui")
+    log = logging.getLogger("smallworld.tui")
 
     def __init__(self, help_banner="Available commands:"):
         self._cases = dict()
@@ -33,9 +33,9 @@ class SimpleTUI:
         self._hints[name] = hint
 
     def print_help(self, **kwargs):
-        self.l.warn(self._help_banner)
+        self.log.warn(self._help_banner)
         for name in self._cases:
-            self.l.warn(
+            self.log.warn(
                 f'- {name} | {name[0]}:\t\t\t{self._hints[name] if self._hints[name] is not None else ""}'
             )
         raise TUIContinueException()
@@ -52,7 +52,7 @@ class SimpleTUI:
             opt = input(prompt).lower()
             if opt == "":
                 if _default is None:
-                    self.l.error("No default case available")
+                    self.log.error("No default case available")
                     continue
                 opt = _default
 
@@ -60,11 +60,11 @@ class SimpleTUI:
                 opt = self._shorts[opt]
 
             if opt in _disabled:
-                self.l.error("Option {opt} not available")
+                self.log.error("Option {opt} not available")
                 continue
 
             if opt not in self._cases:
-                self.l.error("Unknown option {opt}")
+                self.log.error("Unknown option {opt}")
                 continue
 
             try:

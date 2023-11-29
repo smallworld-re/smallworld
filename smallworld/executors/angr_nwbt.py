@@ -20,7 +20,7 @@ class AngrNWBTExecutor(AngrExecutor):
     once we're done.
     """
 
-    l = logging.getLogger("smallworld.nwbt")
+    log = logging.getLogger("smallworld.nwbt")
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -40,21 +40,21 @@ class AngrNWBTExecutor(AngrExecutor):
     def analysis_step(self):
         # Log the current frontier
         for state in self.mgr.active:
-            print_state(self.l.info, state, "active")
+            print_state(self.log.info, state, "active")
         for state in self.mgr.unconstrained:
-            print_state(self.l.info, state, "exited")
+            print_state(self.log.info, state, "exited")
         for state in self.mgr.deadended:
-            print_state(self.l.info, state, "halted")
+            print_state(self.log.info, state, "halted")
         for state in self.mgr.unsat:
-            print_state(self.l.info, state, "unsat")
+            print_state(self.log.info, state, "unsat")
         for err in self.mgr.errored:
-            print_state(self.l.info, err.state, "error")
-            self.l.error(
+            print_state(self.log.info, err.state, "error")
+            self.log.error(
                 "\tError:",
                 exc_info=(type(err.error), err.error, err.error.__traceback__),
             )
             err.debug()
-        self.l.info(f"Summary: {self.mgr}")
+        self.log.info(f"Summary: {self.mgr}")
         # In our case, return states are unconstrained.
         self.mgr.move(from_stash="deadended", to_stash="done")
         self.mgr.move(from_stash="unconstrained", to_stash="done")

@@ -66,7 +66,7 @@ class TrackerMemoryMixin(MemoryMixin):
         self._track_memory(concrete_addr, size)
         return out
 
-    def pp(self, l):
+    def pp(self, log):
         addrs = list(self.dirty.keys())
         addrs.sort()
         for addr in addrs:
@@ -76,4 +76,4 @@ class TrackerMemoryMixin(MemoryMixin):
             else:
                 name = f"0x{addr:x}"
             val = self.load(addr, size, disable_actions=True)
-            l(f"\t{name}: {val}")
+            log(f"\t{name}: {val}")

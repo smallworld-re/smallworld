@@ -12,10 +12,10 @@ class NWBTMemoryPlugin(
     ModelMemoryMixin,
     angr.storage.DefaultMemory,
 ):
-    l = logging.getLogger("smallworld.memory")
+    log = logging.getLogger("smallworld.memory")
 
     def __init__(self, **kwargs):
-        self.l.debug(f"Memory plugin initialized.  kwargs: {kwargs}")
+        self.log.debug(f"Memory plugin initialized.  kwargs: {kwargs}")
         super().__init__(**kwargs)
 
 
@@ -24,4 +24,4 @@ class NWBTExplorationTechnique(
     DivergenceExplorationMixin,
     angr.exploration_techniques.suggestions.Suggestions,
 ):
-    l = logging.getLogger("smallworld.exploration")
+    log = logging.getLogger("smallworld.exploration")

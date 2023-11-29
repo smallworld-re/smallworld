@@ -33,11 +33,11 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    l = logging.getLogger("smallworld")
+    log = logging.getLogger("smallworld")
     if args.verbose:
-        l.setLevel("DEBUG")
+        log.setLevel("DEBUG")
     else:
-        l.setLevel("INFO")
+        log.setLevel("INFO")
 
     driver = AngrNWBTExecutor(**vars(args))
 
@@ -68,8 +68,8 @@ if __name__ == "__main__":
         nodedef.add_field("lo", ptrdef)
         nodedef.add_field("hi", ptrdef)
     else:
-        l.error(f"Test case {args.infile.name} not supported")
-        l.error("Please use struct.bin or tree.bin")
+        log.error(f"Test case {args.infile.name} not supported")
+        log.error("Please use struct.bin or tree.bin")
         quit()
 
     environ.bind_register("rdi", ptrdef)

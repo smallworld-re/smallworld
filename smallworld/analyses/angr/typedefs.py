@@ -153,7 +153,7 @@ class PointerDef(PrimitiveDef):
 
 
 class StructDef(TypeDef):
-    l = logging.getLogger("smallworld.struct")
+    log = logging.getLogger("smallworld.struct")
 
     def __init__(self, name):
         super().__init__(name)
@@ -225,7 +225,7 @@ class TypeDefPlugin(angr.SimStatePlugin):
     - Instance addresses for symbols
     """
 
-    l = logging.getLogger("smallworld.typedefs")
+    log = logging.getLogger("smallworld.typedefs")
 
     def __init__(self):
         super().__init__()
@@ -386,19 +386,19 @@ class TypeDefPlugin(angr.SimStatePlugin):
             return list(self._allocations[typedef])
         return list()
 
-    def pp(self, l, all_allocs=True):
-        l("Register Bindings")
+    def pp(self, log, all_allocs=True):
+        log("Register Bindings")
         for reg_name, reg_def in self._registers.items():
-            l(f"\t{reg_name} -> {reg_def}")
-        l("Symbol Bindings")
+            log(f"\t{reg_name} -> {reg_def}")
+        log("Symbol Bindings")
         for sym_name, sym_def in self._symbols.items():
             if sym_name in self._sym_values:
-                l(f"\t{sym_name} -> {sym_def} ({self._sym_values[sym_name]:x})")
+                log(f"\t{sym_name} -> {sym_def} ({self._sym_values[sym_name]:x})")
             else:
-                l(f"\t{sym_name} -> {sym_def} (No Value)")
+                log(f"\t{sym_name} -> {sym_def} (No Value)")
         if all_allocs:
-            l("Allocations:")
+            log("Allocations:")
             for typedef, addrs in self._allocations.items():
-                l(f"- {typedef}")
+                log(f"- {typedef}")
                 for addr in addrs:
-                    l(f"\t- {addr:x}")
+                    log(f"\t- {addr:x}")
