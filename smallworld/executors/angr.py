@@ -81,7 +81,7 @@ class AngrExecutor(Executor):
             )
         elif reg not in self.entry.arch.registers:
             log.warn(f"Ignoring write to register {reg}; it doesn't exist")
-        else:
+        elif value is not None:
             (off, size) = self.entry.arch.registers[reg]
             v = claripy.BVV(value, size * 8)
             self.entry.registers.store(off, v)
@@ -103,8 +103,7 @@ class AngrExecutor(Executor):
                 "Writing registers not supported once execution begins."
             )
         elif value is not None:
-            # Claripy expresses sizes in bits, hence the '* 8'.
-            v = claripy.BVV(value, len(value) * 8)
+            v = claripy.BVV(value)
             self.entry.memory.store(addr, v)
 
     def load(self, image: bytes, base: int) -> None:
