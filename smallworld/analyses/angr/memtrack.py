@@ -50,7 +50,7 @@ class TrackerMemoryMixin(MemoryMixin):
                 self.dirty[addr] = size
             self.dirty_addrs.add(addr + i)
         if track:
-            self.l.debug(f"Tracking {addr:x}, {size}")
+            self.log.debug(f"Tracking {addr:x}, {size}")
 
     def _default_value(self, addr, size, **kwargs):
         out = super()._default_value(addr, size, **kwargs)

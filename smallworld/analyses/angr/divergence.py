@@ -106,7 +106,7 @@ class DivergenceMemoryMixin(SWBaseMemoryMixin):
                         # I'd have hoped that angr does this automatically,
                         # but it doesn't seem to.
                         if self.state.satisfiable(extra_constraints=[addr == tmp]):
-                            self.l.debug(
+                            self.log.debug(
                                 f"Concrete result for {expr}, slice of {addr}: {tmp:x}"
                             )
                             # TODO: Handle multiple concretizations from non-conditional source.
@@ -114,19 +114,19 @@ class DivergenceMemoryMixin(SWBaseMemoryMixin):
                             exprs[expr] = tmp
                             res.add(tmp)
                         else:
-                            self.l.debug(
+                            self.log.debug(
                                 f"Ignoring result for {expr}, slice of {addr}: {tmp:x}"
                             )
                             for expr in self.state.solver.constraints:
-                                self.l.debug(f"\t{expr}")
+                                self.log.debug(f"\t{expr}")
                 except angr.errors.SimMemoryAddressError as e:
                     # Something went wrong that shouldn't go wrong.
-                    self.l.error(
+                    self.log.error(
                         f"Could not concretize expression {expr} with following constraints:"
                     )
                     for expr in self.state.solver.constraints:
-                        self.l.error(f"\t{expr}")
-                    self.l.error(f"Cause: {e}")
+                        self.log.error(f"\t{expr}")
+                    self.log.error(f"Cause: {e}")
                     raise e
         except AnalysisSignal as s:
             # A lower analysis raised a signal.
@@ -134,20 +134,20 @@ class DivergenceMemoryMixin(SWBaseMemoryMixin):
             raise s
         except Exception as e:
             # Something went wrong that shouldn't go wrong.
-            self.l.error(f"Fatal error concretizing {addr}")
-            self.l.exception(f"Cause: {type(e)} {e}")
+            self.log.error(f"Fatal error concretizing {addr}")
+            self.log.exception(f"Cause: {type(e)} {e}")
             raise e
-        self.l.debug(f"All recommendations: {list(map(hex, res))}")
+        self.log.debug(f"All recommendations: {list(map(hex, res))}")
         if len(exprs) > 1:
             # We've got a conditional dereference.
-            self.l.warn(f"Conditional address dereferenced at {self.state.ip}.")
-            self.l.warn("What do you want to do about this?")
+            self.log.warn(f"Conditional address dereferenced at {self.state.ip}.")
+            self.log.warn("What do you want to do about this?")
             self.divergence_tui.handle("fork", set(), this=self, addr=addr, exprs=exprs)
 
         return list(res)
 
     def concretize_read_addr(self, addr, strategies=None, condition=None):
-        self.l.debug(f"Concretizing read addr {addr}")
+        self.log.debug(f"Concretizing read addr {addr}")
         return self._concretize_addr(
             super().concretize_read_addr,
             addr,
@@ -156,7 +156,7 @@ class DivergenceMemoryMixin(SWBaseMemoryMixin):
         )
 
     def concretize_write_addr(self, addr, strategies=None, condition=None):
-        self.l.debug(f"Concretizing write addr {addr}")
+        self.log.debug(f"Concretizing write addr {addr}")
         return self._concretize_addr(
             super().concretize_write_addr,
             addr,
@@ -166,7 +166,7 @@ class DivergenceMemoryMixin(SWBaseMemoryMixin):
 
     # TUI handler methods.  Fear the boilerplate.
     def divergence_fork(self, addr=None, exprs=None, **kwargs):
-        self.l.warn("Rewinding and forking to avoid conditional dereference")
+        self.log.warn("Rewinding and forking to avoid conditional dereference")
         raise DivergentAddressSignal(self.state, addr, exprs)
 
     def divergence_choose(**kwargs):
@@ -175,23 +175,23 @@ class DivergenceMemoryMixin(SWBaseMemoryMixin):
         )
 
     def divergence_ignore(self, **kwargs):
-        self.l.warn("Accepting conditional dereference")
+        self.log.warn("Accepting conditional dereference")
 
     def divergence_details(self, addr=None, exprs=None, **kwargs):
-        self.l.warn(f"Details of dereference at {self.state.ip}:")
-        print_state(self.l.warn, self.state, "conditional dereference")
-        self.l.warn(f"Address: {addr}")
-        self.l.warn("Possible Evaluations:")
+        self.log.warn(f"Details of dereference at {self.state.ip}:")
+        print_state(self.log.warn, self.state, "conditional dereference")
+        self.log.warn(f"Address: {addr}")
+        self.log.warn("Possible Evaluations:")
         for expr, result in exprs.items():
-            self.l.warn(f"\t{expr}: {result:x}")
+            self.log.warn(f"\t{expr}: {result:x}")
         raise TUIContinueException()
 
     def divergence_stop(self, **kwargs):
-        self.l.warn("Killing execution path")
+        self.log.warn("Killing execution path")
         raise PathTerminationSignal()
 
     def divergence_quit(self, **kwargs):
-        self.l.warn("Aborting execution")
+        self.log.warn("Aborting execution")
         quit()
 
 
@@ -210,13 +210,13 @@ class DivergenceExplorationMixin:
     def step_state(self, simgr, state, **kwargs):
         try:
             out = super().step_state(simgr, state, **kwargs)
-            self.l.debug(f"Clean Successors: {state} -> {out}")
+            self.log.debug(f"Clean Successors: {state} -> {out}")
             for stash, states in out.items():
                 if len(states) > 0:
                     if stash is None:
                         stash = "active"
                     for state in states:
-                        self.l.debug(f"\t{state} ({stash}): {state.scratch.guard}")
+                        self.log.debug(f"\t{state} ({stash}): {state.scratch.guard}")
 
         except DivergentAddressSignal as e:
             # Fault: we got a divergent address.
@@ -239,7 +239,7 @@ class DivergenceExplorationMixin:
 
             # Set up the successors dict.
             out = {None: list(), "unsat": list()}
-            self.l.debug(f"Divergent successors: {state} ->")
+            self.log.debug(f"Divergent successors: {state} ->")
 
             # Bind all address concretizations
             backup = e.state.copy()
@@ -256,9 +256,9 @@ class DivergenceExplorationMixin:
                 # just in case the concretizer misses something.
                 # I wish I didn't have to do this, since it's slow.
                 if new_state.solver.satisfiable():
-                    self.l.debug(f"\t{new_state} (active): {e.addr == addr}")
+                    self.log.debug(f"\t{new_state} (active): {e.addr == addr}")
                     out[None].append(new_state)
                 else:
                     out["unsat"].append(new_state)
-                    self.l.debug(f"\t{new_state} (unsat): {e.addr == addr}")
+                    self.log.debug(f"\t{new_state} (unsat): {e.addr == addr}")
         return out

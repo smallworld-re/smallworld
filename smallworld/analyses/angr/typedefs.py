@@ -44,9 +44,9 @@ class TypeDef(metaclass=abc.ABCMeta):
         Internal method for allocating this type on the heap.
         """
         addr = state.heap.allocate(len(self))
-        self.l.debug(f"Allocating {self._name} of size {len(self)} at {addr:x}")
+        self.log.debug(f"Allocating {self._name} of size {len(self)} at {addr:x}")
         data = self.to_bv()
-        self.l.debug(f"Result: {data}")
+        self.log.debug(f"Result: {data}")
         if env is not None:
             self.bind(env, data)
         state.memory.store(addr, data)
