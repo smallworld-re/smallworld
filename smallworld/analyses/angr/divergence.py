@@ -1,5 +1,5 @@
 import angr
-from angr.storage.memory_mixins import MemoryMixin
+from angr.storage import MemoryMixin
 import logging
 from .base import BaseMemoryMixin
 from .exceptions import AnalysisSignal

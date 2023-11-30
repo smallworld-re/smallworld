@@ -41,6 +41,7 @@ class AngrAMD64State(AMD64CPUState):
     def __init__(self, executor, stack_below=0x1000, stack_above=0x0, heap_size=0x1000):
         # Load control registers and other sensitive state from angr.
         # I really don't want to know what happens if you mess with these.
+        super().__init__()
         self.fs.load(executor)
         self.gs.set(0)
         self.cr0.set(0)
@@ -82,7 +83,8 @@ if __name__ == "__main__":
 
     devrandom = OSRandomInitializer()
 
-    driver = AngrNWBTExecutor(**vars(args))
+    driver = AngrNWBTExecutor(args.fmt, args.arch)
+    driver.load(args.infile.read_bytes(), args.base, entrypoint=args.entry)
 
     state = AngrAMD64State(driver)
     state.initialize(devrandom)

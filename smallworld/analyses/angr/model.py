@@ -1,4 +1,4 @@
-from angr.storage.memory_mixins import MemoryMixin
+from angr.storage import MemoryMixin
 from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
 from .typedefs import PointerDef, StructDef

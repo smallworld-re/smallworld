@@ -41,5 +41,6 @@ if __name__ == "__main__":
     else:
         setup_logging(level=logging.INFO)
 
-    driver = AngrNWBTExecutor(**vars(args))
+    driver = AngrNWBTExecutor(args.fmt, args.arch)
+    driver.load(args.infile.read_bytes(), args.base, entrypoint=args.entry)
     driver.run()
