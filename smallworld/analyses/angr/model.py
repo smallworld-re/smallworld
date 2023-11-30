@@ -344,9 +344,9 @@ class ModelMemoryMixin(BaseMemoryMixin):
         if default is None:
             log.warn("Will use default when determined.")
         elif isinstance(default, int):
-            log.warn("Using default {default:x}")
+            log.warn(f"Using default {default:x}")
         else:
-            log.warn("Using default {default}")
+            log.warn(f"Using default {default}")
         return default
 
     def typed_value_details(self, typedef=None, default=None, pretty=None):
@@ -384,9 +384,9 @@ class ModelMemoryMixin(BaseMemoryMixin):
         if default is None:
             log.warn("Will use default when generated")
         elif isinstance(default, int):
-            log.warn("Using default value {default:x}")
+            log.warn(f"Using default value {default:x}")
         else:
-            log.warn("Using default value {default}")
+            log.warn(f"Using default value {default}")
         return default
 
     def untyped_reg_bind(**kwargs):
