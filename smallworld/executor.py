@@ -64,12 +64,15 @@ class Executor(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def load(self, image: bytes, base: int) -> None:
+    def load(
+        self, image: bytes, base: int, entrypoint: typing.Optional[int] = None
+    ) -> None:
         """Load a binary for execution.
 
         Arguments:
             image (bytes): The raw executable to load.
             base (int): The base address at which to load the executable.
+            entrypoint (int): The entrypoint address of the executable.
         """
 
         pass

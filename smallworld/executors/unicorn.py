@@ -198,10 +198,20 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, image: bytes, base: int) -> None:
+    def load(
+        self, image: bytes, base: int, entrypoint: typing.Optional[int] = None
+    ) -> None:
         self.write_memory(base, image)
 
-        self.entrypoint = base
+        if entrypoint is not None:
+            if entrypoint < base or entrypoint > base + len(image):
+                raise ValueError(
+                    "Entrypoint is not in image: 0x{entrypoint:x} vs (0x{base:x}, 0x{base + len(image):x}"
+                )
+            self.entrypoint = entrypoint
+        else:
+            self.entrypoint = base
+
         self.exitpoint = base + len(image)
 
         self.write_register("pc", self.entrypoint)

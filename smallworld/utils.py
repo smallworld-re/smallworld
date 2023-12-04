@@ -42,7 +42,10 @@ class ColorLevelFilter(logging.Filter):
 
 
 def setup_logging(
-    level: int = logging.INFO, verbose: bool = False, colors: bool = True
+    level: int = logging.INFO,
+    verbose: bool = False,
+    colors: bool = True,
+    clear_handlers: bool = True,
 ) -> None:
     """Setup log handling.
 
@@ -64,6 +67,14 @@ def setup_logging(
 
     root = logging.getLogger()
     root.setLevel(level)
+
+    if clear_handlers:
+        # Clear existing handlers.
+        # Some libraries (angr) install their own handlers.
+        # This results in multiple copies of each message.
+        handlers = list(root.handlers)
+        for old_handler in handlers:
+            root.removeHandler(old_handler)
 
     formatter = logging.Formatter(format)
 
