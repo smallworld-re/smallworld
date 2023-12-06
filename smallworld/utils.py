@@ -1,4 +1,9 @@
+import json
+import copy
+import typing
 import logging
+
+from . import hinting
 
 
 class CharacterLevelFilter(logging.Filter):
@@ -39,6 +44,45 @@ class ColorLevelFilter(logging.Filter):
     def filter(self, record):
         record.levelcolor = self.COLORS.get(record.levelno, self.NULL)
         return True
+
+
+class JSONFormatter(logging.Formatter):
+    """A custom JSON formatter for json-serializable messages.
+
+    Arguments:
+        keys (dict): A dictionary mapping json keys to their logging format
+            strings.
+    """
+
+    def __init__(self, *args, keys=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        keys = keys or {}
+        self.keys = {}
+        for name, fmt in keys.items():
+            self.keys[name] = logging.Formatter(fmt)
+
+    class CustomEncoder(json.JSONEncoder):
+        """A custom encoder class that handles the __json__ method."""
+
+        def default(self, obj):
+            if hasattr(obj, "__json__"):
+                return obj.__json__()
+
+            return super().default(obj)
+
+    def format(self, record):
+        formatted = {}
+
+        for key, formatter in self.keys.items():
+            formatted[key] = formatter.format(record)
+
+        formatted["content"] = record.msg
+
+        modified = copy.deepcopy(record)
+        modified.msg = json.dumps(formatted, cls=self.CustomEncoder)
+
+        return super().format(modified)
 
 
 def setup_logging(
@@ -86,3 +130,60 @@ def setup_logging(
     handler.setFormatter(formatter)
 
     root.addHandler(handler)
+
+
+def setup_hinting(
+    level: int = logging.INFO,
+    verbose: bool = False,
+    colors: bool = True,
+    stream: bool = True,
+    file: typing.Optional[str] = None,
+) -> None:
+    """Setup hint handling.
+
+    Note: this should only be called once.
+
+    Arguments:
+        level (int): Hinting level (from `hinting` module).
+        verbose (bool): Enable verbose hinting mode.
+        colors (bool): Enable hinting colors.
+        stream (bool): Enable stream logging.
+        file (str): If provided, enable file logging to the path provided.
+    """
+
+    if verbose:
+        keys = {
+            "time": "%(asctime)s",
+            "level": "%(levelname)s",
+            "source": "%(name)s",
+        }
+    else:
+        keys = {}
+
+    root = hinting.getHinter()
+    root.setLevel(level)
+
+    if stream:
+        format = "[%(levelchar)s] %(message)s"
+
+        if colors:
+            format = f"%(levelcolor)s{format}{ColorLevelFilter.END}"
+
+        formatter = JSONFormatter(format, keys=keys)
+
+        handler: logging.Handler = logging.StreamHandler()
+        handler.setLevel(level)
+        handler.addFilter(CharacterLevelFilter())
+        handler.addFilter(ColorLevelFilter())
+        handler.setFormatter(formatter)
+
+        root.addHandler(handler)
+
+    if file:
+        formatter = JSONFormatter("%(message)s", keys=keys)
+
+        handler = logging.FileHandler(file)
+        handler.setLevel(level)
+        handler.setFormatter(formatter)
+
+        root.addHandler(handler)
