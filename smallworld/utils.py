@@ -62,7 +62,6 @@ class JSONFormatter(logging.Formatter):
         for name, fmt in keys.items():
             self.keys[name] = logging.Formatter(fmt)
 
-
     def format(self, record):
         formatted = {}
 

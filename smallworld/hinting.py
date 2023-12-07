@@ -1,4 +1,3 @@
-import abc
 from dataclasses import dataclass, asdict
 import json
 import logging
@@ -11,39 +10,46 @@ from logging import INFO  # noqa
 from logging import WARNING  # noqa
 from logging import CRITICAL  # noqa
 
+
 class HintJSONEncoder(json.JSONEncoder):
-        def default(self, o):
-            if isinstance(o, Hint):
-                d = asdict(o)
-                d['hint_type'] = o.__class__.__name__
-                return d
-            return super().default(o)
-        
+    def default(self, o):
+        if isinstance(o, Hint):
+            d = asdict(o)
+            d["hint_type"] = o.__class__.__name__
+            return d
+        return super().default(o)
+
+
 class HintJSONDecoder(json.JSONDecoder):
     def __init__(self, *args, **kwargs):
         json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
     def object_hook(self, dict):
-        if 'hint_type' in dict:
-            cls = getattr(sys.modules[__name__], dict['hint_type'])
-            del dict['hint_type']
+        if "hint_type" in dict:
+            cls = getattr(sys.modules[__name__], dict["hint_type"])
+            del dict["hint_type"]
             return cls(**dict)
         return dict
 
+
 @dataclass(frozen=True)
-class Hint():
+class Hint:
     """Base class for all Hints.
 
     Arguments:
         message (str): A message for this Hint.
         ip (int): The instruction pointer when the hint was generated.
     """
+
     message: str
+
 
 @dataclass(frozen=True)
 class UnderSpecifiedValueHint(Hint):
-    """Super class for UnderSpecified Value Hints
-    """
+    """Super class for UnderSpecified Value Hints"""
+
     pass
+
 
 @dataclass(frozen=True)
 class UnderSpecifiedRegisterHint(UnderSpecifiedValueHint):
@@ -52,7 +58,9 @@ class UnderSpecifiedRegisterHint(UnderSpecifiedValueHint):
     Arguments:
         register (string): The register in question
     """
+
     register: str
+
 
 @dataclass(frozen=True)
 class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
@@ -62,24 +70,28 @@ class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
         address (int): The address of the beginning of the range
         size (int): The size of the range
     """
+
     address: int
     size: int
 
 
 @dataclass(frozen=True)
 class TypeHint(Hint):
-    """Super class for Type Hints
-    """
+    """Super class for Type Hints"""
+
     pass
+
 
 @dataclass(frozen=True)
 class RegisterPointerHint(TypeHint):
     """Signal that a register is probably a pointer.
 
     Arguments:
-        register (string): The register in question    
+        register (string): The register in question
     """
+
     register: str
+
 
 @dataclass(frozen=True)
 class RegisterPointsToHint(RegisterPointerHint):
@@ -88,16 +100,20 @@ class RegisterPointsToHint(RegisterPointerHint):
     Arguments:
         type (string): The type in question
     """
+
     type: str
+
 
 @dataclass(frozen=True)
 class MemoryPointerHint(TypeHint):
     """Signal that a memory address is probably a pointer.
 
-     Arguments:
-        address (int): The address in question
+    Arguments:
+       address (int): The address in question
     """
+
     address: int
+
 
 @dataclass(frozen=True)
 class MemoryPointsToHint(RegisterPointerHint):
@@ -106,7 +122,9 @@ class MemoryPointsToHint(RegisterPointerHint):
     Arguments:
         type (string): The type in question
     """
+
     type: str
+
 
 @dataclass(frozen=True)
 class StructureHint(TypeHint):
@@ -115,6 +133,7 @@ class StructureHint(TypeHint):
     Arguments:
         layout (dict[int, str]): A dictionary of offset to type
     """
+
     layout: dict[int, str]
 
 

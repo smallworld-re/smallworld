@@ -12,5 +12,7 @@ except:
 else:
     assert False
 
-info_hint = hinting.UnderSpecifiedRegisterHint(message="This is a info hint", register="rdi")
+info_hint = hinting.UnderSpecifiedRegisterHint(
+    message="This is a info hint", register="rdi"
+)
 hinter.info(info_hint)
