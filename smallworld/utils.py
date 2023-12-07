@@ -62,14 +62,6 @@ class JSONFormatter(logging.Formatter):
         for name, fmt in keys.items():
             self.keys[name] = logging.Formatter(fmt)
 
-    class CustomEncoder(json.JSONEncoder):
-        """A custom encoder class that handles the __json__ method."""
-
-        def default(self, obj):
-            if hasattr(obj, "__json__"):
-                return obj.__json__()
-
-            return super().default(obj)
 
     def format(self, record):
         formatted = {}
@@ -80,7 +72,7 @@ class JSONFormatter(logging.Formatter):
         formatted["content"] = record.msg
 
         modified = copy.deepcopy(record)
-        modified.msg = json.dumps(formatted, cls=self.CustomEncoder)
+        modified.msg = json.dumps(formatted, cls=hinting.HintJSONEncoder)
 
         return super().format(modified)
 
