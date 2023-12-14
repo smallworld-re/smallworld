@@ -66,11 +66,11 @@ class Executor(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def load(self, image: executable.Executable) -> None:
+    def load(self, executable: executable.Executable) -> None:
         """Load a binary for execution.
 
         Arguments:
-            image (Executable): The executable to load.
+            executable (Executable): The executable to load.
         """
 
         pass
