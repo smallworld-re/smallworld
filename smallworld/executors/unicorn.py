@@ -3,6 +3,7 @@ import typing
 import logging
 
 from .. import executor
+from .. import executable
 from .. import exceptions
 
 import unicorn
@@ -198,25 +199,34 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(
-        self, image: bytes, base: int, entrypoint: typing.Optional[int] = None
-    ) -> None:
-        self.write_memory(base, image)
+    def load(self, executable: executable.Executable) -> None:
+        if executable.base is None:
+            raise ValueError(f"base address is required: {executable}")
 
-        if entrypoint is not None:
-            if entrypoint < base or entrypoint > base + len(image):
+        self.write_memory(executable.base, executable.image)
+
+        if executable.entry is not None:
+            self.entrypoint = executable.entry
+            if (
+                self.entrypoint < executable.base
+                or self.entrypoint > executable.base + len(executable.image)
+            ):
                 raise ValueError(
-                    "Entrypoint is not in image: 0x{entrypoint:x} vs (0x{base:x}, 0x{base + len(image):x}"
+                    "Entrypoint is not in executable: 0x{self.entrypoint:x} vs (0x{executable.base:x}, 0x{executable.base + len(executable.image):x})"
                 )
-            self.entrypoint = entrypoint
         else:
-            self.entrypoint = base
+            self.entrypoint = executable.base
 
-        self.exitpoint = base + len(image)
+        if executable.exits:
+            self.exitpoint = list(executable.exits)[0]
+        else:
+            self.exitpoint = executable.base + len(executable.image)
 
         self.write_register("pc", self.entrypoint)
 
-        logger.info(f"loaded image (size: {len(image)} B) at 0x{base:x}")
+        logger.info(
+            f"loaded executable (size: {len(executable.image)} B) at 0x{executable.base:x}"
+        )
 
     def disassemble(self, code: bytes, count: typing.Optional[int] = None) -> str:
         """Disassemble the given bytes.

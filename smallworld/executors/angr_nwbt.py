@@ -22,8 +22,8 @@ class AngrNWBTExecutor(AngrExecutor):
     once we're done.
     """
 
-    def __init__(self, fmt: str, arch: str):
-        super().__init__(fmt, arch)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.step_tui = SimpleTUI()
         self.step_tui.add_case("continue", lambda: True, hint="Continue analysis")
         self.step_tui.add_case("quit", lambda: False, hint="Quit analysis")

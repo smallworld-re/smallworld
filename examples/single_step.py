@@ -5,6 +5,7 @@ import argparse
 
 from smallworld import cpus
 from smallworld import executors
+from smallworld import executable
 from smallworld import initializer
 from smallworld import utils
 
@@ -39,10 +40,9 @@ cpu.initialize(zero)
 # load/apply the cpu state into the executor
 cpu.apply(executor)
 
-with open(arguments.target, "rb") as f:
-    target = f.read()
+target = executable.Executable.from_filepath(arguments.target, base=0x1000)
 
-executor.load(target, 0x1000)
+executor.load(target)
 
 done = False
 

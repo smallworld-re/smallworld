@@ -2,6 +2,8 @@ import abc
 import typing
 import logging
 
+from . import executable
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,15 +66,11 @@ class Executor(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def load(
-        self, image: bytes, base: int, entrypoint: typing.Optional[int] = None
-    ) -> None:
+    def load(self, image: executable.Executable) -> None:
         """Load a binary for execution.
 
         Arguments:
-            image (bytes): The raw executable to load.
-            base (int): The base address at which to load the executable.
-            entrypoint (int): The entrypoint address of the executable.
+            image (Executable): The executable to load.
         """
 
         pass
