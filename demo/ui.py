@@ -1,14 +1,13 @@
 from typing import Optional
+
 import typer
-from typing_extensions import Annotated
-
-from capstone import Cs, CS_ARCH_X86, CS_MODE_64
-
+from capstone import CS_ARCH_X86, CS_MODE_64, Cs
 from rich.console import Console
 from rich.layout import Layout
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
-from rich.markup import escape
+from typing_extensions import Annotated
 
 debug = ""
 
