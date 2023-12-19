@@ -38,7 +38,6 @@ class Hint:
 
     Arguments:
         message (str): A message for this Hint.
-        ip (int): The instruction pointer when the hint was generated.
     """
 
     message: str
