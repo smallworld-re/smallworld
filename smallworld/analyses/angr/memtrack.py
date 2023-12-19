@@ -1,4 +1,5 @@
 import logging
+
 from angr.storage import MemoryMixin
 
 log = logging.getLogger(__name__)

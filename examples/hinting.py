@@ -1,5 +1,4 @@
-from smallworld import hinting
-from smallworld import utils
+from smallworld import hinting, utils
 
 hinter = hinting.getHinter(__name__)
 

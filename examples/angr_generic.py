@@ -2,6 +2,7 @@
 import argparse
 import logging
 import pathlib
+
 from smallworld.executors import AngrNWBTExecutor
 from smallworld.utils import setup_logging
 

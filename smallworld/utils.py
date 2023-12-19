@@ -1,7 +1,7 @@
-import json
 import copy
-import typing
+import json
 import logging
+import typing
 
 from . import hinting
 

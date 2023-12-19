@@ -1,12 +1,12 @@
 import abc
-import typing
 import logging
+import typing
 
 # logging re-exports
+from logging import CRITICAL  # noqa
 from logging import DEBUG  # noqa
 from logging import INFO  # noqa
 from logging import WARNING  # noqa
-from logging import CRITICAL  # noqa
 
 
 class Hint(metaclass=abc.ABCMeta):
