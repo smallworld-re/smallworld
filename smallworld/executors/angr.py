@@ -29,8 +29,7 @@ class AngrExecutor(executor.Executor):
     means when there's more than one state.
     """
 
-    def __init__(self, arch: str):
-        self.arch = arch
+    def __init__(self):
         self._entry: typing.Optional[angr.SimState] = None
 
     @property
@@ -93,7 +92,11 @@ class AngrExecutor(executor.Executor):
             self._entry.memory.store(addr, v)
 
     def load(self, executable: executable.Executable) -> None:
-        options: typing.Dict[str, typing.Union[str, int]] = {"arch": self.arch}
+        options: typing.Dict[str, typing.Union[str, int]] = {}
+
+        if executable.arch is None:
+            raise ValueError(f"arch is required: {executable}")
+        options["arch"] = executable.arch
 
         if executable.type is None:
             raise ValueError(f"type is required: {executable}")
