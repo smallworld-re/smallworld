@@ -1,14 +1,14 @@
-from dataclasses import dataclass, asdict
 import json
 import logging
-import typing
 import sys
+import typing
+from dataclasses import asdict, dataclass
 
 # logging re-exports
+from logging import CRITICAL  # noqa
 from logging import DEBUG  # noqa
 from logging import INFO  # noqa
 from logging import WARNING  # noqa
-from logging import CRITICAL  # noqa
 
 
 class HintJSONEncoder(json.JSONEncoder):
@@ -134,7 +134,7 @@ class StructureHint(TypeHint):
         layout (dict[int, str]): A dictionary of offset to type
     """
 
-    layout: dict[int, str]
+    layout: typing.Dict[int, str]
 
 
 class Hinter(logging.Logger):

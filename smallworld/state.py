@@ -1,11 +1,9 @@
 import abc
-import typing
 import logging
 import textwrap
+import typing
 
-from . import executor
-from . import initializer
-
+from . import executor, initializer
 
 logger = logging.getLogger(__name__)
 

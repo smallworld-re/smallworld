@@ -1,12 +1,14 @@
+import logging
+
 import angr
 from angr.storage import MemoryMixin
-import logging
+
+from ..utils.tui import SimpleTUI, TUIContinueException
 from .base import BaseMemoryMixin
 from .exceptions import AnalysisSignal
 from .terminate import PathTerminationSignal
-from .visitor import ConditionalVisitor
 from .utils import print_state
-from ..utils.tui import SimpleTUI, TUIContinueException
+from .visitor import ConditionalVisitor
 
 log = logging.getLogger("__name__")
 

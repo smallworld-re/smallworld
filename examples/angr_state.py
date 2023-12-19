@@ -2,10 +2,11 @@
 import argparse
 import logging
 import pathlib
-from smallworld.executors import AngrNWBTExecutor
-from smallworld.state import Memory
+
 from smallworld.cpus.amd64 import AMD64CPUState
+from smallworld.executors import AngrNWBTExecutor
 from smallworld.initializer import OSRandomInitializer
+from smallworld.state import Memory
 from smallworld.utils import setup_logging
 
 

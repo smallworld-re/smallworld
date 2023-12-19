@@ -66,6 +66,8 @@ identify==2.5.32
     # via pre-commit
 importlib-metadata==6.8.0
     # via build
+isort==5.13.2
+    # via smallworld (setup.py)
 itanium-demangler==1.1
     # via angr
 markdown-it-py==3.0.0

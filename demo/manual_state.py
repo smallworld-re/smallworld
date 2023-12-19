@@ -1,7 +1,8 @@
 # type: ignore
 
-import angr
 import sys
+
+import angr
 
 
 class SmallWorldMemoryPlugin(angr.storage.DefaultMemory):

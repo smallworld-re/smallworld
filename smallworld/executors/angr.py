@@ -1,9 +1,10 @@
-import angr
-import claripy
-import cle
 import io
 import logging
 import typing
+
+import angr
+import claripy
+import cle
 
 from ..executor import Executor
 
