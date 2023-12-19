@@ -1,5 +1,6 @@
 import angr
-from .divergence import DivergenceMemoryMixin, DivergenceExplorationMixin
+
+from .divergence import DivergenceExplorationMixin, DivergenceMemoryMixin
 from .memtrack import TrackerMemoryMixin
 from .model import ModelMemoryMixin
 from .terminate import TerminationExplorationMixin
