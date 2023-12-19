@@ -1,16 +1,11 @@
 """A simple example demonstrating state storage primitives."""
 
-import logging
 import argparse
-
-from smallworld import cpus
-from smallworld import executors
-from smallworld import executable
-from smallworld import initializer
-from smallworld import utils
+import logging
 
 import unicorn
 
+from smallworld import cpus, executable, executors, initializer, utils
 
 parser = argparse.ArgumentParser(
     description="run a simple shellcode example in unicorn"

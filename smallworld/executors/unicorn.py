@@ -1,14 +1,11 @@
+import logging
 import math
 import typing
-import logging
 
-from .. import executor
-from .. import executable
-from .. import exceptions
-
-import unicorn
 import capstone
+import unicorn
 
+from .. import exceptions, executable, executor
 
 logger = logging.getLogger(__name__)
 

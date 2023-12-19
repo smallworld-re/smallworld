@@ -1,7 +1,8 @@
 import abc
+import logging
+
 import angr
 import claripy
-import logging
 
 log = logging.getLogger(__name__)
 

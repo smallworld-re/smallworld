@@ -1,9 +1,8 @@
 import abc
-import typing
 import logging
+import typing
 
 from . import executable
-
 
 logger = logging.getLogger(__name__)
 

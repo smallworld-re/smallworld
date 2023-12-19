@@ -16,6 +16,7 @@ jobs:
           pip install -e .[development] -c constraints.txt
       - name: Lint
         run: |
+          isort --check ./
           black --check ./
           flake8 ./
           mypy --ignore-missing-imports ./

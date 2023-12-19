@@ -1,12 +1,12 @@
-import angr
-import claripy
-import cle
 import io
 import logging
 import typing
 
-from .. import executor
-from .. import executable
+import angr
+import claripy
+import cle
+
+from .. import executable, executor
 
 log = logging.getLogger(__name__)
 

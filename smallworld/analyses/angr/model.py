@@ -1,13 +1,14 @@
+import logging
+
+import claripy
 from angr.storage import MemoryMixin
+
+from ..utils.tui import SimpleTUI, TUIContinueException
 from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
 from .typedefs import PointerDef, StructDef
-from .visitor import EvalVisitor
 from .utils import print_state
-from ..utils.tui import SimpleTUI, TUIContinueException
-import claripy
-import logging
-
+from .visitor import EvalVisitor
 
 log = logging.getLogger(__name__)
 visitor = EvalVisitor()

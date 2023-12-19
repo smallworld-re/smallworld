@@ -1,10 +1,7 @@
-import logging
 import argparse
+import logging
 
-from . import utils
-from . import __title__
-from . import __description__
-
+from . import __description__, __title__, utils
 
 LOGGING_LEVELS = {
     "debug": logging.DEBUG,

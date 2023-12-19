@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import logging
+
 from smallworld import executable
 from smallworld.executors import AngrNWBTExecutor
 from smallworld.utils import setup_logging
