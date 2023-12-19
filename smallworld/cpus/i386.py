@@ -1,5 +1,5 @@
-import typing
 import random
+import typing
 
 from .. import state
 

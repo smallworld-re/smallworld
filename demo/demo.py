@@ -1,8 +1,9 @@
 # type: ignore
 
-import angr
 import argparse
 import pathlib
+
+import angr
 
 
 class SmallWorldMemoryPlugin(angr.storage.DefaultMemory):

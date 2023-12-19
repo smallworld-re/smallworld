@@ -1,9 +1,10 @@
 import logging
-from .angr import AngrExecutor
+
+from ..analyses.angr.nwbt import NWBTExplorationTechnique, NWBTMemoryPlugin
 from ..analyses.angr.typedefs import TypeDefPlugin
-from ..analyses.angr.nwbt import NWBTMemoryPlugin, NWBTExplorationTechnique
 from ..analyses.angr.utils import print_state
 from ..analyses.utils.tui import SimpleTUI
+from .angr import AngrExecutor
 
 log = logging.getLogger(__name__)
 
