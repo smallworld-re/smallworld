@@ -1,6 +1,8 @@
-import abc
+import json
 import logging
+import sys
 import typing
+from dataclasses import asdict, dataclass
 
 # logging re-exports
 from logging import CRITICAL  # noqa
@@ -9,21 +11,129 @@ from logging import INFO  # noqa
 from logging import WARNING  # noqa
 
 
-class Hint(metaclass=abc.ABCMeta):
+class HintJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Hint):
+            d = asdict(o)
+            d["hint_type"] = o.__class__.__name__
+            return d
+        return super().default(o)
+
+
+class HintJSONDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, dict):
+        if "hint_type" in dict:
+            cls = getattr(sys.modules[__name__], dict["hint_type"])
+            del dict["hint_type"]
+            return cls(**dict)
+        return dict
+
+
+@dataclass(frozen=True)
+class Hint:
     """Base class for all Hints.
 
     Arguments:
         message (str): A message for this Hint.
     """
 
-    def __init__(self, message: str):
-        self.message = message
+    message: str
 
-    def __json__(self) -> dict:
-        return {"type": self.__class__.__name__, "message": self.message}
 
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({repr(self.message)})"
+@dataclass(frozen=True)
+class UnderSpecifiedValueHint(Hint):
+    """Super class for UnderSpecified Value Hints"""
+
+    pass
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedRegisterHint(UnderSpecifiedValueHint):
+    """Represents a register whose value can't be fully determined from the environment.
+
+    Arguments:
+        register (string): The register in question
+    """
+
+    register: str
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
+    """Represents a memory range whose value can't be fully determined from the environment.
+
+    Arguments:
+        address (int): The address of the beginning of the range
+        size (int): The size of the range
+    """
+
+    address: int
+    size: int
+
+
+@dataclass(frozen=True)
+class TypeHint(Hint):
+    """Super class for Type Hints"""
+
+    pass
+
+
+@dataclass(frozen=True)
+class RegisterPointerHint(TypeHint):
+    """Signal that a register is probably a pointer.
+
+    Arguments:
+        register (string): The register in question
+    """
+
+    register: str
+
+
+@dataclass(frozen=True)
+class RegisterPointsToHint(RegisterPointerHint):
+    """Signal that a register is probably a pointer and points to a type.
+
+    Arguments:
+        type (string): The type in question
+    """
+
+    type: str
+
+
+@dataclass(frozen=True)
+class MemoryPointerHint(TypeHint):
+    """Signal that a memory address is probably a pointer.
+
+    Arguments:
+       address (int): The address in question
+    """
+
+    address: int
+
+
+@dataclass(frozen=True)
+class MemoryPointsToHint(RegisterPointerHint):
+    """Signal that a memory address is probably a pointer and points to a type.
+
+    Arguments:
+        type (string): The type in question
+    """
+
+    type: str
+
+
+@dataclass(frozen=True)
+class StructureHint(TypeHint):
+    """Signals the probable layout of a struct
+
+    Arguments:
+        layout (dict[int, str]): A dictionary of offset to type
+    """
+
+    layout: typing.Dict[int, str]
 
 
 class Hinter(logging.Logger):

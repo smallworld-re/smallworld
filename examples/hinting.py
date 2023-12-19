@@ -11,6 +11,7 @@ except:
 else:
     assert False
 
-hinter.debug(hinting.Hint("set register: EAX"))
-hinter.info(hinting.Hint("read memory at address: 0xdeadbeef"))
-hinter.warning(hinting.Hint("unidentified register: XYZ"))
+info_hint = hinting.UnderSpecifiedRegisterHint(
+    message="This is a info hint", register="rdi"
+)
+hinter.info(info_hint)
