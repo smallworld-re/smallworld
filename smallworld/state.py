@@ -186,6 +186,11 @@ class RegisterAlias(Register):
 
         self.reference.set(result)
 
+    def initialize(
+        self, initializer: initializer.Initializer, override: bool = False
+    ) -> None:
+        logger.debug(f"skipping initialization for {self} (alias)")
+
     def load(self, executor: executor.Executor, override: bool = True) -> None:
         """Register references store no value, so this does nothing."""
 
