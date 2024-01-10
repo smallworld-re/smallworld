@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import logging
-import pathlib
 
+from smallworld import executable
 from smallworld.executors import AngrNWBTExecutor
 from smallworld.utils import setup_logging
 
@@ -21,7 +21,7 @@ def parse_args():
     parser.add_argument("-A", "--arch", default="x86_64")
     parser.add_argument("-F", "--fmt", default="blob")
     parser.add_argument("-v", "--verbose", action="store_true")
-    parser.add_argument("infile", type=pathlib.Path)
+    parser.add_argument("infile")
 
     args = parser.parse_args()
     if args.fmt == "blob" and args.entry is None:
@@ -43,8 +43,12 @@ if __name__ == "__main__":
         setup_logging(level=logging.INFO)
     log = logging.getLogger("smallworld")
 
-    driver = AngrNWBTExecutor(args.fmt, args.arch)
-    driver.load(args.infile.read_bytes(), args.base, entrypoint=args.entry)
+    target = executable.Executable.from_filepath(
+        args.infile, base=args.base, entry=args.entry
+    )
+
+    driver = AngrNWBTExecutor(args.arch)
+    driver.load(target)
 
     environ = driver.entry.typedefs
 

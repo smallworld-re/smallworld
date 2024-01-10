@@ -6,12 +6,12 @@ import angr
 import claripy
 import cle
 
-from ..executor import Executor
+from .. import executable, executor
 
 log = logging.getLogger(__name__)
 
 
-class AngrExecutor(Executor):
+class AngrExecutor(executor.Executor):
     """
     Superclass for angr-based micro executors
 
@@ -29,9 +29,7 @@ class AngrExecutor(Executor):
     means when there's more than one state.
     """
 
-    def __init__(self, fmt: str, arch: str):
-        self.fmt = fmt
-        self.arch = arch
+    def __init__(self):
         self._entry: typing.Optional[angr.SimState] = None
 
     @property
@@ -93,26 +91,39 @@ class AngrExecutor(Executor):
             v = claripy.BVV(value)
             self._entry.memory.store(addr, v)
 
-    def load(
-        self, image: bytes, base: int, entrypoint: typing.Optional[int] = None
-    ) -> None:
-        # Create the angr project from the input file
-        main_opts = {"backend": self.fmt, "arch": self.arch, "base_addr": base}
-        if entrypoint is not None:
-            if entrypoint < base or entrypoint > base + len(image):
+    def load(self, executable: executable.Executable) -> None:
+        options: typing.Dict[str, typing.Union[str, int]] = {}
+
+        if executable.arch is None:
+            raise ValueError(f"arch is required: {executable}")
+        options["arch"] = executable.arch
+
+        if executable.type is None:
+            raise ValueError(f"type is required: {executable}")
+        options["backend"] = executable.type
+
+        if executable.base is None:
+            raise ValueError(f"base address is required: {executable}")
+        options["base_addr"] = executable.base
+
+        if executable.entry is not None:
+            if (
+                executable.entry < executable.base
+                or executable.entry > executable.base + len(executable.image)
+            ):
                 raise ValueError(
-                    "Entrypoint is not in image: 0x{entrypoint:x} vs (0x{base:x}, 0x{base + len(image):x}"
+                    "Entrypoint is not in executable: 0x{executable.entry:x} vs (0x{executable.base:x}, 0x{executable.base + len(executable.image):x})"
                 )
-            main_opts["entry_point"] = entrypoint
-        elif self.fmt == "blob":
+            options["entry_point"] = executable.entry
+        elif executable.type == "blob":
             # Only blobs need a specific entrypoint;
             # ELFs can use the one from the file.
-            main_opts["entry_point"] = base
+            options["entry_point"] = executable.base
 
         # Turn the image into a byte stream;
         # angr don't do byte strings.
-        stream = io.BytesIO(image)
-        loader = cle.Loader(stream, main_opts=main_opts)
+        stream = io.BytesIO(executable.image)
+        loader = cle.Loader(stream, main_opts=options)
         self.proj = angr.Project(loader)
 
         # Perform any analysis-specific preconfiguration

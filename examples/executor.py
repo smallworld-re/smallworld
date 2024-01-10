@@ -5,7 +5,7 @@ import logging
 
 import unicorn
 
-from smallworld import cpus, exceptions, executors, initializer, utils
+from smallworld import cpus, exceptions, executable, executors, initializer, utils
 
 parser = argparse.ArgumentParser(
     description="run a simple shellcode example in unicorn"
@@ -33,10 +33,9 @@ zero = initializer.ZeroInitializer()
 cpu.initialize(zero)
 cpu.apply(executor)
 
-with open(arguments.target, "rb") as f:
-    target = f.read()
+target = executable.Executable.from_filepath(arguments.target, base=0x1000)
 
-executor.load(target, 0x1000)
+executor.load(target)
 
 try:
     executor.run()
