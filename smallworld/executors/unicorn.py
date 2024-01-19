@@ -192,7 +192,7 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"new memory map 0x{address:x}[{allocation}]")
 
-        self.engine.mem_write(address, value)
+        self.engine.mem_write(address, bytes(value))
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
