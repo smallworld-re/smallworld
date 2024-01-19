@@ -1,4 +1,4 @@
-from smallworld import cpus, state, executable
+from smallworld import cpus, state, executable, initializer
 
 def overlap(r1, r2):
     if (r1.start >= r2.stop) or (r2.start >= r1.stop):
@@ -12,12 +12,9 @@ class Smallworld:
     def __init__(self, cpu):
         self.cpu = cpu
         self.memory = {}
-
-        # here i want to do something s.t. all the registers and register aliases
-        # are magically available in the sw=Smallworld object...
-        for name, value in self.cpu.values.items():
-            if type(value) == state.Register or type(value) == state.RegisterAlias:
-                setattr(self, name, value)
+        zero = initializer.ZeroInitializer()
+        self.cpu.initialize(zero)
+        
 
     def map(self, start, data, label):
         """
@@ -31,7 +28,7 @@ class Smallworld:
             if overlap(r, r_new):
                 raise ValueError(f"Mapping new data f{r_new,label} overlaps existing f{r,l}")
         # no overlap: add this data to the map
-        self.memory[start] = data
+        self.memory[start] = (data, label)
 
     def map_code(self, base=0x1000, entry=0x1000, code=None):
         assert not (code is None)
@@ -42,19 +39,27 @@ class Smallworld:
         print("analyze: not yet implemented")
 
     def emulate(self, num_instructions=10, executor=None):
-        import pdb
-        pdb.set_trace()
         if executor is None:
             # you must have already told me what the executor is
             # and set it up?  let's check
             assert not (self.executor is None)
         else:
             # set or change of executor I guess?
-            self.executor = executor
-        # for each emulation, we need to map into the executor all memory elements
+            self.executor = executor        
+            
+        # map all memory region into the cpu
         for (addr, (data, label)) in self.memory.items():
-            print(f"emulate: writing data into executor {label,addr,len(data)}") 
-            self.executor.write_memory(addr, data)
+            print(f"emulate: writing memory region into cpu {label,addr,len(data)}") 
+            mem_region = state.Memory(addr, len(data))
+            mem_region.set(data)
+            # hmm i think this will add this labeled mem region to cpu?
+            setattr(self.cpu, label, mem_region)
+        # this should load regs and memory into executor from cpu
+        self.cpu.apply(self.executor)
+        # not thrilled with this
+        self.executor.entrypoint = self.target.entry
+        self.executor.exitpoint = self.target.entry + len(self.target.image)        
+        self.executor.write_register("pc", self.executor.entrypoint)
         for i in range(num_instructions):
             self.executor.step()
         # pull final state out of executor into cpu

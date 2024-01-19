@@ -1,8 +1,16 @@
-# let's get all of it
 
+import logging
+import unicorn
+
+# let's get all of it
 import smallworld.smallworld as sw
 
-from smallworld import cpus, initializer, executors
+from smallworld import cpus, initializer, executors, utils
+
+
+
+#utils.setup_logging(level=logging.DEBUG)
+
 
 # create a small world
 smw = sw.Smallworld(cpu=cpus.AMD64CPUState())
@@ -25,11 +33,13 @@ smw.analyze()
 # one of two ways
 
 # way 1 to set edi is a specific value
-smw.edi.set(0xDEADBEEF)
+smw.cpu.edi.set(0x4)
 
 # or way 2 is a random draw from an initializer
-rand = initializer.RandomUniformInitializer(seed=0xDEEDBEEB)
-smw.edi.set(rand.word())
+#rand = initializer.RandomUniformInitializer(seed=0xDEEDBEEB)
+#smw.cpu.edi.set(rand.word())
+
+print(smw.cpu.edi)
 
 # now we can do a single micro-execution without error
 final_state = smw.emulate(num_instructions=2, 

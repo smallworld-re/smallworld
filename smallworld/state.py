@@ -99,7 +99,7 @@ class Register(Value):
     def set(self, value: int) -> None:
         if value.bit_length() > self.width * 8:
             raise ValueError(f"{value} is too large for {self}")
-
+        logger.debug(f"initializing value {self}")
         self.value = value
 
     def initialize(
