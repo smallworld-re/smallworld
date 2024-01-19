@@ -2,9 +2,7 @@
 
 import smallworld.smallworld as sw
 
-from smallworld import cpus, initializer
-
-from smallworld.executors import UnicornExecutor
+from smallworld import cpus, initializer, executors
 
 # create a small world
 smw = sw.Smallworld(cpu=cpus.AMD64CPUState())
