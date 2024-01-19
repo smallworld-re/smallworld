@@ -4,8 +4,7 @@ import smallworld.smallworld as sw
 
 from smallworld import cpus, initializer
 
-import pdb
-pdb.set_trace()
+from smallworld.executors import UnicornExecutor
 
 # create a small world
 smw = sw.Smallworld(cpu=cpus.AMD64CPUState())
@@ -14,7 +13,7 @@ smw = sw.Smallworld(cpu=cpus.AMD64CPUState())
 code = open("square.bin", "rb").read()
 
 # map the code into memory at this address
-smw.map(0x1000, code)
+smw.map_code(base=0x1000, entry=0x1000, code=code)
 
 # indicate the entry point
 smw.entry = 0x1000
@@ -28,14 +27,15 @@ smw.analyze()
 # one of two ways
 
 # way 1 to set edi is a specific value
-smw.edi = 0xDEADBEEF
+smw.edi.set(0xDEADBEEF)
 
 # or way 2 is a random draw from an initializer
-rand = smallworld.initializer.RandomUniformInitializer(seed=0xDEEDBEEB)
-smw.edi = rand.draw()
+rand = initializer.RandomUniformInitializer(seed=0xDEEDBEEB)
+smw.edi.set(rand.word())
 
 # now we can do a single micro-execution without error
-final_state = smw.emulate(num_instructions=2, engine=smallworld.unicorn)
+final_state = smw.emulate(num_instructions=2, 
+                          executor=executors.UnicornExecutor(unicorn.UC_ARCH_X86, unicorn.UC_MODE_64))
 
 # tell me what eax ends up
 print(final_state.eax)
