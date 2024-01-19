@@ -1,3 +1,6 @@
+import abc
+import builtins
+
 import unicorn
 
 from smallworld import cpus, executable, executors, initializer, state
@@ -33,6 +36,9 @@ class Smallworld:
                 )
         # no overlap: add this data to the map
         self.memory[start] = (data, label)
+
+    def map_region(self, region):
+        self.map(region.start(), region.as_bytes(), region.label())
 
     def map_code(self, base=0x1000, entry=0x1000, code=None):
         assert not (code is None)
@@ -72,3 +78,46 @@ class X86_64:
         self.cpu = cpus.AMD64CPUState()
         self.unicorn_arch = unicorn.UC_ARCH_X86
         self.unicorn_mode = unicorn.UC_MODE_64
+        self.byteorder = "little"
+
+
+class Region:
+    @abc.abstractmethod
+    def start(self) -> int:
+        pass
+
+    @abc.abstractmethod
+    def as_bytes(self) -> bytes:
+        pass
+
+    @abc.abstractmethod
+    def label(self) -> str:
+        pass
+
+
+class Stack(Region):
+    def __init__(self, base_addr, size, config):
+        self.base_addr = base_addr
+        self.size = size
+        self.config = config
+        self.memory = bytearray()
+
+    def push(self, value, size=None):
+        match type(value):
+            case builtins.bytes:
+                self.memory += value
+            case builtins.bytearray:
+                self.memory += value
+            case builtins.int:
+                assert size, "need a size if pushing an int"
+                self.memory += value.to_bytes(size, byteorder=self.config.byteorder)
+        assert len(self.memory) <= self.size
+
+    def start(self) -> int:
+        return self.base_addr
+
+    def as_bytes(self) -> bytes:
+        return bytes(self.memory)
+
+    def label(self) -> str:
+        return "stack"

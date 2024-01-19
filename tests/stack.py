@@ -1,21 +1,20 @@
 # let's get all of it
-import smallworld
+import smallworld.smallworld as sw
 
 # createa a small world
-sw = smallworld.Smallworld(cpu=smallworld.X84_64)
+conf = sw.X86_64()
+smw = sw.Smallworld(config=conf)
 
 # note: code is of type bytes
 code = open("stack.bin", "rb").read()
 
 # map the code into memory at this address
-sw.map(0x1000, code)
+smw.map_code(base=0x1000, entry=0x1000, code=code)
 
-# indicate entry point
-sw.entry = 0x1000
 
 # analyze the code given that entry point
 # output: this will log hints somewhere
-sw.analyze()
+smw.analyze()
 
 # Next, we examine those hints and learn
 # that rdi & rdx & r8 are uninitialized.
@@ -27,24 +26,25 @@ sw.analyze()
 # we set rdi, rdx, and r8
 
 # rdi, rdx, r8 are args 1, 3, and 5 to this fn
-sw.rdi = 0x11111111
-sw.rdx = 0x22222222
-sw.r8 = 0x33333333
+smw.cpu.rdi.set(0x11111111)
+smw.cpu.rdx.set(0x22222222)
+smw.cpu.r8.set(0x33333333)
+
 
 # and create stack in order to set final arg used
-stack = smallworld.Stack(where=0x2000, size=0x1000)
+stack = sw.Stack(base_addr=0x2000, size=0x1000, config=conf)
 
 # this is the 7th arg to `stack.s`
 stack.push(value=0x44444444, size=8)
 
 # map the stack into memory
-sw.map(stack)
+smw.map_region(stack)
 
 # set rsp to top of stack
-sw.rsp = stack.top()
+smw.cpu.rsp.set(stack.base_addr)
 
 # now we can do a single micro-execution without error
-final_state = sw.emulate(num_instructions=3, engine=smallworld.unicorn)
+final_state = smw.emulate(num_instructions=3)
 
 # read out the answer in rax
 print(final_state.rax)
