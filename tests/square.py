@@ -21,19 +21,21 @@ smw.analyze()
 # way 1 to set edi is a specific value
 smw.cpu.edi.set(0x4)
 
-# or way 2 is a random draw from an initializer
-# rand = initializer.RandomUniformInitializer(seed=0xDEEDBEEB)
-# smw.cpu.edi.set(rand.word())
+import random
 
-print(smw.cpu.edi)
+# just showing off that we can emulate over and over
+# with different initial settings
+for i in range(10):
+    print("---------------------")
 
-# now we can do a single micro-execution without error
-final_state = smw.emulate(num_instructions=2)
+    # or way 2 is a random draw from an initializer
+    smw.cpu.edi.set(random.randint(1,100))
 
-# tell me what eax ends up
-print(final_state.eax)
+    print(smw.cpu.edi)
 
-smw.cpu.edi.set(0x2)
-print(smw.cpu.edi)
-final_state2 = smw.emulate(num_instructions=2)
-print(final_state2.eax)
+    # now we can do a single micro-execution without error
+    final_state = smw.emulate(num_instructions=2)
+
+    # tell me what eax ends up
+    print(final_state.eax)
+
