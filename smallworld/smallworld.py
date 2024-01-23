@@ -94,30 +94,81 @@ class Region:
     def label(self) -> str:
         pass
 
+    def to_bytes(self, value, size=None):
+        match type(value):
+            case builtins.bytes:
+                return value
+            case builtins.bytearray:
+                return value
+            case builtins.int:
+                assert size, "need a size if pushing an int"
+                return value.to_bytes(size, byteorder=self.config.byteorder)
+            case _:
+                return bytes(value)
+
 
 class Stack(Region):
     def __init__(self, base_addr, size, config):
         self.base_addr = base_addr
         self.size = size
         self.config = config
-        self.memory = bytearray()
+        self.memory = []
+        self.used = 0
 
     def push(self, value, size=None):
-        match type(value):
-            case builtins.bytes:
-                self.memory += value
-            case builtins.bytearray:
-                self.memory += value
-            case builtins.int:
-                assert size, "need a size if pushing an int"
-                self.memory += value.to_bytes(size, byteorder=self.config.byteorder)
-        assert len(self.memory) <= self.size
+        self.memory.append((value, size))
+        self.used += len(self.to_bytes(value, size))
+        assert self.used <= self.size
 
     def start(self) -> int:
         return self.base_addr
 
     def as_bytes(self) -> bytes:
-        return bytes(self.memory)
+        bytez = bytearray()
+        for t in self.memory:
+            bytez += self.to_bytes(t[0], t[1])
+        return bytes(bytez)
 
     def label(self) -> str:
         return "stack"
+
+
+class Heap(Region):
+    @abc.abstractmethod
+    def malloc(self, value, size=None) -> int:
+        pass
+
+    @abc.abstractmethod
+    def free(self, addr) -> None:
+        pass
+
+
+class BumpAllocator(Heap):
+    def __init__(self, base_addr, size, config):
+        self.base_addr = base_addr
+        self.size = size
+        self.config = config
+        self.memory = []
+        self.used = 0
+
+    def start(self) -> int:
+        return self.base_addr
+
+    def as_bytes(self) -> bytes:
+        bytez = bytearray()
+        for t in self.memory:
+            bytez += self.to_bytes(t[0], t[1])
+        return bytes(bytez)
+
+    def label(self) -> str:
+        return "bump allocator"
+
+    def malloc(self, value, size=None) -> int:
+        addr = self.base_addr + self.used
+        self.memory.append((value, size))
+        self.used += len(self.to_bytes(value, size))
+        assert self.used <= self.size
+        return addr
+
+    def free(self, addr) -> None:
+        raise NotImplementedError("Can't free")
