@@ -112,6 +112,7 @@ class UnicornExecutor(executor.Executor):
         self.disassembler = capstone.Cs(
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
+        self.disassembler.detail = True
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -232,6 +233,10 @@ class UnicornExecutor(executor.Executor):
             code (bytes): A collection of bytes to be disassembled.
             count (int): Optional - specifies the maximum number of
                 instructions to disassemble.
+
+        Returns a pair (instr,disas) each is a list of at most count things
+          instr is list of capstone instr objects 
+          dias is list of string disassembly for each instr
         """
 
         # TODO: annotate that offsets are relative
@@ -244,13 +249,14 @@ class UnicornExecutor(executor.Executor):
         instructions = self.disassembler.disasm(code, base)
 
         disassembly = []
+        insns = []
         for i, instruction in enumerate(instructions):
             if count is not None and i >= count:
                 break
-
+            insns.append(instruction)
             disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
 
-        return "\n".join(disassembly)
+        return (insns, "\n".join(disassembly))
 
     def check(self) -> None:
         """Some checks to make sure ok to emulate."""
@@ -286,9 +292,9 @@ class UnicornExecutor(executor.Executor):
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        instruction = self.disassemble(code, 1)
+        (instr, disas) = self.disassemble(code, 1)
 
-        logger.info(f"single step at 0x{pc:x}: {instruction}")
+        logger.info(f"single step at 0x{pc:x}: {disas}")
 
         self.engine.emu_start(pc, self.exitpoint, count=1)
 

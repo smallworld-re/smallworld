@@ -308,14 +308,14 @@ class State(Value):
             state.initialize(initializer, override=override)
 
     def load(self, executor: executor.Executor, override: bool = True) -> None:
-        logger.info(f"loading {self} from {executor}")
+#        logger.info(f"loading {self} from {executor}")
 
         for name, state in self.values.items():
             logger.debug(f"loading {name} from {executor}")
             state.load(executor, override=override)
 
     def apply(self, executor: executor.Executor) -> None:
-        logger.info(f"applying {self} to {executor}")
+#        logger.info(f"applying {self} to {executor}")
 
         for name, state in self.values.items():
             logger.debug(f"applying {name}:{state} to {executor}")

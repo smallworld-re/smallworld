@@ -2,6 +2,9 @@ import json
 import logging
 import sys
 import typing
+import capstone
+# from capstone import *
+import base64
 from dataclasses import asdict, dataclass
 
 # logging re-exports
@@ -12,11 +15,20 @@ from logging import WARNING  # noqa
 
 
 class HintJSONEncoder(json.JSONEncoder):
-    def default(self, o):
+    def default(self, o):    
         if isinstance(o, Hint):
             d = asdict(o)
             d["hint_type"] = o.__class__.__name__
             return d
+#        if isinstance(o, capstone.CsInsn):
+#            d = {}
+#            d["type"] = "capstone.CsInsn"
+#            d["bytes"] = base64.b64encode(o.bytes).decode()
+#            d["disas"] = f"{o.mnemonic} {o.op_str}"
+#            d["cs_arch"] = o._cs.arch
+#            d["cs_mode"] = o._cs.mode
+#            d["address"] = o.address
+#            return d
         return super().default(o)
 
 
@@ -29,6 +41,13 @@ class HintJSONDecoder(json.JSONDecoder):
             cls = getattr(sys.modules[__name__], dict["hint_type"])
             del dict["hint_type"]
             return cls(**dict)
+#        elif "type" in dict:
+#            if dict["type"] == "capstone.CsInsn":
+#                md = capstone.Cs(dict["cs_arch"], dict["cs_mode"])
+#                b = base64.b64decode(dict["bytes"])
+#                g = md.disasm(dict["bytes"], dict["address"])
+#                instr = g.__next__()
+#                return instr
         return dict
 
 
@@ -42,6 +61,18 @@ class Hint:
 
     message: str
 
+
+@dataclass(frozen=True)
+class EmulationException(Hint):
+    """Something went wrong emulating this instruction 
+    """
+    
+    instruction: str
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+    exception: str
+    
 
 @dataclass(frozen=True)
 class UnderSpecifiedValueHint(Hint):
@@ -73,9 +104,30 @@ class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
     address: int
     size: int
 
+@dataclass(frozen=True)
+class InputUseHint(UnderSpecifiedValueHint):
+    """Represents an instruction at which some register input value is used,
+       i.e. an information flow from input to some instruction
+
+    Arguments:
+      input_reg: The name of the register input value (source)
+      instr (capstone instruction): The instruction in which the input is used
+      pc (int): program counter of that instruction
+      use_reg (string): The name of the register in instr that is using the input value
+    """
+
+    input_register: str 
+#    instruction: capstone.CsInsn
+    instruction: str
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+    use_register: str
+
 
 @dataclass(frozen=True)
 class TypeHint(Hint):
+
     """Super class for Type Hints"""
 
     pass
