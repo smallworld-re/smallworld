@@ -1,4 +1,5 @@
 # type: ignore
+# flake8: noqa
 import abc
 import base64
 import logging
@@ -192,7 +193,9 @@ class InputColorizerAnalysis(Analysis):
         # [relies on reg values being in self.cpu]
         r_c = []
         for name, stv in self.config.cpu.values.items():
-            if not ((stv is state.Register) or (stv is state.RegisterAlias)):
+            if not (
+                (type(stv) == state.Register) or (type(stv) == state.RegisterAlias)
+            ):
                 continue
             if not (name in reg_subset):
                 continue
@@ -217,7 +220,7 @@ class InputColorizerAnalysis(Analysis):
         # but now go through all 64 and 32-bit reg aliases and record intial values
         r0 = {}
         for name, stv in self.config.cpu.values.items():
-            if (stv is state.Register) or (stv is state.RegisterAlias):
+            if (type(stv) == state.Register) or (type(stv) == state.RegisterAlias):
                 if (
                     regular
                     and (name in self.regular_regs_64 or name in self.regular_regs_32)
@@ -231,5 +234,55 @@ class InputColorizerAnalysis(Analysis):
         Generator to iterate over registers in the cpu
         """
         for name, stv in self.config.cpu.values.items():
-            if stv is state.Register:
+            if type(stv) == state.Register:
                 yield (name, stv)
+
+
+class InvalidReadAnalysis(Analysis):
+    def __init__(self, config):
+        super().__init__(config)
+
+    def name(self) -> str:
+        return "invalid-read"
+
+    def description(self) -> str:
+        return "tries to help to figure out invalid reads"
+
+    def version(self) -> str:
+        return "0.0.1"
+
+    def run(self, image: executable.Executable) -> None:
+        executor = executors.UnicornExecutor(
+            self.config.unicorn_arch, self.config.unicorn_mode
+        )
+
+        self.config.cpu.apply(executor)
+        executor.entrypoint = image.entry
+        executor.exitpoint = image.entry + len(image.image)
+        executor.write_register("pc", executor.entrypoint)
+
+        for j in range(self.config.num_instructions):
+            pc = executor.read_register("pc")
+            code = executor.read_memory(pc, 15)  # longest possible instruction
+            if code is None:
+                assert False, "impossible state"
+            (instructions, disas) = executor.disassemble(code, 1)
+            instruction = instructions[0]
+            # pull state back out of the executor for inspection
+            self.config.cpu.load(executor)
+            try:
+                done = executor.step()
+                if done:
+                    break
+            except Exception as e:
+                hint = hinting.EmulationException(
+                    message="Emulation single step raised an exception",
+                    instruction=base64.b64encode(instruction.bytes).decode(),
+                    pc=pc,
+                    micro_exec_num=i,
+                    instruction_num=j,
+                    exception=str(e),
+                )
+                hinter.info(hint)
+                logger.info(e)
+                break
