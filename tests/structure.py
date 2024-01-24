@@ -1,7 +1,13 @@
+# type: ignore
 # let's get all of it
 import ctypes
+import logging
 
 import smallworld.smallworld as sw
+from smallworld import utils
+
+utils.setup_logging(level=logging.INFO)
+utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # create a small world
 conf = sw.X86_64()
@@ -74,8 +80,8 @@ node1.next = node2_addr
 
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
-# smw.rdi = node1_addr
-
+smw.rdi = node1_addr
+print(f"RDI: {hex(smw.rdi)}")
 # all the allocated things get put in memory as concrete bytes
 smw.map_region(alloc)
 

@@ -1,8 +1,10 @@
 import logging
-from smallworld import utils
+
 import smallworld.smallworld as sw
+from smallworld import utils
 
 utils.setup_logging(level=logging.INFO)
+utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # createa a small world
 conf = sw.X86_64()
@@ -18,10 +20,10 @@ smw.map_code(base=0x1000, entry=0x1000, code=code)
 # that rdi & rdx & r8 are uninitialized.
 # Also program fails bc there's no stack (invalid memory read of [rsp+8]
 # i.e. memory pointed to by rsp doesnt exist
-# 
+#
 # So we turn off the analysis and add the following
 
-# create initial values for 
+# create initial values for
 # rdi, rdx, r8 which are are args 1, 3, and 5 to this fn
 smw.cpu.rdi.set(0x11111111)
 smw.cpu.rdx.set(0x22222222)

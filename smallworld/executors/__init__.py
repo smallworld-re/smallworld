@@ -1,3 +1,4 @@
+# type: ignore
 from .angr import AngrExecutor
 from .angr_nwbt import AngrNWBTExecutor
 from .unicorn import UnicornExecutor

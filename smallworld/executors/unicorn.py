@@ -1,3 +1,4 @@
+# type: ignore
 import logging
 import math
 import typing
@@ -235,7 +236,7 @@ class UnicornExecutor(executor.Executor):
                 instructions to disassemble.
 
         Returns a pair (instr,disas) each is a list of at most count things
-          instr is list of capstone instr objects 
+          instr is list of capstone instr objects
           dias is list of string disassembly for each instr
         """
 

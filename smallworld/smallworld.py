@@ -1,25 +1,14 @@
-import base64
-import logging
-import random
 import abc
 import builtins
+import copy
+import logging
 
 import unicorn
 
-from smallworld import cpus, executable, executors, initializer, state, hinting, utils
-
+from smallworld import analysis, cpus, executable, executors, initializer, state
 
 logger = logging.getLogger(__name__)
 
-hinter = hinting.getHinter(__name__)
-utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
-
-regular_regs_64 = ["rax", "rbx", "rcx", "rdx", 
-                   "rdi", "rsi", "rbp", "rsp",
-                   "r8", "r9", "r10" , "r11" , "r12" , "r13" , "r14" , "r15"]
-
-regular_regs_32 = ["eax", "ebx", "ecx", "edx", 
-                   "edi", "esi", "ebp", "esp"]
 
 def overlap(r1, r2):
     if (r1.start >= r2.stop) or (r2.start >= r1.stop):
@@ -63,152 +52,22 @@ class Smallworld:
     def map_mem_into_cpu(self):
         # map all memory region into the cpu
         for addr, (data, label) in self.memory.items():
-            logger.debug(f"writing smallworld memory region into cpu {label,addr,len(data)}")
+            logger.debug(
+                f"writing smallworld memory region into cpu {label,addr,len(data)}"
+            )
             mem_region = state.Memory(addr, len(data))
             mem_region.set(data)
             # hmm i think this will add this labeled mem region to cpu?
             setattr(self.cpu, label, mem_region)
 
-    def registers(self):
-        """
-        Generator to iterate over registers in the cpu
-        """
-        for name,stv in self.cpu.values.items():
-            if type(stv) == state.Register:
-                yield (name, stv)
+    def analyze(self):
+        self.map_mem_into_cpu()
 
-    def colorize_registers(self, regular=True):
-        # colorize registers 
-        for name,reg in self.registers():
-            if (regular and (name in regular_regs_64)) or (not regular):
-                # only colorize "regular" registers of full 64 bits
-                reg.set(random.randint(0, 0xfffffffffffffff))
-        # but now go through all 64 and 32-bit reg aliases and record intial values
-        r0 = {}
-        for name,stv in self.cpu.values.items():
-            if type(stv) == state.Register or type(stv) == state.RegisterAlias:
-                if (regular and (name in regular_regs_64 or name in regular_regs_32)) or (not regular):
-                    r0[stv.get()] = name
-                    logger.debug(f"color[{name}] = {stv.get():x}")
-        return r0
+        input_color_config = copy.deepcopy(self.config)
+        input_color_exe = copy.deepcopy(self.target)
+        input_color = analysis.InputColorizerAnalysis(input_color_config)
+        input_color.run(input_color_exe)
 
-    def check_register_colors(self, r0, reg_subset, regular=True):
-        # return set of regs in reg_subset whose current value 
-        # is in colorized map r0
-        # [relies on reg values being in self.cpu]
-        r_c = []
-        for name,stv in self.cpu.values.items():
-            if not (type(stv) == state.Register or type(stv) == state.RegisterAlias):
-                continue
-            if not (name in reg_subset):
-                continue
-            value = stv.get()
-            logger.debug(f"check_register_colors: {name} = {value:x}")
-            if (name in reg_subset) and value in r0:
-                logger.debug("-- that's a color")
-                # name is a register in the subset 
-                # *and* in the colorizer map
-                # and this is name of input register it corresponds to
-                input_name = r0[value]
-                p = (name, input_name)
-                r_c.append(p)
-        return r_c
-
-    def instruction_uses(self, instruction):
-        # determine set of registers this instruction uses
-        (regs_read, regs_written) = instruction.regs_access()
-        r_read = []
-        for r in regs_read:
-            name = instruction.reg_name(r)
-            r_read.append(name)
-        return r_read
-
-    def check_instruction_regs_colors(self, r0, instruction):
-        # r0 is register colors: map from initial random value at start of micro exec
-        # to corresponding initial reg name
-        # registers used (or read) by this instruction
-        # returns a list of pairs (rn, irn)
-        # where rn is the name of a register used by instruction
-        # and irn is the original register name it appears to correspond to
-        # based on colorizing
-        registers_used = self.instruction_uses(instruction)
-        logger.debug(f"registers_used = {registers_used}")
-        # This should be the set of registers used by this 
-        # instruction correspond to colorized (i.e. unitialized) values
-        return self.check_register_colors(r0, registers_used)
-
-    def analyze(self, num_micro_executions=5, num_instructions=10):
-        """A very simple analysis using colorizing and unicorn.  We run
-        multiple micro-executions of the code starting from same
-        entry.  At the start of each, we randomize register values but
-        also create a map from those specific values to name of
-        register initialized that way.  We then single step emulation
-        and *before* each instruction we check to see if any of the
-        registers *used* by this instruction have colorized values,
-        indicating they are likely direct copies of input registers.
-        Any such uses of input registers are hinted
-        """
-        for i in range(num_micro_executions):
-            # NB: perform more than one micro-exec
-            # since paths could diverge given random intial
-            # reg values
-            executor = executors.UnicornExecutor(
-                self.config.unicorn_arch, self.config.unicorn_mode
-            )            
-            logger.info("-------------------------")
-            logger.info(f"micro exec #{i}")
-            # colorize regs before beginning this micro exec
-            r0 = self.colorize_registers()
-            for (value, name) in r0.items():
-                logger.debug(f"{name} = {value:x}")
-            self.map_mem_into_cpu()
-            self.cpu.apply(executor)
-            executor.entrypoint = self.target.entry
-            executor.exitpoint = self.target.entry + len(self.target.image)
-            executor.write_register("pc", executor.entrypoint)
-            for j in range(num_instructions):
-                pc = executor.read_register("pc")
-                code = executor.read_memory(pc, 15)  # longest possible instruction
-                if code is None:
-                    assert False, "impossible state"
-                (instructions, disas) = executor.disassemble(code, 1)                
-                instruction = instructions[0]
-                # pull state back out of the executor for inspection
-                self.cpu.load(executor)
-                # determine if, for this instruction (before execution)
-                # any of the regs that will be read have values in colorized map
-                # meaning they are uninitialized values
-                rc = self.check_instruction_regs_colors(r0, instruction)           
-                for (reg_name, input_reg_name) in rc:
-                    hint = hinting.InputUseHint(
-                        message="Register used in instruction has same value as Input register", 
-                        input_register = input_reg_name,
-#                        instruction = instruction,
-                        instruction = base64.b64encode(instruction.bytes).decode(),
-                        pc = pc,
-                        micro_exec_num = i,
-                        instruction_num = j,
-                        use_register = reg_name
-                    )
-                    hinter.info(hint)
-                try:
-                    done = executor.step()                
-                    if done:
-                        break
-                except Exception as e:
-                    hint = hinting.EmulationException(
-                        message="Emulation single step raised an exception",
-                        instruction = base64.b64encode(instruction.bytes).decode(),
-                        pc = pc,
-                        micro_exec_num = i,
-                        instruction_num = j,
-                        exception = str(e)
-                    )
-                    hinter.info(hint)
-                    logger.info(e)
-                    break
-            
-                
     def emulate(self, num_instructions=10, executor=None):
         executor = executors.UnicornExecutor(
             self.config.unicorn_arch, self.config.unicorn_mode
@@ -234,6 +93,8 @@ class X86_64:
         self.unicorn_arch = unicorn.UC_ARCH_X86
         self.unicorn_mode = unicorn.UC_MODE_64
         self.byteorder = "little"
+        self.num_micro_executions = 5
+        self.num_instructions = 10
 
 
 class Region:
