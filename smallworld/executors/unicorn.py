@@ -2,12 +2,14 @@ import logging
 import math
 import typing
 
-import capstone
+import capstone as cs
 import unicorn
 
 from .. import exceptions, executable, executor
 
 logger = logging.getLogger(__name__)
+
+# type InsnList = typing.List[cs.CsInsn]
 
 
 class UnicornExecutor(executor.Executor):
@@ -73,7 +75,7 @@ class UnicornExecutor(executor.Executor):
     This also contains information about supported architectures and modes.
     """
 
-    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: capstone.CS_ARCH_X86}
+    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: cs.CS_ARCH_X86}
     """Mapping from unicorn to capstone architecture constants.
 
     For some reason these are not the same. Added as we add support for
@@ -81,8 +83,8 @@ class UnicornExecutor(executor.Executor):
     """
 
     CAPSTONE_MODE_MAP = {
-        unicorn.UC_MODE_32: capstone.CS_MODE_32,
-        unicorn.UC_MODE_64: capstone.CS_MODE_64,
+        unicorn.UC_MODE_32: cs.CS_MODE_32,
+        unicorn.UC_MODE_64: cs.CS_MODE_64,
     }
     """Mapping from unicorn to capstone mode constants.
 
@@ -109,7 +111,7 @@ class UnicornExecutor(executor.Executor):
         self.single_stepping = False
 
         self.engine = unicorn.Uc(self.arch, self.mode)
-        self.disassembler = capstone.Cs(
+        self.disassembler = cs.Cs(
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
@@ -226,7 +228,9 @@ class UnicornExecutor(executor.Executor):
             f"loaded executable (size: {len(executable.image)} B) at 0x{executable.base:x}"
         )
 
-    def disassemble(self, code: bytes, count: typing.Optional[int] = None) -> str:
+    def disassemble(
+        self, code: bytes, count: typing.Optional[int] = None
+    ) -> typing.Tuple[typing.List[cs.CsInsn], str]:
         """Disassemble the given bytes.
 
         Arguments:

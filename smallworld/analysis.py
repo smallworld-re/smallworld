@@ -232,7 +232,7 @@ class InputColorizerAnalysis(Analysis):
         Generator to iterate over registers in the cpu
         """
         for name, stv in self.config.cpu.values.items():
-            if type(stv) == state.Register:
+            if type(stv) is state.Register:
                 yield (name, stv)
 
 
@@ -277,7 +277,7 @@ class InvalidReadAnalysis(Analysis):
                     message="Emulation single step raised an exception",
                     instruction=base64.b64encode(instruction.bytes).decode(),
                     pc=pc,
-                    micro_exec_num=i,
+                    micro_exec_num=0,
                     instruction_num=j,
                     exception=str(e),
                 )

@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 import sys
@@ -10,6 +11,8 @@ from logging import DEBUG  # noqa
 from logging import INFO  # noqa
 from logging import WARNING  # noqa
 
+import capstone as cs
+
 
 class HintJSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -17,7 +20,7 @@ class HintJSONEncoder(json.JSONEncoder):
             d = asdict(o)
             d["hint_type"] = o.__class__.__name__
             return d
-        elif isinstance(o, capstone.CsInsn):
+        elif isinstance(o, cs.CsInsn):
             d = {}
             d["type"] = "capstone.CsInsn"
             d["bytes"] = base64.b64encode(o.bytes).decode()
@@ -40,9 +43,9 @@ class HintJSONDecoder(json.JSONDecoder):
             del dict["hint_type"]
             return cls(**dict)
         elif dict.get("type") == "capstone.CsInsn":
-            md = capstone.Cs(dict["cs_arch"], dict["cs_mode"])
+            md = cs.Cs(dict["cs_arch"], dict["cs_mode"])
             b = base64.b64decode(dict["bytes"])
-            g = md.disasm(dict["bytes"], dict["address"])
+            g = md.disasm(b, dict["address"])
             instr = g.__next__()
             return instr  # no
 
