@@ -33,10 +33,6 @@ instr = None
 for i in md.disasm(CODE, 0x1000):
     instr = i
 
-import code
-
-code.interact(local=locals())
-exit()
 
 print(f"instr is {instr.size} bytes: [{instr}]")
 
@@ -44,10 +40,10 @@ input_hint = hinting.InputUseHint(
     message="Register used in instruction has same value as Input register",
     input_register="rdi",
     micro_exec_num=42,
-    instruction_num=10,
-    instruction=instr,
+    capstone_instruction=instr,
     pc=0x1000,
     use_register="rax",
+    instruction_num=10
 )
 
 
