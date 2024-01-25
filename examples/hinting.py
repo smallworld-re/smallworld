@@ -1,7 +1,8 @@
-from smallworld import hinting, utils
 import base64
 
 from capstone import *
+
+from smallworld import hinting, utils
 
 hinter = hinting.getHinter(__name__)
 
@@ -32,17 +33,24 @@ instr = None
 for i in md.disasm(CODE, 0x1000):
     instr = i
 
+import code
+
+code.interact(local=locals())
+exit()
+
 print(f"instr is {instr.size} bytes: [{instr}]")
 
 input_hint = hinting.InputUseHint(
-    message="Register used in instruction has same value as Input register", 
-    input_register = "rdi",
-#    instruction = instr,
-    instruction = base64.b64encode(instr.bytes).decode(),
-    pc = 0x1000,
-    use_register = "rax")
+    message="Register used in instruction has same value as Input register",
+    input_register="rdi",
+    micro_exec_num=42,
+    instruction_num=10,
+    instruction=instr,
+    pc=0x1000,
+    use_register="rax",
+)
 
 
-#import pdb
-#pdb.set_trace()
+# import pdb
+# pdb.set_trace()
 hinter.info(input_hint)

@@ -1,4 +1,3 @@
-# type: ignore
 import logging
 import math
 import typing

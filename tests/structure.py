@@ -1,4 +1,3 @@
-# type: ignore
 # let's get all of it
 import ctypes
 import logging

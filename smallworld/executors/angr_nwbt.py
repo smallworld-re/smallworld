@@ -1,4 +1,3 @@
-# type: ignore
 import logging
 
 from ..analyses.angr.nwbt import NWBTExplorationTechnique, NWBTMemoryPlugin

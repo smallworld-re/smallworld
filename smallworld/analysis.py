@@ -1,5 +1,3 @@
-# type: ignore
-# flake8: noqa
 import abc
 import base64
 import logging
@@ -194,7 +192,7 @@ class InputColorizerAnalysis(Analysis):
         r_c = []
         for name, stv in self.config.cpu.values.items():
             if not (
-                (type(stv) == state.Register) or (type(stv) == state.RegisterAlias)
+                (type(stv) is state.Register) or (type(stv) is state.RegisterAlias)
             ):
                 continue
             if not (name in reg_subset):
@@ -220,7 +218,7 @@ class InputColorizerAnalysis(Analysis):
         # but now go through all 64 and 32-bit reg aliases and record intial values
         r0 = {}
         for name, stv in self.config.cpu.values.items():
-            if (type(stv) == state.Register) or (type(stv) == state.RegisterAlias):
+            if (type(stv) is state.Register) or (type(stv) is state.RegisterAlias):
                 if (
                     regular
                     and (name in self.regular_regs_64 or name in self.regular_regs_32)
