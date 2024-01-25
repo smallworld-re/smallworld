@@ -111,16 +111,15 @@ class Region:
         pass
 
     def to_bytes(self, value, size=None):
-        match type(value):
-            case builtins.bytes:
-                return value
-            case builtins.bytearray:
-                return value
-            case builtins.int:
-                assert size, "need a size if pushing an int"
-                return value.to_bytes(size, byteorder=self.config.byteorder)
-            case _:
-                return bytes(value)
+        if type(value) is builtins.bytes:
+            return value
+        elif type(value) is builtins.bytearray:
+            return value
+        elif type(value) is builtins.int:
+            assert size, "need a size if pushing an int"
+            return value.to_bytes(size, byteorder=self.config.byteorder)
+        else:
+            return bytes(value)
 
 
 class Stack(Region):
