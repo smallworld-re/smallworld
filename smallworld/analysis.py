@@ -3,6 +3,8 @@ import base64
 import logging
 import random
 
+from exceptions import AnalysisRunError, AnalysisSetupError
+
 from . import executable, executors, hinting, state
 
 logger = logging.getLogger(__name__)
@@ -23,8 +25,9 @@ class Analysis:
         Names should be kebab-case, all lowercase, no whitespace for proper
         formatting.
         """
+        pass
 
-        return ""
+    #        return ""
 
     @property
     @abc.abstractmethod
@@ -82,12 +85,15 @@ class InputColorizerAnalysis(Analysis):
         ]
         self.regular_regs_32 = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
 
+    @property
     def name(self) -> str:
         return "input-colorizer"
 
+    @property
     def description(self) -> str:
         return "it's almost taint"
 
+    @property
     def version(self) -> str:
         return "0.0.1"
 
@@ -118,15 +124,28 @@ class InputColorizerAnalysis(Analysis):
 
             self.config.cpu.apply(executor)
             executor.entrypoint = image.entry
+            if image.entry is None:
+                raise AnalysisSetupError("image.entry is None")
             executor.exitpoint = image.entry + len(image.image)
             executor.write_register("pc", executor.entrypoint)
             for j in range(self.config.num_instructions):
                 pc = executor.read_register("pc")
                 code = executor.read_memory(pc, 15)  # longest possible instruction
                 if code is None:
+                    raise AnalysisRunError(
+                        "Unable to read next instruction out of executor memory"
+                    )
                     assert False, "impossible state"
                 (instructions, disas) = executor.disassemble(code, 1)
                 instruction = instructions[0]
+                (uses, defs) = self.instruction_usedefs(instruction)
+                hint_instr = hinting.HintInstruction(
+                    address=instruction.address,
+                    instruction=disas,
+                    instruction_bytes=instruction.bytes,
+                    reads=uses,
+                    writes=defs,
+                )
                 # pull state back out of the executor for inspection
                 self.config.cpu.load(executor)
                 # determine if, for this instruction (before execution)
@@ -137,8 +156,7 @@ class InputColorizerAnalysis(Analysis):
                     hint = hinting.InputUseHint(
                         message="Register used in instruction has same value as Input register",
                         input_register=input_reg_name,
-                        #                        instruction = instruction,
-                        instruction=base64.b64encode(instruction.bytes).decode(),
+                        capstone_instruction=instruction,
                         pc=pc,
                         micro_exec_num=i,
                         instruction_num=j,
@@ -152,7 +170,7 @@ class InputColorizerAnalysis(Analysis):
                 except Exception as e:
                     hint = hinting.EmulationException(
                         message="Emulation single step raised an exception",
-                        instruction=base64.b64encode(instruction.bytes).decode(),
+                        capstone_instruction=instruction,
                         pc=pc,
                         micro_exec_num=i,
                         instruction_num=j,
@@ -170,13 +188,26 @@ class InputColorizerAnalysis(Analysis):
         # where rn is the name of a register used by instruction
         # and irn is the original register name it appears to correspond to
         # based on colorizing
-        registers_used = self.instruction_uses(instruction)
-        logger.debug(f"registers_used = {registers_used}")
+        (registers_uses, _) = self.instruction_usedefs(instruction)
+        logger.debug(f"registers_uses = {registers_uses}")
         # This should be the set of registers used by this
         # instruction correspond to colorized (i.e. unitialized) values
-        return self.check_register_colors(r0, registers_used)
+        return self.check_register_colors(r0, registers_uses)
 
-    def instruction_uses(self, instruction):
+    def instruction_usedefs(self, instruction):
+        # determine set of registers this instruction uses and defines
+        (regs_read, regs_written) = instruction.regs_access()
+        r_read = []
+        for r in regs_read:
+            name = instruction.reg_name(r)
+            r_read.append(name)
+        r_written = []
+        for r in regs_written:
+            name = instruction.reg_name(r)
+            r_written.append(name)
+        return (r_read, r_written)
+
+    def instruction_defs(self, instruction):
         # determine set of registers this instruction uses
         (regs_read, regs_written) = instruction.regs_access()
         r_read = []
@@ -240,12 +271,15 @@ class InvalidReadAnalysis(Analysis):
     def __init__(self, config):
         super().__init__(config)
 
+    @property
     def name(self) -> str:
         return "invalid-read"
 
+    @property
     def description(self) -> str:
         return "tries to help to figure out invalid reads"
 
+    @property
     def version(self) -> str:
         return "0.0.1"
 

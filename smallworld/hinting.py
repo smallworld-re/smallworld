@@ -3,16 +3,14 @@ import json
 import logging
 import sys
 import typing
-from dataclasses import asdict, dataclass, field, InitVar
-from typing import List
-import capstone
-import base64
+from dataclasses import InitVar, asdict, dataclass, field
 
 # logging re-exports
 from logging import CRITICAL  # noqa
 from logging import DEBUG  # noqa
 from logging import INFO  # noqa
 from logging import WARNING  # noqa
+from typing import List
 
 import capstone as cs
 
@@ -43,6 +41,7 @@ class HintInstruction:
     """
     We can't put Capstone instructions in hints, so we use these instead.
     """
+
     address: int
     instruction: str
     instruction_bytes: bytes
@@ -65,7 +64,7 @@ class Hint:
 class EmulationException(Hint):
     """Something went wrong emulating this instruction"""
 
-    capstone_instruction: InitVar[capstone.CsInsn]
+    capstone_instruction: InitVar[cs.CsInsn]
     instruction: HintInstruction = field(init=False)
     pc: int
     micro_exec_num: int
@@ -74,7 +73,9 @@ class EmulationException(Hint):
 
     def __post_init__(self, capstone_instruction):
         address = capstone_instruction.address
-        instruction_string = f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
         instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
         (regs_read, regs_written) = capstone_instruction.regs_access()
         reads = []
@@ -83,7 +84,17 @@ class EmulationException(Hint):
         writes = []
         for w in regs_written:
             writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(self, 'instruction', HintInstruction(address=address, instruction=instruction_string, instruction_bytes=instruction_bytes, reads=reads, writes=writes))
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -130,7 +141,7 @@ class InputUseHint(UnderSpecifiedValueHint):
     """
 
     input_register: str
-    capstone_instruction: InitVar[capstone.CsInsn]
+    capstone_instruction: InitVar[cs.CsInsn]
     instruction: HintInstruction = field(init=False)
     pc: int
     micro_exec_num: int
@@ -139,7 +150,9 @@ class InputUseHint(UnderSpecifiedValueHint):
 
     def __post_init__(self, capstone_instruction):
         address = capstone_instruction.address
-        instruction_string = f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
         instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
         (regs_read, regs_written) = capstone_instruction.regs_access()
         reads = []
@@ -148,7 +161,17 @@ class InputUseHint(UnderSpecifiedValueHint):
         writes = []
         for w in regs_written:
             writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(self, 'instruction', HintInstruction(address=address, instruction=instruction_string, instruction_bytes=instruction_bytes, reads=reads, writes=writes))
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
 
 
 @dataclass(frozen=True)
