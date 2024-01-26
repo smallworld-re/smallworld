@@ -300,7 +300,11 @@ class UnicornExecutor(executor.Executor):
 
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
-        self.engine.emu_start(pc, self.exitpoint, count=1)
+        try:
+            self.engine.emu_start(pc, self.exitpoint, count=1)
+        except unicorn.UcError as e:
+            logger.warn(f"emulation stopped - reason: {e}")
+            raise exceptions.EmulationError(e)
 
         pc = self.read_register("pc")
         if self.entrypoint is None or self.exitpoint is None:

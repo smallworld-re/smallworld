@@ -68,6 +68,11 @@ class Smallworld:
         input_color = analysis.InputColorizerAnalysis(input_color_config)
         input_color.run(input_color_exe)
 
+        # unicorn_debug_config = copy.deepcopy(self.config)
+        # unicorn_debug_exe = copy.deepcopy(self.target)
+        # unicorn_debug = analysis.UnicornDebugAnalysis(unicorn_debug_config)
+        # unicorn_debug.run(unicorn_debug_exe)
+
     def emulate(self, num_instructions=10, executor=None):
         executor = executors.UnicornExecutor(
             self.config.unicorn_arch, self.config.unicorn_mode
