@@ -36,7 +36,7 @@ class Smallworld:
             r_new = range(start, start + len(data))
             if overlap(r, r_new):
                 raise ValueError(
-                    f"Mapping new data f{r_new,label} overlaps existing f{r,l}"
+                    f"Mapping new data f{r_new, label} overlaps existing f{r, l}"
                 )
         # no overlap: add this data to the map
         self.memory[start] = (data, label)
@@ -53,7 +53,7 @@ class Smallworld:
         # map all memory region into the cpu
         for addr, (data, label) in self.memory.items():
             logger.debug(
-                f"writing smallworld memory region into cpu {label,addr,len(data)}"
+                f"writing smallworld memory region into cpu {label, addr, len(data)}"
             )
             mem_region = state.Memory(addr, len(data))
             mem_region.set(data)
