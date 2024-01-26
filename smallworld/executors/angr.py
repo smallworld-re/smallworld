@@ -6,7 +6,7 @@ import angr
 import claripy
 import cle
 
-from .. import executable, executor
+from .. import executor
 
 log = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class AngrExecutor(executor.Executor):
             v = claripy.BVV(value)
             self._entry.memory.store(addr, v)
 
-    def load(self, executable: executable.Executable) -> None:
+    def load(self, executable: executor.Executable) -> None:
         options: typing.Dict[str, typing.Union[str, int]] = {}
 
         if executable.arch is None:

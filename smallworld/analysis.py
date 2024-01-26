@@ -4,7 +4,7 @@ import random
 
 from smallworld.exceptions import AnalysisRunError, AnalysisSetupError
 
-from . import executable, executors, hinting, state
+from . import executor, executors, hinting, state
 
 logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)
@@ -50,7 +50,7 @@ class Analysis:
         return ""
 
     @abc.abstractmethod
-    def run(self, image: executable.Executable) -> None:
+    def run(self, image: executor.Executable) -> None:
         """Actually run the analysis.
 
         Arguments:
@@ -96,7 +96,7 @@ class InputColorizerAnalysis(Analysis):
     def version(self) -> str:
         return "0.0.1"
 
-    def run(self, image: executable.Executable) -> None:
+    def run(self, image: executor.Executable) -> None:
         """A very simple analysis using colorizing and unicorn.  We run
         multiple micro-executions of the code starting from same
         entry.  At the start of each, we randomize register values but
@@ -111,7 +111,7 @@ class InputColorizerAnalysis(Analysis):
             # NB: perform more than one micro-exec
             # since paths could diverge given random intial
             # reg values
-            executor = executors.UnicornExecutor(
+            emu = executors.UnicornExecutor(
                 self.config.unicorn_arch, self.config.unicorn_mode
             )
             logger.info("-------------------------")
@@ -121,24 +121,24 @@ class InputColorizerAnalysis(Analysis):
             for value, name in r0.items():
                 logger.debug(f"{name} = {value:x}")
 
-            self.config.cpu.apply(executor)
-            executor.entrypoint = image.entry
+            self.config.cpu.apply(emu)
+            emu.entrypoint = image.entry
             if image.entry is None:
                 raise AnalysisSetupError("image.entry is None")
-            executor.exitpoint = image.entry + len(image.image)
-            executor.write_register("pc", executor.entrypoint)
+            emu.exitpoint = image.entry + len(image.image)
+            emu.write_register("pc", emu.entrypoint)
             for j in range(self.config.num_instructions):
-                pc = executor.read_register("pc")
-                code = executor.read_memory(pc, 15)  # longest possible instruction
+                pc = emu.read_register("pc")
+                code = emu.read_memory(pc, 15)  # longest possible instruction
                 if code is None:
                     raise AnalysisRunError(
                         "Unable to read next instruction out of executor memory"
                     )
                     assert False, "impossible state"
-                (instructions, disas) = executor.disassemble(code, 1)
+                (instructions, disas) = emu.disassemble(code, 1)
                 instruction = instructions[0]
                 # pull state back out of the executor for inspection
-                self.config.cpu.load(executor)
+                self.config.cpu.load(emu)
                 # determine if, for this instruction (before execution)
                 # any of the regs that will be read have values in colorized map
                 # meaning they are uninitialized values
@@ -155,7 +155,7 @@ class InputColorizerAnalysis(Analysis):
                     )
                     hinter.info(hint)
                 try:
-                    done = executor.step()
+                    done = emu.step()
                     if done:
                         break
                 except Exception as e:

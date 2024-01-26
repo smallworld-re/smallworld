@@ -5,7 +5,7 @@ import typing
 import capstone as cs
 import unicorn
 
-from .. import exceptions, executable, executor
+from .. import exceptions, executor
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +199,7 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, executable: executable.Executable) -> None:
+    def load(self, executable: executor.Executable) -> None:
         if executable.base is None:
             raise ValueError(f"base address is required: {executable}")
 

@@ -5,7 +5,7 @@ import logging
 
 import unicorn
 
-from smallworld import analysis, cpus, executable, executors, initializer, state
+from smallworld import analysis, cpus, executor, executors, initializer, state
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class Smallworld:
     def map_code(self, base=0x1000, entry=0x1000, code=None):
         assert not (code is None)
         self.map(base, code, "code")
-        self.target = executable.Executable(image=code, entry=entry, base=base)
+        self.target = executor.Executable(image=code, entry=entry, base=base)
 
     def map_mem_into_cpu(self):
         # map all memory region into the cpu
@@ -68,22 +68,22 @@ class Smallworld:
         input_color = analysis.InputColorizerAnalysis(input_color_config)
         input_color.run(input_color_exe)
 
-    def emulate(self, num_instructions=10, executor=None):
-        executor = executors.UnicornExecutor(
+    def emulate(self, num_instructions=10):
+        emu = executors.UnicornExecutor(
             self.config.unicorn_arch, self.config.unicorn_mode
         )
 
         self.map_mem_into_cpu()
         # this should load regs and memory into executor from cpu
-        self.cpu.apply(executor)
+        self.cpu.apply(emu)
         # not thrilled with this
-        executor.entrypoint = self.target.entry
-        executor.exitpoint = self.target.entry + len(self.target.image)
-        executor.write_register("pc", executor.entrypoint)
+        emu.entrypoint = self.target.entry
+        emu.exitpoint = self.target.entry + len(self.target.image)
+        emu.write_register("pc", emu.entrypoint)
         for i in range(num_instructions):
-            executor.step()
+            emu.step()
         # pull final state out of executor into cpu
-        self.cpu.load(executor)
+        self.cpu.load(emu)
         return self.cpu
 
 
