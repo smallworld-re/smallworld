@@ -6,10 +6,7 @@ import typing
 from dataclasses import InitVar, asdict, dataclass, field
 
 # logging re-exports
-from logging import CRITICAL  # noqa
-from logging import DEBUG  # noqa
-from logging import INFO  # noqa
-from logging import WARNING  # noqa
+from logging import WARNING
 from typing import List
 
 import capstone as cs
