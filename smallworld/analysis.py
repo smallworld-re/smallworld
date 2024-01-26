@@ -1,5 +1,4 @@
 import abc
-import base64
 import logging
 import random
 
@@ -138,14 +137,6 @@ class InputColorizerAnalysis(Analysis):
                     assert False, "impossible state"
                 (instructions, disas) = executor.disassemble(code, 1)
                 instruction = instructions[0]
-                (uses, defs) = self.instruction_usedefs(instruction)
-                hint_instr = hinting.HintInstruction(
-                    address=instruction.address,
-                    instruction=disas,
-                    instruction_bytes=instruction.bytes,
-                    reads=uses,
-                    writes=defs,
-                )
                 # pull state back out of the executor for inspection
                 self.config.cpu.load(executor)
                 # determine if, for this instruction (before execution)
@@ -168,7 +159,7 @@ class InputColorizerAnalysis(Analysis):
                     if done:
                         break
                 except Exception as e:
-                    hint = hinting.EmulationException(
+                    exhint = hinting.EmulationException(
                         message="Emulation single step raised an exception",
                         capstone_instruction=instruction,
                         pc=pc,
@@ -176,7 +167,7 @@ class InputColorizerAnalysis(Analysis):
                         instruction_num=j,
                         exception=str(e),
                     )
-                    hinter.info(hint)
+                    hinter.info(exhint)
                     logger.info(e)
                     break
 
@@ -290,6 +281,8 @@ class InvalidReadAnalysis(Analysis):
 
         self.config.cpu.apply(executor)
         executor.entrypoint = image.entry
+        if image.entry is None:
+            raise AnalysisSetupError("image.entry is None")
         executor.exitpoint = image.entry + len(image.image)
         executor.write_register("pc", executor.entrypoint)
 
@@ -309,7 +302,7 @@ class InvalidReadAnalysis(Analysis):
             except Exception as e:
                 hint = hinting.EmulationException(
                     message="Emulation single step raised an exception",
-                    instruction=base64.b64encode(instruction.bytes).decode(),
+                    capstone_instruction=instruction,
                     pc=pc,
                     micro_exec_num=0,
                     instruction_num=j,

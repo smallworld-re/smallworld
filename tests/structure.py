@@ -79,8 +79,8 @@ node1.next = node2_addr
 
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
-smw.rdi = node1_addr
-print(f"RDI: {hex(smw.rdi)}")
+smw.cpu.rdi = node1_addr
+print(f"RDI: {hex(smw.cpu.rdi)}")
 # all the allocated things get put in memory as concrete bytes
 smw.map_region(alloc)
 
