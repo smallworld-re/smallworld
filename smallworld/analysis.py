@@ -2,7 +2,7 @@ import abc
 import logging
 import random
 
-from exceptions import AnalysisRunError, AnalysisSetupError
+from smallworld.exceptions import AnalysisRunError, AnalysisSetupError
 
 from . import executable, executors, hinting, state
 
