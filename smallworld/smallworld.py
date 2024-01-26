@@ -116,7 +116,7 @@ class Region:
         elif type(value) is builtins.bytearray:
             return value
         elif type(value) is builtins.int:
-            assert size, "need a size if pushing an int"
+            assert size, "need a size if pushing an int "
             return value.to_bytes(size, byteorder=self.config.byteorder)
         else:
             return bytes(value)
