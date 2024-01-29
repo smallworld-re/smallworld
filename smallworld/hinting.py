@@ -126,6 +126,20 @@ class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
 
 
 @dataclass(frozen=True)
+class UnderSpecifiedMemoryRefHint(UnderSpecifiedValueHint):
+    """Represents a memory range whose value can't be fully determined from the environment.
+
+    Arguments:
+        address (int): The address of the beginning of the range
+        size (int): The size of the range
+    """
+
+    base: typing.Tuple[str, int]
+    index: typing.Tuple[str, int]
+    offset: int
+
+
+@dataclass(frozen=True)
 class InputUseHint(UnderSpecifiedValueHint):
     """Represents an instruction at which some register input value is used,
        i.e. an information flow from input to some instruction

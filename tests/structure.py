@@ -67,27 +67,30 @@ class StructNode(ctypes.LittleEndianStructure):
 node1 = StructNode()
 node1.data = 0  # thus ->next will get used to traverse
 node1.empty = 0
+node1.prev = 0
 node1_addr = alloc.malloc(node1)
 
 node2 = StructNode()
 node2.data = 1  # thus ->prev wil get used to traverse
-node2.empty = 1
+node2.empty = 0
 node2_addr = alloc.malloc(node2)
 
 # and link them up
 node1.next = node2_addr
+node2.prev = node1_addr
 
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
-smw.cpu.rdi = node1_addr
-print(f"RDI: {hex(smw.cpu.rdi)}")
+smw.cpu.rdi.set(node1_addr)
+print(f"RDI: {hex(smw.cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 smw.map_region(alloc)
 
+smw.analyze()
 # now we can do a single micro-execution without error
 final_state = smw.emulate(num_instructions=13)
 
 # print first 64 bytes in that allocated (and now changed) memory
 # to look at the result. this is gross.  Maybe we should be able to
 # use that cytpes struct defn to read out memory and understand it
-print(final_state.memory(0x2000, 64))
+# print(final_state.memory(0x2000, 64))

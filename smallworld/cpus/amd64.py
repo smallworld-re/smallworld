@@ -3,9 +3,15 @@ from . import i386
 
 
 class AMD64CPUState(i386.i386CPUState):
-    """AMD64 CPU state model."""
+    """AMD64 CPU state model.
 
-    def __init__(self):
+    See arguments for i386CPUState.
+    """
+
+    BITS = 64
+    STACK_POINTER = "rsp"
+
+    def __init__(self, *args, **kwargs):
         self.rax = state.Register("rax", width=8)
         self.eax = state.RegisterAlias("eax", self.rax, width=4)
         self.ax = state.RegisterAlias("ax", self.rax, width=2)
@@ -109,3 +115,5 @@ class AMD64CPUState(i386.i386CPUState):
         self.cr2 = state.Register("cr2", width=8)
         self.cr3 = state.Register("cr3", width=8)
         self.cr4 = state.Register("cr4", width=8)
+
+        self.setup(*args, **kwargs)
