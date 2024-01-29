@@ -1,11 +1,27 @@
 import abc
 import logging
 import typing
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 
-class Executable:
+@dataclass(frozen=True)
+class Configuration:
+    """Configuration parameters.
+
+    Arguments:
+        arch (str): The architecture for emulation ("x86", "arm", etc).
+        mode (str): The mode for emulation ("32", "64", etc).
+        byteorder (str): Endianness ("little" or "big").
+    """
+
+    arch: str = "x86"
+    mode: str = "64"
+    byteorder: str = "little"
+
+
+class Code:
     """An executable image and metadata storage class.
 
     Arguments:
@@ -106,11 +122,11 @@ class Executor(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def load(self, executable: Executable) -> None:
+    def load(self, code: Code) -> None:
         """Load a binary for execution.
 
         Arguments:
-            executable (Executable): The executable to load.
+            code (Code): The executable to load.
         """
 
         pass

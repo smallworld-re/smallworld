@@ -2,7 +2,7 @@
 import argparse
 import logging
 
-from smallworld import executable
+from smallworld import executor
 from smallworld.cpus.amd64 import AMD64CPUState
 from smallworld.executors import AngrNWBTExecutor
 from smallworld.initializer import OSRandomInitializer
@@ -84,9 +84,7 @@ if __name__ == "__main__":
 
     devrandom = OSRandomInitializer()
 
-    target = executable.Executable.from_filepath(
-        args.infile, base=args.base, entry=args.entry
-    )
+    target = executor.Code.from_filepath(args.infile, base=args.base, entry=args.entry)
 
     driver = AngrNWBTExecutor(args.arch)
     driver.load(target)

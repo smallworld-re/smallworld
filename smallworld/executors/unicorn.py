@@ -9,16 +9,20 @@ from .. import exceptions, executor
 
 logger = logging.getLogger(__name__)
 
-# type InsnList = typing.List[cs.CsInsn]
-
 
 class UnicornExecutor(executor.Executor):
     """An executor for the Unicorn emulation engine.
 
     Arguments:
-        arch (int): Unicorn architecture constant.
-        mode (int): Unicorn mode constant.
+        arch (str): Unicorn architecture constant.
+        mode (str): Unicorn mode constant.
     """
+
+    ARCHITECTURES = {"x86": unicorn.UC_ARCH_X86}
+    """Supported architecture string mapping."""
+
+    MODES = {"32": unicorn.UC_MODE_32, "64": unicorn.UC_MODE_64}
+    """Supported processor mode string mapping."""
 
     I386_REGISTERS = {
         "eax": unicorn.x86_const.UC_X86_REG_EAX,
@@ -92,7 +96,7 @@ class UnicornExecutor(executor.Executor):
     different systems.
     """
 
-    def __init__(self, arch: int, mode: int):
+    def __init__(self, arch: str, mode: str):
         super().__init__()
 
         if arch not in self.REGISTERS:
@@ -101,8 +105,16 @@ class UnicornExecutor(executor.Executor):
         if mode not in self.REGISTERS[arch]:
             raise ValueError("unsupported mode for current architecture")
 
-        self.arch = arch
-        self.mode = mode
+        arch = arch.lower()
+        if arch not in self.ARCHITECTURES:
+            raise ValueError(f"unsupported architecture: {arch}")
+        self.arch = self.ARCHITECTURES[arch]
+
+        mode = mode.lower()
+        if mode not in self.MODES:
+            raise ValueError(f"unsupported processor mode: {mode}")
+        self.mode = self.MODES[mode]
+
         self.memory: typing.Dict[typing.Tuple[int, int], int] = {}
 
         self.entrypoint: typing.Optional[int] = None
@@ -129,7 +141,6 @@ class UnicornExecutor(executor.Executor):
         name = name.lower()
 
         # support some generic register references
-
         if name == "pc":
             if self.arch == unicorn.UC_ARCH_X86:
                 if self.mode == unicorn.UC_MODE_32:
@@ -199,7 +210,7 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, executable: executor.Executable) -> None:
+    def load(self, executable: executor.Code) -> None:
         if executable.base is None:
             raise ValueError(f"base address is required: {executable}")
 

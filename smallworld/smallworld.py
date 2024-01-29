@@ -47,7 +47,7 @@ class Smallworld:
     def map_code(self, base=0x1000, entry=0x1000, code=None):
         assert not (code is None)
         self.map(base, code, "code")
-        self.target = executor.Executable(image=code, entry=entry, base=base)
+        self.target = executor.Code(image=code, entry=entry, base=base)
 
     def map_mem_into_cpu(self):
         # map all memory region into the cpu

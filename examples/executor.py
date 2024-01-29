@@ -33,7 +33,7 @@ zero = initializer.ZeroInitializer()
 cpu.initialize(zero)
 cpu.apply(emu)
 
-target = executor.Executable.from_filepath(arguments.target, base=0x1000)
+target = executor.Code.from_filepath(arguments.target, base=0x1000)
 
 emu.load(target)
 

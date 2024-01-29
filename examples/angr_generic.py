@@ -2,7 +2,7 @@
 import argparse
 import logging
 
-from smallworld import executable
+from smallworld import executor
 from smallworld.executors import AngrNWBTExecutor
 from smallworld.utils import setup_logging
 
@@ -42,9 +42,7 @@ if __name__ == "__main__":
     else:
         setup_logging(level=logging.INFO)
 
-    target = executable.Executable.from_filepath(
-        args.infile, base=args.base, entry=args.entry
-    )
+    target = executor.Code.from_filepath(args.infile, base=args.base, entry=args.entry)
 
     driver = AngrNWBTExecutor(args.arch)
     driver.load(target)

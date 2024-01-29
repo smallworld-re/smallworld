@@ -1,10 +1,10 @@
 import abc
+import copy
 import logging
 import random
 
-from smallworld.exceptions import AnalysisRunError, AnalysisSetupError
-
 from . import executor, executors, hinting, state
+from .exceptions import AnalysisRunError, AnalysisSetupError
 
 logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)
@@ -13,7 +13,7 @@ hinter = hinting.getHinter(__name__)
 class Analysis:
     """The base class for all analyses."""
 
-    def __init__(self, config):
+    def __init__(self, config: executor.Configuration):
         self.config = config
 
     @property
@@ -25,8 +25,6 @@ class Analysis:
         formatting.
         """
         pass
-
-    #        return ""
 
     @property
     @abc.abstractmethod
@@ -50,11 +48,14 @@ class Analysis:
         return ""
 
     @abc.abstractmethod
-    def run(self, image: executor.Executable) -> None:
+    def run(self, image: executor.Code, state: state.State) -> None:
         """Actually run the analysis.
 
+        This function **should not** modify the provided State - instead, it
+        should be coppied before modification.
+
         Arguments:
-            image (Executable): The bytes of the execution image or code to run.
+            image (Code): The bytes of the execution image or code to run.
             state (State): A state class on which this analysis should run.
         """
 
@@ -62,41 +63,40 @@ class Analysis:
 
 
 class InputColorizerAnalysis(Analysis):
-    def __init__(self, config):
-        super().__init__(config)
-        self.regular_regs_64 = [
-            "rax",
-            "rbx",
-            "rcx",
-            "rdx",
-            "rdi",
-            "rsi",
-            "rbp",
-            "rsp",
-            "r8",
-            "r9",
-            "r10",
-            "r11",
-            "r12",
-            "r13",
-            "r14",
-            "r15",
-        ]
-        self.regular_regs_32 = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
+    name = "input-colorizer"
+    description = "it's almost taint"
+    version = "0.0.1"
 
-    @property
-    def name(self) -> str:
-        return "input-colorizer"
+    REGULAR_REGS_64 = [
+        "rax",
+        "rbx",
+        "rcx",
+        "rdx",
+        "rdi",
+        "rsi",
+        "rbp",
+        "rsp",
+        "r8",
+        "r9",
+        "r10",
+        "r11",
+        "r12",
+        "r13",
+        "r14",
+        "r15",
+    ]
 
-    @property
-    def description(self) -> str:
-        return "it's almost taint"
+    REGULAR_REGS_32 = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
 
-    @property
-    def version(self) -> str:
-        return "0.0.1"
+    def __init__(
+        self, *args, num_micro_executions: int = 5, num_instructions: int = 10, **kwargs
+    ):
+        super().__init__(*args, **kwargs)
 
-    def run(self, image: executor.Executable) -> None:
+        self.num_micro_executions = num_micro_executions
+        self.num_instructions = num_instructions
+
+    def run(self, image: executor.Code, state: state.State) -> None:
         """A very simple analysis using colorizing and unicorn.  We run
         multiple micro-executions of the code starting from same
         entry.  At the start of each, we randomize register values but
@@ -107,13 +107,11 @@ class InputColorizerAnalysis(Analysis):
         indicating they are likely direct copies of input registers.
         Any such uses of input registers are hinted
         """
-        for i in range(self.config.num_micro_executions):
+        for i in range(self.num_micro_executions):
             # NB: perform more than one micro-exec
             # since paths could diverge given random intial
             # reg values
-            emu = executors.UnicornExecutor(
-                self.config.unicorn_arch, self.config.unicorn_mode
-            )
+            emu = executors.UnicornExecutor(self.config.arch, self.config.mode)
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
             # colorize regs before beginning this micro exec
@@ -121,13 +119,13 @@ class InputColorizerAnalysis(Analysis):
             for value, name in r0.items():
                 logger.debug(f"{name} = {value:x}")
 
-            self.config.cpu.apply(emu)
+            state.apply(emu)
             emu.entrypoint = image.entry
             if image.entry is None:
                 raise AnalysisSetupError("image.entry is None")
             emu.exitpoint = image.entry + len(image.image)
             emu.write_register("pc", emu.entrypoint)
-            for j in range(self.config.num_instructions):
+            for j in range(self.num_instructions):
                 pc = emu.read_register("pc")
                 code = emu.read_memory(pc, 15)  # longest possible instruction
                 if code is None:
@@ -138,7 +136,8 @@ class InputColorizerAnalysis(Analysis):
                 (instructions, disas) = emu.disassemble(code, 1)
                 instruction = instructions[0]
                 # pull state back out of the executor for inspection
-                self.config.cpu.load(emu)
+                state = copy.deepcopy(state)
+                state.load(emu)
                 # determine if, for this instruction (before execution)
                 # any of the regs that will be read have values in colorized map
                 # meaning they are uninitialized values
@@ -234,7 +233,7 @@ class InputColorizerAnalysis(Analysis):
     def colorize_registers(self, regular=True):
         # colorize registers
         for name, reg in self.registers():
-            if (regular and (name in self.regular_regs_64)) or (not regular):
+            if (regular and (name in self.REGULAR_REGS_64)) or (not regular):
                 # only colorize "regular" registers of full 64 bits
                 reg.set(random.randint(0, 0xFFFFFFFFFFFFFFF))
         # but now go through all 64 and 32-bit reg aliases and record intial values
@@ -243,7 +242,7 @@ class InputColorizerAnalysis(Analysis):
             if (type(stv) is state.Register) or (type(stv) is state.RegisterAlias):
                 if (
                     regular
-                    and (name in self.regular_regs_64 or name in self.regular_regs_32)
+                    and (name in self.REGULAR_REGS_64 or name in self.REGULAR_REGS_32)
                 ) or (not regular):
                     r0[stv.get()] = name
                     logger.debug(f"color[{name}] = {stv.get():x}")
