@@ -279,7 +279,7 @@ class Stack(Memory):
         return value
 
     def set(self, value: bytes) -> None:
-        raise NotImplementedError()
+        logger.warning("reading stack from memory not yet implemented")
 
     def push(self, value, size=None):
         allocation = len(self.to_bytes(value, size))

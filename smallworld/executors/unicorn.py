@@ -99,12 +99,6 @@ class UnicornExecutor(executor.Executor):
     def __init__(self, arch: str, mode: str):
         super().__init__()
 
-        if arch not in self.REGISTERS:
-            raise ValueError("unsupported architecture")
-
-        if mode not in self.REGISTERS[arch]:
-            raise ValueError("unsupported mode for current architecture")
-
         arch = arch.lower()
         if arch not in self.ARCHITECTURES:
             raise ValueError(f"unsupported architecture: {arch}")
@@ -114,6 +108,12 @@ class UnicornExecutor(executor.Executor):
         if mode not in self.MODES:
             raise ValueError(f"unsupported processor mode: {mode}")
         self.mode = self.MODES[mode]
+
+        if self.arch not in self.REGISTERS:
+            raise ValueError("unsupported architecture")
+
+        if self.mode not in self.REGISTERS[self.arch]:
+            raise ValueError("unsupported mode for current architecture")
 
         self.memory: typing.Dict[typing.Tuple[int, int], int] = {}
 
@@ -210,34 +210,31 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, executable: executor.Code) -> None:
-        if executable.base is None:
-            raise ValueError(f"base address is required: {executable}")
+    def load(self, code: executor.Code) -> None:
+        if code.base is None:
+            raise ValueError(f"base address is required: {code}")
 
-        self.write_memory(executable.base, executable.image)
+        self.write_memory(code.base, code.image)
 
-        if executable.entry is not None:
-            self.entrypoint = executable.entry
-            if (
-                self.entrypoint < executable.base
-                or self.entrypoint > executable.base + len(executable.image)
+        if code.entry is not None:
+            self.entrypoint = code.entry
+            if self.entrypoint < code.base or self.entrypoint > code.base + len(
+                code.image
             ):
                 raise ValueError(
-                    "Entrypoint is not in executable: 0x{self.entrypoint:x} vs (0x{executable.base:x}, 0x{executable.base + len(executable.image):x})"
+                    "Entrypoint is not in code: 0x{self.entrypoint:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
         else:
-            self.entrypoint = executable.base
+            self.entrypoint = code.base
 
-        if executable.exits:
-            self.exitpoint = list(executable.exits)[0]
+        if code.exits:
+            self.exitpoint = list(code.exits)[0]
         else:
-            self.exitpoint = executable.base + len(executable.image)
+            self.exitpoint = code.base + len(code.image)
 
         self.write_register("pc", self.entrypoint)
 
-        logger.info(
-            f"loaded executable (size: {len(executable.image)} B) at 0x{executable.base:x}"
-        )
+        logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None
