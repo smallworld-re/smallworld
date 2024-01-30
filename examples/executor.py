@@ -3,8 +3,6 @@
 import argparse
 import logging
 
-import unicorn
-
 from smallworld import cpus, exceptions, executor, executors, initializer, utils
 
 parser = argparse.ArgumentParser(
@@ -27,7 +25,7 @@ else:
 utils.setup_logging(level=level)
 
 cpu = cpus.AMD64CPUState()
-emu = executors.UnicornExecutor(unicorn.UC_ARCH_X86, unicorn.UC_MODE_64)
+emu = executors.UnicornExecutor("x86", "64")
 zero = initializer.ZeroInitializer()
 
 cpu.initialize(zero)

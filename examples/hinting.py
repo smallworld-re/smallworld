@@ -42,6 +42,4 @@ input_hint = hinting.InputUseHint(
 )
 
 
-# import pdb
-# pdb.set_trace()
 hinter.info(input_hint)
