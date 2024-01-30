@@ -1,6 +1,6 @@
 import logging
 
-from smallworld import analyses, cpus, executor, initializer, state, utils
+from smallworld import cpus, executor, initializer, state, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
@@ -31,8 +31,7 @@ cpu.map(stack)
 cpu.rsp.set(stack.address)
 
 # run an analysis
-module = analyses.InputColorizerAnalysis()
-module.run(code, cpu)
+utils.analyze(code, cpu)
 
 # emulate
 final = utils.emulate(code, cpu)

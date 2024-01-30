@@ -3,7 +3,7 @@ import json
 import logging
 import typing
 
-from . import executor, executors, hinting, state
+from . import analyses, executor, executors, hinting, state
 
 
 class CharacterLevelFilter(logging.Filter):
@@ -206,3 +206,18 @@ def emulate(image: executor.Code, state: T) -> T:
     state.load(emu)
 
     return state
+
+
+def analyze(image: executor.Code, state: T) -> None:
+    """Run all available analyses on some code.
+
+    All analyses are run with default parameters.
+
+    Arguments:
+        image (Code): The bytes of the execution image or code to run.
+        state (CPU): A state class from which emulation should begin.
+    """
+
+    for name in analyses.__all__:
+        module = getattr(analyses, name)()
+        module.run(image, state)
