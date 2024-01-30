@@ -336,7 +336,7 @@ class BumpAllocator(Heap):
         return value
 
     def set(self, value: bytes) -> None:
-        raise NotImplementedError()
+        logger.warning("reading heap from memory not yet implemented")
 
     def malloc(self, value, size: typing.Optional[int] = None) -> int:
         allocation = len(self.to_bytes(value, size))
