@@ -33,3 +33,9 @@ cpu.rsp.set(stack.address)
 # run an analysis
 module = analyses.InputColorizerAnalysis()
 module.run(code, cpu)
+
+# emulate
+final = utils.emulate(code, cpu)
+
+# read out the final state
+print(final.rax)
