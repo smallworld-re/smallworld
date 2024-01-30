@@ -2,10 +2,10 @@ import logging
 import math
 import typing
 
-import capstone
+import capstone as cs
 import unicorn
 
-from .. import exceptions, executable, executor
+from .. import exceptions, executor
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +14,15 @@ class UnicornExecutor(executor.Executor):
     """An executor for the Unicorn emulation engine.
 
     Arguments:
-        arch (int): Unicorn architecture constant.
-        mode (int): Unicorn mode constant.
+        arch (str): Unicorn architecture constant.
+        mode (str): Unicorn mode constant.
     """
+
+    ARCHITECTURES = {"x86": unicorn.UC_ARCH_X86}
+    """Supported architecture string mapping."""
+
+    MODES = {"32": unicorn.UC_MODE_32, "64": unicorn.UC_MODE_64}
+    """Supported processor mode string mapping."""
 
     I386_REGISTERS = {
         "eax": unicorn.x86_const.UC_X86_REG_EAX,
@@ -73,7 +79,7 @@ class UnicornExecutor(executor.Executor):
     This also contains information about supported architectures and modes.
     """
 
-    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: capstone.CS_ARCH_X86}
+    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: cs.CS_ARCH_X86}
     """Mapping from unicorn to capstone architecture constants.
 
     For some reason these are not the same. Added as we add support for
@@ -81,8 +87,8 @@ class UnicornExecutor(executor.Executor):
     """
 
     CAPSTONE_MODE_MAP = {
-        unicorn.UC_MODE_32: capstone.CS_MODE_32,
-        unicorn.UC_MODE_64: capstone.CS_MODE_64,
+        unicorn.UC_MODE_32: cs.CS_MODE_32,
+        unicorn.UC_MODE_64: cs.CS_MODE_64,
     }
     """Mapping from unicorn to capstone mode constants.
 
@@ -90,17 +96,25 @@ class UnicornExecutor(executor.Executor):
     different systems.
     """
 
-    def __init__(self, arch: int, mode: int):
+    def __init__(self, arch: str, mode: str):
         super().__init__()
 
-        if arch not in self.REGISTERS:
+        arch = arch.lower()
+        if arch not in self.ARCHITECTURES:
+            raise ValueError(f"unsupported architecture: {arch}")
+        self.arch = self.ARCHITECTURES[arch]
+
+        mode = mode.lower()
+        if mode not in self.MODES:
+            raise ValueError(f"unsupported processor mode: {mode}")
+        self.mode = self.MODES[mode]
+
+        if self.arch not in self.REGISTERS:
             raise ValueError("unsupported architecture")
 
-        if mode not in self.REGISTERS[arch]:
+        if self.mode not in self.REGISTERS[self.arch]:
             raise ValueError("unsupported mode for current architecture")
 
-        self.arch = arch
-        self.mode = mode
         self.memory: typing.Dict[typing.Tuple[int, int], int] = {}
 
         self.entrypoint: typing.Optional[int] = None
@@ -109,9 +123,10 @@ class UnicornExecutor(executor.Executor):
         self.single_stepping = False
 
         self.engine = unicorn.Uc(self.arch, self.mode)
-        self.disassembler = capstone.Cs(
+        self.disassembler = cs.Cs(
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
+        self.disassembler.detail = True
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -126,7 +141,6 @@ class UnicornExecutor(executor.Executor):
         name = name.lower()
 
         # support some generic register references
-
         if name == "pc":
             if self.arch == unicorn.UC_ARCH_X86:
                 if self.mode == unicorn.UC_MODE_32:
@@ -192,46 +206,49 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"new memory map 0x{address:x}[{allocation}]")
 
-        self.engine.mem_write(address, value)
+        self.engine.mem_write(address, bytes(value))
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, executable: executable.Executable) -> None:
-        if executable.base is None:
-            raise ValueError(f"base address is required: {executable}")
+    def load(self, code: executor.Code) -> None:
+        if code.base is None:
+            raise ValueError(f"base address is required: {code}")
 
-        self.write_memory(executable.base, executable.image)
+        self.write_memory(code.base, code.image)
 
-        if executable.entry is not None:
-            self.entrypoint = executable.entry
-            if (
-                self.entrypoint < executable.base
-                or self.entrypoint > executable.base + len(executable.image)
+        if code.entry is not None:
+            self.entrypoint = code.entry
+            if self.entrypoint < code.base or self.entrypoint > code.base + len(
+                code.image
             ):
                 raise ValueError(
-                    "Entrypoint is not in executable: 0x{self.entrypoint:x} vs (0x{executable.base:x}, 0x{executable.base + len(executable.image):x})"
+                    "Entrypoint is not in code: 0x{self.entrypoint:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
         else:
-            self.entrypoint = executable.base
+            self.entrypoint = code.base
 
-        if executable.exits:
-            self.exitpoint = list(executable.exits)[0]
+        if code.exits:
+            self.exitpoint = list(code.exits)[0]
         else:
-            self.exitpoint = executable.base + len(executable.image)
+            self.exitpoint = code.base + len(code.image)
 
         self.write_register("pc", self.entrypoint)
 
-        logger.info(
-            f"loaded executable (size: {len(executable.image)} B) at 0x{executable.base:x}"
-        )
+        logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
-    def disassemble(self, code: bytes, count: typing.Optional[int] = None) -> str:
+    def disassemble(
+        self, code: bytes, count: typing.Optional[int] = None
+    ) -> typing.Tuple[typing.List[cs.CsInsn], str]:
         """Disassemble the given bytes.
 
         Arguments:
             code (bytes): A collection of bytes to be disassembled.
             count (int): Optional - specifies the maximum number of
                 instructions to disassemble.
+
+        Returns a pair (instr,disas) each is a list of at most count things
+          instr is list of capstone instr objects
+          dias is list of string disassembly for each instr
         """
 
         # TODO: annotate that offsets are relative
@@ -244,13 +261,14 @@ class UnicornExecutor(executor.Executor):
         instructions = self.disassembler.disasm(code, base)
 
         disassembly = []
+        insns = []
         for i, instruction in enumerate(instructions):
             if count is not None and i >= count:
                 break
-
+            insns.append(instruction)
             disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
 
-        return "\n".join(disassembly)
+        return (insns, "\n".join(disassembly))
 
     def check(self) -> None:
         """Some checks to make sure ok to emulate."""
@@ -286,11 +304,15 @@ class UnicornExecutor(executor.Executor):
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        instruction = self.disassemble(code, 1)
+        (instr, disas) = self.disassemble(code, 1)
 
-        logger.info(f"single step at 0x{pc:x}: {instruction}")
+        logger.info(f"single step at 0x{pc:x}: {disas}")
 
-        self.engine.emu_start(pc, self.exitpoint, count=1)
+        try:
+            self.engine.emu_start(pc, self.exitpoint, count=1)
+        except unicorn.UcError as e:
+            logger.warn(f"emulation stopped - reason: {e}")
+            raise exceptions.EmulationError(e)
 
         pc = self.read_register("pc")
         if self.entrypoint is None or self.exitpoint is None:

@@ -1,50 +1,13 @@
-import random
-import typing
-
 from .. import state
 
 
-class i386CPUState(state.State):
-    """i386 CPU state model.
+class i386CPUState(state.CPU):
+    """i386 CPU state model."""
 
-    Arguments:
-        stackaddress (int): Address of the stack - if omitted, the stack
-            address is randomized in high memory space.
-        stacksize (int): Size of the stack. This must be a multiple of the page
-            size.
-    """
+    arch = "x86"
+    mode = "32"
 
-    BITS = 32
-    PAGE_SIZE = 0x1000
-    STACK_POINTER = "esp"
-
-    def setup(
-        self,
-        stackaddress: typing.Optional[int] = None,
-        stacksize: int = 0x4000,
-    ) -> None:
-        """Common setup for this and subclasses."""
-
-        if stacksize % self.PAGE_SIZE:
-            raise ValueError("stacksize must be a multiple of the page size")
-
-        if stackaddress is None:
-            minimum = 0xFF
-            minimum = minimum << (self.BITS - minimum.bit_length())
-
-            maximum = (1 << self.BITS) - 1
-            maximum = maximum - stacksize
-
-            stackaddress = random.randint(
-                minimum // self.PAGE_SIZE, maximum // self.PAGE_SIZE
-            )
-            stackaddress = stackaddress * self.PAGE_SIZE
-
-        self.stack = state.Memory(stackaddress, stacksize)
-
-        getattr(self, self.STACK_POINTER).set(stackaddress)
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         self.eax = state.Register("eax")
         self.ax = state.RegisterAlias("ax", self.eax, width=2)
         self.al = state.RegisterAlias("al", self.eax, width=1)
@@ -98,5 +61,3 @@ class i386CPUState(state.State):
         self.cr2 = state.Register("cr2")
         self.cr3 = state.Register("cr3")
         self.cr4 = state.Register("cr4")
-
-        self.setup(*args, **kwargs)

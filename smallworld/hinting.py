@@ -1,14 +1,15 @@
+import base64
 import json
 import logging
 import sys
 import typing
-from dataclasses import asdict, dataclass
+from dataclasses import InitVar, asdict, dataclass, field
 
 # logging re-exports
-from logging import CRITICAL  # noqa
-from logging import DEBUG  # noqa
-from logging import INFO  # noqa
-from logging import WARNING  # noqa
+from logging import WARNING
+from typing import List
+
+import capstone as cs
 
 
 class HintJSONEncoder(json.JSONEncoder):
@@ -33,6 +34,19 @@ class HintJSONDecoder(json.JSONDecoder):
 
 
 @dataclass(frozen=True)
+class HintInstruction:
+    """
+    We can't put Capstone instructions in hints, so we use these instead.
+    """
+
+    address: int
+    instruction: str
+    instruction_bytes: bytes
+    reads: List[str]
+    writes: List[str]
+
+
+@dataclass(frozen=True)
 class Hint:
     """Base class for all Hints.
 
@@ -41,6 +55,43 @@ class Hint:
     """
 
     message: str
+
+
+@dataclass(frozen=True)
+class EmulationException(Hint):
+    """Something went wrong emulating this instruction"""
+
+    capstone_instruction: InitVar[cs.CsInsn]
+    instruction: HintInstruction = field(init=False)
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+    exception: str
+
+    def __post_init__(self, capstone_instruction):
+        address = capstone_instruction.address
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
+        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
+        (regs_read, regs_written) = capstone_instruction.regs_access()
+        reads = []
+        for r in regs_read:
+            reads.append(f"{capstone_instruction.reg_name(r)}")
+        writes = []
+        for w in regs_written:
+            writes.append(f"{capstone_instruction.reg_name(w)}")
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -75,7 +126,68 @@ class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
 
 
 @dataclass(frozen=True)
+class UnderSpecifiedMemoryRefHint(UnderSpecifiedValueHint):
+    """Represents a memory range whose value can't be fully determined from the environment.
+
+    Arguments:
+        address (int): The address of the beginning of the range
+        size (int): The size of the range
+    """
+
+    base: typing.Tuple[str, int]
+    index: typing.Tuple[str, int]
+    offset: int
+
+
+@dataclass(frozen=True)
+class InputUseHint(UnderSpecifiedValueHint):
+    """Represents an instruction at which some register input value is used,
+       i.e. an information flow from input to some instruction
+
+    Arguments:
+      input_reg: The name of the register input value (source)
+      instr (capstone instruction): The instruction in which the input is used
+      pc (int): program counter of that instruction
+      use_reg (string): The name of the register in instr that is using the input value
+    """
+
+    input_register: str
+    capstone_instruction: InitVar[cs.CsInsn]
+    instruction: HintInstruction = field(init=False)
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+    use_register: str
+
+    def __post_init__(self, capstone_instruction):
+        address = capstone_instruction.address
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
+        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
+        (regs_read, regs_written) = capstone_instruction.regs_access()
+        reads = []
+        for r in regs_read:
+            reads.append(f"{capstone_instruction.reg_name(r)}")
+        writes = []
+        for w in regs_written:
+            writes.append(f"{capstone_instruction.reg_name(w)}")
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
+
+
+@dataclass(frozen=True)
 class TypeHint(Hint):
+
     """Super class for Type Hints"""
 
     pass
