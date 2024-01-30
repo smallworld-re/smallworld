@@ -2,25 +2,28 @@
 import ctypes
 import logging
 
-import smallworld.smallworld as sw
-from smallworld import utils
+from smallworld import analyses, cpus, executor, initializer, state, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
-# create a small world
-conf = sw.X86_64()
-smw = sw.Smallworld(config=conf)
 
 # note: code is of type bytes
-code = open("struct.bin", "rb").read()
+code = executor.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
 
+# create a small world
+cpu = cpus.AMD64CPUState()
+zero = initializer.ZeroInitializer()
+cpu.initialize(zero)
+# conf = sw.X86_64()
+# smw = sw.Smallworld(config=conf)
 # map the code into memory at this address
-smw.map_code(base=0x1000, entry=0x1000, code=code)
 
 # analyze code given that entry point
 # Ouput: this will log hints somewhere
-smw.analyze()
+# smw.analyze()
+# module = analyses.InputColorizerAnalysis()
+# module.run(code, cpu)
 
 # Next we, look at hints and see fail at
 # 2nd instruction bc
@@ -49,7 +52,7 @@ smw.analyze()
 
 # this is an allocator in charge of a memory region that
 # starts at 0x2000 and is of size 0x1000 and full of zeros.
-alloc = sw.BumpAllocator(base_addr=0x2000, size=0x1000, config=conf)
+alloc = state.BumpAllocator(address=0x2000, size=0x1000)
 
 
 # seems like ctypes is a good way to compactly express a type like `struct node` from struct.s
@@ -81,14 +84,16 @@ node2.prev = node1_addr
 
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
-smw.cpu.rdi.set(node1_addr)
-print(f"RDI: {hex(smw.cpu.rdi.get())}")
+cpu.rdi.set(node1_addr)
+print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
-smw.map_region(alloc)
+cpu.map(alloc)
 
-smw.analyze()
+# smw.analyze()
+module = analyses.InputColorizerAnalysis()
+module.run(code, cpu)
 # now we can do a single micro-execution without error
-final_state = smw.emulate(num_instructions=13)
+# final_state = smw.emulate(num_instructions=13)
 
 # print first 64 bytes in that allocated (and now changed) memory
 # to look at the result. this is gross.  Maybe we should be able to

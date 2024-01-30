@@ -260,7 +260,7 @@ class Memory(Value):
             if size is None:
                 raise ValueError("need a size to convert int to bytes")
             return value.to_bytes(size, byteorder=self.byteorder)
-        elif type(value) is ctypes.Structure:
+        elif isinstance(value, ctypes.Structure):  # type(value) is ctypes.Structure:
             return bytes(value)
         else:
             raise NotImplementedError(f"unsupported type: {type(value)}")
@@ -367,6 +367,7 @@ class State(Value):
 
         if name is None:
             name = value.__class__.__name__.lower()
+            print(name)
 
         setattr(self, name, value)
 
