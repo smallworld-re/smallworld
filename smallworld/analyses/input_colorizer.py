@@ -58,17 +58,17 @@ class InputColorizerAnalysis(analysis.Analysis):
         self.num_micro_executions = num_micro_executions
         self.num_instructions = num_instructions
 
-    def run(self, image: executor.Code, state: state.State) -> None:
+    def run(self, image: executor.Code, state: state.CPU) -> None:
         for i in range(self.num_micro_executions):
             self.cpu = copy.deepcopy(state)
 
             # NB: perform more than one micro-exec
             # since paths could diverge given random intial
             # reg values
-            emu = executors.UnicornExecutor(self.config.arch, self.config.mode)
+            emu = executors.UnicornExecutor(state.arch, state.mode)
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
-            # colorize regs before beginning this micro exec
+            # colorize regs before beginning this CPU exec
             r0 = self.colorize_registers()
             for value, name in r0.items():
                 logger.debug(f"{name} = {value:x}")

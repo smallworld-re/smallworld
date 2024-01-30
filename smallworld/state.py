@@ -445,3 +445,21 @@ class State(Value):
 
     def __repr__(self) -> str:
         return self.stringify()
+
+
+class CPU(State):
+    """Some additional required properties of CPUs."""
+
+    @property
+    @abc.abstractmethod
+    def arch(self) -> str:
+        """Processor architecture (e.g., x86)."""
+
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def mode(self) -> str:
+        """Processor mode (e.g., 64)."""
+
+        return ""

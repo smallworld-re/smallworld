@@ -5,6 +5,8 @@ from . import i386
 class AMD64CPUState(i386.i386CPUState):
     """AMD64 CPU state model."""
 
+    mode = "64"
+
     def __init__(self):
         self.rax = state.Register("rax", width=8)
         self.eax = state.RegisterAlias("eax", self.rax, width=4)

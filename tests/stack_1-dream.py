@@ -5,9 +5,6 @@ from smallworld import analyses, cpus, executor, initializer, state, utils
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
-# create a config
-config = executor.Configuration(arch="x86", mode="64", byteorder="little")
-
 # load code
 code = executor.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
 
@@ -34,5 +31,5 @@ cpu.map(stack)
 cpu.rsp.set(stack.address)
 
 # run an analysis
-module = analyses.InputColorizerAnalysis(config)
+module = analyses.InputColorizerAnalysis()
 module.run(code, cpu)

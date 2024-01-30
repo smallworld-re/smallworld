@@ -1,24 +1,8 @@
 import abc
 import logging
 import typing
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass(frozen=True)
-class Configuration:
-    """Configuration parameters.
-
-    Arguments:
-        arch (str): The architecture for emulation ("x86", "arm", etc).
-        mode (str): The mode for emulation ("32", "64", etc).
-        byteorder (str): Endianness ("little" or "big").
-    """
-
-    arch: str = "x86"
-    mode: str = "64"
-    byteorder: str = "little"
 
 
 class Code:

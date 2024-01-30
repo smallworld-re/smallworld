@@ -1,8 +1,11 @@
 from .. import state
 
 
-class i386CPUState(state.State):
+class i386CPUState(state.CPU):
     """i386 CPU state model."""
+
+    arch = "x86"
+    mode = "32"
 
     def __init__(self):
         self.eax = state.Register("eax")
