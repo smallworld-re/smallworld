@@ -4,7 +4,7 @@ import logging
 import textwrap
 import typing
 
-from . import emulator, initializer
+from . import emulators, initializer
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class Value(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         """Load the state value.
 
         Arguments:
@@ -62,7 +62,7 @@ class Value(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def apply(self, emulator: emulator.Emulator) -> None:
+    def apply(self, emulator: emulators.Emulator) -> None:
         """Apply state value to an emulator.
 
         Arguments:
@@ -121,14 +121,14 @@ class Register(Value):
         else:
             raise ValueError("unsupported register width for initialization")
 
-    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         if self.value is not None and not override:
             logger.debug(f"skipping load for {self} (already loaded)")
             return
 
         self.value = emulator.read_register(self.name)
 
-    def apply(self, emulator: emulator.Emulator) -> None:
+    def apply(self, emulator: emulators.Emulator) -> None:
         emulator.write_register(self.name, self.value)
 
     def __repr__(self) -> str:
@@ -192,12 +192,12 @@ class RegisterAlias(Register):
     ) -> None:
         logger.debug(f"skipping initialization for {self} (alias)")
 
-    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         """Register references store no value, so this does nothing."""
 
         logger.debug(f"{self} is a register reference - load skipped")
 
-    def apply(self, emulator: emulator.Emulator) -> None:
+    def apply(self, emulator: emulators.Emulator) -> None:
         """Register references store no value, so this does nothing."""
 
         logger.debug(f"{self} is a register reference - apply skipped")
@@ -225,14 +225,14 @@ class Memory(Value):
 
         self.set(initializer.generate(self.size))
 
-    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         if self.get() is not None and not override:
             logger.debug(f"skipping load for {self} (already loaded)")
             return
 
         self.set(emulator.read_memory(self.address, self.size))
 
-    def apply(self, emulator: emulator.Emulator) -> None:
+    def apply(self, emulator: emulators.Emulator) -> None:
         emulator.write_memory(self.address, self.get())
 
     def __repr__(self) -> str:
@@ -423,12 +423,12 @@ class State(Value):
         for name, state in self.values.items():
             state.initialize(initializer, override=override)
 
-    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         for name, state in self.values.items():
             logger.debug(f"loading {name} from {emulator}")
             state.load(emulator, override=override)
 
-    def apply(self, emulator: emulator.Emulator) -> None:
+    def apply(self, emulator: emulators.Emulator) -> None:
         for name, state in self.values.items():
             logger.debug(f"applying {name}:{state} to {emulator}")
             state.apply(emulator)

@@ -3,13 +3,13 @@
 
 import logging
 
-from smallworld import cpus, emulator, initializer, utils
+from smallworld import cpus, emulators, initializer, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # create a small world
-code = emulator.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
+code = emulators.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
 cpu = cpus.AMD64CPUState()
 
 zero = initializer.ZeroInitializer()

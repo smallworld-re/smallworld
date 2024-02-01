@@ -1,12 +1,12 @@
 import logging
 
-from smallworld import cpus, emulator, initializer, state, utils
+from smallworld import cpus, emulators, initializer, state, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # load code
-code = emulator.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
+code = emulators.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
 
 # create a cpu state
 cpu = cpus.AMD64CPUState()

@@ -220,4 +220,5 @@ def analyze(image: emulators.Code, state: T) -> None:
 
     for name in analyses.__all__:
         module = getattr(analyses, name)()
-        module.run(image, state)
+        if isinstance(module, analyses.Analysis):
+            module.run(image, state)

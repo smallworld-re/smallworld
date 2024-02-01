@@ -2,8 +2,9 @@ import copy
 import logging
 import random
 
-from .. import analysis, emulators, hinting, state
+from .. import emulators, hinting, state
 from ..exceptions import AnalysisRunError
+from . import analysis
 
 logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)

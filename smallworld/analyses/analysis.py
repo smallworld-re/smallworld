@@ -1,8 +1,8 @@
 import abc
 import logging
 
-from . import emulators, hinting, state
-from .exceptions import AnalysisSetupError
+from .. import emulators, hinting, state
+from ..exceptions import AnalysisSetupError
 
 logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)
