@@ -3,7 +3,7 @@ import logging
 import random
 import unittest
 
-from smallworld import cpus, executor, hinting, initializer, state, utils
+from smallworld import cpus, emulators, hinting, initializers, state, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file=None)
@@ -35,17 +35,17 @@ class TestSmallworld(unittest.TestCase):
             f"We know that {input_name} is an input to the function at pc {pc}",
         )
 
-    def analyze_bin(self, cpu: state.CPU, code: executor.Code):
+    def analyze_bin(self, cpu: state.CPU, code: emulators.Code):
         """Runs all of the analyses and returns the hints generated
 
         Arguments:
             cpu (state.CPU): the cpu state to analyze
-            code (executor.Code): the code to analyze
+            code (emulators.Code): the code to analyze
 
         Returns:
             A collection of hints from all of the analyses
         """
-        zero = initializer.ZeroInitializer()
+        zero = initializers.ZeroInitializer()
         cpu.initialize(zero)
         hinter = hinting.getHinter()
         with self.assertLogs(logger=hinter, level="INFO") as hints:
@@ -74,7 +74,7 @@ class TestSmallworld(unittest.TestCase):
             None
         """
         cpu = cpus.AMD64CPUState()
-        code = executor.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
+        code = emulators.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
 
         hints = self.analyze_bin(cpu, code)
         self.check_input_hints(hints, "edi", 0x1000)
