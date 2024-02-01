@@ -2,7 +2,7 @@
 # hinting gets set up. that is, right here.
 import logging
 
-from smallworld import cpus, emulators, initializer, utils
+from smallworld import cpus, emulators, initializers, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
@@ -11,7 +11,7 @@ utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 code = emulators.Code.from_filepath("branch.bin", base=0x1000, entry=0x1000)
 cpu = cpus.AMD64CPUState()
 
-zero = initializer.ZeroInitializer()
+zero = initializers.ZeroInitializer()
 cpu.initialize(zero)
 
 # analysis of branch_0.py gives us two InputUseHints These tell us tha

@@ -2,7 +2,7 @@
 # hinting gets set up. that is, right here.
 import logging
 
-from smallworld import analyses, cpus, emulators, initializer, utils
+from smallworld import analyses, cpus, emulators, initializers, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
@@ -12,7 +12,7 @@ code = emulators.Code.from_filepath("branch.bin", base=0x1000, entry=0x1000)
 cpu = cpus.AMD64CPUState()
 print(code)
 
-zero = initializer.ZeroInitializer()
+zero = initializers.ZeroInitializer()
 cpu.initialize(zero)
 
 # map the code into memory at this address

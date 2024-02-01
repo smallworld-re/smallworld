@@ -2,7 +2,7 @@
 import ctypes
 import logging
 
-from smallworld import analyses, cpus, emulators, initializer, state, utils
+from smallworld import analyses, cpus, emulators, initializers, state, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
@@ -13,7 +13,7 @@ code = emulators.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
 
 # create a small world
 cpu = cpus.AMD64CPUState()
-zero = initializer.ZeroInitializer()
+zero = initializers.ZeroInitializer()
 cpu.initialize(zero)
 # conf = sw.X86_64()
 # smw = sw.Smallworld(config=conf)

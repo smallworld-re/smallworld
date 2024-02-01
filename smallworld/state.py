@@ -4,7 +4,7 @@ import logging
 import textwrap
 import typing
 
-from . import emulators, initializer
+from . import emulators, initializers
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class Value(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def initialize(
-        self, initializer: initializer.Initializer, override: bool = False
+        self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
         """Set the internally stored value using an initialization strategy.
 
@@ -104,7 +104,7 @@ class Register(Value):
         self.value = value
 
     def initialize(
-        self, initializer: initializer.Initializer, override: bool = False
+        self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
         if self.get() is not None and not override:
             logger.debug(f"skipping initialization for {self} (already initialized)")
@@ -188,7 +188,7 @@ class RegisterAlias(Register):
         self.reference.set(result)
 
     def initialize(
-        self, initializer: initializer.Initializer, override: bool = False
+        self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
         logger.debug(f"skipping initialization for {self} (alias)")
 
@@ -217,7 +217,7 @@ class Memory(Value):
         self.byteorder = byteorder
 
     def initialize(
-        self, initializer: initializer.Initializer, override: bool = False
+        self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
         if self.get() is not None and not override:
             logger.debug(f"skipping initialization for {self} (already initialized)")
@@ -416,7 +416,7 @@ class State(Value):
             raise ValueError(f"unknown state values: {list(value.keys())}")
 
     def initialize(
-        self, initializer: initializer.Initializer, override: bool = False
+        self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
         logger.info(f"initializing {self} with {initializer}")
 

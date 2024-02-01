@@ -1,6 +1,6 @@
 import logging
 
-from smallworld import cpus, emulators, initializer, utils
+from smallworld import cpus, emulators, initializers, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
@@ -9,7 +9,7 @@ utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 code = emulators.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
 cpu = cpus.AMD64CPUState()
 
-zero = initializer.ZeroInitializer()
+zero = initializers.ZeroInitializer()
 cpu.initialize(zero)
 
 # analysis hints from `square_0.py` told us that edi was an input
@@ -23,7 +23,7 @@ import random
 for i in range(10):
     print("---------------------")
 
-    # or way 2 is a random draw from an initializer
+    # or way 2 is a random draw from an initializers
     cpu.edi.set(random.randint(1, 100))
 
     print(cpu.edi.get())
