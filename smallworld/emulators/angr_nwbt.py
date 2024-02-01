@@ -4,23 +4,19 @@ from ..analyses.angr.nwbt import NWBTExplorationTechnique, NWBTMemoryPlugin
 from ..analyses.angr.typedefs import TypeDefPlugin
 from ..analyses.angr.utils import print_state
 from ..analyses.utils.tui import SimpleTUI
-from .angr import AngrExecutor
+from .angr import AngrEmulator
 
 log = logging.getLogger(__name__)
 
 
-class AngrNWBTExecutor(AngrExecutor):
-    """
-    Executor for messing with NWBT value detection.
+class AngrNWBTEmulator(AngrEmulator):
+    """Emulator for messing with NWBT value detection.
 
-    Currently, this is a semi-manual exploration.
-    The executor will ask the user to help
-    populate data types and values for
-    uninitialized variables.
+    Currently, this is a semi-manual exploration. The emulator will ask the
+    user to help populate data types and values for uninitialized variables.
 
-    The goal is to collect the type bindings,
-    and package them up into an environment
-    once we're done.
+    The goal is to collect the type bindings, and package them up into an
+    environment once we're done.
     """
 
     def __init__(self, *args, **kwargs):
