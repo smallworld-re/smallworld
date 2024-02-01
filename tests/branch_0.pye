@@ -2,13 +2,13 @@
 # hinting gets set up. that is, right here.
 import logging
 
-from smallworld import analyses, cpus, emulator, initializer, utils
+from smallworld import analyses, cpus, executor, initializer, utils
 
 utils.setup_logging(level=logging.INFO)
 utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # create a small world
-code = emulator.Code.from_filepath("branch.bin", base=0x1000, entry=0x1000)
+code = executor.Code.from_filepath("branch.bin", base=0x1000, entry=0x1000)
 cpu = cpus.AMD64CPUState()
 print(code)
 

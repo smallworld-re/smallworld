@@ -6,14 +6,14 @@ import angr
 import claripy
 import cle
 
-from .. import executor
+from .. import emulator
 
 log = logging.getLogger(__name__)
 
 
-class AngrExecutor(executor.Executor):
+class AngrEmulator(emulator.Emulator):
     """
-    Superclass for angr-based micro executors
+    Superclass for angr-based emulators.
 
     This is primarily designed to support symbolic execution,
     although subclasses can configure angr however they like.
@@ -24,7 +24,7 @@ class AngrExecutor(executor.Executor):
     parallel execution paths.
 
     As such, this interface doesn't yet fully support
-    all features of the base Executor class;
+    all features of the base Emulator class;
     it's not clear what reading or writing machine state
     means when there's more than one state.
     """
@@ -91,7 +91,7 @@ class AngrExecutor(executor.Executor):
             v = claripy.BVV(value)
             self._entry.memory.store(addr, v)
 
-    def load(self, code: executor.Code) -> None:
+    def load(self, code: emulator.Code) -> None:
         options: typing.Dict[str, typing.Union[str, int]] = {}
 
         if code.arch is None:

@@ -1,7 +1,7 @@
 import abc
 import logging
 
-from . import executor, executors, hinting, state
+from . import emulator, emulators, hinting, state
 from .exceptions import AnalysisSetupError
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class Analysis:
         return ""
 
     @abc.abstractmethod
-    def run(self, image: executor.Code, state: state.CPU) -> None:
+    def run(self, image: emulator.Code, state: state.CPU) -> None:
         """Actually run the analysis.
 
         This function **should not** modify the provided State - instead, it
@@ -85,7 +85,7 @@ class UnicornDebugAnalysis(Analysis):
 
         if i.type == capstone.x86.X86_OP_REG:
             reg = insn.reg_name(i.value.reg)
-            value = self.executor.read_register(reg)
+            value = self.emulator.read_register(reg)
             hint = hinting.UnderSpecifiedRegisterHint(
                 message="", register=reg, value=value
             )
@@ -93,7 +93,7 @@ class UnicornDebugAnalysis(Analysis):
             base, index, offset, base_value, index_value = "", "", 0, 0, 0
             if i.value.mem.base != 0:
                 base = insn.reg_name(i.value.mem.base)
-                base_value = self.executor.read_register(base)
+                base_value = self.emulator.read_register(base)
                 hint = hinting.RegisterPointerHint(message="", register=base)
                 hinter.info(hint)
             if i.value.mem.index != 0:
@@ -112,33 +112,33 @@ class UnicornDebugAnalysis(Analysis):
             # not sure what I want to hint here yet
             print("IMM = 0x%x" % (i.value.imm))
 
-    def run(self, image: executor.Code, state: state.CPU) -> None:
+    def run(self, image: emulator.Code, state: state.CPU) -> None:
         """A very simple analysis that debugs an execution
         before an emulation."""
 
-        self.executor = executors.UnicornExecutor(state.arch, state.mode)
+        self.emulator = emulators.UnicornEmulator(state.arch, state.mode)
 
-        state.apply(self.executor)
-        self.executor.entrypoint = image.entry
+        state.apply(self.emulator)
+        self.emulator.entrypoint = image.entry
         if image.entry is None:
             raise AnalysisSetupError("image.entry is None")
-        self.executor.exitpoint = image.entry + len(image.image)
-        self.executor.write_register("pc", self.executor.entrypoint)
+        self.emulator.exitpoint = image.entry + len(image.image)
+        self.emulator.write_register("pc", self.emulator.entrypoint)
 
         for j in range(self.num_instructions):
             # Disassemble instruction
-            pc = self.executor.read_register("pc")
-            pc_bytes = self.executor.read_memory(pc, 15)
+            pc = self.emulator.read_register("pc")
+            pc_bytes = self.emulator.read_memory(pc, 15)
             if pc_bytes is None:
                 assert False, "impossible state"
-            (instructions, disas) = self.executor.disassemble(pc_bytes, 1)
+            (instructions, disas) = self.emulator.disassemble(pc_bytes, 1)
             insn = instructions[0]
 
             # print("0x%x:\t%s\t%s" %(pc, insn.mnemonic, insn.op_str))
 
             # Try running instruction
             try:
-                done = self.executor.step()
+                done = self.emulator.step()
                 if done:
                     break
             except Exception as e:

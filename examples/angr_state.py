@@ -2,9 +2,9 @@
 import argparse
 import logging
 
-from smallworld import executor
+from smallworld import emulator
 from smallworld.cpus.amd64 import AMD64CPUState
-from smallworld.executors import AngrNWBTExecutor
+from smallworld.emulators import AngrNWBTEmulator
 from smallworld.initializer import OSRandomInitializer
 from smallworld.state import Memory
 from smallworld.utils import setup_logging
@@ -39,21 +39,21 @@ def parse_args():
 class AngrAMD64State(AMD64CPUState):
     log = logging.getLogger("smallworld.state")
 
-    def __init__(self, executor, stack_below=0x1000, stack_above=0x0, heap_size=0x1000):
+    def __init__(self, emulator, stack_below=0x1000, stack_above=0x0, heap_size=0x1000):
         # Load control registers and other sensitive state from angr.
         # I really don't want to know what happens if you mess with these.
         super().__init__()
-        self.fs.load(executor)
+        self.fs.load(emulator)
         self.gs.set(0)
         self.cr0.set(0)
         self.cr2.set(0)
         self.cr3.set(0)
         self.cr4.set(0)
-        self.eflags.load(executor)
+        self.eflags.load(emulator)
 
         # RSP is part of angr's stack model.
         # By default, let's load it from there.
-        self.rsp.load(executor)
+        self.rsp.load(emulator)
 
         stack_start = self.rsp.get() - stack_above
         stack_size = stack_below + stack_above
@@ -63,8 +63,8 @@ class AngrAMD64State(AMD64CPUState):
         self.stack = Memory(stack_start, stack_size)
 
         # Unfortunately, there is no nice register for the heap break.
-        heap_start = executor.entry.heap.heap_base
-        executor.entry.heap.allocate(heap_size)
+        heap_start = emulator.entry.heap.heap_base
+        emulator.entry.heap.allocate(heap_size)
         self.log.debug(
             f"Heap allocated from {heap_start:x} to {heap_start + heap_size:x}"
         )
@@ -84,9 +84,9 @@ if __name__ == "__main__":
 
     devrandom = OSRandomInitializer()
 
-    target = executor.Code.from_filepath(args.infile, base=args.base, entry=args.entry)
+    target = emulator.Code.from_filepath(args.infile, base=args.base, entry=args.entry)
 
-    driver = AngrNWBTExecutor(args.arch)
+    driver = AngrNWBTEmulator(args.arch)
     driver.load(target)
 
     state = AngrAMD64State(driver)

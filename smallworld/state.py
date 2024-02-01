@@ -4,7 +4,7 @@ import logging
 import textwrap
 import typing
 
-from . import executor, initializer
+from . import emulator, initializer
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +50,11 @@ class Value(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def load(self, executor: executor.Executor, override: bool = True) -> None:
+    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
         """Load the state value.
 
         Arguments:
-            executor (Executor): Executor from which to load state.
+            emulator (Emulator): Emulator from which to load state.
             override (bool): If `True` override existing values, otherwise keep
                 them. Default: `True`.
         """
@@ -62,11 +62,11 @@ class Value(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def apply(self, executor: executor.Executor) -> None:
-        """Apply state value to an executor.
+    def apply(self, emulator: emulator.Emulator) -> None:
+        """Apply state value to an emulator.
 
         Arguments:
-            executor (Executor): Executor to which state should be applied.
+            emulator (Emulator): Emulator to which state should be applied.
         """
 
         pass
@@ -121,15 +121,15 @@ class Register(Value):
         else:
             raise ValueError("unsupported register width for initialization")
 
-    def load(self, executor: executor.Executor, override: bool = True) -> None:
+    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
         if self.value is not None and not override:
             logger.debug(f"skipping load for {self} (already loaded)")
             return
 
-        self.value = executor.read_register(self.name)
+        self.value = emulator.read_register(self.name)
 
-    def apply(self, executor: executor.Executor) -> None:
-        executor.write_register(self.name, self.value)
+    def apply(self, emulator: emulator.Emulator) -> None:
+        emulator.write_register(self.name, self.value)
 
     def __repr__(self) -> str:
         if self.get() is not None:
@@ -192,12 +192,12 @@ class RegisterAlias(Register):
     ) -> None:
         logger.debug(f"skipping initialization for {self} (alias)")
 
-    def load(self, executor: executor.Executor, override: bool = True) -> None:
+    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
         """Register references store no value, so this does nothing."""
 
         logger.debug(f"{self} is a register reference - load skipped")
 
-    def apply(self, executor: executor.Executor) -> None:
+    def apply(self, emulator: emulator.Emulator) -> None:
         """Register references store no value, so this does nothing."""
 
         logger.debug(f"{self} is a register reference - apply skipped")
@@ -225,15 +225,15 @@ class Memory(Value):
 
         self.set(initializer.generate(self.size))
 
-    def load(self, executor: executor.Executor, override: bool = True) -> None:
+    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
         if self.get() is not None and not override:
             logger.debug(f"skipping load for {self} (already loaded)")
             return
 
-        self.set(executor.read_memory(self.address, self.size))
+        self.set(emulator.read_memory(self.address, self.size))
 
-    def apply(self, executor: executor.Executor) -> None:
-        executor.write_memory(self.address, self.get())
+    def apply(self, emulator: emulator.Emulator) -> None:
+        emulator.write_memory(self.address, self.get())
 
     def __repr__(self) -> str:
         if self.get():
@@ -423,15 +423,15 @@ class State(Value):
         for name, state in self.values.items():
             state.initialize(initializer, override=override)
 
-    def load(self, executor: executor.Executor, override: bool = True) -> None:
+    def load(self, emulator: emulator.Emulator, override: bool = True) -> None:
         for name, state in self.values.items():
-            logger.debug(f"loading {name} from {executor}")
-            state.load(executor, override=override)
+            logger.debug(f"loading {name} from {emulator}")
+            state.load(emulator, override=override)
 
-    def apply(self, executor: executor.Executor) -> None:
+    def apply(self, emulator: emulator.Emulator) -> None:
         for name, state in self.values.items():
-            logger.debug(f"applying {name}:{state} to {executor}")
-            state.apply(executor)
+            logger.debug(f"applying {name}:{state} to {emulator}")
+            state.apply(emulator)
 
     def stringify(self, truncate: bool = True) -> str:
         """Stringify this instance.

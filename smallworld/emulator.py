@@ -48,10 +48,10 @@ class Code:
         return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
 
 
-class Executor(metaclass=abc.ABCMeta):
-    """A micro executor base class.
+class Emulator(metaclass=abc.ABCMeta):
+    """An emulator base class.
 
-    Defines the interface for micro executors.
+    Defines the interface for emulators.
     """
 
     @abc.abstractmethod

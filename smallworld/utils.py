@@ -3,7 +3,7 @@ import json
 import logging
 import typing
 
-from . import analyses, executor, executors, hinting, state
+from . import analyses, emulator, emulators, hinting, state
 
 
 class CharacterLevelFilter(logging.Filter):
@@ -183,7 +183,7 @@ def setup_hinting(
 T = typing.TypeVar("T", bound=state.CPU)
 
 
-def emulate(image: executor.Code, state: T) -> T:
+def emulate(image: emulator.Code, state: T) -> T:
     """Emulate execution of some code.
 
     Arguments:
@@ -195,7 +195,7 @@ def emulate(image: executor.Code, state: T) -> T:
     """
 
     # only support Unicorn for now
-    emu = executors.UnicornExecutor(state.arch, state.mode)
+    emu = emulators.UnicornEmulator(state.arch, state.mode)
 
     state.apply(emu)
     emu.load(image)
@@ -208,7 +208,7 @@ def emulate(image: executor.Code, state: T) -> T:
     return state
 
 
-def analyze(image: executor.Code, state: T) -> None:
+def analyze(image: emulator.Code, state: T) -> None:
     """Run all available analyses on some code.
 
     All analyses are run with default parameters.

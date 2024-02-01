@@ -2,8 +2,8 @@
 import argparse
 import logging
 
-from smallworld import executor
-from smallworld.executors import AngrNWBTExecutor
+from smallworld import emulator
+from smallworld.emulators import AngrNWBTEmulator
 from smallworld.utils import setup_logging
 
 
@@ -42,8 +42,8 @@ if __name__ == "__main__":
     else:
         setup_logging(level=logging.INFO)
 
-    target = executor.Code.from_filepath(args.infile, base=args.base, entry=args.entry)
+    target = emulator.Code.from_filepath(args.infile, base=args.base, entry=args.entry)
 
-    driver = AngrNWBTExecutor(args.arch)
+    driver = AngrNWBTEmulator(args.arch)
     driver.load(target)
     driver.run()
