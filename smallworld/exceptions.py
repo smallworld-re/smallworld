@@ -8,7 +8,7 @@ class ConfigurationError(Exception):
 class EmulationError(Exception):
     """Thrown when the underlying emulator fails.
 
-    Executors should wrap known exceptions in this so we can differentiate
+    Emulators should wrap known exceptions in this so we can differentiate
     between expected and unexpected failures.
 
     Arguments:

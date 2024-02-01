@@ -2,8 +2,9 @@ import copy
 import logging
 import random
 
-from .. import analysis, executor, executors, hinting, state
+from .. import emulators, hinting, state
 from ..exceptions import AnalysisRunError
+from . import analysis
 
 logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)
@@ -58,14 +59,14 @@ class InputColorizerAnalysis(analysis.Analysis):
         self.num_micro_executions = num_micro_executions
         self.num_instructions = num_instructions
 
-    def run(self, image: executor.Code, state: state.CPU) -> None:
+    def run(self, image: emulators.Code, state: state.CPU) -> None:
         for i in range(self.num_micro_executions):
             self.cpu = copy.deepcopy(state)
 
             # NB: perform more than one micro-exec
             # since paths could diverge given random intial
             # reg values
-            emu = executors.UnicornExecutor(state.arch, state.mode)
+            emu = emulators.UnicornEmulator(state.arch, state.mode)
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
             # colorize regs before beginning this CPU exec
@@ -82,12 +83,12 @@ class InputColorizerAnalysis(analysis.Analysis):
                 code = emu.read_memory(pc, 15)  # longest possible instruction
                 if code is None:
                     raise AnalysisRunError(
-                        "Unable to read next instruction out of executor memory"
+                        "Unable to read next instruction out of emulator memory"
                     )
                     assert False, "impossible state"
                 (instructions, disas) = emu.disassemble(code, 1)
                 instruction = instructions[0]
-                # pull state back out of the executor for inspection
+                # pull state back out of the emulator for inspection
                 self.cpu.load(emu)
                 # determine if, for this instruction (before execution)
                 # any of the regs that will be read have values in colorized map

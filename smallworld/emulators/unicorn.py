@@ -5,13 +5,14 @@ import typing
 import capstone as cs
 import unicorn
 
-from .. import exceptions, executor
+from .. import exceptions
+from . import emulator
 
 logger = logging.getLogger(__name__)
 
 
-class UnicornExecutor(executor.Executor):
-    """An executor for the Unicorn emulation engine.
+class UnicornEmulator(emulator.Emulator):
+    """An emulator for the Unicorn emulation engine.
 
     Arguments:
         arch (str): Unicorn architecture constant.
@@ -210,7 +211,7 @@ class UnicornExecutor(executor.Executor):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, code: executor.Code) -> None:
+    def load(self, code: emulator.Code) -> None:
         if code.base is None:
             raise ValueError(f"base address is required: {code}")
 
