@@ -1,12 +1,8 @@
 import itertools
-import logging
 import random
 import unittest
 
 from smallworld import cpus, emulators, hinting, initializers, state, utils
-
-utils.setup_logging(level=logging.INFO)
-utils.setup_hinting(verbose=True, stream=True, file=None)
 
 
 class TestSmallworld(unittest.TestCase):
