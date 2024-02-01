@@ -2,7 +2,7 @@ import itertools
 import random
 import unittest
 
-from smallworld import cpus, emulators, hinting, initializers, state, utils
+import smallworld
 
 
 class TestSmallworld(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestSmallworld(unittest.TestCase):
         found_input = False
         for i in itertools.chain(hints.records):
             h = i.msg
-            if type(h) is hinting.InputUseHint:
+            if type(h) is smallworld.hinting.InputUseHint:
                 if h.input_register.lower() == input_name.lower() and h.pc == pc:
                     found_input = True
                     break
@@ -31,21 +31,21 @@ class TestSmallworld(unittest.TestCase):
             f"We know that {input_name} is an input to the function at pc {pc}",
         )
 
-    def analyze_bin(self, cpu: state.CPU, code: emulators.Code):
+    def analyze_bin(self, cpu: smallworld.state.CPU, code: smallworld.emulators.Code):
         """Runs all of the analyses and returns the hints generated
 
         Arguments:
-            cpu (state.CPU): the cpu state to analyze
-            code (emulators.Code): the code to analyze
+            cpu (CPU): the cpu state to analyze
+            code (Code): the code to analyze
 
         Returns:
             A collection of hints from all of the analyses
         """
-        zero = initializers.ZeroInitializer()
+        zero = smallworld.initializers.ZeroInitializer()
         cpu.initialize(zero)
-        hinter = hinting.getHinter()
+        hinter = smallworld.hinting.getHinter()
         with self.assertLogs(logger=hinter, level="INFO") as hints:
-            utils.analyze(code, cpu)
+            smallworld.analyze(code, cpu)
         return hints
 
     def check_return(self, state, final_value: int) -> None:
@@ -69,15 +69,17 @@ class TestSmallworld(unittest.TestCase):
         Returns:
             None
         """
-        cpu = cpus.AMD64CPUState()
-        code = emulators.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
+        cpu = smallworld.cpus.AMD64CPUState()
+        code = smallworld.emulators.Code.from_filepath(
+            "square.bin", base=0x1000, entry=0x1000
+        )
 
         hints = self.analyze_bin(cpu, code)
         self.check_input_hints(hints, "edi", 0x1000)
         input_value = random.randint(1, 100)
         cpu.edi.set(input_value)
         self.assertEqual(input_value, cpu.edi.get(), "Our input value is being stored")
-        final_state = utils.emulate(code, cpu)
+        final_state = smallworld.emulate(code, cpu)
         self.check_return(final_state, input_value * input_value)
 
 

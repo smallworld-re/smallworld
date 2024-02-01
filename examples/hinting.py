@@ -1,10 +1,10 @@
 import capstone as cs
 
-from smallworld import hinting, utils
+import smallworld
 
-hinter = hinting.getHinter(__name__)
+hinter = smallworld.hinting.getHinter(__name__)
 
-utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 try:
     hinter.warning("test")
@@ -13,7 +13,7 @@ except:
 else:
     assert False
 
-info_hint = hinting.UnderSpecifiedRegisterHint(
+info_hint = smallworld.hinting.UnderSpecifiedRegisterHint(
     message="This is a info hint", register="rdi"
 )
 
@@ -31,7 +31,7 @@ instr = md.disasm(CODE, 0x1000).__next__()
 
 print(f"instr is {instr.size} bytes: [{instr}]")
 
-input_hint = hinting.InputUseHint(
+input_hint = smallworld.hinting.InputUseHint(
     message="Register used in instruction has same value as Input register",
     input_register="rdi",
     micro_exec_num=42,

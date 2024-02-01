@@ -1,18 +1,18 @@
 import logging
 
-from smallworld import cpus, emulators, initializers, state, utils
+import smallworld
 
-utils.setup_logging(level=logging.INFO)
-utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_logging(level=logging.INFO)
+smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # load code
-code = emulators.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
+code = smallworld.emulators.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
 
 # create a cpu state
-cpu = cpus.AMD64CPUState()
+cpu = smallworld.cpus.AMD64CPUState()
 
 # initialize it
-zero = initializers.ZeroInitializer()
+zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 
 # initialize some values
@@ -21,7 +21,7 @@ cpu.rdx.set(0x22222222)
 cpu.r8.set(0x33333333)
 
 # create a stack and push a value
-stack = state.Stack(address=0x2000, size=0x1000)
+stack = smallworld.state.Stack(address=0x2000, size=0x1000)
 stack.push(value=0x44444444, size=8)
 
 # map the stack into memory
@@ -31,7 +31,7 @@ cpu.map(stack)
 cpu.rsp.set(stack.address)
 
 # emulate
-final = utils.emulate(code, cpu)
+final = smallworld.emulate(code, cpu)
 
 # read out the final state
 print(final.rax)
