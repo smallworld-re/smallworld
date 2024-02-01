@@ -3,7 +3,7 @@ import json
 import logging
 import typing
 
-from . import analyses, emulator, emulators, hinting, state
+from . import analyses, emulators, hinting, state
 
 
 class CharacterLevelFilter(logging.Filter):
@@ -183,7 +183,7 @@ def setup_hinting(
 T = typing.TypeVar("T", bound=state.CPU)
 
 
-def emulate(image: emulator.Code, state: T) -> T:
+def emulate(image: emulators.Code, state: T) -> T:
     """Emulate execution of some code.
 
     Arguments:
@@ -208,7 +208,7 @@ def emulate(image: emulator.Code, state: T) -> T:
     return state
 
 
-def analyze(image: emulator.Code, state: T) -> None:
+def analyze(image: emulators.Code, state: T) -> None:
     """Run all available analyses on some code.
 
     All analyses are run with default parameters.

@@ -2,7 +2,7 @@ import copy
 import logging
 import random
 
-from .. import analysis, emulator, emulators, hinting, state
+from .. import analysis, emulators, hinting, state
 from ..exceptions import AnalysisRunError
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ class InputColorizerAnalysis(analysis.Analysis):
         self.num_micro_executions = num_micro_executions
         self.num_instructions = num_instructions
 
-    def run(self, image: emulator.Code, state: state.CPU) -> None:
+    def run(self, image: emulators.Code, state: state.CPU) -> None:
         for i in range(self.num_micro_executions):
             self.cpu = copy.deepcopy(state)
 

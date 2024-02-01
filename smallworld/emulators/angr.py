@@ -6,7 +6,7 @@ import angr
 import claripy
 import cle
 
-from .. import emulator
+from . import emulator
 
 log = logging.getLogger(__name__)
 

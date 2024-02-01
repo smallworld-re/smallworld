@@ -5,7 +5,8 @@ import typing
 import capstone as cs
 import unicorn
 
-from .. import emulator, exceptions
+from .. import exceptions
+from . import emulator
 
 logger = logging.getLogger(__name__)
 

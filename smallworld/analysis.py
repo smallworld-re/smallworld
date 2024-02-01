@@ -1,7 +1,7 @@
 import abc
 import logging
 
-from . import emulator, emulators, hinting, state
+from . import emulators, hinting, state
 from .exceptions import AnalysisSetupError
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class Analysis:
         return ""
 
     @abc.abstractmethod
-    def run(self, image: emulator.Code, state: state.CPU) -> None:
+    def run(self, image: emulators.Code, state: state.CPU) -> None:
         """Actually run the analysis.
 
         This function **should not** modify the provided State - instead, it
@@ -112,7 +112,7 @@ class UnicornDebugAnalysis(Analysis):
             # not sure what I want to hint here yet
             print("IMM = 0x%x" % (i.value.imm))
 
-    def run(self, image: emulator.Code, state: state.CPU) -> None:
+    def run(self, image: emulators.Code, state: state.CPU) -> None:
         """A very simple analysis that debugs an execution
         before an emulation."""
 
