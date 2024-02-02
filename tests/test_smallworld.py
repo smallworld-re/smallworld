@@ -31,7 +31,7 @@ class TestSmallworld(unittest.TestCase):
             f"We know that {input_name} is an input to the function at pc {pc}",
         )
 
-    def analyze_bin(self, cpu: smallworld.state.CPU, code: smallworld.emulators.Code):
+    def analyze_bin(self, cpu: smallworld.state.CPU, code: smallworld.Code):
         """Runs all of the analyses and returns the hints generated
 
         Arguments:
@@ -70,9 +70,7 @@ class TestSmallworld(unittest.TestCase):
             None
         """
         cpu = smallworld.cpus.AMD64CPUState()
-        code = smallworld.emulators.Code.from_filepath(
-            "square.bin", base=0x1000, entry=0x1000
-        )
+        code = smallworld.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
 
         hints = self.analyze_bin(cpu, code)
         self.check_input_hints(hints, "edi", 0x1000)

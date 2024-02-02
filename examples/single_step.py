@@ -33,7 +33,7 @@ cpu.initialize(zero)
 # load/apply the cpu state into the emulator
 cpu.apply(emu)
 
-target = smallworld.emulators.Code.from_filepath(arguments.target, base=0x1000)
+target = smallworld.Code.from_filepath(arguments.target, base=0x1000)
 
 emu.load(target)
 

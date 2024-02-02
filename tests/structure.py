@@ -9,7 +9,7 @@ smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 
 # note: code is of type bytes
-code = smallworld.emulators.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
+code = smallworld.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
 
 # create a small world
 cpu = smallworld.cpus.AMD64CPUState()

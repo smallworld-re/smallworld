@@ -31,7 +31,7 @@ zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 cpu.apply(emu)
 
-target = smallworld.emulators.Code.from_filepath(arguments.target, base=0x1000)
+target = smallworld.Code.from_filepath(arguments.target, base=0x1000)
 
 emu.load(target)
 
