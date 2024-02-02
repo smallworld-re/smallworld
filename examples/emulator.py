@@ -3,7 +3,7 @@
 import argparse
 import logging
 
-from smallworld import cpus, emulators, exceptions, initializers, utils
+import smallworld
 
 parser = argparse.ArgumentParser(
     description="run a simple shellcode example in unicorn"
@@ -22,22 +22,22 @@ if arguments.verbose:
 else:
     level = logging.INFO
 
-utils.setup_logging(level=level)
+smallworld.setup_logging(level=level)
 
-cpu = cpus.AMD64CPUState()
-emu = emulators.UnicornEmulator("x86", "64")
-zero = initializers.ZeroInitializer()
+cpu = smallworld.cpus.AMD64CPUState()
+emu = smallworld.emulators.UnicornEmulator("x86", "64")
+zero = smallworld.initializers.ZeroInitializer()
 
 cpu.initialize(zero)
 cpu.apply(emu)
 
-target = emulators.Code.from_filepath(arguments.target, base=0x1000)
+target = smallworld.Code.from_filepath(arguments.target, base=0x1000)
 
 emu.load(target)
 
 try:
     emu.run()
-except exceptions.EmulationError:
+except smallworld.exceptions.EmulationError:
     pass
 
 cpu.load(emu)

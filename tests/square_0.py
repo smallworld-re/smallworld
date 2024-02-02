@@ -3,18 +3,18 @@
 
 import logging
 
-from smallworld import cpus, emulators, initializers, utils
+import smallworld
 
-utils.setup_logging(level=logging.INFO)
-utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_logging(level=logging.INFO)
+smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # create a small world
-code = emulators.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
-cpu = cpus.AMD64CPUState()
+code = smallworld.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
+cpu = smallworld.cpus.AMD64CPUState()
 
-zero = initializers.ZeroInitializer()
+zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 
 # analyze the code given that entry point
 # output: this will log hints both to stdout and to the file "hints.jsonl"
-utils.analyze(code, cpu)
+smallworld.analyze(code, cpu)

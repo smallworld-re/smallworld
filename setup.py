@@ -1,17 +1,15 @@
 from setuptools import find_packages, setup
 
-import smallworld
-
 with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
     name="smallworld",
-    version=smallworld.__version__,
-    author=smallworld.__author__,
+    version="0.1.0.dev0",
+    author="MIT Lincoln Laboratory",
     author_email="smallworld@ll.mit.edu",
     url="https://github.com/smallworld-re/smallworld",
-    description=smallworld.__description__,
+    description="An emulation stack tracking library",
     long_description=long_description,
     long_description_content_type="text/markdown",
     license="MIT",

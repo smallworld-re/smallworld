@@ -2,28 +2,19 @@
 import ctypes
 import logging
 
-from smallworld import analyses, cpus, emulators, initializers, state, utils
+import smallworld
 
-utils.setup_logging(level=logging.INFO)
-utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_logging(level=logging.INFO)
+smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 
 # note: code is of type bytes
-code = emulators.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
+code = smallworld.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
 
 # create a small world
-cpu = cpus.AMD64CPUState()
-zero = initializers.ZeroInitializer()
+cpu = smallworld.cpus.AMD64CPUState()
+zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
-# conf = sw.X86_64()
-# smw = sw.Smallworld(config=conf)
-# map the code into memory at this address
-
-# analyze code given that entry point
-# Ouput: this will log hints somewhere
-# smw.analyze()
-# module = analyses.InputColorizerAnalysis()
-# module.run(code, cpu)
 
 # Next we, look at hints and see fail at
 # 2nd instruction bc
@@ -52,7 +43,7 @@ cpu.initialize(zero)
 
 # this is an allocator in charge of a memory region that
 # starts at 0x2000 and is of size 0x1000 and full of zeros.
-alloc = state.BumpAllocator(address=0x2000, size=0x1000)
+alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x1000)
 
 
 # seems like ctypes is a good way to compactly express a type like `struct node` from struct.s
@@ -89,11 +80,10 @@ print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 cpu.map(alloc)
 
-# smw.analyze()
-module = analyses.InputColorizerAnalysis()
-module.run(code, cpu)
+smallworld.analyze(code, cpu)
+
 # now we can do a single micro-execution without error
-# final_state = smw.emulate(num_instructions=13)
+# final_state = smallworld.emulate(code, cpu)
 
 # print first 64 bytes in that allocated (and now changed) memory
 # to look at the result. this is gross.  Maybe we should be able to

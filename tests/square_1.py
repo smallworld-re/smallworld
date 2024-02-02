@@ -1,15 +1,15 @@
 import logging
 
-from smallworld import cpus, emulators, initializers, utils
+import smallworld
 
-utils.setup_logging(level=logging.INFO)
-utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_logging(level=logging.INFO)
+smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
 # create a small world
-code = emulators.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
-cpu = cpus.AMD64CPUState()
+code = smallworld.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
+cpu = smallworld.cpus.AMD64CPUState()
 
-zero = initializers.ZeroInitializer()
+zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 
 # analysis hints from `square_0.py` told us that edi was an input
@@ -29,7 +29,7 @@ for i in range(10):
     print(cpu.edi.get())
 
     # now we can do a single micro-execution without error
-    final_state = utils.emulate(code, cpu)
+    final_state = smallworld.emulate(code, cpu)
 
     # tell me what eax ends up
     print(final_state.eax)
