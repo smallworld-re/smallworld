@@ -282,7 +282,18 @@ class Stack(Memory):
         return value
 
     def set(self, value: bytes) -> None:
-        logger.warning("reading stack from memory not yet implemented")
+        if len(value) > self.size:
+            raise ValueError("buffer too large for this memory region")
+
+        # Best effort value retrieval.
+        #
+        # We don't know what all has changed since this was initially set, so
+        # there's no way to split the value read out of an Emulator into
+        # individual stack values. The best we can do is treat the entire
+        # region as a single allocation.
+
+        self.memory = [value]
+        self.used = len(value)
 
     def push(self, value, size=None):
         allocation = len(self.to_bytes(value, size))
@@ -336,7 +347,13 @@ class BumpAllocator(Heap):
         return value
 
     def set(self, value: bytes) -> None:
-        logger.warning("reading heap from memory not yet implemented")
+        if len(value) > self.size:
+            raise ValueError("buffer too large for this memory region")
+
+        # Best effort value retrieval - see comment in `Stack.set()`.
+
+        self.memory = [value]
+        self.used = len(value)
 
     def malloc(self, value, size: typing.Optional[int] = None) -> int:
         allocation = len(self.to_bytes(value, size))
