@@ -29,8 +29,10 @@ class AngrEmulator(emulator.Emulator):
     means when there's more than one state.
     """
 
-    def __init__(self):
+    def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
+        self.analysis_preinit = preinit
+        self.analysis_init = init
 
     @property
     def entry(self) -> angr.SimState:
@@ -126,7 +128,7 @@ class AngrEmulator(emulator.Emulator):
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs
         # must be done before the entrypoint state is created.
-        self.analysis_preinit()
+        self.analysis_preinit(self)
 
         # Initialize the entrypoint state.
         self._entry = self.proj.factory.entry_state(
@@ -140,21 +142,13 @@ class AngrEmulator(emulator.Emulator):
         self.mgr = self.proj.factory.simulation_manager(self._entry, save_unsat=True)
 
         # Perform any analysis-specific initialization
-        self.analysis_init()
+        self.analysis_init(self)
 
     def step(self):
-        if self._entry is not None:
-            # If we have not yet started processing,
-            # run analysis on the entrypoint state...
-            if not self.analysis_step():
-                # It asked us to quit before we began
-                return False
-            # ... and mark that we're no longer in entry.
-            self._entry = None
         # Step execution once
         self.mgr.step()
-        # Process the results
-        return self.analysis_step()
+        # Stop if we're out of active states
+        return len(self.mgr.active) != 0
 
     def run(self):
         while len(self.mgr.active) > 0:
@@ -164,39 +158,3 @@ class AngrEmulator(emulator.Emulator):
 
     def __repr__(self):
         return f"Angr ({self.mgr})"
-
-    def analysis_preinit(self):
-        """
-        Configure angr platform for analysis
-
-        This is the place to configure features of angr,
-        such as plugin defaults, which can't be easily
-        changed once the entry state and simulation manager are created.
-        """
-        pass
-
-    def analysis_init(self):
-        """
-        Configure initial state and exploration strategy for analysis
-
-        This method will have access to the following fields:
-
-        - `self.proj` will contain the angr project for this experiment
-        - `self._entry` will contain the entrypoint SimState
-        - `self.mgr` will contain the SimManager for the experiment
-
-        NOTE: You can replace the default `self._entry` state object,
-        but you must also reinitialize `self.mgr` for the changes to take effect.
-        """
-        pass
-
-    def analysis_step(self):
-        """
-        Analyze a single step of execution.
-
-        This method will have access to the following fields:
-
-        - `self.proj` will contain the angr project for this experiment
-        - `self.mgr` will contain the SimManager, holding the current exploration frontier
-        """
-        return True
