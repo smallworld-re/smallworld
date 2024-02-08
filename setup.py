@@ -25,6 +25,7 @@ setup(
             "mypy",
             "pip-tools",
             "pre-commit",
+            "sphinx",
         ],
     },
     include_package_data=True,
