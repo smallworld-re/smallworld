@@ -179,7 +179,3 @@ epub_exclude_files = ["search.html"]
 
 
 # -- Extension configuration -------------------------------------------------
-
-autodoc_default_options = {"members": True, "member-order": "bysource"}
-
-autodoc_inherit_docstrings = False
