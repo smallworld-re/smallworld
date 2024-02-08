@@ -184,4 +184,5 @@ epub_exclude_files = ["search.html"]
 
 # -- Extension configuration -------------------------------------------------
 
+autodoc_default_options = {"members": None, "member-order": "bysource"}
 autodoc_mock_imports = ["angr", "claripy", "cle", "capstone", "unicorn"]
