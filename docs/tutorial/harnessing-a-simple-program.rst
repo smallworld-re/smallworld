@@ -11,3 +11,7 @@ Harnessing a Simple Program
 
 .. literalinclude:: ../../tests/square_1.py
   :language: Python
+
+.. literalinclude:: ../../tests/square_1.py
+  :language: Python
+  :diff: ../../tests/square_0.py
