@@ -41,7 +41,7 @@ environment.
 pip install -e .[development] -c constraints.txt
 ```
 
-### Code Style
+#### Code Style
 
 Pre-commit hooks are available for automatic code formatting, linting, and type
 checking via [pre-commit](https://pre-commit.com/). To enable them (after
@@ -50,6 +50,16 @@ installing development dependencies), run:
 ```bash
 pre-commit install
 ```
+
+### Documentation
+
+To build the full SmallWorld documentation, after installing SmallWorld with `development` extras enabled, from the `docs/` directory, run:
+
+```bash
+make html
+```
+
+Or other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/usage/builders/index.html).
 
 ## Distribution
 
