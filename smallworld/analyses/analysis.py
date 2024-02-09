@@ -37,7 +37,10 @@ class Analysis:
     def version(self) -> str:
         """The version string for this analysis.
 
-        We recommend using [Semantic Versioning](https://semver.org/).
+        We recommend using `Semantic Versioning`_
+
+        .. _Semantic Versioning:
+            https://semver.org/
         """
 
         return ""
@@ -50,8 +53,8 @@ class Analysis:
         should be coppied before modification.
 
         Arguments:
-            image (Code): The bytes of the execution image or code to run.
-            state (CPU): A state class on which this analysis should run.
+            image: The bytes of the execution image or code to run.
+            state: A state class on which this analysis should run.
         """
 
         pass

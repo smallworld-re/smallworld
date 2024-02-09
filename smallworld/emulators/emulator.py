@@ -59,7 +59,7 @@ class Emulator(metaclass=abc.ABCMeta):
         """Read a value from a register.
 
         Arguments:
-            name (str): The name of the register to read.
+            name: The name of the register to read.
 
         Returns:
             The register value.
@@ -72,8 +72,8 @@ class Emulator(metaclass=abc.ABCMeta):
         """Write a value to a register.
 
         Arguments:
-            name (str): The name of the register to write.
-            value (int): The value to write.
+            name: The name of the register to write.
+            value: The value to write.
         """
 
         pass
@@ -83,11 +83,11 @@ class Emulator(metaclass=abc.ABCMeta):
         """Read memory from a specific address.
 
         Arguments:
-            address (int): The address to read.
-            size (bytes): The content of the read.
+            address: The address to read.
+            size: The content of the read.
 
         Returns:
-            {size} bytes read from {address}.
+            `size` bytes read from `address`.
         """
 
         return b""
@@ -99,8 +99,8 @@ class Emulator(metaclass=abc.ABCMeta):
         This will allocate memory if necessary.
 
         Arguments:
-            address (int): The address to write.
-            value (int): The value to write.
+            address: The address to write.
+            value: The value to write.
         """
 
         pass
@@ -110,7 +110,7 @@ class Emulator(metaclass=abc.ABCMeta):
         """Load a binary for execution.
 
         Arguments:
-            code (Code): The executable to load.
+            code: The executable to load.
         """
 
         pass
@@ -135,7 +135,7 @@ class Emulator(metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         """Instance stringifier.
 
-        Implementation requored.
+        Implementation required.
         """
 
         return ""

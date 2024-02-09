@@ -1,5 +1,4 @@
-from .angr import AngrEmulator
-from .emulator import Code, Emulator
+from .emulator import Code, Emulator  # noqa: F401
 from .unicorn import UnicornEmulator
 
-__all__ = ["Code", "Emulator", "UnicornEmulator", "AngrEmulator"]
+__all__ = ["Emulator", "UnicornEmulator"]
