@@ -1,18 +1,17 @@
-"""Custom named exceptions are defined here."""
-
-
 class ConfigurationError(Exception):
+    """Raised when there is a problem with configuration."""
+
     pass
 
 
 class EmulationError(Exception):
-    """Thrown when the underlying emulator fails.
+    """Raised when the underlying emulator fails.
 
     Emulators should wrap known exceptions in this so we can differentiate
     between expected and unexpected failures.
 
     Arguments:
-        exception (Exception): The original exception thrown.
+        exception: The original exception thrown.
     """
 
     def __init__(self, exception: Exception):
@@ -23,11 +22,7 @@ class EmulationError(Exception):
 
 
 class AnalysisError(Exception):
-    """Some kind of error in analysis.
-
-    Arguments:
-        message (string): A description of what went wrong
-    """
+    """Some kind of error in analysis."""
 
     def __init__(self, msg: str):
         self.msg = msg
@@ -37,21 +32,21 @@ class AnalysisError(Exception):
 
 
 class AnalysisSetupError(AnalysisError):
-    """Thrown when an analysis run gets into trouble during setup, i.e.
-    before it even begins
-
-    Arguments:
-        message (string): A description of what went wrong
-    """
+    """Raised when an analysis run gets into trouble during setup."""
 
     pass
 
 
-class AnalysisRunError(Exception):
-    """Thrown when something goes wrong during an analysis.
-
-    Arguments:
-        message (string): A description of what went wrong
-    """
+class AnalysisRunError(AnalysisError):
+    """Raised when something goes wrong during an analysis."""
 
     pass
+
+
+__all__ = [
+    "ConfigurationError",
+    "EmulationError",
+    "AnalysisError",
+    "AnalysisSetupError",
+    "AnalysisRunError",
+]

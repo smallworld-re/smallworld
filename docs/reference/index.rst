@@ -5,8 +5,10 @@ Reference
 
 .. toctree::
 
-    state
-    emulators
-    initializers
-    hinting
-    analyses
+    smallworld
+    smallworld.state
+    smallworld.emulators
+    smallworld.initializers
+    smallworld.hinting
+    smallworld.analyses
+    smallworld.exceptions

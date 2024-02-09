@@ -22,8 +22,8 @@ class InputColorizerAnalysis(analysis.Analysis):
     registers. Any such uses of input registers are hinted.
 
     Arguments:
-        num_micro_executions (int): The number of micro-executions to run.
-        num_instructions (int): The number of instructions to execute.
+        num_micro_executions: The number of micro-executions to run.
+        num_instructions: The number of instructions to execute.
     """
 
     name = "input-colorizer"
@@ -201,9 +201,6 @@ class InputColorizerAnalysis(analysis.Analysis):
         return r0
 
     def registers(self):
-        """
-        Generator to iterate over registers in the cpu
-        """
         for name, stv in self.cpu.values.items():
             if type(stv) is state.Register:
                 yield (name, stv)

@@ -42,8 +42,8 @@ class Value(metaclass=abc.ABCMeta):
         """Set the internally stored value using an initialization strategy.
 
         Arguments:
-            initializer (Initializer): Initialization strategy instance.
-            override (bool): If `True` override existing values, otherwise keep
+            initializer: Initialization strategy instance.
+            override: If `True` override existing values, otherwise keep
                 them. Default: `False`.
         """
 
@@ -54,8 +54,8 @@ class Value(metaclass=abc.ABCMeta):
         """Load the state value.
 
         Arguments:
-            emulator (Emulator): Emulator from which to load state.
-            override (bool): If `True` override existing values, otherwise keep
+            emulator: Emulator from which to load state.
+            override: If `True` override existing values, otherwise keep
                 them. Default: `True`.
         """
 
@@ -66,7 +66,7 @@ class Value(metaclass=abc.ABCMeta):
         """Apply state value to an emulator.
 
         Arguments:
-            emulator (Emulator): Emulator to which state should be applied.
+            emulator: Emulator to which state should be applied.
         """
 
         pass
@@ -85,8 +85,8 @@ class Register(Value):
     """A register value.
 
     Arguments:
-        name (str): The canonical name of the register.
-        width (int): The size (in bytes) of the register.
+        name: The canonical name of the register.
+        width: The size (in bytes) of the register.
     """
 
     def __init__(self, name: str, width: int = 4):
@@ -144,10 +144,10 @@ class RegisterAlias(Register):
     """An alias to a partial register.
 
     Arguments:
-        name (str): The canonical name of the register.
-        reference (Register): A register which this alias references.
-        width (int): The size (in bytes) of the register.
-        offset (int): The offset from the start of the register that this alias
+        name: The canonical name of the register.
+        reference: A register which this alias references.
+        width: The size (in bytes) of the register.
+        offset: The offset from the start of the register that this alias
             references.
     """
 
@@ -207,8 +207,8 @@ class Memory(Value):
     """A memory region base class.
 
     Arguments:
-        address (int): The address of this memory region.
-        size (int): The size (in bytes) of this memory region.
+        address: The address of this memory region.
+        size: The size (in bytes) of this memory region.
     """
 
     def __init__(self, address: int, size: int, byteorder="little"):
@@ -251,7 +251,7 @@ class Memory(Value):
 
         Arguments:
             value: Object to be converted.
-            size (int): Optional size.
+            size: Size.
         """
 
         if type(value) in (bytes, bytearray):
@@ -312,7 +312,7 @@ class Heap(Memory):
 
         Arguments:
             value: Object to be allocated.
-            size (int): Optional size.
+            size: Size.
 
         Returns:
             The address of the value allocated.
@@ -325,13 +325,15 @@ class Heap(Memory):
         """Free a value from the heap.
 
         Arguments:
-            address (int): The address of the object to free.
+            address: The address of the object to free.
         """
 
         pass
 
 
 class BumpAllocator(Heap):
+    """A simple stack-like heap implementation."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -378,8 +380,8 @@ class State(Value):
         """Map a given Value into this state object.
 
         Arguments:
-            value (Value): Value to map.
-            name (str): Optional attribute name - defaults to the class name.
+            value: Value to map.
+            name: Attribute name - defaults to the class name.
         """
 
         if name is None:
@@ -454,7 +456,7 @@ class State(Value):
         """Stringify this instance.
 
         Arguments:
-            truncate (bool): Truncate string value to limit length if `True`.
+            truncate: Truncate string value to limit length if `True`.
         """
 
         joined = ", ".join([str(v) for v in self.values.values()])
@@ -484,3 +486,14 @@ class CPU(State):
         """Processor mode (e.g., 64)."""
 
         return ""
+
+
+__all__ = [
+    "Value",
+    "Register",
+    "RegisterAlias",
+    "Memory",
+    "Stack",
+    "Heap",
+    "BumpAllocator",
+]
