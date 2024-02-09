@@ -1,5 +1,5 @@
 import logging
-import random
+import sys
 
 import smallworld
 
@@ -14,13 +14,12 @@ cpu = smallworld.cpus.AMD64CPUState()
 zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 
-for i in range(10):
-    print("---------------------")
-    cpu.edi.set(random.randint(1, 100))
-    print(cpu.edi.get())
+cpu.edi.set(int(sys.argv[-1]))
 
-    # now we can do a single micro-execution without error
-    final_state = smallworld.emulate(code, cpu)
+print(cpu.edi.get())
 
-    # read the result
-    print(final_state.eax)
+# now we can do a single micro-execution without error
+final_state = smallworld.emulate(code, cpu)
+
+# read the result
+print(final_state.eax)
