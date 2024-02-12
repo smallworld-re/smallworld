@@ -1,8 +1,11 @@
+import io
 import os
 import re
 import subprocess
 import typing
 import unittest
+
+from sphinx import application, errors
 
 
 class ScriptIntegrationTest(unittest.TestCase):
@@ -104,6 +107,36 @@ class StructureTests(ScriptIntegrationTest):
         self.assertLineContains(
             stderr, "rdi", re.escape("mov eax, dword ptr [rdi + 0x18]"), "InputUseHint"
         )
+
+
+class DocumentationTests(unittest.TestCase):
+    def test_documentation_build(self):
+        """Make sure that the documentation builds without error.
+
+        This gathers all errors from the build and raises them at once so you
+        don't have to debug one at a time.
+        """
+
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+        source = os.path.join(root, "docs")
+        config = source
+        build = os.path.join(source, "build")
+        doctree = os.path.join(build, "doctrees")
+
+        warnings = io.StringIO()
+
+        app = application.Sphinx(
+            source, config, build, doctree, "html", status=None, warning=warnings
+        )
+        app.build()
+
+        warnings.flush()
+        warnings.seek(0)
+        warnings = warnings.read().strip()
+
+        if warnings:
+            raise errors.SphinxWarning(f"\n\n{warnings}")
 
 
 if __name__ == "__main__":
