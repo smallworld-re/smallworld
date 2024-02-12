@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 import typing
@@ -15,8 +16,15 @@ class ScriptIntegrationTest(unittest.TestCase):
             The `(stdout, stderr)` of the process as strings.
         """
 
+        cwd = os.path.abspath(os.path.dirname(__file__))
+
         process = subprocess.run(
-            cmd, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            cmd,
+            cwd=cwd,
+            shell=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
         return process.stdout.decode(), process.stderr.decode()
