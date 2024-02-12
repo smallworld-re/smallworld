@@ -84,7 +84,7 @@ Once the test files have been built and SmallWorld has been installed, you can
 run integration tests:
 
 ```bash
-python tests/integration.py
+python3 tests/integration.py
 ```
 
 ## Distribution
