@@ -66,20 +66,44 @@ class ScriptIntegrationTest(unittest.TestCase):
 
 
 class SquareTests(ScriptIntegrationTest):
-    def test_square_0(self):
-        _, stderr = self.command("python square_0.py")
+    def test_basic(self):
+        _, stderr = self.command("python3 basic_harness.py square.bin")
+        self.assertLineContains(stderr, "edi", "imul edi, edi", "InputUseHint")
 
-        self.assertLineContains(stderr, "edi", "InputUseHint")
-
-    def test_square_1(self):
+    def test_square(self):
         def test_output(number):
-            stdout, _ = self.command(f"python square_1.py {number}")
+            stdout, _ = self.command(f"python3 square.py {number}")
 
             self.assertContains(stdout, hex(number**2))
 
         test_output(5)
         test_output(1337)
         test_output(65535)
+
+
+class StackTests(ScriptIntegrationTest):
+    def test_basic(self):
+        _, stderr = self.command("python3 basic_harness.py stack.bin")
+        self.assertLineContains(stderr, "rdi", "add rdi, rdx", "InputUseHint")
+        self.assertLineContains(stderr, "rdx", "add rdi, rdx", "InputUseHint")
+        self.assertLineContains(
+            stderr, "r8", re.escape("lea rax, [rdi + r8]"), "InputUseHint"
+        )
+        self.assertLineContains(
+            stderr, "rsp", re.escape("add rax, qword ptr [rsp + 8]"), "InputUseHint"
+        )
+
+    def test_stack(self):
+        stdout, _ = self.command("python3 stack.py")
+        self.assertLineContains(stdout, "rax", "0x66666666")
+
+
+class StructureTests(ScriptIntegrationTest):
+    def test_basic(self):
+        _, stderr = self.command("python3 basic_harness.py struct.bin")
+        self.assertLineContains(
+            stderr, "rdi", re.escape("mov eax, dword ptr [rdi + 0x18]"), "InputUseHint"
+        )
 
 
 if __name__ == "__main__":
