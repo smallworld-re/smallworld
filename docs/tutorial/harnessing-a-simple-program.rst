@@ -6,12 +6,12 @@ Harnessing a Simple Program
 .. literalinclude:: ../../tests/square.s
   :language: NASM
 
-.. literalinclude:: ../../tests/square_0.py
+.. literalinclude:: ../../tests/basic_harness.py
   :language: Python
 
-.. literalinclude:: ../../tests/square_1.py
+.. literalinclude:: ../../tests/square.py
   :language: Python
 
-.. literalinclude:: ../../tests/square_1.py
+.. literalinclude:: ../../tests/square.py
   :language: Python
-  :diff: ../../tests/square_0.py
+  :diff: ../../tests/basic_harness.py
