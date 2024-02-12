@@ -8,3 +8,4 @@ SmallWorld Documentation
    tutorial/index
    usage/index
    reference/index
+   about

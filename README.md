@@ -53,13 +53,39 @@ pre-commit install
 
 ### Documentation
 
-To build the full SmallWorld documentation, after installing SmallWorld with `development` extras enabled, from the `docs/` directory, run:
+To build the full SmallWorld documentation, after installing SmallWorld with
+`development` extras enabled, from the `docs/` directory, run:
 
 ```bash
 make html
 ```
 
 Or other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/usage/builders/index.html).
+
+### Testing
+
+#### Prerequisites
+
+Building the test binaries requires `nasm`, which can be installed with:
+
+```bash
+apt-get install nasm
+```
+
+You can then build the tests by running:
+
+```bash
+make -C tests
+```
+
+#### Running Tests
+
+Once the test files have been built and SmallWorld has been installed, you can
+run integration tests:
+
+```bash
+python tests/integration.py
+```
 
 ## Distribution
 
