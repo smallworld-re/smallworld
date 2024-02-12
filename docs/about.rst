@@ -23,4 +23,4 @@ work.
 License
 ^^^^^^^
 
-.. include:: license
+.. include:: ../LICENSE.txt
