@@ -1,7 +1,6 @@
 SmallWorld at a Glance
 ----------------------
 
-SmallWorld is intended to
     
 SmallWorld is an environment for streamlined harnessing of binaries
 for the purpose of dynamic analysis. We imagine that you have code
@@ -22,7 +21,7 @@ indicating type and semantics.
 
 SmallWorld is written in Python, and currently makes use of Unicorn,
 Capstone, and angr. Unicorn is used to emulate various instruction set
-architectures. More specifically, howerver, SmallWorld uses Unicorn
+architectures. More specifically, however, SmallWorld uses Unicorn
 for *micro-execution*, an analytic technique in which short stretches
 of code are run under possibly random initial conditions to determine
 inputs and outputs, structure layouts, etc. Capstone provides
@@ -36,6 +35,9 @@ The basic workflow for SmallWorld is as follows
 3. Examine hints either manually or with higher level analyses and use that as a guide refining the harnessing script.
 4. Iterate until the harness is stable and/or some other fitness criterion is met.
 
+.. image:: pics/SmallWorld-Workflow.png
+	   :width: 600
+   
 Now that you have a harness for the code, you can use it to perform
 various dynamic analyses including fuzzing, debugging, reverse
 engineering, exploitability assessment, etc.
