@@ -1,8 +1,5 @@
 SmallWorld Documentation
 ========================
-.. image:: swnessie.png
-  :width: 400
-
 
 SmallWorld is an environment for streamlined harnessing of binaries
 for the purpose of dynamic analysis. If you have code that you got
