@@ -4,26 +4,32 @@
 [![code-style-image]][black]
 [![license-image]][mit]
 
-An emulation state tracking library and tool.
+Easier harnessing of code for analysis!
 
 ## Description
 
-SmallWorld is an environment for streamlined harnessing of binaries
+SmallWorld is an environment for streamlined harnessing of binary code
 for the purpose of dynamic analysis. If you have code that you got
 from somewhere and you'd like to run it and analyze those runs to
 understand what that code does or if it has bugs, then you should try
 SmallWorld!
 
-There are two fundamental ideas behind SmallWorld
+There are two fundamental tenets behind SmallWorld
 * Harnessing should be easier
-* Harnessing can be accelerated by analysis
+* Analysis can accelerate harnessing
 
-The first of these we hope to support with good software at a reasonable abstraction level.
-As a very simple example, consider the harnessing script [stack.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.py) in which registers are initialized and a stack is arranged for running the code in [stack.s](https://github.com/smallworld-re/smallworld/blob/main/tests/stack.s).
+The first of these tenets we hope to support with good software APIs.
+As a very simple example, consider the harnessing script [stack.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.py), composed using SmallWorld, in which registers are initialized and a stack is arranged for running the code in [stack.s](https://github.com/smallworld-re/smallworld/blob/main/tests/stack.s).
 For a more sophisticated example of SmallWorld's harnessing facitilites, consider the code snippet [struct.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.s), which assumes a stack and input pointers to a linked list with very specific format.
-The harnessing script in this case is more complicated, including type information for the linked list element structs as well as use of a simple allocator to instantiate nodes and link them together appropriately: [struct.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
+The harnessing script in this case is more complicated, including specifying type information for the linked list element structures as well as use of a simple allocator abstraction provided by SmallWorld to instantiate nodes and link them together appropriately: [struct.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
 
+The second tenet SmallWorld addresses with purpose-built analyses which leverage a (possibly incomplete) harness script and use techniques such as [Micro Execution](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/microx.pdf) and [Symbolic Execution](https://en.wikipedia.org/wiki/Symbolic_execution#:~:text=In%20computer%20science%2C%20symbolic%20execution,of%20a%20program%20to%20execute) to provide information about types, structure layouts, library function arguments, inputs and outputs. 
+These "hints" can be consumed by either a human or higher-level analyses to guide improving a harness.
 
+Regardless of whether the harnessing script for some code is simply written manually by an expert who knows how to do so, or is iteratively composed with the assistance of analyses, the final goal and output of SmallWorld is a harnessing script, in Python, that can *run* the code and doesn't just trigger emulation errors (unmapped memory, control-flow jumps to non-existent code, etc). 
+This is fine if you want to proceed to do dynamic analysis in Python with Unicorn, or to do some hybrid dynamic / static analysis using some thing like [Angr](https://angr.io), or to maybe use [PANDA](https://panda.re) to emulate and analyze. 
+Really, though, the output of SmallWorld should be a specification of the harness in a end-use agnostic language. 
+This is a work in progress and that doesn't yet exist.
 
 
 ## Installation
