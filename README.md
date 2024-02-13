@@ -8,7 +8,23 @@ An emulation state tracking library and tool.
 
 ## Description
 
-Coming soon...
+SmallWorld is an environment for streamlined harnessing of binaries
+for the purpose of dynamic analysis. If you have code that you got
+from somewhere and you'd like to run it and analyze those runs to
+understand what that code does or if it has bugs, then you should try
+SmallWorld!
+
+There are two fundamental ideas behind SmallWorld
+* Harnessing should be easier
+* Harnessing can be accelerated by analysis
+
+The first of these we hope to support with good software at a reasonable abstraction level.
+As a very simple example, consider the harnessing script [stack.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.py) in which registers are initialized and a stack is arranged for running the code in [stack.s](https://github.com/smallworld-re/smallworld/blob/main/tests/stack.s).
+For a more sophisticated example of SmallWorld's harnessing facitilites, consider the code snippet [struct.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.s), which assumes a stack and input pointers to a linked list with very specific format.
+The harnessing script in this case is more complicated, including type information for the linked list element structs as well as use of a simple allocator to instantiate nodes and link them together appropriately: [struct.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
+
+
+
 
 ## Installation
 
