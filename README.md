@@ -23,13 +23,9 @@ As a very simple example, consider the harnessing script [stack.py](https://gith
 For a more sophisticated example of SmallWorld's harnessing facitilites, consider the code snippet [struct.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.s), which assumes a stack and input pointers to a linked list with very specific format.
 The harnessing script in this case is more complicated, including specifying type information for the linked list element structures as well as use of a simple allocator abstraction provided by SmallWorld to instantiate nodes and link them together appropriately: [struct.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
 
-The second tenet SmallWorld addresses with purpose-built analyses which leverage a (possibly incomplete) harness script and use techniques such as [Micro Execution](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/microx.pdf) and [Symbolic Execution](https://en.wikipedia.org/wiki/Symbolic_execution#:~:text=In%20computer%20science%2C%20symbolic%20execution,of%20a%20program%20to%20execute) to provide information about types, structure layouts, library function arguments, inputs and outputs. 
-These "hints" can be consumed by either a human or higher-level analyses to guide improving a harness.
+The second tenet we address with purpose-built analyses which leverage a (possibly incomplete) harness script and that use techniques such as [Micro Execution](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/microx.pdf) and [Symbolic Execution](https://en.wikipedia.org/wiki/Symbolic_execution#:~:text=In%20computer%20science%2C%20symbolic%20execution,of%20a%20program%20to%20execute) to provide hints that can guide improving a harness. 
 
-Regardless of whether the harnessing script for some code is simply written manually by an expert who knows how to do so, or is iteratively composed with the assistance of analyses, the final goal and output of SmallWorld is a harnessing script, in Python, that can *run* the code and doesn't just trigger emulation errors (unmapped memory, control-flow jumps to non-existent code, etc). 
-This is fine if you want to proceed to do dynamic analysis in Python with Unicorn, or to do some hybrid dynamic / static analysis using some thing like [Angr](https://angr.io), or to maybe use [PANDA](https://panda.re) to emulate and analyze. 
-Really, though, the output of SmallWorld should be a specification of the harness in a end-use agnostic language. 
-This is a work in progress and that doesn't yet exist.
+This harness is the final output of SmallWorld and might be used in fuzzing or dynamic reverse engineering. Note that these are not applications which SmallWorld directly supports yet.
 
 
 ## Installation

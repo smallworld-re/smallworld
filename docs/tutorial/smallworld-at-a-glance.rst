@@ -38,10 +38,11 @@ The basic workflow for SmallWorld is as follows
 .. image:: pics/SmallWorld-Workflow.png
 	   :width: 600
    
-Now that you have a harness for the code, you can use it to perform
-various dynamic analyses including fuzzing, debugging, reverse
-engineering, exploitability assessment, etc.
-
-.. warning:: This how-to-use-the-output-of-SmallWorld bit is hallucinatory, at the moment. Presumably, we'd want to be able to translate the python harness into a C/C++ one. Or emit it in a DSL that could be used by lots of tools.
+Now that you have a harness for the code, you can use it to for any
+purpose that requires actually executing the code, which could be
+fuzzing, debugging, or reverse engineering.
+As SmallWorld matures, we will add examples of these applications
+built out of code harnessed using the APIs and informed by the analyses
+in this repository.
 
 
