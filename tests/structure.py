@@ -5,7 +5,7 @@ import logging
 import smallworld
 
 smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 
 # note: code is of type bytes

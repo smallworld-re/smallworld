@@ -3,7 +3,7 @@ import logging
 import smallworld
 
 smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 # load code
 code = smallworld.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
