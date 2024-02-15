@@ -4,11 +4,46 @@
 [![code-style-image]][black]
 [![license-image]][mit]
 
-An emulation state tracking library and tool.
+Easier harnessing of code for analysis!
 
 ## Description
 
-Coming soon...
+SmallWorld is an environment for streamlined harnessing of binary code for the
+purpose of dynamic analysis. If you have code that you got from somewhere and
+you'd like to run it and analyze those runs to understand what that code does
+or if it has bugs, then you should try SmallWorld!
+
+There are two fundamental tenets behind SmallWorld
+* Harnessing should be easier
+* Analysis can accelerate harnessing
+
+The first of these tenets we hope to support with good software APIs. As a very
+simple example, consider the harnessing script
+[stack.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.py),
+composed using SmallWorld, in which registers are initialized and a stack is
+arranged for running the code in
+[stack.s](https://github.com/smallworld-re/smallworld/blob/main/tests/stack.s).
+For a more sophisticated example of SmallWorld's harnessing facitilites,
+consider the code snippet
+[struct.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.s),
+which assumes a stack and input pointers to a linked list with very specific
+format. The harnessing script in this case is more complicated, including
+specifying type information for the linked list element structures as well as
+use of a simple allocator abstraction provided by SmallWorld to instantiate
+nodes and link them together appropriately:
+[struct.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
+
+The second tenet we address with purpose-built analyses which leverage a
+(possibly incomplete) harness script and that use techniques such as [Micro
+Execution](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/microx.pdf)
+and [Symbolic
+Execution](https://en.wikipedia.org/wiki/Symbolic_execution#:~:text=In%20computer%20science%2C%20symbolic%20execution,of%20a%20program%20to%20execute)
+to provide hints that can guide improving a harness. 
+
+This harness is the final output of SmallWorld and might be used in fuzzing or
+dynamic reverse engineering. Note that these are not applications which
+SmallWorld directly supports yet.
+
 
 ## Installation
 
