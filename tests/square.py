@@ -4,7 +4,7 @@ import sys
 import smallworld
 
 smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 # load the code and create a state object
 code = smallworld.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)

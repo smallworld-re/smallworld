@@ -109,6 +109,23 @@ class StructureTests(ScriptIntegrationTest):
         )
 
 
+class BranchTests(ScriptIntegrationTest):
+    def test_basic(self):
+        _, stderr = self.command("python3 basic_harness.py branch.bin")
+        self.assertLineContains(stderr, "eax", "xor eax, eax", "InputUseHint")
+        self.assertLineContains(stderr, "rdi", "cmp rdi, 0x64", "InputUseHint")
+
+    def test_branch(self):
+        stdout, _ = self.command("python3 branch.py 99")
+        self.assertLineContains(stdout, "eax", "0x0")
+
+        stdout, _ = self.command("python3 branch.py 100")
+        self.assertLineContains(stdout, "eax", "0x1")
+
+        stdout, _ = self.command("python3 branch.py 101")
+        self.assertLineContains(stdout, "eax", "0x0")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
