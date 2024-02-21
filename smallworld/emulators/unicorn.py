@@ -1,11 +1,14 @@
 import logging
 import math
 import typing
+import sys
 
 import capstone as cs
 import unicorn
+from unicorn import unicorn_const as uc
 
 from .. import exceptions
+from .. import unicorn_exceptions
 from . import emulator
 
 logger = logging.getLogger(__name__)
@@ -158,6 +161,10 @@ class UnicornEmulator(emulator.Emulator):
         logger.debug(f"set register {name}={value}")
 
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
+        # UC_ERR_ARG: Size can't be greater than INT_MAX
+        if size > sys.maxsize: 
+            raise ValueError(f"size of memory {size} is larger than sys.maxsize.")
+
         try:
             return self.engine.mem_read(address, size)
         except unicorn.unicorn.UcError:
@@ -181,6 +188,22 @@ class UnicornEmulator(emulator.Emulator):
                 raise ValueError(
                     "write overlaps with existing memory mapping (currently unsupported)"
                 )
+
+        # Handles UC_ERR_ARG 
+
+        # Size cannot be 0
+        if not len(value): 
+            raise ValueError("memory region cannot have 0 bytes")
+
+        # Address must be aligned to a page size
+        if address & (self.PAGE_SIZE - 1) != 0: 
+            raise ValueError(f"address {hex(address)} needs to be a aligned to a page size {hex(self.PAGE_SIZE)}")
+
+        # Address can't wrap around
+
+        # Size can't be greater than INT_MAX
+        if len(value) > sys.maxsize: 
+            raise ValueError(f"size of memory {len(value)} is larger than sys.maxsize.")
 
         pages = math.ceil(len(value) / self.PAGE_SIZE)
         allocation = pages * self.PAGE_SIZE
@@ -263,7 +286,8 @@ class UnicornEmulator(emulator.Emulator):
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
-            raise exceptions.EmulationError(e)
+            self.raise_exception_with_details(e)
+            #raise exceptions.EmulationError(e)
 
         logger.info("emulation complete")
 
@@ -283,7 +307,8 @@ class UnicornEmulator(emulator.Emulator):
             self.engine.emu_start(pc, self.exitpoint, count=1)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
-            raise exceptions.EmulationError(e)
+            self.raise_exception_with_details(e)
+            #raise exceptions.EmulationError(e)
 
         pc = self.read_register("pc")
         if self.entrypoint is None or self.exitpoint is None:
@@ -293,6 +318,100 @@ class UnicornEmulator(emulator.Emulator):
             return True
 
         return False
+    
+
+
+    def get_insn_rw(self, insn : cs.CsInsn) -> tuple: 
+        """Get register names read from and written to for capstone instruction."""
+
+        (regs_read, regs_written) = insn.regs_access()
+        r_read = {insn.reg_name(r) for r in regs_read}
+        r_written = {insn.reg_name(r) for r in regs_written}
+        return (r_read, r_written)
+    
+    def get_operand_details(self, op, insn : cs.CsInsn) -> dict:
+        """Get operand details (REG, MEM, IMM) for a capstone instruction op"""
+
+        # x86 instructions with capstone
+        # REG -> operand is a register
+        # MEM -> operand is a memory reference
+        # IMM -> operand is an immediate value 
+        op_map = {}
+
+        if op.type == cs.x86.X86_OP_REG:
+            reg = insn.reg_name(op.value.reg)
+            value = self.emulator.read_register(reg)
+            op_map['REG'] = { reg : value }
+        # (register base, register index, offset)
+        elif op.type == cs.x86.X86_OP_MEM:
+            base, index, offset, base_value, index_value = "", "", 0, 0, 0
+            p = {}
+            if op.value.mem.base != 0: # this is a ptr 
+                base = insn.reg_name(op.value.mem.base)
+                base_value = self.emulator.read_register(base)
+                p[base] = base_value
+            if op.value.mem.index != 0:
+                index = insn.reg_name(op.value.mem.index)
+                index_value = self.read_register(index)
+                p[index] = index_value
+            if op.value.mem.disp != 0:
+                offset = op.value.mem.disp
+                p["offset"] = offset
+            op_map['MEM'] = p 
+        # value 
+        elif op.type == cs.x86.X86_OP_IMM:
+            op_map['IMM'] = op.value.imm
+        return op_map
+    
+    def get_exception_rw_details(self, insn : cs.CsInsn, is_read : bool) -> dict: 
+        """Get details for unicorn emulation exceptions: UC_ERR_READ_UNMAPPED, UC_ERR_WRITE_UNMAPPED"""
+
+        print(type(insn))
+        (regs_read, regs_written) = self.get_insn_rw(insn)
+        regs = regs_read if is_read else regs_written 
+
+        # Read/write can either be an operand or implied 
+        details = {}
+        op_read, op_written = None, None
+        if len(insn.operands) == 1: 
+            op_read = insn.operands[0]
+        elif len(insn.operands) == 2:
+            op_written = insn.opernads[0]
+            op_read = insn.operands[1]
+        op = op_read if is_read else op_written
+
+        if op and op.type == cs.x86.X86_OP_MEM: 
+            details = self.get_operand_details(op, insn)
+        else: 
+            for reg in regs:
+                details['REG'] = {reg : self.read_register(reg)} 
+        
+        print(details)
+        return details
+
+
+    def raise_exception_with_details(self, e: unicorn.UcError) -> dict: 
+        pc = self.read_register("pc") 
+        code = self.read_memory(pc, 16) 
+        if code is None:
+            assert False, "impossible state"
+        (insns, disas) = self.disassemble(code, 1)
+        insn = insns[0]
+
+        if e.args[0] == uc.UC_ERR_READ_UNMAPPED:
+            details = self.get_exception_rw_details(insn, True)
+        elif e.args[0] == uc.UC_ERR_WRITE_UNMAPPED:
+            details = self.get_exception_rw_details(insn, False) 
+        elif e.args[0] == uc.UC_ERR_FETCH_UNMAPPED: 
+            # this is the pc address unmapped
+            details['REG'] = {"pc" : pc} 
+        elif e.args[0] == uc.UC_ERR_INSN_INVALID: 
+            # bytes at pc are bad
+            details['BYTES']  = {"pc" : code}
+
+        raise unicorn_exceptions.UnicornEmulationError(e.args[0], insn, pc, details) 
+
+
 
     def __repr__(self) -> str:
         return f"Unicorn(mode={self.mode}, arch={self.arch})"
