@@ -354,7 +354,7 @@ class Stack(Memory):
         # individual stack values. The best we can do is treat the entire
         # region as a single allocation.
 
-        self.memory = [value]
+        self.memory = [(value, len(value))]
         self.used = len(value)
 
     def push(self, value, size=None):
@@ -416,7 +416,7 @@ class BumpAllocator(Heap):
 
         # Best effort value retrieval - see comment in `Stack.set()`.
 
-        self.memory = [value]
+        self.memory = [(value, len(value))]
         self.used = len(value)
 
     def malloc(self, value, size: typing.Optional[int] = None) -> int:
