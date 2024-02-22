@@ -390,12 +390,16 @@ class State(Value):
         if name is None:
             name = value.__class__.__name__.lower()
 
+            logger.debug(f"mapping name not provided, using {name}")
+
             if hasattr(self, name):
                 candidates = []
                 for attribute in dir(self):
                     for match in re.findall(f"{name}(\\d*)$", attribute):
                         candidates.append(int(match or 0))
                 name = f"{name}{max(candidates) + 1}"
+
+                logger.debug(f"mapping name colision detected - using {name} instead")
         else:
             if hasattr(self, name):
                 raise ValueError(f"{name} already exists on {self}")
