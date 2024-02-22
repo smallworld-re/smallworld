@@ -87,13 +87,13 @@ class Code(Value):
     """An executable image and metadata storage class.
 
     Arguments:
-        image (bytes): The actual bytes of the executable.
-        type (str): Executable format ("blob", "PE", "ELF", etc.)
-        arch (str): Architecture ("x86", "arm", etc.)
-        mode (str): Architecture mode ("32", "64", etc.)
-        base (int): Base address.
-        entry (int): Execution entry address.
-        exits (list): Exit addresses - used to determine when execution has
+        image: The actual bytes of the executable.
+        type: Executable format ("blob", "PE", "ELF", etc.)
+        arch: Architecture ("x86", "arm", etc.)
+        mode: Architecture mode ("32", "64", etc.)
+        base: Base address.
+        entry: Execution entry address.
+        exits: Exit addresses - used to determine when execution has
             terminated.
     """
 
