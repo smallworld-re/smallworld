@@ -15,6 +15,8 @@ class Value(metaclass=abc.ABCMeta):
     Defines the interface for a single system state value.
     """
 
+    mapped = False
+
     @abc.abstractmethod
     def get(self):
         """Get the internaly stored value.
@@ -79,6 +81,66 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         return ""
+
+
+class Code(Value):
+    """An executable image and metadata storage class.
+
+    Arguments:
+        image: The actual bytes of the executable.
+        type: Executable format ("blob", "PE", "ELF", etc.)
+        arch: Architecture ("x86", "arm", etc.)
+        mode: Architecture mode ("32", "64", etc.)
+        base: Base address.
+        entry: Execution entry address.
+        exits: Exit addresses - used to determine when execution has
+            terminated.
+    """
+
+    def __init__(
+        self,
+        image: bytes,
+        type: typing.Optional[str] = None,
+        arch: typing.Optional[str] = None,
+        mode: typing.Optional[str] = None,
+        base: typing.Optional[int] = None,
+        entry: typing.Optional[int] = None,
+        exits: typing.Optional[typing.Iterable[int]] = None,
+    ):
+        self.image = image
+        self.type = type
+        self.arch = arch
+        self.mode = mode
+        self.base = base
+        self.entry = entry
+        self.exits = exits or []
+
+    @classmethod
+    def from_filepath(cls, path: str, *args, **kwargs):
+        with open(path, "rb") as f:
+            image = f.read()
+
+        return cls(image, *args, **kwargs)
+
+    def get(self):
+        raise NotImplementedError()
+
+    def set(self, value) -> None:
+        raise NotImplementedError()
+
+    def initialize(
+        self, initializer: initializers.Initializer, override: bool = False
+    ) -> None:
+        logger.debug(f"skipping initialization for {self} (code)")
+
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
+        logger.debug(f"{self} loading not supported - load skipped")
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        emulator.load(self)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
 
 
 class Register(Value):
@@ -292,7 +354,7 @@ class Stack(Memory):
         # individual stack values. The best we can do is treat the entire
         # region as a single allocation.
 
-        self.memory = [value]
+        self.memory = [(value, len(value))]
         self.used = len(value)
 
     def push(self, value, size=None):
@@ -354,7 +416,7 @@ class BumpAllocator(Heap):
 
         # Best effort value retrieval - see comment in `Stack.set()`.
 
-        self.memory = [value]
+        self.memory = [(value, len(value))]
         self.used = len(value)
 
     def malloc(self, value, size: typing.Optional[int] = None) -> int:
@@ -386,9 +448,10 @@ class State(Value):
 
         if name is None:
             name = value.__class__.__name__.lower()
-            print(name)
 
         setattr(self, name, value)
+
+        value.mapped = True
 
     @property
     def values(self) -> typing.Dict[str, Value]:
@@ -400,15 +463,19 @@ class State(Value):
         This is similar to python 3.11's `inspect.getmembers_static`.
         """
 
-        members = {}
+        members, mapped = {}, {}
         for member in dir(self):
             if member == "values":
                 continue
+
             value = getattr(self, member)
             if isinstance(value, Value):
-                members[member] = value
+                if value.mapped:
+                    mapped[member] = value
+                else:
+                    members[member] = value
 
-        return members
+        return {**members, **mapped}
 
     def get(self) -> typing.Dict[str, typing.Any]:
         """Get the internaly stored values.
@@ -444,8 +511,8 @@ class State(Value):
 
     def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         for name, state in self.values.items():
-            logger.debug(f"loading {name} from {emulator}")
             state.load(emulator, override=override)
+            logger.debug(f"loaded {name}:{state} from {emulator}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for name, state in self.values.items():
@@ -490,6 +557,7 @@ class CPU(State):
 
 __all__ = [
     "Value",
+    "Code",
     "Register",
     "RegisterAlias",
     "Memory",
