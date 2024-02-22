@@ -1,14 +1,13 @@
 import logging
 import math
-import typing
 import sys
+import typing
 
 import capstone as cs
 import unicorn
 from unicorn import unicorn_const as uc
 
-from .. import exceptions
-from .. import unicorn_exceptions
+from .. import exceptions, state, unicorn_exceptions
 from . import emulator
 
 logger = logging.getLogger(__name__)
@@ -25,6 +24,17 @@ class UnicornEmulator(emulator.Emulator):
     ARCHITECTURES = {"x86": unicorn.UC_ARCH_X86}
 
     MODES = {"32": unicorn.UC_MODE_32, "64": unicorn.UC_MODE_64}
+
+    PARTIAL_REGISTERS = {
+        "ah": unicorn.x86_const.UC_X86_REG_AH,
+        "al": unicorn.x86_const.UC_X86_REG_AL,
+        "bh": unicorn.x86_const.UC_X86_REG_BH,
+        "bl": unicorn.x86_const.UC_X86_REG_BL,
+        "ch": unicorn.x86_const.UC_X86_REG_CH,
+        "cl": unicorn.x86_const.UC_X86_REG_CL,
+        "dh": unicorn.x86_const.UC_X86_REG_DH,
+        "dl": unicorn.x86_const.UC_X86_REG_DL,
+    }
 
     I386_REGISTERS = {
         "eax": unicorn.x86_const.UC_X86_REG_EAX,
@@ -72,8 +82,12 @@ class UnicornEmulator(emulator.Emulator):
 
     REGISTERS = {
         unicorn.UC_ARCH_X86: {
-            unicorn.UC_MODE_32: I386_REGISTERS,
-            unicorn.UC_MODE_64: {**I386_REGISTERS, **AMD64_REGISTERS},
+            unicorn.UC_MODE_32: {**PARTIAL_REGISTERS, **I386_REGISTERS},
+            unicorn.UC_MODE_64: {
+                **PARTIAL_REGISTERS,
+                **I386_REGISTERS,
+                **AMD64_REGISTERS,
+            },
         }
     }
 
@@ -162,7 +176,7 @@ class UnicornEmulator(emulator.Emulator):
 
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         # UC_ERR_ARG: Size can't be greater than INT_MAX
-        if size > sys.maxsize: 
+        if size > sys.maxsize:
             raise ValueError(f"size of memory {size} is larger than sys.maxsize.")
 
         try:
@@ -189,20 +203,22 @@ class UnicornEmulator(emulator.Emulator):
                     "write overlaps with existing memory mapping (currently unsupported)"
                 )
 
-        # Handles UC_ERR_ARG 
+        # Handles UC_ERR_ARG
 
         # Size cannot be 0
-        if not len(value): 
+        if not len(value):
             raise ValueError("memory region cannot have 0 bytes")
 
         # Address must be aligned to a page size
-        if address & (self.PAGE_SIZE - 1) != 0: 
-            raise ValueError(f"address {hex(address)} needs to be a aligned to a page size {hex(self.PAGE_SIZE)}")
+        if address & (self.PAGE_SIZE - 1) != 0:
+            raise ValueError(
+                f"address {hex(address)} needs to be a aligned to a page size {hex(self.PAGE_SIZE)}"
+            )
 
         # Address can't wrap around
 
         # Size can't be greater than INT_MAX
-        if len(value) > sys.maxsize: 
+        if len(value) > sys.maxsize:
             raise ValueError(f"size of memory {len(value)} is larger than sys.maxsize.")
 
         pages = math.ceil(len(value) / self.PAGE_SIZE)
@@ -286,8 +302,7 @@ class UnicornEmulator(emulator.Emulator):
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
-            self.raise_exception_with_details(e)
-            #raise exceptions.EmulationError(e)
+            raise exceptions.EmulationError(e)
 
         logger.info("emulation complete")
 
@@ -308,7 +323,6 @@ class UnicornEmulator(emulator.Emulator):
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             self.raise_exception_with_details(e)
-            #raise exceptions.EmulationError(e)
 
         pc = self.read_register("pc")
         if self.entrypoint is None or self.exitpoint is None:
@@ -318,100 +332,150 @@ class UnicornEmulator(emulator.Emulator):
             return True
 
         return False
-    
 
+    def get_reads(self, insn: cs.CsInsn) -> list:
+        """Gets all values read by this instruction, including all registers and their values
+        as well as pointer addresses and data written there.
 
-    def get_insn_rw(self, insn : cs.CsInsn) -> tuple: 
-        """Get register names read from and written to for capstone instruction."""
+        Arguments:
+            insn: capstone instruction
+        Returns:
+            A list of state values read by the instruction.
+        """
+        return self.get_reads_writes(insn, True)
 
+    def get_writes(self, insn: cs.CsInsn) -> list:
+        """Gets all values written to by this instruction, including all registers and their values
+        as well as pointer addresses and data written there.
+
+        Arguments:
+            insn: capstone instruction
+        Returns:
+            A list of state values written by the instruction.
+        """
+        return self.get_reads_writes(insn, False)
+
+    def get_reads_writes(self, insn: cs.CsInsn, is_read: bool) -> list:
+        # Get registers read/written from first
         (regs_read, regs_written) = insn.regs_access()
-        r_read = {insn.reg_name(r) for r in regs_read}
-        r_written = {insn.reg_name(r) for r in regs_written}
-        return (r_read, r_written)
-    
-    def get_operand_details(self, op, insn : cs.CsInsn) -> dict:
-        """Get operand details (REG, MEM, IMM) for a capstone instruction op"""
+        regs = regs_read if is_read else regs_written
+        rw_vals = []
+
+        # this is important for things like pop ebx
+        for r in regs:
+            rw_vals.append(self.get_reg_val(insn.reg_name(r)))
+
+        # just do this for not reg
+        for op in insn.operands:
+            if op.type == cs.x86.X86_OP_MEM:
+                if is_read and op.access == cs.CS_AC_READ:
+                    rw_vals.append(self.get_operand_val(op, insn))
+                elif not is_read and op.access == cs.CS_AC_WRITE:
+                    rw_vals.append(self.get_operand_val(op, insn))
+
+        return rw_vals
+
+    def get_reg_val(self, r: str) -> tuple:
+        """Reads register value from a string register name.
+
+        Arguments:
+            r: string version of a register name
+        Returns:
+            A tuple of state register and any additional data.
+        """
+
+        sw_reg = state.Register(r, 4)
+        sw_val = self.read_register(r)
+        sw_reg.set(sw_val)
+
+        return (sw_reg, {})
+
+    def get_operand_val(self, op, insn: cs.CsInsn) -> tuple:
+        """Gets operand details (REG, MEM, IMM) for a capstone instruction operand
+
+        Arguments:
+            op : Capstone operand
+            insn : Capstone instruction
+        Returns:
+            A tuple with the state value and a dictionary of extra data.
+        """
 
         # x86 instructions with capstone
         # REG -> operand is a register
         # MEM -> operand is a memory reference
-        # IMM -> operand is an immediate value 
-        op_map = {}
+        # IMM -> operand is an immediate value
 
         if op.type == cs.x86.X86_OP_REG:
             reg = insn.reg_name(op.value.reg)
-            value = self.emulator.read_register(reg)
-            op_map['REG'] = { reg : value }
+            reg_value = self.read_register(reg)
+            sw_reg = state.Register("esi", op.size)
+            sw_reg.set(reg_value)
+            return (sw_reg, {})
+
         # (register base, register index, offset)
         elif op.type == cs.x86.X86_OP_MEM:
-            base, index, offset, base_value, index_value = "", "", 0, 0, 0
-            p = {}
-            if op.value.mem.base != 0: # this is a ptr 
-                base = insn.reg_name(op.value.mem.base)
-                base_value = self.emulator.read_register(base)
-                p[base] = base_value
+            offset, base_value, index_value = 0, 0, 0
+            data = {}
+            if op.value.mem.base != 0:
+                base_reg = insn.reg_name(op.value.mem.base)
+                base_value = self.read_register(base_reg)
+                data["base"] = base_reg
             if op.value.mem.index != 0:
-                index = insn.reg_name(op.value.mem.index)
-                index_value = self.read_register(index)
-                p[index] = index_value
+                index_reg = insn.reg_name(op.value.mem.index)
+                index_value = self.read_register(index_reg)
+                data["index"] = index_reg
             if op.value.mem.disp != 0:
                 offset = op.value.mem.disp
-                p["offset"] = offset
-            op_map['MEM'] = p 
-        # value 
+            address = base_value + index_value + offset
+
+            sw_state = state.Memory(address, op.size)
+            mem_value = self.read_memory(address, op.size)
+            if mem_value:
+                sw_state.set(mem_value)
+                data["success"] = True
+            else:
+                sw_state.set(bytes(0))
+                data["success"] = False
+            return (sw_state, data)
+
         elif op.type == cs.x86.X86_OP_IMM:
-            op_map['IMM'] = op.value.imm
-        return op_map
-    
-    def get_exception_rw_details(self, insn : cs.CsInsn, is_read : bool) -> dict: 
-        """Get details for unicorn emulation exceptions: UC_ERR_READ_UNMAPPED, UC_ERR_WRITE_UNMAPPED"""
+            return (op.value.imm, {})
 
-        print(type(insn))
-        (regs_read, regs_written) = self.get_insn_rw(insn)
-        regs = regs_read if is_read else regs_written 
+        else:
+            return ()
 
-        # Read/write can either be an operand or implied 
-        details = {}
-        op_read, op_written = None, None
-        if len(insn.operands) == 1: 
-            op_read = insn.operands[0]
-        elif len(insn.operands) == 2:
-            op_written = insn.opernads[0]
-            op_read = insn.operands[1]
-        op = op_read if is_read else op_written
+    def raise_exception_with_details(self, e: unicorn.UcError) -> dict:
+        """Raises new exception from unicorn exception with extra details.
+        Should only be run while single stepping.
 
-        if op and op.type == cs.x86.X86_OP_MEM: 
-            details = self.get_operand_details(op, insn)
-        else: 
-            for reg in regs:
-                details['REG'] = {reg : self.read_register(reg)} 
-        
-        print(details)
-        return details
+        Arguments:
+            e: unicorn error
+        """
 
+        pc = self.engine.reg_read(unicorn.x86_const.UC_X86_REG_EIP)
+        code = self.read_memory(pc, 16)
 
-    def raise_exception_with_details(self, e: unicorn.UcError) -> dict: 
-        pc = self.read_register("pc") 
-        code = self.read_memory(pc, 16) 
         if code is None:
             assert False, "impossible state"
         (insns, disas) = self.disassemble(code, 1)
         insn = insns[0]
 
         if e.args[0] == uc.UC_ERR_READ_UNMAPPED:
-            details = self.get_exception_rw_details(insn, True)
+            details = self.get_reads_writes(insn, True)
         elif e.args[0] == uc.UC_ERR_WRITE_UNMAPPED:
-            details = self.get_exception_rw_details(insn, False) 
-        elif e.args[0] == uc.UC_ERR_FETCH_UNMAPPED: 
+            details = self.get_reads_writes(insn, False)
+        elif e.args[0] == uc.UC_ERR_FETCH_UNMAPPED:
             # this is the pc address unmapped
-            details['REG'] = {"pc" : pc} 
-        elif e.args[0] == uc.UC_ERR_INSN_INVALID: 
+            sw_reg = state.Register("pc", 4)
+            sw_reg.set(pc)
+            details = [(sw_reg, {})]
+        elif e.args[0] == uc.UC_ERR_INSN_INVALID:
             # bytes at pc are bad
-            details['BYTES']  = {"pc" : code}
+            sw_reg = state.Register("pc", 4)
+            sw_reg.set(pc)
+            details = [(sw_reg, {"code": code})]
 
-        raise unicorn_exceptions.UnicornEmulationError(e.args[0], insn, pc, details) 
-
-
+        raise unicorn_exceptions.UnicornEmulationError(e.args[0], insn, pc, details)
 
     def __repr__(self) -> str:
         return f"Unicorn(mode={self.mode}, arch={self.arch})"

@@ -43,7 +43,7 @@ cpu.initialize(zero)
 
 # this is an allocator in charge of a memory region that
 # starts at 0x2000 and is of size 0x1000 and full of zeros.
-alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x1000)
+alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x2000)
 
 
 # seems like ctypes is a good way to compactly express a type like `struct node` from struct.s
@@ -59,14 +59,14 @@ class StructNode(ctypes.LittleEndianStructure):
 
 # create two nodes with data and empty slots filled in
 node1 = StructNode()
-node1.data = 0  # thus ->next will get used to traverse
+node1.data = 4  # thus ->next will get used to traverse
 node1.empty = 0
 node1.prev = 0
 node1_addr = alloc.malloc(node1)
 
 node2 = StructNode()
 node2.data = 1  # thus ->prev wil get used to traverse
-node2.empty = 0
+node2.empty = 1
 node2_addr = alloc.malloc(node2)
 
 # and link them up
@@ -80,7 +80,7 @@ print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 cpu.map(alloc)
 
-smallworld.analyze(code, cpu)
+smallworld.emulate(code, cpu)
 
 # now we can do a single micro-execution without error
 # final_state = smallworld.emulate(code, cpu)

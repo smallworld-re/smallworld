@@ -230,14 +230,33 @@ class Memory(Value):
             logger.debug(f"skipping load for {self} (already loaded)")
             return
 
-        self.set(emulator.read_memory(self.address, self.size))
+        value_bytes = emulator.read_memory(self.address, self.size)
+        if value_bytes:
+            self.set(value_bytes)
+        else:
+            raise ValueError(f"unable to load out {self.address} of {self.size}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.write_memory(self.address, self.get())
 
+    def get(self) -> typing.Optional[bytes]:
+        if len(self.memory):
+            value = self.to_bytes(self.memory[0])
+
+        return value
+
+    def set(self, value: bytes) -> None:
+        if len(value) > self.size:
+            raise ValueError("buffer too large for this memory region")
+
+        # Best effort value retrieval - see comment in `Stack.set()`.
+
+        self.memory = [value]
+
     def __repr__(self) -> str:
-        if self.get():
-            value = self.get().decode("utf-8", errors="replace")
+        val = self.get()
+        if val is not None:
+            value = val.decode("utf-8", errors="replace")
             value = textwrap.shorten(value, width=32)
 
             rep = f'{self.address:x}="{value}"[{self.size}]'
@@ -270,13 +289,13 @@ class Stack(Memory):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.memory = []
+        self.stack_memory = []
         self.used = 0
 
     def get(self) -> typing.Optional[bytes]:
         value = bytearray()
 
-        for v, s in self.memory:
+        for v, s in self.stack_memory:
             value += self.to_bytes(v, s)
 
         return value
@@ -292,7 +311,7 @@ class Stack(Memory):
         # individual stack values. The best we can do is treat the entire
         # region as a single allocation.
 
-        self.memory = [value]
+        self.stack_memory = [value]
         self.used = len(value)
 
     def push(self, value, size=None):
@@ -301,7 +320,7 @@ class Stack(Memory):
         if self.used + allocation > self.size:
             raise ValueError(f"{value} (size: {allocation}) is too large for {self}")
 
-        self.memory.append((value, size))
+        self.stack_memory.append((value, size))
         self.used += allocation
 
 
@@ -337,16 +356,19 @@ class BumpAllocator(Heap):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.memory = []
+        self.stack_memory = []
         self.used = 0
 
     def get(self) -> typing.Optional[bytes]:
         value = bytearray()
 
-        for v, s in self.memory:
+        for v, s in self.stack_memory:
             value += self.to_bytes(v, s)
 
         return value
+
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
+        raise NotImplementedError()
 
     def set(self, value: bytes) -> None:
         if len(value) > self.size:
@@ -354,7 +376,7 @@ class BumpAllocator(Heap):
 
         # Best effort value retrieval - see comment in `Stack.set()`.
 
-        self.memory = [value]
+        self.stack_memory = [value]
         self.used = len(value)
 
     def malloc(self, value, size: typing.Optional[int] = None) -> int:
@@ -364,7 +386,7 @@ class BumpAllocator(Heap):
             raise ValueError(f"{value} (size: {allocation}) is too large for {self}")
 
         address = self.address + self.used
-        self.memory.append((value, size))
+        self.stack_memory.append((value, size))
         self.used += allocation
 
         return address
