@@ -7,7 +7,6 @@ __description__ = metadata["Summary"]
 __version__ = metadata["version"]
 
 from . import analyses, cpus, emulators, exceptions, hinting, initializers, state
-from .emulators import Code
 from .utils import analyze, emulate, setup_hinting, setup_logging
 
 __all__ = [
@@ -22,5 +21,4 @@ __all__ = [
     "emulate",
     "setup_hinting",
     "setup_logging",
-    "Code",
 ]
