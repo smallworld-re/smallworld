@@ -59,7 +59,7 @@ class InputColorizerAnalysis(analysis.Analysis):
         self.num_micro_executions = num_micro_executions
         self.num_instructions = num_instructions
 
-    def run(self, image: emulators.Code, state: state.CPU) -> None:
+    def run(self, state: state.CPU) -> None:
         for i in range(self.num_micro_executions):
             self.cpu = copy.deepcopy(state)
 
@@ -75,8 +75,6 @@ class InputColorizerAnalysis(analysis.Analysis):
                 logger.debug(f"{name} = {value:x}")
 
             self.cpu.apply(emu)
-
-            emu.load(image)
 
             for j in range(self.num_instructions):
                 pc = emu.read_register("pc")
