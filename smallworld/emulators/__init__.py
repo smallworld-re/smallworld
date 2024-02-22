@@ -1,4 +1,4 @@
-from .emulator import Code, Emulator  # noqa: F401
+from .emulator import Emulator
 from .unicorn import UnicornEmulator
 
 __all__ = ["Emulator", "UnicornEmulator"]
