@@ -44,7 +44,9 @@ class ScriptIntegrationTest(unittest.TestCase):
         """
 
         if re.search(match, output) is None:
-            raise AssertionError(f"string does not contain `{match}`")
+            raise AssertionError(
+                f"string does not contain `{match}`:\n\n{output.strip()}"
+            )
 
     def assertLineContains(self, output: str, *matches) -> None:
         """Assert that any line contains some combination of regexes.
@@ -65,7 +67,9 @@ class ScriptIntegrationTest(unittest.TestCase):
             else:
                 return
 
-        raise AssertionError(f"no line in string contains all of `{matches}`")
+        raise AssertionError(
+            f"no line in string contains all of `{matches}`:\n\n{output.strip()}"
+        )
 
 
 class SquareTests(ScriptIntegrationTest):
