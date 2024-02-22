@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import math
 import sys
@@ -6,6 +8,7 @@ import typing
 import capstone as cs
 import unicorn
 from unicorn import unicorn_const as uc
+
 
 from .. import exceptions, state, unicorn_exceptions
 from . import emulator
@@ -234,7 +237,7 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, code: emulator.Code) -> None:
+    def load(self, code: state.Code) -> None:
         if code.base is None:
             raise ValueError(f"base address is required: {code}")
 

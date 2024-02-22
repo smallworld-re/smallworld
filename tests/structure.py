@@ -8,13 +8,13 @@ smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 
-# note: code is of type bytes
-code = smallworld.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
-
 # create a small world
 cpu = smallworld.cpus.AMD64CPUState()
 zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
+
+code = smallworld.state.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
+cpu.map(code)
 
 # Next we, look at hints and see fail at
 # 2nd instruction bc
@@ -80,7 +80,9 @@ print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 cpu.map(alloc)
 
-smallworld.emulate(code, cpu)
+
+smallworld.analyze(cpu)
+
 
 # now we can do a single micro-execution without error
 # final_state = smallworld.emulate(code, cpu)

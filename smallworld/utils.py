@@ -183,11 +183,10 @@ def setup_hinting(
 T = typing.TypeVar("T", bound=state.CPU)
 
 
-def emulate(image: emulators.Code, state: T) -> T:
+def emulate(state: T) -> T:
     """Emulate execution of some code.
 
     Arguments:
-        image: The bytes of the execution image or code to run.
         state: A state class from which emulation should begin.
 
     Returns:
@@ -198,7 +197,6 @@ def emulate(image: emulators.Code, state: T) -> T:
     emu = emulators.UnicornEmulator(state.arch, state.mode)
 
     state.apply(emu)
-    emu.load(image)
 
     emu.run()
 
@@ -208,17 +206,16 @@ def emulate(image: emulators.Code, state: T) -> T:
     return state
 
 
-def analyze(image: emulators.Code, state: T) -> None:
+def analyze(state: T) -> None:
     """Run all available analyses on some code.
 
     All analyses are run with default parameters.
 
     Arguments:
-        image: The bytes of the execution image or code to run.
         state: A state class from which emulation should begin.
     """
 
     for name in analyses.__all__:
         module = getattr(analyses, name)()
         if isinstance(module, analyses.Analysis):
-            module.run(image, state)
+            module.run(state)

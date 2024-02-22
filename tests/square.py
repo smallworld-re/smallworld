@@ -6,20 +6,21 @@ import smallworld
 smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
-# load the code and create a state object
-code = smallworld.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
-cpu = smallworld.cpus.AMD64CPUState()
-
-# initialize the state object
+# create a state object and initialize it
+state = smallworld.cpus.AMD64CPUState()
 zero = smallworld.initializers.ZeroInitializer()
-cpu.initialize(zero)
+state.initialize(zero)
 
-cpu.edi.set(int(sys.argv[-1]))
+# load and map code into the state
+code = smallworld.state.Code.from_filepath("square.bin", base=0x1000, entry=0x1000)
+state.map(code)
 
-print(cpu.edi.get())
+# set input register
+state.edi.set(int(sys.argv[-1]))
+print(state.edi.get())
 
 # now we can do a single micro-execution without error
-final_state = smallworld.emulate(code, cpu)
+final_state = smallworld.emulate(state)
 
 # read the result
 print(final_state.eax)
