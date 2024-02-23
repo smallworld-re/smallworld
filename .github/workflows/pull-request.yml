@@ -13,7 +13,7 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          bash .github/workflows/scripts/conventional.sh $TITLE
+          bash .github/workflows/scripts/conventional.sh "$TITLE"
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
