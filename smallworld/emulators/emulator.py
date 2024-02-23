@@ -1,51 +1,12 @@
+from __future__ import annotations
+
 import abc
 import logging
 import typing
 
+from .. import state
+
 logger = logging.getLogger(__name__)
-
-
-class Code:
-    """An executable image and metadata storage class.
-
-    Arguments:
-        image (bytes): The actual bytes of the executable.
-        type (str): Executable format ("blob", "PE", "ELF", etc.)
-        arch (str): Architecture ("x86", "arm", etc.)
-        mode (str): Architecture mode ("32", "64", etc.)
-        base (int): Base address.
-        entry (int): Execution entry address.
-        exits (list): Exit addresses - used to determine when execution has
-            terminated.
-    """
-
-    def __init__(
-        self,
-        image: bytes,
-        type: typing.Optional[str] = None,
-        arch: typing.Optional[str] = None,
-        mode: typing.Optional[str] = None,
-        base: typing.Optional[int] = None,
-        entry: typing.Optional[int] = None,
-        exits: typing.Optional[typing.Iterable[int]] = None,
-    ):
-        self.image = image
-        self.type = type
-        self.arch = arch
-        self.mode = mode
-        self.base = base
-        self.entry = entry
-        self.exits = exits or []
-
-    @classmethod
-    def from_filepath(cls, path: str, *args, **kwargs):
-        with open(path, "rb") as f:
-            image = f.read()
-
-        return cls(image, *args, **kwargs)
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
 
 
 class Emulator(metaclass=abc.ABCMeta):
@@ -59,7 +20,7 @@ class Emulator(metaclass=abc.ABCMeta):
         """Read a value from a register.
 
         Arguments:
-            name (str): The name of the register to read.
+            name: The name of the register to read.
 
         Returns:
             The register value.
@@ -72,8 +33,8 @@ class Emulator(metaclass=abc.ABCMeta):
         """Write a value to a register.
 
         Arguments:
-            name (str): The name of the register to write.
-            value (int): The value to write.
+            name: The name of the register to write.
+            value: The value to write.
         """
 
         pass
@@ -83,11 +44,11 @@ class Emulator(metaclass=abc.ABCMeta):
         """Read memory from a specific address.
 
         Arguments:
-            address (int): The address to read.
-            size (bytes): The content of the read.
+            address: The address to read.
+            size: The content of the read.
 
         Returns:
-            {size} bytes read from {address}.
+            `size` bytes read from `address`.
         """
 
         return b""
@@ -99,18 +60,18 @@ class Emulator(metaclass=abc.ABCMeta):
         This will allocate memory if necessary.
 
         Arguments:
-            address (int): The address to write.
-            value (int): The value to write.
+            address: The address to write.
+            value: The value to write.
         """
 
         pass
 
     @abc.abstractmethod
-    def load(self, code: Code) -> None:
+    def load(self, code: state.Code) -> None:
         """Load a binary for execution.
 
         Arguments:
-            code (Code): The executable to load.
+            code: The executable to load.
         """
 
         pass
@@ -135,7 +96,7 @@ class Emulator(metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         """Instance stringifier.
 
-        Implementation requored.
+        Implementation required.
         """
 
         return ""

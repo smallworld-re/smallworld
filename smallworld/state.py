@@ -15,6 +15,8 @@ class Value(metaclass=abc.ABCMeta):
     Defines the interface for a single system state value.
     """
 
+    mapped = False
+
     @abc.abstractmethod
     def get(self):
         """Get the internaly stored value.
@@ -42,8 +44,8 @@ class Value(metaclass=abc.ABCMeta):
         """Set the internally stored value using an initialization strategy.
 
         Arguments:
-            initializer (Initializer): Initialization strategy instance.
-            override (bool): If `True` override existing values, otherwise keep
+            initializer: Initialization strategy instance.
+            override: If `True` override existing values, otherwise keep
                 them. Default: `False`.
         """
 
@@ -54,8 +56,8 @@ class Value(metaclass=abc.ABCMeta):
         """Load the state value.
 
         Arguments:
-            emulator (Emulator): Emulator from which to load state.
-            override (bool): If `True` override existing values, otherwise keep
+            emulator: Emulator from which to load state.
+            override: If `True` override existing values, otherwise keep
                 them. Default: `True`.
         """
 
@@ -66,7 +68,7 @@ class Value(metaclass=abc.ABCMeta):
         """Apply state value to an emulator.
 
         Arguments:
-            emulator (Emulator): Emulator to which state should be applied.
+            emulator: Emulator to which state should be applied.
         """
 
         pass
@@ -81,12 +83,72 @@ class Value(metaclass=abc.ABCMeta):
         return ""
 
 
+class Code(Value):
+    """An executable image and metadata storage class.
+
+    Arguments:
+        image: The actual bytes of the executable.
+        type: Executable format ("blob", "PE", "ELF", etc.)
+        arch: Architecture ("x86", "arm", etc.)
+        mode: Architecture mode ("32", "64", etc.)
+        base: Base address.
+        entry: Execution entry address.
+        exits: Exit addresses - used to determine when execution has
+            terminated.
+    """
+
+    def __init__(
+        self,
+        image: bytes,
+        type: typing.Optional[str] = None,
+        arch: typing.Optional[str] = None,
+        mode: typing.Optional[str] = None,
+        base: typing.Optional[int] = None,
+        entry: typing.Optional[int] = None,
+        exits: typing.Optional[typing.Iterable[int]] = None,
+    ):
+        self.image = image
+        self.type = type
+        self.arch = arch
+        self.mode = mode
+        self.base = base
+        self.entry = entry
+        self.exits = exits or []
+
+    @classmethod
+    def from_filepath(cls, path: str, *args, **kwargs):
+        with open(path, "rb") as f:
+            image = f.read()
+
+        return cls(image, *args, **kwargs)
+
+    def get(self):
+        raise NotImplementedError()
+
+    def set(self, value) -> None:
+        raise NotImplementedError()
+
+    def initialize(
+        self, initializer: initializers.Initializer, override: bool = False
+    ) -> None:
+        logger.debug(f"skipping initialization for {self} (code)")
+
+    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
+        logger.debug(f"{self} loading not supported - load skipped")
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        emulator.load(self)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
+
+
 class Register(Value):
     """A register value.
 
     Arguments:
-        name (str): The canonical name of the register.
-        width (int): The size (in bytes) of the register.
+        name: The canonical name of the register.
+        width: The size (in bytes) of the register.
     """
 
     def __init__(self, name: str, width: int = 4):
@@ -144,10 +206,10 @@ class RegisterAlias(Register):
     """An alias to a partial register.
 
     Arguments:
-        name (str): The canonical name of the register.
-        reference (Register): A register which this alias references.
-        width (int): The size (in bytes) of the register.
-        offset (int): The offset from the start of the register that this alias
+        name: The canonical name of the register.
+        reference: A register which this alias references.
+        width: The size (in bytes) of the register.
+        offset: The offset from the start of the register that this alias
             references.
     """
 
@@ -207,8 +269,8 @@ class Memory(Value):
     """A memory region base class.
 
     Arguments:
-        address (int): The address of this memory region.
-        size (int): The size (in bytes) of this memory region.
+        address: The address of this memory region.
+        size: The size (in bytes) of this memory region.
     """
 
     def __init__(self, address: int, size: int, byteorder="little"):
@@ -251,7 +313,7 @@ class Memory(Value):
 
         Arguments:
             value: Object to be converted.
-            size (int): Optional size.
+            size: Size.
         """
 
         if type(value) in (bytes, bytearray):
@@ -282,7 +344,18 @@ class Stack(Memory):
         return value
 
     def set(self, value: bytes) -> None:
-        logger.warning("reading stack from memory not yet implemented")
+        if len(value) > self.size:
+            raise ValueError("buffer too large for this memory region")
+
+        # Best effort value retrieval.
+        #
+        # We don't know what all has changed since this was initially set, so
+        # there's no way to split the value read out of an Emulator into
+        # individual stack values. The best we can do is treat the entire
+        # region as a single allocation.
+
+        self.memory = [(value, len(value))]
+        self.used = len(value)
 
     def push(self, value, size=None):
         allocation = len(self.to_bytes(value, size))
@@ -301,7 +374,7 @@ class Heap(Memory):
 
         Arguments:
             value: Object to be allocated.
-            size (int): Optional size.
+            size: Size.
 
         Returns:
             The address of the value allocated.
@@ -314,13 +387,15 @@ class Heap(Memory):
         """Free a value from the heap.
 
         Arguments:
-            address (int): The address of the object to free.
+            address: The address of the object to free.
         """
 
         pass
 
 
 class BumpAllocator(Heap):
+    """A simple stack-like heap implementation."""
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -336,7 +411,13 @@ class BumpAllocator(Heap):
         return value
 
     def set(self, value: bytes) -> None:
-        logger.warning("reading heap from memory not yet implemented")
+        if len(value) > self.size:
+            raise ValueError("buffer too large for this memory region")
+
+        # Best effort value retrieval - see comment in `Stack.set()`.
+
+        self.memory = [(value, len(value))]
+        self.used = len(value)
 
     def malloc(self, value, size: typing.Optional[int] = None) -> int:
         allocation = len(self.to_bytes(value, size))
@@ -361,15 +442,16 @@ class State(Value):
         """Map a given Value into this state object.
 
         Arguments:
-            value (Value): Value to map.
-            name (str): Optional attribute name - defaults to the class name.
+            value: Value to map.
+            name: Attribute name - defaults to the class name.
         """
 
         if name is None:
             name = value.__class__.__name__.lower()
-            print(name)
 
         setattr(self, name, value)
+
+        value.mapped = True
 
     @property
     def values(self) -> typing.Dict[str, Value]:
@@ -381,15 +463,19 @@ class State(Value):
         This is similar to python 3.11's `inspect.getmembers_static`.
         """
 
-        members = {}
+        members, mapped = {}, {}
         for member in dir(self):
             if member == "values":
                 continue
+
             value = getattr(self, member)
             if isinstance(value, Value):
-                members[member] = value
+                if value.mapped:
+                    mapped[member] = value
+                else:
+                    members[member] = value
 
-        return members
+        return {**members, **mapped}
 
     def get(self) -> typing.Dict[str, typing.Any]:
         """Get the internaly stored values.
@@ -425,8 +511,8 @@ class State(Value):
 
     def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
         for name, state in self.values.items():
-            logger.debug(f"loading {name} from {emulator}")
             state.load(emulator, override=override)
+            logger.debug(f"loaded {name}:{state} from {emulator}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for name, state in self.values.items():
@@ -437,7 +523,7 @@ class State(Value):
         """Stringify this instance.
 
         Arguments:
-            truncate (bool): Truncate string value to limit length if `True`.
+            truncate: Truncate string value to limit length if `True`.
         """
 
         joined = ", ".join([str(v) for v in self.values.values()])
@@ -467,3 +553,15 @@ class CPU(State):
         """Processor mode (e.g., 64)."""
 
         return ""
+
+
+__all__ = [
+    "Value",
+    "Code",
+    "Register",
+    "RegisterAlias",
+    "Memory",
+    "Stack",
+    "Heap",
+    "BumpAllocator",
+]

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import io
 import logging
 import typing
@@ -6,6 +8,7 @@ import angr
 import claripy
 import cle
 
+from .. import state
 from . import emulator
 
 log = logging.getLogger(__name__)
@@ -94,7 +97,7 @@ class AngrEmulator(emulator.Emulator):
             v = claripy.BVV(value)
             self._entry.memory.store(addr, v)
 
-    def load(self, code: emulator.Code) -> None:
+    def load(self, code: state.Code) -> None:
         # Keep the code object around for later.
         # I need some of the data contained inside
         self._code = code

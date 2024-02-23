@@ -87,9 +87,9 @@ def setup_logging(
     Note: this should only be called once.
 
     Arguments:
-        level (int): Logging level (from `logging` module).
-        verbose (bool): Enable verbose logging mode.
-        colors (bool): Enable logging colors.
+        level: Logging level (from `logging` module).
+        verbose: Enable verbose logging mode.
+        colors: Enable logging colors.
     """
 
     if verbose:
@@ -135,11 +135,11 @@ def setup_hinting(
     Note: this should only be called once.
 
     Arguments:
-        level (int): Hinting level (from `hinting` module).
-        verbose (bool): Enable verbose hinting mode.
-        colors (bool): Enable hinting colors.
-        stream (bool): Enable stream logging.
-        file (str): If provided, enable file logging to the path provided.
+        level: Hinting level (from `hinting` module).
+        verbose: Enable verbose hinting mode.
+        colors: Enable hinting colors.
+        stream: Enable stream logging.
+        file: If provided, enable file logging to the path provided.
     """
 
     if verbose:
@@ -183,12 +183,11 @@ def setup_hinting(
 T = typing.TypeVar("T", bound=state.CPU)
 
 
-def emulate(image: emulators.Code, state: T) -> T:
+def emulate(state: T) -> T:
     """Emulate execution of some code.
 
     Arguments:
-        image (Code): The bytes of the execution image or code to run.
-        state (CPU): A state class from which emulation should begin.
+        state: A state class from which emulation should begin.
 
     Returns:
         The final state of the system.
@@ -198,7 +197,6 @@ def emulate(image: emulators.Code, state: T) -> T:
     emu = emulators.UnicornEmulator(state.arch, state.mode)
 
     state.apply(emu)
-    emu.load(image)
 
     emu.run()
 
@@ -208,17 +206,16 @@ def emulate(image: emulators.Code, state: T) -> T:
     return state
 
 
-def analyze(image: emulators.Code, state: T) -> None:
+def analyze(state: T) -> None:
     """Run all available analyses on some code.
 
     All analyses are run with default parameters.
 
     Arguments:
-        image (Code): The bytes of the execution image or code to run.
-        state (CPU): A state class from which emulation should begin.
+        state: A state class from which emulation should begin.
     """
 
     for name in analyses.__all__:
         module = getattr(analyses, name)()
         if isinstance(module, analyses.Analysis):
-            module.run(image, state)
+            module.run(state)

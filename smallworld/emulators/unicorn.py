@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import math
 import typing
@@ -5,7 +7,7 @@ import typing
 import capstone as cs
 import unicorn
 
-from .. import exceptions
+from .. import exceptions, state
 from . import emulator
 
 logger = logging.getLogger(__name__)
@@ -15,15 +17,13 @@ class UnicornEmulator(emulator.Emulator):
     """An emulator for the Unicorn emulation engine.
 
     Arguments:
-        arch (str): Unicorn architecture constant.
-        mode (str): Unicorn mode constant.
+        arch: Unicorn architecture constant.
+        mode: Unicorn mode constant.
     """
 
     ARCHITECTURES = {"x86": unicorn.UC_ARCH_X86}
-    """Supported architecture string mapping."""
 
     MODES = {"32": unicorn.UC_MODE_32, "64": unicorn.UC_MODE_64}
-    """Supported processor mode string mapping."""
 
     I386_REGISTERS = {
         "eax": unicorn.x86_const.UC_X86_REG_EAX,
@@ -75,27 +75,13 @@ class UnicornEmulator(emulator.Emulator):
             unicorn.UC_MODE_64: {**I386_REGISTERS, **AMD64_REGISTERS},
         }
     }
-    """Canonical register name to Unicorn constant mapping.
-
-    This also contains information about supported architectures and modes.
-    """
 
     CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: cs.CS_ARCH_X86}
-    """Mapping from unicorn to capstone architecture constants.
-
-    For some reason these are not the same. Added as we add support for
-    different systems.
-    """
 
     CAPSTONE_MODE_MAP = {
         unicorn.UC_MODE_32: cs.CS_MODE_32,
         unicorn.UC_MODE_64: cs.CS_MODE_64,
     }
-    """Mapping from unicorn to capstone mode constants.
-
-    For some reason these are not the same. Added as we add support for
-    different systems.
-    """
 
     def __init__(self, arch: str, mode: str):
         super().__init__()
@@ -211,7 +197,7 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
 
-    def load(self, code: emulator.Code) -> None:
+    def load(self, code: state.Code) -> None:
         if code.base is None:
             raise ValueError(f"base address is required: {code}")
 
@@ -240,18 +226,6 @@ class UnicornEmulator(emulator.Emulator):
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[cs.CsInsn], str]:
-        """Disassemble the given bytes.
-
-        Arguments:
-            code (bytes): A collection of bytes to be disassembled.
-            count (int): Optional - specifies the maximum number of
-                instructions to disassemble.
-
-        Returns a pair (instr,disas) each is a list of at most count things
-          instr is list of capstone instr objects
-          dias is list of string disassembly for each instr
-        """
-
         # TODO: annotate that offsets are relative
         #
         # We don't know what the base address is at disassembly time - so we
@@ -272,8 +246,6 @@ class UnicornEmulator(emulator.Emulator):
         return (insns, "\n".join(disassembly))
 
     def check(self) -> None:
-        """Some checks to make sure ok to emulate."""
-
         if self.entrypoint is None:
             raise exceptions.ConfigurationError(
                 "no entrypoint provided, emulation cannot start"

@@ -22,8 +22,8 @@ class InputColorizerAnalysis(analysis.Analysis):
     registers. Any such uses of input registers are hinted.
 
     Arguments:
-        num_micro_executions (int): The number of micro-executions to run.
-        num_instructions (int): The number of instructions to execute.
+        num_micro_executions: The number of micro-executions to run.
+        num_instructions: The number of instructions to execute.
     """
 
     name = "input-colorizer"
@@ -59,7 +59,7 @@ class InputColorizerAnalysis(analysis.Analysis):
         self.num_micro_executions = num_micro_executions
         self.num_instructions = num_instructions
 
-    def run(self, image: emulators.Code, state: state.CPU) -> None:
+    def run(self, state: state.CPU) -> None:
         for i in range(self.num_micro_executions):
             self.cpu = copy.deepcopy(state)
 
@@ -75,8 +75,6 @@ class InputColorizerAnalysis(analysis.Analysis):
                 logger.debug(f"{name} = {value:x}")
 
             self.cpu.apply(emu)
-
-            emu.load(image)
 
             for j in range(self.num_instructions):
                 pc = emu.read_register("pc")
@@ -201,9 +199,6 @@ class InputColorizerAnalysis(analysis.Analysis):
         return r0
 
     def registers(self):
-        """
-        Generator to iterate over registers in the cpu
-        """
         for name, stv in self.cpu.values.items():
             if type(stv) is state.Register:
                 yield (name, stv)

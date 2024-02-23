@@ -35,9 +35,7 @@ class HintJSONDecoder(json.JSONDecoder):
 
 @dataclass(frozen=True)
 class HintInstruction:
-    """
-    We can't put Capstone instructions in hints, so we use these instead.
-    """
+    """We can't put Capstone instructions in hints, so we use these instead."""
 
     address: int
     instruction: str
@@ -51,7 +49,7 @@ class Hint:
     """Base class for all Hints.
 
     Arguments:
-        message (str): A message for this Hint.
+        message: A message for this Hint.
     """
 
     message: str
@@ -133,7 +131,7 @@ class UnderSpecifiedRegisterHint(UnderSpecifiedValueHint):
     """Represents a register whose value can't be fully determined from the environment.
 
     Arguments:
-        register (string): The register in question
+        register: The register in question
     """
 
     register: str
@@ -144,8 +142,8 @@ class UnderSpecifiedMemoryHint(UnderSpecifiedValueHint):
     """Represents a memory range whose value can't be fully determined from the environment.
 
     Arguments:
-        address (int): The address of the beginning of the range
-        size (int): The size of the range
+        address: The address of the beginning of the range
+        size: The size of the range
     """
 
     address: int
@@ -157,8 +155,8 @@ class UnderSpecifiedMemoryRefHint(UnderSpecifiedValueHint):
     """Represents a memory range whose value can't be fully determined from the environment.
 
     Arguments:
-        address (int): The address of the beginning of the range
-        size (int): The size of the range
+        address: The address of the beginning of the range
+        size: The size of the range
     """
 
     base: typing.Tuple[str, int]
@@ -195,9 +193,9 @@ class InputUseHint(UnderSpecifiedValueHint):
 
     Arguments:
       input_reg: The name of the register input value (source)
-      instr (capstone instruction): The instruction in which the input is used
-      pc (int): program counter of that instruction
-      use_reg (string): The name of the register in instr that is using the input value
+      instr: The instruction in which the input is used
+      pc: program counter of that instruction
+      use_reg: The name of the register in instr that is using the input value
     """
 
     input_register: str
@@ -208,7 +206,6 @@ class InputUseHint(UnderSpecifiedValueHint):
 
 @dataclass(frozen=True)
 class TypeHint(Hint):
-
     """Super class for Type Hints"""
 
     pass
@@ -219,7 +216,7 @@ class RegisterPointerHint(TypeHint):
     """Signal that a register is probably a pointer.
 
     Arguments:
-        register (string): The register in question
+        register: The register in question
     """
 
     register: str
@@ -230,7 +227,7 @@ class RegisterPointsToHint(RegisterPointerHint):
     """Signal that a register is probably a pointer and points to a type.
 
     Arguments:
-        type (string): The type in question
+        type: The type in question
     """
 
     type: str
@@ -241,7 +238,7 @@ class MemoryPointerHint(TypeHint):
     """Signal that a memory address is probably a pointer.
 
     Arguments:
-       address (int): The address in question
+       address: The address in question
     """
 
     address: int
@@ -252,7 +249,7 @@ class MemoryPointsToHint(RegisterPointerHint):
     """Signal that a memory address is probably a pointer and points to a type.
 
     Arguments:
-        type (string): The type in question
+        type: The type in question
     """
 
     type: str
@@ -263,7 +260,7 @@ class StructureHint(TypeHint):
     """Signals the probable layout of a struct
 
     Arguments:
-        layout (dict[int, str]): A dictionary of offset to type
+        layout: A dictionary of offset to type
     """
 
     layout: typing.Dict[int, str]
@@ -295,7 +292,7 @@ def getHinter(name: typing.Optional[str] = None) -> Hinter:
     """Get a hinter with the given name.
 
     Arguments:
-        name (str): The name of the hinter to get - if `None` this returns the
+        name: The name of the hinter to get - if `None` this returns the
             root Hinter.
 
     Returns:
@@ -306,3 +303,21 @@ def getHinter(name: typing.Optional[str] = None) -> Hinter:
         return root
 
     return typing.cast(Hinter, Hinter.manager.getLogger(name))
+
+
+__all__ = [
+    "Hint",
+    "EmulationException",
+    "UnderSpecifiedValueHint",
+    "UnderSpecifiedRegisterHint",
+    "UnderSpecifiedMemoryHint",
+    "UnderSpecifiedMemoryRefHint",
+    "InputUseHint",
+    "TypeHint",
+    "RegisterPointerHint",
+    "RegisterPointsToHint",
+    "MemoryPointerHint",
+    "MemoryPointsToHint",
+    "StructureHint",
+    "getHinter",
+]

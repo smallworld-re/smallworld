@@ -6,12 +6,16 @@
 #
 ailment==9.2.79
     # via angr
+alabaster==0.7.13
+    # via sphinx
 angr==9.2.79
     # via smallworld (setup.py)
 archinfo==9.2.79
     # via
     #   angr
     #   pyvex
+babel==2.14.0
+    # via sphinx
 backports-strenum==1.2.8
     # via archinfo
 bitarray==2.8.3
@@ -30,12 +34,16 @@ capstone==5.0.0.post1
     # via
     #   angr
     #   smallworld (setup.py)
+certifi==2024.2.2
+    # via requests
 cffi==1.16.0
     # via
     #   angr
     #   pyvex
 cfgv==3.4.0
     # via pre-commit
+charset-normalizer==3.3.2
+    # via requests
 claripy==9.2.79
     # via angr
 cle==9.2.79
@@ -50,6 +58,8 @@ decorator==5.1.1
     # via claripy
 distlib==0.3.7
     # via virtualenv
+docutils==0.20.1
+    # via sphinx
 dpkt==1.9.8
     # via angr
 filelock==3.13.1
@@ -64,14 +74,24 @@ gitpython==3.1.40
     # via angr
 identify==2.5.32
     # via pre-commit
+idna==3.6
+    # via requests
+imagesize==1.4.1
+    # via sphinx
 importlib-metadata==6.8.0
-    # via build
+    # via
+    #   build
+    #   sphinx
 isort==5.13.2
     # via smallworld (setup.py)
 itanium-demangler==1.1
     # via angr
+jinja2==3.1.3
+    # via sphinx
 markdown-it-py==3.0.0
     # via rich
+markupsafe==2.1.5
+    # via jinja2
 mccabe==0.7.0
     # via flake8
 mdurl==0.1.2
@@ -96,6 +116,7 @@ packaging==23.2
     # via
     #   black
     #   build
+    #   sphinx
 pathspec==0.11.2
     # via black
 pefile==2023.2.7
@@ -127,27 +148,49 @@ pyelftools==0.30
 pyflakes==3.1.0
     # via flake8
 pygments==2.17.2
-    # via rich
+    # via
+    #   rich
+    #   sphinx
 pyproject-hooks==1.0.0
     # via build
 pysmt==0.9.5
     # via claripy
+pytz==2024.1
+    # via babel
 pyvex==9.2.79
     # via
     #   angr
     #   cle
 pyyaml==6.0.1
     # via pre-commit
+requests==2.31.0
+    # via sphinx
 rich==13.7.0
     # via angr
 rpyc==5.3.1
     # via angr
 smmap==5.0.1
     # via gitdb
+snowballstemmer==2.2.0
+    # via sphinx
 sortedcontainers==2.4.0
     # via
     #   angr
     #   cle
+sphinx==7.1.2
+    # via smallworld (setup.py)
+sphinxcontrib-applehelp==1.0.4
+    # via sphinx
+sphinxcontrib-devhelp==1.0.2
+    # via sphinx
+sphinxcontrib-htmlhelp==2.0.1
+    # via sphinx
+sphinxcontrib-jsmath==1.0.1
+    # via sphinx
+sphinxcontrib-qthelp==1.0.3
+    # via sphinx
+sphinxcontrib-serializinghtml==1.1.5
+    # via sphinx
 sympy==1.12
     # via angr
 tomli==2.0.1
@@ -166,6 +209,8 @@ unicorn==2.0.1.post1
     # via
     #   angr
     #   smallworld (setup.py)
+urllib3==2.2.0
+    # via requests
 virtualenv==20.24.7
     # via pre-commit
 wheel==0.42.0

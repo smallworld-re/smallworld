@@ -18,24 +18,72 @@ class Initializer(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def generate(self, length: int) -> bytes:
+        """Generate some data.
+
+        Arguments:
+            length: the length of data (in bytes) to generate.
+
+        Returns:
+            Some data of `length` bytes.
+        """
+
         pass
 
     def char(self) -> int:
+        """Get a char (one bytes) of data.
+
+        Returns:
+            An integer representing a single byte of data.
+        """
+
         return int.from_bytes(self.generate(1), "little")
 
     def short(self) -> int:
+        """Get a short (two bytes) of data.
+
+        Returns:
+            An integer representing two bytes of data.
+        """
+
         return int.from_bytes(self.generate(2), "little")
 
     def word(self) -> int:
+        """Get a word (four bytes) of data.
+
+        Returns:
+            An integer representing four bytes of data.
+        """
+
         return int.from_bytes(self.generate(4), "little")
 
     def dword(self) -> int:
+        """Get a dword (eight bytes) of data.
+
+        Returns:
+            An integer representing eight bytes of data.
+        """
+
         return int.from_bytes(self.generate(8), "little")
 
     def qword(self) -> int:
+        """Get a qword (sixteen bytes) of data.
+
+        Returns:
+            An integer representing sixteen bytes of data.
+        """
+
         return int.from_bytes(self.generate(16), "little")
 
     def bytes(self, length: int) -> bytes:
+        """Get an arbitrary length bit of data.
+
+        Arguments:
+            length: the length of data (in bytes) to generate.
+
+        Returns:
+            Some data of `length` bytes.
+        """
+
         return self.generate(length)
 
     def __repr__(self) -> str:
@@ -46,6 +94,8 @@ class ZeroInitializer(Initializer):
     """Sets values to zero."""
 
     def generate(self, length: int) -> bytes:
+        """Returns zeros."""
+
         return b"\x00" * length
 
 
@@ -93,3 +143,12 @@ class RandomPrintableInitializer(SeededRandomBaseInitializer):
         value = "".join(random.choices(string.printable, k=length))
 
         return value.encode("utf-8")
+
+
+__all__ = [
+    "Initializer",
+    "ZeroInitializer",
+    "OSRandomInitializer",
+    "RandomUniformInitializer",
+    "RandomPrintableInitializer",
+]
