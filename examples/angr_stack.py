@@ -2,7 +2,7 @@
 import argparse
 import logging
 
-from smallworld import cpus, emulators, utils
+from smallworld import cpus, state, utils
 from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
 
 
@@ -70,11 +70,11 @@ if __name__ == "__main__":
 
     log = logging.getLogger("smallworld")
 
-    target = emulators.Code.from_filepath(
+    target = state.Code.from_filepath(
         args.infile, type=args.fmt, arch=args.arch, base=args.base, entry=args.entry
     )
 
     cpu = cpus.AMD64CPUState()
-
+    cpu.map(target)
     analysis = AngrNWBTAnalysis(initfunc=angr_init)
-    analysis.run(target, cpu)
+    analysis.run(cpu)

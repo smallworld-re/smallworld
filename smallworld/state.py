@@ -515,9 +515,18 @@ class State(Value):
             logger.debug(f"loaded {name}:{state} from {emulator}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
+        # The angr emulator needs Code applied
+        # before data, since applying code initializes
+        # much of the emulator's internals.
         for name, state in self.values.items():
-            logger.debug(f"applying {name}:{state} to {emulator}")
-            state.apply(emulator)
+            if isinstance(state, Code):
+                logger.debug(f"applying {name}:{state} to {emulator}")
+                state.apply(emulator)
+
+        for name, state in self.values.items():
+            if not isinstance(state, Code):
+                logger.debug(f"applying {name}:{state} to {emulator}")
+                state.apply(emulator)
 
     def stringify(self, truncate: bool = True) -> str:
         """Stringify this instance.

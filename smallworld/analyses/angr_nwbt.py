@@ -27,9 +27,8 @@ class AngrNWBTAnalysis(analysis.Analysis):
         if self.initfunc is not None:
             self.initfunc(self, emu.entry)
 
-    def run(self, image: emulators.Code, state: state.CPU):
+    def run(self, state: state.CPU):
         emu = emulators.AngrEmulator(self.analysis_preint, self.analysis_init)
-        emu.load(image)
         state.apply(emu)
 
         while self.step(emu):

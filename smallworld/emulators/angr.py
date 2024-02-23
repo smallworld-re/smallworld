@@ -35,6 +35,7 @@ class AngrEmulator(emulator.Emulator):
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
         self._code: typing.Optional[emulator.Code] = None
+        self.mgr: typing.Optional[angr.SimManager] = None
         self.analysis_preinit = preinit
         self.analysis_init = init
 
