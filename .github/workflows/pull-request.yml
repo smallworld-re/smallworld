@@ -8,12 +8,12 @@ jobs:
   Test:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - name: Check Title
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           bash .github/workflows/scripts/conventional.sh $TITLE
-      - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.x'
