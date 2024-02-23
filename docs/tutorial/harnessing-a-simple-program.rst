@@ -56,7 +56,8 @@ assumes nothing about the binary to be harnessed. To run the script we just put 
 
 Here is what that outputs
 
-.. command-output:: python3 ../../tests/basic_harnesss.py ../../tests/square.bin
+.. command-output:: python3 basic_harness.py square.bin
+    :cwd: ../../tests/
 
 .. command-output:: python -V
 		    
