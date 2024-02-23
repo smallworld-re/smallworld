@@ -38,6 +38,8 @@ class AngrEmulator(emulator.Emulator):
         self.mgr: typing.Optional[angr.SimManager] = None
         self.analysis_preinit = preinit
         self.analysis_init = init
+        self._reg_init_values = dict()
+        self._mem_init_values = dict()
 
     @property
     def entry(self) -> angr.SimState:
@@ -50,9 +52,13 @@ class AngrEmulator(emulator.Emulator):
         self._entry = e
 
     def read_register(self, name: str):
-        if self._entry is None:
+        if self._reg_init_values is None:
             raise NotImplementedError(
                 "Reading registers not supported once execution begins."
+            )
+        elif self._entry is None:
+            raise NotImplementedError(
+                "Reading registers not supported before code is loaded."
             )
         elif name not in self._entry.arch.registers:
             log.warn(f"Ignoring read of register {name}; it doesn't exist")
@@ -67,10 +73,12 @@ class AngrEmulator(emulator.Emulator):
             return out.concrete_value
 
     def write_register(self, reg: str, value: typing.Optional[int]) -> None:
-        if self._entry is None:
+        if self._reg_init_values is None:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
+        elif self._entry is None:
+            self._reg_init_values[reg] = value
         elif reg not in self._entry.arch.registers:
             log.warn(f"Ignoring write to register {reg}; it doesn't exist")
         elif value is not None:
@@ -82,18 +90,24 @@ class AngrEmulator(emulator.Emulator):
         # TODO: Figure out a return format.
         # If the loaded data is symbolic,
         # I can't represent it accurately in bytes.
-        if self._entry is None:
+        if self._mem_init_values is None:
             raise NotImplementedError(
                 "Reading memory not supported once execution begins."
+            )
+        elif self._entry is None:
+            raise NotImplementedError(
+                "Reading memory not supported before code is loaded."
             )
         else:
             return self._entry.memory.load(addr, size)
 
     def write_memory(self, addr: int, value: typing.Optional[bytes]):
-        if self._entry is None:
+        if self._mem_init_values is None:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
+        elif self._entry is None:
+            self._mem_init_values[addr] = value
         elif value is not None:
             v = claripy.BVV(value)
             self._entry.memory.store(addr, v)
@@ -147,6 +161,13 @@ class AngrEmulator(emulator.Emulator):
             }
         )
 
+        # Replay any value initialization
+        # we captured before this
+        for reg, val in self._reg_init_values.items():
+            self.write_register(reg, val)
+        for addr, val in self._mem_init_values.items():
+            self.write_memory(addr, val)
+
         # Initialize the simulation manager to help us explore.
         self.mgr = self.proj.factory.simulation_manager(self._entry, save_unsat=True)
 
@@ -154,6 +175,10 @@ class AngrEmulator(emulator.Emulator):
         self.analysis_init(self)
 
     def step(self):
+        # As soon as we start executing, disable value access
+        self._reg_init_values = None
+        self._mem_init_values = None
+
         # Step execution once
         self.mgr.step()
 
