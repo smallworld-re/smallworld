@@ -373,7 +373,6 @@ class Stack(Memory):
         # individual stack values. The best we can do is treat the entire
         # region as a single allocation.
 
-
         self.stack_memory = [(value, len(value))]
         self.used = len(value)
 
@@ -438,7 +437,6 @@ class BumpAllocator(Heap):
             raise ValueError("buffer too large for this memory region")
 
         # Best effort value retrieval - see comment in `Stack.set()`.
-
 
         self.stack_memory = [(value, len(value))]
         self.used = len(value)

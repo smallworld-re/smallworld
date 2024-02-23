@@ -9,7 +9,6 @@ import capstone as cs
 import unicorn
 from unicorn import unicorn_const as uc
 
-
 from .. import exceptions, state, unicorn_exceptions
 from . import emulator
 
