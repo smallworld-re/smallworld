@@ -31,6 +31,7 @@ class AngrEmulator(emulator.Emulator):
 
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
+        self._code: typing.Optional[emulator.Code] = None
         self.analysis_preinit = preinit
         self.analysis_init = init
 
@@ -94,6 +95,10 @@ class AngrEmulator(emulator.Emulator):
             self._entry.memory.store(addr, v)
 
     def load(self, code: emulator.Code) -> None:
+        # Keep the code object around for later.
+        # I need some of the data contained inside
+        self._code = code
+
         options: typing.Dict[str, typing.Union[str, int]] = {}
 
         if code.arch is None:
@@ -147,6 +152,24 @@ class AngrEmulator(emulator.Emulator):
     def step(self):
         # Step execution once
         self.mgr.step()
+
+        # Filter out exited or invalid states
+        code_end = self._code.base + len(self._code.image)
+        self.mgr.move(
+            from_stash="active",
+            to_stash="unconstrained",
+            filter_func=lambda x: (
+                x._ip.symbolic
+                or x._ip.concrete_value < self._code.base
+                or x._ip.concrete_value >= code_end
+            ),
+        )
+        self.mgr.move(
+            from_stash="active",
+            to_stash="deadended",
+            filter_func=lambda x: x._ip.concrete_value in self._code.exits,
+        )
+
         # Stop if we're out of active states
         return len(self.mgr.active) != 0
 

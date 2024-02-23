@@ -78,3 +78,17 @@ class TrackerMemoryMixin(MemoryMixin):
                 name = f"0x{addr:x}"
             val = self.load(addr, size, disable_actions=True)
             log(f"\t{name}: {val}")
+
+    def create_hint(self):
+        if self.id == "reg":
+            return {
+                self.state.arch.register_size_names[(addr, self.dirty[addr])]: str(
+                    self.load(addr, self.dirty[addr], disable_actions=True)
+                )
+                for addr in list(self.dirty.keys())
+            }
+        else:
+            return {
+                addr: str(self.load(addr, self.dirty[addr], disable_actions=True))
+                for addr in list(self.dirty.keys())
+            }

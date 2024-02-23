@@ -107,7 +107,6 @@ class ConditionalVisitor(ClaripyVisitor):
         a = v.args[0]
         b = v.args[1]
         res = list(map(lambda x: x[a:b], self.visit(v.args[2])))
-        print(f"Extract: {v.args} -> {res}")
         return res
 
     def visit_if(self, v):
