@@ -37,7 +37,7 @@ Here's some example code using the ``Emulator`` interface::
    emu.run()
    print(emu.read_register('eax'))
 
-Here, we create an emulator that, under the hood, uses Unicorn. We map
+In this example, we create an emulator that, under the hood, uses Unicorn. We map
 code into our state object which is then applied to (mapped into) the
 emulator's memory at the expected base address. Finaly, we write a
 register and then emulate and read an output register.
