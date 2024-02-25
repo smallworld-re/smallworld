@@ -10,17 +10,42 @@ emulation, but also serves as a place where final values after emulation can
 be copied into for inspection.  This provides two benefits.
 
    1. The state has a generic interface that is not tied to any
-      particular emulator or analytic back-end. So initialization and
-      post-emulation code can be written to be generic.
+      particular emulator or analytic back-end. So pre-emulation code
+      such as initialization, and any post-emulation analysis or
+      triage can be written to be generic.
    2. The state can be applied to (copied into) or loaded from (copied
       out of) any emulator meeting SmallWorld's :ref:`emulators`
       interface.
 
-At the lowest level, there are the State objects ``Register``,
-``RegisterAlias``, ``Memory``, and ``Code``.
+
+At the lowest level, there are the objects ``Register``,
+``RegisterAlias``, and ``Memory``. These are subclasses of abstract
+class ``Value``.  All of these objects have getters and setters to
+obtain and set values. They also include methods for initialization,
+for **apply** -ing their values (writing them) into an emulator and
+for **load** -ing them out of an emulator..
 
 A ``Register`` represents a specific CPU register, such as ``edx`` and
-includes name, width in bytes, and a concrete value if available.
+includes a name, width in bytes, and a concrete value, if available.
 
+A ``RegisterAlias`` is a convenience object allow one, e.g., to
+specify the 32 or 16-bit subregisters ``eax`` and `ax`` of the x86_64
+base register ``rax``.
 
+A ``Memory`` object represents a region of bytes in memory, and
+includes a start address, a size, and an indication of the
+byte-ordering (big-endian or litte-endian), 
       
+The state also includes specializations of ``Memory``:
+``Stack`` and ``Heap``.
+
+The ``Stack``, additionally, has additional methods for **push** -ing
+and **pop** -ping values. This permits a natural interface for setting
+up or accessing stack arguments and variables.
+
+The ``Heap`` adds support for **malloc** and **free** simplifying the
+creation of dynamic variables and structures in memory.
+
+Finally, a ``State`` object is a container for one or more of the
+above, and, thus, represents all mutable values in registers and
+memory.

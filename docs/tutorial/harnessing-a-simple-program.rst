@@ -85,3 +85,4 @@ Here is what running that new harness looks like
 Since ``42*42=1764`` which is ``0x6e4`` we have harnessed
 ``square.bin`` completely.
 
+
