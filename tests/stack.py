@@ -5,14 +5,13 @@ import smallworld
 smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
-# create a state object and initialize it
+# create a state object
 state = smallworld.cpus.AMD64CPUState()
-zero = smallworld.initializers.ZeroInitializer()
-state.initialize(zero)
 
-# load and map code into the state
+# load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
 state.map(code)
+state.rip.set(0x1000)
 
 # initialize some values
 state.rdi.set(0x11111111)
