@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="smallworld",
-    version="0.1.0.dev0",
+    version="0.0.1",
     author="MIT Lincoln Laboratory",
     author_email="smallworld@ll.mit.edu",
     url="https://github.com/smallworld-re/smallworld",
@@ -26,6 +26,7 @@ setup(
             "pip-tools",
             "pre-commit",
             "sphinx",
+            "sphinxcontrib-programoutput",
         ],
     },
     include_package_data=True,

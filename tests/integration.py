@@ -102,7 +102,7 @@ class StackTests(ScriptIntegrationTest):
 
     def test_stack(self):
         stdout, _ = self.command("python3 stack.py")
-        self.assertLineContains(stdout, "rax", "0x66666666")
+        self.assertLineContains(stdout, "rax", "0xaaaaaaaa")
 
 
 class StructureTests(ScriptIntegrationTest):
