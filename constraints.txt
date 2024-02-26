@@ -178,7 +178,9 @@ sortedcontainers==2.4.0
     #   angr
     #   cle
 sphinx==7.1.2
-    # via smallworld (setup.py)
+    # via
+    #   smallworld (setup.py)
+    #   sphinxcontrib-programoutput
 sphinxcontrib-applehelp==1.0.4
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
@@ -187,6 +189,8 @@ sphinxcontrib-htmlhelp==2.0.1
     # via sphinx
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
+sphinxcontrib-programoutput==0.17
+    # via smallworld (setup.py)
 sphinxcontrib-qthelp==1.0.3
     # via sphinx
 sphinxcontrib-serializinghtml==1.1.5
