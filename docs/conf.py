@@ -17,15 +17,16 @@ import sys
 
 sys.path.insert(0, os.path.abspath(".."))
 
+import smallworld
 
 # -- Project information -----------------------------------------------------
 
 project = "SmallWorld"
-copyright = "2023, MIT Lincoln Laboratory"
-author = "MIT Lincoln Laboratory"
+copyright = f"2023, {smallworld.__author__}"
+author = smallworld.__author__
 
 # The short X.Y version
-version = "0.1.0.dev0"
+version = smallworld.__version__
 # The full version, including alpha/beta/rc tags
 release = version
 
