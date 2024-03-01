@@ -27,21 +27,18 @@ class UnicornEmulator(emulator.Emulator):
 
     MODES = {"32": unicorn.UC_MODE_32, "64": unicorn.UC_MODE_64}
 
-    PARTIAL_REGISTERS = {
+    I386_REGISTERS = {
         "ah": unicorn.x86_const.UC_X86_REG_AH,
         "al": unicorn.x86_const.UC_X86_REG_AL,
+        "eax": unicorn.x86_const.UC_X86_REG_EAX,
         "bh": unicorn.x86_const.UC_X86_REG_BH,
         "bl": unicorn.x86_const.UC_X86_REG_BL,
+        "ebx": unicorn.x86_const.UC_X86_REG_EBX,
         "ch": unicorn.x86_const.UC_X86_REG_CH,
         "cl": unicorn.x86_const.UC_X86_REG_CL,
+        "ecx": unicorn.x86_const.UC_X86_REG_ECX,
         "dh": unicorn.x86_const.UC_X86_REG_DH,
         "dl": unicorn.x86_const.UC_X86_REG_DL,
-    }
-
-    I386_REGISTERS = {
-        "eax": unicorn.x86_const.UC_X86_REG_EAX,
-        "ebx": unicorn.x86_const.UC_X86_REG_EBX,
-        "ecx": unicorn.x86_const.UC_X86_REG_ECX,
         "edx": unicorn.x86_const.UC_X86_REG_EDX,
         "esi": unicorn.x86_const.UC_X86_REG_ESI,
         "edi": unicorn.x86_const.UC_X86_REG_EDI,
@@ -84,9 +81,8 @@ class UnicornEmulator(emulator.Emulator):
 
     REGISTERS = {
         unicorn.UC_ARCH_X86: {
-            unicorn.UC_MODE_32: {**PARTIAL_REGISTERS, **I386_REGISTERS},
+            unicorn.UC_MODE_32: I386_REGISTERS,
             unicorn.UC_MODE_64: {
-                **PARTIAL_REGISTERS,
                 **I386_REGISTERS,
                 **AMD64_REGISTERS,
             },
