@@ -327,6 +327,9 @@ class UnicornEmulator(emulator.Emulator):
         Arguments:
             instruction: Capstone instruction.
             operand: Capstone operand.
+
+        Retruns:
+            The address of the given operand.
         """
 
         if operand.type != capstone.CS_OP_MEM:
