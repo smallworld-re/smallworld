@@ -165,7 +165,8 @@ class UnicornEmulator(emulator.Emulator):
 
     def write_register(self, name: str, value: typing.Optional[int]) -> None:
         if value is None:
-            raise ValueError(f"{self.__class__.__name__} requires concrete state")
+            logger.debug(f"ignoring register write to {name} - no value")
+            return
 
         self.engine.reg_write(self.register(name), value)
 
@@ -244,8 +245,6 @@ class UnicornEmulator(emulator.Emulator):
             self.exitpoint = list(code.exits)[0]
         else:
             self.exitpoint = code.base + len(code.image)
-
-        self.write_register("pc", self.entrypoint)
 
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 

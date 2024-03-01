@@ -15,8 +15,6 @@ class Value(metaclass=abc.ABCMeta):
     Defines the interface for a single system state value.
     """
 
-    mapped = False
-
     @abc.abstractmethod
     def get(self):
         """Get the internaly stored value.
@@ -473,8 +471,6 @@ class State(Value):
 
         setattr(self, name, value)
 
-        value.mapped = True
-
     @property
     def values(self) -> typing.Dict[str, Value]:
         """dict[str, Value]: the list of states.
@@ -485,19 +481,15 @@ class State(Value):
         This is similar to python 3.11's `inspect.getmembers_static`.
         """
 
-        members, mapped = {}, {}
+        members = {}
         for member in dir(self):
             if member == "values":
                 continue
-
             value = getattr(self, member)
             if isinstance(value, Value):
-                if value.mapped:
-                    mapped[member] = value
-                else:
-                    members[member] = value
+                members[member] = value
 
-        return {**members, **mapped}
+        return members
 
     def get(self) -> typing.Dict[str, typing.Any]:
         """Get the internaly stored values.

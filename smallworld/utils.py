@@ -1,6 +1,7 @@
 import copy
 import json
 import logging
+import sys
 import typing
 
 from . import analyses, emulators, hinting, state
@@ -89,7 +90,7 @@ def setup_logging(
     Arguments:
         level: Logging level (from `logging` module).
         verbose: Enable verbose logging mode.
-        colors: Enable logging colors.
+        colors: Enable logging colors (if supported).
     """
 
     if verbose:
@@ -97,7 +98,7 @@ def setup_logging(
     else:
         format = "[%(levelchar)s] %(message)s"
 
-    if colors:
+    if colors and sys.stderr.isatty():
         format = f"%(levelcolor)s{format}{ColorLevelFilter.END}"
 
     root = logging.getLogger()
@@ -137,7 +138,7 @@ def setup_hinting(
     Arguments:
         level: Hinting level (from `hinting` module).
         verbose: Enable verbose hinting mode.
-        colors: Enable hinting colors.
+        colors: Enable hinting colors (if supported).
         stream: Enable stream logging.
         file: If provided, enable file logging to the path provided.
     """
@@ -157,7 +158,7 @@ def setup_hinting(
     if stream:
         format = "[%(levelchar)s] %(message)s"
 
-        if colors:
+        if colors and sys.stderr.isatty():
             format = f"%(levelcolor)s{format}{ColorLevelFilter.END}"
 
         formatter = JSONFormatter(format, keys=keys)
