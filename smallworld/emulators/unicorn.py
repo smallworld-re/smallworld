@@ -357,6 +357,7 @@ class UnicornEmulator(emulator.Emulator):
         """
 
         registers, _ = instruction.regs_access()
+        registers = [instruction.reg_name(r) for r in registers]
         read: typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]] = {
             r: self.read_register(r) for r in registers
         }
@@ -385,6 +386,7 @@ class UnicornEmulator(emulator.Emulator):
         """
 
         _, registers = instruction.regs_access()
+        registers = [instruction.reg_name(r) for r in registers]
         written: typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]] = {
             r: self.read_register(r) for r in registers
         }
