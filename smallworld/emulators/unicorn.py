@@ -173,9 +173,8 @@ class UnicornEmulator(emulator.Emulator):
         logger.debug(f"set register {name}={value}")
 
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
-        # UC_ERR_ARG: Size can't be greater than INT_MAX
         if size > sys.maxsize:
-            raise ValueError(f"size of memory {size} is larger than sys.maxsize.")
+            raise ValueError(f"{size} is too large (max: {sys.maxsize})")
 
         try:
             return self.engine.mem_read(address, size)
@@ -189,6 +188,17 @@ class UnicornEmulator(emulator.Emulator):
         if value is None:
             raise ValueError(f"{self.__class__.__name__} requires concrete state")
 
+        if len(value) > sys.maxsize:
+            raise ValueError(f"{len(value)} is too large (max: {sys.maxsize})")
+
+        if not len(value):
+            raise ValueError("memory write cannot be empty")
+
+        if address % self.PAGE_SIZE:
+            raise ValueError(
+                f"address {hex(address)} is not page-aligned (page size: {hex(self.PAGE_SIZE)})"
+            )
+
         for key, mapping in self.memory.items():
             if address > key[0] and address < key[1]:
                 # Overlaping writes are currently unsupported.
@@ -200,24 +210,6 @@ class UnicornEmulator(emulator.Emulator):
                 raise ValueError(
                     "write overlaps with existing memory mapping (currently unsupported)"
                 )
-
-        # Handles UC_ERR_ARG
-
-        # Size cannot be 0
-        if not len(value):
-            raise ValueError("memory region cannot have 0 bytes")
-
-        # Address must be aligned to a page size
-        if address & (self.PAGE_SIZE - 1) != 0:
-            raise ValueError(
-                f"address {hex(address)} needs to be a aligned to a page size {hex(self.PAGE_SIZE)}"
-            )
-
-        # Address can't wrap around
-
-        # Size can't be greater than INT_MAX
-        if len(value) > sys.maxsize:
-            raise ValueError(f"size of memory {len(value)} is larger than sys.maxsize.")
 
         pages = math.ceil(len(value) / self.PAGE_SIZE)
         allocation = pages * self.PAGE_SIZE
@@ -244,7 +236,7 @@ class UnicornEmulator(emulator.Emulator):
                 code.image
             ):
                 raise ValueError(
-                    "Entrypoint is not in code: 0x{self.entrypoint:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
+                    "entrypoint is not in code: 0x{self.entrypoint:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
         else:
             self.entrypoint = code.base
