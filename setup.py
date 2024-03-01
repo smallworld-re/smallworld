@@ -26,6 +26,7 @@ setup(
             "pip-tools",
             "pre-commit",
             "sphinx",
+            "sphinxcontrib-programoutput",
         ],
     },
     include_package_data=True,
