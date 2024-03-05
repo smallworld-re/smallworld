@@ -21,6 +21,16 @@ class EmulationError(Exception):
         return f"{self.__class__.__name__}({self.exception})"
 
 
+class UnicornEmulationError(EmulationError):
+    def __init__(self, exception: Exception, pc: int, data: dict):
+        self.exception = exception
+        self.pc = pc
+        self.data = data
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.exception}, {self.pc}, {self.data})"
+
+
 class AnalysisError(Exception):
     """Some kind of error in analysis."""
 
@@ -46,6 +56,7 @@ class AnalysisRunError(AnalysisError):
 __all__ = [
     "ConfigurationError",
     "EmulationError",
+    "UnicornEmulationError",
     "AnalysisError",
     "AnalysisSetupError",
     "AnalysisRunError",

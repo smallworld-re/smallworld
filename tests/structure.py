@@ -80,9 +80,7 @@ print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 cpu.map(alloc)
 
-
 smallworld.analyze(cpu)
-
 
 # now we can do a single micro-execution without error
 # final_state = smallworld.emulate(code, cpu)
