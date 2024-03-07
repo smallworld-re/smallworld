@@ -210,6 +210,69 @@ class UntypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
 
 
 @dataclass(frozen=True)
+class UnderSpecifiedBranchHint(Hint):
+    """Represents a program fork based on an under-specified condition
+
+    Arguments:
+      pc: Program counter
+      instruction: Representation of offending instruction
+    """
+
+    capstone_instruction: InitVar[cs.CsInsn]
+    instruction: HintInstruction = field(init=False)
+    pc: int
+
+    def __post_init__(self, capstone_instruction):
+        address = capstone_instruction.address
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
+        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
+        (regs_read, regs_written) = capstone_instruction.regs_access()
+        reads = []
+        for r in regs_read:
+            reads.append(f"{capstone_instruction.reg_name(r)}")
+        writes = []
+        for w in regs_written:
+            writes.append(f"{capstone_instruction.reg_name(w)}")
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedMemoryBranchHint(UnderSpecifiedBranchHint):
+    """Represents conditional data flow with an under-specified conditional
+
+    Arguments:
+      addr: Offending address expression
+      values: Possible evaluations of addr, paired with their guard expressions.
+    """
+
+    address: str
+    values: typing.Dict[str, str]
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedControlBranchHint(UnderSpecifiedBranchHint):
+    """Represents conditional control flow with an under-specified conditional
+
+    Arguments:
+      targets: Possible branch target addresses, paired with guard expressions.
+    """
+
+    targets: typing.Dict[str, str]
+
+
+@dataclass(frozen=True)
 class InputUseHint(UnderSpecifiedValueHint):
     """Represents an instruction at which some register input value is used,
        i.e. an information flow from input to some instruction
