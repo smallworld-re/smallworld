@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `AngrEmulator`: Emulator based on angr symbolic execution
+- `AngrNWBTAnalysis`: Unused value analysis using angr
+
 ## [0.0.1] - 2024-02-26
 
 ### Added
 - Initial public SmallWorld demo.
-- Emulator based on angr symbolic execution, with example analysis
 
 [unreleased]: https://github.com/smallworld-re/smallworld/compare/v0.0.1...HEAD
 [0.0.1]: https://github.com/smallworld-re/smallworld/releases/tag/v0.0.1
