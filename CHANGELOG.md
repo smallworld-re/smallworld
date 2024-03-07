@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `AngrEmulator`: Emulator based on angr symbolic execution
+- `AngrNWBTAnalysis`: Unused value analysis using angr
+
 ## [0.0.1] - 2024-02-26
 
 ### Added
