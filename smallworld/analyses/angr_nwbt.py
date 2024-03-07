@@ -35,10 +35,6 @@ class AngrNWBTAnalysis(analysis.Analysis):
             pass
 
     def _report_status(self, emu):
-        for st in emu.mgr.active:
-            # I can't delete this; it's somehow
-            # keeping angr from running off the rails.
-            print_state(log.info, st, "active")
         for st in emu.mgr.unconstrained:
             hint = hinting.OutputHint(
                 message="State left the program",

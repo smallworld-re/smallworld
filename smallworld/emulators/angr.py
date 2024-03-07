@@ -8,10 +8,16 @@ import angr
 import claripy
 import cle
 
-from .. import state
+from .. import exceptions, state
 from . import emulator
 
 log = logging.getLogger(__name__)
+
+
+class PathTerminationSignal(exceptions.AnalysisSignal):
+    """Exception allowing an analysis to terminate an execution path."""
+
+    pass
 
 
 class AngrEmulator(emulator.Emulator):
@@ -161,6 +167,20 @@ class AngrEmulator(emulator.Emulator):
             }
         )
 
+        def handle_exit(state):
+            raise PathTerminationSignal()
+
+        # Set breakpoints to halt on exit
+        exits = list(code.exits)
+        default_exit = code.base + len(code.image)
+        if code.type == "blob" and default_exit not in exits:
+            # Set a default exit point to keep us from
+            # running off the end of the world.
+            exits.append(default_exit)
+        for exitpoint in exits:
+            self._entry.inspect.b(
+                "instruction", instruction=exitpoint, action=handle_exit
+            )
         # Replay any value initialization
         # we captured before this
         for reg, val in self._reg_init_values.items():

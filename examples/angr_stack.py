@@ -66,7 +66,7 @@ if __name__ == "__main__":
         logging.getLogger("angr").setLevel(logging.INFO)
     else:
         utils.setup_logging(level=logging.INFO)
-        utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
+    utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
     log = logging.getLogger("smallworld")
 

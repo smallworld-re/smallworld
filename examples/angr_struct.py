@@ -26,7 +26,7 @@ def angr_init(analysis, entry):
 
     environ = entry.typedefs
     # Example of using an unnamed primitive type
-    intdef = environ.create_primitive(None, 4)
+    intdef = environ.create_primitive("int", 4)
     # Example of using a named primitive type
     longdef = environ.create_primitive("arg2", 8)
     # Example of a struct
@@ -77,6 +77,7 @@ if __name__ == "__main__":
         logging.getLogger("angr").setLevel(logging.INFO)
     else:
         utils.setup_logging(level=logging.INFO)
+    utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(

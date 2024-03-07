@@ -165,6 +165,18 @@ class UnderSpecifiedMemoryRefHint(UnderSpecifiedValueHint):
 
 
 @dataclass(frozen=True)
+class UnderSpecifiedAddressHint(UnderSpecifiedValueHint):
+    """Represents a symbolic address that can't be resolved from the environment.
+    Arguments:
+        symbol: Name of the symbolic value
+        addr:   Address expression containing the symbol
+    """
+
+    symbol: str
+    addr: str
+
+
+@dataclass(frozen=True)
 class TypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
     typedef: str
     value: str
@@ -183,6 +195,17 @@ class TypedUnderSpecifiedMemoryHint(UnderSpecifiedMemoryHint):
 
 @dataclass(frozen=True)
 class UntypedUnderSpecifiedMemoryHint(UnderSpecifiedMemoryHint):
+    value: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UntypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
     value: str
 
 

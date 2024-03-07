@@ -170,6 +170,12 @@ class ModelMemoryMixin(BaseMemoryMixin):
         This is the same code for both reads and writes.
         """
         environ = self.state.typedefs
+        (cinsn,) = list(
+            filter(
+                lambda x: x.address == self.state._ip.concrete_value,
+                self.state.block().capstone.insns,
+            )
+        )
 
         log.debug(f"\tAddr:       {addr}")
         bindings = dict()
@@ -186,6 +192,14 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     if value is None:
                         complete = False
                         continue
+                    hint = hinting.TypedUnderSpecifiedAddressHint(
+                        message="Symbol has no type",
+                        pc=self.state._ip.concrete_value,
+                        symbol=v.args[0],
+                        addr=str(addr),
+                        capstone_instruction=cinsn,
+                        value=str(value),
+                    )
                 else:
                     log.warn(
                         f"Symbol {v} (part of address expression {addr}) has type {binding}, but no value"
@@ -201,6 +215,16 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     if value is None:
                         complete = False
                         continue
+                    hint = hinting.TypedUnderSpecifiedAddressHint(
+                        message="Symbol has type, but no value",
+                        typedef=str(binding),
+                        pc=self.state._ip.concrete_value,
+                        symbol=v.args[0],
+                        addr=str(addr),
+                        capstone_instruction=cinsn,
+                        value=str(value),
+                    )
+                    hinter.info(hint)
                 environ.set_symbol(v.args[0], value)
                 if isinstance(value, int):
                     pretty_value = hex(value)
