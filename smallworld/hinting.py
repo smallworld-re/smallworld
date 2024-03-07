@@ -96,7 +96,34 @@ class EmulationException(Hint):
 class UnderSpecifiedValueHint(Hint):
     """Super class for UnderSpecified Value Hints"""
 
-    pass
+    capstone_instruction: InitVar[cs.CsInsn]
+    instruction: HintInstruction = field(init=False)
+    pc: int
+
+    def __post_init__(self, capstone_instruction):
+        address = capstone_instruction.address
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
+        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
+        (regs_read, regs_written) = capstone_instruction.regs_access()
+        reads = []
+        for r in regs_read:
+            reads.append(f"{capstone_instruction.reg_name(r)}")
+        writes = []
+        for w in regs_written:
+            writes.append(f"{capstone_instruction.reg_name(w)}")
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -138,6 +165,51 @@ class UnderSpecifiedMemoryRefHint(UnderSpecifiedValueHint):
 
 
 @dataclass(frozen=True)
+class UnderSpecifiedAddressHint(UnderSpecifiedValueHint):
+    """Represents a symbolic address that can't be resolved from the environment.
+    Arguments:
+        symbol: Name of the symbolic value
+        addr:   Address expression containing the symbol
+    """
+
+    symbol: str
+    addr: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UnypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+    value: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedMemoryHint(UnderSpecifiedMemoryHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UntypedUnderSpecifiedMemoryHint(UnderSpecifiedMemoryHint):
+    value: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UntypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
+    value: str
+
+
+@dataclass(frozen=True)
 class InputUseHint(UnderSpecifiedValueHint):
     """Represents an instruction at which some register input value is used,
        i.e. an information flow from input to some instruction
@@ -150,37 +222,9 @@ class InputUseHint(UnderSpecifiedValueHint):
     """
 
     input_register: str
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
     micro_exec_num: int
     instruction_num: int
     use_register: str
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
 
 
 @dataclass(frozen=True)
@@ -243,6 +287,12 @@ class StructureHint(TypeHint):
     """
 
     layout: typing.Dict[int, str]
+
+
+@dataclass(frozen=True)
+class OutputHint(Hint):
+    registers: typing.Dict[str, str]
+    memory: typing.Dict[int, str]
 
 
 class Hinter(logging.Logger):
