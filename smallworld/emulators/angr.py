@@ -46,6 +46,7 @@ class AngrEmulator(emulator.Emulator):
         self.analysis_init = init
         self._reg_init_values = dict()
         self._mem_init_values = dict()
+        self._plugin_preset = "default"
 
     @property
     def entry(self) -> angr.SimState:
@@ -161,10 +162,11 @@ class AngrEmulator(emulator.Emulator):
 
         # Initialize the entrypoint state.
         self._entry = self.proj.factory.entry_state(
+            plugin_preset=self._plugin_preset,
             add_options={
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
-            }
+            },
         )
 
         def handle_exit(state):
