@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-
-- `AngrEmulator`: Emulator based on angr symbolic execution
-- `AngrNWBTAnalysis`: Unused value analysis using angr
+- `AngrEmulator` based on angr symbolic execution.
+- `AngrNWBTAnalysis` unused value analysis using angr.
 - `State` getitem/setitem helpers to unwrap `Values` (e.g., `cpu["eax"] =
   0x1000` vs `cpu.eax.set(0x1000)`).
+
+### Changed
+- `State.map()` automatically selects names for mapped objects when not
+  provided.
 
 ## [0.0.1] - 2024-02-26
 
