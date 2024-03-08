@@ -5,11 +5,16 @@ from smallworld import emulators, initializers, state
 
 class StateTests(unittest.TestCase):
     class TestValue(state.Value):
+        def __init__(self):
+            super().__init__()
+
+            self.value = None
+
         def get(self):
-            pass
+            return self.value
 
         def set(self, value) -> None:
-            pass
+            self.value = value
 
         def initialize(
             self, initializer: initializers.Initializer, override: bool = False
@@ -24,6 +29,37 @@ class StateTests(unittest.TestCase):
 
         def __repr__(self) -> str:
             return f"{self.__class__.__name__}"
+
+    def test_getitem_valid(self):
+        s = state.State()
+        v = self.TestValue()
+
+        s.map(v, "foo")
+
+        self.assertEqual(s["foo"], s.foo.get())
+
+    def test_getitem_invalid(self):
+        s = state.State()
+
+        with self.assertRaises(ValueError):
+            s["foo"]
+
+    def test_setitem_valid(self):
+        s = state.State()
+        v = self.TestValue()
+
+        s.map(v, "foo")
+
+        s["foo"] = 3
+
+        self.assertEqual(s["foo"], 3)
+        self.assertEqual(s["foo"], s.foo.get())
+
+    def test_setitem_invalid(self):
+        s = state.State()
+
+        with self.assertRaises(ValueError):
+            s["foo"] = 3
 
     def test_map_named(self):
         s = state.State()
