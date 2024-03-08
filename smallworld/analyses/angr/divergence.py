@@ -35,30 +35,6 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
     def _setup_tui(self):
         super()._setup_tui()
         self.divergence_tui = SimpleTUI()
-        self.divergence_tui.add_case(
-            "fork",
-            self.divergence_fork,
-            hint="Fork separate states for each possible evaluation",
-        )
-        self.divergence_tui.add_case(
-            "choose", self.divergence_choose, hint="Choose one possible evaluation"
-        )
-        self.divergence_tui.add_case(
-            "ignore",
-            self.divergence_ignore,
-            hint="Use a conjunction of all possible evaluations",
-        )
-        self.divergence_tui.add_case(
-            "details",
-            self.divergence_details,
-            hint="Print details of the current state",
-        )
-        self.divergence_tui.add_case(
-            "stop", self.divergence_stop, hint="Stop the current execution path"
-        )
-        self.divergence_tui.add_case(
-            "quit", self.divergence_quit, hint="Exit the analyzer"
-        )
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -143,8 +119,16 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         if len(exprs) > 1:
             # We've got a conditional dereference.
             log.warn(f"Conditional address dereferenced at {self.state.ip}.")
-            log.warn("What do you want to do about this?")
-            self.divergence_tui.handle("fork", set(), this=self, addr=addr, exprs=exprs)
+            options = {
+                "fork": self.divergence_fork,
+                "choose": self.divergence_choose,
+                "ignore": self.divergence_ignore,
+                "details": self.divergence_details,
+                "stop": self.divergence_stop,
+                "quit": self.divergence_quit,
+            }
+            option = "fork"
+            options[option](this=self, addr=addr, exprs=exprs)
 
         return list(res)
 

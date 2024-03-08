@@ -8,10 +8,16 @@ import angr
 import claripy
 import cle
 
-from .. import state
+from .. import exceptions, state
 from . import emulator
 
 log = logging.getLogger(__name__)
+
+
+class PathTerminationSignal(exceptions.AnalysisSignal):
+    """Exception allowing an analysis to terminate an execution path."""
+
+    pass
 
 
 class AngrEmulator(emulator.Emulator):
@@ -32,8 +38,15 @@ class AngrEmulator(emulator.Emulator):
     means when there's more than one state.
     """
 
-    def __init__(self):
+    def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
+        self._code: typing.Optional[emulator.Code] = None
+        self.mgr: typing.Optional[angr.SimManager] = None
+        self.analysis_preinit = preinit
+        self.analysis_init = init
+        self._reg_init_values = dict()
+        self._mem_init_values = dict()
+        self._plugin_preset = "default"
 
     @property
     def entry(self) -> angr.SimState:
@@ -46,9 +59,13 @@ class AngrEmulator(emulator.Emulator):
         self._entry = e
 
     def read_register(self, name: str):
-        if self._entry is None:
+        if self._reg_init_values is None:
             raise NotImplementedError(
                 "Reading registers not supported once execution begins."
+            )
+        elif self._entry is None:
+            raise NotImplementedError(
+                "Reading registers not supported before code is loaded."
             )
         elif name not in self._entry.arch.registers:
             log.warn(f"Ignoring read of register {name}; it doesn't exist")
@@ -63,10 +80,12 @@ class AngrEmulator(emulator.Emulator):
             return out.concrete_value
 
     def write_register(self, reg: str, value: typing.Optional[int]) -> None:
-        if self._entry is None:
+        if self._reg_init_values is None:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
+        elif self._entry is None:
+            self._reg_init_values[reg] = value
         elif reg not in self._entry.arch.registers:
             log.warn(f"Ignoring write to register {reg}; it doesn't exist")
         elif value is not None:
@@ -78,23 +97,33 @@ class AngrEmulator(emulator.Emulator):
         # TODO: Figure out a return format.
         # If the loaded data is symbolic,
         # I can't represent it accurately in bytes.
-        if self._entry is None:
+        if self._mem_init_values is None:
             raise NotImplementedError(
                 "Reading memory not supported once execution begins."
+            )
+        elif self._entry is None:
+            raise NotImplementedError(
+                "Reading memory not supported before code is loaded."
             )
         else:
             return self._entry.memory.load(addr, size)
 
     def write_memory(self, addr: int, value: typing.Optional[bytes]):
-        if self._entry is None:
+        if self._mem_init_values is None:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
+        elif self._entry is None:
+            self._mem_init_values[addr] = value
         elif value is not None:
             v = claripy.BVV(value)
             self._entry.memory.store(addr, v)
 
     def load(self, code: state.Code) -> None:
+        # Keep the code object around for later.
+        # I need some of the data contained inside
+        self._code = code
+
         options: typing.Dict[str, typing.Union[str, int]] = {}
 
         if code.arch is None:
@@ -129,35 +158,71 @@ class AngrEmulator(emulator.Emulator):
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs
         # must be done before the entrypoint state is created.
-        self.analysis_preinit()
+        self.analysis_preinit(self)
 
         # Initialize the entrypoint state.
         self._entry = self.proj.factory.entry_state(
+            plugin_preset=self._plugin_preset,
             add_options={
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
-            }
+            },
         )
+
+        def handle_exit(state):
+            raise PathTerminationSignal()
+
+        # Set breakpoints to halt on exit
+        exits = list(code.exits)
+        default_exit = code.base + len(code.image)
+        if code.type == "blob" and default_exit not in exits:
+            # Set a default exit point to keep us from
+            # running off the end of the world.
+            exits.append(default_exit)
+        for exitpoint in exits:
+            self._entry.inspect.b(
+                "instruction", instruction=exitpoint, action=handle_exit
+            )
+        # Replay any value initialization
+        # we captured before this
+        for reg, val in self._reg_init_values.items():
+            self.write_register(reg, val)
+        for addr, val in self._mem_init_values.items():
+            self.write_memory(addr, val)
 
         # Initialize the simulation manager to help us explore.
         self.mgr = self.proj.factory.simulation_manager(self._entry, save_unsat=True)
 
         # Perform any analysis-specific initialization
-        self.analysis_init()
+        self.analysis_init(self)
 
     def step(self):
-        if self._entry is not None:
-            # If we have not yet started processing,
-            # run analysis on the entrypoint state...
-            if not self.analysis_step():
-                # It asked us to quit before we began
-                return False
-            # ... and mark that we're no longer in entry.
-            self._entry = None
+        # As soon as we start executing, disable value access
+        self._reg_init_values = None
+        self._mem_init_values = None
+
         # Step execution once
         self.mgr.step()
-        # Process the results
-        return self.analysis_step()
+
+        # Filter out exited or invalid states
+        code_end = self._code.base + len(self._code.image)
+        self.mgr.move(
+            from_stash="active",
+            to_stash="unconstrained",
+            filter_func=lambda x: (
+                x._ip.symbolic
+                or x._ip.concrete_value < self._code.base
+                or x._ip.concrete_value >= code_end
+            ),
+        )
+        self.mgr.move(
+            from_stash="active",
+            to_stash="deadended",
+            filter_func=lambda x: x._ip.concrete_value in self._code.exits,
+        )
+
+        # Stop if we're out of active states
+        return len(self.mgr.active) != 0
 
     def run(self):
         while len(self.mgr.active) > 0:
@@ -167,39 +232,3 @@ class AngrEmulator(emulator.Emulator):
 
     def __repr__(self):
         return f"Angr ({self.mgr})"
-
-    def analysis_preinit(self):
-        """
-        Configure angr platform for analysis
-
-        This is the place to configure features of angr,
-        such as plugin defaults, which can't be easily
-        changed once the entry state and simulation manager are created.
-        """
-        pass
-
-    def analysis_init(self):
-        """
-        Configure initial state and exploration strategy for analysis
-
-        This method will have access to the following fields:
-
-        - `self.proj` will contain the angr project for this experiment
-        - `self._entry` will contain the entrypoint SimState
-        - `self.mgr` will contain the SimManager for the experiment
-
-        NOTE: You can replace the default `self._entry` state object,
-        but you must also reinitialize `self.mgr` for the changes to take effect.
-        """
-        pass
-
-    def analysis_step(self):
-        """
-        Analyze a single step of execution.
-
-        This method will have access to the following fields:
-
-        - `self.proj` will contain the angr project for this experiment
-        - `self.mgr` will contain the SimManager, holding the current exploration frontier
-        """
-        return True

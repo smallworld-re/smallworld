@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `AngrEmulator` based on angr symbolic execution.
+- `AngrNWBTAnalysis` unused value analysis using angr.
+
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
   provided.
