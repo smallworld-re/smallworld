@@ -218,10 +218,10 @@ def analyze(state: T) -> None:
 
     for name in analyses.__all__:
         module: typing.Type = getattr(analyses, name)
-        if isinstance(module, analyses.Filter):
+        if issubclass(module, analyses.Filter) and module is not analyses.Filter:
             module().activate()
 
     for name in analyses.__all__:
         module = getattr(analyses, name)
-        if isinstance(module, analyses.Analysis):
+        if issubclass(module, analyses.Analysis) and module is not analyses.Analysis:
             module().run(state)
