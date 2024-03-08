@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `AngrEmulator`: Emulator based on angr symbolic execution
 - `AngrNWBTAnalysis`: Unused value analysis using angr
+- `State` getitem/setitem helpers to unwrap `Values` (e.g., `cpu["eax"] =
+  0x1000` vs `cpu.eax.set(0x1000)`).
 
 ## [0.0.1] - 2024-02-26
 

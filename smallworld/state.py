@@ -528,6 +528,26 @@ class State(Value):
     def __repr__(self) -> str:
         return self.stringify()
 
+    def __getitem__(self, key: str):
+        attr = getattr(self, key, None)
+
+        if isinstance(attr, Value):
+            return attr.get()
+        else:
+            raise ValueError(
+                f"'{self.__class__.__name__}' object has no attribute '{key}'"
+            )
+
+    def __setitem__(self, key: str, value):
+        attr = getattr(self, key, None)
+
+        if isinstance(attr, Value):
+            return attr.set(value)
+        else:
+            raise ValueError(
+                f"'{self.__class__.__name__}' object has no attribute '{key}'"
+            )
+
 
 class CPU(State):
     """Some additional required properties of CPUs."""
