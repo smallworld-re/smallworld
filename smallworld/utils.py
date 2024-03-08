@@ -217,6 +217,11 @@ def analyze(state: T) -> None:
     """
 
     for name in analyses.__all__:
-        module = getattr(analyses, name)()
+        module: typing.Type = getattr(analyses, name)
+        if isinstance(module, analyses.Filter):
+            module().activate()
+
+    for name in analyses.__all__:
+        module = getattr(analyses, name)
         if isinstance(module, analyses.Analysis):
-            module.run(state)
+            module().run(state)
