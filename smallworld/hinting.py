@@ -254,11 +254,11 @@ class UnderSpecifiedMemoryBranchHint(UnderSpecifiedBranchHint):
 
     Arguments:
       addr: Offending address expression
-      values: Possible evaluations of addr, paired with their guard expressions.
+      options: Possible evaluations of addr, paired with their guard expressions.
     """
 
     address: str
-    values: typing.Dict[str, str]
+    options: typing.List[typing.Tuple[str, str]]
 
 
 @dataclass(frozen=True)

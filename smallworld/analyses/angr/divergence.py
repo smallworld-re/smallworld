@@ -139,7 +139,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
                 pc=self.state._ip.concrete_value,
                 capstone_instruction=cinsn,
                 address=str(addr),
-                values={str(k): str(v) for (k, v) in guards.items()},
+                options=[(str(k), str(v)) for (k, v) in guards.items()],
             )
             hinter.info(hint)
             options = {
