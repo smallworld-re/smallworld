@@ -2,8 +2,7 @@ import logging
 
 from .. import emulators, hinting, state
 from . import analysis
-from .angr.nwbt import NWBTExplorationTechnique, NWBTMemoryPlugin
-from .angr.typedefs import TypeDefPlugin
+from .angr.nwbt import configure_nwbt_plugins, configure_nwbt_strategy
 from .angr.utils import print_state
 
 log = logging.getLogger(__name__)
@@ -19,11 +18,10 @@ class AngrNWBTAnalysis(analysis.Analysis):
         self.initfunc = initfunc
 
     def analysis_preint(self, emu):
-        NWBTMemoryPlugin.register_default("sym_memory")
-        TypeDefPlugin.register_default("typedefs")
+        configure_nwbt_plugins(emu)
 
     def analysis_init(self, emu):
-        emu.mgr.use_technique(NWBTExplorationTechnique())
+        configure_nwbt_strategy(emu)
         if self.initfunc is not None:
             self.initfunc(self, emu.entry)
 
