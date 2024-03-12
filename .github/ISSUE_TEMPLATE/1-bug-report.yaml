@@ -1,0 +1,40 @@
+name: Bug Report
+description: Report a bug in SmallWorld
+labels: [bug, triage]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Write '....' (code snippets)
+        2. Run command '....'
+        3. See error
+
+  - type: textarea
+    id: exception
+    attributes:
+      label: Exception
+      placeholder: |
+        Please provide the full exception stack trace here.
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      placeholder: |
+        HELIX: 1.1.1
+        Python: 3.6
+        OS: Windows 10
+
+        Packages (output of `pip freeze`):
+        smallworld==1.0.0
+        ...

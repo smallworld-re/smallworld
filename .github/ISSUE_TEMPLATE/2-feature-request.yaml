@@ -1,0 +1,23 @@
+name: Feature Request
+description: Suggest a feature for SmallWorld
+labels: [enhancement, triage]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives
+      placeholder: |
+        Alternative solutions or features you've considered.
