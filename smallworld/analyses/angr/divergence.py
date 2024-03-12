@@ -5,7 +5,6 @@ from angr.storage import MemoryMixin
 
 from ... import hinting
 from ...exceptions import AnalysisSignal
-from ..utils.tui import SimpleTUI, TUIContinueException
 from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
 from .utils import print_state
@@ -44,10 +43,6 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
     The actual fork operation cannot be done from within this plugin,
     so it needs to communicate with DivergenceExplorationMixin.
     """
-
-    def _setup_tui(self):
-        super()._setup_tui()
-        self.divergence_tui = SimpleTUI()
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -139,7 +134,6 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         log.debug(f"All recommendations: {list(map(hex, res))}")
         if len(exprs) > 1:
             # We've got a conditional dereference.
-            log.warn(f"Conditional address dereferenced at {self.state.ip}.")
             hint = hinting.UnderSpecifiedMemoryBranchHint(
                 message="Conditional address dereference",
                 pc=self.state._ip.concrete_value,
@@ -199,7 +193,6 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         log.warn("Possible Evaluations:")
         for expr, result in exprs.items():
             log.warn(f"\t{expr}: {result:x}")
-        raise TUIContinueException()
 
     def divergence_stop(self, **kwargs):
         log.warn("Killing execution path")
