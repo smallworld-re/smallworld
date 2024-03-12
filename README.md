@@ -116,9 +116,10 @@ make -C tests
 #### Running Tests
 
 Once the test files have been built and SmallWorld has been installed, you can
-run integration tests:
+run unit and integration tests:
 
 ```bash
+python3 tests/unit.py
 python3 tests/integration.py
 ```
 
