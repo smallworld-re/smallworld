@@ -221,6 +221,10 @@ class AngrEmulator(emulator.Emulator):
             filter_func=lambda x: x._ip.concrete_value in self._code.exits,
         )
 
+        # Test for exceptional states
+        if len(self.mgr.errored) > 0:
+            raise exceptions.EmulationError(self.mgr.errored[0].error)
+
         # Stop if we're out of active states
         return len(self.mgr.active) != 0
 
