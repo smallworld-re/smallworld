@@ -158,6 +158,7 @@ class AngrEmulator(emulator.Emulator):
         # Some features - namely messing with angr plugin configs
         # must be done before the entrypoint state is created.
         self.analysis_preinit(self)
+        help(self.proj.simos)
 
         # Initialize the entrypoint state.
         self._entry = self.proj.factory.entry_state(
@@ -218,6 +219,10 @@ class AngrEmulator(emulator.Emulator):
             to_stash="deadended",
             filter_func=lambda x: x._ip.concrete_value in self._code.exits,
         )
+
+        # Test for exceptional states
+        if len(self.mgr.errored) > 0:
+            raise exceptions.EmulationError(self.mgr.errored[0].error)
 
         # Stop if we're out of active states
         return len(self.mgr.active) != 0
