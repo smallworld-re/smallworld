@@ -1,5 +1,6 @@
 import abc
 import logging
+import typing
 
 from .. import hinting, state
 
@@ -7,9 +8,7 @@ logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)
 
 
-class Analysis:
-    """The base class for all analyses."""
-
+class Metadata(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def name(self) -> str:
@@ -44,6 +43,10 @@ class Analysis:
 
         return ""
 
+
+class Analysis(Metadata):
+    """The base class for all analyses."""
+
     @abc.abstractmethod
     def run(self, state: state.CPU) -> None:
         """Actually run the analysis.
@@ -56,3 +59,63 @@ class Analysis:
         """
 
         pass
+
+
+class Filter(Metadata):
+    """The base class for filter analyses.
+
+    Filter analyses are analyses that consume some part of the hint stream and
+    possibly emit additional hints. These analyses do not run any analysis on
+    the system state, they just react to hints from other analyses.
+    """
+
+    def __init__(self):
+        self.listeners = []
+
+    def listen(
+        self,
+        hint: typing.Type[hinting.Hint],
+        method: typing.Callable[[hinting.Hint], None],
+    ):
+        """Register a listener on the hint stream.
+
+        Arguments:
+            hint: A hint type that should trigger this listener. Note: All
+                subclasses `hint` will trigger the listener.
+            method: The method to call when the given hint type is observed.
+        """
+
+        class Handler(logging.Handler):
+            def emit(self, record):
+                method(record.msg)
+
+        handler = Handler()
+        handler.setLevel(logging.DEBUG)
+        handler.addFilter(hinting.HintSubclassFilter(hint))
+        hinting.root.addHandler(handler)
+
+        self.listeners.append(handler)
+
+    @abc.abstractmethod
+    def activate(self) -> None:
+        """Activate this filter.
+
+        Implementations should make necessary calls to `listen()` here to
+        register hint listener functions. They will be unregistered
+        automatically on destruction or manual call to `deactivate()`.
+        """
+
+        pass
+
+    def deactivate(self) -> None:
+        """Deactivate this filter.
+
+        This is done automatically on destruction of this object - you likely
+        shouldn't need to call this manually.
+        """
+
+        for handler in self.listeners:
+            hinting.root.removeHandler(handler)
+
+    def __del__(self):
+        self.deactivate()
