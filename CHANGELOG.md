@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
   provided.
+- `UnicornEmulator` captures more detailed error information in single step
+  mode.
 
 ## [0.0.1] - 2024-02-26
 
