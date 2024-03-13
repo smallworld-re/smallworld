@@ -126,7 +126,6 @@ class UnicornEmulator(emulator.Emulator):
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
-        self.exception_details: typing.Dict[int, bytes] = {}
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -281,13 +280,6 @@ class UnicornEmulator(emulator.Emulator):
                 "no exitpoint provided, emulation cannot start"
             )
 
-    def hook_mem_invalid(self, uc, access, address, size, value, user_data):
-        self.exception_details[address] = value
-        # we could map in some portion of memory and continue emulation
-
-        # Stop emulation
-        return False
-
     def run(self) -> None:
         self.check()
 
@@ -295,18 +287,11 @@ class UnicornEmulator(emulator.Emulator):
             f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
         )
         try:
-            self.engine.hook_add(
-                unicorn.unicorn_const.UC_HOOK_MEM_READ_UNMAPPED
-                | unicorn.unicorn_const.UC_HOOK_MEM_WRITE_UNMAPPED,
-                self.hook_mem_invalid,
-                self.engine,
-            )
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
-            raise exceptions.UnicornEmulationError(
-                e.args[0], 0, list(self.exception_details)[0], self.exception_details
-            )
+            logger.warn("For more details, run emulation in single step mode.")
+            raise exceptions.EmulationError(e)
 
         logger.info("emulation complete")
 
@@ -323,12 +308,6 @@ class UnicornEmulator(emulator.Emulator):
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
         try:
-            self.engine.hook_add(
-                unicorn.unicorn_const.UC_HOOK_MEM_READ_UNMAPPED
-                | unicorn.unicorn_const.UC_HOOK_MEM_WRITE_UNMAPPED,
-                self.hook_mem_invalid,
-                self.engine,
-            )
             self.engine.emu_start(pc, self.exitpoint, count=1)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
@@ -455,9 +434,7 @@ class UnicornEmulator(emulator.Emulator):
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_INSN_INVALID:
             details = {"pc": pc, pc: code}
 
-        raise exceptions.UnicornEmulationError(
-            error.args[0], pc, list(self.exception_details)[0], details
-        )
+        raise exceptions.UnicornEmulationError(error.args[0], pc, details)
 
     def __repr__(self) -> str:
         return f"Unicorn(mode={self.mode}, arch={self.arch})"
