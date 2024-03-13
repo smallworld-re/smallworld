@@ -1,8 +1,7 @@
 import logging
 import random
 
-from .. import ctypes, emulators, hinting, state
-from ..exceptions import AnalysisRunError
+from .. import ctypes, emulators, exceptions, hinting, state
 from . import analysis
 
 logger = logging.getLogger(__name__)
@@ -79,7 +78,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                 pc = emu.read_register("pc")
                 code = emu.read_memory(pc, 15)  # longest possible instruction
                 if code is None:
-                    raise AnalysisRunError(
+                    raise exceptions.AnalysisRunError(
                         "Unable to read next instruction out of emulator memory"
                     )
                     assert False, "impossible state"
@@ -106,7 +105,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                     done = emu.step()
                     if done:
                         break
-                except Exception as e:
+                except exceptions.EmulationError as e:
                     exhint = hinting.EmulationException(
                         message="Emulation single step raised an exception",
                         capstone_instruction=instruction,
@@ -116,7 +115,6 @@ class InputColorizerAnalysis(analysis.Analysis):
                         exception=str(e),
                     )
                     hinter.info(exhint)
-                    logger.info(e)
                     break
 
     def check_instruction_regs_colors(self, r0, instruction):
