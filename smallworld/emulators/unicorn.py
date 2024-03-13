@@ -290,7 +290,7 @@ class UnicornEmulator(emulator.Emulator):
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
-            logger.warn("For more details, run emulation in single step mode.")
+            logger.warn("for more details, run emulation in single step mode")
             raise exceptions.EmulationError(e)
 
         logger.info("emulation complete")
