@@ -449,7 +449,7 @@ class BumpAllocator(Heap):
 
         address = self.address + self.used
         self.memory.append((allocation, size))
-        self.used += allocation
+        self.used += size
 
         return address
 
