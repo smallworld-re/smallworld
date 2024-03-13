@@ -322,6 +322,34 @@ class UnicornEmulator(emulator.Emulator):
 
         return False
 
+    def read_value(self, value):
+        if isinstance(value, str):
+            return self.read_register(value)
+        elif isinstance(value, dict):
+            if list(value.keys()) < ["base", "index", "scale", "offset", "size"]:
+                raise ValueError(f"malformed memory reference identifier: {value!r}")
+
+            base = 0
+            if value["base"] is not None:
+                base = self.read_register(value["base"])
+
+            index = 0
+            if value["index"] is not None:
+                index = self.read_register(value["index"])
+
+            address = base + value["scale"] * index + value["offset"]
+
+            return self.read_memory(address, value["size"])
+        else:
+            raise ValueError(f"unsupported value identifier: {value!r}")
+
+    def read_values(self, values):
+        read = {}
+        for value in values:
+            read[value] = self.read_value(value)
+
+        return read
+
     def _get_operand_address(self, instruction: capstone.CsInsn, operand) -> int:
         """Translate a memory operand to an address.
 
