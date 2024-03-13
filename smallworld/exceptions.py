@@ -55,6 +55,12 @@ class AnalysisRunError(AnalysisError):
     pass
 
 
+class AnalysisSignal(Exception):
+    """Raised to signal a non-fatal exception during an analysis."""
+
+    pass
+
+
 __all__ = [
     "ConfigurationError",
     "EmulationError",
@@ -62,4 +68,5 @@ __all__ = [
     "AnalysisError",
     "AnalysisSetupError",
     "AnalysisRunError",
+    "AnalysisSignal",
 ]

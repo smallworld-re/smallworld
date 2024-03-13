@@ -1,4 +1,4 @@
-from .analysis import Analysis
+from .analysis import Analysis, Filter
 from .input_colorizer import InputColorizerAnalysis
 
-__all__ = ["Analysis", "InputColorizerAnalysis"]
+__all__ = ["Analysis", "Filter", "InputColorizerAnalysis"]

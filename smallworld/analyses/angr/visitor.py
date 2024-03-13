@@ -69,15 +69,15 @@ class ConditionalVisitor(ClaripyVisitor):
 
     def visit_int(self, v):
         # Integers are leaf ASTs, and never conditional.
-        return [v]
+        return [(v, claripy.BoolV(True))]
 
     def visit_bvv(self, v):
         # BVVs are leaf ASTs, and never conditional.
-        return [v]
+        return [(v, claripy.BoolV(True))]
 
     def visit_bvs(self, v):
         # BVSs are leaf ASTs, and never conditional.
-        return [v]
+        return [(v, claripy.BoolV(True))]
 
     def visit_add(self, v):
         # Addition can produce all combinations of evaluations
@@ -86,8 +86,11 @@ class ConditionalVisitor(ClaripyVisitor):
         for arg in v.args[1:]:
             old_out = out
             out = list()
-            for res in self.visit(arg):
-                out.extend(list(map(lambda x: x + res, old_out)))
+            for res2, guard2 in self.visit(arg):
+                for res1, guard1 in old_out:
+                    res = res1 + res2
+                    guard = claripy.And(guard1, guard2)
+                    out.append((res, guard))
         return out
 
     def visit_concat(self, v):
@@ -97,8 +100,11 @@ class ConditionalVisitor(ClaripyVisitor):
         for arg in v.args[1:]:
             old_out = out
             out = list()
-            for res in self.visit(arg):
-                out.extend(map(lambda x: x.concat(res), old_out))
+            for res2, guard2 in self.visit(arg):
+                for res1, guard1 in old_out:
+                    res = res1.concat(res2)
+                    guard = claripy.And(guard1, guard2)
+                    out.append((res, guard))
         return out
 
     def visit_extract(self, v):
@@ -106,21 +112,28 @@ class ConditionalVisitor(ClaripyVisitor):
         # of the main argument.  The other two are always ints.
         a = v.args[0]
         b = v.args[1]
-        res = list(map(lambda x: x[a:b], self.visit(v.args[2])))
-        print(f"Extract: {v.args} -> {res}")
+        res = list(map(lambda x, y: (x[a:b], y), self.visit(v.args[2])))
         return res
 
     def visit_if(self, v):
         # ITE produces the union of the results of
         # the "then" and "else" expressions.
         # The condition itself is ignored.
-        out = self.visit(v.args[1])
-        out.extend(self.visit(v.args[2]))
+        out = list()
+        out.extend(
+            map(lambda x: (x[0], claripy.And(x[1], v.args[0])), self.visit(v.args[1]))
+        )
+        out.extend(
+            map(
+                lambda x: (x[0], claripy.And(x[1], claripy.Not(v.args[0]))),
+                self.visit(v.args[2]),
+            )
+        )
         return out
 
     def visit_reverse(self, v):
         # Reversal produces one expression per evaluation of the argument.
-        return list(map(lambda x: claripy.Reverse(x), self.visit(v.args[0])))
+        return list(map(lambda x, y: (claripy.Reverse(x), y), self.visit(v.args[0])))
 
 
 class EvalVisitor(ClaripyVisitor):

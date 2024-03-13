@@ -1,6 +1,7 @@
 import abc
 import ctypes
 import logging
+import re
 import textwrap
 import typing
 
@@ -464,11 +465,27 @@ class State(Value):
 
         Arguments:
             value: Value to map.
-            name: Attribute name - defaults to the class name.
+            name: Attribute name - if not provided a reasonable default will be
+                chosen based on the Value class name and the attributes already
+                present on this State.
         """
 
         if name is None:
             name = value.__class__.__name__.lower()
+
+            logger.debug(f"mapping name not provided, using {name}")
+
+            if hasattr(self, name):
+                candidates = []
+                for attribute in dir(self):
+                    for match in re.findall(f"{name}(\\d*)$", attribute):
+                        candidates.append(int(match or 0))
+                name = f"{name}{max(candidates) + 1}"
+
+                logger.debug(f"mapping name colision detected - using {name} instead")
+        else:
+            if hasattr(self, name):
+                raise ValueError(f"{name} already exists on {self}")
 
         setattr(self, name, value)
 

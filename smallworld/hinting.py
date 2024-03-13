@@ -96,7 +96,34 @@ class EmulationException(Hint):
 class UnderSpecifiedValueHint(Hint):
     """Super class for UnderSpecified Value Hints"""
 
-    pass
+    capstone_instruction: InitVar[cs.CsInsn]
+    instruction: HintInstruction = field(init=False)
+    pc: int
+
+    def __post_init__(self, capstone_instruction):
+        address = capstone_instruction.address
+        instruction_string = (
+            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
+        )
+        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
+        (regs_read, regs_written) = capstone_instruction.regs_access()
+        reads = []
+        for r in regs_read:
+            reads.append(f"{capstone_instruction.reg_name(r)}")
+        writes = []
+        for w in regs_written:
+            writes.append(f"{capstone_instruction.reg_name(w)}")
+        object.__setattr__(
+            self,
+            "instruction",
+            HintInstruction(
+                address=address,
+                instruction=instruction_string,
+                instruction_bytes=instruction_bytes,
+                reads=reads,
+                writes=writes,
+            ),
+        )
 
 
 @dataclass(frozen=True)
@@ -138,24 +165,62 @@ class UnderSpecifiedMemoryRefHint(UnderSpecifiedValueHint):
 
 
 @dataclass(frozen=True)
-class InputUseHint(UnderSpecifiedValueHint):
-    """Represents an instruction at which some register input value is used,
-       i.e. an information flow from input to some instruction
-
+class UnderSpecifiedAddressHint(UnderSpecifiedValueHint):
+    """Represents a symbolic address that can't be resolved from the environment.
     Arguments:
-      input_reg: The name of the register input value (source)
-      instr: The instruction in which the input is used
-      pc: program counter of that instruction
-      use_reg: The name of the register in instr that is using the input value
+        symbol: Name of the symbolic value
+        addr:   Address expression containing the symbol
     """
 
-    input_register: str
+    symbol: str
+    addr: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UnypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+    value: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedMemoryHint(UnderSpecifiedMemoryHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UntypedUnderSpecifiedMemoryHint(UnderSpecifiedMemoryHint):
+    value: str
+
+
+@dataclass(frozen=True)
+class TypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
+    typedef: str
+    value: str
+
+
+@dataclass(frozen=True)
+class UntypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
+    value: str
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedBranchHint(Hint):
+    """Represents a program fork based on an under-specified condition
+
+    Arguments:
+      pc: Program counter
+      instruction: Representation of offending instruction
+    """
+
     capstone_instruction: InitVar[cs.CsInsn]
     instruction: HintInstruction = field(init=False)
     pc: int
-    micro_exec_num: int
-    instruction_num: int
-    use_register: str
 
     def __post_init__(self, capstone_instruction):
         address = capstone_instruction.address
@@ -181,6 +246,48 @@ class InputUseHint(UnderSpecifiedValueHint):
                 writes=writes,
             ),
         )
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedMemoryBranchHint(UnderSpecifiedBranchHint):
+    """Represents conditional data flow with an under-specified conditional
+
+    Arguments:
+      addr: Offending address expression
+      options: Possible evaluations of addr, paired with their guard expressions.
+    """
+
+    address: str
+    options: typing.List[typing.Tuple[str, str]]
+
+
+@dataclass(frozen=True)
+class UnderSpecifiedControlBranchHint(UnderSpecifiedBranchHint):
+    """Represents conditional control flow with an under-specified conditional
+
+    Arguments:
+      targets: Possible branch target addresses, paired with guard expressions.
+    """
+
+    targets: typing.Dict[str, str]
+
+
+@dataclass(frozen=True)
+class InputUseHint(UnderSpecifiedValueHint):
+    """Represents an instruction at which some register input value is used,
+       i.e. an information flow from input to some instruction
+
+    Arguments:
+      input_reg: The name of the register input value (source)
+      instr: The instruction in which the input is used
+      pc: program counter of that instruction
+      use_reg: The name of the register in instr that is using the input value
+    """
+
+    input_register: str
+    micro_exec_num: int
+    instruction_num: int
+    use_register: str
 
 
 @dataclass(frozen=True)
@@ -243,6 +350,24 @@ class StructureHint(TypeHint):
     """
 
     layout: typing.Dict[int, str]
+
+
+@dataclass(frozen=True)
+class OutputHint(Hint):
+    registers: typing.Dict[str, str]
+    memory: typing.Dict[int, str]
+
+
+class HintSubclassFilter(logging.Filter):
+    """A custom logging filter based on Hint class."""
+
+    def __init__(self, hint: typing.Type[Hint], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.hint = hint
+
+    def filter(self, record):
+        return isinstance(record.msg, self.hint)
 
 
 class Hinter(logging.Logger):

@@ -1,8 +1,4 @@
-from .exceptions import AnalysisSignal
-
-
-class PathTerminationSignal(AnalysisSignal):
-    """Fault allowing analysis to ask to terminate an execution path."""
+from ...emulators.angr import PathTerminationSignal
 
 
 class TerminationExplorationMixin:
