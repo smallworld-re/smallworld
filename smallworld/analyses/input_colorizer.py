@@ -1,8 +1,7 @@
-import copy
 import logging
 import random
 
-from .. import emulators, hinting, state
+from .. import ctypes, emulators, hinting, state
 from ..exceptions import AnalysisRunError
 from . import analysis
 
@@ -61,7 +60,7 @@ class InputColorizerAnalysis(analysis.Analysis):
 
     def run(self, state: state.CPU) -> None:
         for i in range(self.num_micro_executions):
-            self.cpu = copy.deepcopy(state)
+            self.cpu = ctypes.deepcopy(state)
 
             # NB: perform more than one micro-exec
             # since paths could diverge given random intial

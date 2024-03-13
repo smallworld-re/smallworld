@@ -49,12 +49,14 @@ alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x1000)
 # seems like ctypes is a good way to compactly express a type like `struct node` from struct.s
 class StructNode(ctypes.LittleEndianStructure):
     _pack_ = 8
-    _fields_ = [
-        ("data", ctypes.c_int32),
-        ("next", ctypes.c_int64),
-        ("prev", ctypes.c_int64),
-        ("empty", ctypes.c_int32),
-    ]
+
+
+StructNode._fields_ = [
+    ("data", ctypes.c_int32),
+    ("next", smallworld.ctypes.typed_pointer(StructNode)),
+    ("prev", smallworld.ctypes.typed_pointer(StructNode)),
+    ("empty", ctypes.c_int32),
+]
 
 
 # create two nodes with data and empty slots filled in
