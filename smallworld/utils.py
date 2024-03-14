@@ -1,3 +1,4 @@
+import argparse
 import copy
 import json
 import logging
@@ -225,3 +226,55 @@ def analyze(state: T) -> None:
         module = getattr(analyses, name)
         if issubclass(module, analyses.Analysis) and module is not analyses.Analysis:
             module().run(state)
+
+
+def fuzz(
+    state: T,
+    input_callback: typing.Callable,
+    fuzzing_callback: typing.Optional[typing.Callable] = None,
+    crash_callback: typing.Optional[typing.Callable] = None,
+    always_validate: bool = False,
+    persistent_iters: int = 1,
+) -> None:
+    """Creates an AFL fuzzing harness
+
+    Arguments:
+        input_callback: This is called for every input. It should map the input into the state. It should return true if the input is accepted and false if it should be skipped.
+        fuzzing_callback: This is for "more complex fuzzing logic", no idea what that means.
+        crash_callback: This is called on crashes to validate that we do in fact care about this crash.
+        always_validate: Call the crash_callback everytime instead of just on crashes.
+        persistent_iters: How many iterations to run before forking again.
+    """
+    from unicornafl import uc_afl_fuzz, uc_afl_fuzz_custom
+
+    arg_parser = argparse.ArgumentParser(description="AFL Harness")
+    arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
+    args = arg_parser.parse_args()
+
+    emu = emulators.UnicornEmulator(state.arch, state.mode)
+    state.apply(emu)
+
+    if fuzzing_callback:
+        uc_afl_fuzz_custom(
+            uc=emu.engine,
+            input_file=args.input_file,
+            place_input_callback=input_callback,
+            fuzzing_callback=fuzzing_callback,
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=persistent_iters,
+        )
+    else:
+        code = state.values["code"]
+        exits = code.exits
+        if len(exits) == 0:
+            exits.append(code.base + len(code.image))
+        uc_afl_fuzz(
+            uc=emu.engine,
+            input_file=args.input_file,
+            place_input_callback=input_callback,
+            exits=exits,
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=persistent_iters,
+        )
