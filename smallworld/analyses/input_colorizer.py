@@ -2,7 +2,7 @@ import copy
 import logging
 import random
 
-from .. import emulators, exceptions, hinting, state
+from .. import emulators, exceptions, hinting, instructions, state
 from . import analysis
 
 logger = logging.getLogger(__name__)
@@ -83,8 +83,9 @@ class InputColorizerAnalysis(analysis.Analysis):
                         "Unable to read next instruction out of emulator memory"
                     )
                     assert False, "impossible state"
-                (instructions, disas) = emu.disassemble(code, 1)
-                instruction = instructions[0]
+                (insns, disas) = emu.disassemble(code, 1)
+                instruction = insns[0]
+
                 # pull state back out of the emulator for inspection
                 self.cpu.load(emu)
                 # determine if, for this instruction (before execution)
@@ -95,8 +96,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                     hint = hinting.InputUseHint(
                         message="Register used in instruction has same value as Input register",
                         input_register=input_reg_name,
-                        capstone_instruction=instruction,
-                        pc=pc,
+                        instruction=instructions.Instruction.from_capstone(instruction),
                         micro_exec_num=i,
                         instruction_num=j,
                         use_register=reg_name,
@@ -109,8 +109,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                 except exceptions.EmulationError as e:
                     exhint = hinting.EmulationException(
                         message="Emulation single step raised an exception",
-                        capstone_instruction=instruction,
-                        pc=pc,
+                        instruction=instructions.Instruction.from_capstone(instruction),
                         micro_exec_num=i,
                         instruction_num=j,
                         exception=str(e),
