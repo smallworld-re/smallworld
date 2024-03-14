@@ -22,14 +22,15 @@ class EmulationError(Exception):
 
 
 class UnicornEmulationError(EmulationError):
-    def __init__(self, exception: Exception, pc: int, problem: int, data: dict):
+    def __init__(self, exception: Exception, pc: int, data: dict):
         self.exception = exception
         self.pc = pc
-        self.problem = problem
         self.data = data
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.exception}, {self.pc}, {self.data})"
+        return (
+            f"{self.__class__.__name__}({self.exception}, {hex(self.pc)}, {self.data})"
+        )
 
 
 class AnalysisError(Exception):

@@ -304,9 +304,8 @@ class UnicornEmulator(emulator.Emulator):
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
-            raise exceptions.UnicornEmulationError(
-                e.args[0], 0, list(self.exception_details)[0], self.exception_details
-            )
+            logger.warn("for more details, run emulation in single step mode")
+            raise exceptions.EmulationError(e)
 
         logger.info("emulation complete")
 
@@ -455,9 +454,7 @@ class UnicornEmulator(emulator.Emulator):
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_INSN_INVALID:
             details = {"pc": pc, pc: code}
 
-        raise exceptions.UnicornEmulationError(
-            error.args[0], pc, list(self.exception_details)[0], details
-        )
+        raise exceptions.UnicornEmulationError(error.args[0], pc, details)
 
     def __repr__(self) -> str:
         return f"Unicorn(mode={self.mode}, arch={self.arch})"
