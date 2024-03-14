@@ -8,7 +8,8 @@ __author__ = metadata["Author"]
 __version__ = metadata["version"]
 
 from . import analyses, cpus, emulators, exceptions, hinting, initializers, state
-from .utils import analyze, emulate, setup_hinting, setup_logging
+from .helpers import analyze, emulate
+from .utils import setup_hinting, setup_logging
 
 __all__ = [
     "analyses",
