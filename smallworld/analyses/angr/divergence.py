@@ -3,14 +3,15 @@ import logging
 import angr
 from angr.storage import MemoryMixin
 
-from ..utils.tui import SimpleTUI, TUIContinueException
+from ... import hinting
+from ...exceptions import AnalysisSignal
 from .base import BaseMemoryMixin
-from .exceptions import AnalysisSignal
 from .terminate import PathTerminationSignal
 from .utils import print_state
 from .visitor import ConditionalVisitor
 
-log = logging.getLogger("__name__")
+log = logging.getLogger(__name__)
+hinter = hinting.getHinter(__name__)
 
 
 class DivergentAddressSignal(AnalysisSignal):
@@ -30,11 +31,18 @@ class DivergentAddressSignal(AnalysisSignal):
 class DivergenceMemoryMixin(BaseMemoryMixin):
     _visitor = ConditionalVisitor()
     """Mixin for handling memory-side address concretization
-    """
 
-    def _setup_tui(self):
-        super()._setup_tui()
-        self.divergence_tui = SimpleTUI()
+    This hooks the actual address concretization operation,
+    and looks for attempts to concretize conditional addresses.
+    angr's default concretization is extremely imprecise
+    when applied to conditional expressions,
+    so hooking the operation gives us freedom to handle things differently.
+
+    The current strategy I like is to fork the execution state
+    into separate copies, one per possible evaluation of the conditional.
+    The actual fork operation cannot be done from within this plugin,
+    so it needs to communicate with DivergenceExplorationMixin.
+    """
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -70,11 +78,18 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         for concretizing reads and writes.
         """
         exprs = dict()
+        guards = dict()
         res = set()
+        (cinsn,) = list(
+            filter(
+                lambda x: x.address == self.state._ip.concrete_value,
+                self.state.block().capstone.insns,
+            )
+        )
 
         try:
             # Split the address into non-conditional sub-expressions.
-            for expr in self._visitor.visit(addr):
+            for expr, guard in self._visitor.visit(addr):
                 try:
                     # Concretize the sub-expression normally
                     for tmp in supercall(
@@ -89,6 +104,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
                             )
                             # TODO: Handle multiple concretizations from non-conditional source.
                             # I've never actually seen this, but you never know.
+                            guards[expr] = guard
                             exprs[expr] = tmp
                             res.add(tmp)
                         else:
@@ -118,7 +134,14 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         log.debug(f"All recommendations: {list(map(hex, res))}")
         if len(exprs) > 1:
             # We've got a conditional dereference.
-            log.warn(f"Conditional address dereferenced at {self.state.ip}.")
+            hint = hinting.UnderSpecifiedMemoryBranchHint(
+                message="Conditional address dereference",
+                pc=self.state._ip.concrete_value,
+                capstone_instruction=cinsn,
+                address=str(addr),
+                options=[(str(k), str(v)) for (k, v) in guards.items()],
+            )
+            hinter.info(hint)
             options = {
                 "fork": self.divergence_fork,
                 "choose": self.divergence_choose,
@@ -170,7 +193,6 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         log.warn("Possible Evaluations:")
         for expr, result in exprs.items():
             log.warn(f"\t{expr}: {result:x}")
-        raise TUIContinueException()
 
     def divergence_stop(self, **kwargs):
         log.warn("Killing execution path")
