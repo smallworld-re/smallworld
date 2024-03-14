@@ -1,9 +1,122 @@
+import abc
 import base64
 import typing
 
 import capstone
 
 from . import emulators, utils
+
+
+class Operand(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def key(self, emulator: emulators.Emulator):
+        """Provide a unique key for this reference.
+
+        Arguments:
+            emulator: An emulator from which to fetch a value.
+
+        Returns:
+            A key value used to reference this operand.
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def concretize(
+        self, emulator: emulators.Emulator
+    ) -> typing.Optional[typing.Union[int, bytes]]:
+        """Compute a concrete value for this operand.
+
+        Arguments:
+            emulator: An emulator from which to fetch a value.
+
+        Returns:
+            The concrete value of this operand.
+        """
+
+        pass
+
+
+class RegisterOperand(Operand):
+    def __init__(self, name: str):
+        self.name = name
+
+    def key(self, emulator: emulators.Emulator) -> str:
+        return self.name
+
+    def concretize(self, emulator: emulators.Emulator) -> int:
+        return emulator.read_register(self.name)
+
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.name})"
+
+
+class MemoryReferenceOperand(Operand):
+    def __init__(self, size: int = 4):
+        self.size = size
+
+    @abc.abstractmethod
+    def address(self, emulator: emulators.Emulator) -> int:
+        """Compute a concrete value for this operand.
+
+        Arguments:
+            emulator: An emulator from which to fetch a value.
+
+        Returns:
+            The concrete value of this operand.
+        """
+
+    def key(self, emulator: emulators.Emulator) -> int:
+        return self.address(emulator)
+
+    def concretize(self, emulator: emulators.Emulator) -> typing.Optional[bytes]:
+        return emulator.read_memory(self.address(emulator), self.size)
+
+
+class x86MemoryReferenceOperand(MemoryReferenceOperand):
+    def __init__(
+        self,
+        base: typing.Optional[str] = None,
+        index: typing.Optional[str] = None,
+        scale: int = 1,
+        offset: int = 0,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(*args, **kwargs)
+
+        self.base = base
+        self.index = index
+        self.scale = scale
+        self.offset = offset
+
+    def address(self, emulator: emulators.Emulator) -> int:
+        base = 0
+        if self.base is not None:
+            base = emulator.read_register(self.base)
+
+        index = 0
+        if self.index is not None:
+            index = emulator.read_register(self.index)
+
+        return base + self.scale * index + self.offset
+
+    def __repr__(self) -> str:
+        string = ""
+
+        if self.base:
+            string = f"{self.base}"
+
+        if self.index:
+            if self.scale:
+                string = f"{string}+{self.scale}*{self.index}"
+            else:
+                string = f"{string}+{self.index}"
+
+        if self.offset:
+            string = f"{string}+{self.offset}"
+
+        return f"{self.__class__.__name__}({string})"
 
 
 class Instruction(utils.Serializable):
@@ -73,16 +186,14 @@ class Instruction(utils.Serializable):
 
         return cls(*args, **kwargs)
 
-    Operand = typing.Union[str, typing.Dict[str, typing.Union[str, int]]]
-
-    def _operand(self, operand) -> Operand:
-        return {
-            "base": self._instruction.reg_name(operand.value.mem.base),
-            "index": self._instruction.reg_name(operand.value.mem.index),
-            "scale": operand.value.mem.scale,
-            "offset": operand.value.mem.disp,
-            "size": operand.size,
-        }
+    def _memory_reference(self, operand) -> MemoryReferenceOperand:
+        return x86MemoryReferenceOperand(
+            base=self._instruction.reg_name(operand.value.mem.base),
+            index=self._instruction.reg_name(operand.value.mem.index),
+            scale=operand.value.mem.scale,
+            offset=operand.value.mem.disp,
+            size=operand.size,
+        )
 
     @property
     def reads(self) -> typing.List[Operand]:
@@ -93,14 +204,16 @@ class Instruction(utils.Serializable):
         """
 
         registers, _ = self._instruction.regs_access()
-        read = [self._instruction.reg_name(r) for r in registers]
+        read: typing.List[Operand] = [
+            RegisterOperand(self._instruction.reg_name(r)) for r in registers
+        ]
 
         for operand in self._instruction.operands:
             if (
                 operand.type == capstone.CS_OP_MEM
                 and operand.access & capstone.CS_AC_READ
             ):
-                read.append(self._operand(operand))
+                read.append(self._memory_reference(operand))
 
         return read
 
@@ -113,64 +226,18 @@ class Instruction(utils.Serializable):
 
         _, registers = self._instruction.regs_access()
 
-        write = [self._instruction.reg_name(r) for r in registers]
+        write: typing.List[Operand] = [
+            RegisterOperand(self._instruction.reg_name(r)) for r in registers
+        ]
 
         for operand in self._instruction.operands:
             if (
                 operand.type == capstone.CS_OP_MEM
                 and operand.access & capstone.CS_AC_WRITE
             ):
-                write.append(self._operand(operand))
+                write.append(self._memory_reference(operand))
 
         return write
-
-    @classmethod
-    def concretize(
-        cls, values: typing.List[Operand], emulator: emulators.Emulator
-    ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]]:
-        """Get concrete values for a list of operands.
-
-        Arguments:
-            values: A list of instruction operands - like those returned by
-                `reads` and `writes`.
-            emulator: The emulator from which to read state.
-
-        Returns:
-            A `dict` mapping operand specifications to concrete values from the
-            given emulator.
-        """
-
-        concrete: typing.Dict[
-            typing.Union[str, int], typing.Union[int, bytes, None]
-        ] = {}
-        for value in values:
-            if isinstance(value, str):
-                concrete[value] = emulator.read_register(value)
-            elif isinstance(value, dict):
-                if list(value.keys()) < ["base", "index", "scale", "offset", "size"]:
-                    raise ValueError(
-                        f"malformed memory reference identifier: {value!r}"
-                    )
-
-                def read_register(name):
-                    if name is not None:
-                        if not isinstance(name, str):
-                            raise ValueError(
-                                "malformed memory reference identifier: {value!r}"
-                            )
-                        return emulator.read_register(value["base"])
-                    return 0
-
-                base = read_register(value["base"])
-                index = read_register(value["index"])
-
-                address = base + value["scale"] * index + value["offset"]
-
-                concrete[address] = emulator.read_memory(address, int(value["size"]))
-            else:
-                raise ValueError(f"unsupported value identifier: {value!r}")
-
-        return concrete
 
     def to_json(self) -> dict:
         return {

@@ -345,9 +345,9 @@ class UnicornEmulator(emulator.Emulator):
         i = instructions.Instruction.from_capstone(insns[0])
 
         if error.args[0] == unicorn.unicorn_const.UC_ERR_READ_UNMAPPED:
-            details = i.concretize(i.reads, self)
+            details = {o.key(self): o.concretize(self) for o in i.reads}
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_WRITE_UNMAPPED:
-            details = i.concretize(i.writes, self)
+            details = {o.key(self): o.concretize(self) for o in i.writes}
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_FETCH_UNMAPPED:
             details = {"pc": pc}
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_INSN_INVALID:
