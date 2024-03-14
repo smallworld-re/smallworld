@@ -158,7 +158,8 @@ class AngrEmulator(emulator.Emulator):
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs
         # must be done before the entrypoint state is created.
-        self.analysis_preinit(self)
+        if self.analysis_preinit is not None:
+            self.analysis_preinit(self)
 
         # Initialize the entrypoint state.
         self._entry = self.proj.factory.entry_state(
@@ -192,9 +193,11 @@ class AngrEmulator(emulator.Emulator):
 
         # Initialize the simulation manager to help us explore.
         self.mgr = self.proj.factory.simulation_manager(self._entry, save_unsat=True)
+        print(dir(self.mgr))
 
         # Perform any analysis-specific initialization
-        self.analysis_init(self)
+        if self.analysis_init is not None:
+            self.analysis_init(self)
 
     def step(self):
         # As soon as we start executing, disable value access

@@ -33,10 +33,12 @@ def configure_nwbt_plugins(emu):
     and can't be changed afterward.
     Thus, this needs to get called in a preinit callback.
     """
+    print(angr.SimState._presets["default"])
     preset = angr.SimState._presets["default"].copy()
     preset.add_default_plugin("sym_memory", NWBTMemoryPlugin)
     preset.add_default_plugin("typedefs", TypeDefPlugin)
     emu._plugin_preset = preset
+    print(preset)
 
 
 def configure_nwbt_strategy(emu):
@@ -47,3 +49,13 @@ def configure_nwbt_strategy(emu):
     so it needs to get called in an init callback.
     """
     emu.mgr.use_technique(NWBTExplorationTechnique())
+    # angr bug: states don't inherit plugin presets.
+    #
+    # Normally, they copy all plugins from their parents.
+    # If you define a custom plugin and don't touch it,
+    # it never gets initialized, and won't get inherited.
+    #
+    # If you try to touch that plugin on a successor,
+    # it can't be initialized, since it doesn't have
+    # your custom preset.
+    emu._entry.get_plugin("typedefs")
