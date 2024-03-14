@@ -80,32 +80,41 @@ class InstructionTests(unittest.TestCase):
         # cmp eax, ebx
         i = instructions.Instruction.from_bytes(b"\x39\xd8", 0x1000, "x86", "64")
 
-        self.assertIn("eax", i.reads)
-        self.assertIn("ebx", i.reads)
-        self.assertIn("rflags", i.writes)
+        reads = [getattr(o, "name", None) for o in i.reads]
+        writes = [getattr(o, "name", None) for o in i.writes]
+
+        self.assertIn("eax", reads)
+        self.assertIn("ebx", reads)
+        self.assertIn("rflags", writes)
 
     def test_semantics_memory_cmp(self):
         # cmp eax, [rbx + 0x10]
         i = instructions.Instruction.from_bytes(b"\x3b\x43\x10", 0x1000, "x86", "64")
 
-        self.assertIn("eax", i.reads)
-        self.assertIn("rbx", i.reads)
+        reads = [getattr(o, "name", None) for o in i.reads]
+        writes = [getattr(o, "name", None) for o in i.writes]
+
+        self.assertIn("eax", reads)
+        self.assertIn("rbx", reads)
 
         memory = i.reads[2]
-        self.assertEqual(memory["base"], "rbx")
-        self.assertEqual(memory["index"], None)
-        self.assertEqual(memory["scale"], 1)
-        self.assertEqual(memory["offset"], 0x10)
-        self.assertEqual(memory["size"], 4)
+        self.assertEqual(memory.base, "rbx")
+        self.assertEqual(memory.index, None)
+        self.assertEqual(memory.scale, 1)
+        self.assertEqual(memory.offset, 0x10)
+        self.assertEqual(memory.size, 4)
 
-        self.assertIn("rflags", i.writes)
+        self.assertIn("rflags", writes)
 
     def test_semantics_register_mov(self):
         # cmp eax, ebx
         i = instructions.Instruction.from_bytes(b"\x89\xd8", 0x1000, "x86", "64")
 
-        self.assertIn("ebx", i.reads)
-        self.assertIn("eax", i.writes)
+        reads = [getattr(o, "name", None) for o in i.reads]
+        writes = [getattr(o, "name", None) for o in i.writes]
+
+        self.assertIn("ebx", reads)
+        self.assertIn("eax", writes)
 
     def test_semantics_memory_mov_complex(self):
         # mov eax, [eax+ecx*8+0x10]
@@ -113,16 +122,19 @@ class InstructionTests(unittest.TestCase):
             b"\x8b\x44\xc8\x10", 0x1000, "x86", "64"
         )
 
-        self.assertIn("rax", i.reads)
-        self.assertIn("rcx", i.reads)
-        self.assertIn("eax", i.writes)
+        reads = [getattr(o, "name", None) for o in i.reads]
+        writes = [getattr(o, "name", None) for o in i.writes]
+
+        self.assertIn("rax", reads)
+        self.assertIn("rcx", reads)
+        self.assertIn("eax", writes)
 
         memory = i.reads[2]
-        self.assertEqual(memory["base"], "rax")
-        self.assertEqual(memory["index"], "rcx")
-        self.assertEqual(memory["scale"], 8)
-        self.assertEqual(memory["offset"], 0x10)
-        self.assertEqual(memory["size"], 4)
+        self.assertEqual(memory.base, "rax")
+        self.assertEqual(memory.index, "rcx")
+        self.assertEqual(memory.scale, 8)
+        self.assertEqual(memory.offset, 0x10)
+        self.assertEqual(memory.size, 4)
 
 
 if __name__ == "__main__":
