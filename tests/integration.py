@@ -130,6 +130,15 @@ class BranchTests(ScriptIntegrationTest):
         self.assertLineContains(stdout, "eax", "0x0")
 
 
+class FuzzTests(ScriptIntegrationTest):
+    def test_fuzz(self):
+        stdout, _ = self.command("python3 fuzz.py")
+        self.assertLineContains(stdout, "eax", "0x0")
+
+        _, stderr = self.command("python3 fuzz.py -c")
+        self.assertLineContains(stderr, "UC_ERR_WRITE_UNMAPPED")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
