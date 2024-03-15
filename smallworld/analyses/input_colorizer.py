@@ -158,7 +158,7 @@ class InputColorizerAnalysis(analysis.Analysis):
         # is in colorized map r0
         # [relies on reg values being in self.cpu]
         r_c = []
-        for name, stv in self.cpu.values.items():
+        for name, stv in self.cpu.values().items():
             if not (
                 (type(stv) is state.Register) or (type(stv) is state.RegisterAlias)
             ):
@@ -185,7 +185,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                 reg.set(random.randint(0, 0xFFFFFFFFFFFFFFF))
         # but now go through all 64 and 32-bit reg aliases and record intial values
         r0 = {}
-        for name, stv in self.cpu.values.items():
+        for name, stv in self.cpu.values().items():
             if (type(stv) is state.Register) or (type(stv) is state.RegisterAlias):
                 if (
                     regular
@@ -196,6 +196,6 @@ class InputColorizerAnalysis(analysis.Analysis):
         return r0
 
     def registers(self):
-        for name, stv in self.cpu.values.items():
+        for name, stv in self.cpu.values().items():
             if type(stv) is state.Register:
                 yield (name, stv)
