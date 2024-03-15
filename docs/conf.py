@@ -192,3 +192,11 @@ epub_exclude_files = ["search.html"]
 autodoc_member_order = "bysource"
 autodoc_default_options = {"members": None, "inherited-members": None}
 autodoc_mock_imports = ["angr", "claripy", "cle", "capstone", "unicorn"]
+
+
+# Suppress upstream deprecation warnings
+import warnings
+
+warnings.filterwarnings(
+    "ignore", category=DeprecationWarning, module="sphinxcontrib.programoutput"
+)
