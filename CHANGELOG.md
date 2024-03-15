@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `Memory` state objects with large values are now stringified much faster.
+
 ### Added
 - `AngrEmulator` based on angr symbolic execution.
 - `AngrNWBTAnalysis` unused value analysis using angr.
