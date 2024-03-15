@@ -316,6 +316,7 @@ class Memory(Value):
     def __repr__(self) -> str:
         value_bytes = self.get()
         if value_bytes is not None:
+            value_bytes = value_bytes[:100]
             value = value_bytes.decode(errors="replace")
             value = textwrap.shorten(value, width=32)
 

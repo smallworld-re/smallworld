@@ -1,6 +1,40 @@
+import signal
+import typing
 import unittest
 
 from smallworld import emulators, initializers, instructions, state
+
+
+class assertTimeout:
+    """Raise if the enclosed block takes longer than the given timeout.
+
+    This should be used as a context manager.
+
+    Arguments:
+        timeout: Maximum time in seconds.
+        message: Error message.
+
+    Raises:
+        `AssertionError` if the enclosed block takes longer than `timeout`
+        seconds.
+    """
+
+    def __init__(self, timeout: int, message: typing.Optional[str] = None):
+        if message is None:
+            message = f"took too long (>{timeout}s)"
+
+        self.timeout = timeout
+        self.message = message
+
+    def handle_timeout(self, signum, frame):
+        raise AssertionError(self.message)
+
+    def __enter__(self):
+        signal.signal(signal.SIGALRM, self.handle_timeout)
+        signal.alarm(self.timeout)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        signal.alarm(0)
 
 
 class StateTests(unittest.TestCase):
@@ -66,6 +100,14 @@ class StateTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             s.map(v2, "foo")
+
+    def test_memory_repr_performance(self):
+        size = 0x100000 * 32
+        memory = state.Memory(address=0, size=size)
+        memory.set(b"A" * size)
+
+        with assertTimeout(1):
+            str(memory)
 
 
 class InstructionTests(unittest.TestCase):
