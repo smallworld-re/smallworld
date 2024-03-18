@@ -113,8 +113,6 @@ class UnicornEmulator(emulator.Emulator):
         if self.mode not in self.REGISTERS[self.arch]:
             raise ValueError("unsupported mode for current architecture")
 
-        self.memory: typing.Dict[typing.Tuple[int, int], int] = {}
-
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 

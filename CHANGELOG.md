@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   provided.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.
+- `UnicornEmulator.write_memory()` now supports writes that are not page
+  aligned or page sized.
 
 ## [0.0.1] - 2024-02-26
 
