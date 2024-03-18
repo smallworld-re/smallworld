@@ -69,8 +69,6 @@ class StateTests(unittest.TestCase):
 
 
 class UnicornEmulatorTests(unittest.TestCase):
-    # TODO test less than one page allocation, across multiple pages
-
     def test_write_memory_not_page_aligned(self):
         emu = emulators.UnicornEmulator("x86", "64")
 
