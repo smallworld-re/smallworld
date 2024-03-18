@@ -162,7 +162,7 @@ class UnicornEmulatorTests(unittest.TestCase):
         self.assertEqual(read2, value2)
 
     def test_write_memory_page_contains_existing_maps(self):
-        """Existing mapps contained within the allocation."""
+        """Existing maps contained within the allocation."""
 
         emu = emulators.UnicornEmulator("x86", "64")
 
