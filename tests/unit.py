@@ -68,6 +68,126 @@ class StateTests(unittest.TestCase):
             s.map(v2, "foo")
 
 
+class UnicornEmulatorTests(unittest.TestCase):
+    # TODO test less than one page allocation, across multiple pages
+
+    def test_write_memory_not_page_aligned(self):
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address = 0x1800
+        value = b"A" * 32
+
+        emu.write_memory(address, value)
+        read = emu.read_memory(address, len(value))
+
+        self.assertEqual(read, value)
+
+    def test_write_memory_multipage_not_page_aligned(self):
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address = 0x1800
+        value = b"A" * 0x1200
+
+        emu.write_memory(address, value)
+        read = emu.read_memory(address, len(value))
+
+        self.assertEqual(read, value)
+
+    def test_write_memory_multipage_span_less_than_page_size(self):
+        """Allocation less than a page, but spans multiple pages."""
+
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address = 0x1800
+        value = b"A" * 0x850
+
+        emu.write_memory(address, value)
+        read = emu.read_memory(address, len(value))
+
+        self.assertEqual(read, value)
+
+    def test_write_memory_page_overlapping_explicit(self):
+        """Overlapping writes start in the same page."""
+
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address1 = 0x1200
+        value1 = b"A" * 0x32
+        address2 = 0x1600
+        value2 = b"B" * 0x32
+
+        emu.write_memory(address1, value1)
+        emu.write_memory(address2, value2)
+
+        read1 = emu.read_memory(address1, len(value1))
+        read2 = emu.read_memory(address2, len(value2))
+
+        self.assertEqual(read1, value1)
+        self.assertEqual(read2, value2)
+
+    def test_write_memory_page_overlapping_implicit(self):
+        """Overlapping writes start in different pages."""
+
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address1 = 0x1200
+        value1 = b"A" * 0x1000
+        address2 = 0x2400
+        value2 = b"B" * 0x32
+
+        emu.write_memory(address1, value1)
+        emu.write_memory(address2, value2)
+
+        read1 = emu.read_memory(address1, len(value1))
+        read2 = emu.read_memory(address2, len(value2))
+
+        self.assertEqual(read1, value1)
+        self.assertEqual(read2, value2)
+
+    def test_write_memory_page_overlapping_extra_map(self):
+        """Overlapping writes that require additional mappings."""
+
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address1 = 0x1200
+        value1 = b"A" * 32
+        address2 = 0x1400
+        value2 = b"B" * 0x1000
+
+        emu.write_memory(address1, value1)
+        emu.write_memory(address2, value2)
+
+        read1 = emu.read_memory(address1, len(value1))
+        read2 = emu.read_memory(address2, len(value2))
+
+        self.assertEqual(read1, value1)
+        self.assertEqual(read2, value2)
+
+    def test_write_memory_page_contains_existing_maps(self):
+        """Existing mapps contained within the allocation."""
+
+        emu = emulators.UnicornEmulator("x86", "64")
+
+        address1 = 0x1200
+        value1 = b"A" * 32
+        address2 = 0x3800
+        value2 = b"B" * 32
+        address3 = 0x1800
+        value3 = b"C" * 0x1000
+
+        emu.write_memory(address1, value1)
+        emu.write_memory(address2, value2)
+        emu.write_memory(address3, value3)
+
+        read1 = emu.read_memory(address1, len(value1))
+        read2 = emu.read_memory(address2, len(value2))
+        read3 = emu.read_memory(address3, len(value3))
+
+        self.assertEqual(read1, value1)
+        self.assertEqual(read2, value2)
+        self.assertEqual(read3, value3)
+
+
 class InstructionTests(unittest.TestCase):
     def test_semantics_nop(self):
         # nop
