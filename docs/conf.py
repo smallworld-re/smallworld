@@ -198,5 +198,5 @@ autodoc_mock_imports = ["angr", "claripy", "cle", "capstone", "unicorn"]
 import warnings
 
 warnings.filterwarnings(
-    "ignore", category=DeprecationWarning, module="sphinxcontrib.programoutput"
+    "ignore", category=PendingDeprecationWarning, module="sphinxcontrib.programoutput"
 )
