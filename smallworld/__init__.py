@@ -22,4 +22,5 @@ __all__ = [
     "emulate",
     "setup_hinting",
     "setup_logging",
+    "fuzz",
 ]
