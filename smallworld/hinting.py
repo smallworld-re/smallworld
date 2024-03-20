@@ -100,7 +100,7 @@ class TypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
 
 
 @dataclass(frozen=True)
-class UnypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+class UntypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
     value: str
 
 
