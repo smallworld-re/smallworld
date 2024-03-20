@@ -33,12 +33,10 @@ def configure_nwbt_plugins(emu):
     and can't be changed afterward.
     Thus, this needs to get called in a preinit callback.
     """
-    print(angr.SimState._presets["default"])
     preset = angr.SimState._presets["default"].copy()
     preset.add_default_plugin("sym_memory", NWBTMemoryPlugin)
     preset.add_default_plugin("typedefs", TypeDefPlugin)
     emu._plugin_preset = preset
-    print(preset)
 
 
 def configure_nwbt_strategy(emu):

@@ -193,7 +193,6 @@ class AngrEmulator(emulator.Emulator):
 
         # Initialize the simulation manager to help us explore.
         self.mgr = self.proj.factory.simulation_manager(self._entry, save_unsat=True)
-        print(dir(self.mgr))
 
         # Perform any analysis-specific initialization
         if self.analysis_init is not None:
