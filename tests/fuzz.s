@@ -16,7 +16,7 @@ vuln:
         cmp     BYTE [rdi+7], 33
         jne     .L3
         movsx   rax, BYTE [rdi+8]
-        mov     QWORD ds:305419896, rax
+        mov     QWORD [ds:305419896], rax
         jmp     .L3
 .L5:
         mov     eax, -1
