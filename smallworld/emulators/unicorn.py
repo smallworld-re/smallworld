@@ -123,7 +123,6 @@ class UnicornEmulator(emulator.Emulator):
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
-        self.exception_details: typing.Dict[int, bytes] = {}
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -289,13 +288,6 @@ class UnicornEmulator(emulator.Emulator):
                 "no exitpoint provided, emulation cannot start"
             )
 
-    def hook_mem_invalid(self, uc, access, address, size, value, user_data):
-        self.exception_details[address] = value
-        # we could map in some portion of memory and continue emulation
-
-        # Stop emulation
-        return False
-
     def run(self) -> None:
         self.check()
 
@@ -303,12 +295,6 @@ class UnicornEmulator(emulator.Emulator):
             f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
         )
         try:
-            self.engine.hook_add(
-                unicorn.unicorn_const.UC_HOOK_MEM_READ_UNMAPPED
-                | unicorn.unicorn_const.UC_HOOK_MEM_WRITE_UNMAPPED,
-                self.hook_mem_invalid,
-                self.engine,
-            )
             self.engine.emu_start(self.entrypoint, self.exitpoint)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
@@ -330,12 +316,6 @@ class UnicornEmulator(emulator.Emulator):
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
         try:
-            self.engine.hook_add(
-                unicorn.unicorn_const.UC_HOOK_MEM_READ_UNMAPPED
-                | unicorn.unicorn_const.UC_HOOK_MEM_WRITE_UNMAPPED,
-                self.hook_mem_invalid,
-                self.engine,
-            )
             self.engine.emu_start(pc, self.exitpoint, count=1)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
