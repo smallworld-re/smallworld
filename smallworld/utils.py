@@ -1,11 +1,10 @@
-import argparse
 import copy
 import json
 import logging
 import sys
 import typing
 
-from . import analyses, emulators, hinting, state
+from . import hinting
 
 
 class CharacterLevelFilter(logging.Filter):
@@ -48,6 +47,45 @@ class ColorLevelFilter(logging.Filter):
         return True
 
 
+class Serializable:
+    """Base class for serialization support.
+
+    Descendants should implement the methods below to allow automatic
+    serialization/deserialization using the JSON encoder/decoder classes below.
+    """
+
+    def to_json(self) -> dict:
+        raise NotImplementedError()
+
+    @classmethod
+    def from_json(cls, dict):
+        raise NotImplementedError()
+
+
+class SerializableJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Serializable):
+            d = o.to_json()
+            d["class"] = f"{o.__class__.__module__}.{o.__class__.__name__}"
+
+            return d
+        return super().default(o)
+
+
+class SerializableJSONDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, dict):
+        if "class" in dict:
+            module, name = dict["class"].rsplit(".", 1)
+            cls = getattr(sys.modules[module], name)
+            del dict["class"]
+
+            return cls.from_json(dict)
+        return dict
+
+
 class JSONFormatter(logging.Formatter):
     """A custom JSON formatter for json-serializable messages.
 
@@ -72,8 +110,12 @@ class JSONFormatter(logging.Formatter):
 
         formatted["content"] = record.msg
 
+        # inefficient copy to aovid ctypes pickling issues
+        hint, record.msg = record.msg, None
         modified = copy.deepcopy(record)
-        modified.msg = json.dumps(formatted, cls=hinting.HintJSONEncoder)
+        record.msg = hint
+
+        modified.msg = json.dumps(formatted, cls=SerializableJSONEncoder)
 
         return super().format(modified)
 
@@ -180,101 +222,3 @@ def setup_hinting(
         handler.setFormatter(formatter)
 
         root.addHandler(handler)
-
-
-T = typing.TypeVar("T", bound=state.CPU)
-
-
-def emulate(state: T) -> T:
-    """Emulate execution of some code.
-
-    Arguments:
-        state: A state class from which emulation should begin.
-
-    Returns:
-        The final state of the system.
-    """
-
-    # only support Unicorn for now
-    emu = emulators.UnicornEmulator(state.arch, state.mode)
-
-    state.apply(emu)
-
-    emu.run()
-
-    state = copy.deepcopy(state)
-    state.load(emu)
-
-    return state
-
-
-def analyze(state: T) -> None:
-    """Run all available analyses on some code.
-
-    All analyses are run with default parameters.
-
-    Arguments:
-        state: A state class from which emulation should begin.
-    """
-
-    for name in analyses.__all__:
-        module: typing.Type = getattr(analyses, name)
-        if issubclass(module, analyses.Filter) and module is not analyses.Filter:
-            module().activate()
-
-    for name in analyses.__all__:
-        module = getattr(analyses, name)
-        if issubclass(module, analyses.Analysis) and module is not analyses.Analysis:
-            module().run(state)
-
-
-def fuzz(
-    state: T,
-    input_callback: typing.Callable,
-    fuzzing_callback: typing.Optional[typing.Callable] = None,
-    crash_callback: typing.Optional[typing.Callable] = None,
-    always_validate: bool = False,
-    persistent_iters: int = 1,
-) -> None:
-    """Creates an AFL fuzzing harness
-
-    Arguments:
-        input_callback: This is called for every input. It should map the input into the state. It should return true if the input is accepted and false if it should be skipped.
-        fuzzing_callback: This is for "more complex fuzzing logic", no idea what that means.
-        crash_callback: This is called on crashes to validate that we do in fact care about this crash.
-        always_validate: Call the crash_callback everytime instead of just on crashes.
-        persistent_iters: How many iterations to run before forking again.
-    """
-    from unicornafl import uc_afl_fuzz, uc_afl_fuzz_custom
-
-    arg_parser = argparse.ArgumentParser(description="AFL Harness")
-    arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
-    args = arg_parser.parse_args()
-
-    emu = emulators.UnicornEmulator(state.arch, state.mode)
-    state.apply(emu)
-
-    if fuzzing_callback:
-        uc_afl_fuzz_custom(
-            uc=emu.engine,
-            input_file=args.input_file,
-            place_input_callback=input_callback,
-            fuzzing_callback=fuzzing_callback,
-            validate_crash_callback=crash_callback,
-            always_validate=always_validate,
-            persistent_iters=persistent_iters,
-        )
-    else:
-        code = state.values["code"]
-        exits = code.exits
-        if len(exits) == 0:
-            exits.append(code.base + len(code.image))
-        uc_afl_fuzz(
-            uc=emu.engine,
-            input_file=args.input_file,
-            place_input_callback=input_callback,
-            exits=exits,
-            validate_crash_callback=crash_callback,
-            always_validate=always_validate,
-            persistent_iters=persistent_iters,
-        )

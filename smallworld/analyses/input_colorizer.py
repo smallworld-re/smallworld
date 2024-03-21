@@ -2,7 +2,7 @@ import copy
 import logging
 import random
 
-from .. import emulators, exceptions, hinting, state
+from .. import emulators, exceptions, hinting, instructions, state
 from . import analysis
 
 logger = logging.getLogger(__name__)
@@ -83,8 +83,9 @@ class InputColorizerAnalysis(analysis.Analysis):
                         "Unable to read next instruction out of emulator memory"
                     )
                     assert False, "impossible state"
-                (instructions, disas) = emu.disassemble(code, 1)
-                instruction = instructions[0]
+                (insns, disas) = emu.disassemble(code, 1)
+                instruction = insns[0]
+
                 # pull state back out of the emulator for inspection
                 self.cpu.load(emu)
                 # determine if, for this instruction (before execution)
@@ -95,8 +96,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                     hint = hinting.InputUseHint(
                         message="Register used in instruction has same value as Input register",
                         input_register=input_reg_name,
-                        capstone_instruction=instruction,
-                        pc=pc,
+                        instruction=instructions.Instruction.from_capstone(instruction),
                         micro_exec_num=i,
                         instruction_num=j,
                         use_register=reg_name,
@@ -109,8 +109,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                 except exceptions.EmulationError as e:
                     exhint = hinting.EmulationException(
                         message="Emulation single step raised an exception",
-                        capstone_instruction=instruction,
-                        pc=pc,
+                        instruction=instructions.Instruction.from_capstone(instruction),
                         micro_exec_num=i,
                         instruction_num=j,
                         exception=str(e),
@@ -159,7 +158,7 @@ class InputColorizerAnalysis(analysis.Analysis):
         # is in colorized map r0
         # [relies on reg values being in self.cpu]
         r_c = []
-        for name, stv in self.cpu.values.items():
+        for name, stv in self.cpu.values().items():
             if not (
                 (type(stv) is state.Register) or (type(stv) is state.RegisterAlias)
             ):
@@ -186,7 +185,7 @@ class InputColorizerAnalysis(analysis.Analysis):
                 reg.set(random.randint(0, 0xFFFFFFFFFFFFFFF))
         # but now go through all 64 and 32-bit reg aliases and record intial values
         r0 = {}
-        for name, stv in self.cpu.values.items():
+        for name, stv in self.cpu.values().items():
             if (type(stv) is state.Register) or (type(stv) is state.RegisterAlias):
                 if (
                     regular
@@ -197,6 +196,6 @@ class InputColorizerAnalysis(analysis.Analysis):
         return r0
 
     def registers(self):
-        for name, stv in self.cpu.values.items():
+        for name, stv in self.cpu.values().items():
             if type(stv) is state.Register:
                 yield (name, stv)

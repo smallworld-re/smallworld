@@ -1,51 +1,15 @@
-import base64
-import json
 import logging
-import sys
 import typing
-from dataclasses import InitVar, asdict, dataclass, field
+from dataclasses import dataclass
 
 # logging re-exports
 from logging import WARNING
-from typing import List
 
-import capstone as cs
-
-
-class HintJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Hint):
-            d = asdict(o)
-            d["hint_type"] = o.__class__.__name__
-            return d
-        return super().default(o)
-
-
-class HintJSONDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs):
-        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
-
-    def object_hook(self, dict):
-        if "hint_type" in dict:
-            cls = getattr(sys.modules[__name__], dict["hint_type"])
-            del dict["hint_type"]
-            return cls(**dict)
-        return dict
+from . import utils
 
 
 @dataclass(frozen=True)
-class HintInstruction:
-    """We can't put Capstone instructions in hints, so we use these instead."""
-
-    address: int
-    instruction: str
-    instruction_bytes: bytes
-    reads: List[str]
-    writes: List[str]
-
-
-@dataclass(frozen=True)
-class Hint:
+class Hint(utils.Serializable):
     """Base class for all Hints.
 
     Arguments:
@@ -54,76 +18,29 @@ class Hint:
 
     message: str
 
+    def to_json(self) -> dict:
+        return self.__dict__
+
+    @classmethod
+    def from_json(cls, dict):
+        return cls(**dict)
+
 
 @dataclass(frozen=True)
 class EmulationException(Hint):
     """Something went wrong emulating this instruction"""
 
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
+    instruction: typing.Any
     micro_exec_num: int
     instruction_num: int
     exception: str
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
 
 
 @dataclass(frozen=True)
 class UnderSpecifiedValueHint(Hint):
     """Super class for UnderSpecified Value Hints"""
 
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
+    instruction: typing.Any
 
 
 @dataclass(frozen=True)
@@ -183,7 +100,7 @@ class TypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
 
 
 @dataclass(frozen=True)
-class UnypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+class UntypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
     value: str
 
 
@@ -210,42 +127,8 @@ class UntypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
 
 
 @dataclass(frozen=True)
-class UnderSpecifiedBranchHint(Hint):
-    """Represents a program fork based on an under-specified condition
-
-    Arguments:
-      pc: Program counter
-      instruction: Representation of offending instruction
-    """
-
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
+class UnderSpecifiedBranchHint(UnderSpecifiedValueHint):
+    """Represents a program fork based on an under-specified condition."""
 
 
 @dataclass(frozen=True)

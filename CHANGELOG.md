@@ -7,16 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `Memory` state objects with large values are now stringified much faster.
+
 ### Added
 - `AngrEmulator` based on angr symbolic execution.
 - `AngrNWBTAnalysis` unused value analysis using angr.
-- `Filter` - analyses that simply listen to the hint stream.
+- `Filter` analyses that simply listen to the hint stream.
+- `Instruction` classes that provide information on instruction semantics, with
+  methods for capturing concrete values.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
   provided.
 - `UnicornEmulator` captures more detailed error information in single step
   mode.
+- `UnicornEmulator.write_memory()` now supports overlapping writes and no
+  longer requires addresses to be page aligned.
 
 ## [0.0.1] - 2024-02-26
 

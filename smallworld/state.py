@@ -316,6 +316,7 @@ class Memory(Value):
     def __repr__(self) -> str:
         value_bytes = self.get()
         if value_bytes is not None:
+            value_bytes = value_bytes[:100]
             value = value_bytes.decode(errors="replace")
             value = textwrap.shorten(value, width=32)
 
@@ -489,14 +490,22 @@ class State(Value):
 
         setattr(self, name, value)
 
-    @property
-    def values(self) -> typing.Dict[str, Value]:
-        """dict[str, Value]: the list of states.
+    def values(
+        self, filter: typing.Optional[typing.Type] = None
+    ) -> typing.Dict[str, typing.Any]:
+        """Values that comprise this state.
 
         Gather the list of included state values as any class members that are
         subclasses of Value.
 
         This is similar to python 3.11's `inspect.getmembers_static`.
+
+        Arguments:
+            filter: Optional value type filter - a subclass of Value which
+                should be returned.
+
+        Returns:
+            A dictionary mapping names to state value objects.
         """
 
         members = {}
@@ -505,7 +514,8 @@ class State(Value):
                 continue
             value = getattr(self, member)
             if isinstance(value, Value):
-                members[member] = value
+                if not filter or type(value) is filter:
+                    members[member] = value
 
         return members
 
@@ -516,7 +526,7 @@ class State(Value):
             A dict mapping state value names to internal values.
         """
 
-        return {k: v.get() for k, v in self.values.items()}
+        return {k: v.get() for k, v in self.values().items()}
 
     def set(self, value: typing.Dict[str, typing.Any]) -> None:
         """Set the internally stored values.
@@ -525,7 +535,7 @@ class State(Value):
             value: A dict mapping state value names to internal values.
         """
 
-        for name, state in self.values.items():
+        for name, state in self.values().items():
             if name in value:
                 state.set(value[name])
                 value.pop(name)
@@ -538,16 +548,16 @@ class State(Value):
     ) -> None:
         logger.info(f"initializing {self} with {initializer}")
 
-        for name, state in self.values.items():
+        for name, state in self.values().items():
             state.initialize(initializer, override=override)
 
     def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        for name, state in self.values.items():
+        for name, state in self.values().items():
             state.load(emulator, override=override)
             logger.debug(f"loaded {name}:{state} from {emulator}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        for name, state in self.values.items():
+        for name, state in self.values().items():
             logger.debug(f"applying {name}:{state} to {emulator}")
             state.apply(emulator)
 
@@ -558,7 +568,7 @@ class State(Value):
             truncate: Truncate string value to limit length if `True`.
         """
 
-        joined = ", ".join([str(v) for v in self.values.values()])
+        joined = ", ".join([str(v) for v in self.values().values()])
 
         if truncate:
             joined = textwrap.shorten(joined, width=64)
