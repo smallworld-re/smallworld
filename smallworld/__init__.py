@@ -19,9 +19,9 @@ __all__ = [
     "hinting",
     "initializers",
     "state",
-    "analyze",
-    "emulate",
     "setup_hinting",
     "setup_logging",
+    "analyze",
+    "emulate",
     "fuzz",
 ]
