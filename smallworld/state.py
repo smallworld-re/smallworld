@@ -638,6 +638,7 @@ class CPU(State):
 __all__ = [
     "Value",
     "Code",
+    "Hook",
     "Register",
     "RegisterAlias",
     "Memory",
