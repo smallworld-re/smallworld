@@ -56,7 +56,7 @@ def fuzz(
     fuzzing_callback: typing.Optional[typing.Callable] = None,
     crash_callback: typing.Optional[typing.Callable] = None,
     always_validate: bool = False,
-    persistent_iters: int = 1,
+    iterations: int = 1,
 ) -> None:
     """Creates an AFL fuzzing harness.
 
@@ -71,10 +71,15 @@ def fuzz(
             fact care about this crash.
         always_validate: Call the crash_callback everytime instead of just on
             crashes.
-        persistent_iters: How many iterations to run before forking again.
+        iterations: How many iterations to run before forking again.
     """
 
-    from unicornafl import uc_afl_fuzz, uc_afl_fuzz_custom
+    try:
+        from unicornafl import uc_afl_fuzz, uc_afl_fuzz_custom
+    except ImportError:
+        raise RuntimeError(
+            "missing `unicornafl` - is the `fuzzing` extra enabled? (`pip install smallworld[fuzzing]`)"
+        )
 
     arg_parser = argparse.ArgumentParser(description="AFL Harness")
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
@@ -91,7 +96,7 @@ def fuzz(
             fuzzing_callback=fuzzing_callback,
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
-            persistent_iters=persistent_iters,
+            persistent_iters=iterations,
         )
     else:
         exits = []
@@ -108,5 +113,5 @@ def fuzz(
             exits=exits,
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
-            persistent_iters=persistent_iters,
+            persistent_iters=iterations,
         )
