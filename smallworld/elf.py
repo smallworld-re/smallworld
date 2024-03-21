@@ -286,7 +286,12 @@ def load_elf(
 
     # Use lief to parse the ELF
     elf = lief.parse(data)
+    if elf is None:
+        raise ConfigurationError("Failed parsing input")
+
     ehdr = elf.header
+    if ehdr is None:
+        raise ConfigurationError("Failed extracting Elf header")
 
     # TODO: Check machine compatibility?
     # - ei_class
