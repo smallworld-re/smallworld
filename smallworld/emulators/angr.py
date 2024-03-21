@@ -198,6 +198,11 @@ class AngrEmulator(emulator.Emulator):
         if self.analysis_init is not None:
             self.analysis_init(self)
 
+    def hook(
+        self, address: int, callback: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        raise NotImplementedError()
+
     def step(self):
         # As soon as we start executing, disable value access
         self._reg_init_values = None

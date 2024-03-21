@@ -116,13 +116,20 @@ class UnicornEmulator(emulator.Emulator):
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 
-        self.single_stepping = False
-
         self.engine = unicorn.Uc(self.arch, self.mode)
+
         self.disassembler = capstone.Cs(
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
+
+        self.hooks: typing.Dict[int, typing.Callable[[emulator.Emulator], None]] = {}
+
+        def callback(uc, address, size, user_data):
+            if address in self.hooks:
+                self.hooks[address](self)
+
+        self.engine.hook_add(unicorn.UC_HOOK_CODE, callback)
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
@@ -256,6 +263,11 @@ class UnicornEmulator(emulator.Emulator):
             self.exitpoint = code.base + len(code.image)
 
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
+
+    def hook(
+        self, address: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        self.hooks[address] = function
 
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None
