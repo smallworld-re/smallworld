@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.
+- Support for dynamic hooking/call modeling via `state.Hook` and
+  `emulator.hook()`.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
