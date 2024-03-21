@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import math
 import sys
 import typing
 
@@ -114,8 +113,6 @@ class UnicornEmulator(emulator.Emulator):
         if self.mode not in self.REGISTERS[self.arch]:
             raise ValueError("unsupported mode for current architecture")
 
-        self.memory: typing.Dict[typing.Tuple[int, int], int] = {}
-
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 
@@ -194,31 +191,43 @@ class UnicornEmulator(emulator.Emulator):
         if not len(value):
             raise ValueError("memory write cannot be empty")
 
-        if address % self.PAGE_SIZE:
-            raise ValueError(
-                f"address {hex(address)} is not page-aligned (page size: {hex(self.PAGE_SIZE)})"
-            )
+        def page(address):
+            return address // self.PAGE_SIZE
 
-        for key, mapping in self.memory.items():
-            if address > key[0] and address < key[1]:
-                # Overlaping writes are currently unsupported.
-                #
-                # It shouldn't be too difficult to support this, just check the
-                # size of the mapping and allocate the difference if necessary.
-                # For now though, we raise an error.
+        def subtract(first, second):
+            result = []
+            endpoints = sorted((*first, *second))
+            if endpoints[0] == first[0] and endpoints[1] != first[0]:
+                result.append((endpoints[0], endpoints[1]))
+            if endpoints[3] == first[1] and endpoints[2] != first[1]:
+                result.append((endpoints[2], endpoints[3]))
 
-                raise ValueError(
-                    "write overlaps with existing memory mapping (currently unsupported)"
-                )
+            return result
 
-        pages = math.ceil(len(value) / self.PAGE_SIZE)
-        allocation = pages * self.PAGE_SIZE
+        def map(start, end):
+            address = start * self.PAGE_SIZE
+            allocation = (end - start) * self.PAGE_SIZE
 
-        self.engine.mem_map(address, allocation)
+            logger.debug(f"new memory map 0x{address:x}[{allocation}]")
 
-        self.memory[address, address + allocation] = True
+            self.engine.mem_map(address, allocation)
 
-        logger.debug(f"new memory map 0x{address:x}[{allocation}]")
+        region = (page(address), page(address + len(value)) + 1)
+
+        for start, end, _ in self.engine.mem_regions():
+            mapped = (page(start), page(end) + 1)
+
+            regions = subtract(region, mapped)
+
+            if len(regions) == 0:
+                break
+            elif len(regions) == 1:
+                region = regions[0]
+            elif len(regions) == 2:
+                emit, region = regions
+                map(*emit)
+        else:
+            map(*region)
 
         self.engine.mem_write(address, bytes(value))
 
