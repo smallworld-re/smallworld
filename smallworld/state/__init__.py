@@ -8,6 +8,7 @@ from .state import (
     Register,
     RegisterAlias,
     Stack,
+    State,
     Value,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "Heap",
     "BumpAllocator",
     "CPU",
+    "State",
     "ELFImage",
 ]
