@@ -10,7 +10,7 @@ with open(sys.argv[1], "rb") as f:
     data = f.read()
 
 state = smallworld.cpus.AMD64CPUState()
-elf = smallworld.elf.ELFImage(data)
+elf = smallworld.state.ELFImage(data)
 state.map(elf)
 state.rip.set(elf.entry)
 

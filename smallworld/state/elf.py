@@ -3,9 +3,9 @@ import typing
 
 import lief
 
-from .emulators import Emulator
-from .exceptions import ConfigurationError
-from .hinting import Hint, getHinter
+from ..emulators import Emulator
+from ..exceptions import ConfigurationError
+from ..hinting import Hint, getHinter
 from .state import Code, Memory
 
 log = logging.getLogger(__name__)
