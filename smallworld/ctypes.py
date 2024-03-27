@@ -1,5 +1,3 @@
-import copy
-import copyreg
 import ctypes
 
 # TODO: Figure out how to type-hint a ctypes objects
@@ -87,70 +85,9 @@ def typed_pointer(reftype):
         name = f"{reftype.__name__}Pointer"
         cls = type(name, (TypedPointer,), {"reftype": reftype})
         _pointertypes[reftype] = cls
-        copyreg.pickle(cls, _pickle_TypedPointer)
         return cls
 
 
-def _pickle_c_void_p(x):
-    return ctypes.c_void_p, (x.value,)
-
-
-def _pickle_c_char_p(x):
-    return ctypes.c_char_p, (x.value,)
-
-
-def _pickle_c_wchar_p(x):
-    return ctypes.c_wchar_p, (x.value,)
-
-
-def _pickle_Array(x):
-    return x.__class__, (e for e in x)
-
-
-def _pickle_Struct(x):
-    args = [getattr(x, name) for (name, kind) in x._fields_]
-    return x.__class__, args
-
-
-def _create_and_init_TypedPointer(reftype, val):
-    cls = typed_pointer(reftype)
-    return cls(val)
-
-
-def _pickle_TypedPointer(x):
-    return _create_and_init_TypedPointer, (x.reftype, x.value)
-
-
-def deepcopy(obj):
-    """Deep-copy an object containing ctypes
-
-    Normally, ctypes objects cannot be deep-copied,
-    because Python's deep-copy operation relies on pickling.
-    It is very possible to register a custom handler
-    for a specific non-pickleable class,
-    but ctypes dynamically creates classes like crazy.
-
-    Solution: before deep-copying, register handlers
-    for all potentially-problematic classes.
-
-    Arguments:
-        obj: Object to deep-copy
-    Returns:
-        Deep copy of obj
-    """
-    copyreg.pickle(ctypes.c_void_p, _pickle_c_void_p)
-    copyreg.pickle(ctypes.c_char_p, _pickle_c_char_p)
-    copyreg.pickle(ctypes.c_wchar_p, _pickle_c_wchar_p)
-    for cls in ctypes.Array.__subclasses__():
-        copyreg.pickle(cls, _pickle_Array)
-    for cls in ctypes.LittleEndianStructure.__subclasses__():
-        copyreg.pickle(cls, _pickle_Struct)
-    for cls in ctypes.BigEndianStructure.__subclasses__():
-        copyreg.pickle(cls, _pickle_Struct)
-    return copy.deepcopy(obj)
-
-
 __all__ = [
-    "deepcopy",
     "typed_pointer",
 ]
