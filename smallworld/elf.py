@@ -285,7 +285,8 @@ def load_elf(
         raise ConfigurationError("Input is not an elf")
 
     # Use lief to parse the ELF
-    elf = lief.parse(data)
+    # NOTE: for some reason, this takes list[int], not bytes
+    elf = lief.ELF.parse(list(data))
     if elf is None:
         raise ConfigurationError("Failed parsing input")
 
