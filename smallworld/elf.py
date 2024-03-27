@@ -372,13 +372,13 @@ def load_elf(
             # GNU property segment
             # Contains extra metadata which I'm not sure anything uses
             pass
-        elif phdr.type >= PT_LOOS and phdr.p_type <= PT_HIOS:
+        elif phdr.type >= PT_LOOS and phdr.type <= PT_HIOS:
             # Unknown OS-specific program header
             # Either this is a weird ISA that extends the generic GNU ABI,
             # or this isn't a Linux ELF.
             hint = Hint(f"Unknown OS-specific program header: {phdr.type:08x}")
             hinter.warn(hint)
-        elif phdr.type >= PT_LOPROC and phdr.p_type <= PT_HIPROC:
+        elif phdr.type >= PT_LOPROC and phdr.type <= PT_HIPROC:
             # Unknown machine-specific program header
             # This is probably a non-Intel ISA.
             # Most of these are harmless, serving to tell the RTLD
