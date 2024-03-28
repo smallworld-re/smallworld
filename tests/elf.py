@@ -11,6 +11,6 @@ with open(sys.argv[1], "rb") as f:
 
 state = smallworld.cpus.AMD64CPUState()
 entry = smallworld.elf.load_elf(state, data, entry=0x1745)
-state.rip.set(entry)
+state.rip.value = entry
 
 smallworld.analyze(state)

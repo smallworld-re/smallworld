@@ -39,10 +39,12 @@ class assertTimeout:
 
 class StateTests(unittest.TestCase):
     class TestValue(state.Value):
-        def get(self):
+        @property
+        def value(self):
             pass
 
-        def set(self, value) -> None:
+        @value.setter
+        def value(self, value) -> None:
             pass
 
         def initialize(
@@ -104,7 +106,7 @@ class StateTests(unittest.TestCase):
     def test_memory_repr_performance(self):
         size = 0x100000 * 32
         memory = state.Memory(address=0, size=size)
-        memory.set(b"A" * size)
+        memory.value = b"A" * size
 
         with assertTimeout(1):
             str(memory)

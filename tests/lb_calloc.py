@@ -32,7 +32,7 @@ state = smallworld.cpus.AMD64CPUState()
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath("lb_calloc.bin", base=0x1000, entry=0x1000)
 state.map(code)
-state.rip.set(0x1000)
+state.rip.value = code.entry
 
 RAND_MAX = 0x7FFFFFFF
 
@@ -40,8 +40,8 @@ for i in range(int(sys.argv[1])):
     randv = random.randint(0, RAND_MAX)
     print(f"randv = {randv}")
 
-    state.eax.set(randv)
-    print(state.eax.get())
+    state.eax.value = randv
+    print(state.eax.value)
 
     # now we can do a single micro-execution without error
     final_state = smallworld.emulate(state)

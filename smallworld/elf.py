@@ -232,7 +232,7 @@ def map_segment(
     else:
         # Otherwise, treat it as Memory
         mem = Memory(seg_addr, seg_size)
-        mem.set(seg_data)
+        mem.value = seg_data
         cpu.map(mem)
 
 
