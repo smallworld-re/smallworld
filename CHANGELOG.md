@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.
+- `Value.type` for storing optional type information.
+- `Value.label` for storing optional label information.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
@@ -24,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mode.
 - `UnicornEmulator.write_memory()` now supports overlapping writes and no
   longer requires addresses to be page aligned.
+- `Value.{get, set}()` changed to `@property` `value`.
 
 ## [0.0.1] - 2024-02-26
 
