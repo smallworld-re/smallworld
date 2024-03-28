@@ -25,7 +25,7 @@ class Value(metaclass=abc.ABCMeta):
             Some internal value type.
         """
 
-        return
+        pass
 
     @value.setter
     @abc.abstractmethod
