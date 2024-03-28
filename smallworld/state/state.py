@@ -5,7 +5,7 @@ import re
 import textwrap
 import typing
 
-from . import emulators, initializers
+from .. import emulators, initializers
 
 logger = logging.getLogger(__name__)
 
