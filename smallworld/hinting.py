@@ -27,11 +27,23 @@ class Hint(utils.Serializable):
 
 
 @dataclass(frozen=True)
+class ControlFlowHint(Hint):
+    """Represent control flow going from the from_instruction to the to_instruction.
+
+    Arguments:
+        from_instruction: The from instruction
+        to_instruction: The to instruction
+    """
+
+    from_instruction: typing.Any
+    to_instruction: typing.Any
+
+
+@dataclass(frozen=True)
 class EmulationException(Hint):
     """Something went wrong emulating this instruction"""
 
     instruction: typing.Any
-    micro_exec_num: int
     instruction_num: int
     exception: str
 
