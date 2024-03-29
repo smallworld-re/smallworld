@@ -21,7 +21,7 @@ class ControlFlowTracer(analysis.Analysis):
 
     @property
     def name(self) -> str:
-        return "Control Flow Tracer"
+        return "control-flow-tracer"
 
     @property
     def description(self) -> str:
