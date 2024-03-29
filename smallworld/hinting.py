@@ -28,7 +28,7 @@ class Hint(utils.Serializable):
 
 @dataclass(frozen=True)
 class ControlFlowHint(Hint):
-    """Represent control flow going from the from_instruction to the to_instruction.
+    """Represents control flow going from the from_instruction to the to_instruction.
 
     Arguments:
         from_instruction: The from instruction
@@ -37,6 +37,17 @@ class ControlFlowHint(Hint):
 
     from_instruction: typing.Any
     to_instruction: typing.Any
+
+
+@dataclass(frozen=True)
+class CoverageHint(Hint):
+    """Hold the a map of program counter to hit counter for an execution
+
+    Arguments:
+        coverage: A map from program counter to hit count
+    """
+
+    coverage: typing.Dict[int, int]
 
 
 @dataclass(frozen=True)
