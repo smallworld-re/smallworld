@@ -19,17 +19,9 @@ class ControlFlowTracer(analysis.Analysis):
         super().__init__(*args, **kwargs)
         self.num_instructions = num_instructions
 
-    @property
-    def name(self) -> str:
-        return "control-flow-tracer"
-
-    @property
-    def description(self) -> str:
-        return ""
-
-    @property
-    def version(self) -> str:
-        return "0.0.1"
+    name = "control-flow-tracer"
+    description = ""
+    version = "0.0.1"
 
     def run(self, state: state.CPU) -> None:
         cpu = copy.deepcopy(state)
