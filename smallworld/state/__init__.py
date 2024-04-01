@@ -4,6 +4,7 @@ from .state import (
     BumpAllocator,
     Code,
     Heap,
+    Hook,
     Memory,
     Register,
     RegisterAlias,
@@ -15,6 +16,7 @@ from .state import (
 __all__ = [
     "Value",
     "Code",
+    "Hook",
     "Register",
     "RegisterAlias",
     "Memory",
