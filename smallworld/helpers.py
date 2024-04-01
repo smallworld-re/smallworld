@@ -53,7 +53,6 @@ def analyze(cpu: T) -> None:
 def fuzz(
     cpu: T,
     input_callback: typing.Callable,
-    fuzzing_callback: typing.Optional[typing.Callable] = None,
     crash_callback: typing.Optional[typing.Callable] = None,
     always_validate: bool = False,
     iterations: int = 1,
@@ -65,8 +64,6 @@ def fuzz(
         input_callback: This is called for every input. It should map the input
             into the state. It should return true if the input is accepted and
             false if it should be skipped.
-        fuzzing_callback: This is for "more complex fuzzing logic", no idea
-            what that means.
         crash_callback: This is called on crashes to validate that we do in
             fact care about this crash.
         always_validate: Call the crash_callback everytime instead of just on
@@ -75,10 +72,10 @@ def fuzz(
     """
 
     try:
-        from unicornafl import uc_afl_fuzz, uc_afl_fuzz_custom
+        import unicornafl
     except ImportError:
         raise RuntimeError(
-            "missing `unicornafl` - is the `fuzzing` extra enabled? (`pip install smallworld[fuzzing]`)"
+            "missing `unicornafl` - afl++ must be installed manually from source"
         )
 
     arg_parser = argparse.ArgumentParser(description="AFL Harness")
@@ -88,30 +85,19 @@ def fuzz(
     emu = emulators.UnicornEmulator(cpu.arch, cpu.mode)
     cpu.apply(emu)
 
-    if fuzzing_callback:
-        uc_afl_fuzz_custom(
-            uc=emu.engine,
-            input_file=args.input_file,
-            place_input_callback=input_callback,
-            fuzzing_callback=fuzzing_callback,
-            validate_crash_callback=crash_callback,
-            always_validate=always_validate,
-            persistent_iters=iterations,
-        )
-    else:
-        exits = []
-        for _, code in cpu.values(state.Code).items():
-            exits.extend(code.exits)
+    exits = []
+    for _, code in cpu.values(state.Code).items():
+        exits.extend(code.exits)
 
-        if len(exits) == 0:
-            exits.append(code.base + len(code.image))
+    if len(exits) == 0:
+        exits.append(code.base + len(code.image))
 
-        uc_afl_fuzz(
-            uc=emu.engine,
-            input_file=args.input_file,
-            place_input_callback=input_callback,
-            exits=exits,
-            validate_crash_callback=crash_callback,
-            always_validate=always_validate,
-            persistent_iters=iterations,
-        )
+    unicornafl.uc_afl_fuzz(
+        uc=emu.engine,
+        input_file=args.input_file,
+        place_input_callback=input_callback,
+        exits=exits,
+        validate_crash_callback=crash_callback,
+        always_validate=always_validate,
+        persistent_iters=iterations,
+    )

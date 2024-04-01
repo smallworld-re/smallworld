@@ -130,7 +130,14 @@ class BranchTests(ScriptIntegrationTest):
         self.assertLineContains(stdout, "eax", "0x0")
 
 
+try:
+    import unicornafl
+except ImportError:
+    unicornafl = None
+
+
 class FuzzTests(ScriptIntegrationTest):
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzz(self):
         stdout, _ = self.command("python3 fuzz.py")
         self.assertLineContains(stdout, "eax", "0x0")
@@ -138,6 +145,7 @@ class FuzzTests(ScriptIntegrationTest):
         _, stderr = self.command("python3 fuzz.py -c")
         self.assertLineContains(stderr, "UC_ERR_WRITE_UNMAPPED")
 
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzzing(self):
         stdout, _ = self.command(
             "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input"
