@@ -22,6 +22,7 @@ jobs:
           python-version: '3.x'
       - name: Dependencies
         run: |
+          apt-get update
           apt-get install -y nasm
       - name: Install
         run: |
