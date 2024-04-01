@@ -8,8 +8,6 @@ on:
 jobs:
   Test:
     runs-on: ubuntu-latest
-    container:
-      image: aflplusplus/aflplusplus:latest
     steps:
       - uses: actions/checkout@v3
       - name: Check Title
