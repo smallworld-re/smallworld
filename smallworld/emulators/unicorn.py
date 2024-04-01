@@ -123,7 +123,8 @@ class UnicornEmulator(emulator.Emulator):
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
-
+        self.pc_ranges = []
+        
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
 
@@ -257,6 +258,9 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
+    def add_pc_range(self, pc_range: range) -> None:
+        self.pc_ranges.append(pc_range)
+
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
@@ -330,11 +334,24 @@ class UnicornEmulator(emulator.Emulator):
             self._error(e)
 
         pc = self.read_register("pc")
-        if self.entrypoint is None or self.exitpoint is None:
-            assert False, "impossible state"
-        if pc >= self.exitpoint or pc < self.entrypoint:
-            # inform caller that we are done
-            return True
+
+        if len(self.pc_ranges) > 0:
+            # if we have provided any pc ranges, then we are using
+            # them and nothing else to determine when we are done
+            done = True
+            for pc_range in self.pc_ranges:
+                if pc in pc_range:
+                    done = False
+                    break
+            return done        
+        else:
+            # we are using this other more shell-code-y mechanism
+            # to determine done-ness
+            if self.entrypoint is None or self.exitpoint is None:
+                assert False, "impossible state"
+            if pc >= self.exitpoint or pc < self.entrypoint:
+                # inform caller that we are done
+                return True
 
         return False
 

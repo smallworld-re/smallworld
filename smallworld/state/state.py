@@ -105,6 +105,8 @@ class Code(Value):
         base: typing.Optional[int] = None,
         entry: typing.Optional[int] = None,
         exits: typing.Optional[typing.Iterable[int]] = None,
+        pc_ranges: typing.Optional[typing.Iterable[range]] = None,            
+            
     ):
         self.image = image
         self.type = type
@@ -113,7 +115,8 @@ class Code(Value):
         self.base = base
         self.entry = entry
         self.exits = exits or []
-
+        self.pc_ranges = pc_ranges or []
+        
     @classmethod
     def from_filepath(cls, path: str, *args, **kwargs):
         with open(path, "rb") as f:
@@ -137,6 +140,11 @@ class Code(Value):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.load(self)
+        for pc_range in self.pc_ranges:
+            emulator.add_pc_range(pc_range)
+            
+    def add_pc_range(self, pc_range:range) -> None:
+        self.pc_ranges.append(pc_range)        
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"

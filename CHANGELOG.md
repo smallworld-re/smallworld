@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
+- `add_pc_range` to state and emulator and support for respecting them
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
