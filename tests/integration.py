@@ -130,6 +130,36 @@ class BranchTests(ScriptIntegrationTest):
         self.assertLineContains(stdout, "eax", "0x0")
 
 
+try:
+    import unicornafl
+except ImportError:
+    unicornafl = None
+
+
+class FuzzTests(ScriptIntegrationTest):
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_fuzz(self):
+        stdout, _ = self.command("python3 fuzz.py")
+        self.assertLineContains(stdout, "eax", "0x0")
+
+        _, stderr = self.command("python3 fuzz.py -c")
+        self.assertLineContains(stderr, "UC_ERR_WRITE_UNMAPPED")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_fuzzing(self):
+        stdout, _ = self.command(
+            "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input"
+        )
+        self.assertLineContains(stdout, "001445:1")
+        self.assertLineContains(stdout, "003349:1")
+        self.assertLineContains(stdout, "014723:1")
+        self.assertLineContains(stdout, "022192:1")
+        self.assertLineContains(stdout, "032232:1")
+        self.assertLineContains(stdout, "032233:1")
+        self.assertLineContains(stdout, "032234:1")
+        self.assertLineContains(stdout, "040896:1")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

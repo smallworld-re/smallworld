@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   methods for capturing concrete values.
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
 - `add_pc_range` to state and emulator and support for respecting them
+- `fuzz()` AFL Unicorn fuzzing harness utility.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
