@@ -198,6 +198,9 @@ class AngrEmulator(emulator.Emulator):
         if self.analysis_init is not None:
             self.analysis_init(self)
 
+    def add_pc_range(self, pc_range: range) -> None:
+        pass
+
     def step(self):
         # As soon as we start executing, disable value access
         self._reg_init_values = None
