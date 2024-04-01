@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   methods for capturing concrete values.
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
 - `fuzz()` AFL Unicorn fuzzing harness utility.
+- `CodeCoverage` analysis that maps program counter to hit count.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
