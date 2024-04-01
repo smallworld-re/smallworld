@@ -304,6 +304,14 @@ class UnicornEmulator(emulator.Emulator):
 
         return (insns, "\n".join(disassembly))
 
+    def current_instruction(self) -> capstone.CsInsn:
+        pc = self.read_register("pc")
+        code = self.read_memory(pc, 15)
+        if code is None:
+            raise AssertionError("invalid state")
+        for i in self.disassembler.disasm(code, pc):
+            return i
+
     def check(self) -> None:
         if self.entrypoint is None:
             raise exceptions.ConfigurationError(
