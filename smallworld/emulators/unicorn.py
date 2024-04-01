@@ -123,8 +123,8 @@ class UnicornEmulator(emulator.Emulator):
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
-        self.pc_ranges = []
-        
+        self.pc_ranges: typing.List[range] = []
+
     def register(self, name: str) -> int:
         """Translate register name into Unicorn const.
 
@@ -343,7 +343,7 @@ class UnicornEmulator(emulator.Emulator):
                 if pc in pc_range:
                     done = False
                     break
-            return done        
+            return done
         else:
             # we are using this other more shell-code-y mechanism
             # to determine done-ness
