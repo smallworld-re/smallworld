@@ -1,10 +1,10 @@
+from . import models
 from .elf import ELFImage
 from .state import (
     CPU,
     BumpAllocator,
     Code,
     Heap,
-    Hook,
     Memory,
     Register,
     RegisterAlias,
@@ -16,7 +16,6 @@ from .state import (
 __all__ = [
     "Value",
     "Code",
-    "Hook",
     "Register",
     "RegisterAlias",
     "Memory",
@@ -26,4 +25,5 @@ __all__ = [
     "CPU",
     "State",
     "ELFImage",
+    "models",
 ]

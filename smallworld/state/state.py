@@ -142,44 +142,6 @@ class Code(Value):
         return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
 
 
-class Hook(Value):
-    """A runtime hook implemented in Python.
-
-    If execution reaches the given address, call the given function instead of
-    any code at that address and return.
-
-    Arguments:
-        address: The address to hook.
-        function: The hook function.
-    """
-
-    def __init__(
-        self, address: int, function: typing.Callable[[emulators.Emulator], None]
-    ):
-        self.address = address
-        self.function = function
-
-    def get(self):
-        raise NotImplementedError()
-
-    def set(self, value) -> None:
-        raise NotImplementedError()
-
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        logger.debug(f"skipping initialization for {self} (hook)")
-
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        logger.debug(f"{self} loading not supported - load skipped")
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.hook(self.address, self.function)
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(0x{self.address:x}:{self.function.__name__})"
-
-
 class Register(Value):
     """A register value.
 
@@ -633,16 +595,3 @@ class CPU(State):
         """Processor mode (e.g., 64)."""
 
         return ""
-
-
-__all__ = [
-    "Value",
-    "Code",
-    "Hook",
-    "Register",
-    "RegisterAlias",
-    "Memory",
-    "Stack",
-    "Heap",
-    "BumpAllocator",
-]
