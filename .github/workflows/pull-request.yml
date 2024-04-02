@@ -26,11 +26,14 @@ jobs:
           apt-get install -y nasm
       - name: Install
         run: |
-          pip install -e .[development] -c constraints.txt
+          python3 -c "import sys; print(sys.path)"
+          python3 -m pip3 install -e .[development] -c constraints.txt
+          python3 -c "import smallworld"
       - name: Build
         run: |
           make -C tests
       - name: Test
         run: |
-          python tests/unit.py
-          python tests/integration.py
+          python3 -c "import sys; print(sys.path)"
+          python3 tests/unit.py
+          python3 tests/integration.py
