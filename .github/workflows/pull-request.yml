@@ -27,7 +27,7 @@ jobs:
       - name: Install
         run: |
           python3 -c "import sys; print(sys.path)"
-          python3 -m pip3 install -e .[development] -c constraints.txt
+          python3 -m pip install -e .[development] -c constraints.txt
           python3 -c "import smallworld"
       - name: Build
         run: |
