@@ -157,14 +157,14 @@ class InputColorizerAnalysis(analysis.Analysis):
         # is in colorized map r0
         # [relies on reg values being in self.cpu]
         r_c = []
-        for name, stv in self.cpu.values().items():
+        for name, stv in self.cpu.members().items():
             if not (
                 (type(stv) is state.Register) or (type(stv) is state.RegisterAlias)
             ):
                 continue
             if not (name in reg_subset):
                 continue
-            value = stv.get()
+            value = stv.value
             logger.debug(f"check_register_colors: {name} = {value:x}")
             if (name in reg_subset) and value in r0:
                 logger.debug("-- that's a color")
@@ -181,20 +181,20 @@ class InputColorizerAnalysis(analysis.Analysis):
         for name, reg in self.registers():
             if (regular and (name in self.REGULAR_REGS_64)) or (not regular):
                 # only colorize "regular" registers of full 64 bits
-                reg.set(random.randint(0, 0xFFFFFFFFFFFFFFF))
+                reg.value = random.randint(0, 0xFFFFFFFFFFFFFFF)
         # but now go through all 64 and 32-bit reg aliases and record intial values
         r0 = {}
-        for name, stv in self.cpu.values().items():
+        for name, stv in self.cpu.members().items():
             if (type(stv) is state.Register) or (type(stv) is state.RegisterAlias):
                 if (
                     regular
                     and (name in self.REGULAR_REGS_64 or name in self.REGULAR_REGS_32)
                 ) or (not regular):
-                    r0[stv.get()] = name
-                    logger.debug(f"color[{name}] = {stv.get():x}")
+                    r0[stv.value] = name
+                    logger.debug(f"color[{name}] = {stv.value:x}")
         return r0
 
     def registers(self):
-        for name, stv in self.cpu.values().items():
+        for name, stv in self.cpu.members().items():
             if type(stv) is state.Register:
                 yield (name, stv)
