@@ -298,6 +298,10 @@ class Memory(Value):
         self.byteorder = byteorder
         self.memory = b""
 
+        # for memory objects we store a map of offset -> type and offset -> label
+        self.type = {}
+        self.label = {}
+
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
@@ -367,6 +371,23 @@ class Memory(Value):
         else:
             raise NotImplementedError(f"unsupported type: {type(value)}")
 
+    def set_type_and_label(self, value, offset, value_type=None, value_label=None):
+        type_candidate = None
+        label_candidate = None
+
+        if isinstance(value, Value):
+            type_candidate = value.type
+            label_candidate = value.label
+
+        if value_type:
+            type_candidate = value_type
+
+        if value_label:
+            label_candidate = value_label
+
+        self.label[offset] = label_candidate
+        self.type[offset] = type_candidate
+
 
 class Stack(Memory):
     def __init__(self, *args, **kwargs):
@@ -399,19 +420,26 @@ class Stack(Memory):
         self.memory = [(value, len(value))]
         self.used = len(value)
 
-    def push(self, value, size=None):
+    def push(self, value, size=None, value_type=None, value_label=None):
         allocation = len(self.to_bytes(value, size))
 
         if self.used + allocation > self.size:
             raise ValueError(f"{value} (size: {allocation}) is too large for {self}")
 
+        self.set_type_and_label(value, self.used, value_type, value_label)
         self.memory.append((value, size))
         self.used += allocation
 
 
 class Heap(Memory):
     @abc.abstractmethod
-    def malloc(self, value, size: typing.Optional[int] = None) -> int:
+    def malloc(
+        self,
+        value,
+        size: typing.Optional[int] = None,
+        value_type=None,
+        value_label=None,
+    ) -> int:
         """Place a value on the heap.
 
         Arguments:
@@ -463,7 +491,13 @@ class BumpAllocator(Heap):
         self.memory = [(value, len(value))]
         self.used = len(value)
 
-    def malloc(self, value, size: typing.Optional[int] = None) -> int:
+    def malloc(
+        self,
+        value,
+        size: typing.Optional[int] = None,
+        value_type=None,
+        value_label=None,
+    ) -> int:
         allocation = self.to_bytes(value, size)
 
         if size is None:
@@ -474,6 +508,7 @@ class BumpAllocator(Heap):
                 f"{value} (size: {len(allocation)}) is too large for {self}"
             )
 
+        self.set_type_and_label(value, self.used, value_type, value_label)
         address = self.address + self.used
         self.memory.append((allocation, size))
         self.used += size
