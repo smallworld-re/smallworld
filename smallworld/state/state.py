@@ -298,9 +298,8 @@ class Memory(Value):
         self.byteorder = byteorder
         self.memory = b""
 
-        # for memory objects we store a map of offset -> type and offset -> label
-        self.type = {}
-        self.label = {}
+        self.type: typing.Dict[int, typing.Any] = {}
+        self.label: typing.Dict[int, typing.Any] = {}
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
@@ -371,22 +370,41 @@ class Memory(Value):
         else:
             raise NotImplementedError(f"unsupported type: {type(value)}")
 
-    def set_type_and_label(self, value, offset, value_type=None, value_label=None):
-        type_candidate = None
-        label_candidate = None
+    def set_type(
+        self,
+        offset: int,
+        type: typing.Optional[typing.Any] = None,
+        value: typing.Optional[typing.Any] = None,
+    ) -> None:
+        candidate = None
 
-        if isinstance(value, Value):
-            type_candidate = value.type
-            label_candidate = value.label
+        if type:
+            candidate = type
+        elif value:
+            if isinstance(value, Value):
+                candidate = value.type
+            else:
+                logger.warning(f"cannot infer type from {value}")
 
-        if value_type:
-            type_candidate = value_type
+        self.type[offset] = candidate
 
-        if value_label:
-            label_candidate = value_label
+    def set_label(
+        self,
+        offset: int,
+        label: typing.Optional[typing.Any] = None,
+        value: typing.Optional[typing.Any] = None,
+    ) -> None:
+        candidate = None
 
-        self.label[offset] = label_candidate
-        self.type[offset] = type_candidate
+        if label:
+            candidate = label
+        elif value:
+            if isinstance(value, Value):
+                candidate = value.label
+            else:
+                logger.warning(f"cannot infer label from {value}")
+
+        self.label[offset] = candidate
 
 
 class Stack(Memory):
@@ -420,15 +438,23 @@ class Stack(Memory):
         self.memory = [(value, len(value))]
         self.used = len(value)
 
-    def push(self, value, size=None, value_type=None, value_label=None):
+    def push(
+        self,
+        value,
+        size: typing.Optional[int] = None,
+        type: typing.Optional[typing.Any] = None,
+        label: typing.Optional[typing.Any] = None,
+    ):
         allocation = len(self.to_bytes(value, size))
 
         if self.used + allocation > self.size:
             raise ValueError(f"{value} (size: {allocation}) is too large for {self}")
 
-        self.set_type_and_label(value, self.used, value_type, value_label)
         self.memory.append((value, size))
         self.used += allocation
+
+        self.set_type(offset=self.used, value=value, type=type)
+        self.set_label(offset=self.used, value=value, label=label)
 
 
 class Heap(Memory):
@@ -437,8 +463,8 @@ class Heap(Memory):
         self,
         value,
         size: typing.Optional[int] = None,
-        value_type=None,
-        value_label=None,
+        type: typing.Optional[typing.Any] = None,
+        label: typing.Optional[typing.Any] = None,
     ) -> int:
         """Place a value on the heap.
 
@@ -495,8 +521,8 @@ class BumpAllocator(Heap):
         self,
         value,
         size: typing.Optional[int] = None,
-        value_type=None,
-        value_label=None,
+        type: typing.Optional[typing.Any] = None,
+        label: typing.Optional[typing.Any] = None,
     ) -> int:
         allocation = self.to_bytes(value, size)
 
@@ -508,10 +534,13 @@ class BumpAllocator(Heap):
                 f"{value} (size: {len(allocation)}) is too large for {self}"
             )
 
-        self.set_type_and_label(value, self.used, value_type, value_label)
         address = self.address + self.used
+
         self.memory.append((allocation, size))
         self.used += size
+
+        self.set_type(offset=self.used, value=value, type=type)
+        self.set_label(offset=self.used, value=value, label=label)
 
         return address
 
