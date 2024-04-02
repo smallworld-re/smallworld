@@ -110,7 +110,6 @@ class InputColorizerAnalysis(analysis.Analysis):
                     exhint = hinting.EmulationException(
                         message="Emulation single step raised an exception",
                         instruction=instructions.Instruction.from_capstone(instruction),
-                        micro_exec_num=i,
                         instruction_num=j,
                         exception=str(e),
                     )

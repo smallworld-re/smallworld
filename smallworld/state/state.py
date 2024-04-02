@@ -582,7 +582,7 @@ class State(Value):
 
     def members(
         self, filter: typing.Optional[typing.Type] = None
-    ) -> typing.Dict[str, Value]:
+    ) -> typing.Dict[str, typing.Any]:
         """Members that comprise this state.
 
         Gather the list of included state values as any class members that are

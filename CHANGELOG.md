@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.
+- `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
+- `fuzz()` AFL Unicorn fuzzing harness utility.
+- `CodeCoverage` analysis that maps program counter to hit count.
 - `Value.type` for storing optional type information.
 - `Value.label` for storing optional label information.
 
