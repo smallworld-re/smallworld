@@ -19,8 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   methods for capturing concrete values.
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
 - `fuzz()` AFL Unicorn fuzzing harness utility.
-- Support for dynamic hooking/call modeling via `state.Hook` and
-  `emulator.hook()`.
+- `Emulator.hook()` for dynamic hooking.
+- `state.models` a collection of python models for library code implemented as
+  customizable hooks.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
