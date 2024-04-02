@@ -376,6 +376,14 @@ class Memory(Value):
         type: typing.Optional[typing.Any] = None,
         value: typing.Optional[typing.Any] = None,
     ) -> None:
+        """Set the type of a given allocation.
+
+        Arguments:
+            offset: The offset of the object to type.
+            type: The type to set.
+            value: A value from which to infer type.
+        """
+
         candidate = None
 
         if type:
@@ -394,6 +402,14 @@ class Memory(Value):
         label: typing.Optional[typing.Any] = None,
         value: typing.Optional[typing.Any] = None,
     ) -> None:
+        """Set the label of a given allocation.
+
+        Arguments:
+            offset: The offset of the object to label.
+            label: The label to set.
+            value: A value from which to infer label.
+        """
+
         candidate = None
 
         if label:
@@ -471,6 +487,8 @@ class Heap(Memory):
         Arguments:
             value: Object to be allocated.
             size: Size.
+            type: Type of the allocated object.
+            label: A label for the allocated object.
 
         Returns:
             The address of the value allocated.
