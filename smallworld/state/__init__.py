@@ -1,3 +1,4 @@
+from . import models
 from .elf import ELFImage
 from .state import (
     CPU,
@@ -24,4 +25,5 @@ __all__ = [
     "CPU",
     "State",
     "ELFImage",
+    "models",
 ]

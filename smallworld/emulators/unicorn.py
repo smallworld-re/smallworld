@@ -116,14 +116,27 @@ class UnicornEmulator(emulator.Emulator):
         self.entrypoint: typing.Optional[int] = None
         self.exitpoint: typing.Optional[int] = None
 
-        self.single_stepping = False
-
         self.engine = unicorn.Uc(self.arch, self.mode)
+
         self.disassembler = capstone.Cs(
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
         self.pc_ranges: typing.List[range] = []
+
+        self.hooks: typing.Dict[int, typing.Callable[[emulator.Emulator], None]] = {}
+        self.hook_return = None
+
+        def callback(uc, address, size, user_data):
+            if address in self.hooks:
+                self.hooks[address](self)
+                if self.hook_return is not None:
+                    self.write_register("pc", self.hook_return)
+                    self.hook_return = None
+
+            self.hook_return = address + size
+
+        self.engine.hook_add(unicorn.UC_HOOK_CODE, callback)
 
     def register(self, name: str) -> int:
         """Translate register name into Unicorn constant.
@@ -264,6 +277,19 @@ class UnicornEmulator(emulator.Emulator):
 
     def add_pc_range(self, pc_range: range) -> None:
         self.pc_ranges.append(pc_range)
+
+    def hook(
+        self, address: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        self.hooks[address] = function
+
+        # Ensure that the address is mapped.
+        try:
+            self.engine.mem_map(
+                (address // self.PAGE_SIZE) * self.PAGE_SIZE, self.PAGE_SIZE
+            )
+        except unicorn.UcError:
+            pass
 
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None

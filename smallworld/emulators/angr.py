@@ -201,6 +201,11 @@ class AngrEmulator(emulator.Emulator):
     def add_pc_range(self, pc_range: range) -> None:
         pass
 
+    def hook(
+        self, address: int, callback: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        raise NotImplementedError()
+
     def step(self):
         # As soon as we start executing, disable value access
         self._reg_init_values = None

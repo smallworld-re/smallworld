@@ -77,12 +77,25 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+
     def add_pc_range(self, pc_range: range) -> None:
         """Add a pc range with which to restrict emulation
 
         Arguments:
             pc_range: a range of pcs that are allowed to be emulated
         """
+        pass
+
+    @abc.abstractmethod
+    def hook(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        """Register a hook at the given address.
+
+        Arguments:
+            address: The address to hook.
+            function: The hook function.
+        """
+
+        pass
 
     @abc.abstractmethod
     def run(self) -> None:

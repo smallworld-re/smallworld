@@ -86,7 +86,7 @@ def fuzz(
     cpu.apply(emu)
 
     exits = []
-    for _, code in cpu.values(state.Code).items():
+    for _, code in cpu.members(state.Code).items():
         exits.extend(code.exits)
 
     if len(exits) == 0:
