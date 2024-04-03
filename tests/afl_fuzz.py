@@ -12,7 +12,7 @@ cpu = smallworld.cpus.AMD64CPUState()
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath("fuzz.bin", base=0x1000, entry=0x1000)
 cpu.map(code)
-cpu.rip.set(0x1000)
+cpu.rip.value = 0x1000
 
 alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x1000)
 user_input = None
