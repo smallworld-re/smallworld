@@ -26,7 +26,7 @@ jobs:
           python3 -c "import sys; print(sys.path)"
           python3 -m pip install -e .[development] -c constraints.txt
           python3 -c "import smallworld; print(smallworld)"
-          python3 -c "import unicornafl; print(unicornafl)"
+          python -c "import unicornafl; print(unicornafl)"
       - name: Build
         run: |
           make -C tests
