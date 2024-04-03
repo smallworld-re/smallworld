@@ -37,6 +37,6 @@ jobs:
           PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python -c "import smallworld; print(smallworld)"
           PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python -c "import unicornafl; print(unicornafl)"
           cd tests && ls
-          cd tests && PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH AFL_DEBUG=1 afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input
-          cd tests && PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 unit.py
-          cd tests && PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 integration.py
+          PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH AFL_DEBUG=1 afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input
+          PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 unit.py
+          PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 integration.py
