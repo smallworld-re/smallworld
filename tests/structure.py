@@ -75,8 +75,8 @@ node2.prev = node1_addr
 
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
-cpu.rdi.set(node1_addr)
-print(f"RDI: {hex(cpu.rdi.get())}")
+cpu.rdi.value = node1_addr
+print(f"RDI: {hex(cpu.rdi.value)}")
 # all the allocated things get put in memory as concrete bytes
 cpu.map(alloc)
 

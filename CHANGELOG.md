@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
 - `fuzz()` AFL Unicorn fuzzing harness utility.
 - `CodeCoverage` analysis that maps program counter to hit count.
+- `Value.type` for storing optional type information.
+- `Value.label` for storing optional label information.
 - `state.models` a collection of python models for library code implemented as
   customizable hooks.
 - `Emulator.hook()` for dynamic hooking.
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mode.
 - `UnicornEmulator.write_memory()` now supports overlapping writes and no
   longer requires addresses to be page aligned.
+- `Value.{get, set}()` changed to `@property` `value`.
 
 ## [0.0.1] - 2024-02-26
 
