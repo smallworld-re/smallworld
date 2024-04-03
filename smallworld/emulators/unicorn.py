@@ -256,6 +256,10 @@ class UnicornEmulator(emulator.Emulator):
         else:
             self.exitpoint = code.base + len(code.image)
 
+        if len(pc_ranges) == 0:
+            pcr = range(self.entrypoint, self.exitpoint)
+            self.pc_ranges.append(pcr)
+            
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
     def add_pc_range(self, pc_range: range) -> None:
@@ -335,25 +339,16 @@ class UnicornEmulator(emulator.Emulator):
 
         pc = self.read_register("pc")
 
-        if len(self.pc_ranges) > 0:
-            # if we have provided any pc ranges, then we are using
-            # them and nothing else to determine when we are done
-            done = True
-            for pc_range in self.pc_ranges:
-                if pc in pc_range:
-                    done = False
-                    break
-            return done
-        else:
-            # we are using this other more shell-code-y mechanism
-            # to determine done-ness
-            if self.entrypoint is None or self.exitpoint is None:
-                assert False, "impossible state"
-            if pc >= self.exitpoint or pc < self.entrypoint:
-                # inform caller that we are done
-                return True
+        # if we have provided any pc ranges, then we are using
+        # them and nothing else to determine when we are done
+        # ** if pc is *in* any of the pc ranges in our list then we are not done.
+        done = True
+        for pc_range in self.pc_ranges:
+            if pc in pc_range:
+                done = False
+                break
+        return done
 
-        return False
 
     def _error(
         self, error: unicorn.UcError
