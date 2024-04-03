@@ -22,7 +22,7 @@ size_addr = alloc.malloc(len(user_input), size=4)
 input_addr = alloc.malloc(user_input)
 
 cpu.map(alloc)
-cpu.rdi.set(size_addr)
+cpu.rdi.value = size_addr
 
 
 def input_callback(uc, input, persistent_round, data):
