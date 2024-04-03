@@ -9,12 +9,12 @@ state = smallworld.cpus.AMD64CPUState()
 
 code = smallworld.state.Code.from_filepath("hooking.bin", base=0x1000, entry=0x1000)
 state.map(code)
-state.rip.set(0x1000)
+state.rip.value = 0x1000
 
 stack = smallworld.state.Memory(address=0xFFFF0000, size=0x1000)
-stack.set(b"\x00" * 0x1000)
+stack.value = b"\x00" * 0x1000
 state.map(stack)
-state.rsp.set(stack.address)
+state.rsp.value = stack.address
 
 gets = smallworld.state.models.AMD64SystemVGetsModel(0x3800)
 state.map(gets)

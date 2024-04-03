@@ -25,10 +25,12 @@ class Model(state.Value):
         self.address = address
         self.function = function
 
-    def get(self):
+    @property
+    def value(self):
         raise NotImplementedError()
 
-    def set(self, value) -> None:
+    @value.setter
+    def value(self, value) -> None:
         raise NotImplementedError()
 
     def initialize(
