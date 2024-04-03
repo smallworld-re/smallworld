@@ -17,9 +17,6 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           bash .github/workflows/scripts/conventional.sh "$TITLE"
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
       - name: Dependencies
         run: |
           apt-get update -y
@@ -28,12 +25,18 @@ jobs:
         run: |
           python3 -c "import sys; print(sys.path)"
           python3 -m pip install -e .[development] -c constraints.txt
-          python3 -c "import smallworld"
+          python3 -c "import smallworld; print(smallworld)"
       - name: Build
         run: |
           make -C tests
       - name: Test
         run: |
+          which afl-showmap
+          which python
+          which python3
+          python3 -c "import smallworld; print(smallworld)"
+          cd tests && ls
+          afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input
           python3 -c "import sys; print(sys.path)"
-          python3 tests/unit.py
-          python3 tests/integration.py
+          cd tests && python3 unit.py
+          cd tests && python3 integration.py
