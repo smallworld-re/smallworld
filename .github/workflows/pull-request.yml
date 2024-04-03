@@ -26,6 +26,7 @@ jobs:
           python3 -c "import sys; print(sys.path)"
           python3 -m pip install -e .[development] -c constraints.txt
           python3 -c "import smallworld; print(smallworld)"
+          python3 -c "import unicornafl; print(unicornafl)"
       - name: Build
         run: |
           make -C tests
@@ -35,8 +36,11 @@ jobs:
           which python
           which python3
           python3 -c "import smallworld; print(smallworld)"
+          python3 -c "import unicornafl; print(unicornafl)"
+          python -c "import smallworld; print(smallworld)"
+          python -c "import unicornafl; print(unicornafl)"
           cd tests && ls
-          afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input
+          AFL_DEBUG=1 afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input
           python3 -c "import sys; print(sys.path)"
           cd tests && python3 unit.py
           cd tests && python3 integration.py
