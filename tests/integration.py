@@ -129,6 +129,7 @@ class BranchTests(ScriptIntegrationTest):
         stdout, _ = self.command("python3 branch.py 101")
         self.assertLineContains(stdout, "eax", "0x0")
 
+
 class FuzzTests(ScriptIntegrationTest):
     def test_fuzz(self):
         stdout, _ = self.command("python3 fuzz.py")
