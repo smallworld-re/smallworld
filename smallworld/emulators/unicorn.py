@@ -126,7 +126,7 @@ class UnicornEmulator(emulator.Emulator):
         self.pc_ranges: typing.List[range] = []
 
     def register(self, name: str) -> int:
-        """Translate register name into Unicorn const.
+        """Translate register name into Unicorn constant.
 
         Arguments:
             register (str): Canonical name of a register.
@@ -256,10 +256,10 @@ class UnicornEmulator(emulator.Emulator):
         else:
             self.exitpoint = code.base + len(code.image)
 
-        if len(pc_ranges) == 0:
+        if len(self.pc_ranges) == 0:
             pcr = range(self.entrypoint, self.exitpoint)
             self.pc_ranges.append(pcr)
-            
+
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
     def add_pc_range(self, pc_range: range) -> None:
@@ -348,7 +348,6 @@ class UnicornEmulator(emulator.Emulator):
                 done = False
                 break
         return done
-
 
     def _error(
         self, error: unicorn.UcError
