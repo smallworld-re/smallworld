@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CodeCoverage` analysis that maps program counter to hit count.
 - `Value.type` for storing optional type information.
 - `Value.label` for storing optional label information.
+- `state.models` a collection of python models for library code implemented as
+  customizable hooks.
+- `Emulator.hook()` for dynamic hooking.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not

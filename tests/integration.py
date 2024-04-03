@@ -9,7 +9,9 @@ from sphinx import application, errors
 
 
 class ScriptIntegrationTest(unittest.TestCase):
-    def command(self, cmd: str) -> typing.Tuple[str, str]:
+    def command(
+        self, cmd: str, stdin: typing.Optional[str] = None
+    ) -> typing.Tuple[str, str]:
         """Run the given command and return the output.
 
         Arguments:
@@ -19,6 +21,8 @@ class ScriptIntegrationTest(unittest.TestCase):
             The `(stdout, stderr)` of the process as strings.
         """
 
+        input = stdin.encode() if stdin else None
+
         cwd = os.path.abspath(os.path.dirname(__file__))
 
         process = subprocess.run(
@@ -26,6 +30,7 @@ class ScriptIntegrationTest(unittest.TestCase):
             cwd=cwd,
             shell=True,
             check=True,
+            input=input,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -128,6 +133,12 @@ class BranchTests(ScriptIntegrationTest):
 
         stdout, _ = self.command("python3 branch.py 101")
         self.assertLineContains(stdout, "eax", "0x0")
+
+
+class HookingTests(ScriptIntegrationTest):
+    def test_hooking(self):
+        stdout, _ = self.command("python3 hooking.py", stdin="foo bar baz")
+        self.assertLineContains(stdout, "foo bar baz")
 
 
 try:
