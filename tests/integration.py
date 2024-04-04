@@ -8,6 +8,14 @@ import unittest
 from sphinx import application, errors
 
 
+class DetailedCalledProcessError(Exception):
+    def __init__(self, error: subprocess.CalledProcessError):
+        self.error = error
+
+    def __str__(self) -> str:
+        return f"{self.error.__str__()}\n\nstdout:\n{self.error.stdout.decode()}\n\nstderr:\n{self.error.stderr.decode()}"
+
+
 class ScriptIntegrationTest(unittest.TestCase):
     def command(self, cmd: str) -> typing.Tuple[str, str]:
         """Run the given command and return the output.
@@ -21,16 +29,19 @@ class ScriptIntegrationTest(unittest.TestCase):
 
         cwd = os.path.abspath(os.path.dirname(__file__))
 
-        process = subprocess.run(
-            cmd,
-            cwd=cwd,
-            shell=True,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        try:
+            process = subprocess.run(
+                cmd,
+                cwd=cwd,
+                shell=True,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
-        return process.stdout.decode(), process.stderr.decode()
+            return process.stdout.decode(), process.stderr.decode()
+        except subprocess.CalledProcessError as e:
+            raise DetailedCalledProcessError(e)
 
     def assertContains(self, output: str, match: str) -> None:
         """Assert that output contains a given regex.
