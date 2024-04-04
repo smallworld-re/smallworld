@@ -8,14 +8,25 @@ import unittest
 from sphinx import application, errors
 
 
+class DetailedCalledProcessError(Exception):
+    def __init__(self, error: subprocess.CalledProcessError):
+        self.error = error
+
+    def __str__(self) -> str:
+        return f"{self.error.__str__()}\n\nstdout:\n{self.error.stdout.decode()}\n\nstderr:\n{self.error.stderr.decode()}"
+
+
 class ScriptIntegrationTest(unittest.TestCase):
     def command(
-        self, cmd: str, stdin: typing.Optional[str] = None
+        self, cmd: str, stdin: typing.Optional[str] = None, error: bool = True
     ) -> typing.Tuple[str, str]:
         """Run the given command and return the output.
 
         Arguments:
             cmd: The command to run.
+            stdin: Optional input string.
+            error: If `True` raises an exception if the command fails,
+                otherwise just returns stdout/stderr as if it had succeeded.
 
         Returns:
             The `(stdout, stderr)` of the process as strings.
@@ -25,17 +36,23 @@ class ScriptIntegrationTest(unittest.TestCase):
 
         cwd = os.path.abspath(os.path.dirname(__file__))
 
-        process = subprocess.run(
-            cmd,
-            cwd=cwd,
-            shell=True,
-            check=True,
-            input=input,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+        try:
+            process = subprocess.run(
+                cmd,
+                cwd=cwd,
+                shell=True,
+                check=True,
+                input=input,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
 
-        return process.stdout.decode(), process.stderr.decode()
+            return process.stdout.decode(), process.stderr.decode()
+        except subprocess.CalledProcessError as e:
+            if error:
+                raise DetailedCalledProcessError(e)
+            else:
+                return e.stdout.decode(), e.stderr.decode()
 
     def assertContains(self, output: str, match: str) -> None:
         """Assert that output contains a given regex.
@@ -156,7 +173,6 @@ except ImportError:
 
 
 class FuzzTests(ScriptIntegrationTest):
-    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzz(self):
         stdout, _ = self.command("python3 fuzz.py")
         self.assertLineContains(stdout, "eax", "0x0")
@@ -167,7 +183,8 @@ class FuzzTests(ScriptIntegrationTest):
     @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzzing(self):
         stdout, _ = self.command(
-            "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input"
+            "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input",
+            error=False,
         )
         self.assertLineContains(stdout, "001445:1")
         self.assertLineContains(stdout, "003349:1")
