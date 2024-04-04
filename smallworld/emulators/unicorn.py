@@ -294,7 +294,7 @@ class UnicornEmulator(emulator.Emulator):
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
-        # TODO: annotate that offsets are relative
+        # TODO: annotate that offsets are relative.
         #
         # We don't know what the base address is at disassembly time - so we
         # just set it to 0. This means relative address arguments aren't
