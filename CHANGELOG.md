@@ -34,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `UnicornEmulator.write_memory()` now supports overlapping writes and no
   longer requires addresses to be page aligned.
 - `Value.{get, set}()` changed to `@property` `value`.
+- `Code.exits` changed to `Code.bounds` - ranges of valid execution rather than
+  fixed exit points.
 
 ## [0.0.1] - 2024-02-26
 

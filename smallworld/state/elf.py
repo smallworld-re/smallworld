@@ -47,10 +47,10 @@ class ELFImage(Code):
         mode: typing.Optional[str] = None,
         base: typing.Optional[int] = None,
         entry: typing.Optional[int] = None,
-        exits: typing.Optional[typing.Iterable[int]] = None,
+        bounds: typing.Optional[typing.Iterable[range]] = None,
     ):
         super().__init__(
-            image, type=type, arch=arch, mode=mode, base=None, entry=None, exits=exits
+            image, base=0, type=type, arch=arch, mode=mode, entry=None, bounds=bounds
         )
         self.user_base: typing.Optional[int] = base
         self.file_base: int = 0

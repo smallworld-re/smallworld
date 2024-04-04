@@ -95,24 +95,25 @@ class Code(Value):
 
     Arguments:
         image: The actual bytes of the executable.
+        base: Base address.
         type: Executable format ("blob", "PE", "ELF", etc.)
         arch: Architecture ("x86", "arm", etc.)
         mode: Architecture mode ("32", "64", etc.)
-        base: Base address.
-        entry: Execution entry address.
-        exits: Exit addresses - used to determine when execution has
-            terminated.
+        entry: Execution entry address - if not provided this is assumed to be
+            the same as `base`.
+        bounds: Address ranges of valid execution - if not provided this is the
+            entire address range of this executable code.
     """
 
     def __init__(
         self,
         image: bytes,
+        base: int,
         type: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
-        base: typing.Optional[int] = None,
         entry: typing.Optional[int] = None,
-        exits: typing.Optional[typing.Iterable[int]] = None,
+        bounds: typing.Optional[typing.Iterable[range]] = None,
     ):
         super().__init__()
 
@@ -121,8 +122,8 @@ class Code(Value):
         self.arch = arch
         self.mode = mode
         self.base = base
-        self.entry = entry
-        self.exits = exits or []
+        self.entry = entry or base
+        self.bounds = bounds or [range(self.entry, self.entry + len(image))]
 
     @classmethod
     def from_filepath(cls, path: str, *args, **kwargs):
@@ -151,7 +152,7 @@ class Code(Value):
         emulator.load(self)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
+        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
 
 
 class Register(Value):
