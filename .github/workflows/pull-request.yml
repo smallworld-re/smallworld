@@ -16,8 +16,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y nasm
-          sudo apt-get install -y tests/dependencies/*.deb
-          python -m pip install tests/dependencies/*.whl
+          sudo apt-get install -y ./tests/dependencies/*.deb
+          python -m pip install ./tests/dependencies/*.whl
       - name: Install
         run: |
           python -m pip install --upgrade pip
