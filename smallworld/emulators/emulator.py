@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Emulator(metaclass=abc.ABCMeta):
     """An emulator base class.
 
-    Defines the interface for emulators foo.
+    Defines the interface for emulators.
     """
 
     @abc.abstractmethod
@@ -74,15 +74,6 @@ class Emulator(metaclass=abc.ABCMeta):
             code: The executable to load.
         """
 
-        pass
-
-    @abc.abstractmethod
-    def add_pc_range(self, pc_range: range) -> None:
-        """Add a pc range with which to restrict emulation
-
-        Arguments:
-            pc_range: a range of pcs that are allowed to be emulated
-        """
         pass
 
     @abc.abstractmethod

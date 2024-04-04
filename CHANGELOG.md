@@ -18,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
-- `add_pc_range` to state and emulator and support for respecting them
 - `fuzz()` AFL Unicorn fuzzing harness utility.
 - `CodeCoverage` analysis that maps program counter to hit count.
 - `Value.type` for storing optional type information.
@@ -35,6 +34,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `UnicornEmulator.write_memory()` now supports overlapping writes and no
   longer requires addresses to be page aligned.
 - `Value.{get, set}()` changed to `@property` `value`.
+- `Code.exits` changed to `Code.bounds` - ranges of valid execution rather than
+  fixed exit points.
 
 ## [0.0.1] - 2024-02-26
 
