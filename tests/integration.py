@@ -123,6 +123,9 @@ class StructureTests(ScriptIntegrationTest):
             stderr, "from_instruction", "6w8=", "4096", "to_instruction", "i0cY", "4113"
         )
         self.assertLineContains(stderr, '{"4096": 1, "4113": 1}', "coverage")
+        self.assertLineContains(stderr, "address", "4113", "code_reachable")
+        self.assertLineContains(stderr, "address", "4098", "code_reachable")
+        self.assertLineContains(stderr, "address", "4120", "code_reachable")
 
 
 class BranchTests(ScriptIntegrationTest):
