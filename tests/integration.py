@@ -17,17 +17,22 @@ class DetailedCalledProcessError(Exception):
 
 
 class ScriptIntegrationTest(unittest.TestCase):
-    def command(self, cmd: str, error: bool = True) -> typing.Tuple[str, str]:
+    def command(
+        self, cmd: str, stdin: typing.Optional[str] = None, error: bool = True
+    ) -> typing.Tuple[str, str]:
         """Run the given command and return the output.
 
         Arguments:
             cmd: The command to run.
+            stdin: Optional input string.
             error: If `True` raises an exception if the command fails,
                 otherwise just returns stdout/stderr as if it had succeeded.
 
         Returns:
             The `(stdout, stderr)` of the process as strings.
         """
+
+        input = stdin.encode() if stdin else None
 
         cwd = os.path.abspath(os.path.dirname(__file__))
 
@@ -37,6 +42,7 @@ class ScriptIntegrationTest(unittest.TestCase):
                 cwd=cwd,
                 shell=True,
                 check=True,
+                input=input,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -92,6 +98,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command("python3 basic_harness.py square.bin")
         self.assertLineContains(stderr, "edi", "imul edi, edi", "InputUseHint")
+        self.assertLineContains(stderr, '{"4096": 1, "4099": 1}', "coverage")
 
     def test_square(self):
         def test_output(number):
@@ -115,6 +122,7 @@ class StackTests(ScriptIntegrationTest):
         self.assertLineContains(
             stderr, "rsp", re.escape("add rax, qword ptr [rsp + 8]"), "InputUseHint"
         )
+        self.assertLineContains(stderr, '{"4096": 1, "4099": 1, "4103": 1}', "coverage")
 
     def test_stack(self):
         stdout, _ = self.command("python3 stack.py")
@@ -128,12 +136,18 @@ class StructureTests(ScriptIntegrationTest):
             stderr, "rdi", re.escape("mov eax, dword ptr [rdi + 0x18]"), "InputUseHint"
         )
 
+        self.assertLineContains(
+            stderr, "from_instruction", "6w8=", "4096", "to_instruction", "i0cY", "4113"
+        )
+        self.assertLineContains(stderr, '{"4096": 1, "4113": 1}', "coverage")
+
 
 class BranchTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command("python3 basic_harness.py branch.bin")
         self.assertLineContains(stderr, "eax", "xor eax, eax", "InputUseHint")
         self.assertLineContains(stderr, "rdi", "cmp rdi, 0x64", "InputUseHint")
+        self.assertLineContains(stderr, '{"4096": 1, "4098": 1, "4102": 1}', "coverage")
 
     def test_branch(self):
         stdout, _ = self.command("python3 branch.py 99")
@@ -146,6 +160,18 @@ class BranchTests(ScriptIntegrationTest):
         self.assertLineContains(stdout, "eax", "0x0")
 
 
+class HookingTests(ScriptIntegrationTest):
+    def test_hooking(self):
+        stdout, _ = self.command("python3 hooking.py", stdin="foo bar baz")
+        self.assertLineContains(stdout, "foo bar baz")
+
+
+try:
+    import unicornafl
+except ImportError:
+    unicornafl = None
+
+
 class FuzzTests(ScriptIntegrationTest):
     def test_fuzz(self):
         stdout, _ = self.command("python3 fuzz.py")
@@ -154,6 +180,7 @@ class FuzzTests(ScriptIntegrationTest):
         _, stderr = self.command("python3 fuzz.py -c")
         self.assertLineContains(stderr, "UC_ERR_WRITE_UNMAPPED")
 
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzzing(self):
         stdout, _ = self.command(
             "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input",

@@ -77,6 +77,17 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def hook(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        """Register a hook at the given address.
+
+        Arguments:
+            address: The address to hook.
+            function: The hook function.
+        """
+
+        pass
+
+    @abc.abstractmethod
     def run(self) -> None:
         """Start execution."""
 
