@@ -8,8 +8,6 @@ on:
 jobs:
   Test:
     runs-on: ubuntu-latest
-    container:
-      image: aflplusplus/aflplusplus:latest
     steps:
       - uses: actions/checkout@v3
       - name: Check Title
@@ -17,18 +15,20 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           bash .github/workflows/scripts/conventional.sh "$TITLE"
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
       - name: Dependencies
         run: |
-          apt-get update -y
-          apt-get install -y nasm
+          sudo apt-get install -y nasm
       - name: Install
         run: |
-          PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 -m pip install -e .[development] -c constraints.txt
+          python -m pip install --upgrade pip
+          pip install -e .[development] -c constraints.txt
       - name: Build
         run: |
           make -C tests
       - name: Test
         run: |
-          cd tests
-          PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 unit.py
-          PYTHONPATH=/root/.local/lib/python3.10/site-packages:$PYTHONPATH python3 integration.py
+          python tests/unit.py
+          python tests/integration.py
