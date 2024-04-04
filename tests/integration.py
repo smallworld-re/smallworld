@@ -81,6 +81,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command("python3 basic_harness.py square.bin")
         self.assertLineContains(stderr, "edi", "imul edi, edi", "InputUseHint")
+        self.assertLineContains(stderr, '{"4096": 1, "4099": 1}', "coverage")
 
     def test_square(self):
         def test_output(number):
@@ -104,6 +105,7 @@ class StackTests(ScriptIntegrationTest):
         self.assertLineContains(
             stderr, "rsp", re.escape("add rax, qword ptr [rsp + 8]"), "InputUseHint"
         )
+        self.assertLineContains(stderr, '{"4096": 1, "4099": 1, "4103": 1}', "coverage")
 
     def test_stack(self):
         stdout, _ = self.command("python3 stack.py")
@@ -117,12 +119,18 @@ class StructureTests(ScriptIntegrationTest):
             stderr, "rdi", re.escape("mov eax, dword ptr [rdi + 0x18]"), "InputUseHint"
         )
 
+        self.assertLineContains(
+            stderr, "from_instruction", "6w8=", "4096", "to_instruction", "i0cY", "4113"
+        )
+        self.assertLineContains(stderr, '{"4096": 1, "4113": 1}', "coverage")
+
 
 class BranchTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command("python3 basic_harness.py branch.bin")
         self.assertLineContains(stderr, "eax", "xor eax, eax", "InputUseHint")
         self.assertLineContains(stderr, "rdi", "cmp rdi, 0x64", "InputUseHint")
+        self.assertLineContains(stderr, '{"4096": 1, "4098": 1, "4102": 1}', "coverage")
 
     def test_branch(self):
         stdout, _ = self.command("python3 branch.py 99")
