@@ -41,13 +41,24 @@ class ControlFlowHint(Hint):
 
 @dataclass(frozen=True)
 class CoverageHint(Hint):
-    """Hold the a map of program counter to hit counter for an execution
+    """Holds the a map of program counter to hit counter for an execution.
 
     Arguments:
         coverage: A map from program counter to hit count
     """
 
     coverage: typing.Dict[int, int]
+
+
+@dataclass(frozen=True)
+class ReachableCodeHint(Hint):
+    """Indicates that we can get to a given program counter with symbolic execution.
+
+    Arguments:
+        address: The address we can reach
+    """
+
+    address: int
 
 
 @dataclass(frozen=True)
