@@ -113,8 +113,7 @@ class UnicornEmulator(emulator.Emulator):
         if self.mode not in self.REGISTERS[self.arch]:
             raise ValueError("unsupported mode for current architecture")
 
-        self.entrypoint: typing.Optional[int] = None
-        self.exitpoint: typing.Optional[int] = None
+        self.entry: typing.Optional[int] = None
 
         self.engine = unicorn.Uc(self.arch, self.mode)
 
@@ -122,6 +121,7 @@ class UnicornEmulator(emulator.Emulator):
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
+        self.bounds: typing.Iterable[range] = []
 
         self.hooks: typing.Dict[int, typing.Callable[[emulator.Emulator], None]] = {}
         self.hook_return = None
@@ -138,7 +138,7 @@ class UnicornEmulator(emulator.Emulator):
         self.engine.hook_add(unicorn.UC_HOOK_CODE, callback)
 
     def register(self, name: str) -> int:
-        """Translate register name into Unicorn const.
+        """Translate register name into Unicorn constant.
 
         Arguments:
             register (str): Canonical name of a register.
@@ -253,20 +253,15 @@ class UnicornEmulator(emulator.Emulator):
         self.write_memory(code.base, code.image)
 
         if code.entry is not None:
-            self.entrypoint = code.entry
-            if self.entrypoint < code.base or self.entrypoint > code.base + len(
-                code.image
-            ):
+            self.entry = code.entry
+            if self.entry < code.base or self.entry > code.base + len(code.image):
                 raise ValueError(
-                    "entrypoint is not in code: 0x{self.entrypoint:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
+                    "entry is not in code: 0x{self.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
         else:
-            self.entrypoint = code.base
+            self.entry = code.base
 
-        if code.exits:
-            self.exitpoint = list(code.exits)[0]
-        else:
-            self.exitpoint = code.base + len(code.image)
+        self.bounds = code.bounds
 
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
@@ -286,7 +281,7 @@ class UnicornEmulator(emulator.Emulator):
     def disassemble(
         self, code: bytes, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
-        # TODO: annotate that offsets are relative
+        # TODO: annotate that offsets are relative.
         #
         # We don't know what the base address is at disassembly time - so we
         # just set it to 0. This means relative address arguments aren't
@@ -312,24 +307,36 @@ class UnicornEmulator(emulator.Emulator):
         for i in self.disassembler.disasm(code, pc):
             return i
 
+    @property
+    def exit(self):
+        for bound in self.bounds:
+            if self.entry in bound:
+                return bound.stop
+
+        return None
+
     def check(self) -> None:
-        if self.entrypoint is None:
+        if self.entry is None:
             raise exceptions.ConfigurationError(
-                "no entrypoint provided, emulation cannot start"
+                "no entry provided, emulation cannot start"
             )
-        if self.exitpoint is None:
+
+        if not self.bounds:
             raise exceptions.ConfigurationError(
-                "no exitpoint provided, emulation cannot start"
+                "no bounds provided, emulation cannot start"
+            )
+
+        if self.exit is None:
+            raise exceptions.ConfigurationError(
+                "entry is not in valid execution bounds"
             )
 
     def run(self) -> None:
         self.check()
 
-        logger.info(
-            f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
-        )
+        logger.info(f"starting emulation at 0x{self.entry:x} until 0x{self.exit:x}")
         try:
-            self.engine.emu_start(self.entrypoint, self.exitpoint)
+            self.engine.emu_start(self.entry, self.exit)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")
@@ -350,18 +357,18 @@ class UnicornEmulator(emulator.Emulator):
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, self.exitpoint, count=1)
+            self.engine.emu_start(pc, self.exit, count=1)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             self._error(e)
 
         pc = self.read_register("pc")
-        if self.entrypoint is None or self.exitpoint is None:
-            assert False, "impossible state"
-        if pc == self.exitpoint:
-            return True
 
-        return False
+        for bound in self.bounds:
+            if pc in bound:
+                return False
+
+        return True
 
     def _error(
         self, error: unicorn.UcError
