@@ -17,11 +17,13 @@ class DetailedCalledProcessError(Exception):
 
 
 class ScriptIntegrationTest(unittest.TestCase):
-    def command(self, cmd: str) -> typing.Tuple[str, str]:
+    def command(self, cmd: str, error: bool = True) -> typing.Tuple[str, str]:
         """Run the given command and return the output.
 
         Arguments:
             cmd: The command to run.
+            error: If `True` raises an exception if the command fails,
+                otherwise just returns stdout/stderr as if it had succeeded.
 
         Returns:
             The `(stdout, stderr)` of the process as strings.
@@ -41,7 +43,10 @@ class ScriptIntegrationTest(unittest.TestCase):
 
             return process.stdout.decode(), process.stderr.decode()
         except subprocess.CalledProcessError as e:
-            raise DetailedCalledProcessError(e)
+            if error:
+                raise DetailedCalledProcessError(e)
+            else:
+                return e.stdout.decode(), e.stderr.decode()
 
     def assertContains(self, output: str, match: str) -> None:
         """Assert that output contains a given regex.
@@ -151,7 +156,8 @@ class FuzzTests(ScriptIntegrationTest):
 
     def test_fuzzing(self):
         stdout, _ = self.command(
-            "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input"
+            "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input",
+            error=False,
         )
         self.assertLineContains(stdout, "001445:1")
         self.assertLineContains(stdout, "003349:1")
