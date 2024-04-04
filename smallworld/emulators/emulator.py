@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Emulator(metaclass=abc.ABCMeta):
     """An emulator base class.
 
-    Defines the interface for emulators.
+    Defines the interface for emulators foo.
     """
 
     @abc.abstractmethod
@@ -77,7 +77,6 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-
     def add_pc_range(self, pc_range: range) -> None:
         """Add a pc range with which to restrict emulation
 
