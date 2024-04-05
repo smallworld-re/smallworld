@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `state.models` a collection of python models for library code implemented as
   customizable hooks.
 - `Emulator.hook()` for dynamic hooking.
+- `CodeReachable` analysis that show what code is reachable by symbolic execution.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
