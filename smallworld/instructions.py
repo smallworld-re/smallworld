@@ -51,8 +51,8 @@ class RegisterOperand(Operand):
     def __eq__(self, other):
         return self.__repr__() == other.__repr__()
 
-    def __hash__(self):
-        return hash(self.__repr__())
+    def __hash__(self) -> int:
+        return hash((self.name, self.size))
 
     def concretize(self, emulator: emulators.Emulator) -> int:
         return emulator.read_register(self.name)
