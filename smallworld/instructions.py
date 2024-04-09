@@ -1,3 +1,4 @@
+import pdb
 import abc
 import base64
 import logging
@@ -188,13 +189,22 @@ class Instruction(utils.Serializable):
             instruction: An existing Capstone instruction.
         """
 
-        return cls(
-            instruction=instruction.bytes,
-            address=instruction.address,
-            arch=cls.CAPSTONE_REVERSE_ARCH_MAP[instruction._cs.arch],
-            mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
-            _instruction=instruction,
-        )
+        if instruction._cs.arch == capstone.CS_ARCH_X86:
+            return x86Instruction(
+                instruction=instruction.bytes,
+                address=instruction.address,
+                arch=cls.CAPSTONE_REVERSE_ARCH_MAP[instruction._cs.arch],
+                mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
+                _instruction=instruction,
+            )
+        else:
+            return cls(
+                instruction=instruction.bytes,
+                address=instruction.address,
+                arch=cls.CAPSTONE_REVERSE_ARCH_MAP[instruction._cs.arch],
+                mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
+                _instruction=instruction,
+            )
 
     @classmethod
     def from_bytes(cls, *args, **kwargs):
@@ -210,6 +220,75 @@ class Instruction(utils.Serializable):
             offset=operand.value.mem.disp,
             size=operand.size,
         )
+
+    @property
+    def reads(self) -> typing.List[Operand]:
+        """Registers and memory references read by this instruction.
+
+        This is a list of string register names and dictionary memory reference
+        specifications (i.e., in the form `base + scale * index + offset`).
+        """
+
+        registers, _ = self._instruction.regs_access()
+        read: typing.List[Operand] = [
+            RegisterOperand(self._instruction.reg_name(r)) for r in registers
+        ]
+
+        for operand in self._instruction.operands:
+            if (
+                operand.type == capstone.CS_OP_MEM
+                and operand.access & capstone.CS_AC_READ
+            ):
+                read.append(self._memory_reference(operand))
+
+        return read
+
+    @property
+    def writes(self) -> typing.List[Operand]:
+        """Registers and memory references written by this instruction.
+
+        Same format as `reads`.
+        """
+
+        _, registers = self._instruction.regs_access()
+
+        write: typing.List[Operand] = [
+            RegisterOperand(self._instruction.reg_name(r)) for r in registers
+        ]
+
+        for operand in self._instruction.operands:
+            if (
+                operand.type == capstone.CS_OP_MEM
+                and operand.access & capstone.CS_AC_WRITE
+            ):
+                write.append(self._memory_reference(operand))
+
+        return write
+
+    def to_json(self) -> dict:
+        return {
+            "instruction": base64.b64encode(self.instruction).decode(),
+            "address": self.address,
+            "arch": self.arch,
+            "mode": self.mode,
+        }
+
+    @classmethod
+    def from_json(cls, dict):
+        if "instruction" not in dict:
+            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+
+        dict["instruction"] = base64.b64decode(dict["instruction"])
+
+        cls(**dict)
+
+    def __repr__(self) -> str:
+        string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()
+
+        return f"{self.__class__.__name__}(0x{self.address:x}: {string}; {self.arch}, {self.mode})"
+
+
+class x86Instruction(Instruction):
 
     @property
     def reads(self) -> typing.Set[Operand]:
@@ -278,25 +357,3 @@ class Instruction(utils.Serializable):
                     assert 1 == 0
 
         return the_writes
-
-    def to_json(self) -> dict:
-        return {
-            "instruction": base64.b64encode(self.instruction).decode(),
-            "address": self.address,
-            "arch": self.arch,
-            "mode": self.mode,
-        }
-
-    @classmethod
-    def from_json(cls, dict):
-        if "instruction" not in dict:
-            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
-
-        dict["instruction"] = base64.b64decode(dict["instruction"])
-
-        cls(**dict)
-
-    def __repr__(self) -> str:
-        string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()
-
-        return f"{self.__class__.__name__}(0x{self.address:x}: {string}; {self.arch}, {self.mode})"
