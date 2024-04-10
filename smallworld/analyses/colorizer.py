@@ -142,6 +142,8 @@ class ColorizerAnalysis(analysis.Analysis):
                 self.cpu.load(emu)
 
                 reads: typing.List[typing.Tuple[Operand, str]] = []
+#                import pdb
+#                pdb.set_trace()
                 for read_operand in sw_insn.reads:
                     try:
                         read_operand_color = self.concrete_val_to_color(
