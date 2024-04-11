@@ -81,6 +81,15 @@ class ColorizerAnalysis(analysis.Analysis):
         insn = insns[0]
         return insn
 
+    def operand_size(self, operand: Operand) -> int:
+        if type(operand) is RegisterOperand:
+            # return size of a reg based on its name
+            return getattr(self.cpu, operand.name).width
+        elif type(operand) is x86MemoryReferenceOperand:
+            # memory operand knows its size
+            return operand.size
+        return 0
+
     def run(self, cpustate: state.CPU) -> None:
         # NB: perform more than one micro-exec
         # since paths could diverge given random intial
@@ -120,11 +129,12 @@ class ColorizerAnalysis(analysis.Analysis):
                 # pull state back out of the emulator for inspection
                 self.cpu.load(emu)
 
-                reads: typing.List[typing.Tuple[Operand, str]] = []
+                reads: typing.List[typing.Tuple[Operand, str, int]] = []
                 for read_operand in sw_insn.reads:
+                    sz = self.operand_size(read_operand)
                     try:
                         read_operand_color = self.concrete_val_to_color(
-                            read_operand.concretize(emu), read_operand.size
+                            read_operand.concretize(emu), sz
                         )
                     except UnacceptableColorException:
                         continue
@@ -135,8 +145,8 @@ class ColorizerAnalysis(analysis.Analysis):
                         hint_list.append(h)
                         # don't add to the list
                         continue
-                    pair = (read_operand, read_operand_color)
-                    reads.append(pair)
+                    tup = (read_operand, read_operand_color, sz)
+                    reads.append(tup)
                 self.check_colors_instruction_reads(
                     emu, reads, sw_insn, colors, i, j, hint_list
                 )
@@ -158,11 +168,12 @@ class ColorizerAnalysis(analysis.Analysis):
                     logger.info(e)
                     break
 
-                writes: typing.List[typing.Tuple[Operand, str]] = []
+                writes: typing.List[typing.Tuple[Operand, str, int]] = []
                 for write_operand in sw_insn.writes:
+                    sz = self.operand_size(read_operand)
                     try:
                         write_operand_color = self.concrete_val_to_color(
-                            write_operand.concretize(emu), write_operand.size
+                            write_operand.concretize(emu), sz
                         )
                     except UnacceptableColorException:
                         continue
@@ -171,8 +182,8 @@ class ColorizerAnalysis(analysis.Analysis):
                             emu, write_operand, sw_insn, pc, i, j
                         )
                         hint_list.append(h)
-                    pair = (write_operand, write_operand_color)
-                    writes.append(pair)
+                    tup = (write_operand, write_operand_color, sz)
+                    writes.append(tup)
                 self.check_colors_instruction_writes(
                     emu, writes, sw_insn, colors, i, j, hint_list
                 )
@@ -184,11 +195,11 @@ class ColorizerAnalysis(analysis.Analysis):
         # get set across all hint list
         def hint_key(hint):
             if type(hint) is hinting.DynamicRegisterValueHint:
-                return f"{hint.message},{hint.instruction},{hint.pc:x},{hint.size},{hint.use},{hint.new},{hint.reg_name}"
+                return f"{hint.message},{hint.instruction},{hint.pc:x},{hint.use},{hint.new},{hint.reg_name},{hint.size}"
             if type(hint) is hinting.DynamicMemoryValueHint:
-                return f"{hint.message},{hint.instruction},{hint.pc:x},{hint.size},{hint.use},{hint.new},{hint.base},{hint.index},{hint.scale},{hint.offset}"
+                return f"{hint.message},{hint.instruction},{hint.pc:x},{hint.use},{hint.new},{hint.base},{hint.index},{hint.scale},{hint.offset},{hint.size}"
             if type(hint) is hinting.MemoryUnavailableHint:
-                return f"{hint.message},{hint.instruction},{hint.pc:x},{hint.size},{hint.is_read},{hint.base_reg_name},{hint.index_reg_name},{hint.offset},{hint.scale}"
+                return f"{hint.message},{hint.instruction},{hint.pc:x},{hint.is_read},{hint.base_reg_name},{hint.index_reg_name},{hint.offset},{hint.scale},{hint.size}"
 
         all_hint_keys = set([])
         for hint_list in hint_list_list:
@@ -212,8 +223,8 @@ class ColorizerAnalysis(analysis.Analysis):
                     hinting.DynamicRegisterValueProbHint(
                         instruction=hint.instruction,
                         pc=hint.pc,
-                        size=hint.size,
                         reg_name=hint.reg_name,
+                        size=hint.size,
                         use=hint.use,
                         new=hint.new,
                         prob=p,
@@ -362,20 +373,21 @@ class ColorizerAnalysis(analysis.Analysis):
     def check_colors_instruction_reads(
         self,
         emu: UnicornEmulator,
-        reads: typing.List[typing.Tuple[Operand, str]],
+        reads: typing.List[typing.Tuple[Operand, str, int]],
         insn: Instruction,
         colors: Colors,
         exec_num: int,
         insn_num: int,
         hint_list: typing.List[hinting.Hint],
     ):
-        for operand, operand_val in reads:
+        for operand, operand_val, operand_size in reads:
             if operand_val in colors:
                 # use of a previously recorded color value
                 # this is a flow
                 hint = self.dynamic_value_hint(
                     emu,
                     operand,
+                    operand_size,
                     operand_val,
                     insn,
                     True,
@@ -393,6 +405,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 hint = self.dynamic_value_hint(
                     emu,
                     operand,
+                    operand_size,
                     operand_val,
                     insn,
                     True,
@@ -408,7 +421,7 @@ class ColorizerAnalysis(analysis.Analysis):
     def check_colors_instruction_writes(
         self,
         emu: UnicornEmulator,
-        writes: typing.List[typing.Tuple[Operand, str]],
+        writes: typing.List[typing.Tuple[Operand, str, int]],
         insn: Instruction,
         colors: Colors,
         exec_num: int,
@@ -416,7 +429,7 @@ class ColorizerAnalysis(analysis.Analysis):
         hint_list: typing.List[hinting.Hint],
     ):
         # NB: This should be called *AFTER the instruction emulates!
-        for operand, operand_val in writes:
+        for operand, operand_val, operand_size in writes:
             if operand_val in colors:
                 # write of a previously seen value
                 # ... its likely just a copy so no hint
@@ -428,6 +441,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 hint = self.dynamic_value_hint(
                     emu,
                     operand,
+                    operand_size,
                     operand_val,
                     insn,
                     False,
@@ -444,6 +458,7 @@ class ColorizerAnalysis(analysis.Analysis):
         self,
         emu: UnicornEmulator,
         operand: Operand,
+        size: int,
         operand_val: str,
         insn: Instruction,
         is_use: bool,
@@ -456,8 +471,8 @@ class ColorizerAnalysis(analysis.Analysis):
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
                 reg_name=operand.name,
+                size=size,
                 dynamic_value=operand_val,
-                size=operand.size,
                 use=is_use,
                 new=is_new,
                 instruction=insn,

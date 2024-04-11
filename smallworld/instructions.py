@@ -41,9 +41,8 @@ class Operand(metaclass=abc.ABCMeta):
 
 
 class RegisterOperand(Operand):
-    def __init__(self, name: str, size: int):
+    def __init__(self, name: str):
         self.name = name
-        self.size = size
 
     def key(self, emulator: emulators.Emulator):
         return self.name
@@ -52,13 +51,13 @@ class RegisterOperand(Operand):
         return hash(self) == hash(other)
 
     def __hash__(self) -> int:
-        return hash((self.name, self.size))
+        return hash(self.__repr__())
 
     def concretize(self, emulator: emulators.Emulator) -> int:
         return emulator.read_register(self.name)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.name},{self.size})"
+        return f"{self.__class__.__name__}({self.name})"
 
 
 class MemoryReferenceOperand(Operand):
@@ -229,8 +228,9 @@ class Instruction(utils.Serializable):
         """
 
         registers, _ = self._instruction.regs_access()
+
         read: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r), 64) for r in registers]
+            [RegisterOperand(self._instruction.reg_name(r)) for r in registers]
         )
 
         for operand in self._instruction.operands:
@@ -252,7 +252,7 @@ class Instruction(utils.Serializable):
         _, registers = self._instruction.regs_access()
 
         write: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r), 64) for r in registers]
+            [RegisterOperand(self._instruction.reg_name(r)) for r in registers]
         )
 
         for operand in self._instruction.operands:
@@ -298,7 +298,6 @@ class x86Instruction(Instruction):
 
         the_reads: typing.Set[Operand] = set([])
         for operand in self._instruction.operands:
-            #            logger.info(f"operand type {operand.type}")
             if operand.access & capstone.CS_AC_READ:
                 if operand.type == capstone.x86.X86_OP_MEM:
                     if self._instruction.mnemonic == "lea":
@@ -312,20 +311,14 @@ class x86Instruction(Instruction):
                             return 4
 
                         if base_name:
-                            the_reads.add(
-                                RegisterOperand(base_name, num_bytes(base_name))
-                            )
+                            the_reads.add(RegisterOperand(base_name))
                         if index_name:
-                            the_reads.add(
-                                RegisterOperand(index_name, num_bytes(index_name))
-                            )
+                            the_reads.add(RegisterOperand(index_name))
                     else:
                         the_reads.add(self._memory_reference(operand))
                 elif operand.type == capstone.x86.X86_OP_REG:
                     the_reads.add(
-                        RegisterOperand(
-                            self._instruction.reg_name(operand.reg), operand.size
-                        )
+                        RegisterOperand(self._instruction.reg_name(operand.reg))
                     )
                 else:
                     assert 1 == 0
@@ -347,9 +340,7 @@ class x86Instruction(Instruction):
                     the_writes.add(self._memory_reference(operand))
                 elif operand.type == capstone.x86.X86_OP_REG:
                     the_writes.add(
-                        RegisterOperand(
-                            self._instruction.reg_name(operand.reg), operand.size
-                        )
+                        RegisterOperand(self._instruction.reg_name(operand.reg))
                     )
                 else:
                     assert 1 == 0

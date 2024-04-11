@@ -6,6 +6,26 @@ class AMD64CPUState(i386.i386CPUState):
     """AMD64 CPU state model."""
 
     mode = "64"
+    num_bits = 64
+
+    REGULAR_REGS_64 = [
+        "rax",
+        "rbx",
+        "rcx",
+        "rdx",
+        "rdi",
+        "rsi",
+        "rbp",
+        "rsp",
+        "r8",
+        "r9",
+        "r10",
+        "r11",
+        "r12",
+        "r13",
+        "r14",
+        "r15",
+    ]
 
     def __init__(self):
         self.rax = state.Register("rax", width=8)

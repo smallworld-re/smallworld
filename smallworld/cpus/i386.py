@@ -7,24 +7,9 @@ class i386CPUState(state.CPU):
     arch = "x86"
     mode = "32"
 
-    REGULAR_REGS_64 = [
-        "rax",
-        "rbx",
-        "rcx",
-        "rdx",
-        "rdi",
-        "rsi",
-        "rbp",
-        "rsp",
-        "r8",
-        "r9",
-        "r10",
-        "r11",
-        "r12",
-        "r13",
-        "r14",
-        "r15",
-    ]
+    num_bits = 32
+
+    REGULAR_REGS_64 = []
 
     REGULAR_REGS_32 = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
 
