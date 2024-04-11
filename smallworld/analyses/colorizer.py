@@ -57,27 +57,6 @@ class ColorizerAnalysis(analysis.Analysis):
     description = "it's almost taint"
     version = "0.0.1"
 
-    REGULAR_REGS_64 = [
-        "rax",
-        "rbx",
-        "rcx",
-        "rdx",
-        "rdi",
-        "rsi",
-        "rbp",
-        "rsp",
-        "r8",
-        "r9",
-        "r10",
-        "r11",
-        "r12",
-        "r13",
-        "r14",
-        "r15",
-    ]
-
-    REGULAR_REGS_32 = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
-
     def __init__(
         self,
         *args,
@@ -302,9 +281,7 @@ class ColorizerAnalysis(analysis.Analysis):
         for name, reg in self.cpu.values().items():
             if type(reg) is state.Register:
                 # only colorize the "regular" registers
-
-                # TODO:  oops this wont work if we have a 32 bit cpu
-                if not (name in self.REGULAR_REGS_64):
+                if (self.cpu.mode == "32" and not (name in self.cpu.REGULAR_REGS_32)) or (self.cpu.mode == "64" and not (name in self.cpu.REGULAR_REGS_64)):
                     continue
                 # !! don't colorize a register that has already been initialized
                 if not (reg.get() is None):

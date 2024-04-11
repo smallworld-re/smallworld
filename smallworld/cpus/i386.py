@@ -7,6 +7,27 @@ class i386CPUState(state.CPU):
     arch = "x86"
     mode = "32"
 
+    REGULAR_REGS_64 = [ "rax",
+                        "rbx",
+                        "rcx",
+                        "rdx",
+                        "rdi",
+                        "rsi",
+                        "rbp",
+                        "rsp",
+                        "r8",
+                        "r9",
+                        "r10",
+                        "r11",
+                        "r12",
+                        "r13",
+                        "r14",
+                        "r15",
+                       ]
+        
+    REGULAR_REGS_32 = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
+
+
     def __init__(self):
         self.eax = state.Register("eax")
         self.ax = state.RegisterAlias("ax", self.eax, width=2)
