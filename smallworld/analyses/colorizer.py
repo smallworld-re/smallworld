@@ -121,8 +121,6 @@ class ColorizerAnalysis(analysis.Analysis):
                 self.cpu.load(emu)
 
                 reads: typing.List[typing.Tuple[Operand, str]] = []
-                #                import pdb
-                #                pdb.set_trace()
                 for read_operand in sw_insn.reads:
                     try:
                         read_operand_color = self.concrete_val_to_color(
@@ -281,7 +279,9 @@ class ColorizerAnalysis(analysis.Analysis):
         for name, reg in self.cpu.values().items():
             if type(reg) is state.Register:
                 # only colorize the "regular" registers
-                if (self.cpu.mode == "32" and not (name in self.cpu.REGULAR_REGS_32)) or (self.cpu.mode == "64" and not (name in self.cpu.REGULAR_REGS_64)):
+                if (
+                    self.cpu.mode == "32" and not (name in self.cpu.REGULAR_REGS_32)
+                ) or (self.cpu.mode == "64" and not (name in self.cpu.REGULAR_REGS_64)):
                     continue
                 # !! don't colorize a register that has already been initialized
                 if not (reg.get() is None):

@@ -1,4 +1,3 @@
-import pdb
 import abc
 import base64
 import logging
@@ -222,7 +221,7 @@ class Instruction(utils.Serializable):
         )
 
     @property
-    def reads(self) -> typing.List[Operand]:
+    def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
 
         This is a list of string register names and dictionary memory reference
@@ -230,21 +229,21 @@ class Instruction(utils.Serializable):
         """
 
         registers, _ = self._instruction.regs_access()
-        read: typing.List[Operand] = [
-            RegisterOperand(self._instruction.reg_name(r)) for r in registers
-        ]
+        read: typing.Set[Operand] = set(
+            [RegisterOperand(self._instruction.reg_name(r), 64) for r in registers]
+        )
 
         for operand in self._instruction.operands:
             if (
                 operand.type == capstone.CS_OP_MEM
                 and operand.access & capstone.CS_AC_READ
             ):
-                read.append(self._memory_reference(operand))
+                read.add(self._memory_reference(operand))
 
         return read
 
     @property
-    def writes(self) -> typing.List[Operand]:
+    def writes(self) -> typing.Set[Operand]:
         """Registers and memory references written by this instruction.
 
         Same format as `reads`.
@@ -252,16 +251,16 @@ class Instruction(utils.Serializable):
 
         _, registers = self._instruction.regs_access()
 
-        write: typing.List[Operand] = [
-            RegisterOperand(self._instruction.reg_name(r)) for r in registers
-        ]
+        write: typing.Set[Operand] = set(
+            [RegisterOperand(self._instruction.reg_name(r), 64) for r in registers]
+        )
 
         for operand in self._instruction.operands:
             if (
                 operand.type == capstone.CS_OP_MEM
                 and operand.access & capstone.CS_AC_WRITE
             ):
-                write.append(self._memory_reference(operand))
+                write.add(self._memory_reference(operand))
 
         return write
 
@@ -289,7 +288,6 @@ class Instruction(utils.Serializable):
 
 
 class x86Instruction(Instruction):
-
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.

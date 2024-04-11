@@ -596,6 +596,20 @@ class CPU(State):
 
         return ""
 
+    @property
+    @abc.abstractmethod
+    def REGULAR_REGS_64(self) -> typing.List[str]:
+        """List of regular 64 bit registers"""
+
+        return []
+
+    @property
+    @abc.abstractmethod
+    def REGULAR_REGS_32(self) -> typing.List[str]:
+        """List of regular 32 bit registers"""
+
+        return []
+
 
 __all__ = [
     "Value",
