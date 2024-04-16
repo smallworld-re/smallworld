@@ -39,15 +39,25 @@ def analyze(cpu: T) -> None:
         cpu: A state class from which emulation should begin.
     """
 
+    filters = []
     for name in analyses.__all__:
         module: typing.Type = getattr(analyses, name)
         if issubclass(module, analyses.Filter) and module is not analyses.Filter:
-            module().activate()
+            filters.append(module())
+            filters[-1].activate()
 
-    for name in analyses.__all__:
-        module = getattr(analyses, name)
-        if issubclass(module, analyses.Analysis) and module is not analyses.Analysis:
-            module().run(cpu)
+    try:
+        for name in analyses.__all__:
+            module = getattr(analyses, name)
+            if (
+                issubclass(module, analyses.Analysis)
+                and module is not analyses.Analysis
+            ):
+                module().run(cpu)
+    except:
+        for filter in filters:
+            filter.deactivate()
+        raise
 
 
 def fuzz(
