@@ -405,7 +405,13 @@ class ColorizerAnalysis(analysis.Analysis):
                 # use of a NOT previously recorded color value.
                 # as long as the value is something reasonable,
                 # we'll record it as a new coloe
-                colors[operand_val] = (operand, exec_num, insn_num, insn, 1+len(colors))
+                colors[operand_val] = (
+                    operand,
+                    exec_num,
+                    insn_num,
+                    insn,
+                    1 + len(colors),
+                )
                 hint = self.dynamic_value_hint(
                     emu,
                     colors,
@@ -442,7 +448,13 @@ class ColorizerAnalysis(analysis.Analysis):
                 # write of a NOT previously recorded color value
                 # as long as the value is something reasonable,
                 # we'll record it as a new coloe
-                colors[operand_val] = (operand, exec_num, insn_num, insn, 1+len(colors))
+                colors[operand_val] = (
+                    operand,
+                    exec_num,
+                    insn_num,
+                    insn,
+                    1 + len(colors),
+                )
                 hint = self.dynamic_value_hint(
                     emu,
                     colors,
@@ -474,8 +486,8 @@ class ColorizerAnalysis(analysis.Analysis):
         message: str,
     ):
         pc = insn.address
-#        import pdb
-#        pdb.set_trace()
+        #        import pdb
+        #        pdb.set_trace()
         (_, _, _, _, color_num) = colors[operand_val]
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
