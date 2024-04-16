@@ -94,12 +94,12 @@ class ColorizerAnalysis(analysis.Analysis):
         # NB: perform more than one micro-exec
         # since paths could diverge given random intial
         # reg values
-        hint_list_list = []
+        hint_list_list: typing.List[typing.List[hinting.Hint]] = []
         for i in range(self.num_micro_executions):
             self.cpu = copy.deepcopy(cpustate)
 
             the_code = None
-            for n, s in self.cpu.values().items():
+            for n, s in self.cpu.members(state.Code).items():
                 if type(s) is state.Code:
                     the_code = s
 
@@ -131,6 +131,7 @@ class ColorizerAnalysis(analysis.Analysis):
 
                 reads: typing.List[typing.Tuple[Operand, str, int]] = []
                 for read_operand in sw_insn.reads:
+                    logger.debug(f"pc={pc:x} read_operand={read_operand}")
                     sz = self.operand_size(read_operand)
                     try:
                         read_operand_color = self.concrete_val_to_color(
@@ -224,6 +225,7 @@ class ColorizerAnalysis(analysis.Analysis):
                         instruction=hint.instruction,
                         pc=hint.pc,
                         reg_name=hint.reg_name,
+                        color=hint.color,
                         size=hint.size,
                         use=hint.use,
                         new=hint.new,
@@ -241,6 +243,7 @@ class ColorizerAnalysis(analysis.Analysis):
                         index=hint.index,
                         scale=hint.scale,
                         offset=hint.offset,
+                        color=hint.color,
                         use=hint.use,
                         new=hint.new,
                         prob=p,
@@ -287,22 +290,21 @@ class ColorizerAnalysis(analysis.Analysis):
         return base64.b64encode(the_bytes).decode()
 
     def randomize_registers(self) -> None:
-        for name, reg in self.cpu.values().items():
-            if type(reg) is state.Register:
-                # only colorize the "regular" registers
-                if (
-                    self.cpu.mode == "32" and not (name in self.cpu.REGULAR_REGS_32)
-                ) or (self.cpu.mode == "64" and not (name in self.cpu.REGULAR_REGS_64)):
-                    continue
-                # !! don't colorize a register that has already been initialized
-                if not (reg.get() is None):
-                    logger.debug(
-                        f"Not colorizing register {name} since it is already initialized with {reg.get():x}"
-                    )
-                    continue
-                val = random.randint(0, 0xFFFFFFFFFFFFFFF)
-                reg.set(val)
-                logger.debug(f"Colorizing register {name} with {val:x}")
+        for name, reg in self.cpu.members(state.Register).items():
+            # only colorize the "regular" registers
+            if (self.cpu.mode == "32" and not (name in self.cpu.REGULAR_REGS_32)) or (
+                self.cpu.mode == "64" and not (name in self.cpu.REGULAR_REGS_64)
+            ):
+                continue
+            # !! don't colorize a register that has already been initialized
+            if not (reg.value is None):
+                logger.debug(
+                    f"Not colorizing register {name} since it is already initialized with {reg.get():x}"
+                )
+                continue
+            val = random.randint(0, 0xFFFFFFFFFFFFFFF)
+            reg.value = val
+            logger.debug(f"Colorizing register {name} with {val:x}")
 
     # unavailable reads are hints
     def read_unavailable_hint(
@@ -386,6 +388,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 # this is a flow
                 hint = self.dynamic_value_hint(
                     emu,
+                    colors,
                     operand,
                     operand_size,
                     operand_val,
@@ -402,8 +405,10 @@ class ColorizerAnalysis(analysis.Analysis):
                 # use of a NOT previously recorded color value.
                 # as long as the value is something reasonable,
                 # we'll record it as a new coloe
+                colors[operand_val] = (operand, exec_num, insn_num, insn, 1+len(colors))
                 hint = self.dynamic_value_hint(
                     emu,
+                    colors,
                     operand,
                     operand_size,
                     operand_val,
@@ -416,7 +421,6 @@ class ColorizerAnalysis(analysis.Analysis):
                 )
                 hinter.debug(hint)
                 hint_list.append(hint)
-                colors[operand_val] = (operand, exec_num, insn_num, insn)
 
     def check_colors_instruction_writes(
         self,
@@ -438,8 +442,10 @@ class ColorizerAnalysis(analysis.Analysis):
                 # write of a NOT previously recorded color value
                 # as long as the value is something reasonable,
                 # we'll record it as a new coloe
+                colors[operand_val] = (operand, exec_num, insn_num, insn, 1+len(colors))
                 hint = self.dynamic_value_hint(
                     emu,
+                    colors,
                     operand,
                     operand_size,
                     operand_val,
@@ -452,11 +458,11 @@ class ColorizerAnalysis(analysis.Analysis):
                 )
                 hinter.debug(hint)
                 hint_list.append(hint)
-                colors[operand_val] = (operand, exec_num, insn_num, insn)
 
     def dynamic_value_hint(
         self,
         emu: UnicornEmulator,
+        colors: Colors,
         operand: Operand,
         size: int,
         operand_val: str,
@@ -468,10 +474,14 @@ class ColorizerAnalysis(analysis.Analysis):
         message: str,
     ):
         pc = insn.address
+#        import pdb
+#        pdb.set_trace()
+        (_, _, _, _, color_num) = colors[operand_val]
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
                 reg_name=operand.name,
                 size=size,
+                color=color_num,
                 dynamic_value=operand_val,
                 use=is_use,
                 new=is_new,
@@ -496,6 +506,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 offset=operand.offset,
                 dynamic_value=operand_val,
                 size=operand.size,
+                color=color_num,
                 use=is_use,
                 new=is_new,
                 instruction=insn,

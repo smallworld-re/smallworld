@@ -9,6 +9,6 @@ smallworld.setup_hinting(level=logging.INFO)
 state = smallworld.cpus.AMD64CPUState()
 elf = smallworld.state.ELFImage.from_filepath(sys.argv[1])
 state.map(elf)
-state.rip.set(elf.entry)
+state.rip.value = elf.entry
 
 smallworld.analyze(state)

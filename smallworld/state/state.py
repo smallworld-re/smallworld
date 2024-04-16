@@ -16,18 +16,20 @@ class Value(metaclass=abc.ABCMeta):
     Defines the interface for a single system state value.
     """
 
+    @property
     @abc.abstractmethod
-    def get(self):
+    def value(self):
         """Get the internaly stored value.
 
         Returns:
             Some internal value type.
         """
 
-        return
+        pass
 
+    @value.setter
     @abc.abstractmethod
-    def set(self, value) -> None:
+    def value(self, value) -> None:
         """Set the internally stored value.
 
         Arguments:
@@ -35,6 +37,12 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         pass
+
+    type: typing.Any = None
+    """Optinal type information."""
+
+    label: typing.Any = None
+    """Optional label information."""
 
     @abc.abstractmethod
     def initialize(
@@ -87,32 +95,35 @@ class Code(Value):
 
     Arguments:
         image: The actual bytes of the executable.
+        base: Base address.
         type: Executable format ("blob", "PE", "ELF", etc.)
         arch: Architecture ("x86", "arm", etc.)
         mode: Architecture mode ("32", "64", etc.)
-        base: Base address.
-        entry: Execution entry address.
-        exits: Exit addresses - used to determine when execution has
-            terminated.
+        entry: Execution entry address - if not provided this is assumed to be
+            the same as `base`.
+        bounds: Address ranges of valid execution - if not provided this is the
+            entire address range of this executable code.
     """
 
     def __init__(
         self,
         image: bytes,
+        base: int,
         type: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
-        base: typing.Optional[int] = None,
         entry: typing.Optional[int] = None,
-        exits: typing.Optional[typing.Iterable[int]] = None,
+        bounds: typing.Optional[typing.Iterable[range]] = None,
     ):
+        super().__init__()
+
         self.image = image
         self.type = type
         self.arch = arch
         self.mode = mode
         self.base = base
-        self.entry = entry
-        self.exits = exits or []
+        self.entry = entry or base
+        self.bounds = bounds or [range(self.entry, self.entry + len(image))]
 
     @classmethod
     def from_filepath(cls, path: str, *args, **kwargs):
@@ -121,10 +132,12 @@ class Code(Value):
 
         return cls(image, *args, **kwargs)
 
-    def get(self):
+    @property
+    def value(self):
         raise NotImplementedError()
 
-    def set(self, value) -> None:
+    @value.setter
+    def value(self, value) -> None:
         raise NotImplementedError()
 
     def initialize(
@@ -139,7 +152,7 @@ class Code(Value):
         emulator.load(self)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry}, exits={self.exits})"
+        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
 
 
 class Register(Value):
@@ -151,34 +164,38 @@ class Register(Value):
     """
 
     def __init__(self, name: str, width: int = 4):
+        super().__init__()
+
         self.name = name
         self.width = width
-        self.value: typing.Optional[int] = None
+        self._value: typing.Optional[int] = None
 
-    def get(self) -> typing.Optional[int]:
-        return self.value
+    @property
+    def value(self) -> typing.Optional[int]:
+        return self._value
 
-    def set(self, value: int) -> None:
+    @value.setter
+    def value(self, value: int) -> None:
         if value.bit_length() > self.width * 8:
             raise ValueError(f"{value} is too large for {self}")
         logger.debug(f"initializing value {self}")
-        self.value = value
+        self._value = value
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
-        if self.get() is not None and not override:
+        if self.value is not None and not override:
             logger.debug(f"skipping initialization for {self} (already initialized)")
             return
 
         if self.width == 1:
-            self.set(initializer.char())
+            self.value = initializer.char()
         elif self.width == 2:
-            self.set(initializer.short())
+            self.value = initializer.short()
         elif self.width == 4:
-            self.set(initializer.word())
+            self.value = initializer.word()
         elif self.width == 8:
-            self.set(initializer.dword())
+            self.value = initializer.dword()
         else:
             raise ValueError("unsupported register width for initialization")
 
@@ -193,8 +210,8 @@ class Register(Value):
         emulator.write_register(self.name, self.value)
 
     def __repr__(self) -> str:
-        if self.get() is not None:
-            rep = f"{self.name}=0x{self.get():x}"
+        if self.value is not None:
+            rep = f"{self.name}=0x{self.value:x}"
         else:
             rep = f"{self.name}"
 
@@ -213,9 +230,9 @@ class RegisterAlias(Register):
     """
 
     def __init__(self, name: str, reference: Register, width: int = 4, offset: int = 0):
-        self.name = name
+        super().__init__(name, width)
+
         self.reference = reference
-        self.width = width
         self.offset = offset
 
     @property
@@ -227,8 +244,9 @@ class RegisterAlias(Register):
 
         return mask
 
-    def get(self) -> typing.Optional[int]:
-        reference = self.reference.get()
+    @property
+    def value(self) -> typing.Optional[int]:
+        reference = self.reference.value
 
         if reference is None:
             return None
@@ -238,15 +256,16 @@ class RegisterAlias(Register):
 
         return value
 
-    def set(self, value: int) -> None:
+    @value.setter
+    def value(self, value: int) -> None:
         if value.bit_length() > self.width * 8:
             raise ValueError(f"{value} is too large for {self}")
 
-        reference = self.reference.get() or 0
+        reference = self.reference.value or 0
 
         result = (reference & ~self.mask) + value
 
-        self.reference.set(result)
+        self.reference.value = result
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
@@ -273,48 +292,55 @@ class Memory(Value):
     """
 
     def __init__(self, address: int, size: int, byteorder="little"):
+        super().__init__()
+
         self.address = address
         self.size = size
         self.byteorder = byteorder
         self.memory = b""
 
+        self.type: typing.Dict[int, typing.Any] = {}
+        self.label: typing.Dict[int, typing.Any] = {}
+
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
-        if self.get() is not None and not override:
+        if self.value is not None and not override:
             logger.debug(f"skipping initialization for {self} (already initialized)")
             return
 
-        self.set(initializer.generate(self.size))
+        self.value = initializer.generate(self.size)
 
     def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        if self.get() is not None and not override:
+        if self.value is not None and not override:
             logger.debug(f"skipping load for {self} (already loaded)")
             return
 
         value = emulator.read_memory(self.address, self.size)
 
         if value:
-            self.set(value)
+            self.value = value
         else:
             raise ValueError(
                 f"failed to load {self.size} bytes from 0x{self.address:x}"
             )
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_memory(self.address, self.get())
+        emulator.write_memory(self.address, self.value)
 
-    def get(self) -> typing.Optional[bytes]:
+    @property
+    def value(self) -> typing.Optional[bytes]:
         return self.memory
 
-    def set(self, value: bytes) -> None:
+    @value.setter
+    def value(self, value: bytes) -> None:
         if len(value) > self.size:
             raise ValueError("buffer too large for this memory region")
 
         self.memory = value
 
     def __repr__(self) -> str:
-        value_bytes = self.get()
+        value_bytes = self.value
         if value_bytes is not None:
             value_bytes = value_bytes[:100]
             value = value_bytes.decode(errors="replace")
@@ -345,6 +371,58 @@ class Memory(Value):
         else:
             raise NotImplementedError(f"unsupported type: {type(value)}")
 
+    def set_type(
+        self,
+        offset: int,
+        type: typing.Optional[typing.Any] = None,
+        value: typing.Optional[typing.Any] = None,
+    ) -> None:
+        """Set the type of a given allocation.
+
+        Arguments:
+            offset: The offset of the object to type.
+            type: The type to set.
+            value: A value from which to infer type.
+        """
+
+        candidate = None
+
+        if type:
+            candidate = type
+        elif value:
+            if isinstance(value, Value):
+                candidate = value.type
+            else:
+                logger.warning(f"cannot infer type from {value}")
+
+        self.type[offset] = candidate
+
+    def set_label(
+        self,
+        offset: int,
+        label: typing.Optional[typing.Any] = None,
+        value: typing.Optional[typing.Any] = None,
+    ) -> None:
+        """Set the label of a given allocation.
+
+        Arguments:
+            offset: The offset of the object to label.
+            label: The label to set.
+            value: A value from which to infer label.
+        """
+
+        candidate = None
+
+        if label:
+            candidate = label
+        elif value:
+            if isinstance(value, Value):
+                candidate = value.label
+            else:
+                logger.warning(f"cannot infer label from {value}")
+
+        self.label[offset] = candidate
+
 
 class Stack(Memory):
     def __init__(self, *args, **kwargs):
@@ -353,7 +431,8 @@ class Stack(Memory):
         self.memory: typing.List[typing.Tuple(bytes, int)] = []
         self.used = 0
 
-    def get(self) -> typing.Optional[bytes]:
+    @property
+    def value(self) -> typing.Optional[bytes]:
         value = bytearray()
 
         for v, s in self.memory:
@@ -361,7 +440,8 @@ class Stack(Memory):
 
         return value
 
-    def set(self, value: bytes) -> None:
+    @value.setter
+    def value(self, value: bytes) -> None:
         if len(value) > self.size:
             raise ValueError("buffer too large for this memory region")
 
@@ -375,7 +455,13 @@ class Stack(Memory):
         self.memory = [(value, len(value))]
         self.used = len(value)
 
-    def push(self, value, size=None):
+    def push(
+        self,
+        value,
+        size: typing.Optional[int] = None,
+        type: typing.Optional[typing.Any] = None,
+        label: typing.Optional[typing.Any] = None,
+    ):
         allocation = len(self.to_bytes(value, size))
 
         if self.used + allocation > self.size:
@@ -384,15 +470,26 @@ class Stack(Memory):
         self.memory.append((value, size))
         self.used += allocation
 
+        self.set_type(offset=self.used, value=value, type=type)
+        self.set_label(offset=self.used, value=value, label=label)
+
 
 class Heap(Memory):
     @abc.abstractmethod
-    def malloc(self, value, size: typing.Optional[int] = None) -> int:
+    def malloc(
+        self,
+        value,
+        size: typing.Optional[int] = None,
+        type: typing.Optional[typing.Any] = None,
+        label: typing.Optional[typing.Any] = None,
+    ) -> int:
         """Place a value on the heap.
 
         Arguments:
             value: Object to be allocated.
             size: Size.
+            type: Type of the allocated object.
+            label: A label for the allocated object.
 
         Returns:
             The address of the value allocated.
@@ -420,7 +517,8 @@ class BumpAllocator(Heap):
         self.memory: typing.List[typing.Tuple[bytes, int]] = []
         self.used = 0
 
-    def get(self) -> typing.Optional[bytes]:
+    @property
+    def value(self) -> typing.Optional[bytes]:
         value = bytearray()
 
         for v, s in self.memory:
@@ -428,16 +526,23 @@ class BumpAllocator(Heap):
 
         return value
 
-    def set(self, value: bytes) -> None:
+    @value.setter
+    def value(self, value: bytes) -> None:
         if len(value) > self.size:
             raise ValueError("buffer too large for this memory region")
 
-        # Best effort value retrieval - see comment in `Stack.set()`.
+        # Best effort value retrieval - see comment in `Stack.value`.
 
         self.memory = [(value, len(value))]
         self.used = len(value)
 
-    def malloc(self, value, size: typing.Optional[int] = None) -> int:
+    def malloc(
+        self,
+        value,
+        size: typing.Optional[int] = None,
+        type: typing.Optional[typing.Any] = None,
+        label: typing.Optional[typing.Any] = None,
+    ) -> int:
         allocation = self.to_bytes(value, size)
 
         if size is None:
@@ -449,8 +554,12 @@ class BumpAllocator(Heap):
             )
 
         address = self.address + self.used
+
         self.memory.append((allocation, size))
         self.used += size
+
+        self.set_type(offset=self.used, value=value, type=type)
+        self.set_label(offset=self.used, value=value, label=label)
 
         return address
 
@@ -490,10 +599,10 @@ class State(Value):
 
         setattr(self, name, value)
 
-    def values(
+    def members(
         self, filter: typing.Optional[typing.Type] = None
     ) -> typing.Dict[str, typing.Any]:
-        """Values that comprise this state.
+        """Members that comprise this state.
 
         Gather the list of included state values as any class members that are
         subclasses of Value.
@@ -510,7 +619,7 @@ class State(Value):
 
         members = {}
         for member in dir(self):
-            if member == "values":
+            if member in ["members", "value", "type", "label"]:
                 continue
             value = getattr(self, member)
             if isinstance(value, Value):
@@ -519,64 +628,107 @@ class State(Value):
 
         return members
 
-    def get(self) -> typing.Dict[str, typing.Any]:
+    @property
+    def value(self) -> typing.Dict[str, typing.Any]:
         """Get the internaly stored values.
 
         Returns:
             A dict mapping state value names to internal values.
         """
 
-        return {k: v.get() for k, v in self.values().items()}
+        return {k: v.value for k, v in self.members().items()}
 
-    def set(self, value: typing.Dict[str, typing.Any]) -> None:
+    @value.setter
+    def value(self, value: typing.Dict[str, typing.Any]) -> None:
         """Set the internally stored values.
 
         Arguments:
             value: A dict mapping state value names to internal values.
         """
 
-        for name, state in self.values().items():
+        for name, state in self.members().items():
             if name in value:
-                state.set(value[name])
+                state.value = value[name]
                 value.pop(name)
 
         if value:
-            raise ValueError(f"unknown state values: {list(value.keys())}")
+            raise ValueError(f"unknown state members: {list(value.keys())}")
+
+    @property
+    def type(self) -> typing.Dict[str, typing.Any]:
+        """Get the internaly stored types.
+
+        Returns:
+            A dict mapping state value names to internal types.
+        """
+
+        return {k: v.type for k, v in self.members().items()}
+
+    @type.setter
+    def type(self, value: typing.Dict[str, typing.Any]) -> None:
+        """Set the internally stored types.
+
+        Arguments:
+            value: A dict mapping state value names to internal types.
+        """
+
+        for name, state in self.members().items():
+            if name in value:
+                state.type = value[name]
+                value.pop(name)
+
+        if value:
+            raise ValueError(f"unknown state members: {list(value.keys())}")
+
+    @property
+    def label(self) -> typing.Dict[str, typing.Any]:
+        """Get the internaly stored labels.
+
+        Returns:
+            A dict mapping state value names to internal labels.
+        """
+
+        return {k: v.label for k, v in self.members().items()}
+
+    @label.setter
+    def label(self, value: typing.Dict[str, typing.Any]) -> None:
+        """Set the internally stored labels.
+
+        Arguments:
+            value: A dict mapping state value names to internal labels.
+        """
+
+        for name, state in self.members().items():
+            if name in value:
+                state.label = value[name]
+                value.pop(name)
+
+        if value:
+            raise ValueError(f"unknown state members: {list(value.keys())}")
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
     ) -> None:
         logger.info(f"initializing {self} with {initializer}")
 
-        for name, state in self.values().items():
+        for name, state in self.members().items():
             state.initialize(initializer, override=override)
 
     def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        for name, state in self.values().items():
+        for name, state in self.members().items():
             state.load(emulator, override=override)
             logger.debug(f"loaded {name}:{state} from {emulator}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        for name, state in self.values().items():
+        for name, state in self.members().items():
             logger.debug(f"applying {name}:{state} to {emulator}")
             state.apply(emulator)
 
-    def stringify(self, truncate: bool = True) -> str:
-        """Stringify this instance.
-
-        Arguments:
-            truncate: Truncate string value to limit length if `True`.
-        """
-
-        joined = ", ".join([str(v) for v in self.values().values()])
-
-        if truncate:
-            joined = textwrap.shorten(joined, width=64)
+    def __repr__(self) -> str:
+        joined = ", ".join([str(v) for v in self.members().values()])
+        joined = textwrap.shorten(joined, width=64)
 
         return f"{self.__class__.__name__}({joined})"
-
-    def __repr__(self) -> str:
-        return self.stringify()
 
 
 class CPU(State):

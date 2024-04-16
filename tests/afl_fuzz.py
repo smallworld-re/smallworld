@@ -12,7 +12,7 @@ cpu = smallworld.cpus.AMD64CPUState()
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath("fuzz.bin", base=0x1000, entry=0x1000)
 cpu.map(code)
-cpu.rip.set(0x1000)
+cpu.rip.value = 0x1000
 
 alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x1000)
 user_input = None
@@ -22,7 +22,7 @@ size_addr = alloc.malloc(len(user_input), size=4)
 input_addr = alloc.malloc(user_input)
 
 cpu.map(alloc)
-cpu.rdi.set(size_addr)
+cpu.rdi.value = size_addr
 
 
 def input_callback(uc, input, persistent_round, data):

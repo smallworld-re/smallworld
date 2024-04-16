@@ -174,7 +174,7 @@ class AngrEmulator(emulator.Emulator):
             raise PathTerminationSignal()
 
         # Set breakpoints to halt on exit
-        exits = list(code.exits)
+        exits = [b.stop for b in code.bounds]
         default_exit = code.base + len(code.image)
         if code.type == "blob" and default_exit not in exits:
             # Set a default exit point to keep us from
@@ -198,6 +198,11 @@ class AngrEmulator(emulator.Emulator):
         if self.analysis_init is not None:
             self.analysis_init(self)
 
+    def hook(
+        self, address: int, callback: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        raise NotImplementedError()
+
     def step(self):
         # As soon as we start executing, disable value access
         self._reg_init_values = None
@@ -220,7 +225,8 @@ class AngrEmulator(emulator.Emulator):
         self.mgr.move(
             from_stash="active",
             to_stash="deadended",
-            filter_func=lambda x: x._ip.concrete_value in self._code.exits,
+            filter_func=lambda x: x._ip.concrete_value
+            in [b.stop for b in self._code.bounds],
         )
 
         # Test for exceptional states
