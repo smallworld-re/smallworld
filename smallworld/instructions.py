@@ -73,7 +73,7 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class x86MemoryReferenceOperand(MemoryReferenceOperand):
+class x86MemoryReferenceOperand(MemoryReferenceOperand, utils.Serializable):
     def __init__(
         self,
         base: typing.Optional[str] = None,
@@ -100,6 +100,23 @@ class x86MemoryReferenceOperand(MemoryReferenceOperand):
             index = emulator.read_register(self.index)
 
         return base + self.scale * index + self.offset
+
+    def to_json(self) -> dict:
+        return {
+            "base": self.base,
+            "index": self.index,
+            "scale": self.scale,
+            "offset": self.offset,
+        }
+
+    @classmethod
+    def from_json(cls, dict):
+        if "instruction" not in dict:
+            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+
+        dict["instruction"] = base64.b64decode(dict["instruction"])
+
+        cls(**dict)
 
     def __repr__(self) -> str:
         string = ""
@@ -171,7 +188,6 @@ class Instruction(utils.Serializable):
         Arguments:
             instruction: An existing Capstone instruction.
         """
-
         return cls(
             instruction=instruction.bytes,
             address=instruction.address,
@@ -183,7 +199,6 @@ class Instruction(utils.Serializable):
     @classmethod
     def from_bytes(cls, *args, **kwargs):
         """Construct from a byte string."""
-
         return cls(*args, **kwargs)
 
     def _memory_reference(self, operand) -> MemoryReferenceOperand:

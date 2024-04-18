@@ -27,6 +27,19 @@ class Hint(utils.Serializable):
 
 
 @dataclass(frozen=True)
+class PointerHint(Hint):
+    """We found a pointer
+
+    Arguments:
+        instruction: the instruction containing the pointer
+        pointer: the pointer
+    """
+
+    instruction: typing.Any
+    pointer: typing.Any
+
+
+@dataclass(frozen=True)
 class ControlFlowHint(Hint):
     """Represents control flow going from the from_instruction to the to_instruction.
 
