@@ -300,22 +300,14 @@ class x86Instruction(Instruction):
         for operand in self._instruction.operands:
             if operand.access & capstone.CS_AC_READ:
                 if operand.type == capstone.x86.X86_OP_MEM:
-                    if self._instruction.mnemonic == "lea":
-                        base_name = self._instruction.reg_name(operand.mem.base)
-                        index_name = self._instruction.reg_name(operand.mem.index)
-
-                        # ok this is disgusting
-                        def num_bytes(rn):
-                            if rn[0] == "r":
-                                return 8
-                            return 4
-
-                        if base_name:
-                            the_reads.add(RegisterOperand(base_name))
-                        if index_name:
-                            the_reads.add(RegisterOperand(index_name))
-                    else:
+                    if not (self._instruction.mnemonic == "lea"):
                         the_reads.add(self._memory_reference(operand))
+                    base_name = self._instruction.reg_name(operand.mem.base)
+                    index_name = self._instruction.reg_name(operand.mem.index)
+                    if base_name:
+                        the_reads.add(RegisterOperand(base_name))
+                    if index_name:
+                        the_reads.add(RegisterOperand(index_name))
                 elif operand.type == capstone.x86.X86_OP_REG:
                     the_reads.add(
                         RegisterOperand(self._instruction.reg_name(operand.reg))

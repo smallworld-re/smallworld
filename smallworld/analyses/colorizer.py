@@ -126,12 +126,17 @@ class ColorizerAnalysis(analysis.Analysis):
                 cs_insn = self.get_instr_at_pc(emu, pc)
                 sw_insn = Instruction.from_capstone(cs_insn)
 
+                logger.info(sw_insn)
                 # pull state back out of the emulator for inspection
                 self.cpu.load(emu)
 
+                import pdb
+
                 reads: typing.List[typing.Tuple[Operand, str, int]] = []
                 for read_operand in sw_insn.reads:
-                    logger.debug(f"pc={pc:x} read_operand={read_operand}")
+                    #                    logger.info(f"pc={pc:x} read_operand={read_operand}")
+                    #                    pdb.set_trace()
+
                     sz = self.operand_size(read_operand)
                     try:
                         read_operand_color = self.concrete_val_to_color(
@@ -139,12 +144,14 @@ class ColorizerAnalysis(analysis.Analysis):
                         )
                     except UnacceptableColorException:
                         continue
-                    except:
+                    except Exception as e:
+                        print(e)
                         h = self.read_unavailable_hint(
                             emu, read_operand, sw_insn, pc, i, j
                         )
                         hint_list.append(h)
-                        # don't add to the list
+                        # don't add to the list of reads we can
+                        # interrogate wrt color
                         continue
                     tup = (read_operand, read_operand_color, sz)
                     reads.append(tup)
@@ -154,8 +161,6 @@ class ColorizerAnalysis(analysis.Analysis):
 
                 try:
                     done = emu.step()
-                    if done:
-                        break
                 except Exception as e:
                     # emulating this instruction failed
                     exhint = hinting.EmulationException(
@@ -169,25 +174,34 @@ class ColorizerAnalysis(analysis.Analysis):
                     logger.info(e)
                     break
 
+                # pdb.set_trace()
                 writes: typing.List[typing.Tuple[Operand, str, int]] = []
                 for write_operand in sw_insn.writes:
-                    sz = self.operand_size(read_operand)
+                    logger.info(f"pc={pc:x} write_operand={write_operand}")
+                    # pdb.set_trace()
+                    sz = self.operand_size(write_operand)
                     try:
                         write_operand_color = self.concrete_val_to_color(
                             write_operand.concretize(emu), sz
                         )
                     except UnacceptableColorException:
                         continue
-                    except:
+                    except Exception as e:
+                        #                        print(e)
+                        #                        import pdb
                         h = self.write_unavailable_hint(
                             emu, write_operand, sw_insn, pc, i, j
                         )
                         hint_list.append(h)
+                        continue
                     tup = (write_operand, write_operand_color, sz)
                     writes.append(tup)
                 self.check_colors_instruction_writes(
                     emu, writes, sw_insn, colors, i, j, hint_list
                 )
+
+                if done:
+                    break
 
             hint_list_list.append(hint_list)
 
@@ -267,7 +281,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 )
 
     def concrete_val_to_color(
-        self, concrete_value: typing.Union[int, bytes], size: int
+        self, concrete_value: typing.Union[int, bytes, bytearray], size: int
     ) -> str:
         # this concrete value can be an int (if it came from a register)
         # or bytes (if it came from memory read)
@@ -277,7 +291,7 @@ class ColorizerAnalysis(analysis.Analysis):
             if concrete_value < MIN_ACCEPTABLE_COLOR_INT:
                 raise UnacceptableColorException
             the_bytes = concrete_value.to_bytes(size, byteorder="little")
-        elif type(concrete_value) is bytes:
+        elif (type(concrete_value) is bytes) or (type(concrete_value) is bytearray):
             # assuming little-endian
             if (
                 int.from_bytes(concrete_value, byteorder="little")
@@ -299,7 +313,7 @@ class ColorizerAnalysis(analysis.Analysis):
             # !! don't colorize a register that has already been initialized
             if not (reg.value is None):
                 logger.debug(
-                    f"Not colorizing register {name} since it is already initialized with {reg.get():x}"
+                    f"Not colorizing register {name} since it is already initialized with {reg.value:x}"
                 )
                 continue
             val = random.randint(0, 0xFFFFFFFFFFFFFFF)
@@ -383,7 +397,10 @@ class ColorizerAnalysis(analysis.Analysis):
         hint_list: typing.List[hinting.Hint],
     ):
         for operand, operand_val, operand_size in reads:
+            #            print("read", operand, operand_val)
+            #            print("read", colors.keys())
             if operand_val in colors:
+                #                print("read old color")
                 # use of a previously recorded color value
                 # this is a flow
                 hint = self.dynamic_value_hint(
@@ -402,6 +419,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 hinter.debug(hint)
                 hint_list.append(hint)
             else:
+                #                print("read new color")
                 # use of a NOT previously recorded color value.
                 # as long as the value is something reasonable,
                 # we'll record it as a new coloe
@@ -440,11 +458,15 @@ class ColorizerAnalysis(analysis.Analysis):
     ):
         # NB: This should be called *AFTER the instruction emulates!
         for operand, operand_val, operand_size in writes:
+            #            print("write", operand, operand_val)
+            #            print("write", colors.keys())
             if operand_val in colors:
+                print("write old color")
                 # write of a previously seen value
-                # ... its likely just a copy so no hint
+                # ... its just a copy so no hint?
                 pass
             else:
+                #                print("write new color")
                 # write of a NOT previously recorded color value
                 # as long as the value is something reasonable,
                 # we'll record it as a new coloe
