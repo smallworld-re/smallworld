@@ -116,6 +116,3 @@ class Filter(Metadata):
 
         for handler in self.listeners:
             hinting.root.removeHandler(handler)
-
-    def __del__(self):
-        self.deactivate()
