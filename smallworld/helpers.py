@@ -54,10 +54,9 @@ def analyze(cpu: T) -> None:
                 and module is not analyses.Analysis
             ):
                 module().run(cpu)
-    except:
+    finally:
         for filter in filters:
             filter.deactivate()
-        raise
 
 
 def fuzz(
