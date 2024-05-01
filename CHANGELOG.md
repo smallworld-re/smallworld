@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - `Memory` state objects with large values are now stringified much faster.
-
+- `InputColorizerAnalysis` colorizer_registers now can handle 32-bit cpu.
+	
 ### Added
 - `AngrEmulator` based on angr symbolic execution.
 - `AngrNWBTAnalysis` unused value analysis using angr.
