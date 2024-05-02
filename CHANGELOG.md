@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   customizable hooks.
 - `Emulator.hook()` for dynamic hooking.
 - `CodeReachable` analysis that show what code is reachable by symbolic execution.
+- `state.debug` a collection of debug utilities that can be mapped into state.
 
 ### Changed
 - `State.map()` automatically selects names for mapped objects when not
