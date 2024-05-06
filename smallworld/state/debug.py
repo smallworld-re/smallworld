@@ -18,6 +18,7 @@ class Breakpoint(state.Value):
 
     def __init__(self, address: int):
         self.address = address
+        self.enabled = True
 
     @property
     def value(self):
@@ -37,16 +38,25 @@ class Breakpoint(state.Value):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         def interact(emulator: emulators.Emulator) -> None:
-            code.interact(
-                banner=f"breakpoint at 0x{self.address:x} - interactive mode...",
-                local={"emulator": emulator},
-                exitmsg="continuing...",
-            )
+            if self.enabled:
+                code.interact(
+                    banner=f"breakpoint at 0x{self.address:x} - interactive mode...",
+                    local={"emulator": emulator},
+                    exitmsg="continuing...",
+                )
+            else:
+                logger.debug(f"skipped disabled breakpoint at 0x{self.address:x}")
 
         emulator.hook(self.address, interact)
 
+    def enable(self):
+        self.enabled = True
+
+    def disable(self):
+        self.enabled = False
+
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(0x{self.address:x})"
+        return f"{self.__class__.__name__}(0x{self.address:x}, enabled={self.enabled})"
 
 
 __all__ = ["Breakpoint"]
