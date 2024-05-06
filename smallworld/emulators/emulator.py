@@ -77,12 +77,19 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def hook(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+    def hook(
+        self,
+        address: int,
+        function: typing.Callable[[Emulator], None],
+        finish: bool = False,
+    ) -> None:
         """Register a hook at the given address.
 
         Arguments:
             address: The address to hook.
             function: The hook function.
+            finish: If `True` step out of the current call after running the
+                hook function.
         """
 
         pass
