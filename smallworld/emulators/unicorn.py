@@ -123,13 +123,20 @@ class UnicornEmulator(emulator.Emulator):
         self.disassembler.detail = True
         self.bounds: typing.Iterable[range] = []
 
-        self.hooks: typing.Dict[int, typing.Callable[[emulator.Emulator], None]] = {}
+        self.hooks: typing.Dict[
+            int, typing.Tuple[typing.Callable[[emulator.Emulator], None], bool]
+        ] = {}
         self.hook_return = None
 
         def callback(uc, address, size, user_data):
             if address in self.hooks:
-                self.hooks[address](self)
-                if self.hook_return is not None:
+                hook, finish = self.hooks[address]
+
+                hook(self)
+
+                if finish:
+                    if self.hook_return is None:
+                        raise RuntimeError("return point unknown")
                     self.write_register("pc", self.hook_return)
                     self.hook_return = None
 
@@ -266,9 +273,12 @@ class UnicornEmulator(emulator.Emulator):
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
     def hook(
-        self, address: int, function: typing.Callable[[emulator.Emulator], None]
+        self,
+        address: int,
+        function: typing.Callable[[emulator.Emulator], None],
+        finish: bool = False,
     ) -> None:
-        self.hooks[address] = function
+        self.hooks[address] = (function, finish)
 
         # Ensure that the address is mapped.
         try:
