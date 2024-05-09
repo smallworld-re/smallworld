@@ -1,4 +1,4 @@
-from . import models
+from . import debug, models
 from .elf import ELFImage
 from .state import (
     CPU,
@@ -26,4 +26,5 @@ __all__ = [
     "State",
     "ELFImage",
     "models",
+    "debug",
 ]

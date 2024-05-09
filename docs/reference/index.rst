@@ -8,6 +8,7 @@ Reference
     smallworld
     smallworld.state
     smallworld.state.models
+    smallworld.state.debug
     smallworld.emulators
     smallworld.initializers
     smallworld.hinting

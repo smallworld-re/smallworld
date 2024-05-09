@@ -179,9 +179,15 @@ class InputColorizerAnalysis(analysis.Analysis):
     def colorize_registers(self, regular=True):
         # colorize registers
         for name, reg in self.registers():
-            if (regular and (name in self.REGULAR_REGS_64)) or (not regular):
-                # only colorize "regular" registers of full 64 bits
-                reg.value = random.randint(0, 0xFFFFFFFFFFFFFFF)
+            if (
+                regular
+                and (name in self.REGULAR_REGS_64)
+                or (name in self.REGULAR_REGS_32)
+            ) or (not regular):
+                if reg.width == 4:
+                    reg.value = random.randint(0, 0xFFFFFFFF)
+                elif reg.width == 8:
+                    reg.value = random.randint(0, 0xFFFFFFFFFFFFFFF)
         # but now go through all 64 and 32-bit reg aliases and record intial values
         r0 = {}
         for name, stv in self.cpu.members().items():
