@@ -298,11 +298,7 @@ class InstructionTests(unittest.TestCase):
         self.assertEqual(memory.offset, 0x10)
         self.assertEqual(memory.size, 4)
 
-
-class SerializationTests(unittest.TestCase):
-    def test_x86MemoryReferenceOperand(self):
-        from smallworld import instructions
-
+    def test_x86_memory_reference_operand_serialization(self):
         a = instructions.x86MemoryReferenceOperand("rax", "rbx", 1, 0)
         self.assertEqual(a.base, "rax")
         self.assertEqual(a.index, "rbx")

@@ -111,13 +111,7 @@ class x86MemoryReferenceOperand(MemoryReferenceOperand, utils.Serializable):
 
     @classmethod
     def from_json(cls, dict):
-        if "base" not in dict:
-            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
-        if "index" not in dict:
-            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
-        if "scale" not in dict:
-            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
-        if "offset" not in dict:
+        if any(k not in dict for k in ("base", "index", "scale", "offset")):
             raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
         return cls(**dict)
@@ -192,6 +186,7 @@ class Instruction(utils.Serializable):
         Arguments:
             instruction: An existing Capstone instruction.
         """
+
         return cls(
             instruction=instruction.bytes,
             address=instruction.address,
@@ -203,6 +198,7 @@ class Instruction(utils.Serializable):
     @classmethod
     def from_bytes(cls, *args, **kwargs):
         """Construct from a byte string."""
+
         return cls(*args, **kwargs)
 
     def _memory_reference(self, operand) -> MemoryReferenceOperand:

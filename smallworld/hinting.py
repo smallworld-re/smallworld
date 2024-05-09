@@ -31,8 +31,8 @@ class PointerHint(Hint):
     """We found a pointer
 
     Arguments:
-        instruction: the instruction containing the pointer
-        pointer: the pointer
+        instruction: The instruction containing the pointer.
+        pointer: The pointer.
     """
 
     instruction: typing.Any
