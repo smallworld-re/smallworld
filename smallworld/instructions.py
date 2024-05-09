@@ -111,12 +111,16 @@ class x86MemoryReferenceOperand(MemoryReferenceOperand, utils.Serializable):
 
     @classmethod
     def from_json(cls, dict):
-        if "instruction" not in dict:
+        if "base" not in dict:
+            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+        if "index" not in dict:
+            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+        if "scale" not in dict:
+            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+        if "offset" not in dict:
             raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
-        dict["instruction"] = base64.b64decode(dict["instruction"])
-
-        cls(**dict)
+        return cls(**dict)
 
     def __repr__(self) -> str:
         string = ""
@@ -269,7 +273,7 @@ class Instruction(utils.Serializable):
 
         dict["instruction"] = base64.b64decode(dict["instruction"])
 
-        cls(**dict)
+        return cls(**dict)
 
     def __repr__(self) -> str:
         string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()
