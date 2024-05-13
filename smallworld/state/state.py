@@ -430,14 +430,20 @@ class Stack(Memory):
 
         self.memory: typing.List[typing.Tuple(bytes, int)] = []
         self.used = 0
+        self.stack_offset = self.address + self.size
 
     @property
     def value(self) -> typing.Optional[bytes]:
-        value = bytearray()
+        buffer = bytearray()
+        for v, s in reversed(self.memory):
+            buffer += self.to_bytes(v, s)
 
-        for v, s in self.memory:
-            value += self.to_bytes(v, s)
+        if len(buffer) > self.size:
+            raise ValueError("buffer too large for this memory region")
 
+        value = bytearray(self.size)
+        if len(buffer) > 0:
+            value[-len(buffer) :] = buffer
         return value
 
     @value.setter
@@ -461,7 +467,7 @@ class Stack(Memory):
         size: typing.Optional[int] = None,
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
-    ):
+    ) -> int:
         allocation = len(self.to_bytes(value, size))
 
         if self.used + allocation > self.size:
@@ -470,8 +476,33 @@ class Stack(Memory):
         self.memory.append((value, size))
         self.used += allocation
 
-        self.set_type(offset=self.used, value=value, type=type)
-        self.set_label(offset=self.used, value=value, label=label)
+        self.stack_offset -= allocation
+
+        self.set_type(offset=self.stack_offset, value=value, type=type)
+        self.set_label(offset=self.stack_offset, value=value, label=label)
+
+        return self.stack_offset + self.address
+
+    def initialize_stack(
+        self, argv: typing.List[bytes], envp: typing.Optional[typing.List[bytes]] = None
+    ) -> int:
+        if self.used != 0:
+            raise ValueError("tried to initalize a nonempty stack")
+
+        if envp:
+            raise NotImplementedError("We don't support environment strings")
+
+        argv_address = []
+        for i, arg in enumerate(argv):
+            argv_address.append((i, self.push(arg, size=len(arg), label=f"argv[{i}]")))
+
+        self.push(0, size=8, label="null terminator of argv array")
+
+        for i, addr in reversed(argv_address):
+            self.push(addr, size=8, label=f"pointer to argv[{i}]")
+
+        self.push(len(argv), size=8, label="argc")
+        return self.stack_offset
 
 
 class Heap(Memory):
