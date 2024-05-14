@@ -111,6 +111,28 @@ class StateTests(unittest.TestCase):
         with assertTimeout(1):
             str(memory)
 
+    def test_stack_init(self):
+        s = state.Stack(address=0x100, size=0x30)
+        foo = "AAA".encode("utf-8")
+        bar = "BBBB".encode("utf-8")
+        sp = s.initialize_stack(argv=[foo, bar])
+        self.assertEqual(sp, 0x109)
+        self.assertDictEqual(
+            s.label,
+            {
+                301: "argv[0]",
+                297: "argv[1]",
+                289: "null terminator of argv array",
+                281: "pointer to argv[1]",
+                273: "pointer to argv[0]",
+                265: "argc",
+            },
+        )
+        self.assertEqual(
+            s.value,
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00)\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BBBBAAA",
+        )
+
 
 class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_not_page_aligned(self):

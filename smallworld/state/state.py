@@ -430,7 +430,6 @@ class Stack(Memory):
 
         self.memory: typing.List[typing.Tuple(bytes, int)] = []
         self.used = 0
-        self.stack_offset = self.address + self.size
 
     @property
     def value(self) -> typing.Optional[bytes]:
@@ -468,20 +467,25 @@ class Stack(Memory):
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
     ) -> int:
-        allocation = len(self.to_bytes(value, size))
+        allocation_size = len(self.to_bytes(value, size))
 
-        if self.used + allocation > self.size:
-            raise ValueError(f"{value} (size: {allocation}) is too large for {self}")
+        if self.used + allocation_size > self.size:
+            raise ValueError(
+                f"{value} (size: {allocation_size}) is too large for {self}"
+            )
 
-        self.memory.append((value, size))
-        self.used += allocation
+        if size and (allocation_size != size):
+            raise ValueError("size mismatch")
 
-        self.stack_offset -= allocation
+        self.memory.append((value, allocation_size))
+        self.used += allocation_size
 
-        self.set_type(offset=self.stack_offset, value=value, type=type)
-        self.set_label(offset=self.stack_offset, value=value, label=label)
+        stack_offset = (self.address + self.size) - self.used
 
-        return self.stack_offset + self.address
+        self.set_type(offset=stack_offset, value=value, type=type)
+        self.set_label(offset=stack_offset, value=value, label=label)
+
+        return stack_offset
 
     def initialize_stack(
         self, argv: typing.List[bytes], envp: typing.Optional[typing.List[bytes]] = None
@@ -501,8 +505,7 @@ class Stack(Memory):
         for i, addr in reversed(argv_address):
             self.push(addr, size=8, label=f"pointer to argv[{i}]")
 
-        self.push(len(argv), size=8, label="argc")
-        return self.stack_offset
+        return self.push(len(argv), size=8, label="argc") - 8
 
 
 class Heap(Memory):
@@ -578,6 +581,9 @@ class BumpAllocator(Heap):
 
         if size is None:
             size = len(allocation)
+
+        if size != len(allocation):
+            raise ValueError("size mismatch")
 
         if self.used + size > self.size:
             raise ValueError(
