@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
-	
+
 ### Added
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ControlFlowTracer` analysis that logs all jumps, calls, and returns.
 - `CodeCoverage` analysis that maps program counter to hit count.
 - `CodeReachable` analysis that show what code is reachable by symbolic execution.
+- `PointerFinder` analysis that finds pointers.
 
 ### Changed
 - `Value.{get, set}()` changed to `@property` `value`.

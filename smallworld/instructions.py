@@ -73,7 +73,7 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class x86MemoryReferenceOperand(MemoryReferenceOperand):
+class x86MemoryReferenceOperand(MemoryReferenceOperand, utils.Serializable):
     def __init__(
         self,
         base: typing.Optional[str] = None,
@@ -100,6 +100,21 @@ class x86MemoryReferenceOperand(MemoryReferenceOperand):
             index = emulator.read_register(self.index)
 
         return base + self.scale * index + self.offset
+
+    def to_json(self) -> dict:
+        return {
+            "base": self.base,
+            "index": self.index,
+            "scale": self.scale,
+            "offset": self.offset,
+        }
+
+    @classmethod
+    def from_json(cls, dict):
+        if any(k not in dict for k in ("base", "index", "scale", "offset")):
+            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+
+        return cls(**dict)
 
     def __repr__(self) -> str:
         string = ""
@@ -254,7 +269,7 @@ class Instruction(utils.Serializable):
 
         dict["instruction"] = base64.b64decode(dict["instruction"])
 
-        cls(**dict)
+        return cls(**dict)
 
     def __repr__(self) -> str:
         string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()
