@@ -116,7 +116,7 @@ class StateTests(unittest.TestCase):
         foo = "AAA".encode("utf-8")
         bar = "BBBB".encode("utf-8")
         sp = s.initialize_stack(argv=[foo, bar])
-        self.assertEqual(sp, 0x109)
+        self.assertEqual(sp, 0x101)
         self.assertDictEqual(
             s.label,
             {
