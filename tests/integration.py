@@ -122,6 +122,8 @@ class StackTests(ScriptIntegrationTest):
         self.assertLineContains(
             stderr, "rsp", re.escape("add rax, qword ptr [rsp + 8]"), "InputUseHint"
         )
+        self.assertLineContains(stderr, '"pointer"', '"base": "rsp"')
+
         self.assertLineContains(stderr, '{"4096": 1, "4099": 1, "4103": 1}', "coverage")
 
     def test_stack(self):
