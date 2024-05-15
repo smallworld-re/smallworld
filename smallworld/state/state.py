@@ -497,15 +497,23 @@ class Stack(Memory):
             raise NotImplementedError("We don't support environment strings")
 
         argv_address = []
+        total_strings_bytes = 0
         for i, arg in enumerate(argv):
-            argv_address.append((i, self.push(arg, size=len(arg), label=f"argv[{i}]")))
+            arg_size = len(arg)
+            total_strings_bytes += arg_size
+            argv_address.append((i, self.push(arg, size=arg_size, label=f"argv[{i}]")))
+
+        argc = len(argv)
+
+        total_space = (8 * (argc + 3)) + total_strings_bytes
+        padding = 16 - (total_space % 16)
+        self.push(bytes(padding), size=padding, label="stack alignment padding bytes")
 
         self.push(0, size=8, label="null terminator of argv array")
 
         for i, addr in reversed(argv_address):
             self.push(addr, size=8, label=f"pointer to argv[{i}]")
-
-        return self.push(len(argv), size=8, label="argc") - 8
+        return self.push(argc, size=8, label="argc") - 8
 
 
 class Heap(Memory):

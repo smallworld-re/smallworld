@@ -116,21 +116,22 @@ class StateTests(unittest.TestCase):
         foo = "AAA".encode("utf-8")
         bar = "BBBB".encode("utf-8")
         sp = s.initialize_stack(argv=[foo, bar])
-        self.assertEqual(sp, 0x101)
+        self.assertEqual(sp, 0x100)
         self.assertDictEqual(
             s.label,
             {
                 301: "argv[0]",
                 297: "argv[1]",
-                289: "null terminator of argv array",
-                281: "pointer to argv[1]",
-                273: "pointer to argv[0]",
-                265: "argc",
+                296: "stack alignment padding bytes",
+                288: "null terminator of argv array",
+                280: "pointer to argv[1]",
+                272: "pointer to argv[0]",
+                264: "argc",
             },
         )
         self.assertEqual(
             s.value,
-            b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00)\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BBBBAAA",
+            b"\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00)\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BBBBAAA",
         )
 
 
