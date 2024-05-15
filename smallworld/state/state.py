@@ -505,7 +505,7 @@ class Stack(Memory):
 
         argc = len(argv)
 
-        total_space = (8 * (argc + 3)) + total_strings_bytes
+        total_space = (8 * (argc + 2)) + total_strings_bytes
         padding = 16 - (total_space % 16)
         self.push(bytes(padding), size=padding, label="stack alignment padding bytes")
 
