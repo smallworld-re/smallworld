@@ -40,6 +40,15 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def get_pages(self, num_pages: int) -> int:
+        """maps this many fresh pages into the emulator
+
+        Returns:
+          The start address of the new pages
+        """
+        return 0
+
+    @abc.abstractmethod
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         """Read memory from a specific address.
 
@@ -118,3 +127,8 @@ class Emulator(metaclass=abc.ABCMeta):
         """
 
         return ""
+
+    @property
+    @abc.abstractmethod
+    def PAGE_SIZE(self):
+        pass
