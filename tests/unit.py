@@ -112,10 +112,10 @@ class StateTests(unittest.TestCase):
             str(memory)
 
     def test_stack_init(self):
-        s = state.Stack(address=0x100, size=0x30)
         foo = "AAA".encode("utf-8")
         bar = "BBBB".encode("utf-8")
-        sp = s.initialize_stack(argv=[foo, bar])
+        s = state.Stack.initialize_stack(argv=[foo, bar], address=0x100, size=0x30)
+        sp = s.get_stack_pointer()
         self.assertEqual(sp, 248)
         self.assertDictEqual(
             s.label,
