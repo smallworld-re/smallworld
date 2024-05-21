@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CodeCoverage` analysis that maps program counter to hit count.
 - `CodeReachable` analysis that show what code is reachable by symbolic execution.
 - `Stack` initialization code to setup arguments.
+- `PointerFinder` analysis that finds pointers.
+
 
 ### Changed
 
