@@ -1,4 +1,5 @@
 import abc
+import inspect
 import logging
 import random
 import typing
@@ -11,23 +12,22 @@ logger = logging.getLogger(__name__)
 MAX_STRLEN = 0x10000
 
 
-###########################################################
-#
-# This stuff is private. Dont' add it to __all__
-#
+######################################################
+# This stuff is private. Dont' add it to __all__     #
+######################################################
 
 # next, last available byte in heap
 heap_next = None
 heap_last = None
 
 
-def get_page(emulator: emulators.Emulator, addr: int) -> int:
+def _get_page(emulator: emulators.Emulator, addr: int) -> int:
     return addr // emulator.PAGE_SIZE
 
 
 # obtain addr of emulator heap memory of this size
 # NB: this will map new pages into emulator as needed
-def emu_alloc(emulator: emulators.Emulator, size: int) -> int:
+def _emu_alloc(emulator: emulators.Emulator, size: int) -> int:
     global heap_next, heap_last
     if heap_next is None:
         # first dynamic alloc
@@ -45,25 +45,25 @@ def emu_alloc(emulator: emulators.Emulator, size: int) -> int:
             heap_next += size
         else:
             # alloc wont fit
-            first_page = get_page(first_addr)
-            last_page = get_page(last_addr)
+            first_page = _get_page(first_addr)
+            last_page = _get_page(last_addr)
             num_new_pages = (last_page - first_page) / emulator.PAGE_SIZE
             new_pages_start = emulator.get_pages(num_new_pages)
             # assume (but verify) that next page will be just what we already have
-            current_last_page_start = get_page(heap_last)
+            current_last_page_start = _get_page(heap_last)
             assert current_last_page_start + emulator.PAGE_SIZE == new_pages_start
             alloc_addr = heap_next
             heap_next += size
     return alloc_addr
 
 
-def emu_calloc(emulator: emulators.Emulator, size: int) -> int:
-    addr = emu_alloc(emulator, size)
+def _emu_calloc(emulator: emulators.Emulator, size: int) -> int:
+    addr = _emu_alloc(emulator, size)
     emulator.write_memory(addr, b"\0" * size)
     return addr
 
 
-def emu_strlen_n(emulator: emulators.Emulator, addr: int, n: int) -> int:
+def _emu_strlen_n(emulator: emulators.Emulator, addr: int, n: int) -> int:
     sl = 0
     while sl <= n:
         b_opt = emulator.read_memory(addr + sl, 1)
@@ -77,28 +77,28 @@ def emu_strlen_n(emulator: emulators.Emulator, addr: int, n: int) -> int:
     return sl
 
 
-def emu_strlen(emulator: emulators.Emulator, addr: int) -> int:
-    return emu_strlen_n(emulator, addr, MAX_STRLEN)
+def _emu_strlen(emulator: emulators.Emulator, addr: int) -> int:
+    return _emu_strlen_n(emulator, addr, MAX_STRLEN)
 
 
-def emu_memcpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> None:
+def _emu_memcpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> None:
     src_bytes = emulator.read_memory(src, n)
     emulator.write_memory(dst, src_bytes)
 
 
-def emu_strncpy(
+def _emu_strncpy(
     emulator: emulators.Emulator, dst: int, src: int, n: int, is_strncpy: bool
 ) -> None:
     if n == 0:
         return
     if emulator.read_memory(src, 1) is None:
-        logger.info("MEM not available in strncpy read @ {src:x}")
+        logger.debug("MEM not available in strncpy read @ {src:x}")
     elif emulator.read_memory(dst, 1) is None:
-        logger.info("MEM not available in strncpy write @ {dst:x}")
+        logger.debug("MEM not available in strncpy write @ {dst:x}")
     else:
         # at least a byte is available at both src and dst
         # find length of src (not to exceed l)
-        l2 = emu_strlen_n(emulator, src, n)
+        l2 = _emu_strlen_n(emulator, src, n)
         l3 = min(n, l2)
         if l3 > 0:
             # read the src string and copy to dst
@@ -110,17 +110,17 @@ def emu_strncpy(
                 emulator.write_memory(dst + l3, b"\0" * (n - l3))
 
 
-def emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> None:
+def _emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> None:
     if n == 0:
         return
     if emulator.read_memory(src, 1) is None:
-        logger.info("MEM not available in strncpy read @ {src:x}")
+        logger.debug("MEM not available in strncpy read @ {src:x}")
     elif emulator.read_memory(dst, 1) is None:
-        logger.info("MEM not available in strncpy write @ {dst:x}")
+        logger.debug("MEM not available in strncpy write @ {dst:x}")
     else:
         # at least a byte is available at both src and dst
-        ld = emu_strlen_n(emulator, dst, MAX_STRLEN)
-        ls = emu_strlen_n(emulator, src, MAX_STRLEN)
+        ld = _emu_strlen_n(emulator, dst, MAX_STRLEN)
+        ls = _emu_strlen_n(emulator, src, MAX_STRLEN)
         lsn = min(ls, n)
         b_opt = emulator.read_memory(src, lsn)
         if b_opt is not None:
@@ -128,6 +128,11 @@ def emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> Non
             emulator.write_memory(dst + ld, src_bytes)
         else:
             assert b_opt is not None
+
+
+######################################################
+#                 End private stuff                  #
+######################################################
 
 
 class Model(state.Value):
@@ -178,6 +183,11 @@ class ImplementedModel(Model):
 
     @property
     @abc.abstractmethod
+    def name(self):
+        pass
+
+    @property
+    @abc.abstractmethod
     def argument1(self):
         pass
 
@@ -216,12 +226,14 @@ class Returns0ImplementedModel(ImplementedModel):
 
 
 class BasenameModel(ImplementedModel):
+    name = "basename"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *basename(char "path)
         # returns final component (after last '/') of filename
         # if path ends with '/' return a ptr to an empty string
         path = emulator.read_register(self.argument1)
-        sl = emu_strlen_n(emulator, path, MAX_STRLEN)
+        sl = _emu_strlen_n(emulator, path, MAX_STRLEN)
         bn = None
         while True:
             b_opt = emulator.read_memory(path + sl, 1)
@@ -241,24 +253,28 @@ class BasenameModel(ImplementedModel):
 
 
 class CallocModel(ImplementedModel):
+    name = "calloc"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # void *calloc(size_t count, size_t size);
         count = emulator.read_register(self.argument1)
         size = emulator.read_register(self.argument2)
         num_bytes = count * size
-        addr = emu_calloc(emulator, num_bytes)
+        addr = _emu_calloc(emulator, num_bytes)
         emulator.write_register(self.return_val, addr)
 
 
 class DaemonModel(Returns0ImplementedModel):
-    pass
+    name = "daemon"
 
 
 class FlockModel(Returns0ImplementedModel):
-    pass
+    name = "flock"
 
 
 class Getopt_longModel(ImplementedModel):
+    name = "getopt_long"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int getopt_long(int argc, char * const *argv, const char *optstring, const struct option *longopts, int *longindex);
         # return -1 if no more args
@@ -266,16 +282,20 @@ class Getopt_longModel(ImplementedModel):
 
 
 class GetpagesizeModel(ImplementedModel):
+    name = "getpagesize"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int getpagesize(void);
         emulator.write_register(self.return_val, 0x1000)
 
 
 class GetppidModel(Returns0ImplementedModel):
-    pass
+    name = "getppid"
 
 
 class GetsModel(ImplementedModel):
+    name = "gets"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *gets(char *str);
         s = emulator.read_register(self.argument1)
@@ -285,20 +305,24 @@ class GetsModel(ImplementedModel):
 
 
 class MallocModel(CallocModel):
-    pass
+    name = "malloc"
 
 
 class MemcpyModel(ImplementedModel):
+    name = "memcpy"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # void *memcpy(void *restrict dst, const void *restrict src, size_t n);
         dst = emulator.read_register(self.argument1)
         src = emulator.read_register(self.argument2)
         n = emulator.read_register(self.argument3)
-        emu_memcpy(emulator, dst, src, n)
+        _emu_memcpy(emulator, dst, src, n)
         emulator.write_register(self.return_val, dst)
 
 
 class OpenModel(ImplementedModel):
+    name = "open"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int open64(const char *pathname, int oflag,...);
         # just return a fd that's not stdin/stdout/stderr
@@ -306,137 +330,159 @@ class OpenModel(ImplementedModel):
 
 
 class Open64Model(OpenModel):
-    pass
+    name = "open64"
 
 
 class PutsModel(ImplementedModel):
+    name = "puts"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int fputs(const char *restrict s, FILE *restrict stream);
-        sl = emu_strlen(emulator, self.argument1)
+        sl = _emu_strlen(emulator, self.argument1)
         b_opt = emulator.read_memory(self.argument1, sl)
         if b_opt is not None:
-            logger.info(f"puts stream={self.argument2:x} s=[{b_opt!r}]")
+            logger.debug(f"puts stream={self.argument2:x} s=[{b_opt!r}]")
         emulator.write_register(self.return_val, 0)
 
 
 class PthreadCondInitModel(Returns0ImplementedModel):
-    pass
+    name = "pthread_cond_init"
 
 
 class PthreadCondSignalModel(Returns0ImplementedModel):
-    pass
+    name = "pthread_cond_signal_model"
 
 
 class PthreadCondWaitModel(Returns0ImplementedModel):
-    pass
+    name = "pthread_cond_wait"
 
 
 class PthreadCreateModel(Returns0ImplementedModel):
-    pass
+    name = "pthread_create"
 
 
 class PthreadMutexInitModel(Returns0ImplementedModel):
-    pass
+    name = "pthread_mutex_init"
 
 
 class PthreadMutexLockModel(Returns0ImplementedModel):
-    pass
+    name = "ptherad_mutex_lock"
 
 
 class PthreadMutexUnlockModel(Returns0ImplementedModel):
-    pass
+    name = "pthread_mutex_unlock"
 
 
 class PtraceModel(Returns0ImplementedModel):
-    pass
+    name = "ptrace"
 
 
 class RandModel(ImplementedModel):
+    name = "rand"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int rand(void);
         emulator.write_register(self.return_val, random.randint(0, 0x7FFFFFFF))
 
 
 class RandomModel(ImplementedModel):
+    name = "random"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # long random(void);
         emulator.write_register(self.return_val, random.randint(0, 0xFFFFFFFF))
 
 
 class SleepModel(Returns0ImplementedModel):
-    pass
+    name = "sleep"
 
 
 class SrandModel(ReturnsNothingImplementedModel):
-    pass
+    name = "srand"
 
 
 class SrandomModel(ReturnsNothingImplementedModel):
-    pass
+    name = "srandom"
 
 
 class StrcatModel(ImplementedModel):
+    name = "strcat"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *strcat(char *restrict s1, const char *restrict s2);
         dst = emulator.read_register(self.argument1)
         src = emulator.read_register(self.argument2)
-        emu_strncat(emulator, dst, src, MAX_STRLEN)
+        _emu_strncat(emulator, dst, src, MAX_STRLEN)
 
 
 class StrncatModel(ImplementedModel):
+    name = "strncat"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *strncat(char *restrict s1, const char *restrict s2, size_t n);
         dst = emulator.read_register(self.argument1)
         src = emulator.read_register(self.argument2)
         msl = emulator.read_register(self.argument3)
-        emu_strncat(emulator, dst, src, msl)
+        _emu_strncat(emulator, dst, src, msl)
 
 
 class StrcpyModel(ImplementedModel):
+    name = "strcpy"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *strcpy(char * dst, const char * src);
         dst = emulator.read_register(self.argument1)
         src = emulator.read_register(self.argument2)
-        emu_strncpy(emulator, dst, src, MAX_STRLEN, is_strncpy=False)
+        _emu_strncpy(emulator, dst, src, MAX_STRLEN, is_strncpy=False)
 
 
 class StrncpyModel(ImplementedModel):
+    name = "strncpy"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *strncpy(char * dst, const char * src, size_t len);
         dst = emulator.read_register(self.argument1)
         src = emulator.read_register(self.argument2)
         sl = emulator.read_register(self.argument3)
-        emu_strncpy(emulator, dst, src, sl, is_strncpy=True)
+        _emu_strncpy(emulator, dst, src, sl, is_strncpy=True)
 
 
 class StrdupModel(ImplementedModel):
+    name = "strdup"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # char *strdup(const char *s1);
         src = emulator.read_register(self.argument1)
-        sl = emu_strlen_n(emulator, src, MAX_STRLEN)
-        dst = emu_calloc(emulator, sl)
-        emu_memcpy(emulator, dst, src, sl)
+        sl = _emu_strlen_n(emulator, src, MAX_STRLEN)
+        dst = _emu_calloc(emulator, sl)
+        _emu_memcpy(emulator, dst, src, sl)
         emulator.write_register(self.return_val, dst)
 
 
 class StrlenModel(ImplementedModel):
+    name = "strlen"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # size_t strlen(const char *s)
         ptr = emulator.read_register(self.argument1)
         emulator.write_register(
-            self.return_val, emu_strlen_n(emulator, ptr, MAX_STRLEN)
+            self.return_val, _emu_strlen_n(emulator, ptr, MAX_STRLEN)
         )
 
 
 class StrnlenModel(ImplementedModel):
+    name = "strnlen"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # size_t strnlen(const char *s, size_t maxlen);
         ptr = emulator.read_register(self.argument1)
         n = emulator.read_register(self.argument2)
-        emulator.write_register(self.return_val, emu_strlen_n(emulator, ptr, n))
+        emulator.write_register(self.return_val, _emu_strlen_n(emulator, ptr, n))
 
 
 class SysconfModel(ImplementedModel):
+    name = "sysconf"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # long sysconf(int name);
         arg1 = emulator.read_register(self.argument1)
@@ -447,6 +493,8 @@ class SysconfModel(ImplementedModel):
 
 
 class TimeModel(ImplementedModel):
+    name = "time"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # time_t time(time_t *tloc);
         # just return something
@@ -454,15 +502,17 @@ class TimeModel(ImplementedModel):
 
 
 class UnlinkModel(Returns0ImplementedModel):
-    pass
+    name = "unlink"
 
 
 class WriteModel(ImplementedModel):
+    name = "write"
+
     def model(self, emulator: emulators.Emulator) -> None:
         # ssize_t write(int fildes, const void *buf, size_t nbyte);
         b_opt = emulator.read_memory(self.argument2, self.argument3)
         if b_opt is not None:
-            logger.info(f"write fd={self.argument1} buf=[{b_opt!r}]")
+            logger.debug(f"write fd={self.argument1} buf=[{b_opt!r}]")
         emulator.write_register(self.return_val, 0)
 
 
@@ -637,11 +687,11 @@ class AMD64MicrosoftGetsModel(GetsModel):
 
 
 class AMD64SystemVNullModel(AMD64SystemVImplementedModel, Returns0ImplementedModel):
-    pass
+    name = "null"
 
 
 __all__ = [
-    "Model",
+    #    "Model",
     "AMD64SystemVBasenameModel",
     "AMD64SystemVCallocModel",
     "AMD64SystemVDaemonModel",
@@ -661,6 +711,7 @@ __all__ = [
     "AMD64SystemVPthreadMutexLockModel",
     "AMD64SystemVPthreadMutexUnlockModel",
     "AMD64SystemVPtraceModel",
+    "AMD64SystemVPutsModel",
     "AMD64SystemVRandModel",
     "AMD64SystemVRandomModel",
     "AMD64SystemVSleepModel",
@@ -678,3 +729,33 @@ __all__ = [
     "AMD64SystemVWriteModel",
     "AMD64MicrosoftGetsModel",
 ]
+
+
+def get_models_by_name(
+    fn_name: str, desiredHigherClass: typing.Any
+) -> typing.List[typing.Any]:
+    """Returns list of classes that implement a model for some external function with this name
+
+    Arguments:
+        fn_name: The name of the function you want models for
+
+    Returns:
+        list of classes that match by name
+    """
+
+    # XXX I wanted 2nd arg to be a class like AMD64SystemVImplementedModel
+    # and output to be ImplementedModel
+    # but could not get this to pass mypi
+
+    models = []
+    for name in __all__:
+        glb = globals()[name]
+        if inspect.isclass(glb):
+            model_class = glb
+            if hasattr(model_class, "name"):
+                if (
+                    issubclass(model_class, desiredHigherClass)
+                    and model_class.name == fn_name
+                ):
+                    models.append(model_class)
+    return models
