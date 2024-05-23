@@ -430,14 +430,20 @@ class Stack(Memory):
 
         self.memory: typing.List[typing.Tuple(bytes, int)] = []
         self.used = 0
+        self.sp = self.address + self.size
 
     @property
     def value(self) -> typing.Optional[bytes]:
-        value = bytearray()
+        buffer = bytearray()
+        for v, s in reversed(self.memory):
+            buffer += self.to_bytes(v, s)
 
-        for v, s in self.memory:
-            value += self.to_bytes(v, s)
+        if len(buffer) > self.size:
+            raise ValueError("buffer too large for this memory region")
 
+        value = bytearray(self.size)
+        if len(buffer) > 0:
+            value[-len(buffer) :] = buffer
         return value
 
     @value.setter
@@ -461,17 +467,52 @@ class Stack(Memory):
         size: typing.Optional[int] = None,
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
-    ):
-        allocation = len(self.to_bytes(value, size))
+    ) -> int:
+        allocation_size = len(self.to_bytes(value, size))
 
-        if self.used + allocation > self.size:
-            raise ValueError(f"{value} (size: {allocation}) is too large for {self}")
+        if self.used + allocation_size > self.size:
+            raise ValueError(
+                f"{value} (size: {allocation_size}) is too large for {self}"
+            )
 
-        self.memory.append((value, size))
-        self.used += allocation
+        if size and (allocation_size != size):
+            raise ValueError("size mismatch")
 
-        self.set_type(offset=self.used, value=value, type=type)
-        self.set_label(offset=self.used, value=value, label=label)
+        self.memory.append((value, allocation_size))
+        self.used += allocation_size
+
+        stack_offset = (self.address + self.size) - self.used
+
+        self.set_type(offset=stack_offset, value=value, type=type)
+        self.set_label(offset=stack_offset, value=value, label=label)
+
+        return stack_offset
+
+    def get_stack_pointer(self) -> int:
+        return ((self.address + self.size) - self.used) - 8
+
+    @classmethod
+    def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
+        s = cls(*args, **kwargs)
+        argv_address = []
+        total_strings_bytes = 0
+        for i, arg in enumerate(argv):
+            arg_size = len(arg)
+            total_strings_bytes += arg_size
+            argv_address.append((i, s.push(arg, size=arg_size, label=f"argv[{i}]")))
+
+        argc = len(argv)
+
+        total_space = (8 * (argc + 2)) + total_strings_bytes
+        padding = 16 - (total_space % 16)
+        s.push(bytes(padding), size=padding, label="stack alignment padding bytes")
+
+        s.push(0, size=8, label="null terminator of argv array")
+
+        for i, addr in reversed(argv_address):
+            s.push(addr, size=8, label=f"pointer to argv[{i}]")
+        s.push(argc, size=8, label="argc")
+        return s
 
 
 class Heap(Memory):
@@ -547,6 +588,9 @@ class BumpAllocator(Heap):
 
         if size is None:
             size = len(allocation)
+
+        if size != len(allocation):
+            raise ValueError("size mismatch")
 
         if self.used + size > self.size:
             raise ValueError(

@@ -21,13 +21,14 @@ state.r8.value = 0x33333333
 # create a stack and push a value
 stack = smallworld.state.Stack(address=0x2000, size=0x1000)
 stack.push(value=0xFFFFFFFF, size=8, type=int, label="fake return address")
-stack.push(value=0x44444444, size=8, type=int, label="7th argument")
+# rsp points to the next free stack slot
+rsp = stack.push(value=0x44444444, size=8, type=int, label="7th argument") - 8
 
 # map the stack into memory
 state.map(stack)
 
 # set the stack pointer
-state.rsp.value = stack.address
+state.rsp.value = rsp
 
 # emulate
 final = smallworld.emulate(state)
