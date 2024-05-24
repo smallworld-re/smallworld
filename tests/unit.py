@@ -111,6 +111,29 @@ class StateTests(unittest.TestCase):
         with assertTimeout(1):
             str(memory)
 
+    def test_stack_init(self):
+        foo = "AAA".encode("utf-8")
+        bar = "BBBB".encode("utf-8")
+        s = state.Stack.initialize_stack(argv=[foo, bar], address=0x100, size=0x30)
+        sp = s.get_stack_pointer()
+        self.assertEqual(sp, 248)
+        self.assertDictEqual(
+            s.label,
+            {
+                301: "argv[0]",
+                297: "argv[1]",
+                288: "stack alignment padding bytes",
+                280: "null terminator of argv array",
+                272: "pointer to argv[1]",
+                264: "pointer to argv[0]",
+                256: "argc",
+            },
+        )
+        self.assertEqual(
+            s.value,
+            b"\x02\x00\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00)\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BBBBAAA",
+        )
+
 
 class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_not_page_aligned(self):
@@ -297,6 +320,19 @@ class InstructionTests(unittest.TestCase):
         self.assertEqual(memory.scale, 8)
         self.assertEqual(memory.offset, 0x10)
         self.assertEqual(memory.size, 4)
+
+    def test_x86_memory_reference_operand_serialization(self):
+        a = instructions.x86MemoryReferenceOperand("rax", "rbx", 1, 0)
+        self.assertEqual(a.base, "rax")
+        self.assertEqual(a.index, "rbx")
+        self.assertEqual(a.scale, 1)
+        self.assertEqual(a.offset, 0)
+        json = a.to_json()
+        b = instructions.x86MemoryReferenceOperand.from_json(json)
+        self.assertEqual(b.base, "rax")
+        self.assertEqual(b.index, "rbx")
+        self.assertEqual(b.scale, 1)
+        self.assertEqual(b.offset, 0)
 
 
 if __name__ == "__main__":

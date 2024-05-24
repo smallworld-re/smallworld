@@ -199,7 +199,10 @@ class AngrEmulator(emulator.Emulator):
             self.analysis_init(self)
 
     def hook(
-        self, address: int, callback: typing.Callable[[emulator.Emulator], None]
+        self,
+        address: int,
+        callback: typing.Callable[[emulator.Emulator], None],
+        finish: bool = False,
     ) -> None:
         raise NotImplementedError()
 
