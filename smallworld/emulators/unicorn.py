@@ -94,6 +94,8 @@ class UnicornEmulator(emulator.Emulator):
         unicorn.UC_MODE_64: capstone.CS_MODE_64,
     }
 
+    PAGE_SIZE = 0x1000
+
     def __init__(self, arch: str, mode: str):
         super().__init__()
 
@@ -130,6 +132,7 @@ class UnicornEmulator(emulator.Emulator):
 
         def callback(uc, address, size, user_data):
             if address in self.hooks:
+                logger.debug(f"hit hooking address {address:x}")
                 hook, finish = self.hooks[address]
 
                 hook(self)
@@ -189,6 +192,19 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.debug(f"set register {name}={value}")
 
+    def get_pages(self, num_pages: int) -> int:
+        last_page = 0
+        # iterate over pages emulator has mapped and determine last page
+        for start, end, perms in self.engine.mem_regions():
+            # Assume "end" is last byte in page and figure out what
+            # page it's in
+            end_page = (end // self.PAGE_SIZE) * self.PAGE_SIZE
+            if end_page > last_page:
+                last_page = end_page
+        next_page = last_page + self.PAGE_SIZE
+        self.engine.mem_map(next_page, num_pages * self.PAGE_SIZE)
+        return next_page
+
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
@@ -198,8 +214,6 @@ class UnicornEmulator(emulator.Emulator):
         except unicorn.unicorn.UcError:
             logger.warn(f"attempted to read uninitialized memory at 0x{address:x}")
             return None
-
-    PAGE_SIZE = 0x1000
 
     def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
         if value is None:
@@ -373,6 +387,10 @@ class UnicornEmulator(emulator.Emulator):
             self._error(e)
 
         pc = self.read_register("pc")
+
+        for entry in self.hooks.keys():
+            if pc == entry:
+                return False
 
         for bound in self.bounds:
             if pc in bound:
