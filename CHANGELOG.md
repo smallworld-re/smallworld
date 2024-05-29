@@ -45,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fixed exit points.
 - `State.map()` automatically selects names for mapped objects when not
   provided.
-- `Colorizer` replaces colorizer, extending analysis dramatically
+- `Colorizer` replaces `InputColorizer`, extending analysis dramatically
 
 ## [0.0.1] - 2024-02-26
 
