@@ -40,6 +40,13 @@ class AngrEmulator(emulator.Emulator):
 
     PAGE_SIZE = 4096
 
+    # Angr doesn't use capstone's arch/mode to specify architecture.
+    # Truth be told, I'm not quire sure what it uses...
+    CAPSTONE_ARCH_MODE_TO_ANGR = {
+        ("x86", "32"): "x86",
+        ("x86", "64"): "x86_64",
+    }
+
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
         self._code: typing.Optional[emulator.Code] = None
@@ -133,7 +140,12 @@ class AngrEmulator(emulator.Emulator):
 
         if code.arch is None:
             raise ValueError(f"arch is required: {code}")
-        options["arch"] = code.arch
+        if code.mode is None:
+            raise ValueError(f"mode is required: {code}")
+        if (code.arch, code.mode) not in self.CAPSTONE_ARCH_MODE_TO_ANGR:
+            raise ValueError(f"Architecture {code.arch}:{code.mode} not recognized")
+
+        options["arch"] = self.CAPSTONE_ARCH_MODE_TO_ANGR[(code.arch, code.mode)]
 
         if code.type is None:
             raise ValueError(f"type is required: {code}")
