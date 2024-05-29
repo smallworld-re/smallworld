@@ -5,6 +5,7 @@ import logging
 import typing
 
 import angr
+import archinfo
 import claripy
 import cle
 
@@ -37,6 +38,8 @@ class AngrEmulator(emulator.Emulator):
     it's not clear what reading or writing machine state
     means when there's more than one state.
     """
+
+    arch_pcode_names = {"sparc64": "sparc:BE:64:default"}
 
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
@@ -128,7 +131,13 @@ class AngrEmulator(emulator.Emulator):
 
         if code.arch is None:
             raise ValueError(f"arch is required: {code}")
-        options["arch"] = code.arch
+        if code.arch in self.arch_pcode_names:
+            # This architecture needs pcode to work.
+            options["arch"] = archinfo.ArchPcode(self.arch_pcode_names[code.arch])
+            engine = angr.engines.UberEnginePcode
+        else:
+            options["arch"] = code.arch
+            engine = None
 
         if code.type is None:
             raise ValueError(f"type is required: {code}")
@@ -153,7 +162,7 @@ class AngrEmulator(emulator.Emulator):
         # angr don't do byte strings.
         stream = io.BytesIO(code.image)
         loader = cle.Loader(stream, main_opts=options)
-        self.proj = angr.Project(loader)
+        self.proj = angr.Project(loader, engine=engine)
 
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs

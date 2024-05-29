@@ -147,16 +147,40 @@ class Instruction(utils.Serializable):
     ARCH_X86 = "x86"
     """x86 architecture."""
 
+    ARCH_SPARC = "sparc"
+    """SPARC architecture."""
+
     MODE_32 = "32"
     """32-bit mode."""
     MODE_64 = "64"
     """64-bit mode."""
+    MODE_V8 = "v8"
+    """sparc v8 mode, aka 32-bit"""
+    MODE_V9 = "v9"
+    """Sparc v9 mode, aka 64-bit"""
 
-    CAPSTONE_ARCH_MAP = {ARCH_X86: capstone.CS_ARCH_X86}
+    CAPSTONE_ARCH_MAP = {
+        ARCH_X86: capstone.CS_ARCH_X86,
+        ARCH_SPARC: capstone.CS_ARCH_SPARC,
+    }
     CAPSTONE_REVERSE_ARCH_MAP = {v: k for k, v in CAPSTONE_ARCH_MAP.items()}
 
-    CAPSTONE_MODE_MAP = {MODE_32: capstone.CS_MODE_32, MODE_64: capstone.CS_MODE_64}
+    CAPSTONE_MODE_MAP = {
+        MODE_32: capstone.CS_MODE_32,
+        MODE_64: capstone.CS_MODE_64,
+        MODE_V8: capstone.CS_MODE_V8,
+        MODE_V9: capstone.CS_MODE_V9,
+    }
     CAPSTONE_REVERSE_MODE_MAP = {v: k for k, v in CAPSTONE_MODE_MAP.items()}
+
+    # angr doesn't maintain a separate notion of mode;
+    # both are encoded in the architecture ID.
+    # It also has more than one architecture ID scheme,
+    ANGR_ARCH_MODE_MAP = {
+        "AMD64": (ARCH_X86, MODE_64),
+        "sparc:BE:32:default": (ARCH_SPARC, MODE_V8),
+        "sparc:BE:64:default": (ARCH_SPARC, MODE_V9),
+    }
 
     def __init__(
         self,
@@ -194,6 +218,20 @@ class Instruction(utils.Serializable):
             mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
             _instruction=instruction,
         )
+
+    @classmethod
+    def from_angr(cls, instruction, block, arch: str):
+        """Construct from an angr disassembler instruction
+
+        Arguments:
+            instruction: An existing angr disassembler instruction
+            arch: angr architecture string
+        """
+        (arch, mode) = cls.ANGR_ARCH_MODE_MAP[arch]
+        # angr's instructions don't include raw bytes.
+        off = instruction.address - block.addr
+        raw = block.bytes[off : off + instruction.size]
+        return cls(instruction=raw, address=instruction.address, arch=arch, mode=mode)
 
     @classmethod
     def from_bytes(cls, *args, **kwargs):

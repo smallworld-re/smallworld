@@ -7,6 +7,7 @@ from ... import hinting, instructions
 from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
 from .typedefs import PointerDef
+from .utils import reg_name_from_offset
 from .visitor import EvalVisitor
 
 log = logging.getLogger(__name__)
@@ -103,23 +104,30 @@ class ModelMemoryMixin(BaseMemoryMixin):
     def _default_value(self, addr, size, **kwargs):
         environ = self.state.typedefs
         res = super()._default_value(addr, size, **kwargs)
-        (cinsn,) = list(
+        block = self.state.block()
+        (insn,) = list(
             filter(
                 lambda x: x.address == self.state._ip.concrete_value,
-                self.state.block().capstone.insns,
+                block.disassembly.insns,
             )
         )
         if self.id == "reg":
-            reg_name = self.state.arch.register_size_names[(addr, size)]
+            # Thanks to Pcode, this becomes much more complicated.
+            # angr can't tell the difference between a read from a sub-register,
+            # and read from a register truncated as part of the opcode's sleigh definition.
+            # This makes it halucinate registers that don't actually exist.
+
+            reg_name = reg_name_from_offset(self.state.arch, addr, size)
             reg_def = environ.get_register_binding(reg_name)
             if reg_def is not None:
                 res = self._handle_typed_value(reg_def, res, reg_name)
                 hint = hinting.TypedUnderSpecifiedRegisterHint(
                     message="Register has type, but no value",
                     typedef=str(reg_def),
-                    pc=self.state._ip.concrete_value,
                     register=reg_name,
-                    instruction=instructions.Instruction.from_capstone(cinsn),
+                    instruction=instructions.Instruction.from_angr(
+                        insn, block, self.state.arch.name
+                    ),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -127,9 +135,10 @@ class ModelMemoryMixin(BaseMemoryMixin):
                 res = self._handle_untyped_register(reg_name, res)
                 hint = hinting.UntypedUnderSpecifiedRegisterHint(
                     message="Register has no type or value",
-                    pc=self.state._ip.concrete_value,
                     register=reg_name,
-                    instruction=instructions.Instruction.from_capstone(cinsn),
+                    instruction=instructions.Instruction.from_angr(
+                        insn, block, self.state.arch.name
+                    ),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -142,20 +151,22 @@ class ModelMemoryMixin(BaseMemoryMixin):
                 hint = hinting.TypedUnderSpecifiedMemoryHint(
                     message="Memory has type, but no value",
                     typedef=str(addr_def),
-                    pc=self.state._ip.concrete_value,
                     address=addr,
                     size=size,
-                    instruction=instructions.Instruction.from_capstone(cinsn),
+                    instruction=instructions.Instruction.from_angr(
+                        insn, block, self.state.arch.name
+                    ),
                     value=str(res),
                 )
                 hinter.info(hint)
             else:
                 hint = hinting.UntypedUnderSpecifiedMemoryHint(
                     message="Memory has no type or value",
-                    pc=self.state._ip.concrete_value,
                     address=addr,
                     size=size,
-                    instruction=instructions.Instruction.from_capstone(cinsn),
+                    instruction=instructions.Instruction.from_angr(
+                        insn, block, self.state.arch.name
+                    ),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -170,10 +181,11 @@ class ModelMemoryMixin(BaseMemoryMixin):
         This is the same code for both reads and writes.
         """
         environ = self.state.typedefs
-        (cinsn,) = list(
+        block = self.state.block()
+        (insn,) = list(
             filter(
                 lambda x: x.address == self.state._ip.concrete_value,
-                self.state.block().capstone.insns,
+                block.disassembly.insns,
             )
         )
 
@@ -194,10 +206,11 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         continue
                     hint = hinting.TypedUnderSpecifiedAddressHint(
                         message="Symbol has no type",
-                        pc=self.state._ip.concrete_value,
                         symbol=v.args[0],
                         addr=str(addr),
-                        instruction=instructions.Instruction.from_capstone(cinsn),
+                        instruction=instructions.Instruction.from_angr(
+                            insn, block, self.state.arch.name
+                        ),
                         value=str(value),
                     )
                 else:
@@ -218,10 +231,11 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     hint = hinting.TypedUnderSpecifiedAddressHint(
                         message="Symbol has type, but no value",
                         typedef=str(binding),
-                        pc=self.state._ip.concrete_value,
                         symbol=v.args[0],
                         addr=str(addr),
-                        instruction=instructions.Instruction.from_capstone(cinsn),
+                        instruction=instructions.Instruction.from_angr(
+                            insn, block, self.state.arch.name
+                        ),
                         value=str(value),
                     )
                     hinter.info(hint)
