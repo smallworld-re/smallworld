@@ -131,16 +131,12 @@ class AngrEmulator(emulator.Emulator):
         # I need some of the data contained inside
         self._code = code
 
-        options: typing.Dict[str, typing.Union[str, int]] = {}
+        options: typing.Dict[str, typing.Union[str, int, archinfo.ArchPcode]] = {}
 
         if code.arch is None:
             raise ValueError(f"arch is required: {code}")
         if code.arch in self.arch_pcode_names:
-            # This architecture needs pcode to work.
-            # apparently angr hasn't updated its type annotations to support this
-            options["arch"] = archinfo.ArchPcode(
-                self.arch_pcode_names[code.arch]
-            )  # mypy: disable-error-code="assignment"
+            options["arch"] = archinfo.ArchPcode(self.arch_pcode_names[code.arch])
             engine = angr.engines.UberEnginePcode
         else:
             options["arch"] = code.arch
