@@ -40,6 +40,7 @@ class AngrEmulator(emulator.Emulator):
     """
 
     arch_pcode_names = {"sparc64": "sparc:BE:64:default"}
+    PAGE_SIZE = 4096
 
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
@@ -60,6 +61,9 @@ class AngrEmulator(emulator.Emulator):
     @entry.setter
     def entry(self, e: angr.SimState):
         self._entry = e
+
+    def get_pages(self, num_pages: int) -> int:
+        raise NotImplementedError("Dynamic allco not implemented for angr.")
 
     def read_register(self, name: str):
         if self._reg_init_values is None:
