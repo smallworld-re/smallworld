@@ -46,7 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `State.map()` automatically selects names for mapped objects when not
   provided.
 - `Colorizer` replaces `InputColorizer`, extending analysis dramatically
-
+- `State.models` to have lots more libc models.
+	
 ## [0.0.1] - 2024-02-26
 
 ### Added
