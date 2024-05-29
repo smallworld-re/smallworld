@@ -34,7 +34,7 @@ class ColorizerSummary(analysis.Filter):
 
     @staticmethod
     def dynamic_value_summary(hint: hinting.Hint):
-        print(hint)
+        #        print(hint)
         instr_node = hint.instruction
         du_graph.add_node(instr_node)
         if type(hint) is hinting.DynamicRegisterValueProbHint:

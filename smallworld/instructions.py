@@ -193,6 +193,7 @@ class Instruction(utils.Serializable):
             _instruction = md.disasm(instruction, address).__next__()
 
         self._instruction = _instruction
+        self.disasm = f"{self._instruction.address:x} {self._instruction.mnemonic} {self._instruction.op_str}"
 
     @classmethod
     def from_capstone(cls, instruction: capstone.CsInsn):
@@ -282,6 +283,7 @@ class Instruction(utils.Serializable):
     def to_json(self) -> dict:
         return {
             "instruction": base64.b64encode(self.instruction).decode(),
+            "disasm": self.disasm,
             "address": self.address,
             "arch": self.arch,
             "mode": self.mode,

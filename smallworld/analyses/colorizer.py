@@ -145,6 +145,8 @@ class ColorizerAnalysis(analysis.Analysis):
                         continue
                     tup = (read_operand, read_operand_color, sz)
                     reads.append(tup)
+                reads.sort(key=lambda e: e[0].__repr__())
+                #                logger.info(f"reads: {reads}")
                 self._check_colors_instruction_reads(reads, sw_insn, i, j, hint_list)
 
                 try:
@@ -182,6 +184,7 @@ class ColorizerAnalysis(analysis.Analysis):
                         continue
                     tup = (write_operand, write_operand_color, sz)
                     writes.append(tup)
+                writes.sort(key=lambda e: e[0].__repr__())
                 self._check_colors_instruction_writes(writes, sw_insn, i, j, hint_list)
 
                 if done:
@@ -195,6 +198,7 @@ class ColorizerAnalysis(analysis.Analysis):
         def hint_key(hint):
             if type(hint) is hinting.DynamicRegisterValueHint:
                 return (
+                    "dynamic_register_value",
                     hint.pc,
                     not hint.use,
                     hint.color,
@@ -204,6 +208,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 )
             if type(hint) is hinting.DynamicMemoryValueHint:
                 return (
+                    "dynamic_memory_value",
                     hint.pc,
                     not hint.use,
                     hint.color,
@@ -216,15 +221,21 @@ class ColorizerAnalysis(analysis.Analysis):
                 )
             if type(hint) is hinting.MemoryUnavailableHint:
                 return (
+                    "memory_unavailable",
                     hint.pc,
-                    not hint.use,
-                    hint.color,
-                    hint.new,
+                    hint.size,
                     hint.message,
                     hint.base_reg_name,
                     hint.index_reg_name,
                     hint.offset,
                     hint.scale,
+                )
+            if type(hint) is hinting.EmulationException:
+                return (
+                    "emulation_exception",
+                    hint.instruction.__str__(),
+                    hint.instruction_num,
+                    hint.exception,
                 )
 
         all_hint_keys = set([])
@@ -401,13 +412,7 @@ class ColorizerAnalysis(analysis.Analysis):
         exec_num: int,
         insn_num: int,
     ) -> None:
-        self.colors[color] = (
-            operand,
-            exec_num,
-            insn_num,
-            insn,
-            1 + len(self.colors),
-        )
+        self.colors[color] = (operand, exec_num, insn_num, insn, 1 + len(self.colors))
 
     def _check_colors_instruction_reads(
         self,
@@ -438,6 +443,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
+                #                logger.info(f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}")
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
@@ -471,6 +477,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
+                #                logger.info(f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}")
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
