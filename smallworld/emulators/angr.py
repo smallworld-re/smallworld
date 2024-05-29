@@ -137,7 +137,10 @@ class AngrEmulator(emulator.Emulator):
             raise ValueError(f"arch is required: {code}")
         if code.arch in self.arch_pcode_names:
             # This architecture needs pcode to work.
-            options["arch"] = archinfo.ArchPcode(self.arch_pcode_names[code.arch])
+            # apparently angr hasn't updated its type annotations to support this
+            options["arch"] = archinfo.ArchPcode(
+                self.arch_pcode_names[code.arch]
+            )  # mypy: disable-error-code="assignment"
             engine = angr.engines.UberEnginePcode
         else:
             options["arch"] = code.arch
