@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CodeReachable` analysis that show what code is reachable by symbolic execution.
 - `Stack` initialization code to setup arguments.
 - `PointerFinder` analysis that finds pointers.
-
+- `ColorizerSummary` computes summary def use graph from colorizer
 
 ### Changed
 
@@ -45,6 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fixed exit points.
 - `State.map()` automatically selects names for mapped objects when not
   provided.
+- `Colorizer` replaces `InputColorizer`, extending analysis dramatically
 - `State.models` to have lots more libc models.
 	
 ## [0.0.1] - 2024-02-26

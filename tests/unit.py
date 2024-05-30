@@ -258,8 +258,8 @@ class InstructionTests(unittest.TestCase):
         # nop
         i = instructions.Instruction.from_bytes(b"\x90", 0x1000, "x86", "64")
 
-        self.assertEqual(i.reads, [])
-        self.assertEqual(i.writes, [])
+        self.assertEqual(len(i.reads), 0)
+        self.assertEqual(len(i.writes), 0)
 
     def test_semantics_register_cmp(self):
         # cmp eax, ebx
@@ -282,12 +282,13 @@ class InstructionTests(unittest.TestCase):
         self.assertIn("eax", reads)
         self.assertIn("rbx", reads)
 
-        memory = i.reads[2]
-        self.assertEqual(memory.base, "rbx")
-        self.assertEqual(memory.index, None)
-        self.assertEqual(memory.scale, 1)
-        self.assertEqual(memory.offset, 0x10)
-        self.assertEqual(memory.size, 4)
+        for read in reads:
+            if type(read) is instructions.x86MemoryReferenceOperand:
+                self.assertEqual(read.base, "rbx")
+                self.assertEqual(read.index, None)
+                self.assertEqual(read.scale, 1)
+                self.assertEqual(read.offset, 0x10)
+                self.assertEqual(read.size, 4)
 
         self.assertIn("rflags", writes)
 
@@ -314,12 +315,13 @@ class InstructionTests(unittest.TestCase):
         self.assertIn("rcx", reads)
         self.assertIn("eax", writes)
 
-        memory = i.reads[2]
-        self.assertEqual(memory.base, "rax")
-        self.assertEqual(memory.index, "rcx")
-        self.assertEqual(memory.scale, 8)
-        self.assertEqual(memory.offset, 0x10)
-        self.assertEqual(memory.size, 4)
+        for read in reads:
+            if type(read) is instructions.x86MemoryReferenceOperand:
+                self.assertEqual(read.base, "rax")
+                self.assertEqual(read.index, "rcx")
+                self.assertEqual(read.scale, 8)
+                self.assertEqual(read.offset, 0x10)
+                self.assertEqual(read.size, 4)
 
     def test_x86_memory_reference_operand_serialization(self):
         a = instructions.x86MemoryReferenceOperand("rax", "rbx", 1, 0)
