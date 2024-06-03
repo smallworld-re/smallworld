@@ -69,8 +69,8 @@ class AngrHookEmulator(emulator.Emulator):
         else:
             # Save the value to the register file
             (reg_addr, reg_size) = self.state.arch.registers[name]
-            value = claripy.BVV(value, reg_size)
-            self.state.registers.store(reg_addr, value)
+            val = claripy.BVV(value, reg_size)
+            self.state.registers.store(reg_addr, val)
 
     def get_pages(self, num_pages: int) -> int:
         raise NotImplementedError("Dynamic alloc not implemented for angr")
@@ -89,8 +89,13 @@ class AngrHookEmulator(emulator.Emulator):
             )
 
     def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
-        value = claripy.BVV(value)
-        self.state.memory.store(address, value)
+        if value is None:
+            raise NotImplementedError(
+                "Writing symbolic memory not implemented for angr"
+            )
+        else:
+            val = claripy.BVV(value)
+        self.state.memory.store(address, val)
 
     def load(self, code: state.Code) -> None:
         # TODO: Look into dynamic code loading
