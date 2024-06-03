@@ -20,109 +20,6 @@ class PathTerminationSignal(exceptions.AnalysisSignal):
     pass
 
 
-class AngrHookEmulator(emulator.Emulator):
-    """
-    "Emulator" for angr state access
-
-    The primary AngrEmulator class is designed for symbolic execution;
-    it represents many states being explored in parallel.
-    As such, the notion of accessing state doesn't work; which state do you want?
-
-    For hook evaluation, we do need an emulator-like object
-    that can access a single state.  Hence, this wrapper class.
-    """
-
-    @property
-    def PAGE_SIZE(self):
-        return self.pagesize
-
-    def __init__(self, state: angr.SimState, pagesize: int = 0x1000):
-        self.state: angr.SimState = state
-        self.pagesize: int = pagesize
-
-    def read_register(self, name: str) -> int:
-        if name == "pc":
-            # Special case: alias "pc" to the instruction pointer
-            res = self.state.ip
-        elif name not in self.state.arch.registers:
-            raise exceptions.AnalysisError(f"Register {name} does not exist")
-        else:
-            # Extract the value from the register file
-            (reg_addr, reg_size) = self.state.arch.registers[name]
-            res = self.state.registers.load(reg_addr, reg_size)
-
-        # Need a bit of different handling for symbolic or concrete registers
-        if res.symbolic:
-            raise NotImplementedError(f"Register {name} is symbolic")
-        else:
-            return res.concrete_value
-
-    def write_register(self, name: str, value: typing.Optional[int]) -> None:
-        if value is None:
-            raise NotImplementedError("Not sure how to store non-specified values")
-
-        if name == "pc":
-            # Special case: alias "pc" to the instruction pointer
-            self.state.ip = value
-        elif name not in self.state.arch.registers:
-            raise exceptions.AnalysisError(f"Register {name} does not exist")
-        else:
-            # Save the value to the register file
-            (reg_addr, reg_size) = self.state.arch.registers[name]
-            val = claripy.BVV(value, reg_size)
-            self.state.registers.store(reg_addr, val)
-
-    def get_pages(self, num_pages: int) -> int:
-        raise NotImplementedError("Dynamic alloc not implemented for angr")
-
-    def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
-        # Load data from memory.
-        res = self.state.memory.load(address, size)
-        if res.symbolic:
-            raise NotImplementedError(
-                f"Memory range [{address}:{address + size}] is symbolic"
-            )
-        else:
-            # Annoyingly, there isn't an easy way to convert BVV to bytes.
-            return bytes(
-                [res.get_byte(i).concrete_value for i in range(0, len(res) // 8)]
-            )
-
-    def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
-        if value is None:
-            raise NotImplementedError(
-                "Writing symbolic memory not implemented for angr"
-            )
-        else:
-            val = claripy.BVV(value)
-        self.state.memory.store(address, val)
-
-    def load(self, code: state.Code) -> None:
-        # TODO: Look into dynamic code loading
-        # I bet angr supports this, I have no idea how.
-        # Before I spend time on this, what's your use case?
-        raise NotImplementedError("Loading new code not implemented inside a hook.")
-
-    def hook(
-        self,
-        address: int,
-        callback: typing.Callable[[emulator.Emulator], None],
-        finish: bool = False,
-    ) -> None:
-        # TODO: Should this hook only this state, or all states?
-        # Both are doable, but which one makes sense?
-        raise NotImplementedError("Hooking not implemented inside a hook.")
-
-    def run(self) -> None:
-        raise NotImplementedError("Running not supported inside a hook.")
-
-    def step(self) -> bool:
-        raise NotImplementedError("Stepping not supported inside a hook.")
-
-    def __repr__(self):
-        return f"Angr Hook ({self.state})"
-
-
 class HookHandler(angr.SimProcedure):
     """SimProcedure for implementing "finish" hooks.
 
@@ -137,7 +34,7 @@ class HookHandler(angr.SimProcedure):
 
 class AngrEmulator(emulator.Emulator):
     """
-    Superclass for angr-based emulators.
+    Angr symbolic execution emulator
 
     This is primarily designed to support symbolic execution,
     although subclasses can configure angr however they like.
@@ -386,3 +283,106 @@ class AngrEmulator(emulator.Emulator):
 
     def __repr__(self):
         return f"Angr ({self.mgr})"
+
+
+class AngrHookEmulator(AngrEmulator):
+    """
+    "Emulator" for angr state access
+
+    The primary AngrEmulator class is designed for symbolic execution;
+    it represents many states being explored in parallel.
+    As such, the notion of accessing state doesn't work; which state do you want?
+
+    For hook evaluation, we do need an emulator-like object
+    that can access a single state.  Hence, this wrapper class.
+    """
+
+    @property
+    def PAGE_SIZE(self):
+        return self.pagesize
+
+    def __init__(self, state: angr.SimState, pagesize: int = 0x1000):
+        self.state: angr.SimState = state
+        self.pagesize: int = pagesize
+
+    def read_register(self, name: str) -> int:
+        if name == "pc":
+            # Special case: alias "pc" to the instruction pointer
+            res = self.state.ip
+        elif name not in self.state.arch.registers:
+            raise exceptions.AnalysisError(f"Register {name} does not exist")
+        else:
+            # Extract the value from the register file
+            (reg_addr, reg_size) = self.state.arch.registers[name]
+            res = self.state.registers.load(reg_addr, reg_size)
+
+        # Need a bit of different handling for symbolic or concrete registers
+        if res.symbolic:
+            raise NotImplementedError(f"Register {name} is symbolic")
+        else:
+            return res.concrete_value
+
+    def write_register(self, name: str, value: typing.Optional[int]) -> None:
+        if value is None:
+            raise NotImplementedError("Not sure how to store non-specified values")
+
+        if name == "pc":
+            # Special case: alias "pc" to the instruction pointer
+            self.state.ip = value
+        elif name not in self.state.arch.registers:
+            raise exceptions.AnalysisError(f"Register {name} does not exist")
+        else:
+            # Save the value to the register file
+            (reg_addr, reg_size) = self.state.arch.registers[name]
+            val = claripy.BVV(value, reg_size)
+            self.state.registers.store(reg_addr, val)
+
+    def get_pages(self, num_pages: int) -> int:
+        raise NotImplementedError("Dynamic alloc not implemented for angr")
+
+    def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
+        # Load data from memory.
+        res = self.state.memory.load(address, size)
+        if res.symbolic:
+            raise NotImplementedError(
+                f"Memory range [{address}:{address + size}] is symbolic"
+            )
+        else:
+            # Annoyingly, there isn't an easy way to convert BVV to bytes.
+            return bytes(
+                [res.get_byte(i).concrete_value for i in range(0, len(res) // 8)]
+            )
+
+    def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
+        if value is None:
+            raise NotImplementedError(
+                "Writing symbolic memory not implemented for angr"
+            )
+        else:
+            val = claripy.BVV(value)
+        self.state.memory.store(address, val)
+
+    def load(self, code: state.Code) -> None:
+        # TODO: Look into dynamic code loading
+        # I bet angr supports this, I have no idea how.
+        # Before I spend time on this, what's your use case?
+        raise NotImplementedError("Loading new code not implemented inside a hook.")
+
+    def hook(
+        self,
+        address: int,
+        callback: typing.Callable[[emulator.Emulator], None],
+        finish: bool = False,
+    ) -> None:
+        # TODO: Should this hook only this state, or all states?
+        # Both are doable, but which one makes sense?
+        raise NotImplementedError("Hooking not implemented inside a hook.")
+
+    def run(self) -> None:
+        raise NotImplementedError("Running not supported inside a hook.")
+
+    def step(self) -> bool:
+        raise NotImplementedError("Stepping not supported inside a hook.")
+
+    def __repr__(self):
+        return f"Angr Hook ({self.state})"
