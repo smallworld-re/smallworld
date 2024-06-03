@@ -38,6 +38,8 @@ class AngrEmulator(emulator.Emulator):
     means when there's more than one state.
     """
 
+    PAGE_SIZE = 4096
+
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
         self._code: typing.Optional[emulator.Code] = None
@@ -57,6 +59,9 @@ class AngrEmulator(emulator.Emulator):
     @entry.setter
     def entry(self, e: angr.SimState):
         self._entry = e
+
+    def get_pages(self, num_pages: int) -> int:
+        raise NotImplementedError("Dynamic allco not implemented for angr.")
 
     def read_register(self, name: str):
         if self._reg_init_values is None:
@@ -158,7 +163,8 @@ class AngrEmulator(emulator.Emulator):
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs
         # must be done before the entrypoint state is created.
-        self.analysis_preinit(self)
+        if self.analysis_preinit is not None:
+            self.analysis_preinit(self)
 
         # Initialize the entrypoint state.
         self._entry = self.proj.factory.entry_state(
@@ -173,7 +179,7 @@ class AngrEmulator(emulator.Emulator):
             raise PathTerminationSignal()
 
         # Set breakpoints to halt on exit
-        exits = list(code.exits)
+        exits = [b.stop for b in code.bounds]
         default_exit = code.base + len(code.image)
         if code.type == "blob" and default_exit not in exits:
             # Set a default exit point to keep us from
@@ -194,7 +200,16 @@ class AngrEmulator(emulator.Emulator):
         self.mgr = self.proj.factory.simulation_manager(self._entry, save_unsat=True)
 
         # Perform any analysis-specific initialization
-        self.analysis_init(self)
+        if self.analysis_init is not None:
+            self.analysis_init(self)
+
+    def hook(
+        self,
+        address: int,
+        callback: typing.Callable[[emulator.Emulator], None],
+        finish: bool = False,
+    ) -> None:
+        raise NotImplementedError()
 
     def step(self):
         # As soon as we start executing, disable value access
@@ -218,7 +233,8 @@ class AngrEmulator(emulator.Emulator):
         self.mgr.move(
             from_stash="active",
             to_stash="deadended",
-            filter_func=lambda x: x._ip.concrete_value in self._code.exits,
+            filter_func=lambda x: x._ip.concrete_value
+            in [b.stop for b in self._code.bounds],
         )
 
         # Test for exceptional states

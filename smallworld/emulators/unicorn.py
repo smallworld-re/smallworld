@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import logging
-import math
 import sys
 import typing
 
 import capstone
 import unicorn
 
-from .. import exceptions, state
+from .. import exceptions, instructions, state
 from . import emulator
 
 logger = logging.getLogger(__name__)
@@ -95,6 +94,8 @@ class UnicornEmulator(emulator.Emulator):
         unicorn.UC_MODE_64: capstone.CS_MODE_64,
     }
 
+    PAGE_SIZE = 0x1000
+
     def __init__(self, arch: str, mode: str):
         super().__init__()
 
@@ -114,21 +115,40 @@ class UnicornEmulator(emulator.Emulator):
         if self.mode not in self.REGISTERS[self.arch]:
             raise ValueError("unsupported mode for current architecture")
 
-        self.memory: typing.Dict[typing.Tuple[int, int], int] = {}
-
-        self.entrypoint: typing.Optional[int] = None
-        self.exitpoint: typing.Optional[int] = None
-
-        self.single_stepping = False
+        self.entry: typing.Optional[int] = None
 
         self.engine = unicorn.Uc(self.arch, self.mode)
+
         self.disassembler = capstone.Cs(
             self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
         )
         self.disassembler.detail = True
+        self.bounds: typing.Iterable[range] = []
+
+        self.hooks: typing.Dict[
+            int, typing.Tuple[typing.Callable[[emulator.Emulator], None], bool]
+        ] = {}
+        self.hook_return = None
+
+        def callback(uc, address, size, user_data):
+            if address in self.hooks:
+                logger.debug(f"hit hooking address {address:x}")
+                hook, finish = self.hooks[address]
+
+                hook(self)
+
+                if finish:
+                    if self.hook_return is None:
+                        raise RuntimeError("return point unknown")
+                    self.write_register("pc", self.hook_return)
+                    self.hook_return = None
+
+            self.hook_return = address + size
+
+        self.engine.hook_add(unicorn.UC_HOOK_CODE, callback)
 
     def register(self, name: str) -> int:
-        """Translate register name into Unicorn const.
+        """Translate register name into Unicorn constant.
 
         Arguments:
             register (str): Canonical name of a register.
@@ -172,6 +192,19 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.debug(f"set register {name}={value}")
 
+    def get_pages(self, num_pages: int) -> int:
+        last_page = 0
+        # iterate over pages emulator has mapped and determine last page
+        for start, end, perms in self.engine.mem_regions():
+            # Assume "end" is last byte in page and figure out what
+            # page it's in
+            end_page = (end // self.PAGE_SIZE) * self.PAGE_SIZE
+            if end_page > last_page:
+                last_page = end_page
+        next_page = last_page + self.PAGE_SIZE
+        self.engine.mem_map(next_page, num_pages * self.PAGE_SIZE)
+        return next_page
+
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
@@ -181,8 +214,6 @@ class UnicornEmulator(emulator.Emulator):
         except unicorn.unicorn.UcError:
             logger.warn(f"attempted to read uninitialized memory at 0x{address:x}")
             return None
-
-    PAGE_SIZE = 0x1000
 
     def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
         if value is None:
@@ -194,31 +225,43 @@ class UnicornEmulator(emulator.Emulator):
         if not len(value):
             raise ValueError("memory write cannot be empty")
 
-        if address % self.PAGE_SIZE:
-            raise ValueError(
-                f"address {hex(address)} is not page-aligned (page size: {hex(self.PAGE_SIZE)})"
-            )
+        def page(address):
+            return address // self.PAGE_SIZE
 
-        for key, mapping in self.memory.items():
-            if address > key[0] and address < key[1]:
-                # Overlaping writes are currently unsupported.
-                #
-                # It shouldn't be too difficult to support this, just check the
-                # size of the mapping and allocate the difference if necessary.
-                # For now though, we raise an error.
+        def subtract(first, second):
+            result = []
+            endpoints = sorted((*first, *second))
+            if endpoints[0] == first[0] and endpoints[1] != first[0]:
+                result.append((endpoints[0], endpoints[1]))
+            if endpoints[3] == first[1] and endpoints[2] != first[1]:
+                result.append((endpoints[2], endpoints[3]))
 
-                raise ValueError(
-                    "write overlaps with existing memory mapping (currently unsupported)"
-                )
+            return result
 
-        pages = math.ceil(len(value) / self.PAGE_SIZE)
-        allocation = pages * self.PAGE_SIZE
+        def map(start, end):
+            address = start * self.PAGE_SIZE
+            allocation = (end - start) * self.PAGE_SIZE
 
-        self.engine.mem_map(address, allocation)
+            logger.debug(f"new memory map 0x{address:x}[{allocation}]")
 
-        self.memory[address, address + allocation] = True
+            self.engine.mem_map(address, allocation)
 
-        logger.debug(f"new memory map 0x{address:x}[{allocation}]")
+        region = (page(address), page(address + len(value)) + 1)
+
+        for start, end, _ in self.engine.mem_regions():
+            mapped = (page(start), page(end) + 1)
+
+            regions = subtract(region, mapped)
+
+            if len(regions) == 0:
+                break
+            elif len(regions) == 1:
+                region = regions[0]
+            elif len(regions) == 2:
+                emit, region = regions
+                map(*emit)
+        else:
+            map(*region)
 
         self.engine.mem_write(address, bytes(value))
 
@@ -231,33 +274,44 @@ class UnicornEmulator(emulator.Emulator):
         self.write_memory(code.base, code.image)
 
         if code.entry is not None:
-            self.entrypoint = code.entry
-            if self.entrypoint < code.base or self.entrypoint > code.base + len(
-                code.image
-            ):
+            self.entry = code.entry
+            if self.entry < code.base or self.entry > code.base + len(code.image):
                 raise ValueError(
-                    "entrypoint is not in code: 0x{self.entrypoint:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
+                    "entry is not in code: 0x{self.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
         else:
-            self.entrypoint = code.base
+            self.entry = code.base
 
-        if code.exits:
-            self.exitpoint = list(code.exits)[0]
-        else:
-            self.exitpoint = code.base + len(code.image)
+        self.bounds = code.bounds
 
         logger.info(f"loaded code (size: {len(code.image)} B) at 0x{code.base:x}")
 
+    def hook(
+        self,
+        address: int,
+        function: typing.Callable[[emulator.Emulator], None],
+        finish: bool = False,
+    ) -> None:
+        self.hooks[address] = (function, finish)
+
+        # Ensure that the address is mapped.
+        try:
+            self.engine.mem_map(
+                (address // self.PAGE_SIZE) * self.PAGE_SIZE, self.PAGE_SIZE
+            )
+        except unicorn.UcError:
+            pass
+
     def disassemble(
-        self, code: bytes, count: typing.Optional[int] = None
+        self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
-        # TODO: annotate that offsets are relative
+        # TODO: annotate that offsets are relative.
         #
         # We don't know what the base address is at disassembly time - so we
         # just set it to 0. This means relative address arguments aren't
         # correctly calculated - we should annotate that relative arguments are
         # relative e.g., with a "+" or something.
-        base = 0x0
+
         instructions = self.disassembler.disasm(code, base)
 
         disassembly = []
@@ -270,24 +324,44 @@ class UnicornEmulator(emulator.Emulator):
 
         return (insns, "\n".join(disassembly))
 
+    def current_instruction(self) -> capstone.CsInsn:
+        pc = self.read_register("pc")
+        code = self.read_memory(pc, 15)
+        if code is None:
+            raise AssertionError("invalid state")
+        for i in self.disassembler.disasm(code, pc):
+            return i
+
+    @property
+    def exit(self):
+        for bound in self.bounds:
+            if self.entry in bound:
+                return bound.stop
+
+        return None
+
     def check(self) -> None:
-        if self.entrypoint is None:
+        if self.entry is None:
             raise exceptions.ConfigurationError(
-                "no entrypoint provided, emulation cannot start"
+                "no entry provided, emulation cannot start"
             )
-        if self.exitpoint is None:
+
+        if not self.bounds:
             raise exceptions.ConfigurationError(
-                "no exitpoint provided, emulation cannot start"
+                "no bounds provided, emulation cannot start"
+            )
+
+        if self.exit is None:
+            raise exceptions.ConfigurationError(
+                "entry is not in valid execution bounds"
             )
 
     def run(self) -> None:
         self.check()
 
-        logger.info(
-            f"starting emulation at 0x{self.entrypoint:x} until 0x{self.exitpoint:x}"
-        )
+        logger.info(f"starting emulation at 0x{self.entry:x} until 0x{self.exit:x}")
         try:
-            self.engine.emu_start(self.entrypoint, self.exitpoint)
+            self.engine.emu_start(self.entry, self.exit)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")
@@ -303,108 +377,31 @@ class UnicornEmulator(emulator.Emulator):
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, 1)
+        (instr, disas) = self.disassemble(code, pc, 1)
 
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, self.exitpoint, count=1)
+            self.engine.emu_start(pc, self.exit, count=1)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             self._error(e)
 
         pc = self.read_register("pc")
-        if self.entrypoint is None or self.exitpoint is None:
-            assert False, "impossible state"
-        if pc >= self.exitpoint or pc < self.entrypoint:
-            # inform caller that we are done
-            return True
 
-        return False
+        for entry in self.hooks.keys():
+            if pc == entry:
+                return False
 
-    def _get_operand_address(self, instruction: capstone.CsInsn, operand) -> int:
-        """Translate a memory operand to an address.
+        for bound in self.bounds:
+            if pc in bound:
+                return False
 
-        Arguments:
-            instruction: Capstone instruction.
-            operand: Capstone operand.
+        return True
 
-        Retruns:
-            The address of the given operand.
-        """
-
-        if operand.type != capstone.CS_OP_MEM:
-            raise ValueError("unsupported operand type - memory only")
-
-        base, index, offset = 0, 0, 0
-        if operand.value.mem.base != 0:
-            base = self.read_register(instruction.reg_name(operand.value.mem.base))
-        if operand.value.mem.index != 0:
-            index = self.read_register(instruction.reg_name(operand.value.mem.index))
-        if operand.value.mem.disp != 0:
-            offset = operand.value.mem.disp
-
-        return base + index + offset
-
-    def get_reads(
-        self, instruction: capstone.CsInsn
-    ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]]:
-        """Get values read by this instruction from current state.
-
-        Arguments:
-            instruction: Capstone instruction to parse.
-
-        Returns:
-            A dictionary mapping register names and memory addresses *read* by
-            the given instruction to their current values.
-        """
-
-        registers, _ = instruction.regs_access()
-        registers = [instruction.reg_name(r) for r in registers]
-        read: typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]] = {
-            r: self.read_register(r) for r in registers
-        }
-
-        for operand in instruction.operands:
-            if (
-                operand.type == capstone.CS_OP_MEM
-                and operand.access & capstone.CS_AC_READ
-            ):
-                address = self._get_operand_address(instruction, operand)
-                read[address] = self.read_memory(address, operand.size)
-
-        return read
-
-    def get_writes(
-        self, instruction: capstone.CsInsn
-    ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]]:
-        """Get values written by this instruction from current state.
-
-        Arguments:
-            instruction: Capstone instruction to parse.
-
-        Returns:
-            A dictionary mapping register names and memory addresses *written*
-            by the given instruction to their current values.
-        """
-
-        _, registers = instruction.regs_access()
-        registers = [instruction.reg_name(r) for r in registers]
-        written: typing.Dict[typing.Union[str, int], typing.Union[int, bytes, None]] = {
-            r: self.read_register(r) for r in registers
-        }
-
-        for operand in instruction.operands:
-            if (
-                operand.type == capstone.CS_OP_MEM
-                and operand.access & capstone.CS_AC_WRITE
-            ):
-                address = self._get_operand_address(instruction, operand)
-                written[address] = self.read_memory(address, operand.size)
-
-        return written
-
-    def _error(self, error: unicorn.UcError) -> dict:
+    def _error(
+        self, error: unicorn.UcError
+    ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes]]:
         """Raises new exception from unicorn exception with extra details.
 
         Should only be run while single stepping.
@@ -422,13 +419,13 @@ class UnicornEmulator(emulator.Emulator):
         if code is None:
             raise AssertionError("invalid state")
 
-        instructions, _ = self.disassemble(code, 1)
-        instruction = instructions[0]
+        insns, _ = self.disassemble(code, 1)
+        i = instructions.Instruction.from_capstone(insns[0])
 
         if error.args[0] == unicorn.unicorn_const.UC_ERR_READ_UNMAPPED:
-            details = self.get_reads(instruction)
+            details = {o.key(self): o.concretize(self) for o in i.reads}
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_WRITE_UNMAPPED:
-            details = self.get_writes(instruction)
+            details = {o.key(self): o.concretize(self) for o in i.writes}
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_FETCH_UNMAPPED:
             details = {"pc": pc}
         elif error.args[0] == unicorn.unicorn_const.UC_ERR_INSN_INVALID:

@@ -40,6 +40,15 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def get_pages(self, num_pages: int) -> int:
+        """maps this many fresh pages into the emulator
+
+        Returns:
+          The start address of the new pages
+        """
+        return 0
+
+    @abc.abstractmethod
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         """Read memory from a specific address.
 
@@ -77,6 +86,24 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
+    def hook(
+        self,
+        address: int,
+        function: typing.Callable[[Emulator], None],
+        finish: bool = False,
+    ) -> None:
+        """Register a hook at the given address.
+
+        Arguments:
+            address: The address to hook.
+            function: The hook function.
+            finish: If `True` step out of the current call after running the
+                hook function.
+        """
+
+        pass
+
+    @abc.abstractmethod
     def run(self) -> None:
         """Start execution."""
 
@@ -100,3 +127,8 @@ class Emulator(metaclass=abc.ABCMeta):
         """
 
         return ""
+
+    @property
+    @abc.abstractmethod
+    def PAGE_SIZE(self):
+        pass

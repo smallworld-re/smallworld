@@ -3,7 +3,7 @@ import logging
 import claripy
 from angr.storage import MemoryMixin
 
-from ... import hinting
+from ... import hinting, instructions
 from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
 from .typedefs import PointerDef
@@ -119,7 +119,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     typedef=str(reg_def),
                     pc=self.state._ip.concrete_value,
                     register=reg_name,
-                    capstone_instruction=cinsn,
+                    instruction=instructions.Instruction.from_capstone(cinsn),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -129,7 +129,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     message="Register has no type or value",
                     pc=self.state._ip.concrete_value,
                     register=reg_name,
-                    capstone_instruction=cinsn,
+                    instruction=instructions.Instruction.from_capstone(cinsn),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -145,7 +145,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     pc=self.state._ip.concrete_value,
                     address=addr,
                     size=size,
-                    capstone_instruction=cinsn,
+                    instruction=instructions.Instruction.from_capstone(cinsn),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -155,7 +155,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     pc=self.state._ip.concrete_value,
                     address=addr,
                     size=size,
-                    capstone_instruction=cinsn,
+                    instruction=instructions.Instruction.from_capstone(cinsn),
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -197,7 +197,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         pc=self.state._ip.concrete_value,
                         symbol=v.args[0],
                         addr=str(addr),
-                        capstone_instruction=cinsn,
+                        instruction=instructions.Instruction.from_capstone(cinsn),
                         value=str(value),
                     )
                 else:
@@ -221,7 +221,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         pc=self.state._ip.concrete_value,
                         symbol=v.args[0],
                         addr=str(addr),
-                        capstone_instruction=cinsn,
+                        instruction=instructions.Instruction.from_capstone(cinsn),
                         value=str(value),
                     )
                     hinter.info(hint)

@@ -1,51 +1,15 @@
-import base64
-import json
 import logging
-import sys
 import typing
-from dataclasses import InitVar, asdict, dataclass, field
+from dataclasses import dataclass
 
 # logging re-exports
 from logging import WARNING
-from typing import List
 
-import capstone as cs
-
-
-class HintJSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, Hint):
-            d = asdict(o)
-            d["hint_type"] = o.__class__.__name__
-            return d
-        return super().default(o)
-
-
-class HintJSONDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs):
-        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
-
-    def object_hook(self, dict):
-        if "hint_type" in dict:
-            cls = getattr(sys.modules[__name__], dict["hint_type"])
-            del dict["hint_type"]
-            return cls(**dict)
-        return dict
+from . import utils
 
 
 @dataclass(frozen=True)
-class HintInstruction:
-    """We can't put Capstone instructions in hints, so we use these instead."""
-
-    address: int
-    instruction: str
-    instruction_bytes: bytes
-    reads: List[str]
-    writes: List[str]
-
-
-@dataclass(frozen=True)
-class Hint:
+class Hint(utils.Serializable):
     """Base class for all Hints.
 
     Arguments:
@@ -54,76 +18,76 @@ class Hint:
 
     message: str
 
+    def to_json(self) -> dict:
+        return self.__dict__
+
+    @classmethod
+    def from_json(cls, dict):
+        return cls(**dict)
+
+
+@dataclass(frozen=True)
+class PointerHint(Hint):
+    """We found a pointer
+
+    Arguments:
+        instruction: The instruction containing the pointer.
+        pointer: The pointer.
+    """
+
+    instruction: typing.Any
+    pointer: typing.Any
+
+
+@dataclass(frozen=True)
+class ControlFlowHint(Hint):
+    """Represents control flow going from the from_instruction to the to_instruction.
+
+    Arguments:
+        from_instruction: The from instruction
+        to_instruction: The to instruction
+    """
+
+    from_instruction: typing.Any
+    to_instruction: typing.Any
+
+
+@dataclass(frozen=True)
+class CoverageHint(Hint):
+    """Holds the a map of program counter to hit counter for an execution.
+
+    Arguments:
+        coverage: A map from program counter to hit count
+    """
+
+    coverage: typing.Dict[int, int]
+
+
+@dataclass(frozen=True)
+class ReachableCodeHint(Hint):
+    """Indicates that we can get to a given program counter with symbolic execution.
+
+    Arguments:
+        address: The address we can reach
+    """
+
+    address: int
+
 
 @dataclass(frozen=True)
 class EmulationException(Hint):
     """Something went wrong emulating this instruction"""
 
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
-    micro_exec_num: int
+    instruction: typing.Any
     instruction_num: int
     exception: str
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
 
 
 @dataclass(frozen=True)
 class UnderSpecifiedValueHint(Hint):
     """Super class for UnderSpecified Value Hints"""
 
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
+    instruction: typing.Any
 
 
 @dataclass(frozen=True)
@@ -183,7 +147,7 @@ class TypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
 
 
 @dataclass(frozen=True)
-class UnypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
+class UntypedUnderSpecifiedRegisterHint(UnderSpecifiedRegisterHint):
     value: str
 
 
@@ -210,42 +174,8 @@ class UntypedUnderSpecifiedAddressHint(UnderSpecifiedAddressHint):
 
 
 @dataclass(frozen=True)
-class UnderSpecifiedBranchHint(Hint):
-    """Represents a program fork based on an under-specified condition
-
-    Arguments:
-      pc: Program counter
-      instruction: Representation of offending instruction
-    """
-
-    capstone_instruction: InitVar[cs.CsInsn]
-    instruction: HintInstruction = field(init=False)
-    pc: int
-
-    def __post_init__(self, capstone_instruction):
-        address = capstone_instruction.address
-        instruction_string = (
-            f"{capstone_instruction.mnemonic} {capstone_instruction.op_str}"
-        )
-        instruction_bytes = base64.b64encode(capstone_instruction.bytes).decode()
-        (regs_read, regs_written) = capstone_instruction.regs_access()
-        reads = []
-        for r in regs_read:
-            reads.append(f"{capstone_instruction.reg_name(r)}")
-        writes = []
-        for w in regs_written:
-            writes.append(f"{capstone_instruction.reg_name(w)}")
-        object.__setattr__(
-            self,
-            "instruction",
-            HintInstruction(
-                address=address,
-                instruction=instruction_string,
-                instruction_bytes=instruction_bytes,
-                reads=reads,
-                writes=writes,
-            ),
-        )
+class UnderSpecifiedBranchHint(UnderSpecifiedValueHint):
+    """Represents a program fork based on an under-specified condition."""
 
 
 @dataclass(frozen=True)
@@ -356,6 +286,154 @@ class StructureHint(TypeHint):
 class OutputHint(Hint):
     registers: typing.Dict[str, str]
     memory: typing.Dict[int, str]
+
+
+# These next three are used by the colorizer
+
+
+@dataclass(frozen=True)
+class MemoryUnavailableHint(Hint):
+    """Represents a load or store that was unavailable memory.
+
+    Arguments:
+      is_read: true if a load else a store
+      size: size of read/write in bytes
+      base_reg_name: name of base register (if known)
+      base_reg_val: value of base register (if known)
+      index_reg_name: name of index register (if known)
+      index_reg_val: value of index register (if known)
+      offset: offset (if known, else 0)
+      scale: scale (if known, else 0)
+      address: memory address of this value
+      instruction: a smallworld instruction
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+    """
+
+    is_read: bool
+    size: int
+    base_reg_name: str
+    base_reg_val: int
+    index_reg_name: str
+    index_reg_val: int
+    offset: int
+    scale: int
+    address: int
+    instruction: typing.Any
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+
+
+@dataclass(frozen=True)
+class MemoryUnavailableProbHint(Hint):
+    is_read: bool
+    size: int
+    base_reg_name: str
+    index_reg_name: str
+    offset: int
+    scale: int
+    instruction: typing.Any
+    pc: int
+    prob: float
+
+
+@dataclass(frozen=True)
+class DynamicValueHint(Hint):
+    """Represents a concrete value either in a register or memory
+    encountered during emulation-base analysis
+
+    Arguments:
+      instruction: a smallworld instruction
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+      dynamic_value: this is the actual value as bytes
+      size: the size of the value in bytes
+      use: True if its a "use" of this value, else its a "def"
+      new: True if its a new value, first sighting
+    """
+
+    instruction: typing.Any
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+    dynamic_value: str
+    color: int
+    size: int
+    use: bool
+    new: bool
+
+
+@dataclass(frozen=True)
+class DynamicRegisterValueHint(DynamicValueHint):
+    """Represents a concrete register value encountered during
+    analysis, either used or defined by some instruction.
+
+    Arguments:
+      reg_name: name of the register
+      dynamic_value: this is the actual value as bytes
+      use: True if its a "use" of this value, else its a "def"
+      capstone_instruction: the instruction in capstone parlance
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+      info: extra info about use or def if available
+    """
+
+    reg_name: str
+
+
+@dataclass(frozen=True)
+class DynamicMemoryValueHint(DynamicValueHint):
+    """Represents a concrete memory value encountered during
+    analysis, either used or defined by some instruction.
+
+    Arguments:
+      address: memory address of this value
+      base: base address (if known, else 0)
+      index: index (if known, else 0)
+      scale: scale (if known, else 0)
+      offset: offset (if known, else 0)
+      dynamic_value: this is the actual value as bytes
+      use: True if its a "use" of this value, else its a "def"
+      capstone_instruction: the instruction in capstone parlance
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+      info: extra info about use or def if available
+    """
+
+    address: int
+    base: str
+    index: str
+    scale: int
+    offset: int
+
+
+@dataclass(frozen=True)
+class DynamicValueProbHint(Hint):
+    instruction: typing.Any
+    pc: int
+    color: int
+    size: int
+    use: bool
+    new: bool
+    prob: float
+
+
+@dataclass(frozen=True)
+class DynamicMemoryValueProbHint(DynamicValueProbHint):
+    base: str
+    index: str
+    scale: int
+    offset: int
+
+
+@dataclass(frozen=True)
+class DynamicRegisterValueProbHint(DynamicValueProbHint):
+    reg_name: str
 
 
 class HintSubclassFilter(logging.Filter):

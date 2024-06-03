@@ -10,9 +10,11 @@ smallworld.setup_hinting(verbose=True, stream=True, file=None)
 state = smallworld.cpus.AMD64CPUState()
 
 # load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(sys.argv[1], base=0x1000, entry=0x1000)
+code = smallworld.state.Code.from_filepath(
+    sys.argv[1], base=0x1000, entry=0x1000, arch="x86_64", type="blob"
+)
 state.map(code)
-state.rip.set(0x1000)
+state.rip.value = code.entry
 
 # analyze
 smallworld.analyze(state)

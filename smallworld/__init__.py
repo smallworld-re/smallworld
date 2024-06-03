@@ -7,17 +7,10 @@ __description__ = metadata["Summary"]
 __author__ = metadata["Author"]
 __version__ = metadata["version"]
 
-from . import (
-    analyses,
-    cpus,
-    ctypes,
-    emulators,
-    exceptions,
-    hinting,
-    initializers,
-    state,
-)
-from .utils import analyze, emulate, setup_hinting, setup_logging
+
+from . import analyses, cpus, ctypes, emulators, exceptions, hinting, initializers, state
+from .helpers import analyze, emulate, fuzz
+from .utils import setup_hinting, setup_logging
 
 __all__ = [
     "analyses",
@@ -28,8 +21,9 @@ __all__ = [
     "hinting",
     "initializers",
     "state",
-    "analyze",
-    "emulate",
     "setup_hinting",
     "setup_logging",
+    "analyze",
+    "emulate",
+    "fuzz",
 ]

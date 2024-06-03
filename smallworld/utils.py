@@ -4,7 +4,7 @@ import logging
 import sys
 import typing
 
-from . import analyses, emulators, hinting, state
+from . import hinting
 
 
 class CharacterLevelFilter(logging.Filter):
@@ -47,6 +47,45 @@ class ColorLevelFilter(logging.Filter):
         return True
 
 
+class Serializable:
+    """Base class for serialization support.
+
+    Descendants should implement the methods below to allow automatic
+    serialization/deserialization using the JSON encoder/decoder classes below.
+    """
+
+    def to_json(self) -> dict:
+        raise NotImplementedError()
+
+    @classmethod
+    def from_json(cls, dict):
+        raise NotImplementedError()
+
+
+class SerializableJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, Serializable):
+            d = o.to_json()
+            d["class"] = f"{o.__class__.__module__}.{o.__class__.__name__}"
+
+            return d
+        return super().default(o)
+
+
+class SerializableJSONDecoder(json.JSONDecoder):
+    def __init__(self, *args, **kwargs):
+        json.JSONDecoder.__init__(self, object_hook=self.object_hook, *args, **kwargs)
+
+    def object_hook(self, dict):
+        if "class" in dict:
+            module, name = dict["class"].rsplit(".", 1)
+            cls = getattr(sys.modules[module], name)
+            del dict["class"]
+
+            return cls.from_json(dict)
+        return dict
+
+
 class JSONFormatter(logging.Formatter):
     """A custom JSON formatter for json-serializable messages.
 
@@ -71,8 +110,12 @@ class JSONFormatter(logging.Formatter):
 
         formatted["content"] = record.msg
 
+        # inefficient copy to aovid ctypes pickling issues
+        hint, record.msg = record.msg, None
         modified = copy.deepcopy(record)
-        modified.msg = json.dumps(formatted, cls=hinting.HintJSONEncoder)
+        record.msg = hint
+
+        modified.msg = json.dumps(formatted, cls=SerializableJSONEncoder)
 
         return super().format(modified)
 
@@ -179,49 +222,3 @@ def setup_hinting(
         handler.setFormatter(formatter)
 
         root.addHandler(handler)
-
-
-T = typing.TypeVar("T", bound=state.CPU)
-
-
-def emulate(state: T) -> T:
-    """Emulate execution of some code.
-
-    Arguments:
-        state: A state class from which emulation should begin.
-
-    Returns:
-        The final state of the system.
-    """
-
-    # only support Unicorn for now
-    emu = emulators.UnicornEmulator(state.arch, state.mode)
-
-    state.apply(emu)
-
-    emu.run()
-
-    state = copy.deepcopy(state)
-    state.load(emu)
-
-    return state
-
-
-def analyze(state: T) -> None:
-    """Run all available analyses on some code.
-
-    All analyses are run with default parameters.
-
-    Arguments:
-        state: A state class from which emulation should begin.
-    """
-
-    for name in analyses.__all__:
-        module: typing.Type = getattr(analyses, name)
-        if issubclass(module, analyses.Filter) and module is not analyses.Filter:
-            module().activate()
-
-    for name in analyses.__all__:
-        module = getattr(analyses, name)
-        if issubclass(module, analyses.Analysis) and module is not analyses.Analysis:
-            module().run(state)

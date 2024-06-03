@@ -47,3 +47,13 @@ def configure_nwbt_strategy(emu):
     so it needs to get called in an init callback.
     """
     emu.mgr.use_technique(NWBTExplorationTechnique())
+    # angr bug: states don't inherit plugin presets.
+    #
+    # Normally, they copy all plugins from their parents.
+    # If you define a custom plugin and don't touch it,
+    # it never gets initialized, and won't get inherited.
+    #
+    # If you try to touch that plugin on a successor,
+    # it can't be initialized, since it doesn't have
+    # your custom preset.
+    emu._entry.get_plugin("typedefs")
