@@ -468,6 +468,9 @@ class Stack(Memory):
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
     ) -> int:
+        if type is None:
+            type = value.__class__
+
         allocation_size = len(self.to_bytes(value, size))
 
         if self.used + allocation_size > self.size:
@@ -585,6 +588,11 @@ class BumpAllocator(Heap):
         label: typing.Optional[typing.Any] = None,
     ) -> int:
         allocation = self.to_bytes(value, size)
+
+        help(value)
+
+        if type is None:
+            type = value.__class__
 
         if size is None:
             size = len(allocation)
