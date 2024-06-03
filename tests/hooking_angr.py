@@ -35,8 +35,6 @@ def puts_model(emulator):
 puts = smallworld.state.models.Model(0x3808, puts_model)
 state.map(puts)
 
-print("Derp?")
-
 emu = smallworld.emulators.AngrEmulator()
 state.apply(emu)
 
