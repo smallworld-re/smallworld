@@ -130,7 +130,7 @@ def setup_default_libc(
     just these for now.
 
     Arguments:
-        flat_api: this is what gets returned by pyhidra.open_file(elf_file)
+        flat_api: this is what gets returned by pyhidra.open_program(elf_file)
         libc_func_names: list of names of libc functions
         cpustate: cpu state into which to map models
     """
