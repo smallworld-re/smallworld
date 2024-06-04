@@ -145,7 +145,7 @@ def setup_default_libc(
             plt = block
 
     assert plt is not None
-            
+
     # map all requested libc default models
     num_mapped = 0
     num_no_model = 0
