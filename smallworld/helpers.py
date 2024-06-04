@@ -1,6 +1,12 @@
 import argparse
 import copy
+import logging
 import typing
+
+import pyhidra
+
+logger = logging.getLogger(__name__)
+
 
 from . import analyses, emulators, state
 
@@ -110,3 +116,77 @@ def fuzz(
         always_validate=always_validate,
         persistent_iters=iterations,
     )
+
+
+pyhidra_started = False
+
+
+def setup_default_libc(
+    elf_file: str, libc_func_names: typing.List[str], cpustate: state.CPU
+) -> None:
+    """Map some default libc models into the cpu state.
+
+    Uses Ghdira to figure out entry points in PLT for libc fns and arranges for
+    those in a user-provided list to be hooked using the default models in
+    Smallworld.  Idea is you might not want all of them mapped and so you say
+    just these for now.
+
+    Arguments:
+        elf_file: filename for program being analyzed (ghidra will look at its PLT entries)
+        libc_func_names: list of names of libc functions
+        cpustate: cpu state into which to map models
+    """
+
+    # not sure what happens if we start it twice...
+    global pyhidra_started
+    if pyhidra_started is False:
+        pyhidra.start()
+        pyhidra_started = True
+
+    with pyhidra.open_program(elf_file) as flat_api:
+        program = flat_api.getCurrentProgram()
+        listing = program.getListing()
+
+        # find plt section
+        plt = None
+        for block in program.getMemory().getBlocks():
+            if "plt" in block.getName():
+                plt = block
+
+        # map all requested libc default models
+        num_mapped = 0
+        num_no_model = 0
+        num_too_many_models = 0
+        for func in listing.getFunctions(True):
+            func_name = func.getName()
+            entry = func.getEntryPoint()
+            if plt.contains(entry) and func_name in libc_func_names:  # type: ignore
+                # func is in plt and it is a function for which we want to use a default model
+                int_entry = int(entry.getOffset())
+                ml = state.models.get_models_by_name(
+                    func_name, state.models.AMD64SystemVImplementedModel
+                )
+                # returns list of models. for now we hope there's either 1 or 0...
+                if len(ml) == 1:
+                    class_ = ml[0]
+                    # class_ = getattr(state.models, cls_name)
+                    cpustate.map(class_(int_entry))
+                    logger.debug(
+                        f"Added libc model for {func_name} entry {int_entry:x}"
+                    )
+                    num_mapped += 1
+                elif len(ml) > 1:
+                    logger.debug(
+                        f"XXX There are {len(ml)} models for plt fn {func_name}... ignoring bc I dont know which to use"
+                    )
+                    num_too_many_models += 1
+                else:
+                    logger.debug(
+                        f"As there is no default model for {func_name}, adding with null model, entry {int_entry:x}"
+                    )
+                    cpustate.map(state.models.AMD64SystemVNullModel(int_entry))
+                    num_no_model += 1
+
+        logger.info(
+            f"Libc model mappings: {num_mapped} default, {num_no_model} no model, {num_too_many_models} too many models"
+        )
