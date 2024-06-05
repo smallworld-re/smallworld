@@ -14,39 +14,6 @@ def parseint(val):
         return int(val)
 
 
-def angr_init(analysis, entry):
-    # Initialize type bindings for state.
-    #
-    # The way I currently have this set up,
-    # it needs access to the entrypoint state
-    # created by the AngrEmnulator class.
-    #
-    # TODO: Move this annotation into the State object.
-    # This needs a good deal of though WRT how to integrate
-    # without dumping a bunch of angr-specific code into State.
-
-    environ = entry.typedefs
-    # Example of using an unnamed primitive type
-    intdef = environ.create_primitive("int", 4)
-    # Example of using a named primitive type
-    longdef = environ.create_primitive("arg2", 8)
-    # Example of a struct
-    nodedef = environ.create_struct("node")
-    # Example of a pointer
-    ptrdef = environ.create_pointer(nodedef)
-
-    # Populate struct fields
-    nodedef.add_field("data", intdef)
-    nodedef.add_field("padding", intdef)
-    nodedef.add_field("prev", ptrdef)
-    nodedef.add_field("next", ptrdef)
-    nodedef.add_field("empty", intdef)
-
-    # Bind types to initial state
-    environ.bind_register("rdi", ptrdef)
-    environ.bind_register("rsi", longdef)
-
-
 def parse_args(argvec):
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--base", type=parseint, default=0x10000000)
@@ -83,7 +50,7 @@ if __name__ == "__main__":
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(
-        args.infile, type=args.fmt, arch=args.arch, base=args.base, entry=args.entry
+        args.infile, format=args.fmt, arch=args.arch, base=args.base, entry=args.entry
     )
 
     class StructNode(ct.LittleEndianStructure):

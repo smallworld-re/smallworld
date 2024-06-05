@@ -49,7 +49,7 @@ if __name__ == "__main__":
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(
-        args.infile, type=args.fmt, arch=args.arch, base=args.base, entry=args.entry
+        args.infile, format=args.fmt, arch=args.arch, base=args.base, entry=args.entry
     )
 
     cpu = cpus.AMD64CPUState()

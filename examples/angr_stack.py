@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import ctypes
 import logging
 
 from smallworld import cpus, state, utils
@@ -11,28 +12,6 @@ def parseint(val):
         return int(val[2:], 16)
     else:
         return int(val)
-
-
-def angr_init(analysis, entry):
-    # Initialize type bindings for state.
-    #
-    # The way I currently have this set up,
-    # it needs access to the entrypoint state
-    # created by the AngrEmnulator class.
-    #
-    # TODO: Move this annotation into the State object.
-    # This needs a good deal of though WRT how to integrate
-    # without dumping a bunch of angr-specific code into State.
-
-    environ = entry.typedefs
-    arg1def = environ.create_primitive("arg1", 8)
-    arg3def = environ.create_primitive("arg3", 8)
-    arg5def = environ.create_primitive("arg5", 8)
-
-    # Bind types to initial state
-    environ.bind_register("rdi", arg1def)
-    environ.bind_register("rdx", arg3def)
-    environ.bind_register("r8", arg5def)
 
 
 def parse_args(argvec):
@@ -71,10 +50,15 @@ if __name__ == "__main__":
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(
-        args.infile, type=args.fmt, arch=args.arch, base=args.base, entry=args.entry
+        args.infile, format=args.fmt, arch=args.arch, base=args.base, entry=args.entry
     )
 
     cpu = cpus.AMD64CPUState()
+
+    cpu.rdi.type = ctypes.c_int64
+    cpu.rdx.type = ctypes.c_int64
+    cpu.r8.type = ctypes.c_int64
+
     cpu.map(target)
-    analysis = AngrNWBTAnalysis(initfunc=angr_init)
+    analysis = AngrNWBTAnalysis()
     analysis.run(cpu)

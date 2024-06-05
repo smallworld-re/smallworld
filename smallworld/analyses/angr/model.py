@@ -309,8 +309,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
             raise NotImplementedError(f"Not handling {typedef}")
         else:
             res = claripy.BVS(f"{typedef.__name__}", ctypes.sizeof(typedef) * 8)
-            name = res.args[0]
-            self.state.typedefs.bind_symbol(name, typedef)
+            self.state.typedefs.bind_symbol(res, typedef)
 
         log.warn(f"Assigned placeholder {res}")
         return res
