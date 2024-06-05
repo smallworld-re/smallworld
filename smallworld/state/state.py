@@ -109,7 +109,7 @@ class Code(Value):
         self,
         image: bytes,
         base: int,
-        type: typing.Optional[str] = None,
+        format: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
         entry: typing.Optional[int] = None,
@@ -118,7 +118,7 @@ class Code(Value):
         super().__init__()
 
         self.image = image
-        self.type = type
+        self.format = format
         self.arch = arch
         self.mode = mode
         self.base = base
@@ -152,7 +152,7 @@ class Code(Value):
         emulator.load(self)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
+        return f"{self.__class__.__name__}(format={self.format}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
 
 
 class Register(Value):

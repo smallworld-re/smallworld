@@ -42,7 +42,7 @@ class ELFImage(Code):
     def __init__(
         self,
         image: bytes,
-        type: typing.Optional[str] = None,
+        format: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
         base: typing.Optional[int] = None,
@@ -50,7 +50,13 @@ class ELFImage(Code):
         bounds: typing.Optional[typing.Iterable[range]] = None,
     ):
         super().__init__(
-            image, base=0, type=type, arch=arch, mode=mode, entry=None, bounds=bounds
+            image,
+            base=0,
+            format=format,
+            arch=arch,
+            mode=mode,
+            entry=None,
+            bounds=bounds,
         )
         self.user_base: typing.Optional[int] = base
         self.file_base: int = 0
@@ -366,7 +372,7 @@ class ELFImage(Code):
             # If this is an executable segment, treat it as code
             code = Code(
                 image=seg_data,
-                type="blob",
+                format="blob",
                 arch=self.arch,
                 mode=self.mode,
                 base=seg_addr,
