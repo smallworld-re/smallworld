@@ -40,7 +40,8 @@ class AngrNWBTAnalysis(analysis.Analysis):
                     log.debug(f"Applying type for {item}")
                     emu._entry.typedefs.bind_register(name, item.type)
             elif isinstance(item, state.Memory):
-                for addr, typedef in item.type.items():
+                for offset, typedef in item.type.items():
+                    addr = item.address + offset
                     log.debug(f"Applying type for {hex(addr)}")
                     emu._entry.typedefs.bind_address(addr, typedef)
             elif isinstance(item, state.Code):
