@@ -16,7 +16,7 @@ setup(
     license_files=["LICENSE.txt"],
     packages=find_packages(),
     python_requires=">=3.8",
-    install_requires=["unicorn", "angr", "capstone", "lief"],
+    install_requires=["unicorn", "angr", "capstone", "lief", "pyhidra"],
     extras_require={
         "development": [
             "black",
