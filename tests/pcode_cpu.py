@@ -6,6 +6,25 @@ class PcodeAMD64CPUState(PcodeCPUState):
     arch = "x86"
     mode = "64"
 
+    GENERAL_PURPOSE_REGS = [
+        "rax",
+        "rbx",
+        "rcx",
+        "rdx",
+        "rdi",
+        "rsi",
+        "rbp",
+        "rsp",
+        "r8",
+        "r9",
+        "r10",
+        "r11",
+        "r12",
+        "r13",
+        "r14",
+        "r15",
+    ]
+
     def __init__(self):
         super().__init__("x86:LE:64:default")
 
