@@ -794,22 +794,8 @@ class CPU(State):
 
     @property
     @abc.abstractmethod
-    def num_bits(self) -> int:
-        """number of bits in a word for this cpu"""
-
-        return 0
-
-    @property
-    @abc.abstractmethod
-    def REGULAR_REGS_64(self) -> typing.List[str]:
-        """List of regular 64 bit registers"""
-
-        return []
-
-    @property
-    @abc.abstractmethod
-    def REGULAR_REGS_32(self) -> typing.List[str]:
-        """List of regular 32 bit registers"""
+    def GENERAL_PURPOSE_REGS(self) -> typing.List[str]:
+        """List of general-purpose registers"""
 
         return []
 
