@@ -303,7 +303,7 @@ class UnicornEmulator(emulator.Emulator):
             pass
 
     def disassemble(
-        self, code: bytes, count: typing.Optional[int] = None
+        self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
         # TODO: annotate that offsets are relative.
         #
@@ -311,15 +311,16 @@ class UnicornEmulator(emulator.Emulator):
         # just set it to 0. This means relative address arguments aren't
         # correctly calculated - we should annotate that relative arguments are
         # relative e.g., with a "+" or something.
-        base = 0x0
+
+        instructions = self.disassembler.disasm(code, base)
 
         disassembly = []
         insns = []
-        for i, insn in enumerate(self.disassembler.disasm(code, base)):
+        for i, instruction in enumerate(instructions):
             if count is not None and i >= count:
                 break
-            insns.append(insn)
-            disassembly.append(f"{insn.mnemonic} {insn.op_str}")
+            insns.append(instruction)
+            disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
 
         return (insns, "\n".join(disassembly))
 
@@ -376,7 +377,7 @@ class UnicornEmulator(emulator.Emulator):
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, 1)
+        (instr, disas) = self.disassemble(code, pc, 1)
 
         logger.info(f"single step at 0x{pc:x}: {disas}")
 

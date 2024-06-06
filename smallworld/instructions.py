@@ -1,10 +1,13 @@
 import abc
 import base64
+import logging
 import typing
 
 import capstone
 
 from . import emulators, utils
+
+logger = logging.getLogger(__name__)
 
 
 class Operand(metaclass=abc.ABCMeta):
@@ -41,8 +44,14 @@ class RegisterOperand(Operand):
     def __init__(self, name: str):
         self.name = name
 
-    def key(self, emulator: emulators.Emulator) -> str:
+    def key(self, emulator: emulators.Emulator):
         return self.name
+
+    def __eq__(self, other) -> bool:
+        return hash(self) == hash(other)
+
+    def __hash__(self) -> int:
+        return hash(self.__repr__())
 
     def concretize(self, emulator: emulators.Emulator) -> int:
         return emulator.read_register(self.name)
@@ -68,6 +77,12 @@ class MemoryReferenceOperand(Operand):
 
     def key(self, emulator: emulators.Emulator) -> int:
         return self.address(emulator)
+
+    def __eq__(self, other):
+        return self.__repr__() == other.__repr__()
+
+    def __hash__(self):
+        return hash(self.__repr__())
 
     def concretize(self, emulator: emulators.Emulator) -> typing.Optional[bytes]:
         return emulator.read_memory(self.address(emulator), self.size)
@@ -178,6 +193,7 @@ class Instruction(utils.Serializable):
             _instruction = md.disasm(instruction, address).__next__()
 
         self._instruction = _instruction
+        self.disasm = f"{self._instruction.address:x} {self._instruction.mnemonic} {self._instruction.op_str}"
 
     @classmethod
     def from_capstone(cls, instruction: capstone.CsInsn):
@@ -187,13 +203,22 @@ class Instruction(utils.Serializable):
             instruction: An existing Capstone instruction.
         """
 
-        return cls(
-            instruction=instruction.bytes,
-            address=instruction.address,
-            arch=cls.CAPSTONE_REVERSE_ARCH_MAP[instruction._cs.arch],
-            mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
-            _instruction=instruction,
-        )
+        if instruction._cs.arch == capstone.CS_ARCH_X86:
+            return x86Instruction(
+                instruction=instruction.bytes,
+                address=instruction.address,
+                arch=cls.CAPSTONE_REVERSE_ARCH_MAP[instruction._cs.arch],
+                mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
+                _instruction=instruction,
+            )
+        else:
+            return cls(
+                instruction=instruction.bytes,
+                address=instruction.address,
+                arch=cls.CAPSTONE_REVERSE_ARCH_MAP[instruction._cs.arch],
+                mode=cls.CAPSTONE_REVERSE_MODE_MAP[instruction._cs.mode],
+                _instruction=instruction,
+            )
 
     @classmethod
     def from_bytes(cls, *args, **kwargs):
@@ -211,7 +236,7 @@ class Instruction(utils.Serializable):
         )
 
     @property
-    def reads(self) -> typing.List[Operand]:
+    def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
 
         This is a list of string register names and dictionary memory reference
@@ -219,21 +244,22 @@ class Instruction(utils.Serializable):
         """
 
         registers, _ = self._instruction.regs_access()
-        read: typing.List[Operand] = [
-            RegisterOperand(self._instruction.reg_name(r)) for r in registers
-        ]
+
+        read: typing.Set[Operand] = set(
+            [RegisterOperand(self._instruction.reg_name(r)) for r in registers]
+        )
 
         for operand in self._instruction.operands:
             if (
                 operand.type == capstone.CS_OP_MEM
                 and operand.access & capstone.CS_AC_READ
             ):
-                read.append(self._memory_reference(operand))
+                read.add(self._memory_reference(operand))
 
         return read
 
     @property
-    def writes(self) -> typing.List[Operand]:
+    def writes(self) -> typing.Set[Operand]:
         """Registers and memory references written by this instruction.
 
         Same format as `reads`.
@@ -241,22 +267,23 @@ class Instruction(utils.Serializable):
 
         _, registers = self._instruction.regs_access()
 
-        write: typing.List[Operand] = [
-            RegisterOperand(self._instruction.reg_name(r)) for r in registers
-        ]
+        write: typing.Set[Operand] = set(
+            [RegisterOperand(self._instruction.reg_name(r)) for r in registers]
+        )
 
         for operand in self._instruction.operands:
             if (
                 operand.type == capstone.CS_OP_MEM
                 and operand.access & capstone.CS_AC_WRITE
             ):
-                write.append(self._memory_reference(operand))
+                write.add(self._memory_reference(operand))
 
         return write
 
     def to_json(self) -> dict:
         return {
             "instruction": base64.b64encode(self.instruction).decode(),
+            "disasm": self.disasm,
             "address": self.address,
             "arch": self.arch,
             "mode": self.mode,
@@ -275,3 +302,56 @@ class Instruction(utils.Serializable):
         string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()
 
         return f"{self.__class__.__name__}(0x{self.address:x}: {string}; {self.arch}, {self.mode})"
+
+
+class x86Instruction(Instruction):
+    @property
+    def reads(self) -> typing.Set[Operand]:
+        """Registers and memory references read by this instruction.
+
+        This is a list of string register names and dictionary memory reference
+        specifications (i.e., in the form `base + scale * index + offset`).
+        """
+
+        the_reads: typing.Set[Operand] = set([])
+        for operand in self._instruction.operands:
+            if operand.access & capstone.CS_AC_READ:
+                if operand.type == capstone.x86.X86_OP_MEM:
+                    if not (self._instruction.mnemonic == "lea"):
+                        the_reads.add(self._memory_reference(operand))
+                    base_name = self._instruction.reg_name(operand.mem.base)
+                    index_name = self._instruction.reg_name(operand.mem.index)
+                    if base_name:
+                        the_reads.add(RegisterOperand(base_name))
+                    if index_name:
+                        the_reads.add(RegisterOperand(index_name))
+                elif operand.type == capstone.x86.X86_OP_REG:
+                    the_reads.add(
+                        RegisterOperand(self._instruction.reg_name(operand.reg))
+                    )
+                else:
+                    assert 1 == 0
+        return the_reads
+
+    @property
+    def writes(self) -> typing.Set[Operand]:
+        """Registers and memory references written by this instruction.
+
+        Same format as `reads`.
+        """
+
+        the_writes: typing.Set[Operand] = set([])
+        for operand in self._instruction.operands:
+            if operand.access & capstone.CS_AC_WRITE:
+                # please dont change this to CS_OP_MEM bc that doesnt work?
+                if operand.type == capstone.x86.X86_OP_MEM:
+                    assert not (self._instruction.mnemonic == "lea")
+                    the_writes.add(self._memory_reference(operand))
+                elif operand.type == capstone.x86.X86_OP_REG:
+                    the_writes.add(
+                        RegisterOperand(self._instruction.reg_name(operand.reg))
+                    )
+                else:
+                    assert 1 == 0
+
+        return the_writes
