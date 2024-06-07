@@ -149,6 +149,8 @@ pygments==2.17.2
     # via
     #   rich
     #   sphinx
+pypcode==2.1.0
+    # via smallworld (setup.py)
 pyproject-hooks==1.0.0
     # via build
 pysmt==0.9.5
