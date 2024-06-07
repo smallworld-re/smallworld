@@ -288,6 +288,154 @@ class OutputHint(Hint):
     memory: typing.Dict[int, str]
 
 
+# These next three are used by the colorizer
+
+
+@dataclass(frozen=True)
+class MemoryUnavailableHint(Hint):
+    """Represents a load or store that was unavailable memory.
+
+    Arguments:
+      is_read: true if a load else a store
+      size: size of read/write in bytes
+      base_reg_name: name of base register (if known)
+      base_reg_val: value of base register (if known)
+      index_reg_name: name of index register (if known)
+      index_reg_val: value of index register (if known)
+      offset: offset (if known, else 0)
+      scale: scale (if known, else 0)
+      address: memory address of this value
+      instruction: a smallworld instruction
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+    """
+
+    is_read: bool
+    size: int
+    base_reg_name: str
+    base_reg_val: int
+    index_reg_name: str
+    index_reg_val: int
+    offset: int
+    scale: int
+    address: int
+    instruction: typing.Any
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+
+
+@dataclass(frozen=True)
+class MemoryUnavailableProbHint(Hint):
+    is_read: bool
+    size: int
+    base_reg_name: str
+    index_reg_name: str
+    offset: int
+    scale: int
+    instruction: typing.Any
+    pc: int
+    prob: float
+
+
+@dataclass(frozen=True)
+class DynamicValueHint(Hint):
+    """Represents a concrete value either in a register or memory
+    encountered during emulation-base analysis
+
+    Arguments:
+      instruction: a smallworld instruction
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+      dynamic_value: this is the actual value as bytes
+      size: the size of the value in bytes
+      use: True if its a "use" of this value, else its a "def"
+      new: True if its a new value, first sighting
+    """
+
+    instruction: typing.Any
+    pc: int
+    micro_exec_num: int
+    instruction_num: int
+    dynamic_value: str
+    color: int
+    size: int
+    use: bool
+    new: bool
+
+
+@dataclass(frozen=True)
+class DynamicRegisterValueHint(DynamicValueHint):
+    """Represents a concrete register value encountered during
+    analysis, either used or defined by some instruction.
+
+    Arguments:
+      reg_name: name of the register
+      dynamic_value: this is the actual value as bytes
+      use: True if its a "use" of this value, else its a "def"
+      capstone_instruction: the instruction in capstone parlance
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+      info: extra info about use or def if available
+    """
+
+    reg_name: str
+
+
+@dataclass(frozen=True)
+class DynamicMemoryValueHint(DynamicValueHint):
+    """Represents a concrete memory value encountered during
+    analysis, either used or defined by some instruction.
+
+    Arguments:
+      address: memory address of this value
+      base: base address (if known, else 0)
+      index: index (if known, else 0)
+      scale: scale (if known, else 0)
+      offset: offset (if known, else 0)
+      dynamic_value: this is the actual value as bytes
+      use: True if its a "use" of this value, else its a "def"
+      capstone_instruction: the instruction in capstone parlance
+      pc: program counter of that instruction
+      micro_exec_num: micro-execution run number
+      instruction_num: for micro-execution the instr count
+      info: extra info about use or def if available
+    """
+
+    address: int
+    base: str
+    index: str
+    scale: int
+    offset: int
+
+
+@dataclass(frozen=True)
+class DynamicValueProbHint(Hint):
+    instruction: typing.Any
+    pc: int
+    color: int
+    size: int
+    use: bool
+    new: bool
+    prob: float
+
+
+@dataclass(frozen=True)
+class DynamicMemoryValueProbHint(DynamicValueProbHint):
+    base: str
+    index: str
+    scale: int
+    offset: int
+
+
+@dataclass(frozen=True)
+class DynamicRegisterValueProbHint(DynamicValueProbHint):
+    reg_name: str
+
+
 class HintSubclassFilter(logging.Filter):
     """A custom logging filter based on Hint class."""
 
