@@ -5,6 +5,7 @@ import logging
 import typing
 
 import angr
+import archinfo
 import claripy
 import cle
 
@@ -50,6 +51,7 @@ class AngrEmulator(emulator.Emulator):
     means when there's more than one state.
     """
 
+    arch_pcode_names = {"sparc64": "sparc:BE:64:default"}
     PAGE_SIZE = 4096
 
     def __init__(self, preinit=None, init=None):
@@ -149,11 +151,16 @@ class AngrEmulator(emulator.Emulator):
         # I need some of the data contained inside
         self._code = code
 
-        options: typing.Dict[str, typing.Union[str, int]] = {}
+        options: typing.Dict[str, typing.Union[str, int, archinfo.ArchPcode]] = {}
 
         if code.arch is None:
             raise ValueError(f"arch is required: {code}")
-        options["arch"] = code.arch
+        if code.arch in self.arch_pcode_names:
+            options["arch"] = archinfo.ArchPcode(self.arch_pcode_names[code.arch])
+            engine = angr.engines.UberEnginePcode
+        else:
+            options["arch"] = code.arch
+            engine = None
 
         if code.type is None:
             raise ValueError(f"type is required: {code}")
@@ -178,7 +185,7 @@ class AngrEmulator(emulator.Emulator):
         # angr don't do byte strings.
         stream = io.BytesIO(code.image)
         loader = cle.Loader(stream, main_opts=options)
-        self.proj = angr.Project(loader)
+        self.proj = angr.Project(loader, engine=engine)
 
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs
