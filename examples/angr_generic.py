@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     target = state.Code.from_filepath(
         args.infile,
-        type=args.fmt,
+        format=args.fmt,
         arch=args.arch,
         mode=args.mode,
         base=args.base,

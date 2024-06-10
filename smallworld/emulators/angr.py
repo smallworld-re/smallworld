@@ -5,6 +5,7 @@ import logging
 import typing
 
 import angr
+import archinfo
 import claripy
 import cle
 
@@ -50,13 +51,20 @@ class AngrEmulator(emulator.Emulator):
     means when there's more than one state.
     """
 
+    
     PAGE_SIZE = 4096
 
     # Angr doesn't use capstone's arch/mode to specify architecture.
     # Truth be told, I'm not quire sure what it uses...
-    CAPSTONE_ARCH_MODE_TO_ANGR = {
+    
+    ARCH_MODE_TO_ANGR = {
         ("x86", "32"): "x86",
         ("x86", "64"): "x86_64",
+    }
+    # If the architecture relies on pcode for support,
+    # it needs yet _another_ identifier for the pcode language.
+    ARCH_MODE_TO_PCODE = {
+        ("sparc64", "v9"): "sparc:BE:64:default"
     }
 
     def __init__(self, preinit=None, init=None):
@@ -156,20 +164,30 @@ class AngrEmulator(emulator.Emulator):
         # I need some of the data contained inside
         self._code = code
 
-        options: typing.Dict[str, typing.Union[str, int]] = {}
+        options: typing.Dict[str, typing.Union[str, int, archinfo.ArchPcode]] = {}
 
         if code.arch is None:
             raise ValueError(f"arch is required: {code}")
         if code.mode is None:
             raise ValueError(f"mode is required: {code}")
-        if (code.arch, code.mode) not in self.CAPSTONE_ARCH_MODE_TO_ANGR:
+            
+        if (code.arch, code.mode) in self.ARCH_MODE_TO_PCODE:
+            # This arch/mode needs Pcode support to work.
+            # Setup is very slightly different from vanilla angr.
+            options["arch"] = archinfo.ArchPcode(self.arch_pcode_names[(code.arch, code.mode)])
+            engine = angr.engines.UberEnginePcode
+        elif (code.arch, code.mode) not in self.ARCH_MODE_TO_ANGR:
+            # This arch/mode is not recognized as supported by
+            # pcode or vanilla angr
             raise ValueError(f"Architecture {code.arch}:{code.mode} not recognized")
+        else:
+            # This arch/mode is supported by vanilla angr
+            options["arch"] = self.ARCH_MODE_TO_ANGR[(code.arch, code.mode)]
+            engine = None
 
-        options["arch"] = self.CAPSTONE_ARCH_MODE_TO_ANGR[(code.arch, code.mode)]
-
-        if code.type is None:
-            raise ValueError(f"type is required: {code}")
-        options["backend"] = code.type
+        if code.format is None:
+            raise ValueError(f"format is required: {code}")
+        options["backend"] = code.format
 
         if code.base is None:
             raise ValueError(f"base address is required: {code}")
@@ -181,7 +199,7 @@ class AngrEmulator(emulator.Emulator):
                     "Entrypoint is not in code: 0x{code.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
             options["entry_point"] = code.entry
-        elif code.type == "blob":
+        elif code.format == "blob":
             # Only blobs need a specific entrypoint;
             # ELFs can use the one from the file.
             options["entry_point"] = code.base
@@ -190,7 +208,7 @@ class AngrEmulator(emulator.Emulator):
         # angr don't do byte strings.
         stream = io.BytesIO(code.image)
         loader = cle.Loader(stream, main_opts=options)
-        self.proj = angr.Project(loader)
+        self.proj = angr.Project(loader, engine=engine)
 
         # Perform any analysis-specific preconfiguration
         # Some features - namely messing with angr plugin configs
@@ -213,7 +231,7 @@ class AngrEmulator(emulator.Emulator):
         # Set breakpoints to halt on exit
         exits = [b.stop for b in code.bounds]
         default_exit = code.base + len(code.image)
-        if code.type == "blob" and default_exit not in exits:
+        if code.format == "blob" and default_exit not in exits:
             # Set a default exit point to keep us from
             # running off the end of the world.
             exits.append(default_exit)
