@@ -109,7 +109,7 @@ class Code(Value):
         self,
         image: bytes,
         base: int,
-        type: typing.Optional[str] = None,
+        format: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
         entry: typing.Optional[int] = None,
@@ -118,7 +118,7 @@ class Code(Value):
         super().__init__()
 
         self.image = image
-        self.type = type
+        self.format = format
         self.arch = arch
         self.mode = mode
         self.base = base
@@ -152,7 +152,7 @@ class Code(Value):
         emulator.load(self)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
+        return f"{self.__class__.__name__}(format={self.format}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
 
 
 class Register(Value):
@@ -468,6 +468,9 @@ class Stack(Memory):
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
     ) -> int:
+        if type is None:
+            type = value.__class__
+
         allocation_size = len(self.to_bytes(value, size))
 
         if self.used + allocation_size > self.size:
@@ -585,6 +588,11 @@ class BumpAllocator(Heap):
         label: typing.Optional[typing.Any] = None,
     ) -> int:
         allocation = self.to_bytes(value, size)
+
+        help(value)
+
+        if type is None:
+            type = value.__class__
 
         if size is None:
             size = len(allocation)

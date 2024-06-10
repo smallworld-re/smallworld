@@ -162,9 +162,9 @@ class AngrEmulator(emulator.Emulator):
             options["arch"] = code.arch
             engine = None
 
-        if code.type is None:
-            raise ValueError(f"type is required: {code}")
-        options["backend"] = code.type
+        if code.format is None:
+            raise ValueError(f"format is required: {code}")
+        options["backend"] = code.format
 
         if code.base is None:
             raise ValueError(f"base address is required: {code}")
@@ -176,7 +176,7 @@ class AngrEmulator(emulator.Emulator):
                     "Entrypoint is not in code: 0x{code.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
             options["entry_point"] = code.entry
-        elif code.type == "blob":
+        elif code.format == "blob":
             # Only blobs need a specific entrypoint;
             # ELFs can use the one from the file.
             options["entry_point"] = code.base
@@ -208,7 +208,7 @@ class AngrEmulator(emulator.Emulator):
         # Set breakpoints to halt on exit
         exits = [b.stop for b in code.bounds]
         default_exit = code.base + len(code.image)
-        if code.type == "blob" and default_exit not in exits:
+        if code.format == "blob" and default_exit not in exits:
             # Set a default exit point to keep us from
             # running off the end of the world.
             exits.append(default_exit)
