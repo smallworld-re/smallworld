@@ -155,7 +155,7 @@ class ConditionalVisitor(ClaripyVisitor):
 
     def visit_reverse(self, v):
         # Reversal produces one expression per evaluation of the argument.
-        return list(map(lambda x, y: (claripy.Reverse(x), y), self.visit(v.args[0])))
+        return list(map(lambda x: (claripy.Reverse(x[0]), x[1]), self.visit(v.args[0])))
 
 
 class EvalVisitor(ClaripyVisitor):
@@ -193,7 +193,7 @@ class EvalVisitor(ClaripyVisitor):
         # Extract only hase one BV argument; the range limits are ints.
         a = v.args[0]
         b = v.args[1]
-        return self.visit(v.args[2])[a:b]
+        return self.visit(v.args[2], bindings=bindings)[a:b]
 
     def visit_if(self, v, bindings=None):
         # Concretize all three args of the ITE expression.
@@ -204,4 +204,5 @@ class EvalVisitor(ClaripyVisitor):
 
     def visit_reverse(self, v, bindings=None):
         # Reverse is a simple unary; reverse the result from the arg.
-        return claripy.Reverse(self.visit(v.args[0], bindings=bindings))
+        res = claripy.Reverse(self.visit(v.args[0], bindings=bindings))
+        return res

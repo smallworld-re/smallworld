@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+import ctypes as ct
 import logging
 
-from smallworld import cpus, state, utils
+from smallworld import cpus, ctypes, state, utils
 from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
 
 
@@ -11,39 +12,6 @@ def parseint(val):
         return int(val[2:], 16)
     else:
         return int(val)
-
-
-def angr_init(analysis, entry):
-    # Initialize type bindings for state.
-    #
-    # The way I currently have this set up,
-    # it needs access to the entrypoint state
-    # created by the AngrEmnulator class.
-    #
-    # TODO: Move this annotation into the State object.
-    # This needs a good deal of though WRT how to integrate
-    # without dumping a bunch of angr-specific code into State.
-
-    environ = entry.typedefs
-    # Example of using an unnamed primitive type
-    intdef = environ.create_primitive("int", 4)
-    # Example of using a named primitive type
-    longdef = environ.create_primitive("arg2", 8)
-    # Example of a struct
-    nodedef = environ.create_struct("node")
-    # Example of a pointer
-    ptrdef = environ.create_pointer(nodedef)
-
-    # Populate struct fields
-    nodedef.add_field("data", intdef)
-    nodedef.add_field("padding", intdef)
-    nodedef.add_field("prev", ptrdef)
-    nodedef.add_field("next", ptrdef)
-    nodedef.add_field("empty", intdef)
-
-    # Bind types to initial state
-    environ.bind_register("rdi", ptrdef)
-    environ.bind_register("rsi", longdef)
 
 
 def parse_args(argvec):
@@ -70,27 +38,35 @@ def parse_args(argvec):
 
 if __name__ == "__main__":
     # Load the 'struct.bin' test.  Default args.
-    args = parse_args(["./tests/struct.bin"])
+    args = parse_args(["./tests/struct.bin", "-v"])
     if args.verbose:
         utils.setup_logging(level=logging.DEBUG)
         # Silence angr's logger; it's too verbose.
         logging.getLogger("angr").setLevel(logging.INFO)
+        logging.getLogger("claripy").setLevel(logging.INFO)
     else:
         utils.setup_logging(level=logging.INFO)
     utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(
-        args.infile, type=args.fmt, arch=args.arch, base=args.base, entry=args.entry
+        args.infile, format=args.fmt, arch=args.arch, base=args.base, entry=args.entry
     )
 
-    # I want an ability to assign types to Values in the state.
-    # How do I do this without making it cumbersome for everyone else?
-    # How do I give benefit to anyone else?
-    # How do I
+    class StructNode(ct.LittleEndianStructure):
+        _pack_ = 8
+
+    StructNode._fields_ = [
+        ("data", ct.c_int32),
+        ("next", ctypes.typed_pointer(StructNode)),
+        ("prev", ctypes.typed_pointer(StructNode)),
+        ("empty", ct.c_int32),
+    ]
 
     cpu = cpus.AMD64CPUState()
+
+    cpu.rdi.type = ctypes.typed_pointer(StructNode)
     cpu.map(target)
 
-    analysis = AngrNWBTAnalysis(initfunc=angr_init)
+    analysis = AngrNWBTAnalysis()
     analysis.run(cpu)

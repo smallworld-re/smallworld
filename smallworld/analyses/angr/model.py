@@ -1,12 +1,13 @@
+import ctypes
 import logging
 
 import claripy
 from angr.storage import MemoryMixin
 
 from ... import hinting, instructions
+from ...ctypes import TypedPointer
 from .base import BaseMemoryMixin
 from .terminate import PathTerminationSignal
-from .typedefs import PointerDef
 from .utils import reg_name_from_offset
 from .visitor import EvalVisitor
 
@@ -59,7 +60,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
             "quit": self.typed_value_quit,
         }
 
-        if isinstance(typedef, PointerDef):
+        if issubclass(typedef, TypedPointer):
             option = "alloc"
             options.update(
                 {
@@ -70,6 +71,34 @@ class ModelMemoryMixin(BaseMemoryMixin):
         else:
             option = "placeholder"
         return options[option](typedef=typedef, default=default, pretty=pretty)
+
+    def _handle_typed_symbol(self, typedef, symbol, supercall, strategies, condition):
+        # Symbols need special handling;
+        options = {
+            "default": self.typed_symbol_default,
+            "const": self.typed_value_const,
+            "null": self.typed_value_null,
+            "stop": self.typed_value_stop,
+            "quit": self.typed_value_quit,
+        }
+
+        if issubclass(typedef, TypedPointer):
+            option = "alloc"
+            options.update(
+                {
+                    "alloc": self.typed_value_alloc,
+                    "reuse": self.typed_value_reuse,
+                }
+            )
+        else:
+            option = "default"
+        return options[option](
+            typedef=typedef,
+            symbol=symbol,
+            supercall=supercall,
+            strategies=strategies,
+            condition=condition,
+        )
 
     def _handle_untyped_register(self, reg_name, default):
         options = {
@@ -218,16 +247,15 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         f"Symbol {v} (part of address expression {addr}) has type {binding}, but no value"
                     )
                     while True:
-                        value = self._handle_typed_value(binding, None, addr)
+                        value = self._handle_typed_symbol(
+                            binding, v, supercall, strategies, condition
+                        )
                         if value is not None and not self.state.solver.satisfiable(
                             extra_constraints=[v == value]
                         ):
                             log.warn(f"Selection {value:x} is not valid")
                             self._untyped_value_stop()
                         break
-                    if value is None:
-                        complete = False
-                        continue
                     hint = hinting.TypedUnderSpecifiedAddressHint(
                         message="Symbol has type, but no value",
                         typedef=str(binding),
@@ -244,17 +272,23 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     pretty_value = hex(value)
                 else:
                     log.error(f"Bad value for {v.args[0]}: {value} ({type(value)})")
+                    raise NotImplementedError()
                     quit(1)
                 log.debug(f"\tNew Value for {v.args[0]}: {pretty_value}")
             else:
                 log.debug(f"\tExisting Value for {v.args[0]}: {value:x}")
             bindings[v.args[0]] = claripy.BVV(value, 64)
         if complete:
+            # We have bindings for all symbols.
+            # These must be _concrete_ bindings.
             value = visitor.visit(addr, bindings=bindings)
             if not isinstance(value, int):
                 value = value.concrete_value
             res = [value]
         else:
+            log.warn(
+                f"Address expression {addr} not completely concretized; falling back"
+            )
             res = supercall(addr, strategies=strategies, condition=condition)
         log.debug("\tResults:")
         for v in res:
@@ -281,8 +315,8 @@ class ModelMemoryMixin(BaseMemoryMixin):
     def typed_value_alloc(self, typedef=None, **kwargs):
         # User wants to allocate a new instance
         environ = self.state.typedefs
-        res = environ.allocate(typedef)
-        log.warn(f"Allocated {len(typedef._kind)} bytes at {res:x}")
+        res = environ.allocate(typedef.reftype)
+        log.warn(f"Allocated {ctypes.sizeof(typedef.reftype)} bytes at {res:x}")
         return res
 
     def typed_value_reuse(self, typedef=None, **kwargs):
@@ -290,7 +324,13 @@ class ModelMemoryMixin(BaseMemoryMixin):
 
     def typed_value_placeholder(self, typedef=None, **kwargs):
         # User wants to assign a placeholder symbol, not a real value.
-        res = typedef.to_bv()
+        if hasattr(typedef, "__fields__"):
+            log.info(f"{typedef} is struct-like")
+            raise NotImplementedError(f"Not handling {typedef}")
+        else:
+            res = claripy.BVS(f"{typedef.__name__}", ctypes.sizeof(typedef) * 8)
+            self.state.typedefs.bind_symbol(res, typedef)
+
         log.warn(f"Assigned placeholder {res}")
         return res
 
@@ -313,6 +353,11 @@ class ModelMemoryMixin(BaseMemoryMixin):
         else:
             log.warn(f"Using default {default}")
         return default
+
+    def typed_symbol_default(self, symbol, supercall, strategies, condition, **kwargs):
+        res = supercall(symbol, strategies=strategies, condition=condition)[0]
+        log.warn(f"Concretizing {symbol} to {res:x}")
+        return res
 
     def typed_value_stop(self, **kwargs):
         log.warn("Stopping execution path")
