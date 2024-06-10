@@ -1,4 +1,8 @@
+import logging
+
 import claripy
+
+log = logging.getLogger(__name__)
 
 
 class ClaripyVisitor:
@@ -47,6 +51,9 @@ class ClaripyVisitor:
         elif v.op == "__add__":
             # v = sum(*X), for two or more expressions x in X.
             return self.visit_add(v, **kwargs)
+        elif v.op == "__mul__":
+            # v = prod(*X), for two or more expressions x in X.
+            return self.visit_mul(v, **kwargs)
         elif v.op == "Concat":
             # v = Concat(*X), for two or more expressions x in X.
             return self.visit_concat(v, **kwargs)
@@ -93,6 +100,20 @@ class ConditionalVisitor(ClaripyVisitor):
                     out.append((res, guard))
         return out
 
+    def visit_mul(self, v):
+        # Multiplication can produce all combinations of evaluations
+        # of the argument expressions.
+        out = self.visit(v.args[0])
+        for arg in v.args[1:]:
+            old_out = out
+            out = list()
+            for res2, guard2 in self.visit(arg):
+                for res1, guard1 in old_out:
+                    res = res1 * res2
+                    guard = claripy.And(guard1, guard2)
+                    out.append((res, guard))
+        return out
+
     def visit_concat(self, v):
         # Concatenation can produce all combinations of evaluations
         # of the argument expressions.
@@ -112,7 +133,8 @@ class ConditionalVisitor(ClaripyVisitor):
         # of the main argument.  The other two are always ints.
         a = v.args[0]
         b = v.args[1]
-        res = list(map(lambda x: (x[0][a:b], x[1]), self.visit(v.args[2])))
+        res = self.visit(v.args[2])
+        res = list(map(lambda x: (x[0][a:b], x[1]), res))
         return res
 
     def visit_if(self, v):

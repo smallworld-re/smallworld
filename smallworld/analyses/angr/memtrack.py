@@ -2,6 +2,8 @@ import logging
 
 from angr.storage import MemoryMixin
 
+from .utils import reg_name_from_offset
+
 log = logging.getLogger(__name__)
 
 
@@ -73,7 +75,7 @@ class TrackerMemoryMixin(MemoryMixin):
         for addr in addrs:
             size = self.dirty[addr]
             if self.id == "reg":
-                name = self.state.arch.register_size_names[(addr, size)]
+                name = reg_name_from_offset(self.state.arch, addr, size)
             else:
                 name = f"0x{addr:x}"
             val = self.load(addr, size, disable_actions=True)
@@ -82,7 +84,7 @@ class TrackerMemoryMixin(MemoryMixin):
     def create_hint(self):
         if self.id == "reg":
             return {
-                self.state.arch.register_size_names[(addr, self.dirty[addr])]: str(
+                reg_name_from_offset(self.state.arch, addr, self.dirty[addr]): str(
                     self.load(addr, self.dirty[addr], disable_actions=True)
                 )
                 for addr in list(self.dirty.keys())

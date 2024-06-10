@@ -80,10 +80,11 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         exprs = dict()
         guards = dict()
         res = set()
-        (cinsn,) = list(
+        block = self.state.block()
+        (insn,) = list(
             filter(
                 lambda x: x.address == self.state._ip.concrete_value,
-                self.state.block().capstone.insns,
+                block.disassembly.insns,
             )
         )
 
@@ -138,7 +139,9 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
             # We've got a conditional dereference.
             hint = hinting.UnderSpecifiedMemoryBranchHint(
                 message="Conditional address dereference",
-                instruction=instructions.Instruction.from_capstone(cinsn),
+                instruction=instructions.Instruction.from_angr(
+                    insn, block, self.state.arch.name
+                ),
                 address=str(addr),
                 options=[(str(k), str(v)) for (k, v) in guards.items()],
             )

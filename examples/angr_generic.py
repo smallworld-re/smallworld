@@ -7,7 +7,7 @@ from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
 
 
 def parseint(val):
-    if val.startswit("0x"):
+    if val.startswith("0x"):
         return int(val[2:], 16)
     else:
         return int(val)
