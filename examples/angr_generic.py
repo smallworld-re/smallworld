@@ -17,7 +17,8 @@ def parse_args(argvec):
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--base", type=parseint, default=0x10000000)
     parser.add_argument("-e", "--entry", type=parseint)
-    parser.add_argument("-A", "--arch", default="x86_64")
+    parser.add_argument("-A", "--arch", default="x86")
+    parser.add_argument("-M", "--mode", default="64")
     parser.add_argument("-F", "--fmt", default="blob")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("infile")
@@ -49,10 +50,15 @@ if __name__ == "__main__":
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(
-        args.infile, format=args.fmt, arch=args.arch, base=args.base, entry=args.entry
+        args.infile,
+        format=args.fmt,
+        arch=args.arch,
+        mode=args.mode,
+        base=args.base,
+        entry=args.entry,
     )
 
-    cpu = cpus.AMD64CPUState()
+    cpu = cpus.for_arch(args.arch, args.mode)
     cpu.map(target)
     analysis = AngrNWBTAnalysis()
     analysis.run(cpu)

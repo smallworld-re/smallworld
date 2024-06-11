@@ -349,9 +349,7 @@ class ColorizerAnalysis(analysis.Analysis):
     def _randomize_registers(self) -> None:
         for name, reg in self.cpu.members(state.Register).items():
             # only colorize the "regular" registers
-            if (self.cpu.mode == "32" and not (name in self.cpu.REGULAR_REGS_32)) or (
-                self.cpu.mode == "64" and not (name in self.cpu.REGULAR_REGS_64)
-            ):
+            if name not in self.cpu.GENERAL_PURPOSE_REGS:
                 continue
             # !! don't colorize a register that has already been initialized
             if not (reg.value is None):
