@@ -51,21 +51,18 @@ class AngrEmulator(emulator.Emulator):
     means when there's more than one state.
     """
 
-    
     PAGE_SIZE = 4096
 
     # Angr doesn't use capstone's arch/mode to specify architecture.
     # Truth be told, I'm not quire sure what it uses...
-    
+
     ARCH_MODE_TO_ANGR = {
         ("x86", "32"): "x86",
         ("x86", "64"): "x86_64",
     }
     # If the architecture relies on pcode for support,
     # it needs yet _another_ identifier for the pcode language.
-    ARCH_MODE_TO_PCODE = {
-        ("sparc64", "v9"): "sparc:BE:64:default"
-    }
+    ARCH_MODE_TO_PCODE = {("sparc64", "v9"): "sparc:BE:64:default"}
 
     def __init__(self, preinit=None, init=None):
         self._entry: typing.Optional[angr.SimState] = None
@@ -170,11 +167,13 @@ class AngrEmulator(emulator.Emulator):
             raise ValueError(f"arch is required: {code}")
         if code.mode is None:
             raise ValueError(f"mode is required: {code}")
-            
+
         if (code.arch, code.mode) in self.ARCH_MODE_TO_PCODE:
             # This arch/mode needs Pcode support to work.
             # Setup is very slightly different from vanilla angr.
-            options["arch"] = archinfo.ArchPcode(self.arch_pcode_names[(code.arch, code.mode)])
+            options["arch"] = archinfo.ArchPcode(
+                self.ARCH_MODE_TO_PCODE[(code.arch, code.mode)]
+            )
             engine = angr.engines.UberEnginePcode
         elif (code.arch, code.mode) not in self.ARCH_MODE_TO_ANGR:
             # This arch/mode is not recognized as supported by
@@ -329,6 +328,7 @@ class AngrHookEmulator(AngrEmulator):
 
     @property
     def PAGE_SIZE(self):
+        # Page Size should be inherited from the parent.
         return self.pagesize
 
     def __init__(self, state: angr.SimState, pagesize: int = 0x1000):
