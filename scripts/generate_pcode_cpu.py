@@ -58,8 +58,8 @@ for reg, name in regs:
         uc_reg_found.add(uc_reg)
 
 if args.strict and uc_reg_names is not None and len(uc_reg_names - uc_reg_found):
-    for reg in uc_reg_names - uc_reg_found:
-        print(f"Missing {reg}")
+    for x in uc_reg_names - uc_reg_found:
+        print(f"Missing {x}")
     raise ValueError("Missing registers from unicorn")
 
 print("class NewCPUState(CPU):")
@@ -74,9 +74,9 @@ print(f'    mode="{args.mode}"')
 print(f'    endian="{args.endian}"')
 print("")
 print("    def __init__(self):")
-for name, reg in model_regs.items():
-    if isinstance(reg, RegisterAlias):
-        rep = f'RegisterAlias("{reg.name}", self.{reg.reference.name}, width={reg.width}, offset={reg.offset})'
+for name, r in model_regs.items():
+    if isinstance(r, RegisterAlias):
+        rep = f'RegisterAlias("{r.name}", self.{r.reference.name}, width={r.width}, offset={r.offset})'
     else:
-        rep = f'Register("{reg.name}", width={reg.width})'
+        rep = f'Register("{r.name}", width={r.width})'
     print(f"        self.{name} = {rep}")
