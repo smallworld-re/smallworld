@@ -6,6 +6,7 @@ class i386CPUState(state.CPU):
 
     arch = "x86"
     mode = "32"
+    endian = "little"
 
     GENERAL_PURPOSE_REGS = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
 

@@ -25,7 +25,7 @@ class ControlFlowTracer(analysis.Analysis):
 
     def run(self, state: state.CPU) -> None:
         cpu = copy.deepcopy(state)
-        emulator = emulators.UnicornEmulator(state.arch, state.mode)
+        emulator = emulators.UnicornEmulator(state.arch, state.mode, state.endian)
         cpu.apply(emulator)
 
         from_instruction = None

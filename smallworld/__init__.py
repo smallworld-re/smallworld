@@ -17,6 +17,7 @@ from . import (
     hinting,
     initializers,
     state,
+    unicorn,
 )
 from .helpers import analyze, emulate, fuzz
 from .utils import setup_hinting, setup_logging
@@ -30,6 +31,7 @@ __all__ = [
     "hinting",
     "initializers",
     "state",
+    "unicorn",
     "setup_hinting",
     "setup_logging",
     "analyze",

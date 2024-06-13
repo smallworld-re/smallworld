@@ -6,8 +6,10 @@ import typing
 
 import capstone
 import unicorn
+import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
 from .. import exceptions, instructions, state
+from ..unicorn import UnicornMachineDef
 from . import emulator
 
 logger = logging.getLogger(__name__)
@@ -17,111 +19,27 @@ class UnicornEmulator(emulator.Emulator):
     """An emulator for the Unicorn emulation engine.
 
     Arguments:
-        arch: Unicorn architecture constant.
-        mode: Unicorn mode constant.
+        arch: Architecture ID string
+        mode: Mode ID string
+        endian: Endianness
+
     """
-
-    ARCHITECTURES = {"x86": unicorn.UC_ARCH_X86}
-
-    MODES = {"32": unicorn.UC_MODE_32, "64": unicorn.UC_MODE_64}
-
-    I386_REGISTERS = {
-        "ah": unicorn.x86_const.UC_X86_REG_AH,
-        "al": unicorn.x86_const.UC_X86_REG_AL,
-        "eax": unicorn.x86_const.UC_X86_REG_EAX,
-        "bh": unicorn.x86_const.UC_X86_REG_BH,
-        "bl": unicorn.x86_const.UC_X86_REG_BL,
-        "ebx": unicorn.x86_const.UC_X86_REG_EBX,
-        "ch": unicorn.x86_const.UC_X86_REG_CH,
-        "cl": unicorn.x86_const.UC_X86_REG_CL,
-        "ecx": unicorn.x86_const.UC_X86_REG_ECX,
-        "dh": unicorn.x86_const.UC_X86_REG_DH,
-        "dl": unicorn.x86_const.UC_X86_REG_DL,
-        "edx": unicorn.x86_const.UC_X86_REG_EDX,
-        "esi": unicorn.x86_const.UC_X86_REG_ESI,
-        "edi": unicorn.x86_const.UC_X86_REG_EDI,
-        "ebp": unicorn.x86_const.UC_X86_REG_EBP,
-        "esp": unicorn.x86_const.UC_X86_REG_ESP,
-        "eip": unicorn.x86_const.UC_X86_REG_EIP,
-        "cs": unicorn.x86_const.UC_X86_REG_CS,
-        "ds": unicorn.x86_const.UC_X86_REG_DS,
-        "es": unicorn.x86_const.UC_X86_REG_ES,
-        "fs": unicorn.x86_const.UC_X86_REG_FS,
-        "gs": unicorn.x86_const.UC_X86_REG_GS,
-        "eflags": unicorn.x86_const.UC_X86_REG_EFLAGS,
-        "cr0": unicorn.x86_const.UC_X86_REG_CR0,
-        "cr1": unicorn.x86_const.UC_X86_REG_CR1,
-        "cr2": unicorn.x86_const.UC_X86_REG_CR2,
-        "cr3": unicorn.x86_const.UC_X86_REG_CR3,
-        "cr4": unicorn.x86_const.UC_X86_REG_CR4,
-    }
-
-    AMD64_REGISTERS = {
-        "rax": unicorn.x86_const.UC_X86_REG_RAX,
-        "rbx": unicorn.x86_const.UC_X86_REG_RBX,
-        "rcx": unicorn.x86_const.UC_X86_REG_RCX,
-        "rdx": unicorn.x86_const.UC_X86_REG_RDX,
-        "r8": unicorn.x86_const.UC_X86_REG_R8,
-        "r9": unicorn.x86_const.UC_X86_REG_R9,
-        "r10": unicorn.x86_const.UC_X86_REG_R10,
-        "r11": unicorn.x86_const.UC_X86_REG_R11,
-        "r12": unicorn.x86_const.UC_X86_REG_R12,
-        "r13": unicorn.x86_const.UC_X86_REG_R13,
-        "r14": unicorn.x86_const.UC_X86_REG_R14,
-        "r15": unicorn.x86_const.UC_X86_REG_R15,
-        "rsi": unicorn.x86_const.UC_X86_REG_RSI,
-        "rdi": unicorn.x86_const.UC_X86_REG_RDI,
-        "rbp": unicorn.x86_const.UC_X86_REG_RBP,
-        "rsp": unicorn.x86_const.UC_X86_REG_RSP,
-        "rip": unicorn.x86_const.UC_X86_REG_RIP,
-        "rflags": unicorn.x86_const.UC_X86_REG_RFLAGS,
-    }
-
-    REGISTERS = {
-        unicorn.UC_ARCH_X86: {
-            unicorn.UC_MODE_32: I386_REGISTERS,
-            unicorn.UC_MODE_64: {
-                **I386_REGISTERS,
-                **AMD64_REGISTERS,
-            },
-        }
-    }
-
-    CAPSTONE_ARCH_MAP = {unicorn.UC_ARCH_X86: capstone.CS_ARCH_X86}
-
-    CAPSTONE_MODE_MAP = {
-        unicorn.UC_MODE_32: capstone.CS_MODE_32,
-        unicorn.UC_MODE_64: capstone.CS_MODE_64,
-    }
 
     PAGE_SIZE = 0x1000
 
-    def __init__(self, arch: str, mode: str):
+    def __init__(self, arch: str, mode: str, endian: str):
         super().__init__()
+        self.arch = arch
+        self.mode = mode
+        self.endian = endian
 
-        arch = arch.lower()
-        if arch not in self.ARCHITECTURES:
-            raise ValueError(f"unsupported architecture: {arch}")
-        self.arch = self.ARCHITECTURES[arch]
-
-        mode = mode.lower()
-        if mode not in self.MODES:
-            raise ValueError(f"unsupported processor mode: {mode}")
-        self.mode = self.MODES[mode]
-
-        if self.arch not in self.REGISTERS:
-            raise ValueError("unsupported architecture")
-
-        if self.mode not in self.REGISTERS[self.arch]:
-            raise ValueError("unsupported mode for current architecture")
+        self.machdef = UnicornMachineDef.for_arch(arch, mode, endian)
 
         self.entry: typing.Optional[int] = None
 
-        self.engine = unicorn.Uc(self.arch, self.mode)
+        self.engine = unicorn.Uc(self.machdef.uc_arch, self.machdef.uc_mode)
 
-        self.disassembler = capstone.Cs(
-            self.CAPSTONE_ARCH_MAP[self.arch], self.CAPSTONE_MODE_MAP[self.mode]
-        )
+        self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
         self.disassembler.detail = True
         self.bounds: typing.Iterable[range] = []
 
@@ -161,26 +79,17 @@ class UnicornEmulator(emulator.Emulator):
 
         # support some generic register references
         if name == "pc":
-            if self.arch == unicorn.UC_ARCH_X86:
-                if self.mode == unicorn.UC_MODE_32:
-                    name = "eip"
-                elif self.mode == unicorn.UC_MODE_64:
-                    name = "rip"
-                else:
-                    raise NotImplementedError(
-                        f"no idea how to get pc for x86 mode [{self.mode}]"
-                    )
-            else:
-                raise NotImplementedError(
-                    f"no idea how to get pc for arch [{self.arch}]"
-                )
+            name = self.machdef.pc_reg
 
-        try:
-            return self.REGISTERS[self.arch][self.mode][name]
-        except KeyError:
-            raise ValueError(f"unknown or unsupported register '{name}'")
+        res = self.machdef.uc_reg(name)
+        return res
 
     def read_register(self, name: str) -> int:
+        reg = self.register(name)
+        if reg == 0:
+            logger.warn(
+                f"Unicorn doesn't support register {name} for {self.arch}:{self.mode}:{self.endian}"
+            )
         return self.engine.reg_read(self.register(name))
 
     def write_register(self, name: str, value: typing.Optional[int]) -> None:

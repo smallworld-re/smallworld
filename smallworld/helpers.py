@@ -22,7 +22,7 @@ def emulate(cpu: T) -> T:
     """
 
     # only support Unicorn for now
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode)
+    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.endian)
 
     cpu.apply(emu)
 
@@ -95,7 +95,7 @@ def fuzz(
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
     args = arg_parser.parse_args()
 
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode)
+    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.endian)
     cpu.apply(emu)
 
     exits = []

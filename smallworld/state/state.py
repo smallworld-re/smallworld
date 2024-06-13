@@ -1,5 +1,6 @@
 import abc
 import ctypes
+import inspect
 import logging
 import re
 import textwrap
@@ -802,10 +803,45 @@ class CPU(State):
 
     @property
     @abc.abstractmethod
+    def endian(self) -> str:
+        """Processor byte order (e.g., little)."""
+
+        return ""
+
+    @property
+    @abc.abstractmethod
     def GENERAL_PURPOSE_REGS(self) -> typing.List[str]:
         """List of general-purpose registers"""
 
         return []
+
+    @classmethod
+    def for_arch(cls, arch: str, mode: str, endian: str):
+        """Find the appropriate CPU state for your architecture
+
+        Arguments:
+            arch: The architecture ID you want
+            mode: The mode ID you want
+            endian: The endianness you want
+
+        Returns:
+            An instance of the appropriate CPU subclass
+
+        Raises:
+            ValueError: If no CPU subclass matches your request
+        """
+
+        # Traverse all subclasses of CPU.
+        class_stack: typing.List[typing.Type[CPU]] = list(CPU.__subclasses__())
+        while len(class_stack) > 0:
+            impl: typing.Type[CPU] = class_stack.pop(-1)
+            if not inspect.isabstract(impl):
+                if impl.arch == arch and impl.mode == mode and impl.endian == endian:
+                    return impl()
+            # __subclasses__ is not transitive.
+            # Need to do a full traversal.
+            class_stack.extend(impl.__subclasses__())
+        raise ValueError(f"No CPU model for {arch}:{mode}:{endian}")
 
 
 __all__ = [

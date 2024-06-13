@@ -161,15 +161,34 @@ class SquareTests(ScriptIntegrationTest):
             '"reg_name": "edi"',
         )
 
-    def test_square(self):
-        def test_output(number):
-            stdout, _ = self.command(f"python3 square.py {number}")
+    def run_test(self, arch=None):
+        def test_output(number, arch):
+            if arch is None:
+                arch = ""
+            else:
+                arch = "." + arch
+            stdout, _ = self.command(f"python3 square{arch}.py {number}")
 
             self.assertLineContainsStrings(stdout, hex(number**2))
 
-        test_output(5)
-        test_output(1337)
-        test_output(65535)
+        test_output(5, arch)
+        test_output(1337, arch)
+        test_output(65535, arch)
+
+    def test_square_amd64(self):
+        self.run_test()
+
+    def test_square_aarch64(self):
+        self.run_test(arch="aarch64")
+
+    def test_square_armel(self):
+        self.run_test(arch="armel")
+
+    def test_square_armhf(self):
+        self.run_test(arch="armhf")
+
+    def test_square_mips(self):
+        self.run_test(arch="mips")
 
 
 class StackTests(ScriptIntegrationTest):
@@ -355,15 +374,34 @@ class BranchTests(ScriptIntegrationTest):
             stderr, '{"4096": 1, "4098": 1, "4102": 1}', "coverage"
         )
 
-    def test_branch(self):
-        stdout, _ = self.command("python3 branch.py 99")
-        self.assertLineContainsStrings(stdout, "eax", "0x0")
+    def run_branch(self, arch=None, reg="eax"):
+        if arch is None:
+            arch = ""
+        else:
+            arch = "." + arch
+        stdout, _ = self.command(f"python3 branch{arch}.py 99")
+        self.assertLineContainsStrings(stdout, reg, "0x0")
 
-        stdout, _ = self.command("python3 branch.py 100")
-        self.assertLineContainsStrings(stdout, "eax", "0x1")
+        stdout, _ = self.command(f"python3 branch{arch}.py 100")
+        self.assertLineContainsStrings(stdout, reg, "0x1")
 
-        stdout, _ = self.command("python3 branch.py 101")
-        self.assertLineContainsStrings(stdout, "eax", "0x0")
+        stdout, _ = self.command(f"python3 branch{arch}.py 101")
+        self.assertLineContainsStrings(stdout, reg, "0x0")
+
+    def test_branch_x86(self):
+        self.run_branch()
+
+    def test_branch_aarch64(self):
+        self.run_branch(arch="aarch64", reg="x0")
+
+    def test_branch_armel(self):
+        self.run_branch(arch="armel", reg="r0")
+
+    def test_branch_armhf(self):
+        self.run_branch(arch="armhf", reg="r0")
+
+    def test_branch_mips(self):
+        self.run_branch(arch="mips", reg="v0")
 
 
 class HookingTests(ScriptIntegrationTest):

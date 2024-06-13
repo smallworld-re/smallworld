@@ -1,3 +1,5 @@
+import typing
+
 import pypcode
 
 from .. import state
@@ -16,6 +18,8 @@ class PcodeCPUState(state.CPU):
         language: Pcode language ID.
     """
 
+    SYNTHETIC_REGS: typing.List[str] = []
+
     def __init__(self, language: str):
         ctx = pypcode.Context(language)
         regs = list(map(lambda x: (x[1], x[0]), ctx.registers.items()))
@@ -28,6 +32,10 @@ class PcodeCPUState(state.CPU):
         curr = None
         curr_model = None
         for reg, name in regs:
+            if name in self.SYNTHETIC_REGS:
+                # This register is marked as an artifact of Sleigh.
+                # Don't actually include it in the model.
+                continue
             if curr is None or reg.offset >= curr.offset + curr.size:
                 # We've moved out of the region covered by the current register.
                 # Our next register is the new base register.
@@ -53,6 +61,7 @@ class PcodeCPUState(state.CPU):
 class Sparc64CPUState(PcodeCPUState):
     arch = "sparc"
     mode = "v9"
+    endian = "big"
 
     # Sparc64 uses register windows.
     # The sleigh model maintains a set of registers for the current window

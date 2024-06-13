@@ -6,7 +6,6 @@ class AMD64CPUState(i386.i386CPUState):
     """AMD64 CPU state model."""
 
     mode = "64"
-    num_bits = 64
 
     GENERAL_PURPOSE_REGS = [
         "rax",

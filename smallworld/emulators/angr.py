@@ -55,7 +55,6 @@ class AngrEmulator(emulator.Emulator):
 
     # Angr doesn't use capstone's arch/mode to specify architecture.
     # Truth be told, I'm not quire sure what it uses...
-
     ARCH_MODE_TO_ANGR = {
         ("x86", "32"): "x86",
         ("x86", "64"): "x86_64",
