@@ -134,8 +134,7 @@ class Emulator(metaclass=abc.ABCMeta):
     def PAGE_SIZE(self):
         pass
 
-    @classmethod
-    def emulate(cls, cpu: state.CPU, *args, **kwargs):
+    def emulate(self, cpu: state.CPU):
         """Emulate execution of some code.
 
         Arguments:
@@ -144,14 +143,8 @@ class Emulator(metaclass=abc.ABCMeta):
         Returns:
             The final cpu of the system.
         """
-        emulator = cls(*args, **kwargs)
-        # only support Unicorn for now
-
-        cpu.apply(emulator)
-
-        emulator.run()
-
+        cpu.apply(self)
+        self.run()
         cpu = copy.deepcopy(cpu)
-        cpu.load(emulator)
-
+        cpu.load(self)
         return cpu

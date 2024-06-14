@@ -19,7 +19,8 @@ state.edi.value = int(sys.argv[-1])
 print(state.edi.value)
 
 # now we can do a single micro-execution without error
-final_state = smallworld.emulate(state)
+emulator = smallworld.emulators.UnicornEmulator(arch=state.arch, mode=state.mode)
+final_state = emulator.emulate(state)
 
 # read the result
 print(final_state.eax)
