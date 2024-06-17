@@ -199,7 +199,7 @@ class ARMCPUMixinFPEL:
     which offers 64-bit scalar operations
     """
 
-    endian = "little"
+    byteorder = "little"
 
     def __init__(self):
         super().__init__()
@@ -278,7 +278,7 @@ class ARMCPUMixinVFPEL:
     This is the maximal set of registers, assuming both are supported.
     """
 
-    endian = "little"
+    byteorder = "little"
 
     def __init__(self):
         super().__init__()
@@ -383,7 +383,7 @@ class ARMv5TCPUState(ARMCPUMixinM, ARMCPUState):
     """CPU Model for ARMv5t little-endian"""
 
     mode = "v5t"
-    endian = "little"
+    byteorder = "little"
 
 
 class ARMv6MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):

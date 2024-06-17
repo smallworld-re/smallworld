@@ -21,19 +21,19 @@ class UnicornEmulator(emulator.Emulator):
     Arguments:
         arch: Architecture ID string
         mode: Mode ID string
-        endian: Endianness
+        byteorder: Byteorder
 
     """
 
     PAGE_SIZE = 0x1000
 
-    def __init__(self, arch: str, mode: str, endian: str):
+    def __init__(self, arch: str, mode: str, byteorder: str):
         super().__init__()
         self.arch = arch
         self.mode = mode
-        self.endian = endian
+        self.byteorder = byteorder
 
-        self.machdef = UnicornMachineDef.for_arch(arch, mode, endian)
+        self.machdef = UnicornMachineDef.for_arch(arch, mode, byteorder)
 
         self.entry: typing.Optional[int] = None
 
@@ -88,7 +88,7 @@ class UnicornEmulator(emulator.Emulator):
         reg = self.register(name)
         if reg == 0:
             logger.warn(
-                f"Unicorn doesn't support register {name} for {self.arch}:{self.mode}:{self.endian}"
+                f"Unicorn doesn't support register {name} for {self.arch}:{self.mode}:{self.byteorder}"
             )
         return self.engine.reg_read(self.register(name))
 

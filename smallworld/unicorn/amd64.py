@@ -9,7 +9,7 @@ class AMD64MachineDef(UnicornMachineDef):
 
     arch = "x86"
     mode = "64"
-    endian = "little"
+    byteorder = "little"
 
     uc_arch = unicorn.UC_ARCH_X86
     uc_mode = unicorn.UC_MODE_64

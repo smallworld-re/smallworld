@@ -32,6 +32,6 @@ puts = smallworld.state.models.Model(0x3808, puts_model)
 state.map(puts)
 
 emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, endian=state.endian
+    arch=state.arch, mode=state.mode, byteorder=state.byteorder
 )
 emulator.emulate(state)

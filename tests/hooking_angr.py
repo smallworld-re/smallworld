@@ -13,7 +13,7 @@ code = smallworld.state.Code.from_filepath(
     type="blob",
     arch="x86",
     mode="64",
-    endian="little",
+    byteorder="little",
     base=0x1000,
     entry=0x1000,
 )

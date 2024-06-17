@@ -26,7 +26,7 @@ class CodeCoverage(analysis.Analysis):
 
     def run(self, state: state.CPU) -> None:
         cpu = copy.deepcopy(state)
-        emulator = emulators.UnicornEmulator(state.arch, state.mode, state.endian)
+        emulator = emulators.UnicornEmulator(state.arch, state.mode, state.byteorder)
         cpu.apply(emulator)
         coverage: typing.Dict[int, int] = {}
         for i in range(self.num_instructions):

@@ -801,7 +801,7 @@ class CPU(State):
 
     @property
     @abc.abstractmethod
-    def endian(self) -> str:
+    def byteorder(self) -> str:
         """Processor byte order (e.g., little)."""
 
         return ""
@@ -814,13 +814,13 @@ class CPU(State):
         return []
 
     @classmethod
-    def for_arch(cls, arch: str, mode: str, endian: str):
+    def for_arch(cls, arch: str, mode: str, byteorder: str):
         """Find the appropriate CPU state for your architecture
 
         Arguments:
             arch: The architecture ID you want
             mode: The mode ID you want
-            endian: The endianness you want
+            byteorder: The byteorder you want
 
         Returns:
             An instance of the appropriate CPU subclass
@@ -834,12 +834,16 @@ class CPU(State):
         while len(class_stack) > 0:
             impl: typing.Type[CPU] = class_stack.pop(-1)
             if not inspect.isabstract(impl):
-                if impl.arch == arch and impl.mode == mode and impl.endian == endian:
+                if (
+                    impl.arch == arch
+                    and impl.mode == mode
+                    and impl.byteorder == byteorder
+                ):
                     return impl()
             # __subclasses__ is not transitive.
             # Need to do a full traversal.
             class_stack.extend(impl.__subclasses__())
-        raise ValueError(f"No CPU model for {arch}:{mode}:{endian}")
+        raise ValueError(f"No CPU model for {arch}:{mode}:{byteorder}")
 
 
 __all__ = [

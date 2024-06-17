@@ -71,7 +71,7 @@ def fuzz(
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
     args = arg_parser.parse_args()
 
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.endian)
+    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.byteorder)
     cpu.apply(emu)
 
     exits = []

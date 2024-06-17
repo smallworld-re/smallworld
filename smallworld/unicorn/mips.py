@@ -9,7 +9,7 @@ class MIPSELMachineDef(UnicornMachineDef):
 
     arch = "mips"
     mode = "mips32"
-    endian = "little"
+    byteorder = "little"
 
     uc_arch = unicorn.UC_ARCH_MIPS
     uc_mode = unicorn.UC_MODE_MIPS32
@@ -160,11 +160,11 @@ class MIPSELMachineDef(UnicornMachineDef):
 class MIPSBEMachineDef(MIPSELMachineDef):
     """Unicorn machine definition for mips32 big-endian
 
-    While big and little endian have differences in register layout,
+    While big and little byteorder have differences in register layout,
     the names are identical.
     """
 
-    endian = "big"
+    byteorder = "big"
 
     uc_mode = unicorn.UC_MODE_MIPS32 | unicorn.UC_MODE_BIG_ENDIAN
 

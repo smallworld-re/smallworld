@@ -10,7 +10,7 @@ class AArch64CPUState(CPU):
 
     arch = "aarch64"
     mode = "v8a"
-    endian = "little"
+    byteorder = "little"
 
     # Special registers:
     # x29: frame pointer

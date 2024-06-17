@@ -20,7 +20,7 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def endian(self) -> str:
+    def byteorder(self) -> str:
         """The byte order"""
         return ""
 
@@ -35,7 +35,7 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
     def uc_mode(self) -> int:
         """The unicorn mode ID
 
-        This must include an endian flag
+        This must include an byteorder flag
         """
         return 0
 
@@ -50,7 +50,7 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
     def cs_mode(self) -> int:
         """The capstone mode ID
 
-        This must include an endian flag
+        This must include an byteorder flag
         """
         return 0
 
@@ -66,24 +66,24 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """Convert a register name to unicorn constant
 
         This must cover all names defined in the CPU state model
-        for this arch/mode/endian, or return 0,
+        for this arch/mode/byteorder, or return 0,
         which always indicates an invalid register
         """
         if name in self._registers:
             return self._registers[name]
         else:
             raise ValueError(
-                f"Unknown register for {self.arch}:{self.mode}:{self.endian}: {name}"
+                f"Unknown register for {self.arch}:{self.mode}:{self.byteorder}: {name}"
             )
 
     @classmethod
-    def for_arch(cls, arch: str, mode: str, endian: str):
+    def for_arch(cls, arch: str, mode: str, byteorder: str):
         """Find the appropriate MachineDef for your architecture
 
         Arguments:
             arch: The architecture ID you want
             mode: The mode ID you want
-            endian: The endianness you want
+            byteorder: The byteorderness you want
 
         Returns:
             An instance of the appropriate MachineDef
@@ -97,9 +97,13 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         while len(class_stack) > 0:
             impl: typing.Type[UnicornMachineDef] = class_stack.pop(-1)
             if not inspect.isabstract(impl):
-                if impl.arch == arch and impl.mode == mode and impl.endian == endian:
+                if (
+                    impl.arch == arch
+                    and impl.mode == mode
+                    and impl.byteorder == byteorder
+                ):
                     return impl()
             # __subclasses__ is not transitive.
             # Need to do a full traversal.
             class_stack.extend(impl.__subclasses__())
-        raise ValueError(f"No machine model for {arch}:{mode}:{endian}")
+        raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")

@@ -10,7 +10,7 @@ class MIPS64BECPUState(CPU):
 
     arch = "mips"
     mode = "mips64"
-    endian = "big"
+    byteorder = "big"
 
     # Excluded registers:
     # - zero: Hard-wired to zero
@@ -201,7 +201,7 @@ class MIPS64ELCPUState(CPU):
 
     arch = "mips"
     mode = "mips32"
-    endian = "little"
+    byteorder = "little"
 
     # Excluded registers:
     # - zero: Hard-wired to zero

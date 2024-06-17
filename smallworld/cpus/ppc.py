@@ -9,7 +9,7 @@ class PowerPCCPUState(CPU):
 
     arch = "powerpc"
     mode = "ppc32"
-    endian = "big"
+    byteorder = "big"
 
     def __init__(self):
         self.MSR = Register("MSR", width=4)

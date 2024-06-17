@@ -23,7 +23,7 @@ print(state.a0.value)
 
 # now we can do a single micro-execution without error
 emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, endian=state.endian
+    arch=state.arch, mode=state.mode, byteorder=state.byteorder
 )
 final_state = emulator.emulate(state)
 

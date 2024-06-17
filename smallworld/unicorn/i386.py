@@ -9,7 +9,7 @@ class i386MachineDef(UnicornMachineDef):
 
     arch = "x86"
     mode = "32"
-    endian = "little"
+    byteorder = "little"
 
     uc_arch = unicorn.UC_ARCH_X86
     uc_mode = unicorn.UC_MODE_32

@@ -36,7 +36,7 @@ cpu.map(alloc)
 cpu.rdi.value = size_addr
 try:
     emulator = smallworld.emulators.UnicornEmulator(
-        arch=cpu.arch, mode=cpu.mode, endian=cpu.endian
+        arch=cpu.arch, mode=cpu.mode, byteorder=cpu.byteorder
     )
     final_state = emulator.emulate(cpu)
     print(final_state.eax)

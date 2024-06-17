@@ -278,32 +278,32 @@ class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv5T little-endian"""
 
     mode = "v5t"
-    endian = "little"
+    byteorder = "little"
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv6-M little-endian"""
 
     mode = "v6m"
-    endian = "little"
+    byteorder = "little"
 
 
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv7-M little-endian"""
 
     mode = "v7m"
-    endian = "little"
+    byteorder = "little"
 
 
 class ARMv7RMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
     """Unicorn machine definition for ARMv7-R little-endian"""
 
     mode = "v7r"
-    endian = "little"
+    byteorder = "little"
 
 
 class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
     """Unicorn machine definition for ARMv7-A little-endian"""
 
     mode = "v7a"
-    endian = "little"
+    byteorder = "little"

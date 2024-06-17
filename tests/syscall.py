@@ -34,7 +34,7 @@ state.rdx.value = len(data) - 1
 
 # emulate
 emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, endian=state.mode
+    arch=state.arch, mode=state.mode, byteorder=state.mode
 )
 final_state = emulator.emulate(state)
 
