@@ -11,6 +11,7 @@ from .i386 import i386MachineDef
 from .machdef import UnicornMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
+from .unicorn import UnicornEmulator
 
 __all__ = [
     "UnicornMachineDef",
@@ -26,4 +27,5 @@ __all__ = [
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
+    "UnicornEmulator",
 ]

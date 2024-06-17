@@ -8,9 +8,9 @@ import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from .. import exceptions, instructions, state
-from ..unicorn import UnicornMachineDef
-from . import emulator
+from ... import exceptions, instructions, state
+from .. import emulator
+from . import UnicornMachineDef
 
 logger = logging.getLogger(__name__)
 
