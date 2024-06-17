@@ -1,5 +1,4 @@
 import argparse
-import copy
 import logging
 import typing
 
@@ -9,29 +8,6 @@ logger = logging.getLogger(__name__)
 from . import analyses, emulators, state
 
 T = typing.TypeVar("T", bound=state.CPU)
-
-
-def emulate(cpu: T) -> T:
-    """Emulate execution of some code.
-
-    Arguments:
-        cpu: A state class from which emulation should begin.
-
-    Returns:
-        The final cpu of the system.
-    """
-
-    # only support Unicorn for now
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.endian)
-
-    cpu.apply(emu)
-
-    emu.run()
-
-    cpu = copy.deepcopy(cpu)
-    cpu.load(emu)
-
-    return cpu
 
 
 def analyze(cpu: T) -> None:

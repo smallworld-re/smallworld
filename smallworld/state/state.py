@@ -590,8 +590,6 @@ class BumpAllocator(Heap):
     ) -> int:
         allocation = self.to_bytes(value, size)
 
-        help(value)
-
         if type is None:
             type = value.__class__
 

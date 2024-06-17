@@ -31,7 +31,10 @@ state.map(stack)
 state.rsp.value = rsp
 
 # emulate
-final = smallworld.emulate(state)
+emulator = smallworld.emulators.UnicornEmulator(
+    arch=state.arch, mode=state.mode, endian=state.endian
+)
+final_state = emulator.emulate(state)
 
 # read out the final state
-print(final.rax)
+print(final_state.rax)
