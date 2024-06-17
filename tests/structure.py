@@ -9,7 +9,7 @@ smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 
 # create a small world
-cpu = smallworld.cpus.AMD64CPUState()
+cpu = smallworld.state.CPU.for_arch("x86", "64", "little")
 zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 

@@ -101,7 +101,7 @@ class ColorizerAnalysis(analysis.Analysis):
             # does this really need to be a member variable?
             self.cpu = copy.deepcopy(start_cpustate)
 
-            self.emu = UnicornEmulator(self.cpu.arch, self.cpu.mode)
+            self.emu = UnicornEmulator(self.cpu.arch, self.cpu.mode, self.cpu.byteorder)
 
             # initialize registers with random values
             self._randomize_registers()

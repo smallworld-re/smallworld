@@ -45,7 +45,7 @@ class PointerFinder(analysis.Analysis):
 
     def run(self, state: state.CPU) -> None:
         cpu = copy.deepcopy(state)
-        emulator = emulators.UnicornEmulator(state.arch, state.mode)
+        emulator = emulators.UnicornEmulator(state.arch, state.mode, state.byteorder)
         cpu.apply(emulator)
 
         def hook_valid_access(uc, access, address, size, value, user_data):

@@ -5,7 +5,7 @@ import re
 import textwrap
 import typing
 
-from .. import emulators, initializers
+from .. import emulators, initializers, utils
 
 logger = logging.getLogger(__name__)
 
@@ -589,8 +589,6 @@ class BumpAllocator(Heap):
     ) -> int:
         allocation = self.to_bytes(value, size)
 
-        help(value)
-
         if type is None:
             type = value.__class__
 
@@ -802,10 +800,42 @@ class CPU(State):
 
     @property
     @abc.abstractmethod
+    def byteorder(self) -> str:
+        """Processor byte order (e.g., little)."""
+
+        return ""
+
+    @property
+    @abc.abstractmethod
     def GENERAL_PURPOSE_REGS(self) -> typing.List[str]:
         """List of general-purpose registers"""
 
         return []
+
+    @classmethod
+    def for_arch(cls, arch: str, mode: str, byteorder: str):
+        """Find the appropriate CPU state for your architecture
+
+        Arguments:
+            arch: The architecture ID you want
+            mode: The mode ID you want
+            byteorder: The byteorder you want
+
+        Returns:
+            An instance of the appropriate CPU subclass
+
+        Raises:
+            ValueError: If no CPU subclass matches your request
+        """
+        try:
+            return utils.find_subclass(
+                cls,
+                lambda x: x.arch == arch
+                and x.mode == mode
+                and x.byteorder == byteorder,
+            )
+        except ValueError:
+            raise ValueError(f"No CPU model for {arch}:{mode}:{byteorder}")
 
 
 __all__ = [

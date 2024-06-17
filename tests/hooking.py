@@ -5,7 +5,7 @@ import smallworld
 smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True)
 
-state = smallworld.cpus.AMD64CPUState()
+state = smallworld.state.CPU.for_arch("x86", "64", "little")
 
 code = smallworld.state.Code.from_filepath("hooking.bin", base=0x1000, entry=0x1000)
 state.map(code)
@@ -31,5 +31,7 @@ def puts_model(emulator):
 puts = smallworld.state.models.Model(0x3808, puts_model)
 state.map(puts)
 
-emulator = smallworld.emulators.UnicornEmulator(arch=state.arch, mode=state.mode)
+emulator = smallworld.emulators.UnicornEmulator(
+    arch=state.arch, mode=state.mode, byteorder=state.byteorder
+)
 emulator.emulate(state)
