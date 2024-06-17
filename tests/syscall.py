@@ -33,7 +33,9 @@ state.rsi.value = stack.address
 state.rdx.value = len(data) - 1
 
 # emulate
-emulator = smallworld.emulators.UnicornEmulator(arch=state.arch, mode=state.mode)
+emulator = smallworld.emulators.UnicornEmulator(
+    arch=state.arch, mode=state.mode, endian=state.mode
+)
 final_state = emulator.emulate(state)
 
 # read out the final state
