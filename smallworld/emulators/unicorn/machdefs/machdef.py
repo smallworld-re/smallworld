@@ -1,6 +1,7 @@
 import abc
-import inspect
 import typing
+
+from .... import utils
 
 
 class UnicornMachineDef(metaclass=abc.ABCMeta):
@@ -91,19 +92,12 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         Raises:
             ValueError: If no MachineDef subclass matches your request
         """
-        class_stack: typing.List[typing.Type[UnicornMachineDef]] = list(
-            UnicornMachineDef.__subclasses__()
-        )
-        while len(class_stack) > 0:
-            impl: typing.Type[UnicornMachineDef] = class_stack.pop(-1)
-            if not inspect.isabstract(impl):
-                if (
-                    impl.arch == arch
-                    and impl.mode == mode
-                    and impl.byteorder == byteorder
-                ):
-                    return impl()
-            # __subclasses__ is not transitive.
-            # Need to do a full traversal.
-            class_stack.extend(impl.__subclasses__())
-        raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
+        try:
+            return utils.find_subclass(
+                cls,
+                lambda x: x.arch == arch
+                and x.mode == mode
+                and x.byteorder == byteorder,
+            )
+        except:
+            raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")

@@ -1,12 +1,11 @@
 import abc
 import ctypes
-import inspect
 import logging
 import re
 import textwrap
 import typing
 
-from .. import emulators, initializers
+from .. import emulators, initializers, utils
 
 logger = logging.getLogger(__name__)
 
@@ -828,22 +827,15 @@ class CPU(State):
         Raises:
             ValueError: If no CPU subclass matches your request
         """
-
-        # Traverse all subclasses of CPU.
-        class_stack: typing.List[typing.Type[CPU]] = list(CPU.__subclasses__())
-        while len(class_stack) > 0:
-            impl: typing.Type[CPU] = class_stack.pop(-1)
-            if not inspect.isabstract(impl):
-                if (
-                    impl.arch == arch
-                    and impl.mode == mode
-                    and impl.byteorder == byteorder
-                ):
-                    return impl()
-            # __subclasses__ is not transitive.
-            # Need to do a full traversal.
-            class_stack.extend(impl.__subclasses__())
-        raise ValueError(f"No CPU model for {arch}:{mode}:{byteorder}")
+        try:
+            return utils.find_subclass(
+                cls,
+                lambda x: x.arch == arch
+                and x.mode == mode
+                and x.byteorder == byteorder,
+            )
+        except ValueError:
+            raise ValueError(f"No CPU model for {arch}:{mode}:{byteorder}")
 
 
 __all__ = [
