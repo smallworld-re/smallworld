@@ -10,7 +10,7 @@ import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
 from ... import exceptions, instructions, state
 from .. import emulator
-from . import UnicornMachineDef
+from .machdefs import UnicornMachineDef
 
 logger = logging.getLogger(__name__)
 
