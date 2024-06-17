@@ -1,7 +1,7 @@
 *.swp
 *.pyc
 *.jsonl
-*.dugraph
+*.json
 
 *.egg-info/
 dist/
