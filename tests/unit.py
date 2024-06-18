@@ -137,7 +137,7 @@ class StateTests(unittest.TestCase):
 
 class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_not_page_aligned(self):
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address = 0x1800
         value = b"A" * 32
@@ -148,7 +148,7 @@ class UnicornEmulatorTests(unittest.TestCase):
         self.assertEqual(read, value)
 
     def test_write_memory_multipage_not_page_aligned(self):
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address = 0x1800
         value = b"A" * 0x1200
@@ -161,7 +161,7 @@ class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_multipage_span_less_than_page_size(self):
         """Allocation less than a page, but spans multiple pages."""
 
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address = 0x1800
         value = b"A" * 0x850
@@ -174,7 +174,7 @@ class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_page_overlapping_explicit(self):
         """Overlapping writes start in the same page."""
 
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address1 = 0x1200
         value1 = b"A" * 0x32
@@ -193,7 +193,7 @@ class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_page_overlapping_implicit(self):
         """Overlapping writes start in different pages."""
 
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address1 = 0x1200
         value1 = b"A" * 0x1000
@@ -212,7 +212,7 @@ class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_page_overlapping_extra_map(self):
         """Overlapping writes that require additional mappings."""
 
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address1 = 0x1200
         value1 = b"A" * 32
@@ -231,7 +231,7 @@ class UnicornEmulatorTests(unittest.TestCase):
     def test_write_memory_page_contains_existing_maps(self):
         """Existing maps contained within the allocation."""
 
-        emu = emulators.UnicornEmulator("x86", "64")
+        emu = emulators.UnicornEmulator("x86", "64", "little")
 
         address1 = 0x1200
         value1 = b"A" * 32

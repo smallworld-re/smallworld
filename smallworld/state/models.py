@@ -530,10 +530,6 @@ class AMD64SystemVBasenameModel(AMD64SystemVImplementedModel, BasenameModel):
     pass
 
 
-# class AMD64SystemVXpgBasenameModel(AMD64SystemVImplementedModel, XpgBasenameModel):
-#    pass
-
-
 class AMD64SystemVCallocModel(AMD64SystemVImplementedModel, CallocModel):
     pass
 
@@ -697,7 +693,6 @@ class AMD64SystemVNullModel(AMD64SystemVImplementedModel, Returns0ImplementedMod
 __all__ = [
     #    "Model",
     "AMD64SystemVBasenameModel",
-    #    "AMD64SystemVXpgBasenameModel",
     "AMD64SystemVCallocModel",
     "AMD64SystemVDaemonModel",
     "AMD64SystemVFlockModel",
@@ -747,10 +742,6 @@ def get_models_by_name(
     Returns:
         list of classes that match by name
     """
-
-    # XXX I wanted 2nd arg to be a class like AMD64SystemVImplementedModel
-    # and output to be ImplementedModel
-    # but could not get this to pass mypi
 
     models = []
     for name in __all__:

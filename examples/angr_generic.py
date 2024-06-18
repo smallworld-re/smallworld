@@ -2,12 +2,12 @@
 import argparse
 import logging
 
-from smallworld import cpus, state, utils
+from smallworld import state, utils
 from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
 
 
 def parseint(val):
-    if val.startswit("0x"):
+    if val.startswith("0x"):
         return int(val[2:], 16)
     else:
         return int(val)
@@ -17,7 +17,9 @@ def parse_args(argvec):
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--base", type=parseint, default=0x10000000)
     parser.add_argument("-e", "--entry", type=parseint)
-    parser.add_argument("-A", "--arch", default="x86_64")
+    parser.add_argument("-A", "--arch", default="x86")
+    parser.add_argument("-M", "--mode", default="64")
+    parser.add_argument("-E", "--endian", default="little")
     parser.add_argument("-F", "--fmt", default="blob")
     parser.add_argument("-v", "--verbose", action="store_true")
     parser.add_argument("infile")
@@ -49,10 +51,15 @@ if __name__ == "__main__":
     log = logging.getLogger("smallworld")
 
     target = state.Code.from_filepath(
-        args.infile, type=args.fmt, arch=args.arch, base=args.base, entry=args.entry
+        args.infile,
+        format=args.fmt,
+        arch=args.arch,
+        mode=args.mode,
+        base=args.base,
+        entry=args.entry,
     )
 
-    cpu = cpus.AMD64CPUState()
+    cpu = state.CPU.for_arch(args.arch, args.mode, args.endian)
     cpu.map(target)
     analysis = AngrNWBTAnalysis()
     analysis.run(cpu)

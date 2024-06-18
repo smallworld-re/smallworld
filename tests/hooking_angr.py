@@ -5,11 +5,17 @@ import smallworld
 smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True)
 
-state = smallworld.cpus.AMD64CPUState()
+state = smallworld.state.CPU.for_arch("x86", "64", "little")
 log = logging.getLogger("hook")
 
 code = smallworld.state.Code.from_filepath(
-    "hooking.bin", type="blob", arch="x86_64", mode="64", base=0x1000, entry=0x1000
+    "hooking.bin",
+    type="blob",
+    arch="x86",
+    mode="64",
+    byteorder="little",
+    base=0x1000,
+    entry=0x1000,
 )
 state.map(code)
 state.rip.value = 0x1000

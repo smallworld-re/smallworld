@@ -1,5 +1,4 @@
 import argparse
-import copy
 import logging
 import typing
 
@@ -9,29 +8,6 @@ logger = logging.getLogger(__name__)
 from . import analyses, emulators, state
 
 T = typing.TypeVar("T", bound=state.CPU)
-
-
-def emulate(cpu: T) -> T:
-    """Emulate execution of some code.
-
-    Arguments:
-        cpu: A state class from which emulation should begin.
-
-    Returns:
-        The final cpu of the system.
-    """
-
-    # only support Unicorn for now
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode)
-
-    cpu.apply(emu)
-
-    emu.run()
-
-    cpu = copy.deepcopy(cpu)
-    cpu.load(emu)
-
-    return cpu
 
 
 def analyze(cpu: T) -> None:
@@ -95,7 +71,7 @@ def fuzz(
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
     args = arg_parser.parse_args()
 
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode)
+    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.byteorder)
     cpu.apply(emu)
 
     exits = []

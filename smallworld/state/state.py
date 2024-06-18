@@ -5,7 +5,7 @@ import re
 import textwrap
 import typing
 
-from .. import emulators, initializers
+from .. import emulators, initializers, utils
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +96,7 @@ class Code(Value):
     Arguments:
         image: The actual bytes of the executable.
         base: Base address.
-        type: Executable format ("blob", "PE", "ELF", etc.)
+        format: Executable format ("blob", "PE", "ELF", etc.)
         arch: Architecture ("x86", "arm", etc.)
         mode: Architecture mode ("32", "64", etc.)
         entry: Execution entry address - if not provided this is assumed to be
@@ -109,7 +109,7 @@ class Code(Value):
         self,
         image: bytes,
         base: int,
-        type: typing.Optional[str] = None,
+        format: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
         entry: typing.Optional[int] = None,
@@ -118,7 +118,7 @@ class Code(Value):
         super().__init__()
 
         self.image = image
-        self.type = type
+        self.format = format
         self.arch = arch
         self.mode = mode
         self.base = base
@@ -152,7 +152,7 @@ class Code(Value):
         emulator.load(self)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(type={self.type}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
+        return f"{self.__class__.__name__}(format={self.format}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
 
 
 class Register(Value):
@@ -471,6 +471,9 @@ class Stack(Memory):
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
     ) -> int:
+        if type is None:
+            type = value.__class__
+
         allocation_size = len(self.to_bytes(value, size))
 
         if self.used + allocation_size > self.size:
@@ -595,6 +598,9 @@ class BumpAllocator(Heap):
         label: typing.Optional[typing.Any] = None,
     ) -> int:
         allocation = self.to_bytes(value, size)
+
+        if type is None:
+            type = value.__class__
 
         if size is None:
             size = len(allocation)
@@ -804,24 +810,42 @@ class CPU(State):
 
     @property
     @abc.abstractmethod
-    def num_bits(self) -> int:
-        """number of bits in a word for this cpu"""
+    def byteorder(self) -> str:
+        """Processor byte order (e.g., little)."""
 
-        return 0
-
-    @property
-    @abc.abstractmethod
-    def REGULAR_REGS_64(self) -> typing.List[str]:
-        """List of regular 64 bit registers"""
-
-        return []
+        return ""
 
     @property
     @abc.abstractmethod
-    def REGULAR_REGS_32(self) -> typing.List[str]:
-        """List of regular 32 bit registers"""
+    def GENERAL_PURPOSE_REGS(self) -> typing.List[str]:
+        """List of general-purpose registers"""
 
         return []
+
+    @classmethod
+    def for_arch(cls, arch: str, mode: str, byteorder: str):
+        """Find the appropriate CPU state for your architecture
+
+        Arguments:
+            arch: The architecture ID you want
+            mode: The mode ID you want
+            byteorder: The byteorder you want
+
+        Returns:
+            An instance of the appropriate CPU subclass
+
+        Raises:
+            ValueError: If no CPU subclass matches your request
+        """
+        try:
+            return utils.find_subclass(
+                cls,
+                lambda x: x.arch == arch
+                and x.mode == mode
+                and x.byteorder == byteorder,
+            )
+        except ValueError:
+            raise ValueError(f"No CPU model for {arch}:{mode}:{byteorder}")
 
 
 __all__ = [

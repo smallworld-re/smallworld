@@ -1,6 +1,7 @@
 *.swp
 *.pyc
 *.jsonl
+*.json
 
 *.egg-info/
 dist/

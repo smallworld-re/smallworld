@@ -9,7 +9,7 @@ smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 
 # create a small world
-cpu = smallworld.cpus.AMD64CPUState()
+cpu = smallworld.state.CPU.for_arch("x86", "64", "little")
 zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 
@@ -49,12 +49,14 @@ alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x2000)
 # seems like ctypes is a good way to compactly express a type like `struct node` from struct.s
 class StructNode(ctypes.LittleEndianStructure):
     _pack_ = 8
-    _fields_ = [
-        ("data", ctypes.c_int32),
-        ("next", ctypes.c_int64),
-        ("prev", ctypes.c_int64),
-        ("empty", ctypes.c_int32),
-    ]
+
+
+StructNode._fields_ = [
+    ("data", ctypes.c_int32),
+    ("next", smallworld.ctypes.typed_pointer(StructNode)),
+    ("prev", smallworld.ctypes.typed_pointer(StructNode)),
+    ("empty", ctypes.c_int32),
+]
 
 
 # create two nodes with data and empty slots filled in
@@ -62,12 +64,12 @@ node1 = StructNode()
 node1.data = 4  # thus ->next will get used to traverse
 node1.empty = 0
 node1.prev = 0
-node1_addr = alloc.malloc(node1)
+node1_addr = alloc.malloc(node1, label="node1")
 
 node2 = StructNode()
 node2.data = 1  # thus ->prev wil get used to traverse
 node2.empty = 1
-node2_addr = alloc.malloc(node2)
+node2_addr = alloc.malloc(node2, label="node2")
 
 # and link them up
 node1.next = node2_addr
@@ -76,6 +78,9 @@ node2.prev = node1_addr
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
 cpu.rdi.value = node1_addr
+cpu.rdi.type = smallworld.ctypes.typed_pointer(StructNode)
+cpu.rdi.label = "arg1"
+
 print(f"RDI: {hex(cpu.rdi.value)}")
 # all the allocated things get put in memory as concrete bytes
 cpu.map(alloc)

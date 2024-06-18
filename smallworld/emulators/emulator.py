@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import copy
 import logging
 import typing
 
@@ -133,3 +134,18 @@ class Emulator(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def PAGE_SIZE(self):
         pass
+
+    def emulate(self, cpu: state.CPU):
+        """Emulate execution of some code.
+
+        Arguments:
+            cpu: A state class from which emulation should begin.
+
+        Returns:
+            The final cpu of the system.
+        """
+        cpu.apply(self)
+        self.run()
+        cpu = copy.deepcopy(cpu)
+        cpu.load(self)
+        return cpu

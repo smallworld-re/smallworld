@@ -7,19 +7,23 @@ __description__ = metadata["Summary"]
 __author__ = metadata["Author"]
 __version__ = metadata["version"]
 
-from . import analyses, cpus, emulators, exceptions, hinting, initializers, state
-from .helpers import (  # noqa: F401
-    analyze,
-    emulate,
-    fuzz,
-    setup_default_libc,
-    setup_section,
+from . import (
+    analyses,
+    cpus,
+    ctypes,
+    emulators,
+    exceptions,
+    hinting,
+    initializers,
+    state,
 )
+from .helpers import analyze, fuzz, setup_default_libc, setup_section  # noqa: F401
 from .utils import setup_hinting, setup_logging
 
 __all__ = [
     "analyses",
     "cpus",
+    "ctypes",
     "emulators",
     "exceptions",
     "hinting",
@@ -28,6 +32,5 @@ __all__ = [
     "setup_hinting",
     "setup_logging",
     "analyze",
-    "emulate",
     "fuzz",
 ]

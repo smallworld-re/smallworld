@@ -6,7 +6,7 @@ smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 # create a state object
-state = smallworld.cpus.AMD64CPUState()
+state = smallworld.state.CPU.for_arch("x86", "64", "little")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath("stack.bin", base=0x1000, entry=0x1000)
@@ -31,7 +31,10 @@ state.map(stack)
 state.rsp.value = rsp
 
 # emulate
-final = smallworld.emulate(state)
+emulator = smallworld.emulators.UnicornEmulator(
+    arch=state.arch, mode=state.mode, byteorder=state.byteorder
+)
+final_state = emulator.emulate(state)
 
 # read out the final state
-print(final.rax)
+print(final_state.rax)

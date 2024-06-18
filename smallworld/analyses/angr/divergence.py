@@ -80,10 +80,11 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         exprs = dict()
         guards = dict()
         res = set()
-        (cinsn,) = list(
+        block = self.state.block()
+        (insn,) = list(
             filter(
                 lambda x: x.address == self.state._ip.concrete_value,
-                self.state.block().capstone.insns,
+                block.disassembly.insns,
             )
         )
 
@@ -100,7 +101,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
                         # but it doesn't seem to.
                         if self.state.satisfiable(extra_constraints=[addr == tmp]):
                             log.debug(
-                                f"Concrete result for {expr}, slice of {addr}: {tmp:x}"
+                                f"Concrete result for {expr}, slice of {addr}: {tmp:x} -> {self.state.memory.load(tmp, 8)}"
                             )
                             # TODO: Handle multiple concretizations from non-conditional source.
                             # I've never actually seen this, but you never know.
@@ -131,13 +132,16 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
             log.error(f"Fatal error concretizing {addr}")
             log.exception(f"Cause: {type(e)} {e}")
             raise e
-        log.debug(f"All recommendations: {list(map(hex, res))}")
+        log.debug("All recommendations:")
+        for expr, val in exprs.items():
+            log.debug(f"  {expr} := {hex(val)}")
         if len(exprs) > 1:
             # We've got a conditional dereference.
             hint = hinting.UnderSpecifiedMemoryBranchHint(
                 message="Conditional address dereference",
-                pc=self.state._ip.concrete_value,
-                instruction=instructions.Instruction.from_capstone(cinsn),
+                instruction=instructions.Instruction.from_angr(
+                    insn, block, self.state.arch.name
+                ),
                 address=str(addr),
                 options=[(str(k), str(v)) for (k, v) in guards.items()],
             )

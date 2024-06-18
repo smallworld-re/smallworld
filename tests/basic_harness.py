@@ -11,7 +11,7 @@ state = smallworld.cpus.AMD64CPUState()
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    sys.argv[1], base=0x1000, entry=0x1000, arch="x86_64", type="blob"
+    sys.argv[1], base=0x1000, entry=0x1000, arch="x86", mode="64", format="blob"
 )
 state.map(code)
 state.rip.value = code.entry
