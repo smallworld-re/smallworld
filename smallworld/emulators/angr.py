@@ -232,9 +232,10 @@ class AngrEmulator(emulator.Emulator):
         address: int,
         callback: typing.Callable[[emulator.Emulator], None],
         finish: bool = False,
+        name: str = "None",
     ) -> None:
         if self._entry is None:
-            self._hook_init_values[address] = (callback, finish)
+            self._hook_init_values[address] = (callback, finish, name)
         elif finish:
             # Use the power of SimProcedures to finish out the frame once we're done
             hook = HookHandler(callback=callback)
@@ -373,6 +374,7 @@ class AngrHookEmulator(AngrEmulator):
         address: int,
         callback: typing.Callable[[emulator.Emulator], None],
         finish: bool = False,
+        name: str = "None",
     ) -> None:
         # TODO: Should this hook only this state, or all states?
         # Both are doable, but which one makes sense?

@@ -32,9 +32,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CodeReachable` analysis that show what code is reachable by symbolic execution.
 - `Stack` initialization code to setup arguments.
 - `PointerFinder` analysis that finds pointers.
-- `ColorizerSummary` computes summary def use graph from colorizer
+- `ColorizerSummary` computes summary def use graph from colorizer.
 - `setup_default_libc` use ghidra to add libc models at PLT entry points.
-
+- `setup_section` use ghdira to add section from elf.
+	
 ### Changed
 
 - `Value.{get, set}()` changed to `@property` `value`.
