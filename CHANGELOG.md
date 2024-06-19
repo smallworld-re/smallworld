@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `PointerFinder` analysis that finds pointers.
 - `ColorizerSummary` computes summary def use graph from colorizer.
 - `setup_default_libc` use ghidra to add libc models at PLT entry points.
-- `setup_section` use ghdira to add section from elf.
+- `setup_section` use ghdira to add section from elf to cpustate.
 
 ### Changed
 
