@@ -101,10 +101,11 @@ Or other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/
 
 #### Prerequisites
 
-Building the test binaries requires `nasm`, which can be installed with:
+Building the test binaries requires some dependencies which can be installed
+with:
 
 ```bash
-apt-get install nasm
+apt-get install `cat tests/dependencies/apt.txt`
 ```
 
 You can then build the tests by running:

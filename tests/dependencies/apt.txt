@@ -1,0 +1,10 @@
+nasm
+binutils-aarch64-linux-gnu
+binutils-arm-linux-gnueabi
+binutils-arm-linux-gnueabihf
+binutils-mips-linux-gnu
+binutils-mips64-linux-gnuabi64
+binutils-powerpc-linux-gnu
+binutils-powerpc64-linux-gnu
+binutils-riscv64-linux-gnu
+binutils-sparc64-linux-gnu
