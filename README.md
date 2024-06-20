@@ -101,10 +101,16 @@ Or other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/
 
 #### Prerequisites
 
-Building the test binaries requires `nasm`, which can be installed with:
+Building the test binaries requires `nasm` and cross compilation toolchains for
+each of our tested architectures. These can be installed with:
 
 ```bash
-apt-get install nasm
+apt-get install -y nasm \
+    binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi \
+    binutils-arm-linux-gnueabihf binutils-mips-linux-gnu \
+    binutils-mips64-linux-gnuabi64 binutils-powerpc-linux-gnu \
+    binutils-powerpc64-linux-gnu binutils-riscv64-linux-gnu \
+    binutils-sparc64-linux-gnu
 ```
 
 You can then build the tests by running:
