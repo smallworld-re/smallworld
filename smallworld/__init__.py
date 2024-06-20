@@ -17,7 +17,7 @@ from . import (
     initializers,
     state,
 )
-from .helpers import analyze, fuzz, setup_default_libc, setup_section  # noqa: F401
+from .helpers import analyze, fuzz, setup_default_libc, setup_section
 from .utils import setup_hinting, setup_logging
 
 __all__ = [
@@ -33,4 +33,6 @@ __all__ = [
     "setup_logging",
     "analyze",
     "fuzz",
+    "setup_default_libc",
+    "setup_section",
 ]
