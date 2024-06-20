@@ -20,7 +20,7 @@ class CodeReachable(analysis.Analysis):
 
     def run(self, state: state.CPU) -> None:
         cpu = copy.deepcopy(state)
-        emulator = emulators.AngrEmulator()
+        emulator = emulators.AngrEmulator(state.arch, state.mode, state.byteorder)
         cpu.apply(emulator)
 
         try:

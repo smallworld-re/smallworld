@@ -2,7 +2,7 @@ import logging
 
 from angr.storage import MemoryMixin
 
-from .utils import reg_name_from_offset
+from ..utils import reg_name_from_offset
 
 log = logging.getLogger(__name__)
 
@@ -14,17 +14,18 @@ class TrackerMemoryMixin(MemoryMixin):
     and finding used memory in angr is a pain.
     This tracks which parts of memory are in use,
     mostly to avoid overprinting.
+
+    NOTE: This class needs to go in a pretty specific place in a memory mixin hierarchy.
+
+    It needs to go above anything that overrides _default_value(),
+    or else it will pick up defaulting addresses before they are defined,
+    possibly resulting in recursive calls if you try to use pp().
+
+    Conversely, it should go below anything that alters
+    what is actually getting passed to the default memory mixins,
+    such as changes to address concretization.
     """
 
-    # NOTE: This class needs to go in a pretty specific place in a mixin hierarchy.
-    #
-    # It needs to go above anything that overrides _default_value(),
-    # or else it will pick up defaulting addresses before they are defined,
-    # possibly resulting in recursive calls if you try to use pp().
-    #
-    # Conversely, it should go below anything that alters
-    # what is actually getting passed to the default memory mixins,
-    # such as the divergence plugin.
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.dirty = dict()

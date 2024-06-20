@@ -4,9 +4,9 @@ import angr
 from angr.storage import MemoryMixin
 
 from ... import hinting, instructions
+from ...emulators.angr import PathTerminationSignal
 from ...exceptions import AnalysisSignal
 from .base import BaseMemoryMixin
-from .terminate import PathTerminationSignal
 from .utils import print_state
 from .visitor import ConditionalVisitor
 
@@ -80,6 +80,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
         exprs = dict()
         guards = dict()
         res = set()
+
         block = self.state.block()
         (insn,) = list(
             filter(

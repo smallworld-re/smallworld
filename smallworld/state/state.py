@@ -175,11 +175,14 @@ class Register(Value):
         return self._value
 
     @value.setter
-    def value(self, value: int) -> None:
-        if value.bit_length() > self.width * 8:
+    def value(self, value: typing.Optional[int]) -> None:
+        if value is None:
+            self._value = None
+        elif value.bit_length() > self.width * 8:
             raise ValueError(f"{value} is too large for {self}")
-        logger.debug(f"initializing value {self}")
-        self._value = value
+        else:
+            logger.debug(f"initializing value {self}")
+            self._value = value
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False

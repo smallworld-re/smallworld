@@ -1,4 +1,4 @@
-from ...emulators.angr import PathTerminationSignal
+from ..exceptions import PathTerminationSignal
 
 
 class TerminationExplorationMixin:
