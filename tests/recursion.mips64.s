@@ -21,10 +21,10 @@ mc91:
 .L2:
     # Case 3: n <= 100 -> M(n) := M(M(n + 11)
     addiu   $4,$4,11
-    jal     mc91
+    bal     mc91
     nop                 # Delay slot
     move    $4,$2
-    jal     mc91
+    bal     mc91
     nop                 # Delay slot
 
 .L3:
