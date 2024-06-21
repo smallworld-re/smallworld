@@ -11,8 +11,9 @@ hinter = hinting.getHinter(__name__)
 class CodeReachable(analysis.Analysis):
     """A simple analysis that logs what code is reachable by symbolic execution."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, max_steps=500, **kwargs):
+        self.steps_left = max_steps
+        super().__init__(**kwargs)
 
     name = "code-reachable"
     description = ""
@@ -24,7 +25,9 @@ class CodeReachable(analysis.Analysis):
         cpu.apply(emulator)
 
         try:
-            while not emulator.step():
+            while (
+                self.steps_left is None or self.steps_left > 0
+            ) and not emulator.step():
                 if emulator.mgr:
                     for s in emulator.mgr.active:
                         pc = s._ip.concrete_value
@@ -33,5 +36,7 @@ class CodeReachable(analysis.Analysis):
                             address=pc,
                         )
                         hinter.info(hint)
+                if self.steps_left is not None:
+                    self.steps_left -= 1
         except emulators.angr.PathTerminationSignal:
             return

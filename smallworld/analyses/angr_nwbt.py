@@ -14,7 +14,8 @@ class AngrNWBTAnalysis(analysis.Analysis):
     description = "Angr-based Not-Written-By-Trace detection and correction"
     version = "0.0.1"
 
-    def __init__(self, *args, initfunc=None, **kwargs):
+    def __init__(self, *args, initfunc=None, max_steps=500, **kwargs):
+        self.steps_left = max_steps
         self.initfunc = initfunc
 
     def analysis_preint(self, emu):
@@ -52,8 +53,9 @@ class AngrNWBTAnalysis(analysis.Analysis):
                         f"Applying typedef {item.type} for {name} of type {type(item)} not implemented"
                     )
 
-        while not self.step(emu):
-            pass
+        while (self.steps_left is None or self.steps_left > 0) and not self.step(emu):
+            if self.steps_left is not None:
+                self.steps_left -= 1
 
     def _report_status(self, emu):
         for st in emu.mgr.unconstrained:
@@ -94,6 +96,4 @@ class AngrNWBTAnalysis(analysis.Analysis):
         # Drop unsat states once we've logged them.
         emu.mgr.drop(stash="unsat")
         self._report_status(emu)
-        if emu.step():
-            return True
-        return False
+        return emu.step()
