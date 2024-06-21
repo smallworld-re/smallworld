@@ -323,10 +323,6 @@ class Memory(Value):
 
         if value:
             self.value = value
-        else:
-            raise ValueError(
-                f"failed to load {self.size} bytes from 0x{self.address:x}"
-            )
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.write_memory(self.address, self.value)

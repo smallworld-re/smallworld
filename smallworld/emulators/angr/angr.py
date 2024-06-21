@@ -144,7 +144,8 @@ class AngrEmulator(emulator.Emulator):
             )
         v = self.state.memory.load(addr, size)
         if v.symbolic:
-            raise NotImplementedError("Reading symbolic memory values not supported")
+            log.warn(f"Memory at {hex(addr)} ({size} bytes) is symbolic: {v}")
+            return None
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
@@ -202,9 +203,24 @@ class AngrEmulator(emulator.Emulator):
         # Step execution once
         self.mgr.step(num_insts=1)
 
+        # Test for exceptional states
+        if len(self.mgr.errored) > 0:
+            raise exceptions.EmulationError(
+                self.mgr.errored[0].error
+            ) from self.mgr.errored[0].error
+
         # Handle linear execution mode
         if self._linear:
-            self.state = self.mgr.active[0]
+            if len(self.mgr.active) > 0:
+                self.state = self.mgr.active[0]
+            elif len(self.mgr.deadended) > 0:
+                self.state = self.mgr.deadended[0]
+            elif len(self.mgr.unconstrained) > 0:
+                self.state = self.mgr.unconstrained[0]
+            else:
+                raise exceptions.AnalysisError(
+                    "No states in expected stashes for linear execution"
+                )
 
         # Filter out exited or invalid states
         self.mgr.move(
@@ -222,12 +238,6 @@ class AngrEmulator(emulator.Emulator):
         self.mgr.move(
             from_stash="active", to_stash="deadended", filter_func=filter_func
         )
-
-        # Test for exceptional states
-        if len(self.mgr.errored) > 0:
-            raise exceptions.EmulationError(
-                self.mgr.errored[0].error
-            ) from self.mgr.errored[0].error
 
         # Stop if we're out of active states
         return len(self.mgr.active) != 0

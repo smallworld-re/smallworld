@@ -254,6 +254,8 @@ def find_subclass(
     while len(class_stack) > 0:
         impl: typing.Type[typing.Any] = class_stack.pop(-1)
 
+        if inspect.isabstract(impl):
+            print(f"{impl} is abstract")
         if not inspect.isabstract(impl) and check(impl):
             return impl(*args, **kwargs)
         # __subclasses__ is not transitive;

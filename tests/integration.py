@@ -181,14 +181,26 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_aarch64(self):
         self.run_test(arch="aarch64")
 
+    def test_square_aarch64_angr(self):
+        self.run_test(arch="aarch64.angr")
+
     def test_square_armel(self):
         self.run_test(arch="armel")
+
+    def test_square_armel_angr(self):
+        self.run_test(arch="armel.angr")
 
     def test_square_armhf(self):
         self.run_test(arch="armhf")
 
+    def test_square_armhf_angr(self):
+        self.run_test(arch="armhf.angr")
+
     def test_square_mips(self):
         self.run_test(arch="mips")
+
+    def test_square_mipsel(self):
+        self.run_test(arch="mipsel")
 
 
 class StackTests(ScriptIntegrationTest):

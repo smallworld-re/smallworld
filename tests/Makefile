@@ -2,14 +2,15 @@
 .DEFAULT_GOAL=all
 
 SOURCES := $(wildcard *.s)
-TARGETS := ${SOURCES:.s=.bin}
+MIPSEL_TARGETS := $(patsubst %.mips.s,%.mipsel.bin,$(wildcard *.mips.s)) 
+MIPS64EL_TARGETS := $(patsubst %.mips64.s,%.mips64el.bin,$(wildcard *.mips64.s)) 
+TARGETS := ${SOURCES:.s=.bin} $(MIPSEL_TARGETS) $(MIPS64EL_TARGETS)
 
 CROSS_SOURCES := $(wildcard *.*.s)
 NASM_SOURCES := $(filter-out $(CROSS_SOURCES),$(SOURCES))
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
-PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mips64-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu)
-
+PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu)
 
 %.aarch64.bin: %.aarch64.s
 	aarch64-linux-gnu-as $*.aarch64.s -o $*.aarch64.o
@@ -31,10 +32,20 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	mips-linux-gnu-objcopy -O binary -j .text $*.mips.o $*.mips.bin
 	rm $*.mips.o
 
+%.mipsel.bin: %.mips.s
+	mipsel-linux-gnu-as $*.mips.s -o $*.mipsel.o
+	mipsel-linux-gnu-objcopy -O binary -j .text $*.mipsel.o $*.mipsel.bin
+	rm $*.mipsel.o
+
 %.mips64.bin: %.mips64.s
 	mips64-linux-gnuabi64-as $*.mips64.s -o $*.mips64.o
 	mips64-linux-gnuabi64-objcopy -O binary -j .text $*.mips64.o $*.mips64.bin
 	rm $*.mips64.o
+
+%.mips64el.bin: %.mips64.s
+	mips64el-linux-gnuabi64-as $*.mips64.s -o $*.mips64el.o
+	mips64el-linux-gnuabi64-objcopy -O binary -j .text $*.mips64el.o $*.mips64el.bin
+	rm $*.mips64el.o
 
 %.ppc.bin: %.ppc.s
 	powerpc-linux-gnu-as $*.ppc.s -o $*.ppc.o
