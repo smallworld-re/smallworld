@@ -52,7 +52,7 @@ class AngrNWBTAnalysis(analysis.Analysis):
                         f"Applying typedef {item.type} for {name} of type {type(item)} not implemented"
                     )
 
-        while self.step(emu):
+        while not self.step(emu):
             pass
 
     def _report_status(self, emu):
@@ -93,7 +93,7 @@ class AngrNWBTAnalysis(analysis.Analysis):
         emu.mgr.move(from_stash="unconstrained", to_stash="done")
         # Drop unsat states once we've logged them.
         emu.mgr.drop(stash="unsat")
-        if not emu.step():
-            self._report_status(emu)
-            return False
-        return True
+        self._report_status(emu)
+        if emu.step():
+            return True
+        return False

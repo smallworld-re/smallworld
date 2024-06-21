@@ -24,7 +24,7 @@ class CodeReachable(analysis.Analysis):
         cpu.apply(emulator)
 
         try:
-            while emulator.step():
+            while not emulator.step():
                 if emulator.mgr:
                     for s in emulator.mgr.active:
                         pc = s._ip.concrete_value

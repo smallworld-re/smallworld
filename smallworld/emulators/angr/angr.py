@@ -240,13 +240,13 @@ class AngrEmulator(emulator.Emulator):
         )
 
         # Stop if we're out of active states
-        return len(self.mgr.active) != 0
+        return len(self.mgr.active) == 0
 
     def run(self):
         log.info("Starting angr run")
         while len(self.mgr.active) > 0:
             # Continue stepping as long as we have steps.
-            if not self.step():
+            if self.step():
                 break
 
     def enable_linear(self):
