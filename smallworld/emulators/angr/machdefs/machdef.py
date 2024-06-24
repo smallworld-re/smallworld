@@ -40,6 +40,10 @@ class AngrMachineDef:
         """The program counter register name"""
         return ""
 
+    # Is this thumb?
+    # Almost always no, but angr needs to ask.
+    is_thumb: bool = False
+
     # The angr execution engine.
     # Setting this to "none" uses the default Vex engine.
     # This only needs to be overridden if you're a pcode machine.

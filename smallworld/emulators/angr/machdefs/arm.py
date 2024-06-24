@@ -169,6 +169,13 @@ class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     byteorder = "little"
 
 
+class ARMv6MThumbMachineDef(ARMv6MMachineDef):
+    arch = "arm"
+    mode = "v6m-thumb"
+    byteorder = "little"
+    is_thumb = True
+
+
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     arch = "arm"
     mode = "v7m"

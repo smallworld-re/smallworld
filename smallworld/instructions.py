@@ -162,8 +162,14 @@ class Instruction(utils.Serializable):
     ARCH_X86 = "x86"
     """x86 architecture."""
 
+    ARCH_ARM = "arm"
+    """arm32 architecture."""
+
     ARCH_SPARC = "sparc"
     """SPARC architecture."""
+
+    MODE_ARM = "arm"
+    MODE_THUMB = "thumb"
 
     MODE_32 = "32"
     """32-bit mode."""
@@ -176,6 +182,7 @@ class Instruction(utils.Serializable):
 
     CAPSTONE_ARCH_MAP = {
         ARCH_X86: capstone.CS_ARCH_X86,
+        ARCH_ARM: capstone.CS_ARCH_ARM,
         ARCH_SPARC: capstone.CS_ARCH_SPARC,
     }
     CAPSTONE_REVERSE_ARCH_MAP = {v: k for k, v in CAPSTONE_ARCH_MAP.items()}
@@ -183,6 +190,8 @@ class Instruction(utils.Serializable):
     CAPSTONE_MODE_MAP = {
         MODE_32: capstone.CS_MODE_32,
         MODE_64: capstone.CS_MODE_64,
+        MODE_ARM: capstone.CS_MODE_ARM,
+        MODE_THUMB: capstone.CS_MODE_THUMB,
         MODE_V8: capstone.CS_MODE_V8,
         MODE_V9: capstone.CS_MODE_V9,
     }

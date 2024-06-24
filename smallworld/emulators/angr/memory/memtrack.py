@@ -74,13 +74,21 @@ class TrackerMemoryMixin(MemoryMixin):
         addrs = list(self.dirty.keys())
         addrs.sort()
         for addr in addrs:
+            code = False
             size = self.dirty[addr]
             if self.id == "reg":
                 name = reg_name_from_offset(self.state.arch, addr, size)
             else:
+                for b in self.state.scratch.bounds:
+                    if addr in b:
+                        code = True
+                        break
                 name = f"0x{addr:x}"
-            val = self.load(addr, size, disable_actions=True)
-            log(f"\t{name}: {val}")
+            if code:
+                log(f"\t{name}: <code [{hex(size)} bytes]>")
+            else:
+                val = self.load(addr, size, disable_actions=True)
+                log(f"\t{name}: {val}")
 
     def create_hint(self):
         if self.id == "reg":

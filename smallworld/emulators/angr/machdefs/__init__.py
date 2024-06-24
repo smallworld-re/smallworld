@@ -1,6 +1,11 @@
 from .aarch64 import AArch64MachineDef
 from .amd64 import AMD64MachineDef
-from .arm import ARMv5TMachineDef, ARMv6MMachineDef, ARMv7MMachineDef
+from .arm import (
+    ARMv5TMachineDef,
+    ARMv6MMachineDef,
+    ARMv6MThumbMachineDef,
+    ARMv7MMachineDef,
+)
 from .i386 import i386MachineDef
 from .machdef import AngrMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
@@ -12,6 +17,7 @@ __all__ = [
     "AngrMachineDef",
     "ARMv5TMachineDef",
     "ARMv6MMachineDef",
+    "ARMv6MThumbMachineDef",
     "ARMv7MMachineDef",
     "i386MachineDef",
     "MIPSBEMachineDef",

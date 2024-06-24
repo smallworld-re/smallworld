@@ -11,7 +11,6 @@ import cle
 from ... import exceptions, state
 from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
-from .exceptions import PathTerminationSignal
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
 
@@ -118,6 +117,7 @@ class AngrEmulator(emulator.Emulator):
             (off, size) = self.machdef.angr_reg(name)
             out = self.state.registers.load(off, size)
             if out.symbolic:
+                log.warn(f"Register {name} is symbolic: {out}")
                 return None
             else:
                 return out.concrete_value
@@ -201,7 +201,7 @@ class AngrEmulator(emulator.Emulator):
         self._dirty = True
 
         # Step execution once
-        self.mgr.step(num_insts=1)
+        self.mgr.step(num_inst=1, thumb=self.machdef.is_thumb)
 
         # Test for exceptional states
         if len(self.mgr.errored) > 0:
@@ -211,7 +211,10 @@ class AngrEmulator(emulator.Emulator):
 
         # Handle linear execution mode
         if self._linear:
-            if len(self.mgr.active) > 0:
+            if len(self.mgr.active) > 1:
+                log.warn("Path diverged!  Detailes stored in simulation manager.")
+                return True
+            elif len(self.mgr.active) > 0:
                 self.state = self.mgr.active[0]
             elif len(self.mgr.deadended) > 0:
                 self.state = self.mgr.deadended[0]
@@ -261,11 +264,6 @@ class AngrEmulator(emulator.Emulator):
             )
         self._linear = True
         log.warn("Linear execution mode enabled")
-
-        def die_neatly(state):
-            raise PathTerminationSignal()
-
-        self.state.inspect.b("fork", when=angr.BP_BEFORE, action=die_neatly)
 
     def __repr__(self):
         return f"Angr ({self.mgr})"
