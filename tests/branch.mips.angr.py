@@ -11,7 +11,12 @@ state = smallworld.state.CPU.for_arch("mips", "mips32", "big")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    "branch.mips.bin", arch="mips", mode="mips32", base=0x1000, entry=0x1000
+    "branch.mips.bin",
+    arch="mips",
+    mode="mips32",
+    format="blob",
+    base=0x1000,
+    entry=0x1000,
 )
 state.map(code)
 state.pc.value = code.entry
@@ -20,9 +25,10 @@ state.pc.value = code.entry
 state.a0.value = int(sys.argv[1])
 
 # now we can do a single micro-execution without error
-emulator = smallworld.emulators.UnicornEmulator(
+emulator = smallworld.emulators.AngrEmulator(
     arch=state.arch, mode=state.mode, byteorder=state.byteorder
 )
+emulator.enable_linear()
 final_state = emulator.emulate(state)
 
 # read the result

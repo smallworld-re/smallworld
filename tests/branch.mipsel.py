@@ -7,11 +7,11 @@ smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 # create a state object
-state = smallworld.state.CPU.for_arch("mips", "mips32", "big")
+state = smallworld.state.CPU.for_arch("mips", "mips32", "little")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    "branch.mips.bin", arch="mips", mode="mips32", base=0x1000, entry=0x1000
+    "branch.mipsel.bin", arch="aarch64", mode="v8a", base=0x1000, entry=0x1000
 )
 state.map(code)
 state.pc.value = code.entry
