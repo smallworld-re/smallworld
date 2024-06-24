@@ -134,7 +134,9 @@ class Emulator(metaclass=abc.ABCMeta):
     def PAGE_SIZE(self):
         pass
 
-    def emulate(self, cpu: state.CPU):
+    def emulate(
+        self, cpu: state.CPU, single_step=False, steps: typing.Optional[int] = None
+    ):
         """Emulate execution of some code.
 
         Arguments:
@@ -144,7 +146,14 @@ class Emulator(metaclass=abc.ABCMeta):
             The final cpu of the system.
         """
         cpu.apply(self)
-        self.run()
+        if steps is not None:
+            while steps > 0 and not self.step():
+                steps -= 1
+        elif single_step:
+            while not self.step():
+                pass
+        else:
+            self.run()
         cpu = copy.deepcopy(cpu)
         cpu.load(self)
         return cpu
