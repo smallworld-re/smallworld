@@ -123,7 +123,7 @@ class Code(Value):
         self.mode = mode
         self.base = base
         self.entry = entry or base
-        self.bounds = bounds or [range(self.entry, self.entry + len(image))]
+        self.bounds = bounds or [range(self.base, self.base + len(image))]
 
     @classmethod
     def from_filepath(cls, path: str, *args, **kwargs):
