@@ -210,7 +210,7 @@ class Register(Value):
         self.value = emulator.read_register(self.name)
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_register(self.name, self.value)
+        emulator.write_register(self.name, self.value, self.label)
 
     def __repr__(self) -> str:
         if self.value is not None:
@@ -303,7 +303,7 @@ class Memory(Value):
         self.memory = b""
 
         self.type: typing.Dict[int, typing.Any] = {}
-        self.label: typing.Dict[int, typing.Any] = {}
+        self.label: typing.Dict[int, typing.Tuple[int, typing.Any]] = {}
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
@@ -325,7 +325,7 @@ class Memory(Value):
             self.value = value
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_memory(self.address, self.value)
+        emulator.write_memory(self.address, self.value, self.label)
 
     @property
     def value(self) -> typing.Optional[bytes]:
@@ -399,6 +399,7 @@ class Memory(Value):
     def set_label(
         self,
         offset: int,
+        size: int,
         label: typing.Optional[typing.Any] = None,
         value: typing.Optional[typing.Any] = None,
     ) -> None:
@@ -419,8 +420,7 @@ class Memory(Value):
                 candidate = value.label
             else:
                 logger.warning(f"cannot infer label from {value}")
-
-        self.label[offset] = candidate
+        self.label[offset] = (size, candidate)
 
 
 class Stack(Memory):
@@ -485,8 +485,10 @@ class Stack(Memory):
 
         stack_offset = (self.address + self.size) - self.used
 
-        self.set_type(offset=stack_offset, value=value, type=type)
-        self.set_label(offset=stack_offset, value=value, label=label)
+        self.set_type(offset=self.size - self.used, value=value, type=type)
+        self.set_label(
+            offset=self.size - self.used, size=allocation_size, value=value, label=label
+        )
 
         return stack_offset
 
@@ -608,7 +610,7 @@ class BumpAllocator(Heap):
         self.used += size
 
         self.set_type(offset=self.used, value=value, type=type)
-        self.set_label(offset=self.used, value=value, label=label)
+        self.set_label(offset=self.used, size=size, value=value, label=label)
 
         return address
 

@@ -125,7 +125,12 @@ class AngrEmulator(emulator.Emulator):
             # TODO: Handle invalid registers more gracefully
             return None
 
-    def write_register(self, reg: str, value: typing.Optional[int]) -> None:
+    def write_register(
+        self,
+        reg: str,
+        value: typing.Optional[int],
+        label: typing.Optional[typing.Any] = None,
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
@@ -149,14 +154,48 @@ class AngrEmulator(emulator.Emulator):
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
-    def write_memory(self, addr: int, value: typing.Optional[bytes]):
+    def write_memory(
+        self,
+        addr: int,
+        value: typing.Optional[bytes],
+        label: typing.Optional[typing.Dict[int, typing.Tuple[int, typing.Any]]] = None,
+    ):
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing memory not supported once execution begins."
             )
-        elif value is not None:
-            v = claripy.BVV(value)
-            self.state.memory.store(addr, v)
+        prev_end = 0
+        if label is None:
+            label = dict()
+
+        items = list(label.items())
+        items.sort(key=lambda x: x[0])
+        for off, (lab_size, name) in label.items():
+            if not isinstance(name, str):
+                log.warn(
+                    f"Cannot handle non-string labels; not applying label for {hex(addr + off)}"
+                )
+                continue
+            if off > prev_end and value is not None:
+                # Account for any unlabeled bits.
+                v = claripy.BVV(value[prev_end:off])
+                self.state.memory.store(addr + off, v)
+
+            # Store a symbol containing the label
+            s = claripy.BVS(name, lab_size * 8)
+            self.state.memory.store(addr + off, s)
+            if value is not None:
+                # If we have a value, bind the value to the symbol
+                v = claripy.BVV(value[off : off + lab_size])
+                self.state.solver.add(v == s)
+
+            if off + lab_size > prev_end:
+                prev_end = off + lab_size
+
+        if value is not None and prev_end < len(value):
+            # Account for any missing bit on the tail
+            v = claripy.BVV(value[prev_end:])
+            self.state.memory.store(addr + prev_end, v)
 
     def load(self, code: state.Code) -> None:
         # Check if code matches our configuration

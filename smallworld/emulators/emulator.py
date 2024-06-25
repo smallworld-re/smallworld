@@ -30,7 +30,12 @@ class Emulator(metaclass=abc.ABCMeta):
         return 0
 
     @abc.abstractmethod
-    def write_register(self, name: str, value: typing.Optional[int]) -> None:
+    def write_register(
+        self,
+        name: str,
+        value: typing.Optional[int],
+        label: typing.Optional[typing.Any] = None,
+    ) -> None:
         """Write a value to a register.
 
         Arguments:
@@ -64,7 +69,12 @@ class Emulator(metaclass=abc.ABCMeta):
         return b""
 
     @abc.abstractmethod
-    def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
+    def write_memory(
+        self,
+        address: int,
+        value: typing.Optional[bytes],
+        label: typing.Optional[typing.Dict[int, typing.Any]] = None,
+    ) -> None:
         """Write memory at a specific address.
 
         This will allocate memory if necessary.
