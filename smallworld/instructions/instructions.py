@@ -189,10 +189,17 @@ class Instruction(utils.Serializable):
             raise ValueError(f"No instruction format for {arch}")
 
     @classmethod
-    def from_bytes(cls, *args, **kwargs):
+    def from_bytes(cls, raw: bytes, address: int, arch: str, mode: str):
         """Construct from a byte string."""
-
-        return cls(*args, **kwargs)
+        try:
+            return utils.find_subclass(
+                cls,
+                check=lambda x: x.arch == arch and x.mode == mode,
+                instruction=raw,
+                address=address,
+            )
+        except ValueError:
+            raise ValueError(f"No instruction format for {arch}:{mode}")
 
     @abc.abstractmethod
     def _memory_reference(self, operand) -> MemoryReferenceOperand:

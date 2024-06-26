@@ -30,7 +30,10 @@ class x86Instruction(Instruction):
         specifications (i.e., in the form `base + scale * index + offset`).
         """
 
-        the_reads: typing.Set[Operand] = set([])
+        reg_reads, _ = self._instruction.regs_access()
+        the_reads: typing.Set[Operand] = set(
+            [RegisterOperand(self._instruction.reg_name(r)) for r in reg_reads]
+        )
         for operand in self._instruction.operands:
             if operand.access & capstone.CS_AC_READ:
                 if operand.type == capstone.x86.X86_OP_MEM:
@@ -43,9 +46,9 @@ class x86Instruction(Instruction):
                     if index_name:
                         the_reads.add(RegisterOperand(index_name))
                 elif operand.type == capstone.x86.X86_OP_REG:
-                    the_reads.add(
-                        RegisterOperand(self._instruction.reg_name(operand.reg))
-                    )
+                    # This list does not include implicit reads;
+                    # use regs_read instead
+                    pass
                 else:
                     assert 1 == 0
         return the_reads
@@ -56,8 +59,11 @@ class x86Instruction(Instruction):
 
         Same format as `reads`.
         """
-
-        the_writes: typing.Set[Operand] = set([])
+        _, reg_writes = self._instruction.regs_access()
+        the_writes: typing.Set[Operand] = set(
+            [RegisterOperand(self._instruction.reg_name(r)) for r in reg_writes]
+        )
+        print(the_writes)
         for operand in self._instruction.operands:
             if operand.access & capstone.CS_AC_WRITE:
                 # please dont change this to CS_OP_MEM bc that doesnt work?
@@ -65,12 +71,11 @@ class x86Instruction(Instruction):
                     assert not (self._instruction.mnemonic == "lea")
                     the_writes.add(self._memory_reference(operand))
                 elif operand.type == capstone.x86.X86_OP_REG:
-                    the_writes.add(
-                        RegisterOperand(self._instruction.reg_name(operand.reg))
-                    )
+                    # operands doesn't contain implicit registers.
+                    # we get all registers from regs_write
+                    pass
                 else:
                     assert 1 == 0
-
         return the_writes
 
 
