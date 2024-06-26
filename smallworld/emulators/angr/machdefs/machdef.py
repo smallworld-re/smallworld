@@ -49,6 +49,15 @@ class AngrMachineDef:
     # This only needs to be overridden if you're a pcode machine.
     angr_engine: typing.Optional[angr.engines.engine.SimEngineBase] = None
 
+    # Does angr support single-instruction stepping for this ISA.
+    #
+    # Instructions with delay slots cannot be lifted into VEX
+    # without also lifting the instruction in the delay slot.
+    #
+    # This flag indicates that this machine uses such instructions,
+    # and is not safe to step in this manner.
+    supports_single_step: bool = True
+
     _registers: typing.Dict[str, str]
 
     def angr_reg(self, name: str) -> typing.Tuple[int, int]:

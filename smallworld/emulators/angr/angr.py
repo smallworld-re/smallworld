@@ -235,12 +235,22 @@ class AngrEmulator(emulator.Emulator):
                 emu = AngrHookEmulator(state, self.machdef)
                 callback(emu)
 
-    def step(self):
+    def step(self, single_insn: bool = False):
         # As soon as we start executing, disable value access
         self._dirty = True
+        if self._linear:
+            log.info(f"Stepping through {self.state.block().disassembly.insns[0]}")
 
         # Step execution once
-        self.mgr.step(num_inst=1, thumb=self.machdef.is_thumb)
+        if single_insn:
+            if not self.machdef.supports_single_step:
+                raise exceptions.AnalysisError(
+                    f"AngrEmulator does not support single-instruction stepping for {self.machdef.arch}:{self.machdef.mode}:{self.machdef.byteorder}"
+                )
+            num_inst = 1
+        else:
+            num_inst = None
+        self.mgr.step(num_inst=num_inst, thumb=self.machdef.is_thumb)
 
         # Test for exceptional states
         if len(self.mgr.errored) > 0:
@@ -356,7 +366,7 @@ class AngrHookEmulator(AngrEmulator):
     def run(self) -> None:
         raise NotImplementedError("Running not supported inside a hook.")
 
-    def step(self) -> bool:
+    def step(self, single_insn=False) -> bool:
         raise NotImplementedError("Stepping not supported inside a hook.")
 
     def __repr__(self):

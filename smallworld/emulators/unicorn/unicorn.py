@@ -288,8 +288,13 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.info("emulation complete")
 
-    def step(self) -> bool:
+    def step(self, single_insn: bool = True) -> bool:
         self.check()
+
+        if not single_insn:
+            raise exceptions.AnalysisError(
+                "UnicornEmulator does not support block stepping"
+            )
 
         pc = self.read_register("pc")
 

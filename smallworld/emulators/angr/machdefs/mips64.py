@@ -154,6 +154,25 @@ class MIPS64MachineDef(AngrMachineDef):
         "lo3": "lo3",
     }
 
+    _delay_slot_opcodes = {
+        "j",
+        "jal",
+        "jalx",
+        "jalr",
+        "jr",
+        "beq",
+        "beqz",
+        "bne" "bnez",
+        "bgez",
+        "bgezal",
+        "bgtz",
+        "blez",
+        "bltz",
+        "bltzal",
+    }
+
+    supports_single_step = False
+
 
 class MIPS64ELMachineDef(MIPS64MachineDef):
     byteorder = "little"

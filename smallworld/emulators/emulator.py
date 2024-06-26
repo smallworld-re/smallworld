@@ -121,8 +121,14 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def step(self) -> bool:
+    def step(self, single_insn: bool = False) -> bool:
         """Single-step execution.
+
+        Emulators may support block and/or instruction stepping,
+        and the default mode may change per emulator.
+
+        Arguments:
+            single_insn: If true, step by one instruction
 
         Returns:
             `True` if we have reached the program exit point, otherwise `False`.
@@ -157,10 +163,10 @@ class Emulator(metaclass=abc.ABCMeta):
         """
         cpu.apply(self)
         if steps is not None:
-            while steps > 0 and not self.step():
+            while steps > 0 and not self.step(single_insn=True):
                 steps -= 1
         elif single_step:
-            while not self.step():
+            while not self.step(single_insn=True):
                 pass
         else:
             self.run()
