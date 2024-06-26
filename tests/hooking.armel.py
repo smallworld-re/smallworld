@@ -5,22 +5,27 @@ import smallworld
 smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True)
 
-state = smallworld.state.CPU.for_arch("aarch64", "v8a", "little")
+state = smallworld.state.CPU.for_arch("arm", "v5t", "little")
 
 code = smallworld.state.Code.from_filepath(
-    "hooking.aarch64.bin", arch="aarch64", mode="v8a", base=0x1000, entry=0x1008
+    "hooking.armel.bin",
+    arch="arm",
+    mode="v5t",
+    format="blob",
+    base=0x1000,
+    entry=0x1008,
 )
 state.map(code)
 state.pc.value = 0x1008
 
 stack = smallworld.state.Stack(address=0xFFFF0000, size=0x1000)
-sp = stack.push(value=0xFFFFFFFF, size=8, type=int, label="fake return address")
+sp = stack.push(value=0xFFFFFFFF, size=4, type=int, label="fake return address")
 state.map(stack)
 state.sp.value = sp
 
 
 def gets_model(emulator):
-    s = emulator.read_register("x0")
+    s = emulator.read_register("r0")
     v = input().encode("utf-8")
     emulator.write_memory(s, v)
 
@@ -30,7 +35,7 @@ state.map(gets)
 
 
 def puts_model(emulator):
-    s = emulator.read_register("x0")
+    s = emulator.read_register("r0")
     read = emulator.read_memory(s, 0x100)
     read = read[: read.index(b"\x00")].decode("utf-8")
 

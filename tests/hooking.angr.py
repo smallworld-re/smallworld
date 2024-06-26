@@ -6,16 +6,15 @@ smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True)
 
 state = smallworld.state.CPU.for_arch("x86", "64", "little")
-log = logging.getLogger("hook")
 
 code = smallworld.state.Code.from_filepath(
     "hooking.bin",
-    type="blob",
     arch="x86",
     mode="64",
-    byteorder="little",
+    format="blob",
     base=0x1000,
     entry=0x1000,
+    bounds=[range(0x1000, 0x1014), range(0x3800, 0x3810)],
 )
 state.map(code)
 state.rip.value = 0x1000
@@ -30,26 +29,18 @@ state.map(gets)
 
 
 def puts_model(emulator):
-    log.info("puts")
     s = emulator.read_register("rdi")
     read = emulator.read_memory(s, 0x100)
     read = read[: read.index(b"\x00")].decode("utf-8")
 
-    log.info(read)
+    print(read)
 
 
 puts = smallworld.state.models.Model(0x3808, puts_model)
 state.map(puts)
 
-emu = smallworld.emulators.AngrEmulator()
-state.apply(emu)
-
-if emu.mgr is not None and len(emu.mgr.active) > 1:
-    print(emu.mgr.active[0].ip)
-else:
-    print("NO ACTIVE")
-while emu.step():
-    if emu.mgr is not None and len(emu.mgr.active) > 1:
-        print(emu.mgr.active[0].ip)
-    else:
-        print("NO ACTIVE")
+emulator = smallworld.emulators.AngrEmulator(
+    arch=state.arch, mode=state.mode, byteorder=state.byteorder
+)
+emulator.enable_linear()
+emulator.emulate(state, single_step=True)

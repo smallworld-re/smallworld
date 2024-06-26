@@ -16,11 +16,18 @@ bar:
     nop                     # Delay slot
 
 foo:
-    addiu   $sp,$sp,-32
-    sw      $ra,28($sp)
-    sw      $fp,24($sp)
+    daddiu  $sp,$sp,-48
+    sd      $ra,40($sp)
+    sd      $fp,32($sp)
+    sd      $gp,24($sp)
     move    $fp,$sp
     
     bal     bar
     addi    $a0,$a0,-1      # Delay slot
     addi    $v0,$v0,1
+
+    move    $sp,$fp
+    ld      $ra,40($sp)
+    ld      $fp,32($sp)
+    ld      $gp,24($sp)
+    daddiu  $sp,$sp,48
