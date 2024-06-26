@@ -10,10 +10,10 @@ from .. import hinting, state
 from ..emulators import UnicornEmulator
 from ..exceptions import AnalysisRunError
 from ..instructions import (
+    BSIDMemoryReferenceOperand,
     Instruction,
     Operand,
     RegisterOperand,
-    x86MemoryReferenceOperand,
 )
 from . import analysis
 
@@ -83,7 +83,7 @@ class ColorizerAnalysis(analysis.Analysis):
         if type(operand) is RegisterOperand:
             # return size of a reg based on its name
             return getattr(self.cpu, operand.name).width
-        elif type(operand) is x86MemoryReferenceOperand:
+        elif type(operand) is BSIDMemoryReferenceOperand:
             # memory operand knows its size
             return operand.size
         return 0
@@ -364,7 +364,7 @@ class ColorizerAnalysis(analysis.Analysis):
     # helper for read/write unavailable hint
     def _mem_unavailable_hint(
         self,
-        operand: x86MemoryReferenceOperand,
+        operand: BSIDMemoryReferenceOperand,
         insn: Instruction,
         pc: int,
         exec_num: int,
@@ -518,7 +518,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 instruction_num=insn_num,
                 message=message,
             )
-        elif type(operand) is x86MemoryReferenceOperand:
+        elif type(operand) is BSIDMemoryReferenceOperand:
             base_name = "None"
             if operand.base is not None:
                 base_name = operand.base
