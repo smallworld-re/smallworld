@@ -31,9 +31,10 @@ state.map(stack)
 state.sp.value = sp
 
 # now we can do a single micro-execution without error
-emulator = smallworld.emulators.UnicornEmulator(
+emulator = smallworld.emulators.AngrEmulator(
     arch=state.arch, mode=state.mode, byteorder=state.byteorder
 )
+emulator.enable_linear()
 final_state = emulator.emulate(state)
 
 # read the result

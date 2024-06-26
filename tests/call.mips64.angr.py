@@ -7,13 +7,13 @@ smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
 # create a state object
-state = smallworld.state.CPU.for_arch("mips", "mips32", "big")
+state = smallworld.state.CPU.for_arch("mips", "mips64", "big")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    "call.mips.bin",
+    "call.mips64.bin",
     arch="mips",
-    mode="mips32",
+    mode="mips64",
     format="blob",
     base=0x1000,
     entry=0x1000,
@@ -26,14 +26,15 @@ state.a0.value = int(sys.argv[1])
 
 # Set up stack
 stack = smallworld.state.Stack(address=0x2000, size=0x8000, byteorder="big")
-sp = stack.push(value=0xFFFFFFFF, size=4, type=int, label="fake return address")
+sp = stack.push(value=0xFFFFFFFF, size=8, type=int, label="fake return address")
 state.map(stack)
 state.sp.value = sp
 
 # now we can do a single micro-execution without error
-emulator = smallworld.emulators.UnicornEmulator(
+emulator = smallworld.emulators.AngrEmulator(
     arch=state.arch, mode=state.mode, byteorder=state.byteorder
 )
+emulator.enable_linear()
 final_state = emulator.emulate(state)
 
 # read the result

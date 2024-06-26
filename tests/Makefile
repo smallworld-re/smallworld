@@ -28,12 +28,12 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	rm $*.armhf.o
 
 %.mips.bin: %.mips.s
-	mips-linux-gnu-as -mips32 $*.mips.s -o $*.mips.o
+	mips-linux-gnu-as $*.mips.s -o $*.mips.o
 	mips-linux-gnu-objcopy -O binary -j .text $*.mips.o $*.mips.bin
 	rm $*.mips.o
 
 %.mipsel.bin: %.mips.s
-	mipsel-linux-gnu-as -mips32 $*.mips.s -o $*.mipsel.o
+	mipsel-linux-gnu-as $*.mips.s -o $*.mipsel.o
 	mipsel-linux-gnu-objcopy -O binary -j .text $*.mipsel.o $*.mipsel.bin
 	rm $*.mipsel.o
 
