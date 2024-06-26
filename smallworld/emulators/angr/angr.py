@@ -23,8 +23,8 @@ class HookHandler(angr.SimProcedure):
     This requires a callback as an extra kwarg.
     """
 
-    def run(self, *args, callback):
-        emu = AngrHookEmulator(self.state)
+    def run(self, *args, callback, parent):
+        emu = AngrHookEmulator(self.state, parent)
         callback(emu)
         return None
 
@@ -226,7 +226,7 @@ class AngrEmulator(emulator.Emulator):
     ) -> None:
         if finish:
             # Use the power of SimProcedures to finish out the frame once we're done
-            hook = HookHandler(callback=callback)
+            hook = HookHandler(callback=callback, parent=self)
             self.proj.hook(address, hook, 0)
         else:
             # Otherwise, hook our one instruction
