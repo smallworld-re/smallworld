@@ -44,8 +44,6 @@ class ARMMachineMixinM:
     is the available system status registers.
     """
 
-    angr_arch = archinfo.arch_arm.ArchARMCortexM()
-
     def __init__(self):
         super().__init__()
         self._registers.update(
@@ -158,18 +156,21 @@ class ARMMachineMixinFP:
 
 
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
     arch = "arm"
     mode = "v5t"
     byteorder = "little"
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMEL()
     arch = "arm"
     mode = "v6m"
     byteorder = "little"
 
 
 class ARMv6MThumbMachineDef(ARMv6MMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMCortexM()
     arch = "arm"
     mode = "v6m-thumb"
     byteorder = "little"
@@ -177,6 +178,7 @@ class ARMv6MThumbMachineDef(ARMv6MMachineDef):
 
 
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+    angr_arch = archinfo.arch_arm.ArchARMHF()
     arch = "arm"
     mode = "v7m"
     byteorder = "little"
