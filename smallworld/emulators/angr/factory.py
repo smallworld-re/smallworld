@@ -28,9 +28,10 @@ class PatchedObjectFactory(AngrObjectFactory):
             for b in state.scratch.bounds:
                 if ip in b:
                     bound = b
-            if b is None:
-                raise AnalysisError("ip 0x{ip:x} is out of bounds")
-            max_size = bound.stop - ip
+            if bound is None:
+                max_size = 0
+            else:
+                max_size = bound.stop - ip
             max_size = min(max_size, 4096)
             kwargs["size"] = max_size
 
