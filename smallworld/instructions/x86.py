@@ -63,7 +63,6 @@ class x86Instruction(Instruction):
         the_writes: typing.Set[Operand] = set(
             [RegisterOperand(self._instruction.reg_name(r)) for r in reg_writes]
         )
-        print(the_writes)
         for operand in self._instruction.operands:
             if operand.access & capstone.CS_AC_WRITE:
                 # please dont change this to CS_OP_MEM bc that doesnt work?
