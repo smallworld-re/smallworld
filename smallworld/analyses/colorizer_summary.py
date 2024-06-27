@@ -57,7 +57,11 @@ class ColorizerSummary(analysis.Filter):
         if hint.new:
             # this is a new color so its either an input or a write of a computed value
             assert "def" in hint.message
-            assert hint.color not in color2nodeDv
+            if hint.color in color2nodeDv:
+                raise ValueError(
+                    f"New color {hint.color} on {hint.reg_name} is not new"
+                )
+            # assert hint.color not in color2nodeDv
             if hint.use:
                 assert "read" in hint.message
                 color2nodeDv[hint.color] = (instr_node, dv_info)

@@ -441,7 +441,9 @@ class ColorizerAnalysis(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
-                #                logger.info(f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}")
+                logger.info(
+                    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
+                )
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
@@ -475,7 +477,9 @@ class ColorizerAnalysis(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
-                #                logger.info(f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}")
+                logger.info(
+                    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
+                )
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
