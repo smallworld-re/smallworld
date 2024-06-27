@@ -1,5 +1,7 @@
 BITS 64;
 ; Mccarthy 91, a simple recursive function
+_start:
+        jmp     main
 mc91:
         xchg    edi, eax
         cmp     eax, 100
@@ -15,3 +17,6 @@ mc91:
         jle     .L9
         sub     eax, 10
         pop     rcx
+        ret
+main:
+        call    mc91

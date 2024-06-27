@@ -32,7 +32,7 @@ state.a7.value = 0x01010101
 
 # create a stack and push a value
 stack = smallworld.state.Stack(address=0x2000, size=0x1000, byteorder="big")
-stack.push(value=0x55555555, size=4, type=int, label="9th argument")
+stack.push(value=0x55555555, size=4, type=int)
 sp = stack.push(value=0x01010101, size=4, type=int, label="8th argument")
 
 # map the stack into memory

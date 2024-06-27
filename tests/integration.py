@@ -120,9 +120,68 @@ class ScriptIntegrationTest(unittest.TestCase):
         )
 
 
+class CallTests(ScriptIntegrationTest):
+    def run_test(self, arch, signext=False):
+        def test_output(number, res):
+            stdout, _ = self.command(f"python3 call.{arch}.py {number}")
+            self.assertLineContainsStrings(stdout, hex(res))
+
+        if signext:
+            test_output(0, 0xFFFFFFFFFFFFFFF9)
+        else:
+            test_output(0, 0xFFFFFFF9)
+        test_output(1, 0x1)
+        test_output(2, 0x9)
+        test_output(101, 0x321)
+        test_output(102, 0x21)
+        test_output(65536, 0x21)
+
+    def test_call_amd64(self):
+        self.run_test("amd64")
+
+    def test_call_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_call_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_call_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_call_armel(self):
+        self.run_test("armel")
+
+    def test_call_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_call_armhf(self):
+        self.run_test("armhf")
+
+    def test_call_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_call_mips(self):
+        self.run_test("mips")
+
+    def test_call_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_call_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_call_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_call_mips64_angr(self):
+        self.run_test("mips64.angr", signext=True)
+
+    def test_call_mips64el_angr(self):
+        self.run_test("mips64el.angr", signext=True)
+
+
 class SquareTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py square.bin")
+        _, stderr = self.command("python3 basic_harness.py square.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -161,22 +220,25 @@ class SquareTests(ScriptIntegrationTest):
             '"reg_name": "edi"',
         )
 
-    def run_test(self, arch=None):
-        def test_output(number, arch):
-            if arch is None:
-                arch = ""
-            else:
-                arch = "." + arch
-            stdout, _ = self.command(f"python3 square{arch}.py {number}")
+    def run_test(self, arch, signext=False):
+        def test_output(number):
+            stdout, _ = self.command(f"python3 square.{arch}.py {number}")
+            res = number**2
+            if signext and res & 0xFFFFFFFF80000000 != 0:
+                # MIPS64 sign-extends 32-bit ints to use the full 64-bit register.
+                res = 0xFFFFFFFF80000000 | res
 
-            self.assertLineContainsStrings(stdout, hex(number**2))
+            self.assertLineContainsStrings(stdout, hex(res))
 
-        test_output(5, arch)
-        test_output(1337, arch)
-        test_output(65535, arch)
+        test_output(5)
+        test_output(1337)
+        test_output(65535)
 
     def test_square_amd64(self):
-        self.run_test()
+        self.run_test(arch="amd64")
+
+    def test_square_amd64_angr(self):
+        self.run_test(arch="amd64.angr")
 
     def test_square_aarch64(self):
         self.run_test(arch="aarch64")
@@ -199,13 +261,80 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips(self):
         self.run_test(arch="mips")
 
+    def test_square_mips_angr(self):
+        self.run_test(arch="mips.angr")
+
     def test_square_mipsel(self):
         self.run_test(arch="mipsel")
+
+    def test_square_mipsel_angr(self):
+        self.run_test(arch="mipsel.angr")
+
+    def test_square_mips64_angr(self):
+        self.run_test(arch="mips64.angr", signext=True)
+
+    def test_square_mips64el_angr(self):
+        self.run_test(arch="mips64el.angr", signext=True)
+
+
+class RecursionTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        def test_output(number, res):
+            stdout, _ = self.command(f"python3 recursion.{arch}.py {number}")
+            self.assertLineContainsStrings(stdout, hex(res))
+
+        test_output(-1, 91)
+        test_output(0, 91)
+        test_output(100, 91)
+        test_output(101, 91)
+        test_output(102, 92)
+
+    def test_recursion_amd64(self):
+        self.run_test("amd64")
+
+    def test_recursion_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_recursion_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_recursion_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_recursion_armel(self):
+        self.run_test("armel")
+
+    def test_recursion_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_recursion_armhf(self):
+        self.run_test("armhf")
+
+    def test_recursion_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_recursion_mips(self):
+        self.run_test("mips")
+
+    def test_recursion_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_recursion_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_recursion_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_recursion_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_recursion_mips64el_angr(self):
+        self.run_test("mips64el.angr")
 
 
 class StackTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py stack.bin")
+        _, stderr = self.command("python3 basic_harness.py stack.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -310,14 +439,56 @@ class StackTests(ScriptIntegrationTest):
             stderr, '{"4096": 1, "4099": 1, "4103": 1}', "coverage"
         )
 
-    def test_stack(self):
-        stdout, _ = self.command("python3 stack.py")
-        self.assertLineContainsStrings(stdout, "rax", "0xaaaaaaaa")
+    def run_test(self, arch, reg="rax", res="0xaaaaaaaa"):
+        stdout, _ = self.command(f"python3 stack.{arch}.py")
+        self.assertLineContainsStrings(stdout, reg, res)
+
+    def test_stack_amd64(self):
+        self.run_test("amd64")
+
+    def test_stack_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_stack_aarch64(self):
+        self.run_test("aarch64", reg="x0", res="0xffffffff")
+
+    def test_stack_aarch64_angr(self):
+        self.run_test("aarch64.angr", reg="x0", res="0xffffffff")
+
+    def test_stack_armel(self):
+        self.run_test("armel", reg="r0")
+
+    def test_stack_armel_angr(self):
+        self.run_test("armel.angr", reg="r0")
+
+    def test_stack_armhf(self):
+        self.run_test("armhf", reg="r0")
+
+    def test_stack_armhf_angr(self):
+        self.run_test("armhf.angr", reg="r0")
+
+    def test_stack_mips(self):
+        self.run_test("mips", reg="v0", res="0xaaaa")
+
+    def test_stack_mips_angr(self):
+        self.run_test("mips.angr", reg="v0", res="0xaaaa")
+
+    def test_stack_mipsel(self):
+        self.run_test("mipsel", reg="v0", res="0xaaaa")
+
+    def test_stack_mipsel_angr(self):
+        self.run_test("mipsel.angr", reg="v0", res="0xaaaa")
+
+    def test_stack_mips64_angr(self):
+        self.run_test("mips64.angr", reg="v0", res="0xffffffffffffffff")
+
+    def test_stack_mips64el_angr(self):
+        self.run_test("mips64el.angr", reg="v0", res="0xffffffffffffffff")
 
 
 class StructureTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py struct.bin")
+        _, stderr = self.command("python3 basic_harness.py struct.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -356,7 +527,7 @@ class StructureTests(ScriptIntegrationTest):
 
 class BranchTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py branch.bin")
+        _, stderr = self.command("python3 basic_harness.py branch.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -376,7 +547,7 @@ class BranchTests(ScriptIntegrationTest):
             "read-def-prob",
             "cmp rdi, 0x64",
             '"pc": 4098',
-            '"color": 2',
+            '"color": 3',
             '"use": true',
             '"new": true',
             '"prob": 1.0',
@@ -386,40 +557,153 @@ class BranchTests(ScriptIntegrationTest):
             stderr, '{"4096": 1, "4098": 1, "4102": 1}', "coverage"
         )
 
-    def run_branch(self, arch=None, reg="eax"):
-        if arch is None:
-            arch = ""
-        else:
-            arch = "." + arch
-        stdout, _ = self.command(f"python3 branch{arch}.py 99")
+    def run_branch(self, arch, reg="eax"):
+        stdout, _ = self.command(f"python3 branch.{arch}.py 99")
         self.assertLineContainsStrings(stdout, reg, "0x0")
 
-        stdout, _ = self.command(f"python3 branch{arch}.py 100")
+        stdout, _ = self.command(f"python3 branch.{arch}.py 100")
         self.assertLineContainsStrings(stdout, reg, "0x1")
 
-        stdout, _ = self.command(f"python3 branch{arch}.py 101")
+        stdout, _ = self.command(f"python3 branch.{arch}.py 101")
         self.assertLineContainsStrings(stdout, reg, "0x0")
 
     def test_branch_x86(self):
-        self.run_branch()
+        self.run_branch("amd64")
 
     def test_branch_aarch64(self):
-        self.run_branch(arch="aarch64", reg="x0")
+        self.run_branch("aarch64", reg="x0")
+
+    def test_branch_aarch64_angr(self):
+        self.run_branch("aarch64.angr", reg="x0")
 
     def test_branch_armel(self):
-        self.run_branch(arch="armel", reg="r0")
+        self.run_branch("armel", reg="r0")
+
+    def test_branch_armel_angr(self):
+        self.run_branch("armel.angr", reg="r0")
 
     def test_branch_armhf(self):
-        self.run_branch(arch="armhf", reg="r0")
+        self.run_branch("armhf", reg="r0")
+
+    def test_branch_armhf_angr(self):
+        self.run_branch("armhf.angr", reg="r0")
 
     def test_branch_mips(self):
-        self.run_branch(arch="mips", reg="v0")
+        self.run_branch("mips", reg="v0")
+
+    def test_branch_mips_angr(self):
+        self.run_branch("mips.angr", reg="v0")
+
+    def test_branch_mipsel(self):
+        self.run_branch("mipsel", reg="v0")
+
+    def test_branch_mipsel_angr(self):
+        self.run_branch("mipsel.angr", reg="v0")
+
+    def test_branch_mips64_angr(self):
+        self.run_branch("mips64.angr", reg="v0")
+
+    def test_branch_mips64el_angr(self):
+        self.run_branch("mips64el.angr", reg="v0")
+
+
+class StrlenTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 strlen.{arch}.py ''")
+        self.assertLineContainsStrings(stdout, "0x0")
+
+        stdout, _ = self.command(f"python3 strlen.{arch}.py foobar")
+        self.assertLineContainsStrings(stdout, "0x6")
+
+    def test_strlen_amd64(self):
+        self.run_test("amd64")
+
+    def test_strlen_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_strlen_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_strlen_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_strlen_armel(self):
+        self.run_test("armel")
+
+    def test_strlen_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_strlen_armhf(self):
+        self.run_test("armhf")
+
+    def test_strlen_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_strlen_mips(self):
+        self.run_test("mips")
+
+    def test_strlen_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_strlen_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_strlen_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_strlen_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_strlen_mips64el_angr(self):
+        self.run_test("mips64el.angr")
 
 
 class HookingTests(ScriptIntegrationTest):
-    def test_hooking(self):
-        stdout, _ = self.command("python3 hooking.py", stdin="foo bar baz")
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 hooking.{arch}.py", stdin="foo bar baz")
         self.assertLineContainsStrings(stdout, "foo bar baz")
+
+    def test_hooking_amd64(self):
+        self.run_test("amd64")
+
+    def test_hooking_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_hooking_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_hooking_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_hooking_armel(self):
+        self.run_test("armel")
+
+    def test_hooking_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_hooking_armhf(self):
+        self.run_test("armhf")
+
+    def test_hooking_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_hooking_mips(self):
+        self.run_test("mips")
+
+    def test_hooking_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_hooking_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_hooking_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_hooking_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_hooking_mips64el_angr(self):
+        self.run_test("mips64el.angr")
 
 
 try:

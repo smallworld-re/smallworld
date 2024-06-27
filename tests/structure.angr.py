@@ -6,7 +6,7 @@ from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
 
 if __name__ == "__main__":
     # Load the 'struct.bin' test.
-    infile = "struct.bin"
+    infile = "struct.amd64.bin"
     fmt = "blob"
     arch = "x86"
     mode = "64"

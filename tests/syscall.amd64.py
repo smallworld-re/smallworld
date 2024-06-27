@@ -10,7 +10,7 @@ state = smallworld.state.CPU.for_arch("x86", "64", "little")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    "syscall.bin", arch="x86", mode="64", base=0x1000, entry=0x1000
+    "syscall.amd64.bin", arch="x86", mode="64", base=0x1000, entry=0x1000
 )
 state.map(code)
 state.rip.value = code.entry

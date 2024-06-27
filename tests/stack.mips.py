@@ -10,7 +10,12 @@ state = smallworld.state.CPU.for_arch("mips", "mips32", "big")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    "stack.mips.bin", arch="mips", mode="mips", fmt="blob", base=0x1000, entry=0x1000
+    "stack.mips.bin",
+    arch="mips",
+    mode="mips32",
+    format="blob",
+    base=0x1000,
+    entry=0x1000,
 )
 state.map(code)
 state.pc.value = code.entry
@@ -39,10 +44,9 @@ state.map(stack)
 state.sp.value = sp
 
 # emulate
-emulator = smallworld.emulators.AngrEmulator(
+emulator = smallworld.emulators.UnicornEmulator(
     arch=state.arch, mode=state.mode, byteorder=state.byteorder
 )
-emulator.enable_linear()
 final_state = emulator.emulate(state)
 
 # read out the final state

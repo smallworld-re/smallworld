@@ -1,6 +1,9 @@
     .text
     .set    noreorder
     .set    nomacro
+_start:
+    bal     main
+    nop                 # Delay slot
 strlen:
     li      $2,0
 .L2:
@@ -10,8 +13,10 @@ strlen:
     addiu   $2,$2,1
     addiu   $4,$4,1
     b       .L2
-    nop
+    nop                 # Delay slot
 .L3:
     jr      $31
-    nop
-    
+    nop                 # Delay slot
+main:
+    bal     strlen
+    nop                 # Delay slot

@@ -1,4 +1,6 @@
     .text
+_start:
+    bl      main
 strlen:
     # Zero out the counter register
     mov     w1, wzr
@@ -18,3 +20,5 @@ strlen:
     # Return the counter
     mov     w0, w1
     ret
+main:
+    bl      strlen

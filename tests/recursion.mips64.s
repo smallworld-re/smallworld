@@ -1,4 +1,7 @@
     .text
+_start:
+    bal     main
+    nop                 # Delay slot
 mc91:
     # Set up the stack frame
     daddiu  $sp,$sp,-48
@@ -35,4 +38,7 @@ mc91:
     ld      $28,24($sp)
     daddiu  $sp,$sp,48
     jr      $31
+    nop                 # Delay slot
+main:
+    bal     mc91
     nop                 # Delay slot

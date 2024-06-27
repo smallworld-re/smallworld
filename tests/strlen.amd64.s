@@ -1,4 +1,7 @@
 BITS 64;
+_start:
+        call    main
+strlen:
         cmp     BYTE [rdi], 0
         je      .L4
         mov     edx, 1
@@ -7,8 +10,9 @@ BITS 64;
         add     rdx, 1
         cmp     BYTE [rdi-1+rdx], 0
         jne     .L3
-        jmp     .EXIT
+        ret
 .L4:
         mov     eax, 0
         ret
-.EXIT:
+main:
+        call    strlen

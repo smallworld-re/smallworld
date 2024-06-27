@@ -8,7 +8,7 @@ smallworld.setup_hinting(verbose=True, stream=True)
 state = smallworld.state.CPU.for_arch("x86", "64", "little")
 
 code = smallworld.state.Code.from_filepath(
-    "hooking.bin",
+    "hooking.amd64.bin",
     arch="x86",
     mode="64",
     format="blob",

@@ -7,7 +7,9 @@ smallworld.setup_hinting(verbose=True, stream=True)
 
 state = smallworld.state.CPU.for_arch("x86", "64", "little")
 
-code = smallworld.state.Code.from_filepath("hooking.bin", base=0x1000, entry=0x1000)
+code = smallworld.state.Code.from_filepath(
+    "hooking.amd64.bin", base=0x1000, entry=0x1000
+)
 state.map(code)
 state.rip.value = 0x1000
 

@@ -8,8 +8,9 @@ bar:
     addiu   $t0,$zero,8
     mult    $a0,$t0
     mflo    $v0
+    slt     $a0,$a0,101
     bne     $a0,$zero,.L2
-    slt     $a0,$a0,101     # Delay slot
+    nop                     # Delay slot
     addiu   $v0,$zero,32 
 .L2:
     jr      $ra

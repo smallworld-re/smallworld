@@ -6,8 +6,7 @@ MIPSEL_TARGETS := $(patsubst %.mips.s,%.mipsel.bin,$(wildcard *.mips.s))
 MIPS64EL_TARGETS := $(patsubst %.mips64.s,%.mips64el.bin,$(wildcard *.mips64.s)) 
 TARGETS := ${SOURCES:.s=.bin} $(MIPSEL_TARGETS) $(MIPS64EL_TARGETS)
 
-CROSS_SOURCES := $(wildcard *.*.s)
-NASM_SOURCES := $(filter-out $(CROSS_SOURCES),$(SOURCES))
+NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
 PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu)
@@ -16,6 +15,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	aarch64-linux-gnu-as $*.aarch64.s -o $*.aarch64.o
 	aarch64-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
 	rm $*.aarch64.o
+
+%.amd64.bin: %.amd64.s
+	nasm $*.amd64.s -o $*.amd64.bin
 
 %.armel.bin: %.armel.s
 	arm-linux-gnueabi-as $*.armel.s -o $*.armel.o
@@ -66,9 +68,6 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	sparc64-linux-gnu-as $*.sparc64.s -o $*.sparc64.o
 	sparc64-linux-gnu-objcopy -O binary -j .text $*.sparc64.o $*.sparc64.bin
 	rm $*.sparc64.o
-
-%.bin: %.s
-	nasm $*.s -o $*.bin
 
 all: prereqs build
 

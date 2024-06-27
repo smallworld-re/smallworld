@@ -6,7 +6,7 @@ bar:
         mul     w1, w0, w1
         cmp     w0, 101
         mov     w0, w1
-        blo     .L2
+        b.lt    .L2
         mov     w0, 32
 .L2:
         ret 

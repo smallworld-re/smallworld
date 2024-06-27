@@ -1,10 +1,12 @@
     .text
-_start:
-mc91:
     # Avoid MIPS messing with delay slots.
     # I know what I want, dammit!
     .set    noreorder
     .set    nomacro
+_start:
+    bal     main
+    nop                 # Delay slot
+mc91:
     # Set up the stack frame
     addiu   $sp,$sp,-32
     sw      $ra,28($sp)
@@ -34,4 +36,7 @@ mc91:
     lw      $fp,24($sp)
     addiu   $sp,$sp,32
     jr      $ra
+    nop                 # Delay slot
+main:
+    bal     mc91
     nop                 # Delay slot

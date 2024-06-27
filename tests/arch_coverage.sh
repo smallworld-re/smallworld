@@ -6,11 +6,7 @@ find_files() {
     local stem="$2"
     printf "  %-10s " ".$ext:"
     for p in $platforms; do
-        if [ "$p" == "amd64" ]; then
-            local platform_file="$stem.$ext"
-        else
-            local platform_file="$stem.$p.$ext"
-        fi
+        local platform_file="$stem.$p.$ext"
         
         local res="$p"
         if [[ ! -f "$platform_file" ]]; then

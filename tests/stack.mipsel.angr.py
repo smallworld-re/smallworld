@@ -29,9 +29,9 @@ state.a3.value = 0x01010101
 # create a stack and push a value
 stack = smallworld.state.Stack(address=0x2000, size=0x1000, byteorder="little")
 # rsp points to the next free stack slot
-stack.push(value=0x4444, size=4, type=int, label="7th argument")
+stack.push(value=0x4444, size=4, type=int)
 stack.push(value=0x01010101, size=4, type=int, label="6th argument")
-stack.push(value=0x3333, size=4, type=int, label="5th argument")
+stack.push(value=0x3333, size=4, type=int)
 stack.push(value=0x01010101, size=4, type=int, label="Unknown")
 stack.push(value=0x01010101, size=4, type=int, label="Unknown")
 stack.push(value=0x01010101, size=4, type=int, label="Unknown")
