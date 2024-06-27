@@ -47,7 +47,7 @@ class AngrMachineDef:
     # The angr execution engine.
     # Setting this to "none" uses the default Vex engine.
     # This only needs to be overridden if you're a pcode machine.
-    angr_engine: typing.Optional[angr.engines.engine.SimEngineBase] = None
+    angr_engine: typing.Optional[angr.engines.UberEnginePcode] = None
 
     # Does angr support single-instruction stepping for this ISA.
     #
