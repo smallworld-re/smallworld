@@ -167,27 +167,31 @@ class AngrEmulator(emulator.Emulator):
         prev_end = 0
         if label is None:
             label = dict()
+        if value is None:
+            log.warn(f"Backing memory at {hex(addr)} is not initialized")
 
         items = list(label.items())
         items.sort(key=lambda x: x[0])
         for off, (lab_size, name) in label.items():
-            if not isinstance(name, str):
-                log.warn(
-                    f"Cannot handle non-string labels; not applying label for {hex(addr + off)}"
-                )
-                continue
             if off > prev_end and value is not None:
                 # Account for any unlabeled bits.
                 v = claripy.BVV(value[prev_end:off])
                 self.state.memory.store(addr + off, v)
-
-            # Store a symbol containing the label
-            s = claripy.BVS(name, lab_size * 8)
-            self.state.memory.store(addr + off, s)
-            if value is not None:
-                # If we have a value, bind the value to the symbol
-                v = claripy.BVV(value[off : off + lab_size])
-                self.state.solver.add(v == s)
+            if isinstance(name, str):
+                # Store a symbol containing the label
+                s = claripy.BVS(name, lab_size * 8)
+                self.state.memory.store(addr + off, s)
+                if value is not None:
+                    # If we have a value, bind the value to the symbol
+                    v = claripy.BVV(value[off : off + lab_size])
+                    self.state.solver.add(v == s)
+            else:
+                log.warn(
+                    f"Cannot handle non-string labels; not applying label for {hex(addr + off)}"
+                )
+                if value is not None:
+                    v = claripy.BVV(value[off : off + lab_size])
+                    self.state.memory.store(addr + off, v)
 
             if off + lab_size > prev_end:
                 prev_end = off + lab_size
