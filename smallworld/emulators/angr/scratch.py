@@ -11,4 +11,4 @@ class ExpandedScratchPlugin(angr.state_plugins.SimStateScratch):
 
     @angr.SimStatePlugin.memo
     def copy(self, memo):
-        return ExpandedScratchPlugin(scratch=self)
+        return self.__class__(scratch=self)
