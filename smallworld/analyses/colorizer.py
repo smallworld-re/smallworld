@@ -49,6 +49,7 @@ class ColorizerAnalysis(analysis.Analysis):
     Arguments:
         num_micro_executions: The number of micro-executions to run.
         num_insns: The number of instructions to micro-execute.
+        seed: Random seed for test stability, or None.
 
     """
 
@@ -61,11 +62,14 @@ class ColorizerAnalysis(analysis.Analysis):
         *args,
         num_micro_executions: int = 5,
         num_insns: int = 10,
+        seed: typing.Optional[int] = 99,
         **kwargs
         #        self, *args, num_micro_executions: int = 1, num_insns: int = 10, **kwargs
     ):
         super().__init__(*args, **kwargs)
-
+        # Create our own random so we can avoid contention.
+        self.random = random.Random()
+        self.seed = seed
         self.num_micro_executions = num_micro_executions
         self.num_insns = num_insns
 
@@ -97,6 +101,9 @@ class ColorizerAnalysis(analysis.Analysis):
         for i in range(self.num_micro_executions):
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
+
+            if self.seed is not None:
+                self.random.seed(a=self.seed)
 
             # does this really need to be a member variable?
             self.cpu = copy.deepcopy(start_cpustate)
@@ -357,7 +364,7 @@ class ColorizerAnalysis(analysis.Analysis):
                     f"Not colorizing register {name} since it is already initialized with {reg.value:x}"
                 )
                 continue
-            val = random.randint(0, 0xFFFFFFFFFFFFFFF)
+            val = self.random.randint(0, 0xFFFFFFFFFFFFFFF)
             reg.value = val
             logger.debug(f"Colorizing register {name} with {val:x}")
 
@@ -441,9 +448,9 @@ class ColorizerAnalysis(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
-                logger.info(
-                    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
-                )
+                # logger.info(
+                #    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
+                # )
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
@@ -477,9 +484,9 @@ class ColorizerAnalysis(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
-                logger.info(
-                    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
-                )
+                # logger.info(
+                #    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
+                # )
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
