@@ -23,7 +23,7 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y nasm binutils-aarch64-linux-gnu binutils-arm-linux-gnueabi binutils-arm-linux-gnueabihf binutils-mips-linux-gnu binutils-mipsel-linux-gnu binutils-mips64-linux-gnuabi64 binutils-mips64el-linux-gnu binutils-powerpc-linux-gnu binutils-powerpc64-linux-gnu binutils-riscv64-linux-gnu binutils-sparc64-linux-gnu
+          sudo apt-get install -y $(cat ./tests/dependencies/apt.txt)
           sudo apt-get install -y ./tests/dependencies/*.deb
           python -m pip install ./tests/dependencies/*.whl
       - name: Install
