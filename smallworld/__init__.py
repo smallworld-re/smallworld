@@ -7,7 +7,6 @@ __description__ = metadata["Summary"]
 __author__ = metadata["Author"]
 __version__ = metadata["version"]
 
-
 from . import (
     analyses,
     cpus,
@@ -18,7 +17,7 @@ from . import (
     initializers,
     state,
 )
-from .helpers import analyze, fuzz
+from .helpers import analyze, fuzz, setup_default_libc, setup_section  # noqa: F401
 from .utils import setup_hinting, setup_logging
 
 __all__ = [
