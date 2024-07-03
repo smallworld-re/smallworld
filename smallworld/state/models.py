@@ -19,6 +19,24 @@ MAX_STRLEN = 0x10000
 # next, last available byte in heap
 heap_next = None
 heap_last = None
+allocated_memory = 0
+offset = 3
+fd_count = 1000 + offset
+file_descriptor_table = dict(zip(range(offset, fd_count), [0] * fd_count))
+free_list = []
+
+def _first_available_fd() -> int:
+    global file_descriptor_table
+    for fd, av in file_descriptor_table.items():
+        if av == 0:
+            file_descriptor_table[fd] = 1
+            return fd
+    return -1
+
+
+def close_fd(fd: int):
+    global file_descriptor_table
+    file_descriptor_table[fd] = 0 if file_descriptor_table[fd] == 1 else 0
 
 
 def _get_page(emulator: emulators.Emulator, addr: int) -> int:
@@ -28,7 +46,7 @@ def _get_page(emulator: emulators.Emulator, addr: int) -> int:
 # obtain addr of emulator heap memory of this size
 # NB: this will map new pages into emulator as needed
 def _emu_alloc(emulator: emulators.Emulator, size: int) -> int:
-    global heap_next, heap_last
+    global heap_next, heap_last, allocated_memory
     if heap_next is None:
         # first dynamic alloc
         num_pages = (size // emulator.PAGE_SIZE) + 1
@@ -54,6 +72,7 @@ def _emu_alloc(emulator: emulators.Emulator, size: int) -> int:
             assert current_last_page_start + emulator.PAGE_SIZE == new_pages_start
             alloc_addr = heap_next
             heap_next += size
+    allocated_memory += size
     return alloc_addr
 
 
@@ -62,6 +81,14 @@ def _emu_calloc(emulator: emulators.Emulator, size: int) -> int:
     emulator.write_memory(addr, b"\0" * size)
     return addr
 
+def _emu_free(emulator: emulators.Emulator) -> int:
+    global heap_next, heap_last, allocated_memory
+    num_pages = (size // emulator.PAGE_SIZE) + 1        # size should be size of object
+    page_start = emulator.get_pages(num_pages)
+    heap_last = page_start + num_pages * emulator.PAGE_SIZE - 1
+    alloc_addr = page_start
+    heap_next = page_start - size
+    allocated_memory -= size
 
 def _emu_strlen_n(emulator: emulators.Emulator, addr: int, n: int) -> int:
     sl = 0
@@ -366,7 +393,7 @@ class PthreadMutexInitModel(Returns0ImplementedModel):
 
 
 class PthreadMutexLockModel(Returns0ImplementedModel):
-    name = "ptherad_mutex_lock"
+    name = "pthread_mutex_lock"
 
 
 class PthreadMutexUnlockModel(Returns0ImplementedModel):
@@ -689,6 +716,131 @@ class AMD64MicrosoftGetsModel(GetsModel):
 class AMD64SystemVNullModel(AMD64SystemVImplementedModel, Returns0ImplementedModel):
     name = "null"
 
+
+class AMD64MicrosoftImplementedModel:
+    argument1 = "rcx"
+    argument2 = "rdx"
+    argument3 = "r8"
+    argument4 = "r9"
+    return_val = "rax"
+
+
+class CreateSnapshotModel(ImplementedModel):
+    name = "CreateToolhelp32Snapshot"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        valid_flags = [0x80000000, 0x1, 0x8, 0x10, 0x2, 0x4]
+        dwFlags = emulator.read_register(self.argument1)
+        th32ProcessID = emulator.read_register(self.argument2)
+        if dwFlags not in valid_flags or th32ProcessID != 0:
+            emulator.write_memory(self.return_val, -1)
+        else:
+            emulator.write_register(self.return_val, 0x248)
+
+
+class Process32FirstModel(ImplementedModel):
+    name = "Process32First"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        hSnapshot = emulator.read_register(self.argument1)
+        lppe = emulator.read_register(self.argument2)
+        
+        if hSnapshot == 0 or lppe == 0:
+            emulator.write_register(self.return_val, 0)
+        else:
+            emulator.write_register(self.return_val, 1)
+
+
+class Process32NextModel(ImplementedModel):
+    name = "Process32Next"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        pe32 = emulator.read_register(self.argument2)
+        if pe32 is not None:
+            emulator.write_register(self.return_val, 1)
+        else:
+            emulator.write_register(self.return_val, 0)
+
+
+class CloseHandleModel(ImplementedModel):
+    name = "CloseHandle"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        hObject = emulator.read_register(self.argument1)
+        if hObject is not None:
+            emulator.write_register(self.return_val, 1)
+        else:
+            emulator.write_register(self.return_val, 0)
+
+        
+class ProcessIdToSessionId(ImplementedModel):
+    pass
+
+
+class OpenProcessModel(ImplementedModel):
+    name = "OpenProcess"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        dwProcessId = emulator.read_register(self.argument3)
+
+        if dwProcessId != 0:
+            emulator.write_register(self.return_val, 1)
+        else:
+            emulator.write_register(self.return_val, 0)
+
+class SocketModel(ImplementedModel):
+    name = "socket"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        ai_family = emulator.read_register(self.argument1)
+        ai_socktype = emulator.read_register(self.argument2)
+        ai_protocol = emulator.read_register(self.argument3)
+
+        if ai_family == 2 and ai_socktype == 1 and ai_protocol == 6:
+            fd = _first_available_fd()
+            emulator.write_register(self.return_val, fd)
+        else:
+            emulator.write_register(self.return_val, -1)
+
+
+class ConnectModel(ImplementedModel):
+    name = "connect"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        sockfd = emulator.read_register(self.argument1)
+        ai_addr = emulator.read_register(self.argument2)
+
+        if sockfd in file_descriptor_table and ai_addr is not None:
+            emulator.write_register(self.return_val, 0)
+        else:
+            emulator.write_register(self.return_val, -1)
+
+class CloseSocketModel(ImplementedModel):
+    name = "closesocket"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        sockfd = emulator.read_register(self.argument1)
+        close_fd(sockfd)
+        emulator.write_register(self.return_val, 0)
+
+
+class ProcessIdToSessionIdModel(ImplementedModel):
+    name = "ProcessIdToSessionId"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        pass
+
+
+class AMD64MicrosoftCreateSnapshotModel(AMD64MicrosoftImplementedModel, CreateSnapshotModel):
+    pass
+
+
+class AMD64MicrosoftProcess32FirstModel(AMD64MicrosoftImplementedModel, Process32FirstModel):
+    pass
+
+
+class AMD64MicrosoftCloseHandleModel(AMD64MicrosoftImplementedModel, CloseHandleModel):
+    pass
 
 __all__ = [
     #    "Model",
