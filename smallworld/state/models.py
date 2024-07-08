@@ -772,9 +772,6 @@ class CloseHandleModel(ImplementedModel):
         else:
             emulator.write_register(self.return_val, 0)
 
-        
-class ProcessIdToSessionId(ImplementedModel):
-    pass
 
 
 class OpenProcessModel(ImplementedModel):
@@ -828,7 +825,28 @@ class ProcessIdToSessionIdModel(ImplementedModel):
     name = "ProcessIdToSessionId"
 
     def model(self, emulator: emulators.Emulator) -> None:
-        pass
+        sessionId = emulator.read_register(self.argument2)
+        if sessionId is not None:
+            emulator.write_register(self.return_val, 1)
+        else:
+            emulator.write_register(self.return_val, 0)
+
+
+class GetCurrentDirectoryAModel(ImplementedModel):
+    name = "GetCurrentDirectoryA"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        max_path = emulator.read_register(self.argument1)
+        path_buffer = emulator.read_register(self.argument2)
+
+
+class FindCloseModel(ImplementedModel):
+    name = "FindClose"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        handle = emulator.read_register(self.argument1)
+        close_fd(handle)
+        emulator.write_register(self.return_val, 0)
 
 
 class AMD64MicrosoftCreateSnapshotModel(AMD64MicrosoftImplementedModel, CreateSnapshotModel):
