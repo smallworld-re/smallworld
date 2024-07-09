@@ -5,7 +5,7 @@ import typing
 logger = logging.getLogger(__name__)
 
 
-from . import analyses, emulators, state
+from . import analyses, emulators, models, state
 
 T = typing.TypeVar("T", bound=state.CPU)
 
@@ -132,26 +132,22 @@ def setup_default_libc(
         if plt.contains(entry) and func_name in libc_func_names:  # type: ignore
             # func is in plt and it is a function for which we want to use a default model
             int_entry = int(entry.getOffset())
-            ml = state.models.get_models_by_name(
-                func_name, state.models.AMD64SystemVImplementedModel
-            )
-            # returns list of models. for now we hope there's either 1 or 0...
-            if len(ml) == 1:
-                class_ = ml[0]
+            try:
+                model = models.model_for_name(
+                    "x86", "64", "little", "sysv", func_name, int_entry
+                )
                 # class_ = getattr(state.models, cls_name)
-                cpustate.map(class_(int_entry))
+                cpustate.map(model)
                 logger.debug(f"Added libc model for {func_name} entry {int_entry:x}")
                 num_mapped += 1
-            elif len(ml) > 1:
-                logger.debug(
-                    f"XXX There are {len(ml)} models for plt fn {func_name}... ignoring bc I dont know which to use"
-                )
-                num_too_many_models += 1
-            else:
+            except ValueError:
                 logger.debug(
                     f"As there is no default model for {func_name}, adding with null model, entry {int_entry:x}"
                 )
-                cpustate.map(state.models.AMD64SystemVNullModel(int_entry))
+                model = models.model_for_name(
+                    "x86", "64", "little", "sysv", "null", int_entry
+                )
+                cpustate.map(model)
                 num_no_model += 1
 
     logger.info(

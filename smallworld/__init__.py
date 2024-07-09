@@ -16,6 +16,7 @@ from . import (
     exceptions,
     hinting,
     initializers,
+    models,
     state,
 )
 from .helpers import analyze, fuzz
@@ -29,6 +30,7 @@ __all__ = [
     "exceptions",
     "hinting",
     "initializers",
+    "models",
     "state",
     "setup_hinting",
     "setup_logging",
