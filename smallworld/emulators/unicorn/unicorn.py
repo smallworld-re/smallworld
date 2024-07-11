@@ -101,18 +101,74 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.debug(f"set register {name}={value}")
 
-    def get_pages(self, num_pages: int) -> int:
-        last_page = 0
-        # iterate over pages emulator has mapped and determine last page
-        for start, end, perms in self.engine.mem_regions():
-            # Assume "end" is last byte in page and figure out what
-            # page it's in
-            end_page = (end // self.PAGE_SIZE) * self.PAGE_SIZE
-            if end_page > last_page:
-                last_page = end_page
-        next_page = last_page + self.PAGE_SIZE
-        self.engine.mem_map(next_page, num_pages * self.PAGE_SIZE)
-        return next_page
+    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        def page(address: int) -> int:
+            """Compute the page number of an address.
+
+            Arguments:
+                address: A memory address.
+
+            Returns:
+                The page number of this address.
+            """
+
+            return address // self.PAGE_SIZE
+
+        def subtract(first, second):
+            result = []
+            endpoints = sorted((*first, *second))
+            if endpoints[0] == first[0] and endpoints[1] != first[0]:
+                result.append((endpoints[0], endpoints[1]))
+            if endpoints[3] == first[1] and endpoints[2] != first[1]:
+                result.append((endpoints[2], endpoints[3]))
+
+            return result
+
+        def map(start: int, end: int):
+            """Map a region of memory by start and end page.
+
+            Arguments:
+                start: Starting page of allocation.
+                end: Ending page of allocation.
+            """
+
+            address = start * self.PAGE_SIZE
+            allocation = (end - start) * self.PAGE_SIZE
+
+            logger.debug(f"new memory map 0x{address:x}[{allocation}]")
+
+            self.engine.mem_map(address, allocation)
+
+        # Fixed address, map only pages which are not yet mapped.
+        if address:
+            region = (page(address), page(address + size) + 1)
+
+            for start, end, _ in self.engine.mem_regions():
+                mapped = (page(start), page(end) + 1)
+
+                regions = subtract(region, mapped)
+
+                if len(regions) == 0:
+                    break
+                elif len(regions) == 1:
+                    region = regions[0]
+                elif len(regions) == 2:
+                    emit, region = regions
+                    map(*emit)
+            else:
+                map(*region)
+
+        # Address not provided, find a suitable region.
+        else:
+            target = 0
+            for start, end, _ in self.engine.mem_regions():
+                if page(end) > target:
+                    target = page(end) + 1
+
+            map(target, target + page(size) + 1)
+            address = target * self.PAGE_SIZE
+
+        return address
 
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         if size > sys.maxsize:
@@ -134,44 +190,7 @@ class UnicornEmulator(emulator.Emulator):
         if not len(value):
             raise ValueError("memory write cannot be empty")
 
-        def page(address):
-            return address // self.PAGE_SIZE
-
-        def subtract(first, second):
-            result = []
-            endpoints = sorted((*first, *second))
-            if endpoints[0] == first[0] and endpoints[1] != first[0]:
-                result.append((endpoints[0], endpoints[1]))
-            if endpoints[3] == first[1] and endpoints[2] != first[1]:
-                result.append((endpoints[2], endpoints[3]))
-
-            return result
-
-        def map(start, end):
-            address = start * self.PAGE_SIZE
-            allocation = (end - start) * self.PAGE_SIZE
-
-            logger.debug(f"new memory map 0x{address:x}[{allocation}]")
-
-            self.engine.mem_map(address, allocation)
-
-        region = (page(address), page(address + len(value)) + 1)
-
-        for start, end, _ in self.engine.mem_regions():
-            mapped = (page(start), page(end) + 1)
-
-            regions = subtract(region, mapped)
-
-            if len(regions) == 0:
-                break
-            elif len(regions) == 1:
-                region = regions[0]
-            elif len(regions) == 2:
-                emit, region = regions
-                map(*emit)
-        else:
-            map(*region)
-
+        self.map_memory(len(value), address)
         self.engine.mem_write(address, bytes(value))
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")

@@ -84,9 +84,6 @@ class AngrEmulator(emulator.Emulator):
     def entry(self, e: angr.SimState):
         self._entry = e
 
-    def get_pages(self, num_pages: int) -> int:
-        raise NotImplementedError("Dynamic allco not implemented for angr.")
-
     def read_register(self, name: str):
         if self._reg_init_values is None:
             raise NotImplementedError(
@@ -143,6 +140,9 @@ class AngrEmulator(emulator.Emulator):
             )
         else:
             return self._entry.memory.load(addr, size)
+
+    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        raise NotImplementedError("dynamic allocation not yet implemented for angr")
 
     def write_memory(self, addr: int, value: typing.Optional[bytes]):
         if self._mem_init_values is None:
@@ -366,9 +366,6 @@ class AngrHookEmulator(AngrEmulator):
             val = claripy.BVV(value, reg_size)
             self.state.registers.store(reg_addr, val)
 
-    def get_pages(self, num_pages: int) -> int:
-        raise NotImplementedError("Dynamic alloc not implemented for angr")
-
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         # Load data from memory.
         res = self.state.memory.load(address, size)
@@ -381,6 +378,9 @@ class AngrHookEmulator(AngrEmulator):
             return bytes(
                 [res.get_byte(i).concrete_value for i in range(0, len(res) // 8)]
             )
+
+    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        raise NotImplementedError("dynamic allocation not yet implemented for angr")
 
     def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
         if value is None:

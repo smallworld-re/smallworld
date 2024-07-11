@@ -16,51 +16,17 @@ MAX_STRLEN = 0x10000
 # This stuff is private. Dont' add it to __all__     #
 ######################################################
 
-# next, last available byte in heap
-heap_next = None
-heap_last = None
-
-
-def _get_page(emulator: emulators.Emulator, addr: int) -> int:
-    return addr // emulator.PAGE_SIZE
-
 
 # obtain addr of emulator heap memory of this size
 # NB: this will map new pages into emulator as needed
 def _emu_alloc(emulator: emulators.Emulator, size: int) -> int:
-    global heap_next, heap_last
-    if heap_next is None:
-        # first dynamic alloc
-        num_pages = (size // emulator.PAGE_SIZE) + 1
-        page_start = emulator.get_pages(num_pages)
-        heap_last = page_start + num_pages * emulator.PAGE_SIZE - 1
-        alloc_addr = page_start
-        heap_next = page_start + size
-    else:
-        first_addr = heap_next
-        last_addr = heap_next + size - 1
-        if last_addr <= heap_last:
-            # allocation fits in currently mapped and available heap
-            alloc_addr = heap_next
-            heap_next += size
-        else:
-            # alloc wont fit
-            first_page = _get_page(first_addr)
-            last_page = _get_page(last_addr)
-            num_new_pages = (last_page - first_page) / emulator.PAGE_SIZE
-            new_pages_start = emulator.get_pages(num_new_pages)
-            # assume (but verify) that next page will be just what we already have
-            current_last_page_start = _get_page(heap_last)
-            assert current_last_page_start + emulator.PAGE_SIZE == new_pages_start
-            alloc_addr = heap_next
-            heap_next += size
-    return alloc_addr
+    return emulator.map_memory(size)
 
 
 def _emu_calloc(emulator: emulators.Emulator, size: int) -> int:
-    addr = _emu_alloc(emulator, size)
-    emulator.write_memory(addr, b"\0" * size)
-    return addr
+    address = _emu_alloc(emulator, size)
+    emulator.write_memory(address, b"\0" * size)
+    return address
 
 
 def _emu_strlen_n(emulator: emulators.Emulator, addr: int, n: int) -> int:
