@@ -6,7 +6,7 @@ import logging
 import os
 import pdb
 import pyhidra
-
+# Fake out sending run key to filepath for persistence functionality
 import smallworld
 from smallworld import emulators, state
 from smallworld.state.debug import Breakpoint
@@ -27,27 +27,28 @@ logger.info("mapping code into cpu and restricting emulation to known ok regions
 
 # load and map code into the state
 # can't quite see how to get this from ghidra
-entry = 0x412500
-code = smallworld.state.Code.from_filepath(
-    pef, base=0x0, format="PE", arch="x86", mode="64", entry=entry,
-    # These are allowable emulator pc bounds, from ghidra and manual inpsection
-    bounds = [
-        range(0x412500,0x412d6d),   # main
-        range(0x411450, 0x41178d),  # ps
-    ]
-)
+entry = 0x1400121d0
 
+code = state.PEImage.from_filepath(pef, base=0x140000000, entry=entry, arch="x86", mode="64", format="PE",
+        bounds= [
+            range(0x1400121d0, 0x140012b0f),   # main
+            range(0x140011a00, 0x140011d20),   # info
+            range(0x140011360, 0x1400116af),   # ls
+        ])
+
+#print(code)
+# pdb.set_trace()
 # ------------------------------------------------------
 
 logger.info("mapping in user-specified breakpoints")
 
 breaks = {
-    0x41149a: "just before create snapshot",
-    0x4114a0: "just after create snapshot call",
-    0x411506: "just before process32first",
-    0x41150c: "just after process32first call",
-    0x411569: "just before open process",
-    0x411571: "just after open process"
+    0x14013e137: "just before create snapshot",
+    0x14013e141: "just after create snapshot call",
+    0x1400110a4: "just before process32first",
+    # 0x41150c: "just after process32first call",
+    # 0x411569: "just before open process",
+    # 0x411571: "just after open process"
 }
 
 label2break = {}
@@ -66,7 +67,6 @@ for addr,label in breaks.items():
 logger.info("starting pyhidra")
 
 pyhidra.start()
-print('here')
 with pyhidra.open_program(pef) as ghidra_flat_api:
 
     # ------------------------------------------------------
@@ -74,7 +74,7 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     #logger.info("mapping default libc models")
 
     # This list of libc fns are the ones we want default hooks for.
-    use_default_libc_models = ["__xpg_basename", "calloc", "daemon",
+    use_windows_api_models = ["CreateToolhelp32Snapshot", "Process32First", "daemon",
                                "flock", "getopt_long", "getpagesize",
                                "getppid", "open", "open64", "printf",
                                "pthread_cond_init", "pthread_cond_signal",
@@ -84,10 +84,12 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
                                "srand", "srandom", "strcpy", "__strdup",
                                "strlen", "strncpy", "sysconf", "time",
                                "unlink", "write"]
-    setup_default_libc(ghidra_flat_api, use_default_libc_models, cpustate)
+    #setup_default_libc(ghidra_flat_api, use_windows_api_models, cpustate)
 #    pdb.set_trace()
+    #code = setup_section(ghidra_flat_api, ".text", cpustate, pef)
+    #pdb.set_trace()
     
-    cpustate.map(code)
+    cpustate.map(code.code_segments[0])
     
     # ------------------------------------------------------
 
@@ -126,32 +128,43 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     # set up idata
     setup_section(ghidra_flat_api, ".idata", cpustate, pef)
 
+    # set up reloc
+    setup_section(ghidra_flat_api, ".reloc", cpustate, pef)
+
+    # set up pdata
+    #setup_section(ghidra_flat_api, ".pdata", cpustate, pef)
+
+    setup_section(ghidra_flat_api, ".00cfg", cpustate, pef)
+
     # set up heap
-    heap_address = 0x700000
+    heap_address = 0x140142E00
     heap_size = 0x10000
     alloc = smallworld.state.BumpAllocator(address=heap_address, size=heap_size)
     alloc.value = b'\0' * heap_size
     cpustate.map(alloc, "heap")
-    
-    cmdline_str = "./main.bin"
+
+    cmdline_str = "./main.exe"
     argv = [arg.encode("utf-8") for arg in cmdline_str.split()]
-    stack = state.Stack.initialize_stack(argv=argv, address=0x800000, size=0x10000)
+    stack_address = 0x7FFDF0000000
+    stack = state.Stack.initialize_stack(argv=argv, address=stack_address, size=0x10000)
     cpustate.map(stack, "stack")
 
     # argc and argv are in these regs at start of main
     cpustate.edi.value = stack.get_argc()
     cpustate.rsi.value = stack.get_argv()
     cpustate.rsp.value = stack.get_stack_pointer()
+    logger.info(hex(cpustate.rsp.value))
     
     ###############################################################################
     
     logger.info("creating emulator")
 
-    emu = emulators.UnicornEmulator(cpustate.arch, cpustate.mode)
+    emu = emulators.UnicornEmulator(cpustate.arch, cpustate.mode, "little")
+    emu.load(code)
 
     # set entry point
     cpustate.rip.value = entry
-
+    pdb.set_trace()
     cpustate.apply(emu)
 
     
@@ -162,11 +175,12 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
         j += 1
 
         pc = emu.read_register("pc")
+        print(f"PC: {hex(pc)}")
         instr = emu.current_instruction()
         logger.info(f"emulated instr {j} {pc:x} {instr}")
-        
-        done = emu.step()
 
+        done = emu.step()
+        print('reached')
         if done:
             break
 

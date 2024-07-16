@@ -780,7 +780,12 @@ class State(Value):
             logger.debug(f"loaded {name}:{state} from {emulator}")
 
     def apply(self, emulator: emulators.Emulator) -> None:
+        logger.debug(f"BEFORE applying anything code.base={self.code.base}")
         for name, state in self.members().items():
+            logger.debug(f"XXXX {state} code.base={self.code.base}")
+            if type(state) is Code:
+                import pdb
+                pdb.set_trace()
             logger.debug(f"applying {name}:{state} to {emulator}")
             state.apply(emulator)
 

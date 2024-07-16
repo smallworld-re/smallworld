@@ -3,6 +3,7 @@ import inspect
 import logging
 import random
 import typing
+import socket, os
 
 from .. import emulators, initializers
 from . import state
@@ -10,7 +11,7 @@ from . import state
 logger = logging.getLogger(__name__)
 
 MAX_STRLEN = 0x10000
-
+INFO_BUFFER_SIZE = 32767
 
 ######################################################
 # This stuff is private. Dont' add it to __all__     #
@@ -838,6 +839,7 @@ class GetCurrentDirectoryAModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         max_path = emulator.read_register(self.argument1)
         path_buffer = emulator.read_register(self.argument2)
+        _emu_memcpy(emulator, path_buffer, emulator.read_memory(max_path), max_path)
 
 
 class FindCloseModel(ImplementedModel):
@@ -847,6 +849,49 @@ class FindCloseModel(ImplementedModel):
         handle = emulator.read_register(self.argument1)
         close_fd(handle)
         emulator.write_register(self.return_val, 0)
+
+
+class FindFirstFileAModel(ImplementedModel):
+    name = "FindFirstFileA"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        findFileData = emulator.read_register(self.argument2)
+        cFileName = 0x3df40c
+        _emu_memcpy(emulator, findFileData, cFileName, 48)
+        emulator.write_register(self.return_val, 0x99b178)
+
+
+class FindNextFileA(ImplementedModel):
+    name = "FindNextFileA"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        lpFindFileData = emulator.read_register(self.argument2)
+        if lpFindFileData is None:
+            emulator.write_register(self.return_val, 0)
+        else:
+            emulator.write_register(self.return_val, 1)
+
+
+class GetComputerNameModel(ImplementedModel):
+    name = "GetComputerName"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        infoBuf = emulator.read_register(self.argument1)
+        count = emulator.read_register(self.argument2)
+        hostname = socket.gethostname()
+        _emu_strncpy(infoBuf, infoBuf, id(hostname), count, True)
+        emulator.write_register(self.return_val, 1)
+
+
+class GetUserNameModel(ImplementedModel):
+    name = "GetUserName"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        infoBuf = emulator.read_register(self.argument1)
+        count = emulator.read_register(self.argument2)
+        username = os.getlogin()
+        _emu_strncpy(infoBuf, infoBuf, id(username), count, True)
+        emulator.write_register(self.return_val, 1)
 
 
 class AMD64MicrosoftCreateSnapshotModel(AMD64MicrosoftImplementedModel, CreateSnapshotModel):

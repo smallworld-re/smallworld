@@ -1,5 +1,6 @@
 from . import debug, models
 from .elf import ELFImage
+from .pe import PEImage
 from .state import (
     CPU,
     BumpAllocator,
@@ -25,6 +26,7 @@ __all__ = [
     "CPU",
     "State",
     "ELFImage",
+    "PEImage",
     "models",
     "debug",
 ]

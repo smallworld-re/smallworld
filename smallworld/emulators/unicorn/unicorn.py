@@ -148,6 +148,8 @@ class UnicornEmulator(emulator.Emulator):
 
         def map(start, end):
             address = start * self.PAGE_SIZE
+            logger.debug(f"Start: {start}")
+            logger.debug(f"Page size: {self.PAGE_SIZE}")
             allocation = (end - start) * self.PAGE_SIZE
 
             logger.debug(f"new memory map 0x{address:x}[{allocation}]")
@@ -184,9 +186,14 @@ class UnicornEmulator(emulator.Emulator):
         if code.entry is not None:
             self.entry = code.entry
             if self.entry < code.base or self.entry > code.base + len(code.image):
+                import pdb
+                pdb.set_trace()
+                logger.debug(self.entry > code.base + len(code.image))
+                logger.debug(self.entry < code.base)
                 raise ValueError(
-                    "entry is not in code: 0x{self.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
+                    f"entry is not in code: 0x{self.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
+                #pass
         else:
             self.entry = code.base
 
