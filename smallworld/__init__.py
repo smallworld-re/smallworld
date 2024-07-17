@@ -17,7 +17,8 @@ from . import (
     initializers,
     state,
 )
-from .helpers import analyze, fuzz, setup_default_libc, setup_section
+from .helpers import analyze, fuzz
+from .ghdira import setup_default_libc, setup_section
 from .utils import setup_hinting, setup_logging
 
 __all__ = [
