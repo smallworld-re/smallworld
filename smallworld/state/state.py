@@ -96,7 +96,7 @@ class Code(Value):
     Arguments:
         image: The actual bytes of the executable.
         base: Base address.
-        type: Executable format ("blob", "PE", "ELF", etc.)
+        format: Executable format ("blob", "PE", "ELF", etc.)
         arch: Architecture ("x86", "arm", etc.)
         mode: Architecture mode ("32", "64", etc.)
         entry: Execution entry address - if not provided this is assumed to be
@@ -430,6 +430,9 @@ class Stack(Memory):
         self.memory: typing.List[typing.Tuple(bytes, int)] = []
         self.used = 0
         self.sp = self.address + self.size
+        self.argc = 0
+        # an address (beginning of argv array)
+        self.argv = 0x0
 
     @property
     def value(self) -> typing.Optional[bytes]:
@@ -505,9 +508,8 @@ class Stack(Memory):
             total_strings_bytes += arg_size
             argv_address.append((i, s.push(arg, size=arg_size, label=f"argv[{i}]")))
 
-        argc = len(argv)
-
-        total_space = (8 * (argc + 2)) + total_strings_bytes
+        s.argc = len(argv)
+        total_space = (8 * (s.argc + 2)) + total_strings_bytes
         padding = 16 - (total_space % 16)
         s.push(bytes(padding), size=padding, label="stack alignment padding bytes")
 
@@ -515,8 +517,16 @@ class Stack(Memory):
 
         for i, addr in reversed(argv_address):
             s.push(addr, size=8, label=f"pointer to argv[{i}]")
-        s.push(argc, size=8, label="argc")
+        s.argv = (s.address + s.size) - s.used
+        s.push(s.argc, size=8, label="argc")
+
         return s
+
+    def get_argc(self) -> int:
+        return self.argc
+
+    def get_argv(self) -> int:
+        return self.argv
 
 
 class Heap(Memory):

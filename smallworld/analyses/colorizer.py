@@ -105,9 +105,7 @@ class ColorizerAnalysis(analysis.Analysis):
             if self.seed is not None:
                 self.random.seed(a=self.seed)
 
-            # does this really need to be a member variable?
             self.cpu = copy.deepcopy(start_cpustate)
-
             self.emu = UnicornEmulator(self.cpu.arch, self.cpu.mode, self.cpu.byteorder)
 
             # initialize registers with random values
