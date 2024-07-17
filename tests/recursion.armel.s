@@ -1,4 +1,6 @@
     .text
+_start:
+    bl      main
 mc91:
     # Set up the stack frame
     push    {fp, lr}
@@ -21,3 +23,5 @@ mc91:
     # Clean up stack and return
     sub     sp, fp, #4
     pop     {fp, pc}
+main:
+    bl      mc91 

@@ -10,7 +10,7 @@ smallworld.setup_hinting(verbose=True, stream=True, file=None)
 cpu = smallworld.cpus.AMD64CPUState()
 
 # load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath("fuzz.bin", base=0x1000, entry=0x1000)
+code = smallworld.state.Code.from_filepath("fuzz.amd64.bin", base=0x1000, entry=0x1000)
 cpu.map(code)
 cpu.rip.value = 0x1000
 

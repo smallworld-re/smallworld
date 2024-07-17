@@ -1,4 +1,6 @@
     .text
+_start:
+    bl      main
 mc91:
     # Set up the stack frame
     push    {r7, lr}
@@ -22,3 +24,5 @@ mc91:
     adds    r7, r7, #8
     mov     sp, r7
     pop     {r7, pc}
+main:
+    bl      mc91

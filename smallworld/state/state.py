@@ -123,7 +123,7 @@ class Code(Value):
         self.mode = mode
         self.base = base
         self.entry = entry or base
-        self.bounds = bounds or [range(self.entry, self.entry + len(image))]
+        self.bounds = bounds or [range(self.base, self.base + len(image))]
 
     @classmethod
     def from_filepath(cls, path: str, *args, **kwargs):
@@ -175,11 +175,14 @@ class Register(Value):
         return self._value
 
     @value.setter
-    def value(self, value: int) -> None:
-        if value.bit_length() > self.width * 8:
+    def value(self, value: typing.Optional[int]) -> None:
+        if value is None:
+            self._value = None
+        elif value.bit_length() > self.width * 8:
             raise ValueError(f"{value} is too large for {self}")
-        logger.debug(f"initializing value {self}")
-        self._value = value
+        else:
+            logger.debug(f"initializing value {self}")
+            self._value = value
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
@@ -207,7 +210,7 @@ class Register(Value):
         self.value = emulator.read_register(self.name)
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_register(self.name, self.value)
+        emulator.write_register(self.name, self.value, self.label)
 
     def __repr__(self) -> str:
         if self.value is not None:
@@ -300,7 +303,7 @@ class Memory(Value):
         self.memory = b""
 
         self.type: typing.Dict[int, typing.Any] = {}
-        self.label: typing.Dict[int, typing.Any] = {}
+        self.label: typing.Dict[int, typing.Tuple[int, typing.Any]] = {}
 
     def initialize(
         self, initializer: initializers.Initializer, override: bool = False
@@ -320,13 +323,9 @@ class Memory(Value):
 
         if value:
             self.value = value
-        else:
-            raise ValueError(
-                f"failed to load {self.size} bytes from 0x{self.address:x}"
-            )
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_memory(self.address, self.value)
+        emulator.write_memory(self.address, self.value, self.label)
 
     @property
     def value(self) -> typing.Optional[bytes]:
@@ -400,6 +399,7 @@ class Memory(Value):
     def set_label(
         self,
         offset: int,
+        size: int,
         label: typing.Optional[typing.Any] = None,
         value: typing.Optional[typing.Any] = None,
     ) -> None:
@@ -420,8 +420,7 @@ class Memory(Value):
                 candidate = value.label
             else:
                 logger.warning(f"cannot infer label from {value}")
-
-        self.label[offset] = candidate
+        self.label[offset] = (size, candidate)
 
 
 class Stack(Memory):
@@ -489,8 +488,10 @@ class Stack(Memory):
 
         stack_offset = (self.address + self.size) - self.used
 
-        self.set_type(offset=stack_offset, value=value, type=type)
-        self.set_label(offset=stack_offset, value=value, label=label)
+        self.set_type(offset=self.size - self.used, value=value, type=type)
+        self.set_label(
+            offset=self.size - self.used, size=allocation_size, value=value, label=label
+        )
 
         return stack_offset
 
@@ -577,6 +578,8 @@ class BumpAllocator(Heap):
 
         for v, s in self.memory:
             value += self.to_bytes(v, s)
+        if len(value) < self.size:
+            value += b"\0" * (self.size - len(value))
 
         return value
 
@@ -597,29 +600,38 @@ class BumpAllocator(Heap):
         type: typing.Optional[typing.Any] = None,
         label: typing.Optional[typing.Any] = None,
     ) -> int:
-        allocation = self.to_bytes(value, size)
+        # FIXME: concretizing allocation here causes unexpected behavior
+        # We did this for a reason; why?
+        # allocation = self.to_bytes(value, size)
 
         if type is None:
             type = value.__class__
 
-        if size is None:
-            size = len(allocation)
+        if isinstance(value, bytes):
+            expected_size = len(value)
+        elif isinstance(value, ctypes.Structure):
+            expected_size = ctypes.sizeof(value)
+        else:
+            expected_size = None
 
-        if size != len(allocation):
-            raise ValueError("size mismatch")
+        if size is not None and expected_size is not None and size != expected_size:
+            raise ValueError("Expected size {expected_size} for {value}")
+        if size is None:
+            if expected_size is None:
+                raise ValueError("Cannot automatically determine size of {value}")
+            else:
+                size = expected_size
 
         if self.used + size > self.size:
-            raise ValueError(
-                f"{value} (size: {len(allocation)}) is too large for {self}"
-            )
+            raise ValueError(f"{value} (size: {size}) is too large for {self}")
 
         address = self.address + self.used
 
-        self.memory.append((allocation, size))
+        self.memory.append((value, size))
         self.used += size
 
         self.set_type(offset=self.used, value=value, type=type)
-        self.set_label(offset=self.used, value=value, label=label)
+        self.set_label(offset=self.used, size=size, value=value, label=label)
 
         return address
 

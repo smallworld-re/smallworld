@@ -120,13 +120,13 @@ class StateTests(unittest.TestCase):
         self.assertDictEqual(
             s.label,
             {
-                301: "argv[0]",
-                297: "argv[1]",
-                288: "stack alignment padding bytes",
-                280: "null terminator of argv array",
-                272: "pointer to argv[1]",
-                264: "pointer to argv[0]",
-                256: "argc",
+                45: (3, "argv[0]"),
+                41: (4, "argv[1]"),
+                32: (9, "stack alignment padding bytes"),
+                24: (8, "null terminator of argv array"),
+                16: (8, "pointer to argv[1]"),
+                8: (8, "pointer to argv[0]"),
+                0: (8, "argc"),
             },
         )
         self.assertEqual(
@@ -283,7 +283,7 @@ class InstructionTests(unittest.TestCase):
         self.assertIn("rbx", reads)
 
         for read in reads:
-            if type(read) is instructions.x86MemoryReferenceOperand:
+            if type(read) is instructions.BSIDMemoryReferenceOperand:
                 self.assertEqual(read.base, "rbx")
                 self.assertEqual(read.index, None)
                 self.assertEqual(read.scale, 1)
@@ -316,7 +316,7 @@ class InstructionTests(unittest.TestCase):
         self.assertIn("eax", writes)
 
         for read in reads:
-            if type(read) is instructions.x86MemoryReferenceOperand:
+            if type(read) is instructions.BSIDMemoryReferenceOperand:
                 self.assertEqual(read.base, "rax")
                 self.assertEqual(read.index, "rcx")
                 self.assertEqual(read.scale, 8)
@@ -324,13 +324,13 @@ class InstructionTests(unittest.TestCase):
                 self.assertEqual(read.size, 4)
 
     def test_x86_memory_reference_operand_serialization(self):
-        a = instructions.x86MemoryReferenceOperand("rax", "rbx", 1, 0)
+        a = instructions.BSIDMemoryReferenceOperand("rax", "rbx", 1, 0)
         self.assertEqual(a.base, "rax")
         self.assertEqual(a.index, "rbx")
         self.assertEqual(a.scale, 1)
         self.assertEqual(a.offset, 0)
         json = a.to_json()
-        b = instructions.x86MemoryReferenceOperand.from_json(json)
+        b = instructions.BSIDMemoryReferenceOperand.from_json(json)
         self.assertEqual(b.base, "rax")
         self.assertEqual(b.index, "rbx")
         self.assertEqual(b.scale, 1)

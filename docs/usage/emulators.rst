@@ -28,7 +28,7 @@ Here's some example code using the ``Emulator`` interface::
    zero = smallworld.initializers.ZeroInitializer()
    state.initialize(zero)
    emu = smallworld.emulators.UnicornEmulator(state.arch, state.mode)
-   code = smallworld.state.Code.from_filepath("../tests/square.bin", base=0x1000, entry=0x1000)
+   code = smallworld.state.Code.from_filepath("../tests/square.amd64.bin", base=0x1000, entry=0x1000)
    state.map(code)
    state.apply(emu)
    emu.write_register('edi', 8)
