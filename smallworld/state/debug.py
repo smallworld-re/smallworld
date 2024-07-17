@@ -50,7 +50,7 @@ class Breakpoint(state.Value):
             else:
                 logger.debug(f"skipped disabled breakpoint at 0x{self.address:x}")
 
-        emulator.hook(self.address, interact, name=self.name)
+        emulator.hook(self.address, interact)
 
     def enable(self):
         self.enabled = True
