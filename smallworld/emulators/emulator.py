@@ -30,7 +30,12 @@ class Emulator(metaclass=abc.ABCMeta):
         return 0
 
     @abc.abstractmethod
-    def write_register(self, name: str, value: typing.Optional[int]) -> None:
+    def write_register(
+        self,
+        name: str,
+        value: typing.Optional[int],
+        label: typing.Optional[typing.Any] = None,
+    ) -> None:
         """Write a value to a register.
 
         Arguments:
@@ -64,7 +69,12 @@ class Emulator(metaclass=abc.ABCMeta):
         return b""
 
     @abc.abstractmethod
-    def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
+    def write_memory(
+        self,
+        address: int,
+        value: typing.Optional[bytes],
+        label: typing.Optional[typing.Dict[int, typing.Any]] = None,
+    ) -> None:
         """Write memory at a specific address.
 
         This will allocate memory if necessary.
@@ -111,8 +121,14 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def step(self) -> bool:
+    def step(self, single_insn: bool = False) -> bool:
         """Single-step execution.
+
+        Emulators may support block and/or instruction stepping,
+        and the default mode may change per emulator.
+
+        Arguments:
+            single_insn: If true, step by one instruction
 
         Returns:
             `True` if we have reached the program exit point, otherwise `False`.
@@ -134,7 +150,9 @@ class Emulator(metaclass=abc.ABCMeta):
     def PAGE_SIZE(self):
         pass
 
-    def emulate(self, cpu: state.CPU):
+    def emulate(
+        self, cpu: state.CPU, single_step=False, steps: typing.Optional[int] = None
+    ):
         """Emulate execution of some code.
 
         Arguments:
@@ -144,7 +162,14 @@ class Emulator(metaclass=abc.ABCMeta):
             The final cpu of the system.
         """
         cpu.apply(self)
-        self.run()
+        if steps is not None:
+            while steps > 0 and not self.step(single_insn=True):
+                steps -= 1
+        elif single_step:
+            while not self.step(single_insn=True):
+                pass
+        else:
+            self.run()
         cpu = copy.deepcopy(cpu)
         cpu.load(self)
         return cpu

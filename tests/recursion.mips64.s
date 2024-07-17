@@ -1,4 +1,7 @@
     .text
+_start:
+    bal     main
+    nop                 # Delay slot
 mc91:
     # Set up the stack frame
     daddiu  $sp,$sp,-48
@@ -21,10 +24,10 @@ mc91:
 .L2:
     # Case 3: n <= 100 -> M(n) := M(M(n + 11)
     addiu   $4,$4,11
-    jal     mc91
+    bal     mc91
     nop                 # Delay slot
     move    $4,$2
-    jal     mc91
+    bal     mc91
     nop                 # Delay slot
 
 .L3:
@@ -35,4 +38,7 @@ mc91:
     ld      $28,24($sp)
     daddiu  $sp,$sp,48
     jr      $31
+    nop                 # Delay slot
+main:
+    bal     mc91
     nop                 # Delay slot

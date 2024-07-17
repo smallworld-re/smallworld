@@ -1,4 +1,6 @@
     .text
+_start:
+    bl      main
 strlen:
     mov     r1, #0
 .L0:
@@ -11,3 +13,5 @@ strlen:
 .L1:
     mov     r0, r1
     bx      lr
+main:
+    bl      strlen

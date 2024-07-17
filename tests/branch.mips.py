@@ -11,7 +11,7 @@ state = smallworld.state.CPU.for_arch("mips", "mips32", "big")
 
 # load and map code into the state and set ip
 code = smallworld.state.Code.from_filepath(
-    "branch.mips.bin", arch="aarch64", mode="v8a", base=0x1000, entry=0x1000
+    "branch.mips.bin", arch="mips", mode="mips32", base=0x1000, entry=0x1000
 )
 state.map(code)
 state.pc.value = code.entry
