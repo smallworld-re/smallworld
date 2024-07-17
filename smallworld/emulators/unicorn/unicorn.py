@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 import typing
+import traceback, pdb
 
 import capstone
 import unicorn
@@ -147,6 +148,10 @@ class UnicornEmulator(emulator.Emulator):
             return result
 
         def map(start, end):
+            pdb.set_trace()
+            if start == 1:
+                start = 0x140000
+                end = start + 0x400
             address = start * self.PAGE_SIZE
             logger.debug(f"Start: {start}")
             logger.debug(f"Page size: {self.PAGE_SIZE}")
@@ -155,12 +160,14 @@ class UnicornEmulator(emulator.Emulator):
             logger.debug(f"new memory map 0x{address:x}[{allocation}]")
 
             self.engine.mem_map(address, allocation)
+            logger.debug("TRACEBACK")
+            traceback.print_stack()
 
         region = (page(address), page(address + len(value)) + 1)
-
+        
         for start, end, _ in self.engine.mem_regions():
             mapped = (page(start), page(end) + 1)
-
+            logger.debug(f"MAPPED: {mapped}")
             regions = subtract(region, mapped)
 
             if len(regions) == 0:
@@ -171,8 +178,9 @@ class UnicornEmulator(emulator.Emulator):
                 emit, region = regions
                 map(*emit)
         else:
+            logger.debug(f"REGION: {region}")
             map(*region)
-
+        pdb.set_trace()
         self.engine.mem_write(address, bytes(value))
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")

@@ -82,6 +82,8 @@ class PEImage(Code):
                 # We are okay with this.
                 logging.debug("HERE 2")
                 self.base = self.user_base
+                logging.debug(f"USER BASE = {self.user_base}")
+                logging.debug(f"FILE BASE = {self.file_base}")
                 logging.debug(f"BASE = {self.base}")
             else:
                 # Program file needs a specific base address
@@ -111,6 +113,7 @@ class PEImage(Code):
             # user_entry is relative to user_base, or zero if none requested
             # rebase relative to base
             self.entry = self.user_entry - user_base + self.base
+        logging.debug(f"ENTRY = {self.entry}")
 
     def rebase_user(self, addr: int):
         """Helper function for rebasing user-relative addresses"""
@@ -187,8 +190,8 @@ class PEImage(Code):
         #self.exits = list(map(lambda x: self.rebase_user(x), self.exits))
 
         for hdr in pe.sections:
-            log.debug(f"{hdr}")
             if hdr.virtual_size != 0:
+                log.debug(hdr)
                 self.map_segment(hdr)
 
 

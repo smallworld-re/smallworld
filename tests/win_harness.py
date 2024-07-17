@@ -160,7 +160,7 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     logger.info("creating emulator")
 
     emu = emulators.UnicornEmulator(cpustate.arch, cpustate.mode, "little")
-    emu.load(code)
+    #emu.load(code)
 
     # set entry point
     cpustate.rip.value = entry
