@@ -16,7 +16,7 @@ class Breakpoint(state.Value):
         address: The address of the breakpoint.
     """
 
-    def __init__(self, address: int, name: str):
+    def __init__(self, address: int, name: str = "unnamed"):
         self.address = address
         self.name = name
         self.enabled = True

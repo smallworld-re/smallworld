@@ -92,7 +92,6 @@ class Emulator(metaclass=abc.ABCMeta):
         address: int,
         function: typing.Callable[[Emulator], None],
         finish: bool = False,
-        name: str = "None",
     ) -> None:
         """Register a hook at the given address.
 

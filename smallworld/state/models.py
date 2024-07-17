@@ -170,7 +170,7 @@ class Model(state.Value):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"hooking {self} {self.address:x}")
-        emulator.hook(self.address, self.function, finish=True, name=str(self))
+        emulator.hook(self.address, self.function, finish=True) 
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(0x{self.address:x}:{self.function.__name__})"

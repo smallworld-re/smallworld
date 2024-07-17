@@ -51,7 +51,8 @@ class UnicornEmulator(emulator.Emulator):
         def callback(uc, address, size, user_data):
             if address in self.hooks:
                 logger.debug(f"hit hooking address {address:x}")
-                hook, finish, name = self.hooks[address]
+                hook, finish = self.hooks[address]
+
                 hook(self)
 
                 if finish:
@@ -199,9 +200,8 @@ class UnicornEmulator(emulator.Emulator):
         address: int,
         function: typing.Callable[[emulator.Emulator], None],
         finish: bool = False,
-        name: str = "None",
     ) -> None:
-        self.hooks[address] = (function, finish, name)  # type: ignore
+        self.hooks[address] = (function, finish)
 
         # Ensure that the address is mapped.
         try:
