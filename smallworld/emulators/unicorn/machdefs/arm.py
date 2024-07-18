@@ -288,6 +288,12 @@ class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     byteorder = "little"
 
 
+class ARMv6MThumbMachineDef(ARMv6MMachineDef):
+    mode = "v6m-thumb"
+    uc_mode = unicorn.UC_MODE_THUMB
+    cs_mode = capstone.CS_MODE_THUMB
+
+
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv7-M little-endian"""
 

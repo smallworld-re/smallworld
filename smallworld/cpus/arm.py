@@ -392,6 +392,10 @@ class ARMv6MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
     mode = "v6m"
 
 
+class ARMv6MThumbCPUState(ARMv6MCPUState):
+    mode = "v6m-thumb"
+
+
 class ARMv7MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
     """CPU Model for ARMv7-M little-endian"""
 

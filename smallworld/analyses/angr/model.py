@@ -6,9 +6,9 @@ from angr.storage import MemoryMixin
 
 from ... import hinting, instructions
 from ...ctypes import TypedPointer
+from ...emulators.angr import PathTerminationSignal
+from ...emulators.angr.utils import reg_name_from_offset
 from .base import BaseMemoryMixin
-from .terminate import PathTerminationSignal
-from .utils import reg_name_from_offset
 from .visitor import EvalVisitor
 
 log = logging.getLogger(__name__)
@@ -133,6 +133,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
     def _default_value(self, addr, size, **kwargs):
         environ = self.state.typedefs
         res = super()._default_value(addr, size, **kwargs)
+
         block = self.state.block()
         (insn,) = list(
             filter(

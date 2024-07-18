@@ -1,6 +1,6 @@
 import logging
 
-from .. import emulators, exceptions, hinting, state
+from .. import emulators, hinting, state
 from . import analysis
 from .angr.nwbt import configure_nwbt_plugins, configure_nwbt_strategy
 from .angr.utils import print_state
@@ -14,7 +14,8 @@ class AngrNWBTAnalysis(analysis.Analysis):
     description = "Angr-based Not-Written-By-Trace detection and correction"
     version = "0.0.1"
 
-    def __init__(self, *args, initfunc=None, **kwargs):
+    def __init__(self, *args, initfunc=None, max_steps=500, **kwargs):
+        self.steps_left = max_steps
         self.initfunc = initfunc
 
     def analysis_preint(self, emu):
@@ -26,11 +27,10 @@ class AngrNWBTAnalysis(analysis.Analysis):
             self.initfunc(self, emu.entry)
 
     def run(self, cpu: state.CPU):
-        emu = emulators.AngrEmulator(self.analysis_preint, self.analysis_init)
+        emu = emulators.AngrEmulator(
+            cpu.arch, cpu.mode, cpu.byteorder, self.analysis_preint, self.analysis_init
+        )
         cpu.apply(emu)
-
-        if emu._entry is None:
-            raise exceptions.AnalysisError("Emulator did not initialize properly.")
 
         # Extract typedef info from the CPU state,
         # and bind it to the machine state
@@ -38,12 +38,12 @@ class AngrNWBTAnalysis(analysis.Analysis):
             if isinstance(item, state.Register):
                 if item.type is not None:
                     log.debug(f"Applying type for {item}")
-                    emu._entry.typedefs.bind_register(name, item.type)
+                    emu.state.typedefs.bind_register(name, item.type)
             elif isinstance(item, state.Memory):
                 for offset, typedef in item.type.items():
                     addr = item.address + offset
                     log.debug(f"Applying type for {hex(addr)}")
-                    emu._entry.typedefs.bind_address(addr, typedef)
+                    emu.state.typedefs.bind_address(addr, typedef)
             elif isinstance(item, state.Code):
                 # TODO: Code is also memory, so it should have types...?
                 pass
@@ -53,8 +53,9 @@ class AngrNWBTAnalysis(analysis.Analysis):
                         f"Applying typedef {item.type} for {name} of type {type(item)} not implemented"
                     )
 
-        while self.step(emu):
-            pass
+        while (self.steps_left is None or self.steps_left > 0) and not self.step(emu):
+            if self.steps_left is not None:
+                self.steps_left -= 1
 
     def _report_status(self, emu):
         for st in emu.mgr.unconstrained:
@@ -94,7 +95,5 @@ class AngrNWBTAnalysis(analysis.Analysis):
         emu.mgr.move(from_stash="unconstrained", to_stash="done")
         # Drop unsat states once we've logged them.
         emu.mgr.drop(stash="unsat")
-        if not emu.step():
-            self._report_status(emu)
-            return False
-        return True
+        self._report_status(emu)
+        return emu.step()

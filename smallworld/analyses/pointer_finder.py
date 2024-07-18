@@ -30,12 +30,12 @@ class PointerFinder(analysis.Analysis):
         p = None
         if write:
             for w in i.writes:
-                if type(w) is instructions.x86MemoryReferenceOperand:
+                if type(w) is instructions.BSIDMemoryReferenceOperand:
                     p = w
                     break
         else:
             for r in i.reads:
-                if type(r) is instructions.x86MemoryReferenceOperand:
+                if type(r) is instructions.BSIDMemoryReferenceOperand:
                     p = r
                     break
 

@@ -5,7 +5,7 @@ import typing
 logger = logging.getLogger(__name__)
 
 
-from . import analyses, emulators, models, state
+from . import analyses, emulators, state
 
 T = typing.TypeVar("T", bound=state.CPU)
 
@@ -89,67 +89,4 @@ def fuzz(
         validate_crash_callback=crash_callback,
         always_validate=always_validate,
         persistent_iters=iterations,
-    )
-
-
-def setup_default_libc(
-    flat_api: typing.Any,
-    elf_file: str,
-    libc_func_names: typing.List[str],
-    cpustate: state.CPU,
-) -> None:
-    """Map some default libc models into the cpu state.
-
-    Uses Ghdira to figure out entry points in PLT for libc fns and arranges for
-    those in a user-provided list to be hooked using the default models in
-    Smallworld.  Idea is you might not want all of them mapped and so you say
-    just these for now.
-
-    Arguments:
-        flat_api: this is what gets returned by pyhidra.open_program(elf_file)
-        libc_func_names: list of names of libc functions
-        cpustate: cpu state into which to map models
-    """
-
-    program = flat_api.getCurrentProgram()
-    listing = program.getListing()
-
-    # find plt section
-    plt = None
-    for block in program.getMemory().getBlocks():
-        if "plt" in block.getName():
-            plt = block
-
-    assert plt is not None
-
-    # map all requested libc default models
-    num_mapped = 0
-    num_no_model = 0
-    num_too_many_models = 0
-    for func in listing.getFunctions(True):
-        func_name = func.getName()
-        entry = func.getEntryPoint()
-        if plt.contains(entry) and func_name in libc_func_names:  # type: ignore
-            # func is in plt and it is a function for which we want to use a default model
-            int_entry = int(entry.getOffset())
-            try:
-                model = models.model_for_name(
-                    "x86", "64", "little", "sysv", func_name, int_entry
-                )
-                # class_ = getattr(state.models, cls_name)
-                cpustate.map(model)
-                logger.debug(f"Added libc model for {func_name} entry {int_entry:x}")
-                num_mapped += 1
-            except ValueError:
-                logger.debug(
-                    f"As there is no default model for {func_name}, adding with null model, entry {int_entry:x}"
-                )
-                model = models.model_for_name(
-                    "x86", "64", "little", "sysv", "null", int_entry
-                )
-                cpustate.map(model)
-                num_no_model += 1
-
-    logger.info(
-        f"Libc model mappings: {num_mapped} default, {num_no_model} no model, {num_too_many_models} too many models"
     )

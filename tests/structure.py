@@ -13,7 +13,9 @@ cpu = smallworld.state.CPU.for_arch("x86", "64", "little")
 zero = smallworld.initializers.ZeroInitializer()
 cpu.initialize(zero)
 
-code = smallworld.state.Code.from_filepath("struct.bin", base=0x1000, entry=0x1000)
+code = smallworld.state.Code.from_filepath(
+    "struct.amd64.bin", base=0x1000, entry=0x1000
+)
 cpu.map(code)
 
 # Next we, look at hints and see fail at

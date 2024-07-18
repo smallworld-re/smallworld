@@ -3,6 +3,7 @@ from .amd64 import AMD64MachineDef
 from .arm import (
     ARMv5TMachineDef,
     ARMv6MMachineDef,
+    ARMv6MThumbMachineDef,
     ARMv7AMachineDef,
     ARMv7MMachineDef,
     ARMv7RMachineDef,
@@ -17,6 +18,7 @@ __all__ = [
     "AMD64MachineDef",
     "ARMv5TMachineDef",
     "ARMv6MMachineDef",
+    "ARMv6MThumbMachineDef",
     "ARMv7AMachineDef",
     "ARMv7MMachineDef",
     "ARMv7RMachineDef",
