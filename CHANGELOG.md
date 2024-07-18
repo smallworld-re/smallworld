@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ColorizerSummary` computes summary def use graph from colorizer.
 - `setup_default_libc` use ghidra to add libc models at PLT entry points.
 - `setup_section` use ghdira to add section from elf to cpustate.
+- Emulation support for aarch64, arm32, mips, mips64 (angr only)
 
 ### Changed
 
