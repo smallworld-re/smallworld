@@ -247,7 +247,7 @@ class AngrEmulator(emulator.Emulator):
             # Otherwise, hook our one instruction
             @self.proj.hook(address, length=0)
             def hook_handler(state):
-                emu = AngrHookEmulator(state, self.machdef)
+                emu = AngrHookEmulator(state, self)
                 callback(emu)
 
     def hook_memory(
@@ -303,9 +303,7 @@ class AngrEmulator(emulator.Emulator):
                     addr = addr.concrete_value
                 size = state.inspect.mem_read_length
 
-                res = claripy.BVV(
-                    on_read(AngrHookEmulator(state, self.machdef), addr, size)
-                )
+                res = claripy.BVV(on_read(AngrHookEmulator(state, self), addr, size))
 
                 if self.machdef.byteorder == "little":
                     # Fix byte order if needed.
@@ -377,7 +375,7 @@ class AngrEmulator(emulator.Emulator):
                         size, byteorder=self.machdef.byteorder
                     )
 
-                on_write(AngrHookEmulator(state, self.machdef), addr, size, value)
+                on_write(AngrHookEmulator(state, self), addr, size, value)
 
             self.state.inspect.b(
                 "mem_write",
