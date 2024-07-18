@@ -179,6 +179,57 @@ class CallTests(ScriptIntegrationTest):
         self.run_test("mips64el.angr", signext=True)
 
 
+class DMATests(ScriptIntegrationTest):
+    def run_test(self, arch, signext=False):
+        def test_output(number1, number2, res):
+            stdout, _ = self.command(f"python3 dma.{arch}.py {number1} {number2}")
+            self.assertLineContainsStrings(stdout, hex(res))
+
+        test_output(10, 2, 0x5)
+
+    def test_call_amd64(self):
+        self.run_test("amd64")
+
+    def test_call_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_call_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_call_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_call_armel(self):
+        self.run_test("armel")
+
+    def test_call_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_call_armhf(self):
+        self.run_test("armhf")
+
+    def test_call_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_call_mips(self):
+        self.run_test("mips")
+
+    def test_call_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_call_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_call_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_call_mips64_angr(self):
+        self.run_test("mips64.angr", signext=True)
+
+    def test_call_mips64el_angr(self):
+        self.run_test("mips64el.angr", signext=True)
+
+
 class SquareTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command("python3 basic_harness.py square.amd64.bin")

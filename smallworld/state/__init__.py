@@ -1,4 +1,4 @@
-from . import debug, models
+from . import debug, mmio, models
 from .elf import ELFImage
 from .state import (
     CPU,
@@ -26,5 +26,6 @@ __all__ = [
     "State",
     "ELFImage",
     "models",
+    "mmio",
     "debug",
 ]
