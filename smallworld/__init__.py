@@ -15,6 +15,7 @@ from . import (
     exceptions,
     hinting,
     initializers,
+    models,
     state,
 )
 from .ghidra import setup_default_libc, setup_section
@@ -29,6 +30,7 @@ __all__ = [
     "exceptions",
     "hinting",
     "initializers",
+    "models",
     "state",
     "setup_hinting",
     "setup_logging",
