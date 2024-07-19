@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Value.type` for storing optional type information.
 - `Value.label` for storing optional label information.
 - `Emulator.hook()` for dynamic hooking.
+- `Emulator.hook_memory()` for MMIO simulation.
 - `state.models` a collection of python models for library code implemented as
   customizable hooks.
 - `state.debug` a collection of debug utilities that can be mapped into state.
@@ -36,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `setup_default_libc` use ghidra to add libc models at PLT entry points.
 - `setup_section` use ghdira to add section from elf to cpustate.
 - Emulation support for aarch64, arm32, mips, mips64 (angr only)
+
 
 ### Changed
 
