@@ -16,8 +16,9 @@ class Breakpoint(state.Value):
         address: The address of the breakpoint.
     """
 
-    def __init__(self, address: int):
+    def __init__(self, address: int, name: str = "unnamed"):
         self.address = address
+        self.name = name
         self.enabled = True
 
     @property
@@ -39,8 +40,10 @@ class Breakpoint(state.Value):
     def apply(self, emulator: emulators.Emulator) -> None:
         def interact(emulator: emulators.Emulator) -> None:
             if self.enabled:
+                # an alternative to this interact stuff would be ..
+                # breakpoint()
                 code.interact(
-                    banner=f"breakpoint at 0x{self.address:x} - interactive mode...",
+                    banner=f"breakpoint at 0x{self.address:x} [{self.name}] - interactive mode...",
                     local={"emulator": emulator},
                     exitmsg="continuing...",
                 )

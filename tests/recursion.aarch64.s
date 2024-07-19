@@ -1,4 +1,6 @@
     .text
+_start:
+    bl      main
 mc91:
     # Set up the stack frame
     stp     x29, x30, [sp, -32]!
@@ -20,3 +22,5 @@ mc91:
     # Clean up the stack and return
     ldp     x29, x30, [sp], 32
     ret 
+main:
+    bl      mc91

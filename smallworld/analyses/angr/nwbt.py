@@ -1,9 +1,12 @@
 import angr
 
+from ...emulators.angr.exploration import (
+    BoundedExplorationMixin,
+    TerminationExplorationMixin,
+)
+from ...emulators.angr.memory import TrackerMemoryMixin
 from .divergence import DivergenceExplorationMixin, DivergenceMemoryMixin
-from .memtrack import TrackerMemoryMixin
 from .model import ModelMemoryMixin
-from .terminate import TerminationExplorationMixin
 from .typedefs import TypeDefPlugin
 
 
@@ -18,6 +21,7 @@ class NWBTMemoryPlugin(
 
 class NWBTExplorationTechnique(
     TerminationExplorationMixin,
+    BoundedExplorationMixin,
     DivergenceExplorationMixin,
     angr.exploration_techniques.suggestions.Suggestions,
 ):
@@ -56,4 +60,4 @@ def configure_nwbt_strategy(emu):
     # If you try to touch that plugin on a successor,
     # it can't be initialized, since it doesn't have
     # your custom preset.
-    emu._entry.get_plugin("typedefs")
+    emu.state.get_plugin("typedefs")

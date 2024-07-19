@@ -316,7 +316,7 @@ class PthreadCondInitModel(Returns0ImplementedModel):
 
 
 class PthreadCondSignalModel(Returns0ImplementedModel):
-    name = "pthread_cond_signal_model"
+    name = "pthread_cond_signal"
 
 
 class PthreadCondWaitModel(Returns0ImplementedModel):
@@ -332,7 +332,7 @@ class PthreadMutexInitModel(Returns0ImplementedModel):
 
 
 class PthreadMutexLockModel(Returns0ImplementedModel):
-    name = "ptherad_mutex_lock"
+    name = "pthread_mutex_lock"
 
 
 class PthreadMutexUnlockModel(Returns0ImplementedModel):
@@ -698,30 +698,34 @@ __all__ = [
 
 
 def get_models_by_name(
-    fn_name: str, desiredHigherClass: typing.Any
+    func_name: str, desiredHigherClass: typing.Any
 ) -> typing.List[typing.Any]:
     """Returns list of classes that implement a model for some external function with this name
 
     Arguments:
-        fn_name: The name of the function you want models for
+        func_name: The name of the function you want models for
 
     Returns:
         list of classes that match by name
     """
-
-    # XXX I wanted 2nd arg to be a class like AMD64SystemVImplementedModel
-    # and output to be ImplementedModel
-    # but could not get this to pass mypi
 
     models = []
     for name in __all__:
         glb = globals()[name]
         if inspect.isclass(glb):
             model_class = glb
-            if hasattr(model_class, "name"):
-                if (
-                    issubclass(model_class, desiredHigherClass)
-                    and model_class.name == fn_name
-                ):
+            if hasattr(model_class, "name") and issubclass(
+                model_class, desiredHigherClass
+            ):
+                if model_class.name == func_name:
                     models.append(model_class)
+                else:
+                    func_name_canonical = func_name.removeprefix("__").removeprefix(
+                        "xpg_"
+                    )
+                    if model_class.name == func_name_canonical:
+                        logger.debug(
+                            f"NOTE: canonicalizing {func_name} with {func_name_canonical}"
+                        )
+                        models.append(model_class)
     return models

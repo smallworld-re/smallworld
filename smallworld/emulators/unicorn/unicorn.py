@@ -92,7 +92,12 @@ class UnicornEmulator(emulator.Emulator):
             )
         return self.engine.reg_read(self.register(name))
 
-    def write_register(self, name: str, value: typing.Optional[int]) -> None:
+    def write_register(
+        self,
+        name: str,
+        value: typing.Optional[int],
+        label: typing.Optional[typing.Any] = None,
+    ) -> None:
         if value is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
@@ -104,9 +109,6 @@ class UnicornEmulator(emulator.Emulator):
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
         def page(address: int) -> int:
             """Compute the page number of an address.
-
-            Arguments:
-                address: A memory address.
 
             Returns:
                 The page number of this address.
@@ -180,7 +182,12 @@ class UnicornEmulator(emulator.Emulator):
             logger.warn(f"attempted to read uninitialized memory at 0x{address:x}")
             return None
 
-    def write_memory(self, address: int, value: typing.Optional[bytes]) -> None:
+    def write_memory(
+        self,
+        address: int,
+        value: typing.Optional[bytes],
+        label: typing.Optional[typing.Dict[int, typing.Any]] = None,
+    ) -> None:
         if value is None:
             raise ValueError(f"{self.__class__.__name__} requires concrete state")
 
@@ -297,8 +304,13 @@ class UnicornEmulator(emulator.Emulator):
 
         logger.info("emulation complete")
 
-    def step(self) -> bool:
+    def step(self, single_insn: bool = True) -> bool:
         self.check()
+
+        if not single_insn:
+            raise exceptions.AnalysisError(
+                "UnicornEmulator does not support block stepping"
+            )
 
         pc = self.read_register("pc")
 

@@ -88,6 +88,20 @@ def typed_pointer(reftype):
         return cls
 
 
+def label_for_ctype(memory, label, type, off=0):
+    if issubclass(type, ctypes.Structure):
+        for field_name, field_type in type._fields_:
+            label_for_ctype(memory, f"{label}.{field_name}", field_type, off)
+            off += ctypes.sizeof(field_type)
+    elif issubclass(type, ctypes.Array):
+        for i in range(0, type._length_):
+            label_for_ctype(memory, f"{label}[{i}]", type._type_, off)
+            off += ctypes.sizeof(type._type_)
+    else:
+        memory.set_label(off, ctypes.sizeof(type), label, None)
+
+
 __all__ = [
+    "label_for_ctype",
     "typed_pointer",
 ]
