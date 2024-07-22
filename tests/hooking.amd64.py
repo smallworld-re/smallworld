@@ -18,7 +18,7 @@ stack.value = b"\x00" * 0x1000
 state.map(stack)
 state.rsp.value = stack.address
 
-gets = smallworld.state.models.AMD64SystemVGetsModel(0x3800)
+gets = smallworld.models.model_for_name("x86", "64", "little", "sysv", "gets", 0x3800)
 state.map(gets)
 
 
