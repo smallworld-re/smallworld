@@ -10,6 +10,7 @@ from .arm import (
 from .i386 import i386CPUState
 from .mips import MIPSBECPUState, MIPSELCPUState
 from .mips64 import MIPS64BECPUState, MIPS64ELCPUState
+from .ppc import PowerPC64CPUState, PowerPCCPUState
 
 __all__ = [
     "i386CPUState",
@@ -24,4 +25,6 @@ __all__ = [
     "MIPSELCPUState",
     "MIPS64BECPUState",
     "MIPS64ELCPUState",
+    "PowerPCCPUState",
+    "PowerPC64CPUState",
 ]
