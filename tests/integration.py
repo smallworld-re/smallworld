@@ -178,6 +178,12 @@ class CallTests(ScriptIntegrationTest):
     def test_call_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
 
+    def test_call_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_call_ppc64_angr(self):
+        self.run_test("ppc64.angr", signext=True)
+
 
 class DMATests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):
@@ -187,47 +193,53 @@ class DMATests(ScriptIntegrationTest):
 
         test_output(10, 2, 0x5)
 
-    def test_call_amd64(self):
+    def test_dma_amd64(self):
         self.run_test("amd64")
 
-    def test_call_amd64_angr(self):
+    def test_dma_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_call_aarch64(self):
+    def test_dma_aarch64(self):
         self.run_test("aarch64")
 
-    def test_call_aarch64_angr(self):
+    def test_dma_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_call_armel(self):
+    def test_dma_armel(self):
         self.run_test("armel")
 
-    def test_call_armel_angr(self):
+    def test_dma_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_call_armhf(self):
+    def test_dma_armhf(self):
         self.run_test("armhf")
 
-    def test_call_armhf_angr(self):
+    def test_dma_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_call_mips(self):
+    def test_dma_mips(self):
         self.run_test("mips")
 
-    def test_call_mips_angr(self):
+    def test_dma_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_call_mipsel(self):
+    def test_dma_mipsel(self):
         self.run_test("mipsel")
 
-    def test_call_mipsel_angr(self):
+    def test_dma_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_call_mips64_angr(self):
+    def test_dma_mips64_angr(self):
         self.run_test("mips64.angr", signext=True)
 
-    def test_call_mips64el_angr(self):
+    def test_dma_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
+
+    def test_dma_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_dma_ppc64_angr(self):
+        self.run_test("ppc64.angr")
 
 
 class SquareTests(ScriptIntegrationTest):
@@ -327,6 +339,12 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips64el_angr(self):
         self.run_test(arch="mips64el.angr", signext=True)
 
+    def test_square_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_square_ppc64_angr(self):
+        self.run_test("ppc64.angr", signext=True)
+
 
 class RecursionTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -381,6 +399,12 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_mips64el_angr(self):
         self.run_test("mips64el.angr")
+
+    def test_call_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_call_ppc64_angr(self):
+        self.run_test("ppc64.angr")
 
 
 class StackTests(ScriptIntegrationTest):
@@ -536,6 +560,12 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mips64el_angr(self):
         self.run_test("mips64el.angr", reg="v0", res="0xffffffffffffffff")
 
+    def test_stack_ppc_angr(self):
+        self.run_test("ppc.angr", reg="r3", res="0xffff")
+
+    def test_stack_ppc64_angr(self):
+        self.run_test("ppc64.angr", reg="r3", res="0xffff")
+
 
 class StructureTests(ScriptIntegrationTest):
     def test_basic(self):
@@ -657,6 +687,12 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_mips64el_angr(self):
         self.run_branch("mips64el.angr", reg="v0")
 
+    def test_branch_ppc_angr(self):
+        self.run_branch("ppc.angr", reg="r3")
+
+    def test_branch_ppc64_angr(self):
+        self.run_branch("ppc64.angr", reg="r3")
+
 
 class StrlenTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -708,6 +744,12 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
+    def test_strlen_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_strlen_ppc64_angr(self):
+        self.run_test("ppc64.angr")
+
 
 class HookingTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -755,6 +797,12 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_mips64el_angr(self):
         self.run_test("mips64el.angr")
+
+    def test_hooking_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_hooking_ppc64_angr(self):
+        self.run_test("ppc64.angr")
 
 
 try:

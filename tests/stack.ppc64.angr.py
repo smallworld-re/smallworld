@@ -33,8 +33,8 @@ state.r10.value = 0x01010101
 # create a stack and push a value
 stack = smallworld.state.Stack(address=0x2000, size=0x1000, byteorder="big")
 # rsp points to the next free stack slot
-stack.push(value=0x5555, size=4, type=int)
-sp = stack.push(value=0x01010101, size=112, type=int, label="Unknown")
+stack.push(value=0x5555, size=8, type=int)
+sp = stack.push(value=0x01010101, size=116, type=int, label="Unknown")
 
 # map the stack into memory
 state.map(stack)

@@ -4,7 +4,7 @@ _start:
 bar:
     li      0,8
     mullw   0,0,3
-    cmpwi   4,0,101
+    cmpwi   4,3,101
     blt     4,.L2
     li      0,32
 .L2:  
