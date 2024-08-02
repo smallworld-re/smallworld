@@ -3,7 +3,7 @@ import inspect
 import logging
 import random
 import typing
-import socket, os
+import socket, os, sys, pdb
 
 from .. import emulators, initializers
 from . import state
@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 MAX_STRLEN = 0x10000
 INFO_BUFFER_SIZE = 32767
+WIN64_BASE = 0x140000000
 
 ######################################################
 # This stuff is private. Dont' add it to __all__     #
@@ -33,6 +34,12 @@ def _first_available_fd() -> int:
             file_descriptor_table[fd] = 1
             return fd
     return -1
+
+
+def _emu_read_from_fd(fd: int) -> int:
+    with os.fdopen(fd, 'r') as f:
+        content = f.read()
+    return bytes(content), len(content)
 
 
 def close_fd(fd: int):
@@ -82,9 +89,15 @@ def _emu_calloc(emulator: emulators.Emulator, size: int) -> int:
     emulator.write_memory(addr, b"\0" * size)
     return addr
 
-def _emu_free(emulator: emulators.Emulator) -> int:
+
+def _emu_memset(emulator: emulators.Emulator, dest: int, c, count: int) -> int:
+    emulator.write_memory(dest, c, count)
+    return dest
+
+def _emu_free(emulator: emulators.Emulator, obj) -> int:
     global heap_next, heap_last, allocated_memory
-    num_pages = (size // emulator.PAGE_SIZE) + 1        # size should be size of object
+    size = sys.getsizeof(obj)
+    num_pages = (size // emulator.PAGE_SIZE) + 1
     page_start = emulator.get_pages(num_pages)
     heap_last = page_start + num_pages * emulator.PAGE_SIZE - 1
     alloc_addr = page_start
@@ -156,6 +169,29 @@ def _emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
             emulator.write_memory(dst + ld, src_bytes)
         else:
             assert b_opt is not None
+
+
+def _emu_read_string(emulator: emulators.Emulator, address: int) -> str:
+    result = []
+    while True:
+        char = emulator.read_memory(address, 1)
+        if char == b'\x00':
+            break
+        result.append(char.decode('ascii'))
+        address += 1
+    return ''.join(result)
+
+
+def _emu_write_string(emulator: emulators.Emulator, address: int, string: str) -> int:
+    for char in string:
+        emulator.write_memory(address, char.encode('ascii'))
+        address += 1
+    emulator.write_memory(address, b'\x00')
+    return address
+
+
+def _emu_strtok(emulator: emulators.Emulator, str_val: str, delim_val: str) -> None:
+    pass
 
 
 ######################################################
@@ -508,6 +544,27 @@ class StrnlenModel(ImplementedModel):
         emulator.write_register(self.return_val, _emu_strlen_n(emulator, ptr, n))
 
 
+class StrtokModel(ImplementedModel):
+    name = "strtok"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # char *strtok(char *str, const char *delim);
+        pdb.set_trace()
+        str = emulator.read_register(self.argument1)
+        delim = emulator.read_register(self.argument2)
+         
+        str_val = _emu_read_string(emulator, str) if str != 0 else None
+        delim_val = _emu_read_string(emulator, delim)
+
+        if str_val is None:
+            pdb.set_trace()
+            emulator.write_register(self.return_val, 0)
+        else:
+            pdb.set_trace()
+            tok = str_val[str:str_val.index(delim_val)]
+            tok_addr = str_val.index(tok)
+            emulator.write_register(self.return_val, tok_addr)
+
 class SysconfModel(ImplementedModel):
     name = "sysconf"
 
@@ -734,13 +791,13 @@ class CreateSnapshotModel(ImplementedModel):
         dwFlags = emulator.read_register(self.argument1)
         th32ProcessID = emulator.read_register(self.argument2)
         if dwFlags not in valid_flags or th32ProcessID != 0:
-            emulator.write_memory(self.return_val, -1)
+            emulator.write_register(self.return_val, -1)
         else:
             emulator.write_register(self.return_val, 0x248)
 
 
 class Process32FirstModel(ImplementedModel):
-    name = "Process32First"
+    name = "Process32FirstW"
 
     def model(self, emulator: emulators.Emulator) -> None:
         hSnapshot = emulator.read_register(self.argument1)
@@ -753,7 +810,7 @@ class Process32FirstModel(ImplementedModel):
 
 
 class Process32NextModel(ImplementedModel):
-    name = "Process32Next"
+    name = "Process32NextW"
 
     def model(self, emulator: emulators.Emulator) -> None:
         pe32 = emulator.read_register(self.argument2)
@@ -769,10 +826,32 @@ class CloseHandleModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         hObject = emulator.read_register(self.argument1)
         if hObject is not None:
+            close_fd(hObject)
             emulator.write_register(self.return_val, 1)
         else:
             emulator.write_register(self.return_val, 0)
 
+
+class FindCloseModel(ImplementedModel):
+    name = "FindClose"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        hObject = emulator.read_register(self.argument1)
+        if hObject is not None:
+            close_fd(hObject)
+            emulator.write_register(self.return_val, 1)
+        else:
+            emulator.write_register(self.return_val, 0)
+
+
+class ZeroMemoryModel(ImplementedModel):
+    name = "memset"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        dest = emulator.read_register(self.argument1)
+        count = emulator.read_register(self.argument2)
+        _emu_memset(emulator, dest, 0, count)
+        emulator.write_register(self.return_val, dest)
 
 
 class OpenProcessModel(ImplementedModel):
@@ -813,6 +892,20 @@ class ConnectModel(ImplementedModel):
         else:
             emulator.write_register(self.return_val, -1)
 
+
+class RecvModel(ImplementedModel):
+    name = "recv"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        sockfd = emulator.read_register(self.argument1)
+        buf = emulator.read_register(self.argument2)
+        buf_len = emulator.read_register(self.argument3)
+        content, content_len = _emu_read_from_fd(sockfd)
+        content_len = buf_len if content_len > buf_len else content_len
+        _emu_memcpy(emulator, buf, content, content_len)
+        emulator.write_register(self.return_val, content_len)
+
+
 class CloseSocketModel(ImplementedModel):
     name = "closesocket"
 
@@ -839,7 +932,8 @@ class GetCurrentDirectoryAModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         max_path = emulator.read_register(self.argument1)
         path_buffer = emulator.read_register(self.argument2)
-        _emu_memcpy(emulator, path_buffer, emulator.read_memory(max_path), max_path)
+        #_emu_memcpy(emulator, path_buffer, emulator.read_memory(max_path), max_path)
+        emulator.write_register(self.return_val, 10)
 
 
 class FindCloseModel(ImplementedModel):
@@ -894,6 +988,68 @@ class GetUserNameModel(ImplementedModel):
         emulator.write_register(self.return_val, 1)
 
 
+class StdVectorModel(ImplementedModel):
+    name = "std::vector<>::vector<>"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        _emu_alloc(emulator, 10)
+        emulator.write_register(self.return_val, 0xaaa5fff390)
+
+
+class VectorPushBackModel(ImplementedModel):
+    name = "std::vector<>::push_back"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        _emu_alloc(emulator, 10)
+        emulator.write_register(self.return_val, 1)
+
+class StdStringModel(ImplementedModel):
+    name = "std::basic_string<>::basic_string<>"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        _emu_alloc(emulator, 20)
+
+
+class StdStringLengthModel(ImplementedModel):
+    name = "std::basic_string<>::length"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        str_ptr = emulator.read_register(self.argument1)
+        length = _emu_strlen(emulator, str_ptr)
+        emulator.write_register(self.return_val, length)
+
+
+class BracketOperatorModel(ImplementedModel):
+    name = "[]"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        idx = emulator.read_register(self.argument1)
+        target = WIN64_BASE + idx * 8
+        pdb.set_trace()
+        value = emulator.read_memory(target)
+        emulator.write_register(self.return_val, value)
+
+class AToIModel(ImplementedModel):
+    name = "atoi"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        str_ptr = emulator.read_register(self.argument1)
+        str_val = _emu_read_string(emulator, str_ptr)
+
+        emulator.write_register(self.return_val, int(str_val))
+
+
+class WSAStartupModel(ImplementedModel):
+    name = "WSAStartup"
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        emulator.write_register(self.return_val, 0)
+
+
+class AMD64MicrosoftNullModel(AMD64MicrosoftImplementedModel, Returns0ImplementedModel):
+    name = "null"
+
+
 class AMD64MicrosoftCreateSnapshotModel(AMD64MicrosoftImplementedModel, CreateSnapshotModel):
     pass
 
@@ -902,7 +1058,85 @@ class AMD64MicrosoftProcess32FirstModel(AMD64MicrosoftImplementedModel, Process3
     pass
 
 
+class AMD64MicrosoftProcess32NextModel(AMD64MicrosoftImplementedModel, Process32NextModel):
+    pass
+
+
 class AMD64MicrosoftCloseHandleModel(AMD64MicrosoftImplementedModel, CloseHandleModel):
+    pass
+
+
+class AMD64MicrosoftFindCloseModel(AMD64MicrosoftImplementedModel, FindCloseModel):
+    pass
+
+
+class AMD64MicrosoftZeroMemoryModel(AMD64MicrosoftImplementedModel, ZeroMemoryModel):
+    pass
+
+
+class AMD64MicrosoftFindFirstFileAModel(AMD64MicrosoftImplementedModel, FindFirstFileAModel):
+    pass
+
+
+class AMD64MicrosoftFindNextFileAModel(AMD64MicrosoftImplementedModel, FindNextFileA):
+    pass
+
+
+class AMD64MicrosoftOpenProcessModel(AMD64MicrosoftImplementedModel, OpenProcessModel):
+    pass
+
+class AMD64MicrosoftWSAStartupModel(AMD64MicrosoftImplementedModel, WSAStartupModel):
+    pass
+
+
+class AMD64MicrosoftSocketModel(AMD64MicrosoftImplementedModel, SocketModel):
+    pass
+
+
+class AMD64MicrosoftConnectModel(AMD64MicrosoftImplementedModel, ConnectModel):
+    pass
+
+
+class AMD64MicrosoftRecvModel(AMD64MicrosoftImplementedModel, RecvModel):
+    pass
+
+
+class AMD64MicrosoftCloseSocketModel(AMD64MicrosoftImplementedModel, CloseSocketModel):
+    pass
+
+
+class AMD64MicrosoftProcessIdToSessionIdModel(AMD64MicrosoftImplementedModel, ProcessIdToSessionIdModel):
+    pass
+
+
+class AMD64MicrosoftStdVectorModel(AMD64MicrosoftImplementedModel, StdVectorModel):
+    pass
+
+
+class AMD64MicrosoftVectorPushBackModel(AMD64MicrosoftImplementedModel, VectorPushBackModel):
+    pass
+
+
+class AMD64MicrosoftStdStringModel(AMD64MicrosoftImplementedModel, StdStringModel):
+    pass
+
+class AMD64MicrosoftStdStringLengthModel(AMD64MicrosoftImplementedModel, StdStringLengthModel):
+    pass
+
+
+class AMD64MicrosoftBracketOperatorModel(AMD64MicrosoftImplementedModel, BracketOperatorModel):
+    pass
+
+
+class AMD64MicrosoftGetCurrentDirectoryAModel(AMD64MicrosoftImplementedModel, GetCurrentDirectoryAModel):
+    pass
+
+
+class AMD64MicrosoftStrtokModel(AMD64MicrosoftImplementedModel, StrtokModel):
+    pass
+
+
+class AMD64MicrosoftAToIModel(AMD64MicrosoftImplementedModel, AToIModel):
     pass
 
 __all__ = [
@@ -943,6 +1177,30 @@ __all__ = [
     "AMD64SystemVUnlinkModel",
     "AMD64SystemVWriteModel",
     "AMD64MicrosoftGetsModel",
+    "AMD64MicrosoftCreateSnapshotModel",
+    "AMD64MicrosoftProcess32FirstModel",
+    "AMD64MicrosoftProcess32NextModel",
+    "AMD64MicrosoftCloseHandleModel",
+    "AMD64MicrosoftFindCloseModel",
+    "AMD64MicrosoftZeroMemoryModel",
+    "AMD64MicrosoftFindFirstFileAModel",
+    "AMD64MicrosoftFindNextFileAModel",
+    "AMD64MicrosoftOpenProcessModel",
+    "AMD64MicrosoftProcessIdToSessionIdModel",
+    "AMD64MicrosoftStdVectorModel",
+    "AMD64MicrosoftStrtokModel",
+    "AMD64MicrosoftWSAStartupModel",
+    "AMD64MicrosoftSocketModel",
+    "AMD64MicrosoftConnectModel",
+    "AMD64MicrosoftRecvModel",
+    "AMD64MicrosoftCloseSocketModel",
+    "AMD64MicrosoftVectorPushBackModel",
+    "AMD64MicrosoftStdStringModel",
+    "AMD64MicrosoftStdStringLengthModel",
+    "AMD64MicrosoftBracketOperatorModel",
+    "AMD64MicrosoftAToIModel",
+    "AMD64MicrosoftGetCurrentDirectoryAModel",
+    "AMD64MicrosoftNullModel"
 ]
 
 
