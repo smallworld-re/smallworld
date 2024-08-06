@@ -9,7 +9,7 @@ strlen:
     addi    3,3,1
     addi    4,4,1
     extsw   4,4
-    b       .L3
+    b       .L2
 .L3:
     mr      3,4
     blr
