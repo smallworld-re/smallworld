@@ -114,9 +114,6 @@ class AngrEmulator(emulator.Emulator):
         if init:
             init(self)
 
-    def get_pages(self, num_pages: int) -> int:
-        raise NotImplementedError("Dynamic allco not implemented for angr.")
-
     def read_register(self, name: str):
         if self._dirty and not self._linear:
             raise NotImplementedError(
@@ -164,6 +161,9 @@ class AngrEmulator(emulator.Emulator):
             return None
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
+
+    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        raise NotImplementedError("Dynamic allocation not implemented for angr.")
 
     def write_memory(
         self,
@@ -490,9 +490,6 @@ class AngrHookEmulator(AngrEmulator):
 
         self.machdef: AngrMachineDef = parent.machdef
         self.pagesize: int = parent.PAGE_SIZE
-
-    def get_pages(self, num_pages: int) -> int:
-        raise NotImplementedError("Dynamic alloc not implemented for angr")
 
     def load(self, code: state.Code) -> None:
         # TODO: Look into dynamic code loading

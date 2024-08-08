@@ -46,15 +46,6 @@ class Emulator(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_pages(self, num_pages: int) -> int:
-        """maps this many fresh pages into the emulator
-
-        Returns:
-          The start address of the new pages
-        """
-        return 0
-
-    @abc.abstractmethod
     def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
         """Read memory from a specific address.
 
@@ -69,6 +60,21 @@ class Emulator(metaclass=abc.ABCMeta):
         return b""
 
     @abc.abstractmethod
+    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        """Map memory of a given size.
+
+        Arguments:
+            size: The size of the allocation.
+            address: The requested address of the allocation. If not provided,
+                the emulator is free choose the location of the allocation
+                based on available and mapped memory.
+
+        Returns:
+            The start address of the allocation.
+        """
+
+        return 0
+
     def write_memory(
         self,
         address: int,
@@ -77,7 +83,8 @@ class Emulator(metaclass=abc.ABCMeta):
     ) -> None:
         """Write memory at a specific address.
 
-        This will allocate memory if necessary.
+        Note: written memory should already be mapped by some call to
+        `map_memory()`.
 
         Arguments:
             address: The address to write.
@@ -159,20 +166,6 @@ class Emulator(metaclass=abc.ABCMeta):
 
         pass
 
-    @abc.abstractmethod
-    def __repr__(self) -> str:
-        """Instance stringifier.
-
-        Implementation required.
-        """
-
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def PAGE_SIZE(self):
-        pass
-
     def emulate(
         self, cpu: state.CPU, single_step=False, steps: typing.Optional[int] = None
     ):
@@ -182,8 +175,9 @@ class Emulator(metaclass=abc.ABCMeta):
             cpu: A state class from which emulation should begin.
 
         Returns:
-            The final cpu of the system.
+            The final state of the system.
         """
+
         cpu.apply(self)
         if steps is not None:
             while steps > 0 and not self.step(single_insn=True):
@@ -195,4 +189,9 @@ class Emulator(metaclass=abc.ABCMeta):
             self.run()
         cpu = copy.deepcopy(cpu)
         cpu.load(self)
+
         return cpu
+
+    @abc.abstractmethod
+    def __repr__(self) -> str:
+        return ""
