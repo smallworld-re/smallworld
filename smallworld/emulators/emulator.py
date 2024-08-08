@@ -110,7 +110,7 @@ class Emulator(metaclass=abc.ABCMeta):
         function: typing.Callable[[Emulator], None],
         finish: bool = False,
     ) -> None:
-        """Register a hook at the given address.
+        """Register an execution hook at the given address.
 
         Arguments:
             address: The address to hook.
@@ -119,6 +119,29 @@ class Emulator(metaclass=abc.ABCMeta):
                 hook function.
         """
 
+        pass
+
+    @abc.abstractmethod
+    def hook_memory(
+        self,
+        address: int,
+        size: int,
+        on_read: typing.Optional[typing.Callable[[Emulator, int, int], bytes]] = None,
+        on_write: typing.Optional[
+            typing.Callable[[Emulator, int, int, bytes], None]
+        ] = None,
+    ) -> None:
+        """Register a memory hook at a given address.
+
+        Can register separate callbacks for hooking reads and writes.
+        At least one of the two callbacks must be specified.
+
+        Arguments:
+            address: The address to hook
+            size: The number of bytes to hook
+            on_read: Callback to execute on read
+            on_write: Callback to execute on write
+        """
         pass
 
     @abc.abstractmethod

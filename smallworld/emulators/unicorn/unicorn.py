@@ -48,6 +48,25 @@ class UnicornEmulator(emulator.Emulator):
         ] = {}
         self.hook_return = None
 
+        self.mem_read_hooks: typing.Dict[
+            int,
+            typing.List[
+                typing.Tuple[
+                    int, int, typing.Callable[[emulator.Emulator, int, int], bytes]
+                ]
+            ],
+        ] = {}
+        self.mem_write_hooks: typing.Dict[
+            int,
+            typing.List[
+                typing.Tuple[
+                    int,
+                    int,
+                    typing.Callable[[emulator.Emulator, int, int, bytes], None],
+                ]
+            ],
+        ] = {}
+
         def callback(uc, address, size, user_data):
             if address in self.hooks:
                 logger.debug(f"hit hooking address {address:x}")
@@ -90,7 +109,10 @@ class UnicornEmulator(emulator.Emulator):
             logger.warn(
                 f"Unicorn doesn't support register {name} for {self.arch}:{self.mode}:{self.byteorder}"
             )
-        return self.engine.reg_read(self.register(name))
+        try:
+            return self.engine.reg_read(reg)
+        except:
+            raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})")
 
     def write_register(
         self,
@@ -236,6 +258,74 @@ class UnicornEmulator(emulator.Emulator):
             )
         except unicorn.UcError:
             pass
+
+    def hook_memory(
+        self,
+        address: int,
+        size: int,
+        on_read: typing.Optional[
+            typing.Callable[[emulator.Emulator, int, int], bytes]
+        ] = None,
+        on_write: typing.Optional[
+            typing.Callable[[emulator.Emulator, int, int, bytes], None]
+        ] = None,
+    ):
+        # Unicorn is not quite as flexible as angr;
+        # it requires mapping an entire page for an MMIO region.
+        mmio_lo = address - (address % 0x1000)
+        mmio_hi = address + size + 0xFFF
+        mmio_hi = mmio_hi - (mmio_hi % 0x1000)
+
+        if on_read is None and on_write is None:
+            raise exceptions.AnalysisError(
+                "Must specify at least one callback to hook_memory"
+            )
+
+        for a in range(mmio_lo, mmio_hi, 0x1000):
+            # Unicorn hooks mmio one 4k page at a time.
+            # To hook finer than that, we need to hook the entire page,
+            # and then search a list of hooks for one that matches.
+            # For ease of handling, mmio is registered in 4k blocks;
+            # no need to merge or split.
+            for a in range(mmio_lo, mmio_hi, 0x1000):
+                if a not in self.mem_read_hooks:
+
+                    def read_callback(uc, read_off, read_sz, ud):
+                        read_addr = a + read_off
+                        for addr, sz, hook in self.mem_read_hooks[a]:
+                            if addr <= read_addr and addr + sz >= read_addr + read_sz:
+                                res = hook(self, read_addr, read_sz)
+                                logger.info(f"Got {res} for {read_addr:x},{read_sz}")
+                                return int.from_bytes(res, self.machdef.byteorder)
+                        raise exceptions.AnalysisError(
+                            "Caught unhandled MMIO read of size {sz} at {read_addr:x}"
+                        )
+
+                    def write_callback(uc, write_off, write_sz, write_val, ud):
+                        write_addr = a + write_off
+                        for addr, sz, hook in self.mem_write_hooks[a]:
+                            if (
+                                addr <= write_addr
+                                and addr + sz >= write_addr + write_sz
+                            ):
+                                val = write_val.to_bytes(size, self.machdef.byteorder)
+                                hook(self, write_addr, write_sz, val)
+                                return
+                        raise exceptions.AnalysisError(
+                            "Caught unhandled MMIO read of size {sz} at {read_addr:x}"
+                        )
+
+                    self.engine.mmio_map(
+                        a, 0x1000, read_callback, None, write_callback, None
+                    )
+
+                read_hooks = self.mem_read_hooks.setdefault(a, list())
+                write_hooks = self.mem_write_hooks.setdefault(a, list())
+
+                if on_read is not None:
+                    read_hooks.append((address, size, on_read))
+                if on_write is not None:
+                    write_hooks.append((address, size, on_write))
 
     def disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None

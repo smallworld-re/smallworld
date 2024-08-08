@@ -91,6 +91,17 @@ class AngrEmulator(emulator.Emulator):
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
             },
+            remove_options={
+                angr.options.SIMPLIFY_CONSTRAINTS,
+                angr.options.SIMPLIFY_EXIT_GUARD,
+                angr.options.SIMPLIFY_EXIT_STATE,
+                angr.options.SIMPLIFY_EXIT_TARGET,
+                angr.options.SIMPLIFY_EXPRS,
+                angr.options.SIMPLIFY_MEMORY_READS,
+                angr.options.SIMPLIFY_MEMORY_WRITES,
+                angr.options.SIMPLIFY_REGISTER_READS,
+                angr.options.SIMPLIFY_REGISTER_WRITES,
+            },
         )
 
         # Create a simulation manager for our entry state
@@ -179,7 +190,7 @@ class AngrEmulator(emulator.Emulator):
                 self.state.memory.store(addr + off, v)
             if isinstance(name, str):
                 # Store a symbol containing the label
-                s = claripy.BVS(name, lab_size * 8)
+                s = claripy.BVS(name, lab_size * 8, explicit_name=True)
                 self.state.memory.store(addr + off, s)
                 if value is not None:
                     # If we have a value, bind the value to the symbol
@@ -236,8 +247,142 @@ class AngrEmulator(emulator.Emulator):
             # Otherwise, hook our one instruction
             @self.proj.hook(address, length=0)
             def hook_handler(state):
-                emu = AngrHookEmulator(state, self.machdef)
+                emu = AngrHookEmulator(state, self)
                 callback(emu)
+
+    def hook_memory(
+        self,
+        address: int,
+        size: int,
+        on_read: typing.Optional[
+            typing.Callable[[emulator.Emulator, int, int], bytes]
+        ] = None,
+        on_write: typing.Optional[
+            typing.Callable[[emulator.Emulator, int, int, bytes], None]
+        ] = None,
+    ) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory hooking not supported once execution begins"
+            )
+
+        if on_read is None and on_write is None:
+            raise exceptions.AnalysisError(
+                "Must specify at least one callback to hook_memory"
+            )
+
+        if on_read is not None:
+
+            def read_condition(state):
+                read_addr = state.inspect.mem_read_address
+                if not isinstance(read_addr, int):
+                    if read_addr.symbolic:
+                        try:
+                            values = state.solver.eval_atmost(read_addr, 1)
+                            # Truly unbound address.  Assume it's not MMIO.
+                            if len(values) < 1:
+                                return False
+                            read_addr = values[0]
+                        except angr.errors.SimUnsatError:
+                            return False
+                        except angr.errors.SimValueError:
+                            return False
+                    else:
+                        read_addr = read_addr.concrete_value
+                read_size = state.inspect.mem_read_length
+
+                return (
+                    read_size is not None
+                    and address <= read_addr
+                    and address + size >= read_addr + read_size
+                )
+
+            def read_callback(state):
+                addr = state.inspect.mem_read_address
+                if not isinstance(addr, int):
+                    addr = addr.concrete_value
+                size = state.inspect.mem_read_length
+
+                res = claripy.BVV(on_read(AngrHookEmulator(state, self), addr, size))
+
+                if self.machdef.byteorder == "little":
+                    # Fix byte order if needed.
+                    # I don't know _why_ this is needed,
+                    # but encoding the result as little-endian on a little-endian
+                    # system produces the incorrect value in the machine state.
+                    res = claripy.Reverse(res)
+                state.inspect.mem_read_expr = res
+
+            self.state.inspect.b(
+                "mem_read",
+                when=angr.BP_AFTER,
+                condition=read_condition,
+                action=read_callback,
+            )
+
+        if on_write is not None:
+
+            def write_condition(state):
+                write_addr = state.inspect.mem_write_address
+                if not isinstance(write_addr, int):
+                    if write_addr.symbolic:
+                        # Need to use the solver to resolve this.
+                        try:
+                            values = state.solver.eval_atmost(write_addr, 1)
+                            if len(values) < 1:
+                                return False
+                            write_addr = values[0]
+                        except angr.errors.SimUnsatError:
+                            return False
+                        except angr.errors.SimValueError:
+                            return False
+                    else:
+                        write_addr = write_addr.concrete_value
+                write_size = state.inspect.mem_write_length
+
+                return (
+                    write_size is not None
+                    and address <= write_addr
+                    and address + size >= write_addr + write_size
+                )
+
+            def write_callback(state):
+                addr = state.inspect.mem_write_address
+                if not isinstance(addr, int):
+                    addr = addr.concrete_value
+                size = state.inspect.mem_write_length
+                expr = state.inspect.mem_write_expr
+                if expr.symbolic:
+                    # Have the solver handle binding resolution for us.
+                    try:
+                        values = state.solver.eval_atmost(expr, 1)
+                        if len(values) < 1:
+                            raise exceptions.AnalysisError(
+                                f"No possible values fpr {expr}"
+                            )
+                        value = values[0].to_bytes(
+                            size, byteorder=self.machdef.byteorder
+                        )
+                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    except angr.errors.SimUnsatError:
+                        raise exceptions.AnalysisError(f"No possible values for {expr}")
+                    except angr.errors.SimValueError:
+                        raise exceptions.AnalysisError(
+                            f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                        )
+                else:
+                    value = expr.concrete_value.to_bytes(
+                        size, byteorder=self.machdef.byteorder
+                    )
+
+                on_write(AngrHookEmulator(state, self), addr, size, value)
+
+            self.state.inspect.b(
+                "mem_write",
+                when=angr.BP_BEFORE,
+                condition=write_condition,
+                action=write_callback,
+            )
 
     def step(self, single_insn: bool = False):
         # As soon as we start executing, disable value access

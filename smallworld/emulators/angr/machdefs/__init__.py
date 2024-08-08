@@ -10,6 +10,7 @@ from .i386 import i386MachineDef
 from .machdef import AngrMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
+from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
 
 __all__ = [
     "AArch64MachineDef",
@@ -24,4 +25,6 @@ __all__ = [
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
+    "PowerPC32MachineDef",
+    "PowerPC64MachineDef",
 ]

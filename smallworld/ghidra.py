@@ -1,7 +1,7 @@
 import logging
 import typing
 
-from . import state
+from . import models, state
 
 logger = logging.getLogger(__name__)
 
@@ -47,32 +47,25 @@ def setup_default_libc(
             continue
         else:
             if func_name in libc_func_names:  # type: ignore
-                # func is in plt and it is a function for which we want to use a default model
-                int_entry = int(entry.getOffset())
-                ml = state.models.get_models_by_name(
-                    func_name, state.models.AMD64SystemVImplementedModel
-                )
-                # returns list of models. for now we hope there's either 1 or 0...
-                if len(ml) == 1:
-                    model_class = ml[0]
-                    ext_func_model = model_class(int_entry)
-                    cpustate.map(ext_func_model, func_name)
+                try:
+                    # func is in plt and it is a function for which we want to use a default model
+                    int_entry = int(entry.getOffset())
+                    model = models.model_for_name(
+                        "x86", "64", "little", "sysv", func_name, int_entry
+                    )
+                    cpustate.map(model)
                     logger.debug(
-                        f"Added libc model {ext_func_model} for {func_name} entry {int_entry:x}"
+                        f"Added libc model for {func_name} entry {int_entry:x}"
                     )
                     num_mapped += 1
-                elif len(ml) > 1:
-                    logger.error(
-                        f"XXX There are {len(ml)} models for plt fn {func_name}... ignoring bc I dont know which to use"
+                except ValueError:
+                    logger.debug(
+                        f"As there is no default model for {func_name}, adding with null model, entry {int_entry:x}"
                     )
-                    num_too_many_models += 1
-                else:
-                    logger.error(
-                        f"XXX As there is no default model for {func_name}, adding with null model, entry {int_entry:x}"
+                    model = models.model_for_name(
+                        "x86", "64", "little", "sysv", "null", int_entry
                     )
-                    cpustate.map(
-                        state.models.AMD64SystemVNullModel(int_entry), func_name
-                    )
+                    cpustate.map(model)
                     num_no_model += 1
 
     logger.info(

@@ -100,6 +100,10 @@ class TrackerMemoryMixin(MemoryMixin):
             }
         else:
             return {
-                addr: str(self.load(addr, self.dirty[addr], disable_actions=True))
+                addr: str(
+                    self.load(
+                        addr, self.dirty[addr], disable_actions=True, inspect=False
+                    )
+                )
                 for addr in list(self.dirty.keys())
             }
