@@ -1,9 +1,11 @@
 import abc
 import inspect
 import logging
+import os
 import random
+import socket
+import sys
 import typing
-import socket, os, sys, pdb
 
 from .. import emulators, initializers
 from . import state
@@ -25,7 +27,7 @@ allocated_memory = 0
 offset = 3
 fd_count = 1000 + offset
 file_descriptor_table = dict(zip(range(offset, fd_count), [0] * fd_count))
-free_list = []
+
 
 def _first_available_fd() -> int:
     global file_descriptor_table
@@ -36,8 +38,8 @@ def _first_available_fd() -> int:
     return -1
 
 
-def _emu_read_from_fd(fd: int) -> int:
-    with os.fdopen(fd, 'r') as f:
+def _emu_read_from_fd(fd: int) -> tuple[bytes, int]:
+    with os.fdopen(fd, "r") as f:
         content = f.read()
     return content.encode("utf-8"), len(content)
 
@@ -91,18 +93,20 @@ def _emu_calloc(emulator: emulators.Emulator, size: int) -> int:
 
 
 def _emu_memset(emulator: emulators.Emulator, dest: int, c, count: int) -> int:
-    emulator.write_memory(dest, c, count)
+    val = [c] * count
+    emulator.write_memory(dest, b"".join(val))
     return dest
 
-def _emu_free(emulator: emulators.Emulator, obj) -> int:
+
+def _emu_free(emulator: emulators.Emulator, obj):
     global heap_next, heap_last, allocated_memory
     size = sys.getsizeof(obj)
     num_pages = (size // emulator.PAGE_SIZE) + 1
     page_start = emulator.get_pages(num_pages)
     heap_last = page_start + num_pages * emulator.PAGE_SIZE - 1
-    alloc_addr = page_start
     heap_next = page_start - size
     allocated_memory -= size
+
 
 def _emu_strlen_n(emulator: emulators.Emulator, addr: int, n: int) -> int:
     sl = 0
@@ -175,18 +179,19 @@ def _emu_read_string(emulator: emulators.Emulator, address: int) -> str:
     result = []
     while True:
         char = emulator.read_memory(address, 1)
-        if char == b'\x00':
+        if char == b"\x00" or char is None:
             break
-        result.append(char.decode('ascii'))
-        address += 1
-    return ''.join(result)
+        else:
+            result.append(char.decode("utf-8"))
+            address += 1
+    return "".join(result)
 
 
 def _emu_write_string(emulator: emulators.Emulator, address: int, string: str) -> int:
     for char in string:
-        emulator.write_memory(address, char.encode('ascii'))
+        emulator.write_memory(address, char.encode("ascii"))
         address += 1
-    emulator.write_memory(address, b'\x00')
+    emulator.write_memory(address, b"\x00")
     return address
 
 
@@ -556,16 +561,17 @@ class StrtokModel(ImplementedModel):
         # char *strtok(char *str, const char *delim);
         str = emulator.read_register(self.argument1)
         delim = emulator.read_register(self.argument2)
-         
+
         str_val = _emu_read_string(emulator, str) if str != 0 else None
         delim_val = _emu_read_string(emulator, delim)
 
         if str_val is None:
             emulator.write_register(self.return_val, 0)
         else:
-            tok = str_val[str:str_val.index(delim_val)]
+            tok = str_val[str : str_val.index(delim_val)]
             tok_addr = str_val.index(tok)
             emulator.write_register(self.return_val, tok_addr)
+
 
 class SysconfModel(ImplementedModel):
     name = "sysconf"
@@ -804,7 +810,7 @@ class Process32FirstModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         hSnapshot = emulator.read_register(self.argument1)
         lppe = emulator.read_register(self.argument2)
-        
+
         if hSnapshot == 0 or lppe == 0:
             emulator.write_register(self.return_val, 0)
         else:
@@ -859,6 +865,7 @@ class OpenProcessModel(ImplementedModel):
         else:
             emulator.write_register(self.return_val, 0)
 
+
 class SocketModel(ImplementedModel):
     name = "socket"
 
@@ -896,7 +903,7 @@ class RecvModel(ImplementedModel):
         buf_len = emulator.read_register(self.argument3)
         content, content_len = _emu_read_from_fd(sockfd)
         content_len = buf_len if content_len > buf_len else content_len
-        _emu_memcpy(emulator, buf, content, content_len)
+        _emu_memcpy(emulator, buf, content[0], content_len)
         emulator.write_register(self.return_val, content_len)
 
 
@@ -933,7 +940,7 @@ class GetCurrentDirectoryAModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         path_buffer = emulator.read_register(self.argument2)
         cwd = os.getcwd()
-        emulator.write_memory(path_buffer, cwd)
+        emulator.write_memory(path_buffer, cwd.encode("utf-8"))
         emulator.write_register(self.return_val, len(cwd))
 
 
@@ -948,23 +955,14 @@ class WSAGetLastErrorModel(GetLastErrorModel):
     name = "WSAGetLastError"
 
 
-class FindCloseModel(ImplementedModel):
-    name = "FindClose"
-
-    def model(self, emulator: emulators.Emulator) -> None:
-        handle = emulator.read_register(self.argument1)
-        close_fd(handle)
-        emulator.write_register(self.return_val, 0)
-
-
 class FindFirstFileAModel(ImplementedModel):
     name = "FindFirstFileA"
 
     def model(self, emulator: emulators.Emulator) -> None:
         findFileData = emulator.read_register(self.argument2)
-        cFileName = 0x3df40c
+        cFileName = 0x3DF40C
         _emu_memcpy(emulator, findFileData, cFileName, 48)
-        emulator.write_register(self.return_val, 0x99b178)
+        emulator.write_register(self.return_val, 0x99B178)
 
 
 class FindNextFileA(ImplementedModel):
@@ -1043,8 +1041,11 @@ class BracketOperatorModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         idx = emulator.read_register(self.argument1)
         target = WIN64_BASE + idx * 8
-        value = emulator.read_memory(target)
-        emulator.write_register(self.return_val, value)
+        value = emulator.read_memory(target, 8)
+        if value is None:
+            emulator.write_register(self.return_val, -1)
+        else:
+            emulator.write_register(self.return_val, int.from_bytes(value, "little"))
 
 
 class AToIModel(ImplementedModel):
@@ -1063,11 +1064,12 @@ class WSAStartupModel(ImplementedModel):
     def model(self, emulator: emulators.Emulator) -> None:
         emulator.write_register(self.return_val, 0)
 
+
 class WSACleanupModel(WSAStartupModel):
     name = "WSACleanup"
 
 
-class StdAllocatorModel(CallocModel):
+class StdAllocatorModel(ImplementedModel):
     name = "std::allocator<>::allocator<>"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -1080,19 +1082,22 @@ class RegCreateKeyExAModel(ImplementedModel):
     name = "RegCreateKeyExA"
 
     def model(self, emulator: emulators.Emulator) -> None:
-        hkey = emulator.read_register(self.argument1)
-        lpSubKey = emulator.read_register(self.argument2)
         stack_ptr = emulator.read_register("rsp")
-        #pdb.set_trace()
-        dwOptions = emulator.read_memory(stack_ptr + 8, 4)
-        samDesired = emulator.read_memory(stack_ptr + 16, 4)
         phkResult_ptr = emulator.read_memory(stack_ptr + 32, 8)
         lpdwDisposition = emulator.read_memory(stack_ptr + 40, 8)
 
         simulated_hkey = 0x12345678
         simulated_disposition = 1
-        emulator.write_memory(phkResult_ptr, simulated_hkey.to_bytes(8, 'little'))
-        emulator.write_memory(lpdwDisposition, simulated_disposition.to_bytes(4, 'little'))
+        if phkResult_ptr is not None:
+            emulator.write_memory(
+                int.from_bytes(phkResult_ptr, "little"),
+                simulated_hkey.to_bytes(8, "little"),
+            )
+        if lpdwDisposition is not None:
+            emulator.write_memory(
+                int.from_bytes(lpdwDisposition, "little"),
+                simulated_disposition.to_bytes(4, "little"),
+            )
         emulator.write_register(self.return_val, 0)
 
 
@@ -1100,7 +1105,7 @@ class RegSetValueExAModel(ImplementedModel):
     name = "RegSetValueExA"
 
     def model(self, emulator: emulators.Emulator) -> None:
-        self.registry = {}
+        self.registry: typing.Dict[str, typing.Dict[str, tuple[int, str]]] = {}
         hkey = emulator.read_register(self.argument1)
         lpValueName = emulator.read_register(self.argument2)
         dwType = emulator.read_register(self.argument4)
@@ -1114,7 +1119,10 @@ class RegSetValueExAModel(ImplementedModel):
             self.registry[hkey_str] = {}
 
         lpValueName_str = _emu_read_string(emulator, lpValueName)
-        lpdata_str = _emu_read_string(emulator, lpdata)[:cbdata]
+        if cbdata is not None and lpdata is not None:
+            lpdata_str = _emu_read_string(emulator, int.from_bytes(lpdata, "little"))[
+                : int.from_bytes(cbdata, "little")
+            ]
         self.registry[hkey_str][lpValueName_str] = (dwType, lpdata_str)
         emulator.write_register(self.return_val, 0)
 
@@ -1124,8 +1132,11 @@ class RegGetValueAModel(ImplementedModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         stack_ptr = emulator.read_register("rsp")
-        sz_val = emulator.read_register(stack_ptr + 8, 260)
-        emulator.write_memory(sz_val, "autorun.bat".encode("utf-8"))
+        sz_val = emulator.read_memory(stack_ptr + 8, 260)
+        if sz_val is not None:
+            emulator.write_memory(
+                int.from_bytes(sz_val, "little"), "autorun.bat".encode("utf-8")
+            )
         emulator.write_register(self.return_val, 0)
 
 
@@ -1133,15 +1144,21 @@ class AMD64MicrosoftNullModel(AMD64MicrosoftImplementedModel, Returns0Implemente
     name = "null"
 
 
-class AMD64MicrosoftCreateSnapshotModel(AMD64MicrosoftImplementedModel, CreateSnapshotModel):
+class AMD64MicrosoftCreateSnapshotModel(
+    AMD64MicrosoftImplementedModel, CreateSnapshotModel
+):
     pass
 
 
-class AMD64MicrosoftProcess32FirstModel(AMD64MicrosoftImplementedModel, Process32FirstModel):
+class AMD64MicrosoftProcess32FirstModel(
+    AMD64MicrosoftImplementedModel, Process32FirstModel
+):
     pass
 
 
-class AMD64MicrosoftProcess32NextModel(AMD64MicrosoftImplementedModel, Process32NextModel):
+class AMD64MicrosoftProcess32NextModel(
+    AMD64MicrosoftImplementedModel, Process32NextModel
+):
     pass
 
 
@@ -1157,7 +1174,9 @@ class AMD64MicrosoftZeroMemoryModel(AMD64MicrosoftImplementedModel, ZeroMemoryMo
     pass
 
 
-class AMD64MicrosoftFindFirstFileAModel(AMD64MicrosoftImplementedModel, FindFirstFileAModel):
+class AMD64MicrosoftFindFirstFileAModel(
+    AMD64MicrosoftImplementedModel, FindFirstFileAModel
+):
     pass
 
 
@@ -1193,7 +1212,9 @@ class AMD64MicrosoftCloseSocketModel(AMD64MicrosoftImplementedModel, CloseSocket
     pass
 
 
-class AMD64MicrosoftProcessIdToSessionIdModel(AMD64MicrosoftImplementedModel, ProcessIdToSessionIdModel):
+class AMD64MicrosoftProcessIdToSessionIdModel(
+    AMD64MicrosoftImplementedModel, ProcessIdToSessionIdModel
+):
     pass
 
 
@@ -1201,7 +1222,9 @@ class AMD64MicrosoftStdVectorModel(AMD64MicrosoftImplementedModel, StdVectorMode
     pass
 
 
-class AMD64MicrosoftVectorPushBackModel(AMD64MicrosoftImplementedModel, VectorPushBackModel):
+class AMD64MicrosoftVectorPushBackModel(
+    AMD64MicrosoftImplementedModel, VectorPushBackModel
+):
     pass
 
 
@@ -1209,11 +1232,15 @@ class AMD64MicrosoftStdStringModel(AMD64MicrosoftImplementedModel, StdStringMode
     pass
 
 
-class AMD64MicrosoftStdStringLengthModel(AMD64MicrosoftImplementedModel, StdStringLengthModel):
+class AMD64MicrosoftStdStringLengthModel(
+    AMD64MicrosoftImplementedModel, StdStringLengthModel
+):
     pass
 
 
-class AMD64MicrosoftBracketOperatorModel(AMD64MicrosoftImplementedModel, BracketOperatorModel):
+class AMD64MicrosoftBracketOperatorModel(
+    AMD64MicrosoftImplementedModel, BracketOperatorModel
+):
     pass
 
 
@@ -1221,7 +1248,9 @@ class AMD64MicrosoftDeleteFileWModel(AMD64MicrosoftImplementedModel, DeleteFileW
     pass
 
 
-class AMD64MicrosoftGetCurrentDirectoryAModel(AMD64MicrosoftImplementedModel, GetCurrentDirectoryAModel):
+class AMD64MicrosoftGetCurrentDirectoryAModel(
+    AMD64MicrosoftImplementedModel, GetCurrentDirectoryAModel
+):
     pass
 
 
@@ -1229,11 +1258,15 @@ class AMD64MicrosoftGetVersionModel(AMD64MicrosoftImplementedModel, GetVersionMo
     pass
 
 
-class AMD64MicrosoftGetLastErrorModel(AMD64MicrosoftImplementedModel, GetLastErrorModel):
+class AMD64MicrosoftGetLastErrorModel(
+    AMD64MicrosoftImplementedModel, GetLastErrorModel
+):
     pass
 
 
-class AMD64MicrosoftWSAGetLastErrorModel(AMD64MicrosoftImplementedModel, WSAGetLastErrorModel):
+class AMD64MicrosoftWSAGetLastErrorModel(
+    AMD64MicrosoftImplementedModel, WSAGetLastErrorModel
+):
     pass
 
 
@@ -1245,19 +1278,27 @@ class AMD64MicrosoftAToIModel(AMD64MicrosoftImplementedModel, AToIModel):
     pass
 
 
-class AMD64MicrosoftStdAllocatorModel(AMD64MicrosoftImplementedModel, StdAllocatorModel):
+class AMD64MicrosoftStdAllocatorModel(
+    AMD64MicrosoftImplementedModel, StdAllocatorModel
+):
     pass
 
 
-class AMD64MicrosoftRegCreateKeyExAModel(AMD64MicrosoftImplementedModel, RegCreateKeyExAModel):
+class AMD64MicrosoftRegCreateKeyExAModel(
+    AMD64MicrosoftImplementedModel, RegCreateKeyExAModel
+):
     pass
 
 
-class AMD64MicrosoftRegSetValueExAModel(AMD64MicrosoftImplementedModel, RegSetValueExAModel):
+class AMD64MicrosoftRegSetValueExAModel(
+    AMD64MicrosoftImplementedModel, RegSetValueExAModel
+):
     pass
 
 
-class AMD64MicrosoftRegGetValueAModel(AMD64MicrosoftImplementedModel, RegGetValueAModel):
+class AMD64MicrosoftRegGetValueAModel(
+    AMD64MicrosoftImplementedModel, RegGetValueAModel
+):
     pass
 
 
@@ -1331,7 +1372,7 @@ __all__ = [
     "AMD64MicrosoftRegCreateKeyExAModel",
     "AMD64MicrosoftRegSetValueExAModel",
     "AMD64MicrosoftRegGetValueAModel",
-    "AMD64MicrosoftNullModel"
+    "AMD64MicrosoftNullModel",
 ]
 
 

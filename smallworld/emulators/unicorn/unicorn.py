@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import sys
 import typing
-import traceback, pdb
 
 import capstone
 import unicorn
@@ -148,10 +147,6 @@ class UnicornEmulator(emulator.Emulator):
             return result
 
         def map(start, end):
-            pdb.set_trace()
-            if start == 1:
-                start = 0x140000
-                end = start + 0x400
             address = start * self.PAGE_SIZE
             logger.debug(f"Start: {start}")
             logger.debug(f"Page size: {self.PAGE_SIZE}")
@@ -160,14 +155,11 @@ class UnicornEmulator(emulator.Emulator):
             logger.debug(f"new memory map 0x{address:x}[{allocation}]")
 
             self.engine.mem_map(address, allocation)
-            logger.debug("TRACEBACK")
-            traceback.print_stack()
 
         region = (page(address), page(address + len(value)) + 1)
-        
+
         for start, end, _ in self.engine.mem_regions():
             mapped = (page(start), page(end) + 1)
-            logger.debug(f"MAPPED: {mapped}")
             regions = subtract(region, mapped)
 
             if len(regions) == 0:
@@ -178,9 +170,7 @@ class UnicornEmulator(emulator.Emulator):
                 emit, region = regions
                 map(*emit)
         else:
-            logger.debug(f"REGION: {region}")
             map(*region)
-        pdb.set_trace()
         self.engine.mem_write(address, bytes(value))
 
         logger.debug(f"wrote {len(value)} bytes to 0x{address:x}")
@@ -194,14 +184,11 @@ class UnicornEmulator(emulator.Emulator):
         if code.entry is not None:
             self.entry = code.entry
             if self.entry < code.base or self.entry > code.base + len(code.image):
-                import pdb
-                pdb.set_trace()
                 logger.debug(self.entry > code.base + len(code.image))
                 logger.debug(self.entry < code.base)
                 raise ValueError(
                     f"entry is not in code: 0x{self.entry:x} vs (0x{code.base:x}, 0x{code.base + len(code.image):x})"
                 )
-                #pass
         else:
             self.entry = code.base
 

@@ -1,9 +1,7 @@
 import argparse
 import logging
 import typing
-import pdb
 from ast import literal_eval
-import pefile
 
 logger = logging.getLogger(__name__)
 
@@ -168,7 +166,8 @@ def setup_default_libc(
         f"Libc model mappings: {num_mapped} default, {num_no_model} no model, {num_too_many_models} too many models"
     )
 
-vector_patterns =  [
+
+vector_patterns = [
     "std::vector<int>::vector",
     "std::vector<int>::~vector",
     "std::vector<int>::push_back",
@@ -176,7 +175,8 @@ vector_patterns =  [
     "std::vector<int>::clear",
     "std::vector<int>::resize",
     "std::vector<int>::begin",
-    "std::vector<int>::end"]
+    "std::vector<int>::end",
+]
 
 
 def setup_default_windows(
@@ -200,9 +200,9 @@ def setup_default_windows(
     """
 
     program = flat_api.getCurrentProgram()
-    #flat_api.analyzeAll(program)
+    # flat_api.analyzeAll(program)
     listing = program.getListing()
-    #symbol_table = program.getSymbolTable()
+    # symbol_table = program.getSymbolTable()
 
     # find iat section
     iat = None
@@ -225,7 +225,7 @@ def setup_default_windows(
     #     if literal_eval('0x' + instr.address.toString()) == 0x1400064a1:
     #     #if instr.address.toString() == 'EXTERNAL:00000029':
     #         pdb.set_trace()
-                    
+
     # for symbol in symbol_table.getAllSymbols(True):
     #     if symbol.external:
     #         continue
@@ -243,30 +243,36 @@ def setup_default_windows(
     for func in listing.getExternalFunctions():
         fn_name = func.getName()
         ref = flat_api.getReferencesTo(func.getEntryPoint())[0]
-        
+
         if not iat.contains(ref.fromAddress):
             continue
         if fn_name in windows_func_names:
-            #pdb.set_trace()
+            # pdb.set_trace()
             ml = state.models.get_models_by_name(
                 fn_name, state.models.AMD64MicrosoftImplementedModel
             )
-            entry = '0x' + ref.fromAddress.toString()
-            #pdb.set_trace()
+            entry = "0x" + ref.fromAddress.toString()
+            # pdb.set_trace()
             int_entry = literal_eval(entry)
             if len(ml) == 1:
                 model_class = ml[0]
                 ext_func_model = model_class(int_entry)
-                #pdb.set_trace()
+                # pdb.set_trace()
                 cpustate.map(ext_func_model, fn_name)
-                logger.debug(f"Added windows model {ext_func_model} for {fn_name} at {int_entry:x}")
-                #pdb.set_trace()
+                logger.debug(
+                    f"Added windows model {ext_func_model} for {fn_name} at {int_entry:x}"
+                )
+                # pdb.set_trace()
                 num_mapped += 1
             elif len(ml) > 1:
-                logger.error(f"XXX There are {len(ml)} models for function {fn_name}, ignoring.")
+                logger.error(
+                    f"XXX There are {len(ml)} models for function {fn_name}, ignoring."
+                )
                 num_too_many_models += 1
             else:
-                logger.error(f"XXX As there is no default model for function {fn_name}, adding null model.")
+                logger.error(
+                    f"XXX As there is no default model for function {fn_name}, adding null model."
+                )
                 cpustate.map(state.models.AMD64MicrosoftNullModel(int_entry), fn_name)
                 num_no_model += 1
 

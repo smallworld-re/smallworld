@@ -4,14 +4,16 @@ import smallworld
 
 smallworld.setup_logging(level=logging.INFO)
 smallworld.setup_hinting(verbose=True, stream=True)
+# pdb.set_trace()
 
 state = smallworld.state.CPU.for_arch("x86", "64", "little")
 
 code = smallworld.state.Code.from_filepath("hooking.bin", base=0x1000, entry=0x1000)
 state.map(code)
-state.rip.value = 0x1000
+state.rip.value = 0x0000
 
-stack = smallworld.state.Memory(address=0xFFFF0000, size=0x1000)
+
+stack = smallworld.state.Memory(address=0xFFFF0000, size=0x0000)
 stack.value = b"\x00" * 0x1000
 state.map(stack)
 state.rsp.value = stack.address
@@ -23,6 +25,7 @@ state.map(gets)
 def puts_model(emulator):
     s = emulator.read_register("rdi")
     read = emulator.read_memory(s, 0x100)
+    print(read)
     read = read[: read.index(b"\x00")].decode("utf-8")
 
     print(read)

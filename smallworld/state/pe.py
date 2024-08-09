@@ -1,6 +1,5 @@
 import logging
 import typing
-import pdb
 
 import lief
 
@@ -16,6 +15,7 @@ MEM_EXECUTE = 536870912
 MEM_READ = 1073741824
 MEM_WRITE = 2147483648
 
+
 class PEImage(Code):
     default_base = 0x140000000
     page_size = 0x1000
@@ -26,24 +26,24 @@ class PEImage(Code):
         format: typing.Optional[str] = None,
         arch: typing.Optional[str] = None,
         mode: typing.Optional[str] = None,
-        base: typing.Optional[int] = default_base,
+        base: typing.Optional[int] = None,
         entry: typing.Optional[int] = None,
         bounds: typing.Optional[typing.Iterable[range]] = None,
     ):
         super().__init__(
             image,
-            base=base,
+            base=0,
             format=format,
             arch=arch,
             mode=mode,
             entry=entry,
             bounds=bounds,
         )
-        #pdb.set_trace()
+        # pdb.set_trace()
         self.user_base: typing.Optional[int] = base
-        self.file_base: int = base
+        self.file_base: int = 0
         self.user_entry: typing.Optional[int] = entry
-        self.file_entry: int = entry
+        self.file_entry: int = 0
         self.code_segments: typing.List[Code] = list()
         self.data_segments: typing.List[Memory] = list()
 
@@ -100,7 +100,7 @@ class PEImage(Code):
                 )
                 hinter.error(hint)
                 raise ConfigurationError("Contradictory base addresses.")
-            
+
     def determine_entry(self):
         """Determine entrypoint address to use
 
@@ -172,52 +172,49 @@ class PEImage(Code):
         if up:
             x += self.page_size - 1
         return (x // self.page_size) * self.page_size
-    
+
     def load_pe(self):
-        """Load a PE file into a SmallWorld machine state object.
-        
-        """
-        #ijfdhsfghgf()
-        #pdb.set_trace()
+        """Load a PE file into a SmallWorld machine state object."""
+        # ijfdhsfghgf()
+        # pdb.set_trace()
         log.debug("HERE I AM")
-        #pdb.set_trace()
+        # pdb.set_trace()
         if not lief.is_pe(list(self.image)):
             hint = Hint(message="File is not a PE.")
             hinter.error(hint)
             raise ConfigurationError("Input is not a PE")
-        
+
         pe = lief.PE.parse(list(self.image))
         if pe is None:
             raise ConfigurationError("Failed parsing input")
-        
+
         p_doshdr = pe.dos_header
         if p_doshdr is None:
             raise ConfigurationError("Failed extracting PE DOS Header")
-        
+
         phdr = pe.header
         if phdr is None:
             raise ConfigurationError("Failed extracting PE Header")
-        
+
         p_opthdr = pe.optional_header
         if p_opthdr is None:
             raise ConfigurationError("Failed extracting PE Optional Header")
-        
+
         if p_opthdr.sizeof_headers == 0:
             hint = Hint(message="No program headers; file is not loadable")
             hinter.error(hint)
             raise ConfigurationError("File not loadable")
-        
+
         self.file_base = pe.imagebase
         self.file_entry = pe.entrypoint
         self.determine_base()
         self.determine_entry()
-        #self.exits = list(map(lambda x: self.rebase_user(x), self.exits))
+        # self.exits = list(map(lambda x: self.rebase_user(x), self.exits))
 
         for hdr in pe.sections:
             if hdr.virtual_size != 0:
                 log.debug(hdr)
                 self.map_segment(hdr)
-
 
     def map_segment(self, hdr):
         """Map a segment into a SmallWorld machine state object
@@ -231,11 +228,13 @@ class PEImage(Code):
         Arguments:
             phdr: Program header object to load
         """
-        
+
         seg_start = self.page_align(hdr.offset, up=False)
         seg_end = self.page_align(hdr.offset + hdr.size)
-        seg_addr = self.page_align(self.rebase_file(self.file_base + hdr.virtual_address), up=False)
-        #seg_size = self.page_align(hdr.virtual_size + (hdr.offset - seg_start))
+        seg_addr = self.page_align(
+            self.rebase_file(self.file_base + hdr.virtual_address), up=False
+        )
+        # seg_size = self.page_align(hdr.virtual_size + (hdr.offset - seg_start))
         seg_size = hdr.sizeof_raw_data
 
         log.debug(f"{hdr.size:012x}")
@@ -256,7 +255,8 @@ class PEImage(Code):
                 arch=self.arch,
                 mode=self.mode,
                 base=seg_addr,
-                entry=self.entry,)
+                entry=self.entry,
+            )
             self.code_segments.append(code)
             log.debug(f"Code: {code}")
         else:
@@ -271,4 +271,3 @@ class PEImage(Code):
             code.apply(emulator)
         for data in self.data_segments:
             data.apply(emulator)
-        

@@ -103,11 +103,11 @@ class ELFImage(Code):
             if self.file_base == 0:
                 # Program file does not need a specific base address
                 # Use the requested address
-                self.user_base
+                self.base = self.user_base
             elif self.file_base == self.user_base:
                 # User and file request the same base address.
                 # We are okay with this.
-                self.user_base
+                self.base = self.user_base
             else:
                 # Program file needs a specific base address
                 # Not possible to rebase
