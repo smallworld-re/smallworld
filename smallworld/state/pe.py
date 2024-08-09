@@ -30,8 +30,6 @@ class PEImage(Code):
         entry: typing.Optional[int] = None,
         bounds: typing.Optional[typing.Iterable[range]] = None,
     ):
-        import pdb 
-        pdb.set_trace()
         super().__init__(
             image,
             base=base,
@@ -46,15 +44,27 @@ class PEImage(Code):
         self.file_base: int = base
         self.user_entry: typing.Optional[int] = entry
         self.file_entry: int = entry
-        pdb.set_trace()
         self.code_segments: typing.List[Code] = list()
         self.data_segments: typing.List[Memory] = list()
 
         self.load_pe()
 
     def determine_base(self):
+        """Determine base address to load PE
+
+        There are two possible sources for a base address.
+        PE files can specify a base address by setting the address
+        of their first loaded segment to non-zero.
+        Otherwise, a user can request a specific base address.
+
+        If both the user and the file specify an address, it's an error.
+        If only one specifies a base address, use it.
+        If neither specify one, halucinate a value.
+
+        Raises:
+            ConfigurationError: If file_base is non-zero, and user_base is not None
+        """
         if self.user_base is None:
-            logging.debug("FIRST PART OF BASE")
             # No base address requested
             if self.file_base == 0:
                 # Progam file does not need a specific base address
@@ -71,16 +81,13 @@ class PEImage(Code):
                 self.base = self.file_base
         else:
             # Base address requested
-            logging.debug("SECOND PART OF BASE")
             if self.file_base == 0:
                 # Program file does not need a specific base address
                 # Use the requested address
-                logging.debug("HERE 1")
                 self.base = self.user_base
             elif self.file_base == self.user_base:
                 # User and file request the same base address.
                 # We are okay with this.
-                logging.debug("HERE 2")
                 self.base = self.user_base
                 logging.debug(f"USER BASE = {self.user_base}")
                 logging.debug(f"FILE BASE = {self.file_base}")
@@ -95,6 +102,23 @@ class PEImage(Code):
                 raise ConfigurationError("Contradictory base addresses.")
             
     def determine_entry(self):
+        """Determine entrypoint address to use
+
+        This performs two jobs.
+        One is to determine which entrypoint to use;
+        it can be specified by the PE header, or by the user.
+
+        The second job is to rebase that address
+        according to the base address.
+        An entrypoint from the file is relative to the file's base address.
+        An entrypoint from the user is assumed relative to the user's base address.
+        If the user does not specify a base address, their entrypoint
+        should be relative to the start of the file.
+
+        Raises:
+            ConfigurationError: If neither user nor file specify an entrypoint
+
+        """
         if self.user_entry is None:
             # No entrypoint requested.
             # Get entry from the file
@@ -196,10 +220,23 @@ class PEImage(Code):
 
 
     def map_segment(self, hdr):
+        """Map a segment into a SmallWorld machine state object
+
+        This computes the actual mapping boundaries from a LOAD segment,
+        and then maps it into Smallworld.
+
+        Executable segments are mapped as Code objects.
+        Other segments are mapped as Memory.
+
+        Arguments:
+            phdr: Program header object to load
+        """
+        
         seg_start = self.page_align(hdr.offset, up=False)
         seg_end = self.page_align(hdr.offset + hdr.size)
-        seg_addr = self.page_align(self.rebase_file(hdr.virtual_address), up=False)
-        seg_size = self.page_align(hdr.virtual_size + (hdr.offset - seg_start))
+        seg_addr = self.page_align(self.rebase_file(self.file_base + hdr.virtual_address), up=False)
+        #seg_size = self.page_align(hdr.virtual_size + (hdr.offset - seg_start))
+        seg_size = hdr.sizeof_raw_data
 
         log.debug(f"{hdr.size:012x}")
 
@@ -208,31 +245,18 @@ class PEImage(Code):
         log.debug(f"    m: [ {seg_addr:012x} -> {seg_addr + seg_size:012x} ]")
 
         # Extract segment data, and zero-fill out to seg_size
-        seg_data = self.image[seg_start:seg_end]
-        if len(seg_data) < seg_size:
-            seg_data += b"\x00" * (seg_size - len(seg_data))
-        elif len(seg_data) != seg_size:
-            # Virtual size should always be greater or equal to file size.
-            # If not, something's wrong.
-            raise ConfigurationError(
-                f"Expected segment of size {seg_size}, but got {len(seg_data)}"
-            )
-        
+        seg_data = bytes(hdr.content)
         if MEM_EXECUTE in hdr.characteristics_lists:
             # If this is an executable segment, treat it as code
             log.debug(f"Mapping executable {hdr.name}")
             log.debug(f"Amount of bytes: {hex(len(seg_data))}")
-            #log.debug(f"Seg data: {seg_data}")
             code = Code(
                 image=seg_data,
-                format="blob",
+                format="PE",
                 arch=self.arch,
                 mode=self.mode,
                 base=seg_addr,
                 entry=self.entry,)
-            #     exits=self.exits,
-            # )
-            #code.value = seg_data
             self.code_segments.append(code)
             log.debug(f"Code: {code}")
         else:
@@ -240,10 +264,9 @@ class PEImage(Code):
             data = Memory(seg_addr, seg_size)
             data.value = seg_data
             self.data_segments.append(data)
+            log.debug(f"Memory: {hex(data.address)}")
 
     def apply(self, emulator: Emulator, override: bool = True):
-        import pdb
-        pdb.set_trace()
         for code in self.code_segments:
             code.apply(emulator)
         for data in self.data_segments:

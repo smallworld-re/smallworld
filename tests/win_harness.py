@@ -6,7 +6,6 @@ import logging
 import os
 import pdb
 import pyhidra
-# Fake out sending run key to filepath for persistence functionality
 import smallworld
 from smallworld import emulators, state
 from smallworld.state.debug import Breakpoint
@@ -28,10 +27,10 @@ cpustate = smallworld.cpus.AMD64CPUState()
 logger.info("mapping code into cpu and restricting emulation to known ok regions")
 
 # load and map code into the state
-# can't quite see how to get this from ghidra
-#entry = 0x1400121d0   # main
-entry = 0x140011000  # ps
+entry = 0x1400121d0   # main
+#entry = 0x140011000  # ps
 #entry = 0x140011360  # ls
+#entry = 0x140011d30   # persist
 
 code = state.PEImage.from_filepath(pef, base=0x140000000, entry=entry, 
                                    arch="x86", mode="64", format="PE")
@@ -50,8 +49,8 @@ code = state.PEImage.from_filepath(pef, base=0x140000000, entry=entry,
 logger.info("mapping in user-specified breakpoints")
 
 breaks = {
-    0x14013e137: "just before create snapshot",
-    0x14013e141: "just after create snapshot call",
+    0x140011037: "just before create snapshot",
+    0x140011039: "just after create snapshot call",
     0x1400110a4: "just before process32first",
 }
 
@@ -91,12 +90,13 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     # This list of windows fns are the ones we want default hooks for.
     use_windows_api_models = ["std::vector<>::vector<>", "strtok", "std::vector<>::push_back",
                               "std::basic_string<>::basic_string<>", "std::basic_string<>::length",
+                              "std::allocator<>::allocator<>",
                               "CreateToolhelp32Snapshot", "Process32FirstW", "Process32NextW",
-                                "CloseHandle", "OpenProcess", "atoi", "WSAStartup", "socket",
-                                "connect", "recv", "closesocket", "ProcessIdToSessionId", "GetCurrentDirectoryA",
-                                "FindClose", "memset", "FindFirstFileA", "[]",
+                                "CloseHandle", "OpenProcess", "DeleteFileW", "atoi", "WSAStartup", "WSACleanup",
+                                "socket", "connect", "recv", "closesocket", "ProcessIdToSessionId", "GetCurrentDirectoryA",
+                                "GetVersion", "FindClose", "memset", "FindFirstFileA", "[]",
                                 "FindNextFileA", "GetComputerName",
-                                "GetUserName"]
+                                "GetUserName", "RegCreateKeyExA", "RegSetValueExA", "RegGetValueA"]
     
     #pdb.set_trace()
     # program = ghidra_flat_api.getCurrentProgram()
@@ -115,14 +115,15 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
         vector = smallworld.state.models.Model(pc, AMD64MicrosoftStdVectorModel)
         cpustate.map(vector)
 
-    string = smallworld.state.models.Model(0x1400124d9, AMD64MicrosoftStdStringModel)
-    cpustate.map(string)
+    for pc in [0x1400124d9, 0x1400113f4]:
+        string = smallworld.state.models.Model(pc, AMD64MicrosoftStdStringModel)
+        cpustate.map(string)
 
     string_len = smallworld.state.models.Model(0x1400124e7, AMD64MicrosoftStdStringLengthModel)
     cpustate.map(string_len)
 
 
-    for pc in [0x140012218, 0x140012246, 0x140012279]:
+    for pc in [0x140012218, 0x140012246, 0x140012279, 0x14001254f, 0x14001257c]:
         strtok = state.models.Model(pc, AMD64MicrosoftStrtokModel)
         cpustate.map(strtok)
     #     skip(pc, cpustate, ret0)
@@ -133,6 +134,7 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     # push_back = state.models.Model(0x140012237, AMD64MicrosoftVectorPushBackModel)
     # cpustate.map(push_back)
     skip(0x140012237, cpustate, ret0)
+    skip(0x14001256e, cpustate, ret0)
 
     skip(0x140073aa4, cpustate, ret1)  # Process32FirstW
 
@@ -162,6 +164,15 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     atoi = state.models.Model(0x140012281, AMD64MicrosoftAToIModel)
     cpustate.map(atoi)
 
+    dir = state.models.Model(0x1400113a1, AMD64MicrosoftGetCurrentDirectoryAModel)
+    cpustate.map(dir)
+
+    delete = state.models.Model(0x140011762, AMD64MicrosoftDeleteFileWModel)
+    cpustate.map(delete)
+
+    alloc = state.models.Model(0x14001258d, AMD64MicrosoftStdAllocatorModel)
+    cpustate.map(alloc)
+
     for pc in [0x140012261, 0x14001227e]:
         skip(pc, cpustate, ret1)
 
@@ -181,6 +192,14 @@ with pyhidra.open_program(pef) as ghidra_flat_api:
     cpustate.map(recv)
 
     skip(0x1400124ff, cpustate, ret0)
+
+    createkey = state.models.Model(0x140011da4, AMD64MicrosoftRegCreateKeyExAModel)
+    cpustate.map(createkey)
+
+    setvalue = state.models.Model(0x140011eb4, AMD64MicrosoftRegSetValueExAModel)
+    cpustate.map(setvalue)
+
+    skip(0x140012540, cpustate, ret1)  # c_str
 
     logger.info("arranging to skip some fns")
 

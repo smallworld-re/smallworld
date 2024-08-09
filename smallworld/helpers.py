@@ -240,32 +240,19 @@ def setup_default_windows(
     num_no_model = 0
     num_too_many_models = 0
 
-    pe = pefile.PE(pef)
-    external_fns = {}
-    for entry in pe.DIRECTORY_ENTRY_IMPORT:
-        for imp in entry.imports:
-            func_name = imp.name.decode('ascii') if imp.name else 'None'
-            func_address = imp.address
-            external_fns[func_name] = func_address
-    
-
-    # with open('analyze_all.txt', 'w') as f:
-    #     for func in listing.getFunctions(True):
-    #         f.write(f"{func.getName()}\n")
-
     for func in listing.getExternalFunctions():
         fn_name = func.getName()
         ref = flat_api.getReferencesTo(func.getEntryPoint())[0]
         
-        # if not iat.contains(ref.fromAddress):
-        #     continue
+        if not iat.contains(ref.fromAddress):
+            continue
         if fn_name in windows_func_names:
             #pdb.set_trace()
             ml = state.models.get_models_by_name(
                 fn_name, state.models.AMD64MicrosoftImplementedModel
             )
             entry = '0x' + ref.fromAddress.toString()
-            pdb.set_trace()
+            #pdb.set_trace()
             int_entry = literal_eval(entry)
             if len(ml) == 1:
                 model_class = ml[0]
@@ -282,10 +269,6 @@ def setup_default_windows(
                 logger.error(f"XXX As there is no default model for function {fn_name}, adding null model.")
                 cpustate.map(state.models.AMD64MicrosoftNullModel(int_entry), fn_name)
                 num_no_model += 1
-        
-        # else:
-        #     logger.debug(func.getName())
-
 
 
 def setup_section(
