@@ -1,33 +1,11 @@
-import logging
 import typing
 from dataclasses import dataclass
 
-# logging re-exports
-from logging import WARNING
-
-from . import utils
+from .. import hinting
 
 
 @dataclass(frozen=True)
-class Hint(utils.Serializable):
-    """Base class for all Hints.
-
-    Arguments:
-        message: A message for this Hint.
-    """
-
-    message: str
-
-    def to_json(self) -> dict:
-        return self.__dict__
-
-    @classmethod
-    def from_json(cls, dict):
-        return cls(**dict)
-
-
-@dataclass(frozen=True)
-class PointerHint(Hint):
+class PointerHint(hinting.Hint):
     """We found a pointer
 
     Arguments:
@@ -40,7 +18,7 @@ class PointerHint(Hint):
 
 
 @dataclass(frozen=True)
-class ControlFlowHint(Hint):
+class ControlFlowHint(hinting.Hint):
     """Represents control flow going from the from_instruction to the to_instruction.
 
     Arguments:
@@ -53,7 +31,7 @@ class ControlFlowHint(Hint):
 
 
 @dataclass(frozen=True)
-class CoverageHint(Hint):
+class CoverageHint(hinting.Hint):
     """Holds the a map of program counter to hit counter for an execution.
 
     Arguments:
@@ -64,7 +42,7 @@ class CoverageHint(Hint):
 
 
 @dataclass(frozen=True)
-class ReachableCodeHint(Hint):
+class ReachableCodeHint(hinting.Hint):
     """Indicates that we can get to a given program counter with symbolic execution.
 
     Arguments:
@@ -75,7 +53,7 @@ class ReachableCodeHint(Hint):
 
 
 @dataclass(frozen=True)
-class EmulationException(Hint):
+class EmulationException(hinting.Hint):
     """Something went wrong emulating this instruction"""
 
     instruction: typing.Any
@@ -84,7 +62,7 @@ class EmulationException(Hint):
 
 
 @dataclass(frozen=True)
-class UnderSpecifiedValueHint(Hint):
+class UnderSpecifiedValueHint(hinting.Hint):
     """Super class for UnderSpecified Value Hints"""
 
     instruction: typing.Any
@@ -221,7 +199,7 @@ class InputUseHint(UnderSpecifiedValueHint):
 
 
 @dataclass(frozen=True)
-class TypeHint(Hint):
+class TypeHint(hinting.Hint):
     """Super class for Type Hints"""
 
     pass
@@ -283,7 +261,7 @@ class StructureHint(TypeHint):
 
 
 @dataclass(frozen=True)
-class OutputHint(Hint):
+class OutputHint(hinting.Hint):
     registers: typing.Dict[str, str]
     memory: typing.Dict[int, str]
 
@@ -292,7 +270,7 @@ class OutputHint(Hint):
 
 
 @dataclass(frozen=True)
-class MemoryUnavailableHint(Hint):
+class MemoryUnavailableHint(hinting.Hint):
     """Represents a load or store that was unavailable memory.
 
     Arguments:
@@ -327,7 +305,7 @@ class MemoryUnavailableHint(Hint):
 
 
 @dataclass(frozen=True)
-class MemoryUnavailableProbHint(Hint):
+class MemoryUnavailableProbHint(hinting.Hint):
     is_read: bool
     size: int
     base_reg_name: str
@@ -340,7 +318,7 @@ class MemoryUnavailableProbHint(Hint):
 
 
 @dataclass(frozen=True)
-class DynamicValueHint(Hint):
+class DynamicValueHint(hinting.Hint):
     """Represents a concrete value either in a register or memory
     encountered during emulation-base analysis
 
@@ -413,7 +391,7 @@ class DynamicMemoryValueHint(DynamicValueHint):
 
 
 @dataclass(frozen=True)
-class DynamicValueProbHint(Hint):
+class DynamicValueProbHint(hinting.Hint):
     instruction: typing.Any
     pc: int
     color: int
@@ -434,66 +412,3 @@ class DynamicMemoryValueProbHint(DynamicValueProbHint):
 @dataclass(frozen=True)
 class DynamicRegisterValueProbHint(DynamicValueProbHint):
     reg_name: str
-
-
-class HintSubclassFilter(logging.Filter):
-    """A custom logging filter based on Hint class."""
-
-    def __init__(self, hint: typing.Type[Hint], *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.hint = hint
-
-    def filter(self, record):
-        return isinstance(record.msg, self.hint)
-
-
-class Hinter(logging.Logger):
-    """A custom logger that only accepts Hints."""
-
-    def _log(self, level, msg, *args, **kwargs):
-        if not isinstance(msg, Hint):
-            raise ValueError(f"{repr(msg)} is not a Hint")
-
-        return super()._log(level, msg, *args, **kwargs)
-
-
-root = Hinter(name="root", level=WARNING)
-Hinter.root = typing.cast(logging.RootLogger, root)
-Hinter.manager = logging.Manager(Hinter.root)
-Hinter.manager.loggerClass = Hinter
-
-
-def getHinter(name: typing.Optional[str] = None) -> Hinter:
-    """Get a hinter with the given name.
-
-    Arguments:
-        name: The name of the hinter to get - if `None` this returns the
-            root Hinter.
-
-    Returns:
-        A Hinter with the given name.
-    """
-
-    if not name or isinstance(name, str) and name == root.name:
-        return root
-
-    return typing.cast(Hinter, Hinter.manager.getLogger(name))
-
-
-__all__ = [
-    "Hint",
-    "EmulationException",
-    "UnderSpecifiedValueHint",
-    "UnderSpecifiedRegisterHint",
-    "UnderSpecifiedMemoryHint",
-    "UnderSpecifiedMemoryRefHint",
-    "InputUseHint",
-    "TypeHint",
-    "RegisterPointerHint",
-    "RegisterPointsToHint",
-    "MemoryPointerHint",
-    "MemoryPointsToHint",
-    "StructureHint",
-    "getHinter",
-]
