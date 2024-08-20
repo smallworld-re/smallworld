@@ -6,11 +6,6 @@ import typing
 from .. import utils
 
 
-# TODO: relocate this to exceptions module once refactored
-class ExecutionBoundsError(Exception):
-    """Raised when execution goes out of bounds."""
-
-
 class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     """An emulation environment."""
 
@@ -435,7 +430,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         """Add valid execution bounds.
 
         If execution leaves these bounds Emulators should raise
-        ExecutionBoundsError.
+        EmulationBoundsError.
 
         If execution bounds are not specified, Emulators should allow execution
         anywhere.
@@ -466,7 +461,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         """Single instruction step execution.
 
         Raises:
-            ExecutionBoundsError: if execution steps out of bounds.
+            EmulationBoundsError: if execution steps out of bounds.
         """
 
         pass
@@ -476,7 +471,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         """Single block step execution.
 
         Raises:
-            ExecutionBoundsError: if execution steps out of bounds.
+            EmulationBoundsError: if execution steps out of bounds.
         """
 
         pass
@@ -485,7 +480,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         """Helper for single instruction step execution.
 
         Raises:
-            ExecutionBoundsError: if execution steps out of bounds.
+            EmulationBoundsError: if execution steps out of bounds.
         """
 
         return self.step_instruction()
@@ -494,11 +489,11 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def run(self) -> None:
         """Run execution indefinitely.
 
-        Execution should stop if an exitpoint is reached or execution leaves
+        Emulation should stop if an exitpoint is reached or execution leaves
         valid bounds.
 
         Raises:
-            ExecutionBoundsError: if execution steps out of bounds.
+            EmulationBoundsError: if execution steps out of bounds.
         """
 
         pass
@@ -508,4 +503,4 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return ""
 
 
-__all__ = ["ExecutionBoundsError", "Emulator"]
+__all__ = ["Emulator"]
