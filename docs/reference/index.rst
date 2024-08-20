@@ -7,3 +7,4 @@ Reference
 
     smallworld
     smallworld.hinting
+    smallworld.emulators

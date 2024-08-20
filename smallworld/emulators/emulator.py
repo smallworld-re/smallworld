@@ -1,63 +1,189 @@
 from __future__ import annotations
 
 import abc
-import copy
-import logging
 import typing
 
-from .. import state
 
-logger = logging.getLogger(__name__)
+# TODO: relocate this to exceptions module once refactored
+class ExecutionBoundsError(Exception):
+    """Raised when execution goes out of bounds."""
 
 
 class Emulator(metaclass=abc.ABCMeta):
-    """An emulator base class.
-
-    Defines the interface for emulators.
-    """
+    """An emulation environment."""
 
     @abc.abstractmethod
-    def read_register(self, name: str) -> int:
-        """Read a value from a register.
+    def read_register_content(self, name: str) -> int:
+        """Read the content of a register.
 
         Arguments:
-            name: The name of the register to read.
+            name: The name of the register.
 
         Returns:
-            The register value.
+            The register's content.
         """
 
         return 0
 
+    def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
+        """Read the type of a register.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Arguments:
+            name: The name of the register.
+
+        Returns:
+            The register's type.
+        """
+
+        return None
+
+    def read_register_label(self, name: str) -> typing.Optional[str]:
+        """Read the label of a register.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Arguments:
+            name: The name of the register.
+
+        Returns:
+            The register's label.
+        """
+
+        return None
+
+    def read_register(self, name: str) -> int:
+        """A helper to read the content of a register.
+
+        Arguments:
+            name: The name of the register.
+
+        Returns:
+            The register's content.
+        """
+
+        return self.read_register_content(name)
+
     @abc.abstractmethod
-    def write_register(
-        self,
-        name: str,
-        value: typing.Optional[int],
-        label: typing.Optional[typing.Any] = None,
-    ) -> None:
-        """Write a value to a register.
+    def write_register_content(self, name: str, content: int) -> None:
+        """Write some content to a register.
 
         Arguments:
             name: The name of the register to write.
-            value: The value to write.
+            content: The content to write.
         """
 
         pass
 
-    @abc.abstractmethod
-    def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
-        """Read memory from a specific address.
+    def write_register_type(
+        self, name: str, type: typing.Optional[typing.Any] = None
+    ) -> None:
+        """Write the type of a register.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
 
         Arguments:
-            address: The address to read.
-            size: The content of the read.
+            name: The name of the register.
+            type: The type of the register to write. To unset the register
+                type, this may be set to None.
+        """
+
+        pass
+
+    def write_register_label(
+        self, name: str, label: typing.Optional[str] = None
+    ) -> None:
+        """Write the label of a register.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Arguments:
+            name: The name of the register.
+            label: The label of the register to write. To unset the register
+                label, this may be set to None.
+        """
+
+        pass
+
+    def write_register(self, name: str, content: int) -> None:
+        """A helper to write the content of a register.
+
+        Arguments:
+            name: The name of the register.
+            content: The content to write.
+        """
+
+        return self.write_register_content(name, content)
+
+    @abc.abstractmethod
+    def read_memory_content(self, address: int, size: int) -> bytes:
+        """Read memory content from a specific address.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
 
         Returns:
             `size` bytes read from `address`.
         """
 
         return b""
+
+    def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
+        """Read memory type from a specific address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
+
+        Returns:
+            The memory region's type.
+        """
+
+        return None
+
+    def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
+        """Read memory label from a specific address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
+
+        Returns:
+            The memory region's label.
+        """
+
+        return None
+
+    def read_memory(self, address: int, size: int) -> bytes:
+        """A helper to read memory content from a specific address.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
+
+        Returns:
+            `size` bytes read from `address`.
+        """
+
+        return self.read_memory_content(address, size)
 
     @abc.abstractmethod
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
@@ -75,123 +201,309 @@ class Emulator(metaclass=abc.ABCMeta):
 
         return 0
 
-    def write_memory(
-        self,
-        address: int,
-        value: typing.Optional[bytes],
-        label: typing.Optional[typing.Dict[int, typing.Any]] = None,
-    ) -> None:
-        """Write memory at a specific address.
+    @abc.abstractmethod
+    def write_memory_content(self, address: int, content: bytes) -> None:
+        """Write content to memory at a specific address.
 
-        Note: written memory should already be mapped by some call to
-        `map_memory()`.
+        Note:
+            Written memory should already be mapped by some call to
+            `map_memory()`.
 
         Arguments:
-            address: The address to write.
-            value: The value to write.
+            address: The address of the memory region.
+            content: The content to write.
         """
 
         pass
 
-    @abc.abstractmethod
-    def load(self, code: state.Code) -> None:
-        """Load a binary for execution.
+    def write_memory_type(
+        self, address: int, type: typing.Optional[typing.Any] = None
+    ) -> None:
+        """Set the type of memory at a specific address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
 
         Arguments:
-            code: The executable to load.
+            address: The address of the memory region.
+            type: The type to write.
         """
 
         pass
 
-    @abc.abstractmethod
-    def hook(
-        self,
-        address: int,
-        function: typing.Callable[[Emulator], None],
-        finish: bool = False,
+    def write_memory_label(
+        self, address: int, label: typing.Optional[str] = None
     ) -> None:
-        """Register an execution hook at the given address.
+        """Set the label of memory at a specific address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Arguments:
+            address: The address of the memory region.
+            label: The label to write.
+        """
+
+        pass
+
+    def write_memory(self, address: int, content: bytes) -> None:
+        """A helper to write content to memory at a specific address.
+
+        Note:
+            Written memory should already be mapped by some call to
+            `map_memory()`.
+
+        Arguments:
+            address: The address of the memory region.
+            content: The content to write.
+        """
+
+        self.write_memory_content(address, content)
+
+    def hook_instruction(
+        self, address: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        """Register an execution hook at the given instruction address.
+
+        The hook fires *before* the instruction executes.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Example:
+            The hook function should look like::
+
+                def hook(emulator: Emulator) -> None:
+                    ...
 
         Arguments:
             address: The address to hook.
             function: The hook function.
-            finish: If `True` step out of the current call after running the
-                hook function.
+        """
+
+        raise NotImplementedError(
+            f"{self.__class__.__name__}: instruction hooking not supported"
+        )
+
+    def hook_function(
+        self, address: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        """Register an execution hook at the given function address.
+
+        The hook fires *instead* of the function at the given address.  This
+        means that the hook function is called *before* the function at the
+        given address and execution returns to the calling address after the
+        hook function, skipping any code at the given address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Example:
+            The hook function should look like::
+
+                def hook(emulator: Emulator) -> None:
+                    ...
+
+        Arguments:
+            address: The address to hook.
+            function: The hook function.
+        """
+
+        raise NotImplementedError(
+            f"{self.__class__.__name__}: function hooking not supported"
+        )
+
+    def hook_memory_read(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[Emulator, int, int], bytes],
+    ) -> None:
+        """Register an execution hook on memory read in the given region.
+
+        The hook fires *before* the memory read. The return value of the hook
+        function is used instead of reading the target memory address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Example:
+            The hook function should look like::
+
+                def hook(emulator: Emulator, address: int, size: int) -> bytes:
+                    ...
+
+                    return content
+
+        Arguments:
+            start: The start of the memory region to hook.
+            end: The end of the memory region to hook.
+            function: The hook function.
+        """
+
+        raise NotImplementedError(
+            f"{self.__class__.__name__}: memory read hooking not supported"
+        )
+
+    def hook_memory_write(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[Emulator, int, int], None],
+    ) -> None:
+        """Register an execution hook on memory write in the given region.
+
+        The hook fires *before* the memory write.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Example:
+            The hook function should look like::
+
+                def hook(emulator: Emulator, address: int, size: int, content: bytes) -> None:
+                    ...
+
+        Arguments:
+            start: The start of the memory region to hook.
+            end: The end of the memory region to hook.
+            function: The hook function.
+        """
+
+        raise NotImplementedError(
+            f"{self.__class__.__name__}: memory write hooking not supported"
+        )
+
+    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]):
+        """Register an execution hook on any interrupt.
+
+        The hook fires *before* the interrupt is processed.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Example:
+            The hook function should look like::
+
+                def hook(emulator: Emulator, interrupt: int) -> None:
+                    ...
+
+        Arguments:
+            function: The hook function.
+        """
+
+        raise NotImplementedError(
+            f"{self.__class__.__name__}: broad interrupt hooking not supported"
+        )
+
+    def hook_interrupt(self, function: typing.Callable[[Emulator], None]):
+        """Register an execution hook on a specific interrupt.
+
+        The hook fires *before* the interrupt is processed.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators.
+
+        Example:
+            The hook function should look like::
+
+                def hook(emulator: Emulator) -> None:
+                    ...
+
+        Arguments:
+            function: The hook function.
+        """
+
+        raise NotImplementedError(
+            f"{self.__class__.__name__}: specific interrupt hooking not supported"
+        )
+
+    bounds: typing.List[typing.Tuple[int, int]] = []
+    """Valid execution bounds."""
+
+    def bound(self, start: int, end: int) -> None:
+        """Add valid execution bounds.
+
+        If execution leaves these bounds Emulators should raise
+        ExecutionBoundsError.
+
+        If execution bounds are not specified, Emulators should allow execution
+        anywhere.
+
+        Arguments:
+            start: The start address of a valid executable region.
+            end: The end address of a valid executable region.
+        """
+
+        self.bounds.append((start, end))
+
+    exitpoints: typing.List[int] = []
+    """Exit points to stop emulation."""
+
+    def exitpoint(self, address: int) -> None:
+        """Add an exitpoint.
+
+        If execution reaches an exitpoint emulation should stop.
+
+        Arguments:
+            address: The address of the exitpoint.
+        """
+
+        self.exitpoints.append(address)
+
+    @abc.abstractmethod
+    def step_instruction(self) -> None:
+        """Single instruction step execution.
+
+        Raises:
+            ExecutionBoundsError: if execution steps out of bounds.
         """
 
         pass
 
     @abc.abstractmethod
-    def hook_memory(
-        self,
-        address: int,
-        size: int,
-        on_read: typing.Optional[typing.Callable[[Emulator, int, int], bytes]] = None,
-        on_write: typing.Optional[
-            typing.Callable[[Emulator, int, int, bytes], None]
-        ] = None,
-    ) -> None:
-        """Register a memory hook at a given address.
+    def step_block(self) -> None:
+        """Single block step execution.
 
-        Can register separate callbacks for hooking reads and writes.
-        At least one of the two callbacks must be specified.
-
-        Arguments:
-            address: The address to hook
-            size: The number of bytes to hook
-            on_read: Callback to execute on read
-            on_write: Callback to execute on write
+        Raises:
+            ExecutionBoundsError: if execution steps out of bounds.
         """
+
         pass
+
+    def step(self) -> None:
+        """Helper for single instruction step execution.
+
+        Raises:
+            ExecutionBoundsError: if execution steps out of bounds.
+        """
+
+        return self.step_instruction()
 
     @abc.abstractmethod
     def run(self) -> None:
-        """Start execution."""
+        """Run execution indefinitely.
 
-        pass
+        Execution should stop if an exitpoint is reached or execution leaves
+        valid bounds.
 
-    @abc.abstractmethod
-    def step(self, single_insn: bool = False) -> bool:
-        """Single-step execution.
-
-        Emulators may support block and/or instruction stepping,
-        and the default mode may change per emulator.
-
-        Arguments:
-            single_insn: If true, step by one instruction
-
-        Returns:
-            `True` if we have reached the program exit point, otherwise `False`.
+        Raises:
+            ExecutionBoundsError: if execution steps out of bounds.
         """
 
         pass
-
-    def emulate(
-        self, cpu: state.CPU, single_step=False, steps: typing.Optional[int] = None
-    ):
-        """Emulate execution of some code.
-
-        Arguments:
-            cpu: A state class from which emulation should begin.
-
-        Returns:
-            The final state of the system.
-        """
-
-        cpu.apply(self)
-        if steps is not None:
-            while steps > 0 and not self.step(single_insn=True):
-                steps -= 1
-        elif single_step:
-            while not self.step(single_insn=True):
-                pass
-        else:
-            self.run()
-        cpu = copy.deepcopy(cpu)
-        cpu.load(self)
-
-        return cpu
 
     @abc.abstractmethod
     def __repr__(self) -> str:
         return ""
+
+
+__all__ = ["ExecutionBoundsError", "Emulator"]
