@@ -3,13 +3,15 @@ from __future__ import annotations
 import abc
 import typing
 
+from .. import utils
+
 
 # TODO: relocate this to exceptions module once refactored
 class ExecutionBoundsError(Exception):
     """Raised when execution goes out of bounds."""
 
 
-class Emulator(metaclass=abc.ABCMeta):
+class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     """An emulation environment."""
 
     @abc.abstractmethod

@@ -2,54 +2,16 @@ import abc
 import logging
 import typing
 
-from .. import hinting, state
-
-logger = logging.getLogger(__name__)
-hinter = hinting.getHinter(__name__)
+from .. import hinting, utils
 
 
-class Metadata(metaclass=abc.ABCMeta):
-    @property
+class Analysis(utils.MetadataMixin):
+    """An analysis that emits some information to help with harnessing."""
+
+    # TODO: replace state type with Machine after refactoring state module
     @abc.abstractmethod
-    def name(self) -> str:
-        """The name of this analysis.
-
-        Names should be kebab-case, all lowercase, no whitespace for proper
-        formatting.
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def description(self) -> str:
-        """A description of this analysis.
-
-        Descriptions should be a single sentence, lowercase, with no final
-        punctuation for proper formatting.
-        """
-
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def version(self) -> str:
-        """The version string for this analysis.
-
-        We recommend using `Semantic Versioning`_
-
-        .. _Semantic Versioning:
-            https://semver.org/
-        """
-
-        return ""
-
-
-class Analysis(Metadata):
-    """The base class for all analyses."""
-
-    @abc.abstractmethod
-    def run(self, state: state.CPU) -> None:
-        """Actually run the analysis.
+    def run(self, state: typing.Any) -> None:
+        """Run the analysis.
 
         This function **should not** modify the provided State - instead, it
         should be coppied before modification.
@@ -61,8 +23,8 @@ class Analysis(Metadata):
         pass
 
 
-class Filter(Metadata):
-    """The base class for filter analyses.
+class Filter(utils.MetadataMixin):
+    """Analyses that consume and sometimes produce additional hints.
 
     Filter analyses are analyses that consume some part of the hint stream and
     possibly emit additional hints. These analyses do not run any analysis on
@@ -76,7 +38,7 @@ class Filter(Metadata):
         self,
         hint: typing.Type[hinting.Hint],
         method: typing.Callable[[hinting.Hint], None],
-    ):
+    ) -> None:
         """Register a listener on the hint stream.
 
         Arguments:
@@ -116,3 +78,10 @@ class Filter(Metadata):
 
         for handler in self.listeners:
             hinting.root.removeHandler(handler)
+
+    def __del__(self):
+        self.deactivate()
+        super().__del__()
+
+
+__all__ = ["Analysis", "Filter"]
