@@ -10,4 +10,4 @@ __version__ = metadata["version"]
 
 from . import analyses, emulators, exceptions, extern, hinting, logging
 
-__all__ = ["hinting", "emulators", "analyses", "exceptions", "logging", "extern"]
+__all__ = ["logging", "hinting", "emulators", "analyses", "exceptions", "extern"]
