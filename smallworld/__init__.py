@@ -8,6 +8,6 @@ __author__ = metadata["Author"]
 __version__ = metadata["version"]
 
 
-from . import hinting
+from . import emulators, hinting
 
-__all__ = ["hinting"]
+__all__ = ["hinting", "emulators"]
