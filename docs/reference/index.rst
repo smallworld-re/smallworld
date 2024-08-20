@@ -10,3 +10,4 @@ Reference
     smallworld.emulators
     smallworld.analyses
     smallworld.logging
+    smallworld.extern.ctypes

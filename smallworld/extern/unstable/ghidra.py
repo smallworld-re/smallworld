@@ -1,15 +1,17 @@
 import logging
 import typing
 
-from . import models, state
+# TODO fix these imports after refactoring state module
+# from ... import models, state
 
 logger = logging.getLogger(__name__)
 
 
+# TODO: fix the cpustate type label once refactoring state module is complete
 def setup_default_libc(
     flat_api: typing.Any,
     libc_func_names: typing.List[str],
-    cpustate: state.CPU,
+    cpustate: typing.Any,
     canonicalize: bool = True,
 ) -> None:
     """Map some default libc models into the cpu state.
@@ -73,8 +75,12 @@ def setup_default_libc(
     )
 
 
+# TODO: fix the cpustate type label once refactoring state module is complete
 def setup_section(
-    flat_api: typing.Any, section_name: str, cpustate: state.CPU, elf_file: str = "None"
+    flat_api: typing.Any,
+    section_name: str,
+    cpustate: typing.Any,
+    elf_file: str = "None",
 ) -> bytes:
     """Set up this section in cpustate, possibly using contents of elf file
 
