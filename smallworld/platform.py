@@ -2,7 +2,7 @@ import enum
 from dataclasses import dataclass
 
 
-class Architecture(str, enum.Enum):
+class Architecture(enum.Enum):
     """Architecture and mode.
 
     Names take the form ``{ARCH}_{MODE}`` where ``{ARCH}`` and ``{MODE}``
@@ -18,7 +18,7 @@ class Architecture(str, enum.Enum):
     """64-bit x86."""
 
 
-class Byteorder(str, enum.Enum):
+class Byteorder(enum.Enum):
     """Endianness."""
 
     BIG = "big"
@@ -31,7 +31,7 @@ class Byteorder(str, enum.Enum):
     """Middle endian - also known as PDP-endian."""
 
 
-class ABI(str, enum.Enum):
+class ABI(enum.Enum):
     """Application binary interface.
 
     Names match the regex ``[A-Z]+``.
