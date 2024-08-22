@@ -3,11 +3,18 @@ from __future__ import annotations
 import abc
 import typing
 
-from .. import utils
+from .. import platform, utils
 
 
 class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
-    """An emulation environment."""
+    """An emulation environment.
+
+    Arguments:
+        platform: Platform metadata for emulation.
+    """
+
+    def __init__(self, platform: platform.Platform):
+        self.platform = platform
 
     @abc.abstractmethod
     def read_register_content(self, name: str) -> int:
