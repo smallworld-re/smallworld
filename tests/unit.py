@@ -2,7 +2,7 @@ import signal
 import typing
 import unittest
 
-from smallworld import emulators, initializers, instructions, state
+from smallworld import emulators, initializers, state
 
 
 class assertTimeout:
@@ -251,90 +251,6 @@ class UnicornEmulatorTests(unittest.TestCase):
         self.assertEqual(read1, value1)
         self.assertEqual(read2, value2)
         self.assertEqual(read3, value3)
-
-
-class InstructionTests(unittest.TestCase):
-    def test_semantics_nop(self):
-        # nop
-        i = instructions.Instruction.from_bytes(b"\x90", 0x1000, "x86", "64")
-
-        self.assertEqual(len(i.reads), 0)
-        self.assertEqual(len(i.writes), 0)
-
-    def test_semantics_register_cmp(self):
-        # cmp eax, ebx
-        i = instructions.Instruction.from_bytes(b"\x39\xd8", 0x1000, "x86", "64")
-
-        reads = [getattr(o, "name", None) for o in i.reads]
-        writes = [getattr(o, "name", None) for o in i.writes]
-
-        self.assertIn("eax", reads)
-        self.assertIn("ebx", reads)
-        self.assertIn("rflags", writes)
-
-    def test_semantics_memory_cmp(self):
-        # cmp eax, [rbx + 0x10]
-        i = instructions.Instruction.from_bytes(b"\x3b\x43\x10", 0x1000, "x86", "64")
-
-        reads = [getattr(o, "name", None) for o in i.reads]
-        writes = [getattr(o, "name", None) for o in i.writes]
-
-        self.assertIn("eax", reads)
-        self.assertIn("rbx", reads)
-
-        for read in reads:
-            if type(read) is instructions.BSIDMemoryReferenceOperand:
-                self.assertEqual(read.base, "rbx")
-                self.assertEqual(read.index, None)
-                self.assertEqual(read.scale, 1)
-                self.assertEqual(read.offset, 0x10)
-                self.assertEqual(read.size, 4)
-
-        self.assertIn("rflags", writes)
-
-    def test_semantics_register_mov(self):
-        # cmp eax, ebx
-        i = instructions.Instruction.from_bytes(b"\x89\xd8", 0x1000, "x86", "64")
-
-        reads = [getattr(o, "name", None) for o in i.reads]
-        writes = [getattr(o, "name", None) for o in i.writes]
-
-        self.assertIn("ebx", reads)
-        self.assertIn("eax", writes)
-
-    def test_semantics_memory_mov_complex(self):
-        # mov eax, [eax+ecx*8+0x10]
-        i = instructions.Instruction.from_bytes(
-            b"\x8b\x44\xc8\x10", 0x1000, "x86", "64"
-        )
-
-        reads = [getattr(o, "name", None) for o in i.reads]
-        writes = [getattr(o, "name", None) for o in i.writes]
-
-        self.assertIn("rax", reads)
-        self.assertIn("rcx", reads)
-        self.assertIn("eax", writes)
-
-        for read in reads:
-            if type(read) is instructions.BSIDMemoryReferenceOperand:
-                self.assertEqual(read.base, "rax")
-                self.assertEqual(read.index, "rcx")
-                self.assertEqual(read.scale, 8)
-                self.assertEqual(read.offset, 0x10)
-                self.assertEqual(read.size, 4)
-
-    def test_x86_memory_reference_operand_serialization(self):
-        a = instructions.BSIDMemoryReferenceOperand("rax", "rbx", 1, 0)
-        self.assertEqual(a.base, "rax")
-        self.assertEqual(a.index, "rbx")
-        self.assertEqual(a.scale, 1)
-        self.assertEqual(a.offset, 0)
-        json = a.to_json()
-        b = instructions.BSIDMemoryReferenceOperand.from_json(json)
-        self.assertEqual(b.base, "rax")
-        self.assertEqual(b.index, "rbx")
-        self.assertEqual(b.scale, 1)
-        self.assertEqual(b.offset, 0)
 
 
 if __name__ == "__main__":
