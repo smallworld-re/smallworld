@@ -28,7 +28,7 @@ class Byteorder(str, enum.Enum):
     """Little endian - least significant bit first."""
 
     MIDDLE = "middle"
-    """Middle endian - also known as PDP-endian"""
+    """Middle endian - also known as PDP-endian."""
 
 
 class ABI(str, enum.Enum):
