@@ -8,6 +8,7 @@ Reference
     smallworld
     smallworld.logging
     smallworld.hinting
+    smallworld.platform
     smallworld.emulators
     smallworld.analyses
     smallworld.exceptions
