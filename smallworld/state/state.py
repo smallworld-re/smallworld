@@ -1,244 +1,111 @@
-from __future__ import annotations
-
 import abc
-import ctypes
-import logging
-import re
-import textwrap
 import typing
 
-from .. import emulators, initializers, utils
-
-logger = logging.getLogger(__name__)
+from .. import emulators, platform
 
 
-class Value(metaclass=abc.ABCMeta):
-    """A state value storage base class.
+class Stateful(metaclass=abc.ABCMeta):
+    """System state that can be applied to/loaded from an emulator."""
 
-    Defines the interface for a single system state value.
-    """
-
-    @property
     @abc.abstractmethod
-    def value(self):
-        """Get the internaly stored value.
-
-        Returns:
-            Some internal value type.
-        """
-
-        pass
-
-    @value.setter
-    @abc.abstractmethod
-    def value(self, value) -> None:
-        """Set the internally stored value.
+    def get(emulator: emulators.Emulator) -> None:
+        """Load state from an emulator.
 
         Arguments:
-            value: Some internal value type.
+            emulator: The emulator from which to load state.
         """
 
-        pass
-
-    type: typing.Any = None
-    """Optinal type information."""
-
-    label: typing.Any = None
-    """Optional label information."""
-
     @abc.abstractmethod
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        """Set the internally stored value using an initialization strategy.
+    def set(emulator: emulators.Emulator) -> None:
+        """Apply state to an emulator.
 
         Arguments:
-            initializer: Initialization strategy instance.
-            override: If `True` override existing values, otherwise keep
-                them. Default: `False`.
+            emulator: The emulator to which state should applied.
         """
 
-        pass
+
+class Value(Stateful):
+    """An individual state value."""
+
+    content: typing.Optional[typing.Any] = None
+    """Stored value."""
+
+    type: typing.Optional[typing.Any] = None
+    """Type object/class."""
+
+    label: typing.Optional[str] = None
+    """A useful label."""
+
+    size: int = 0
+    """Size in bytes."""
 
     @abc.abstractmethod
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        """Load the state value.
+    def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
+        """Convert content to bytes."""
 
-        Arguments:
-            emulator: Emulator from which to load state.
-            override: If `True` override existing values, otherwise keep
-                them. Default: `True`.
-        """
-
-        pass
-
-    @abc.abstractmethod
-    def apply(self, emulator: emulators.Emulator) -> None:
-        """Apply state value to an emulator.
-
-        Arguments:
-            emulator: Emulator to which state should be applied.
-        """
-
-        pass
-
-    @abc.abstractmethod
-    def __repr__(self) -> str:
-        """Instance stringifier.
-
-        Implementation required.
-        """
-
-        return ""
-
-
-class Code(Value):
-    """An executable image and metadata storage class.
-
-    Arguments:
-        image: The actual bytes of the executable.
-        base: Base address.
-        format: Executable format ("blob", "PE", "ELF", etc.)
-        arch: Architecture ("x86", "arm", etc.)
-        mode: Architecture mode ("32", "64", etc.)
-        entry: Execution entry address - if not provided this is assumed to be
-            the same as `base`.
-        bounds: Address ranges of valid execution - if not provided this is the
-            entire address range of this executable code.
-    """
-
-    def __init__(
-        self,
-        image: bytes,
-        base: int,
-        format: typing.Optional[str] = None,
-        arch: typing.Optional[str] = None,
-        mode: typing.Optional[str] = None,
-        entry: typing.Optional[int] = None,
-        bounds: typing.Optional[typing.Iterable[range]] = None,
-    ):
-        super().__init__()
-
-        self.image = image
-        self.format = format
-        self.arch = arch
-        self.mode = mode
-        self.base = base
-        self.entry = entry or base
-        self.bounds = bounds or [range(self.base, self.base + len(image))]
+        return b""
 
     @classmethod
-    def from_filepath(cls, path: str, *args, **kwargs):
-        with open(path, "rb") as f:
-            image = f.read()
+    def from_ctypes(cls, value: typing.Any):
+        """Load from an existing ctypes object."""
 
-        return cls(image, *args, **kwargs)
-
-    @property
-    def value(self):
-        raise NotImplementedError()
-
-    @value.setter
-    def value(self, value) -> None:
-        raise NotImplementedError()
-
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        logger.debug(f"skipping initialization for {self} (code)")
-
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        logger.debug(f"{self} loading not supported - load skipped")
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.load(self)
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(format={self.format}, arch={self.arch}, mode={self.mode}, base={self.base}, entry={self.entry})"
+        raise NotImplementedError("TODO")
 
 
 class Register(Value):
-    """A register value.
+    """An individual register.
 
     Arguments:
         name: The canonical name of the register.
-        width: The size (in bytes) of the register.
+        size: The width (in bytes) of the register.
     """
 
-    def __init__(self, name: str, width: int = 4):
+    content: typing.Optional[int] = None
+    type = None
+    label = None
+
+    size = 0
+    """Register width in bytes."""
+
+    def __init__(self, name: str, size: int = 4):
         super().__init__()
 
-        self.name = name
-        self.width = width
-        self._value: typing.Optional[int] = None
+        self.name: str = name
+        """Canonical name."""
 
-    @property
-    def value(self) -> typing.Optional[int]:
-        return self._value
+        self.size = size
 
-    @value.setter
-    def value(self, value: typing.Optional[int]) -> None:
-        if value is None:
-            self._value = None
-        elif value.bit_length() > self.width * 8:
-            raise ValueError(f"{value} is too large for {self}")
-        else:
-            logger.debug(f"initializing value {self}")
-            self._value = value
+    def get(self, emulator: emulators.Emulator) -> None:
+        self.content = emulator.read_register_content(self.name)
+        self.type = emulator.read_register_type(self.name)
+        self.label = emulator.read_register_label(self.name)
 
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        if self.value is not None and not override:
-            logger.debug(f"skipping initialization for {self} (already initialized)")
-            return
-
-        if self.width == 1:
-            self.value = initializer.char()
-        elif self.width == 2:
-            self.value = initializer.short()
-        elif self.width == 4:
-            self.value = initializer.word()
-        elif self.width == 8:
-            self.value = initializer.dword()
-        else:
-            raise ValueError("unsupported register width for initialization")
-
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        if self.value is not None and not override:
-            logger.debug(f"skipping load for {self} (already loaded)")
-            return
-
-        self.value = emulator.read_register(self.name)
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_register(self.name, self.value, self.label)
-
-    def __repr__(self) -> str:
-        if self.value is not None:
-            rep = f"{self.name}=0x{self.value:x}"
-        else:
-            rep = f"{self.name}"
-
-        return f"Register({rep})"
+    def set(self, emulator: emulators.Emulator) -> None:
+        emulator.write_register_content(self.name, self.content)
+        emulator.write_register_type(self.name, self.type)
+        emulator.write_register_label(self.name, self.label)
 
 
-class RegisterAlias(Register):
+def RegisterAlias(Register):
     """An alias to a partial register.
 
     Arguments:
-        name: The canonical name of the register.
+        name: The cannonical name of the register.
         reference: A register which this alias references.
-        width: The size (in bytes) of the register.
+        size: The size (in bytes) of the register.
         offset: The offset from the start of the register that this alias
             references.
+
     """
 
-    def __init__(self, name: str, reference: Register, width: int = 4, offset: int = 0):
-        super().__init__(name, width)
+    def __init__(self, name: str, reference: Register, size: int = 4, offset: int = 0):
+        super().__init__(name, size)
 
-        self.reference = reference
+        self.reference: Register = reference
+        """The register referenced by this alias."""
+
         self.offset = offset
+        """'The offset into the referenced register."""
 
     @property
     def mask(self) -> int:
@@ -249,626 +116,24 @@ class RegisterAlias(Register):
 
         return mask
 
-    @property
-    def value(self) -> typing.Optional[int]:
-        reference = self.reference.value
+    def get(self, emulator: emulators.Emulator) -> None:
+        self.reference.get(emulator)
 
-        if reference is None:
-            return None
+        self.content = self.reference.content & self.mask
+        self.content >>= self.offset * 8
 
-        value = reference & self.mask
-        value >>= self.offset * 8
+        self.type = self.reference.type
+        self.label = self.reference.label
 
-        return value
-
-    @value.setter
-    def value(self, value: int) -> None:
-        if value.bit_length() > self.width * 8:
-            raise ValueError(f"{value} is too large for {self}")
-
-        reference = self.reference.value or 0
-
+    def set(self, emulator: emulators.Emulator) -> None:
+        reference = self.reference.content or 0
         result = (reference & ~self.mask) + value
+        self.reference.content = result
 
-        self.reference.value = result
+        self.reference.type = self.type
+        self.reference.label = self.label
 
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        logger.debug(f"skipping initialization for {self} (alias)")
+        self.reference.set(emulator)
 
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        """Register references store no value, so this does nothing."""
 
-        logger.debug(f"{self} is a register reference - load skipped")
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        """Register references store no value, so this does nothing."""
-
-        logger.debug(f"{self} is a register reference - apply skipped")
-
-
-class Memory(Value):
-    """A memory region base class.
-
-    Arguments:
-        address: The address of this memory region.
-        size: The size (in bytes) of this memory region.
-    """
-
-    def __init__(self, address: int, size: int, byteorder="little"):
-        super().__init__()
-
-        self.address = address
-        self.size = size
-        self.byteorder = byteorder
-        self.memory = b""
-
-        self.type: typing.Dict[int, typing.Any] = {}
-        self.label: typing.Dict[int, typing.Tuple[int, typing.Any]] = {}
-
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        if self.value is not None and not override:
-            logger.debug(f"skipping initialization for {self} (already initialized)")
-            return
-
-        self.value = initializer.generate(self.size)
-
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        if self.value is not None and not override:
-            logger.debug(f"skipping load for {self} (already loaded)")
-            return
-
-        value = emulator.read_memory(self.address, self.size)
-
-        if value:
-            self.value = value
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_memory(self.address, self.value, self.label)
-
-    @property
-    def value(self) -> typing.Optional[bytes]:
-        return self.memory
-
-    @value.setter
-    def value(self, value: bytes) -> None:
-        if len(value) > self.size:
-            raise ValueError("buffer too large for this memory region")
-
-        self.memory = value
-
-    def __repr__(self) -> str:
-        value_bytes = self.value
-        if value_bytes is not None:
-            value_bytes = value_bytes[:100]
-            value = value_bytes.decode(errors="replace")
-            value = textwrap.shorten(value, width=32)
-
-            rep = f'{self.address:x}="{value}"[{self.size}]'
-        else:
-            rep = f"{self.address:x}->{self.address + self.size:x}[{self.size}]"
-
-        return f"Memory({rep})"
-
-    def to_bytes(self, value, size: typing.Optional[int] = None) -> bytes:
-        """Convert a given value to bytes.
-
-        Arguments:
-            value: Object to be converted.
-            size: Size.
-        """
-
-        if type(value) in (bytes, bytearray):
-            return value
-        elif type(value) is int:
-            if size is None:
-                raise ValueError("need a size to convert int to bytes")
-            return value.to_bytes(size, byteorder=self.byteorder)
-        elif isinstance(value, ctypes.Structure):  # type(value) is ctypes.Structure:
-            return bytes(value)
-        else:
-            raise NotImplementedError(f"unsupported type: {type(value)}")
-
-    def set_type(
-        self,
-        offset: int,
-        type: typing.Optional[typing.Any] = None,
-        value: typing.Optional[typing.Any] = None,
-    ) -> None:
-        """Set the type of a given allocation.
-
-        Arguments:
-            offset: The offset of the object to type.
-            type: The type to set.
-            value: A value from which to infer type.
-        """
-
-        candidate = None
-
-        if type:
-            candidate = type
-        elif value:
-            if isinstance(value, Value):
-                candidate = value.type
-            else:
-                logger.warning(f"cannot infer type from {value}")
-
-        self.type[offset] = candidate
-
-    def set_label(
-        self,
-        offset: int,
-        size: int,
-        label: typing.Optional[typing.Any] = None,
-        value: typing.Optional[typing.Any] = None,
-    ) -> None:
-        """Set the label of a given allocation.
-
-        Arguments:
-            offset: The offset of the object to label.
-            label: The label to set.
-            value: A value from which to infer label.
-        """
-
-        candidate = None
-
-        if label:
-            candidate = label
-        elif value:
-            if isinstance(value, Value):
-                candidate = value.label
-            else:
-                logger.warning(f"cannot infer label from {value}")
-        self.label[offset] = (size, candidate)
-
-
-class Stack(Memory):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.memory: typing.List[typing.Tuple(bytes, int)] = []
-        self.used = 0
-        self.sp = self.address + self.size
-        self.argc = 0
-        # an address (beginning of argv array)
-        self.argv = 0x0
-
-    @property
-    def value(self) -> typing.Optional[bytes]:
-        buffer = bytearray()
-        for v, s in reversed(self.memory):
-            buffer += self.to_bytes(v, s)
-
-        if len(buffer) > self.size:
-            raise ValueError("buffer too large for this memory region")
-
-        value = bytearray(self.size)
-        if len(buffer) > 0:
-            value[-len(buffer) :] = buffer
-        return value
-
-    @value.setter
-    def value(self, value: bytes) -> None:
-        if len(value) > self.size:
-            raise ValueError("buffer too large for this memory region")
-
-        # Best effort value retrieval.
-        #
-        # We don't know what all has changed since this was initially set, so
-        # there's no way to split the value read out of an Emulator into
-        # individual stack values. The best we can do is treat the entire
-        # region as a single allocation.
-
-        self.memory = [(value, len(value))]
-        self.used = len(value)
-
-    def push(
-        self,
-        value,
-        size: typing.Optional[int] = None,
-        type: typing.Optional[typing.Any] = None,
-        label: typing.Optional[typing.Any] = None,
-    ) -> int:
-        if type is None:
-            type = value.__class__
-
-        allocation_size = len(self.to_bytes(value, size))
-
-        if self.used + allocation_size > self.size:
-            raise ValueError(
-                f"{value} (size: {allocation_size}) is too large for {self}"
-            )
-
-        if size and (allocation_size != size):
-            raise ValueError("size mismatch")
-
-        self.memory.append((value, allocation_size))
-        self.used += allocation_size
-
-        stack_offset = (self.address + self.size) - self.used
-
-        self.set_type(offset=self.size - self.used, value=value, type=type)
-        self.set_label(
-            offset=self.size - self.used, size=allocation_size, value=value, label=label
-        )
-
-        return stack_offset
-
-    def get_stack_pointer(self) -> int:
-        return ((self.address + self.size) - self.used) - 8
-
-    @classmethod
-    def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
-        s = cls(*args, **kwargs)
-        argv_address = []
-        total_strings_bytes = 0
-        for i, arg in enumerate(argv):
-            arg_size = len(arg)
-            total_strings_bytes += arg_size
-            argv_address.append((i, s.push(arg, size=arg_size, label=f"argv[{i}]")))
-
-        s.argc = len(argv)
-        total_space = (8 * (s.argc + 2)) + total_strings_bytes
-        padding = 16 - (total_space % 16)
-        s.push(bytes(padding), size=padding, label="stack alignment padding bytes")
-
-        s.push(0, size=8, label="null terminator of argv array")
-
-        for i, addr in reversed(argv_address):
-            s.push(addr, size=8, label=f"pointer to argv[{i}]")
-        s.argv = (s.address + s.size) - s.used
-        s.push(s.argc, size=8, label="argc")
-
-        return s
-
-    def get_argc(self) -> int:
-        return self.argc
-
-    def get_argv(self) -> int:
-        return self.argv
-
-
-class Heap(Memory):
-    @abc.abstractmethod
-    def malloc(
-        self,
-        value,
-        size: typing.Optional[int] = None,
-        type: typing.Optional[typing.Any] = None,
-        label: typing.Optional[typing.Any] = None,
-    ) -> int:
-        """Place a value on the heap.
-
-        Arguments:
-            value: Object to be allocated.
-            size: Size.
-            type: Type of the allocated object.
-            label: A label for the allocated object.
-
-        Returns:
-            The address of the value allocated.
-        """
-
-        return 0
-
-    @abc.abstractmethod
-    def free(self, address: int) -> None:
-        """Free a value from the heap.
-
-        Arguments:
-            address: The address of the object to free.
-        """
-
-        pass
-
-
-class BumpAllocator(Heap):
-    """A simple stack-like heap implementation."""
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.memory: typing.List[typing.Tuple[bytes, int]] = []
-        self.used = 0
-
-    @property
-    def value(self) -> typing.Optional[bytes]:
-        value = bytearray()
-
-        for v, s in self.memory:
-            value += self.to_bytes(v, s)
-        if len(value) < self.size:
-            value += b"\0" * (self.size - len(value))
-
-        return value
-
-    @value.setter
-    def value(self, value: bytes) -> None:
-        if len(value) > self.size:
-            raise ValueError("buffer too large for this memory region")
-
-        # Best effort value retrieval - see comment in `Stack.value`.
-
-        self.memory = [(value, len(value))]
-        self.used = len(value)
-
-    def malloc(
-        self,
-        value,
-        size: typing.Optional[int] = None,
-        type: typing.Optional[typing.Any] = None,
-        label: typing.Optional[typing.Any] = None,
-    ) -> int:
-        # FIXME: concretizing allocation here causes unexpected behavior
-        # We did this for a reason; why?
-        # allocation = self.to_bytes(value, size)
-
-        if type is None:
-            type = value.__class__
-
-        if isinstance(value, bytes):
-            expected_size = len(value)
-        elif isinstance(value, ctypes.Structure):
-            expected_size = ctypes.sizeof(value)
-        else:
-            expected_size = None
-
-        if size is not None and expected_size is not None and size != expected_size:
-            raise ValueError("Expected size {expected_size} for {value}")
-        if size is None:
-            if expected_size is None:
-                raise ValueError("Cannot automatically determine size of {value}")
-            else:
-                size = expected_size
-
-        if self.used + size > self.size:
-            raise ValueError(f"{value} (size: {size}) is too large for {self}")
-
-        address = self.address + self.used
-
-        self.memory.append((value, size))
-        self.used += size
-
-        self.set_type(offset=self.used, value=value, type=type)
-        self.set_label(offset=self.used, size=size, value=value, label=label)
-
-        return address
-
-    def free(self, address: int) -> None:
-        raise NotImplementedError()
-
-
-class State(Value):
-    """A collection of state values, loaded and applied as a group."""
-
-    def map(self, value: Value, name: typing.Optional[str] = None) -> None:
-        """Map a given Value into this state object.
-
-        Arguments:
-            value: Value to map.
-            name: Attribute name - if not provided a reasonable default will be
-                chosen based on the Value class name and the attributes already
-                present on this State.
-        """
-
-        if name is None:
-            name = value.__class__.__name__.lower()
-
-            logger.debug(f"mapping name not provided, using {name}")
-
-            if hasattr(self, name):
-                candidates = []
-                for attribute in dir(self):
-                    for match in re.findall(f"{name}(\\d*)$", attribute):
-                        candidates.append(int(match or 0))
-                name = f"{name}{max(candidates) + 1}"
-
-                logger.debug(f"mapping name colision detected - using {name} instead")
-        else:
-            if hasattr(self, name):
-                raise ValueError(f"{name} already exists on {self}")
-
-        setattr(self, name, value)
-
-    def members(
-        self, filter: typing.Optional[typing.Type] = None
-    ) -> typing.Dict[str, typing.Any]:
-        """Members that comprise this state.
-
-        Gather the list of included state values as any class members that are
-        subclasses of Value.
-
-        This is similar to python 3.11's `inspect.getmembers_static`.
-
-        Arguments:
-            filter: Optional value type filter - a subclass of Value which
-                should be returned.
-
-        Returns:
-            A dictionary mapping names to state value objects.
-        """
-
-        members = {}
-        for member in dir(self):
-            if member in ["members", "value", "type", "label"]:
-                continue
-            value = getattr(self, member)
-            if isinstance(value, Value):
-                if not filter or type(value) is filter:
-                    members[member] = value
-
-        return members
-
-    @property
-    def value(self) -> typing.Dict[str, typing.Any]:
-        """Get the internaly stored values.
-
-        Returns:
-            A dict mapping state value names to internal values.
-        """
-
-        return {k: v.value for k, v in self.members().items()}
-
-    @value.setter
-    def value(self, value: typing.Dict[str, typing.Any]) -> None:
-        """Set the internally stored values.
-
-        Arguments:
-            value: A dict mapping state value names to internal values.
-        """
-
-        for name, state in self.members().items():
-            if name in value:
-                state.value = value[name]
-                value.pop(name)
-
-        if value:
-            raise ValueError(f"unknown state members: {list(value.keys())}")
-
-    @property
-    def type(self) -> typing.Dict[str, typing.Any]:
-        """Get the internaly stored types.
-
-        Returns:
-            A dict mapping state value names to internal types.
-        """
-
-        return {k: v.type for k, v in self.members().items()}
-
-    @type.setter
-    def type(self, value: typing.Dict[str, typing.Any]) -> None:
-        """Set the internally stored types.
-
-        Arguments:
-            value: A dict mapping state value names to internal types.
-        """
-
-        for name, state in self.members().items():
-            if name in value:
-                state.type = value[name]
-                value.pop(name)
-
-        if value:
-            raise ValueError(f"unknown state members: {list(value.keys())}")
-
-    @property
-    def label(self) -> typing.Dict[str, typing.Any]:
-        """Get the internaly stored labels.
-
-        Returns:
-            A dict mapping state value names to internal labels.
-        """
-
-        return {k: v.label for k, v in self.members().items()}
-
-    @label.setter
-    def label(self, value: typing.Dict[str, typing.Any]) -> None:
-        """Set the internally stored labels.
-
-        Arguments:
-            value: A dict mapping state value names to internal labels.
-        """
-
-        for name, state in self.members().items():
-            if name in value:
-                state.label = value[name]
-                value.pop(name)
-
-        if value:
-            raise ValueError(f"unknown state members: {list(value.keys())}")
-
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        logger.info(f"initializing {self} with {initializer}")
-
-        for name, state in self.members().items():
-            state.initialize(initializer, override=override)
-
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        for name, state in self.members().items():
-            state.load(emulator, override=override)
-            logger.debug(f"loaded {name}:{state} from {emulator}")
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        for name, state in self.members().items():
-            logger.debug(f"applying {name}:{state} to {emulator}")
-            state.apply(emulator)
-
-    def __repr__(self) -> str:
-        joined = ", ".join([str(v) for v in self.members().values()])
-        joined = textwrap.shorten(joined, width=64)
-
-        return f"{self.__class__.__name__}({joined})"
-
-
-class CPU(State):
-    """Some additional required properties of CPUs."""
-
-    @property
-    @abc.abstractmethod
-    def arch(self) -> str:
-        """Processor architecture (e.g., x86)."""
-
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def mode(self) -> str:
-        """Processor mode (e.g., 64)."""
-
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def byteorder(self) -> str:
-        """Processor byte order (e.g., little)."""
-
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def GENERAL_PURPOSE_REGS(self) -> typing.List[str]:
-        """List of general-purpose registers"""
-
-        return []
-
-    @classmethod
-    def for_arch(cls, arch: str, mode: str, byteorder: str):
-        """Find the appropriate CPU state for your architecture
-
-        Arguments:
-            arch: The architecture ID you want
-            mode: The mode ID you want
-            byteorder: The byteorder you want
-
-        Returns:
-            An instance of the appropriate CPU subclass
-
-        Raises:
-            ValueError: If no CPU subclass matches your request
-        """
-        try:
-            return utils.find_subclass(
-                cls,
-                lambda x: x.arch == arch
-                and x.mode == mode
-                and x.byteorder == byteorder,
-            )
-        except ValueError:
-            raise ValueError(f"No CPU model for {arch}:{mode}:{byteorder}")
-
-
-__all__ = [
-    "Value",
-    "Code",
-    "Register",
-    "RegisterAlias",
-    "Memory",
-    "Stack",
-    "Heap",
-    "BumpAllocator",
-]
+__all__ = ["Stateful", "Value", "Register", "RegisterAlias"]
