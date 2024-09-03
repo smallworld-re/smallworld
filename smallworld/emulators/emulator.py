@@ -33,7 +33,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             name: The name of the register.
 
         Returns:
-            The register's type.
+            The register's type 
         """
 
         return None
@@ -130,7 +130,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             size: The size of the memory region.
 
         Returns:
-            `size` bytes read from `address`.
+            `size` bytes read from `address`
         """
 
         return b""
@@ -205,16 +205,17 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         Note:
             Written memory should already be mapped by some call to
             `map_memory()`.
+            Also, size of write is size of content
 
         Arguments:
             address: The address of the memory region.
-            content: The content to write.
+            content: The content to write. 
         """
 
         pass
 
     def write_memory_type(
-        self, address: int, type: typing.Optional[typing.Any] = None
+        self, address: int, size:int, type: typing.Optional[typing.Any] = None
     ) -> None:
         """Set the type of memory at a specific address.
 
@@ -224,13 +225,15 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         Arguments:
             address: The address of the memory region.
-            type: The type to write.
+            size: The size of the memory region
+            type: The type of the register to write. To unset the register
+                type, this may be set to None.
         """
 
         pass
 
     def write_memory_label(
-        self, address: int, label: typing.Optional[str] = None
+        self, address: int, size:int, label: typing.Optional[str] = None
     ) -> None:
         """Set the label of memory at a specific address.
 
@@ -240,7 +243,9 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         Arguments:
             address: The address of the memory region.
-            label: The label to write.
+            size: The size of the memory region
+            label: The label of the register to write. To unset the register
+                label, this may be set to None.
         """
 
         pass
@@ -400,7 +405,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             f"{self.__class__.__name__}: broad interrupt hooking not supported"
         )
 
-    def hook_interrupt(self, function: typing.Callable[[Emulator], None]):
+    def hook_interrupt(self, intno: int, function: typing.Callable[[Emulator], None]):
         """Register an execution hook on a specific interrupt.
 
         The hook fires *before* the interrupt is processed.
@@ -416,6 +421,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
                     ...
 
         Arguments:
+            intno: The interrupt number.
             function: The hook function.
         """
 
@@ -426,7 +432,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     bounds: typing.List[typing.Tuple[int, int]] = []
     """Valid execution bounds."""
 
-    def bound(self, start: int, end: int) -> None:
+    def add_bound(self, start: int, end: int) -> None:
         """Add valid execution bounds.
 
         If execution leaves these bounds Emulators should raise
@@ -442,10 +448,10 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         self.bounds.append((start, end))
 
-    exitpoints: typing.List[int] = []
+    exit_points: typing.List[int] = []
     """Exit points to stop emulation."""
 
-    def exitpoint(self, address: int) -> None:
+    def add_exit_point(self, address: int) -> None:
         """Add an exitpoint.
 
         If execution reaches an exitpoint emulation should stop.
@@ -454,7 +460,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             address: The address of the exitpoint.
         """
 
-        self.exitpoints.append(address)
+        self.exit_points.append(address)
 
     @abc.abstractmethod
     def step_instruction(self) -> None:
