@@ -1,30 +1,17 @@
-import logging
 import sys
-
 import smallworld
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+machine = smallworld.Machine()
+code = smallworld.state.Code.from_filepath("square.amd64.bin", base=0x1000, entry=0x1000)
+machine.add(code)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("x86", "64", "little")
+platform = smallworld.platform.Platform(smallworld.platform.Architecture.X86_64, smallworld.platform.Byteorder.LITTLE, smallworld.platform.ABI.SYSTEMV)
+cpu = smallworld.state.CPU.for_platform(platform)
+cpu.rip.set(0x1000)
+cpu.edi.set(int(sys.argv[-1]))
+machine.add(cpu)
 
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "square.amd64.bin", base=0x1000, entry=0x1000
-)
-state.map(code)
-state.rip.value = 0x1000
+emulator = smallworld.emulators.UnicornEmulator(platform)
+final_machine = machine.emulate(emulator)
 
-# set input register
-state.edi.value = int(sys.argv[-1])
-print(state.edi.value)
-
-# now we can do a single micro-execution without error
-emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
-final_state = emulator.emulate(state)
-
-# read the result
-print(final_state.eax)
+print(final_machine.cpu.eax.get())

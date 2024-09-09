@@ -51,6 +51,9 @@ class ABI(enum.Enum):
     FASTCALL = "fastcall"
     """Microsoft fastcall."""
 
+    NONE = "none"
+    """No ABI"""
+
 
 @dataclass(frozen=True)
 class Platform:
