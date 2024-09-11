@@ -42,7 +42,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             name: The name of the register.
 
         Returns:
-            The register's type 
+            The register's type
         """
 
         return None
@@ -218,13 +218,13 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         Arguments:
             address: The address of the memory region.
-            content: The content to write. 
+            content: The content to write.
         """
 
         pass
 
     def write_memory_type(
-        self, address: int, size:int, type: typing.Optional[typing.Any] = None
+        self, address: int, size: int, type: typing.Optional[typing.Any] = None
     ) -> None:
         """Set the type of memory at a specific address.
 
@@ -242,7 +242,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         pass
 
     def write_memory_label(
-        self, address: int, size:int, label: typing.Optional[str] = None
+        self, address: int, size: int, label: typing.Optional[str] = None
     ) -> None:
         """Set the label of memory at a specific address.
 
@@ -518,4 +518,211 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return ""
 
 
-__all__ = ["Emulator"]
+class InstructionHookable(metaclass=abc.ABCMeta):
+    """An Emulator mixin that supports instruction hooking."""
+
+    @abc.abstractmethod
+    def hook_instruction(
+        self, address: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        """Hook a specific instruction by address.
+
+        Arguments:
+            address: The address of the hook.
+            function: The function to execute when the address is reached.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator) -> None:
+                    ...
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def unhook_instruction(self, address: int) -> None:
+        """Unhook a specific instruction by address.
+
+        Arguments:
+            address: The address of the hook to remove.
+        """
+
+        pass
+
+
+class FunctionHookable(metaclass=abc.ABCMeta):
+    """An Emulator mixin that supports function hooking."""
+
+    @abc.abstractmethod
+    def hook_function(
+        self, address: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        """Hook a specific function by address.
+
+        After the hook function is called, the Emulator will step out of the
+        current function so that the hook essentially replaces a function call
+        to the given address.
+
+        Arguments:
+            address: The address of the hook.
+            function: The function to execute when the address is reached.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator) -> None:
+                    ...
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def unhook_function(self, address: int) -> None:
+        """Unhook a specific function by address.
+
+        Arguments:
+            address: The address of the hook to remove.
+        """
+
+        pass
+
+
+class MemoryReadHookable(metaclass=abc.ABCMeta):
+    """An Emulator mixin that supports memory read hooking."""
+
+    @abc.abstractmethod
+    def hook_memory_read(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[Emulator, int, int], bytes],
+    ) -> None:
+        """Hook memory reads within a given range.
+
+        Arguments:
+            start: The start address of the memory range to hook.
+            end: The end address of the memory range to hook.
+            function: The function to execute when the memory region is read.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator, address: int, size: int) -> None:
+                    ...
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def unhook_memory_read(self, start: int, end: int) -> None:
+        """Unhook a specific memory region read by address range.
+
+        Arguments:
+            start: The start address of the memory read hook to remove.
+            end: The end address of the memory read hook to remove.
+        """
+
+        pass
+
+
+class MemoryWriteHookable(metaclass=abc.ABCMeta):
+    """An Emulator mixin that supports memory write hooking."""
+
+    @abc.abstractmethod
+    def hook_write_read(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[Emulator, int, int], bytes],
+    ) -> None:
+        """Hook memory writes within a given range.
+
+        Arguments:
+            start: The start address of the memory range to hook.
+            end: The end address of the memory range to hook.
+            function: The function to execute when the memory region is written.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator, address: int, size: int, content: bytes) -> None:
+                    ...
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def unhook_memory_read(self, start: int, end: int) -> None:
+        """Unhook a specific memory region write by address range.
+
+        Arguments:
+            start: The start address of the memory write hook to remove.
+            end: The end address of the memory write hook to remove.
+        """
+
+        pass
+
+
+class InterruptHookable(metaclass=abc.ABCMeta):
+    """An Emulator mixin that supports interrupt hooking."""
+
+    @abc.abstractmethod
+    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
+        """Hook any system interrupts.
+
+        Arguments:
+            function: The function to execute when an interrupt is triggered.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator, interrupt: int) -> None:
+                    ...
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def unhook_interrupts(self) -> None:
+        """Unhook all system interrupts."""
+
+        pass
+
+    @abc.abstractmethod
+    def hook_interrupt(
+        self, interrupt: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        """Hook a specific system interrupt.
+
+        Arguments:
+            function: The function to execute when the interrupt is triggered.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator) -> None:
+                    ...
+        """
+
+        pass
+
+    @abc.abstractmethod
+    def unhook_interrupt(self, interupt: int) -> None:
+        """Unhook a specific system interrupt.
+
+        Arguments:
+            interrupt: The interrupt to unhook.
+        """
+
+        pass
+
+
+__all__ = [
+    "Emulator",
+    "InstructionHookable",
+    "FunctionHookable",
+    "MemoryReadHookable",
+    "MemoryWriteHookable",
+    "InterruptHookable",
+]
