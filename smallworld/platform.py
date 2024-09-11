@@ -17,6 +17,21 @@ class Architecture(enum.Enum):
     X86_64 = "x86-64"
     """64-bit x86."""
 
+    AARCH64 = "aarch64"
+
+    MIPS32 = "mips32"
+
+    MIPS64 = "mips64"
+
+    POWERPC64 = "powerpc64"
+    POWERPC32 = "powerpc32"
+
+    ARM_V5T = "arm-v5t"
+    ARM_V6M = "arm-v6m"
+    ARM_V6M_THUMB = "arm-v6m-thumb"
+    ARM_V7M = "arm-v7m"
+    ARM_V7R = "arm-v7r"
+    ARM_V7A = "arm-v7a"
 
 class Byteorder(enum.Enum):
     """Endianness."""
