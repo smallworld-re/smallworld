@@ -65,8 +65,5 @@ class Platform:
     byteorder: Byteorder
     """Endianness."""
 
-    abi: ABI
-    """Application binary inteface."""
-
 
 __all__ = ["Platform", "Architecture", "Byteorder", "ABI"]

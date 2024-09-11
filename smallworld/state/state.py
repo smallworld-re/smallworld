@@ -58,7 +58,7 @@ class CPU(StatefulSet):
 class AMD64(CPU):
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.X86_64, platform.Byteorder.LITTLE, platform.ABI.NONE)
+        return platform.Platform(platform.Architecture.X86_64, platform.Byteorder.LITTLE)
 
     def __init__(self):
         super().__init__()
