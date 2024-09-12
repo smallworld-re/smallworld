@@ -20,8 +20,8 @@ class TypedPointer(ctypes.c_void_p):
     Warning:
         Do not instantiate this class directly! The referenced type needs to be
         bound to a class, since ctypes uses instances to represent specific
-        variables or fields. Use ``typed_pointer()`` to create a subclass for your
-        type.
+        variables or fields. Use ``create_typed_pointer()`` to create a
+        subclass for your type.
     """
 
     _type = None
@@ -58,7 +58,7 @@ _pointertypes = {
 }
 
 
-def typed_pointer(reference):
+def create_typed_pointer(reference):
     """Create a typed pointer class.
 
     The referenced type should be any ctypes type definition, or ``None`` to
@@ -67,9 +67,9 @@ def typed_pointer(reference):
     Referenced types that already have a ctypes pointer value type will return
     that type, not a ``TypedPointer``::
 
-        typed_pointer(c_char)  # returns c_char_p
-        typed_pointer(c_wchar)  # returns c_wchar_p
-        typed_pointer(None)  # returns c_void_p
+        create_typed_pointer(c_char)  # returns c_char_p
+        create_typed_pointer(c_wchar)  # returns c_wchar_p
+        create_typed_pointer(None)  # returns c_void_p
 
     Arguments:
         reference: The ctypes object defining the referenced type.
@@ -90,5 +90,5 @@ def typed_pointer(reference):
 
 __all__ = [
     "TypedPointer",
-    "typed_pointer",
+    "create_typed_pointer",
 ]
