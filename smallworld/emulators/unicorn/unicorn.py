@@ -35,22 +35,9 @@ class UnicornEmulationMemoryError(UnicornEmulationError):
 class UnicornEmulationExecutionError(UnicornEmulationError):
     pass
 
-# hooks
-class UnicornInstructionHookable(hookable.InstructionHookable):
-    pass
-        
-class UnicornFunctionHookable(hookable.FunctionHookable):
-    pass
 
-class UnicornMemoryReadHookable(hookable.MemoryReadHookable):
-    pass
-
-class UnicornMemoryWriteHookable(hookable.MemoryWriteHookable):
-    pass
-
-
-class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunctionHookable, \
-                      UnicornMemoryReadHookable, UnicornMemoryWriteHookable, UnicornInterruptHookable):
+class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable.QFunctionHookable, \
+                      hookable.QMemoryReadHookable, hookable.QMemoryWriteHookable, hookable.QInterruptHookable):
     """An emulator for the Unicorn emulation engine.
 
     Arguments:

@@ -1,3 +1,4 @@
+from emulator import InstructionHookable, FunctionHookable, MemoryReadHookable, MemoryWriteHookable, InterruptHookable
 
 
 def range_intersect(r1, r2):
@@ -8,7 +9,12 @@ def range_to_hex_str(r):
     return f"[{r.start:x}..{r.stop:x}]"
 
 
-class InstructionHookable:
+'''
+These implementations of hookable mixins are used by Unicorn and Panda
+emulators, both of which are Qemu-based.
+'''
+
+class QInstructionHookable(InstructionHookable):
  
     def __init__(self):
         self.instruction_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator], None]] = {}
@@ -24,7 +30,7 @@ class InstructionHookable:
         self.instruction_hooks.pop(address, None)
 
 
-class FunctionHookable:
+class QFunctionHookable(FunctionHookable):
 
     def __init__(self):
         self.function_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator], None]] = {}
@@ -40,7 +46,7 @@ class FunctionHookable:
         self.function_hooks.pop(address, None)
 
 
-class MemoryReadHookable:
+class QMemoryReadHookable(MemoryReadHookable):
 
     def __init__(self):
         self.memory_read_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator, int, int], bytes]] = {}
@@ -66,7 +72,7 @@ class MemoryReadHookable:
         self.memory_read_hooks.pop(address, None)
 
                 
-class MemoryWriteHookable:
+class QMemoryWriteHookable(MemoryWriteHookable):
 
     def __init__(self):
         self.memory_write_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator, int, int], bytes]] = {}
@@ -92,7 +98,7 @@ class MemoryWriteHookable:
         self.memory_write_hooks.pop(address, None)
 
         
-class InterruptHookable:
+class QInterruptHookable(InterruptHookable):
 
     def __init__(self):
         self.all_interrupts_hook = None
