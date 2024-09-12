@@ -214,7 +214,6 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         Note:
             Written memory should already be mapped by some call to
             `map_memory()`.
-            Also, size of write is size of content
 
         Arguments:
             address: The address of the memory region.
@@ -273,173 +272,16 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         self.write_memory_content(address, content)
 
-    def hook_instruction(
-        self, address: int, function: typing.Callable[[Emulator], None]
-    ) -> None:
-        """Register an execution hook at the given instruction address.
+    _bounds: typing.List[typing.Tuple[int, int]] = []
 
-        The hook fires *before* the instruction executes.
+    def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
+        """Get a list of all registered execution bounds.
 
-        Note:
-            Implementing this behavior is optional and not necessarily
-            supported by all Emulators.
-
-        Example:
-            The hook function should look like::
-
-                def hook(emulator: Emulator) -> None:
-                    ...
-
-        Arguments:
-            address: The address to hook.
-            function: The hook function.
+        Returns:
+            A list of registered execution bounds.
         """
 
-        raise NotImplementedError(
-            f"{self.__class__.__name__}: instruction hooking not supported"
-        )
-
-    def hook_function(
-        self, address: int, function: typing.Callable[[Emulator], None]
-    ) -> None:
-        """Register an execution hook at the given function address.
-
-        The hook fires *instead* of the function at the given address.  This
-        means that the hook function is called *before* the function at the
-        given address and execution returns to the calling address after the
-        hook function, skipping any code at the given address.
-
-        Note:
-            Implementing this behavior is optional and not necessarily
-            supported by all Emulators.
-
-        Example:
-            The hook function should look like::
-
-                def hook(emulator: Emulator) -> None:
-                    ...
-
-        Arguments:
-            address: The address to hook.
-            function: The hook function.
-        """
-
-        raise NotImplementedError(
-            f"{self.__class__.__name__}: function hooking not supported"
-        )
-
-    def hook_memory_read(
-        self,
-        start: int,
-        end: int,
-        function: typing.Callable[[Emulator, int, int], bytes],
-    ) -> None:
-        """Register an execution hook on memory read in the given region.
-
-        The hook fires *before* the memory read. The return value of the hook
-        function is used instead of reading the target memory address.
-
-        Note:
-            Implementing this behavior is optional and not necessarily
-            supported by all Emulators.
-
-        Example:
-            The hook function should look like::
-
-                def hook(emulator: Emulator, address: int, size: int) -> bytes:
-                    ...
-
-                    return content
-
-        Arguments:
-            start: The start of the memory region to hook.
-            end: The end of the memory region to hook.
-            function: The hook function.
-        """
-
-        raise NotImplementedError(
-            f"{self.__class__.__name__}: memory read hooking not supported"
-        )
-
-    def hook_memory_write(
-        self,
-        start: int,
-        end: int,
-        function: typing.Callable[[Emulator, int, int], None],
-    ) -> None:
-        """Register an execution hook on memory write in the given region.
-
-        The hook fires *before* the memory write.
-
-        Note:
-            Implementing this behavior is optional and not necessarily
-            supported by all Emulators.
-
-        Example:
-            The hook function should look like::
-
-                def hook(emulator: Emulator, address: int, size: int, content: bytes) -> None:
-                    ...
-
-        Arguments:
-            start: The start of the memory region to hook.
-            end: The end of the memory region to hook.
-            function: The hook function.
-        """
-
-        raise NotImplementedError(
-            f"{self.__class__.__name__}: memory write hooking not supported"
-        )
-
-    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]):
-        """Register an execution hook on any interrupt.
-
-        The hook fires *before* the interrupt is processed.
-
-        Note:
-            Implementing this behavior is optional and not necessarily
-            supported by all Emulators.
-
-        Example:
-            The hook function should look like::
-
-                def hook(emulator: Emulator, interrupt: int) -> None:
-                    ...
-
-        Arguments:
-            function: The hook function.
-        """
-
-        raise NotImplementedError(
-            f"{self.__class__.__name__}: broad interrupt hooking not supported"
-        )
-
-    def hook_interrupt(self, intno: int, function: typing.Callable[[Emulator], None]):
-        """Register an execution hook on a specific interrupt.
-
-        The hook fires *before* the interrupt is processed.
-
-        Note:
-            Implementing this behavior is optional and not necessarily
-            supported by all Emulators.
-
-        Example:
-            The hook function should look like::
-
-                def hook(emulator: Emulator) -> None:
-                    ...
-
-        Arguments:
-            intno: The interrupt number.
-            function: The hook function.
-        """
-
-        raise NotImplementedError(
-            f"{self.__class__.__name__}: specific interrupt hooking not supported"
-        )
-
-    bounds: typing.List[typing.Tuple[int, int]] = []
-    """Valid execution bounds."""
+        return self._bounds
 
     def add_bound(self, start: int, end: int) -> None:
         """Add valid execution bounds.
@@ -455,10 +297,18 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             end: The end address of a valid executable region.
         """
 
-        self.bounds.append((start, end))
+        self._bounds.append((start, end))
 
-    exit_points: typing.List[int] = []
-    """Exit points to stop emulation."""
+    _exit_points: typing.List[int] = []
+
+    def get_exitpoints(self) -> typing.List[int]:
+        """Get a list of all registered exit points.
+
+        Returns:
+            A list of registered exit points.
+        """
+
+        return self._exit_points
 
     def add_exit_point(self, address: int) -> None:
         """Add an exitpoint.
@@ -469,7 +319,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             address: The address of the exitpoint.
         """
 
-        self.exit_points.append(address)
+        self._exit_points.append(address)
 
     @abc.abstractmethod
     def step_instruction(self) -> None:
