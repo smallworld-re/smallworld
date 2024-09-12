@@ -9,8 +9,10 @@ import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
 from ... import exceptions, instructions, state
-from .. import emulator
+from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
+from enum import Enum
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,26 +35,22 @@ class UnicornEmulationMemoryError(UnicornEmulationError):
 class UnicornEmulationExecutionError(UnicornEmulationError):
     pass
 
-
-
-
-class UnicornInstructionHookable(InstructionHookable):
+# hooks
+class UnicornInstructionHookable(hookable.InstructionHookable):
     pass
-
         
-class UnicornFunctionHookable(FunctionHookable):
+class UnicornFunctionHookable(hookable.FunctionHookable):
+    pass
+
+class UnicornMemoryReadHookable(hookable.MemoryReadHookable):
+    pass
+
+class UnicornMemoryWriteHookable(hookable.MemoryWriteHookable):
     pass
 
 
-class UnicornMemoryReadHookable(MemoryReadHookable):
-    pass
-
-
-class UnicornMemoryWriteHookable(MemoryWriteHookable):
-    pass
-
-
-class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunctionHookable, UnicornMemoryReadHookable, UnicornMemoryWriteHookable, UnicornInterruptHookable):
+class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunctionHookable, \
+                      UnicornMemoryReadHookable, UnicornMemoryWriteHookable, UnicornInterruptHookable):
     """An emulator for the Unicorn emulation engine.
 
     Arguments:
@@ -69,45 +67,29 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
         self.arch = arch
         self.mode = mode
         self.byteorder = byteorder
-
         self.machdef = UnicornMachineDef.for_arch(arch, mode, byteorder)
-
         self.engine = unicorn.Uc(self.machdef.uc_arch, self.machdef.uc_mode)
-
         self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
         self.disassembler.detail = True
 
-        # keep track of which registers have been initialized
-        self.initialized_registers = {}
-
         self.bounds: typing.Iterable[range] = []
-        # one label per byte.
-        # So we'll have one entry per full-width base register
-        # and those themselves are map from offset within the register to string label
-        # for 64-bit x86, we'd have
-        # self.label["rax"][0] = "input" e.g.
-        # but no self.label["eax"] -- you have to look in "rax"
-        # For memory, we have one label per byte in memory
-        # self.label["0xdeadbeef"] = "came_from_hades"
+
+        # labels are per byte
+
+        # We'll have one entry in this dictionary per full-width base
+        # register (by name) and those themselves are a map from offset
+        # within the register to string label.
+        # In other words, for 64-bit x86, we'd have
+        # self.label["rax"][0] = "input", e.g., for the 0th byte in rax.
+        # But we will not have self.label["eax"] -- you have to look in "rax"
+        # Note that read_register_label will navigate that for you...
+        # For memory, we have one label per byte in memory with address
+        # translated via `hex(address)`.
+        # In other words, self.label["0xdeadbeef"] = "came_from_hades" is
+        # the label on that address in memory
         self.label: typing.Dict[str, str]
 
-        # Note: here are the hooks Unicorn seems to offer
-        # UC_HOOK_INTR = 1 << 0,              -- interrupts
-        # UC_HOOK_INSN = 1 << 1,              -- *certain* instructions: cpuid, syscalls, 
-        # UC_HOOK_CODE = 1 << 2,              -- individual instructions?
-        # UC_HOOK_BLOCK = 1 << 3,             -- before block exec?
-        # UC_HOOK_MEM_READ_UNMAPPED = 1 << 4,   
-        # UC_HOOK_MEM_WRITE_UNMAPPED = 1 << 5,
-        # UC_HOOK_MEM_FETCH_UNMAPPED = 1 << 6,
-        # UC_HOOK_MEM_READ_PROT = 1 << 7,
-        # UC_HOOK_MEM_WRITE_PROT = 1 << 8,
-        # UC_HOOK_MEM_FETCH_PROT = 1 << 9,
-        # UC_HOOK_MEM_READ = 1 << 10,        -- before every load
-        # UC_HOOK_MEM_WRITE = 1 << 11,       -- before very store
-        # UC_HOOK_MEM_FETCH = 1 << 12,
-        # UC_HOOK_MEM_READ_AFTER = 1 << 13,   
-        # UC_HOOK_INSN_INVALID = 1 << 14,     -- invalid instructions
-        
+        # mmio read and write hooking data structs
         self.mmio_read_hooks: typing.Dict[
             int,
             typing.List[
@@ -126,51 +108,42 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
                 ]
             ],
         ] = {}
-
-        # code_hooks: function to run before instructions at particular pcs or
-        # functions that start at particular pcs 
-        self.code_hooks: typing.Dict[
-            int, typing.Tuple[typing.Callable[[emulator.Emulator, int, int], None], bool]
-        ] = {}
+        
+        # NB: instruction, function, memory read and write, and interrupt hook
+        # data (what to hook and function to run) are provided by
+        # `UnicornInstructionHookable` inheritance etc.
         # this is used to be able to "return" from a function without running it
         self.hook_return = None
 
-        # list of exit points
-        self.exit_points = []
-                
-        def code_callback(uc, address, size):
+        # list of exit points which will end emulation
+        self.exit_points = []                
 
+        # this will run on *every instruction
+        def code_callback(uc, address, size):
+            if address in self.instruction_hooks:
+                logger.debug(f"hit hooking address for instruction at {address:x}")
+                self.instruction_hooks[address]()
+            if address in self.function_hooks:
+                logger.debug(f"hit hooking address for function at {address:x}")
+                self.function_hooks[address]()
+                # note that hooking a function means that we stop at function
+                # entry and, after running the hook, we do not let the function
+                # execute. Instead, we return from the function as if it ran.
+                # this permits modeling
+                if self.hook_return is None:
+                    raise RuntimeError("return point for function hook is unknown")
+                self.write_register("pc", self.hook_return)
+                self.hook_return = None
+            # this is always keeping track of *next* instruction which, would be
+            # return addr for a call.
+            self.hook_return = address + size
             # check for if we've hit an exit point
             if address in self.exit_points:
+                logger.debug(f"stopping emulation at exit point {address:x}")
                 self.engine.emu_stop()
-
-            if address in self.code_hooks:
-                logger.debug(f"hit hooking address for instruction/function at {address:x}")
-                hook, finish = self.code_hooks[address]
-
-                hook(self)
-
-                if finish:
-                    if self.hook_return is None:
-                        raise RuntimeError("return point unknown")
-                    self.write_register("pc", self.hook_return)
-                    self.hook_return = None
-
-            self.hook_return = address + size
 
         self.engine.hook_add(unicorn.UC_HOOK_CODE, code_callback)
 
-        self block_hooks: typing.Dict[
-            int, typing.Callable[[emulator.Emulator, int, int], None]
-        ] = {}
-
-        def block_callback(uc, address, size):
-                                    
-            if address in self.block_hooks:
-                logger.debug(f"hit hooking address for block starting {address:x}")
-                hook = self.block_hooks[address]
-                hook(self)                
-        
         # functions to run before memory read and write for
         # specific addresses
         self.memory_read_hooks = {}
@@ -189,47 +162,47 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
         self.engine.hook_add(unicorn.UC_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_MEM_READ, mem_read_callback)
 
-        # func to run on *every* interrupt
+        # function to run on *every* interrupt
         self.interrupts_hook = None
         
-        # func to run on a specific interrupt number
+        # function to run on a specific interrupt number
         self.interrupt_hook = {}
 
-        def intr_callback(uc, index, user_data):
+        def interrupt_callback(uc, index, user_data):
             if self.interrupts_hook is not None:
                 self.interrupts_hook()
             if index in self.interrupt_hook:
                 self.interrupt_hook[index]()
 
-        self.engine.hook_add(unicorn.UC_HOOK_INTR, intr_callback)
+        self.engine.hook_add(unicorn.UC_HOOK_INTR, interrupt_callback)
 
-        def block_callback(uc, pc, instr_size, user_data):
-             
-        
+        # controls how we step: by block or by instruction
+        self.stepping_by_block = False
+                
+        # this callback is used to manage `step_block` I guess
+        def block_callback(uc, address, block_size, user_data):
+            if self.stepping_by_block:
+                self.engine.emu_stop()
+                
         self.bounds = []
-        
+
+        # keep track of which registers have been initialized
+        self.initialized_registers = {}
+
+
     def _register(self, name: str) -> int:
-        """Translate register name into the tuple
-        (u, b, o, s)
-        u is the unicorn reg number
-        b is the name of full-width base register this is or is part of
-        o is start offset within full-width base register
-        s is size in bytes
-
-        Arguments:
-            register (str): Canonical name of a register.
-
-        Returns:
-            The Unicorn constant corresponding to the given register name.
-        """
-
+        # Translate register name into the tuple
+        # (u, b, o, s)
+        # u is the unicorn reg number
+        # b is the name of full-width base register this is or is part of
+        # o is start offset within full-width base register
+        # s is size in bytes
         name = name.lower()
-
         # support some generic register references
         if name == "pc":
             name = self.machdef.pc_reg
-
         return self.machdef.uc_reg(name)
+
     
     def read_register_content(self, name: str) -> int:
         (reg, _, _ , _) = self._register(name)
@@ -242,38 +215,50 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
         except:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})")
 
+        
     def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
+        # not supported yet
         return None
 
+    
     def read_register_label(self, name: str) -> typing.Optional[str]:        
         (_, base_reg, offset, size) = self._register(name)
-        ls = set([])
         if base_reg in self.label:
+            # we'll return a string repr of set of labels on all byte offsets
+            # for this register
+            ls = set([])
             for i in range(offset, offset+size):                
                 if i in self.label[base_reg]:
                     ls.add(self.label[base_reg][i])
-        return ":".join(list(ls))
-        
+            return ":".join(list(ls))
+        return None
+
+    
     def read_register(self, name: str) -> int:
         return self.read_register_content(name)    
 
+    
     def write_register_content(self, name: str, content: int) -> None:
         if value is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
         (reg, base_reg, offset, size) = self._register(name)
         self.engine.reg_write(reg, value)        
+        # keep track of which bytes in this register have been initialized 
         if base_reg not in self.initialized_registers:
             self.initialized_registers[base_reg] = {}
         for o in range(offset, offset+size):
             self.initialized_registers[base_reg].add(o)
         logger.debug(f"set register {name}={value}")
 
+        
     def write_register_type(
         self, name: str, typ: typing.Optional[typing.Any] = None
     ) -> None:
+        # not supported yet
         pass
 
+    
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
     ) -> None:
@@ -282,10 +267,12 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
             self.label[base_reg] = {}
         for i in range(offset, offset+size):
             self.label[base_reg][i] = label            
-        
+
+            
     def write_register(self, name: str, content: int) -> None:
         self.write_register_content(name, content)
 
+        
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
@@ -295,24 +282,29 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
             logger.warn(f"Unicorn raised an exception on memory read {new_e.msg}")
             self._error(e, "mem")
 
+            
     def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
+        # not supported yet
         return None
-    
-    def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
-        return None
+
     
     def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
         ls = set([])
         for a in range(address, address+size):
-            addr_key = f"{address:x}"
+            addr_key = f"{a:x}"
             if addr_key in self.label:
                 ls.add(self.label[addr_key])
+        if len(ls) == 0:
+            return None
         return ":".join(list(ls))
 
+    
     def read_memory(self, address: int, size: int) -> bytes:
         return self.read_memory_content(address, size)
-        
+
+    
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        
         def page(address: int) -> int:
             """Compute the page number of an address.
 
@@ -378,6 +370,7 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
 
         return address
 
+    
     def write_memory_content(self, address: int, content: bytes) -> None:
         if content is None:
             raise ValueError(f"{self.__class__.__name__} requires concrete state")
@@ -396,48 +389,25 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 
+        
     def write_memory_type(
         self, address: int, size:int, type: typing.Optional[typing.Any] = None
     ) -> None:
+        # not supported yet
         pass
-        
+
+    
     def write_memory_label(
         self, address: int, size:int, label: typing.Optional[str] = None
     ) -> None:
         for a in range(address, address+size):
-            self.label[f"{address:x}"] = label            
-        
+            self.label[f"{a:x}"] = label            
+
+            
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
+
         
-    def hook_instruction(
-        self, address: int, function: typing.Callable[[Emulator], None]
-    ) -> None:
-        self.code_hooks[address] = (function, False)
-
-    def hook_function(
-        self, address: int, function: typing.Callable[[Emulator], None]
-    ) -> None:
-        self.code_hooks[address] = (function, True)
-
-    def hook_memory_read(
-        self,
-        start: int,
-        end: int,
-        function: typing.Callable[[Emulator, int, int, bytes],
-    ) -> None:
-        for address in range(start, end+1):
-            self.memory_read_hookss[address] = function
-
-    def hook_memory_write(
-        self,
-        start: int,
-        end: int,
-        function: typing.Callable[[Emulator, int, int], bytes],
-    ) -> None:
-        for address in range(start, end+1):
-            self.memory_write_hookss[address] = function
-            
     def hook_mmio(
         self,
         address: int,
@@ -506,29 +476,11 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
                 if on_write is not None:
                     write_hooks.append((address, size, on_write))
 
-    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]):
-        self.interrupts_hook = function
-
-    def hook_interrupt(self, intno: int, function: typing.Callable[[Emulator], None]):
-        self.interrupt_hook[intno] = function
-
-    # Note:
-    # inherit from Emulator these
-    # def bounds 
-    # def add_exit_point
-        
+                    
     def disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
-        # TODO: annotate that offsets are relative.
-        #
-        # We don't know what the base address is at disassembly time - so we
-        # just set it to 0. This means relative address arguments aren't
-        # correctly calculated - we should annotate that relative arguments are
-        # relative e.g., with a "+" or something.
-
         instructions = self.disassembler.disasm(code, base)
-
         disassembly = []
         insns = []
         for i, instruction in enumerate(instructions):
@@ -536,71 +488,103 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
                 break
             insns.append(instruction)
             disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
-
         return (insns, "\n".join(disassembly))
 
+    
     def current_instruction(self) -> capstone.CsInsn:
         pc = self.read_register("pc")
         code = self.read_memory(pc, 15)
         if code is None:
             raise AssertionError("invalid state")
         for i in self.disassembler.disasm(code, pc):
-            return i
+            return i        
 
-    def _check(self) -> None:
-        # check if its ok to begin emulating
         
-        # you are required to have set program counter in order to emulate
+    def _check(self) -> None:
+        # check if it's ok to begin emulating
+        # 1. pc must be set in order to emulate
         (_, base_name, offset, size)  = self._register("pc")
-        if base_name not in self.initialized_registers or len(self.initialized_registers[base_name]) != size:
+        if base_name in self.initialized_registers and \
+           len(self.initialized_registers[base_name]) == size:
+               # pc is fully initialized
+               pass
+        else:
             raise exceptions.ConfigurationError(
                 "pc not initialized, emulation cannot start"
             )
-
-        # an exit point is also required
+        # 2. an exit point is also required
         if len(self.exit_points) == 0:
             raise exceptions.ConfigurationError(
                 "at least one exit point must be set, emulation cannot start"
             )
 
-    def step_instruction(self) -> bool:
+        
+    def _step(self, by_block=False):
         self._check()
-
+        # by_block == True means stepping by a basic block at a time
+        # by_block == False means stepping by instruction
+        self.stepping_by_block = by_block        
         pc = self.read_register("pc")
 
-        code = self.read_memory(pc, 15)  # longest possible instruction
-        if code is None:            
-            assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, pc, 1)
-
-        logger.info(f"single step at 0x{pc:x}: {disas}")
-
+        if not by_block:
+            code = self.read_memory(pc, 15)  # longest possible instruction
+            if code is None:            
+                assert False, "impossible state"
+            (instr, disas) = self.disassemble(code, pc, 1)
+            logger.info(f"single step at 0x{pc:x}: {disas}")
+        else:
+            # hard to disassemble bb about to be emulated?
+            logger.info(f"block step at 0x{pc:x}")
         try: 
-            # unicorn requires one exit point so just use first
-            self.engine.emu_start(pc, self.exit_point[0], count=1)
+            # NB: unicorn requires an exit point so just use first. Note that we
+            # still check all of them at each instruction
+            if by_block:
+                # stepping by block -- just start emulating and the block
+                # callback will end emulation when we hit next bb
+                # Note: assuming no block will be longer than 1000 instructions
+                self.engine.emu_start(pc, self.exit_point[0], count=1000)
+            else:
+                # stepping by instruction
+                self.engine.emu_start(pc, self.exit_point[0], count=1)
         except unicorn.UcError as e:            
             logger.warn(f"emulation stopped - reason: {e}")
             self._error(e, "exec")
 
+        # pc after instr or block
         pc = self.read_register("pc")
-
-        if pc in self.exit_points:
-            return True
         
-        # check if we are at a hook point before checking if in bounds
+        # check if we hit exit point 
+        if pc in self.exit_points:
+            # hit exit point -- done with emulation
+            return True        
+        
+        # TRL: I think this code is no longer needed?
+        # check if we hit hook point
         for entry in self.hooks.keys():
             if pc == entry:
+                # we are at a hook point which could be out of bounds
+                # so allow continued emulation since hook will catch it
+                # when we next try to emulate?
                 return False
-
+            
+        # finally, check bounds. If in bounds for at least one of the allowed
+        # execuction intervals provided, then we are "in-bounds" thus can return
+        # False since we are not done executing
         for bound in self.bounds:
             if pc in bound:
                 return False
-
         # done with emulation
         return True
-        
-    def step_block(self) -> None:
-        
+
+    
+    def step_instruction(self) -> bool:
+        return self._step()
+
+    
+    def step_block(self) -> bool:
+        return self._step(by_block=True)
+
+    
     def run(self) -> None:
         self._check()
                 
@@ -616,6 +600,7 @@ class UnicornEmulator(emulator.Emulator, UnicornInstructionHookable, UnicornFunc
 
         logger.info("emulation complete")
 
+        
     def _error(
         self, error: unicorn.UcError, typ:str
     ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes]]:
