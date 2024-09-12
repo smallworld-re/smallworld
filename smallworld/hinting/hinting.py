@@ -18,11 +18,11 @@ class Serializable:
     serialization/deserialization using the JSON encoder/decoder classes below.
     """
 
-    def to_json(self) -> dict:
+    def to_dict(self) -> dict:
         raise NotImplementedError()
 
     @classmethod
-    def from_json(cls, dict):
+    def from_dict(cls, dict):
         raise NotImplementedError()
 
 
@@ -85,7 +85,7 @@ def getHinter(name: typing.Optional[str] = None) -> Hinter:
 class SerializableJSONEncoder(json.JSONEncoder):
     def default(self, o):
         if isinstance(o, Serializable):
-            d = o.to_json()
+            d = o.to_dict()
             d["class"] = f"{o.__class__.__module__}.{o.__class__.__name__}"
 
             return d
@@ -102,7 +102,7 @@ class SerializableJSONDecoder(json.JSONDecoder):
             cls = getattr(sys.modules[module], name)
             del dict["class"]
 
-            return cls.from_json(dict)
+            return cls.from_dict(dict)
         return dict
 
 
