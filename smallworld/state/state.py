@@ -293,7 +293,7 @@ class StatefulSet(Stateful, set):
 class CPU(StatefulSet):
     @classmethod
     @abc.abstractmethod
-    def get_platform(self) -> platform.Platform:
+    def get_platform(cls) -> platform.Platform:
         pass
 
     @classmethod
