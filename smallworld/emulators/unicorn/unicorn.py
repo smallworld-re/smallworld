@@ -49,6 +49,20 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
     PAGE_SIZE = 0x1000
 
+    # If in bounds for at least one of the allowed execuction intervals
+    # provided, then we are "in-bounds", else raise exception
+    def _check_pc_in_bounds(self, pc):            
+        any_in_bounds = False
+        for bound in self.bounds:
+            if pc in bound:
+                any_in_bounds = True
+                break
+        if any_in_bounds:
+            return
+        if self.emulation_in_progress == STEP_BLOCK or self.emulation_in_progress == RUN:
+            self.engine.emu_stop()
+        raise exceptions.EmulationBounds
+    
     def __init__(self, arch: str, mode: str, byteorder: str):
         super().__init__()
         self.arch = arch
@@ -107,28 +121,35 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         # this will run on *every instruction
         def code_callback(uc, address, size):
-            if address in self.instruction_hooks:
-                logger.debug(f"hit hooking address for instruction at {address:x}")
-                self.instruction_hooks[address]()
-            if address in self.function_hooks:
-                logger.debug(f"hit hooking address for function at {address:x}")
-                self.function_hooks[address]()
-                # note that hooking a function means that we stop at function
-                # entry and, after running the hook, we do not let the function
-                # execute. Instead, we return from the function as if it ran.
-                # this permits modeling
-                if self.hook_return is None:
-                    raise RuntimeError("return point for function hook is unknown")
-                self.write_register("pc", self.hook_return)
-                self.hook_return = None
-            # this is always keeping track of *next* instruction which, would be
-            # return addr for a call.
-            self.hook_return = address + size
             # check for if we've hit an exit point
             if address in self.exit_points:
                 logger.debug(f"stopping emulation at exit point {address:x}")
                 self.engine.emu_stop()
-
+                raise exception.EmulationExitpoint
+            # run instruciton hooks
+            if address in self.instruction_hooks:
+                logger.debug(f"hit hooking address for instruction at {address:x}")
+                self.instruction_hooks[address]()
+            # check function hooks *before* bounds since these might be out-of-bounds
+            if address in self.function_hooks:
+                logger.debug(f"hit hooking address for function at {address:x}")
+                # note that hooking a function means that we stop at function
+                # entry and, after running the hook, we do not let the function
+                # execute. Instead, we return from the function as if it ran.
+                # this permits modeling
+                # this is the model for the function
+                self.function_hooks[address]()
+                self.engine.emu_stop()                
+                if self.hook_return is None:
+                    raise RuntimeError("return point for function hook is unknown")
+                self.write_register("pc", self.hook_return)
+            elif: 
+                # check if we are out of bounds
+                self._check_pc_in_bounds(self, address)
+            # this is always keeping track of *next* instruction which, would be
+            # return addr for a call.
+            self.hook_return = address + size
+                
         self.engine.hook_add(unicorn.UC_HOOK_CODE, code_callback)
 
         # functions to run before memory read and write for
@@ -506,25 +527,29 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             )
 
         
-    def _step(self, by_block=False):
+    def _step(self, by_block:bool=False) -> None:
         self._check()
+
         # by_block == True means stepping by a basic block at a time
         # by_block == False means stepping by instruction
         self.stepping_by_block = by_block        
+
         pc = self.read_register("pc")
 
-        if not by_block:
+        if by_block:
+            # hard to disassemble bb about to be emulated?
+            logger.info(f"block step at 0x{pc:x}")
+        else:
             code = self.read_memory(pc, 15)  # longest possible instruction
             if code is None:            
                 assert False, "impossible state"
             (instr, disas) = self.disassemble(code, pc, 1)
             logger.info(f"single step at 0x{pc:x}: {disas}")
-        else:
-            # hard to disassemble bb about to be emulated?
-            logger.info(f"block step at 0x{pc:x}")
+            
         try: 
-            # NB: unicorn requires an exit point so just use first. Note that we
-            # still check all of them at each instruction
+            # NB: unicorn requires an exit point so just use first in our
+            # list. Note that we still check all of them at each instruction in
+            # code callback
             if by_block:
                 # stepping by block -- just start emulating and the block
                 # callback will end emulation when we hit next bb
@@ -535,41 +560,17 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 self.engine.emu_start(pc, self.exit_point[0], count=1)
         except unicorn.UcError as e:            
             logger.warn(f"emulation stopped - reason: {e}")
+            # translate this unicorn error into something richer
             self._error(e, "exec")
 
-        # pc after instr or block
-        pc = self.read_register("pc")
-        
-        # check if we hit exit point 
-        if pc in self.exit_points:
-            # hit exit point -- done with emulation
-            return True        
-        
-        # TRL: I think this code is no longer needed?
-        # check if we hit hook point
-        for entry in self.hooks.keys():
-            if pc == entry:
-                # we are at a hook point which could be out of bounds
-                # so allow continued emulation since hook will catch it
-                # when we next try to emulate?
-                return False
             
-        # finally, check bounds. If in bounds for at least one of the allowed
-        # execuction intervals provided, then we are "in-bounds" thus can return
-        # False since we are not done executing
-        for bound in self.bounds:
-            if pc in bound:
-                return False
-        # done with emulation
-        return True
-
-    
     def step_instruction(self) -> bool:
-        return self._step()
+        self._step()
 
     
     def step_block(self) -> bool:
-        return self._step(by_block=True)
+        
+        self._step(by_block=True)
 
     
     def run(self) -> None:
