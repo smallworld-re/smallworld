@@ -2,22 +2,21 @@ import abc
 import logging
 import typing
 
-from .. import hinting, utils
+from .. import hinting, state, utils
 
 
 class Analysis(utils.MetadataMixin):
     """An analysis that emits some information to help with harnessing."""
 
-    # TODO: replace state type with Machine after refactoring state module
     @abc.abstractmethod
-    def run(self, state: typing.Any) -> None:
+    def run(self, machine: state.Machine) -> None:
         """Run the analysis.
 
         This function **should not** modify the provided State - instead, it
         should be coppied before modification.
 
         Arguments:
-            state: A state class on which this analysis should run.
+            machine: A machine state object on which this analysis should run.
         """
 
         pass
