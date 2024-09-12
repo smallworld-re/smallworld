@@ -28,44 +28,101 @@ class Value(Stateful):
     """An individual state value."""
 
     _content: typing.Optional[typing.Any] = None
-    """Stored value."""
-
     _type: typing.Optional[typing.Any] = None
-    """Type object/class."""
-
     _label: typing.Optional[str] = None
-    """A useful label."""
 
-    size: int = 0
-    """Size in bytes."""
+    @abc.abstractmethod
+    def get_size(self) -> int:
+        """Get the size of this object.
 
-    def get(self):
-        return self.get_content()
+        Returns:
+            The size this object should occupy in memory.
+        """
 
-    def set(self, content):
-        return self.set_content(content)
+        return 0
 
-    def get_content(self):
+    def get_content(self) -> typing.Optional[typing.Any]:
+        """Get the content of this object.
+
+        Returns:
+            The content of this object.
+        """
+
         return self._content
 
-    def set_content(self, content):
+    def set_content(self, content: typing.Optional[typing.Any]) -> None:
+        """Set the content of this object.
+
+        Arguments:
+            content: The content value to set.
+        """
+
         self._content = content
 
-    def get_type(self):
+    def get_type(self) -> typing.Optional[typing.Any]:
+        """Get the type of this object.
+
+        Returns:
+            The type of this object.
+        """
+
         return self._type
 
-    def set_type(self, type):
+    def set_type(self, type: typing.Optional[typing.Any]) -> None:
+        """Set the type of this object.
+
+        Arguments:
+            type: The type value to set.
+        """
+
         self._type = type
 
-    def get_label(self):
+    def get_label(self) -> typing.Optional[str]:
+        """Get the label of this object.
+
+        Returns:
+            The label of this object.
+        """
+
         return self._label
 
-    def set_label(self, label):
+    def set_label(self, label: typing.Optional[str]) -> None:
+        """Set the label of this object.
+
+        Arguments:
+            type: The label value to set.
+        """
+
         self._label = label
+
+    def get(self) -> typing.Optional[typing.Any]:
+        """A helper to get the content of this object.
+
+        Returns:
+            The content of this object.
+        """
+
+        return self.get_content()
+
+    def set(self, content: typing.Optional[typing.Any]) -> None:
+        """A helper to set the content of this object.
+
+        Arguments:
+            content: The content value to set.
+        """
+
+        self.set_content(content)
 
     @abc.abstractmethod
     def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
-        """Convert content to bytes."""
+        """Convert this object into a byte string.
+
+        Arguments:
+            byteorder: Byteorder for conversion to raw bytes.
+
+        Returns:
+            Bytes for this object with the given byteorder.
+        """
 
         return b""
 
@@ -73,7 +130,7 @@ class Value(Stateful):
     def from_ctypes(cls, value: typing.Any):
         """Load from an existing ctypes object."""
 
-        raise NotImplementedError("TODO")
+        raise NotImplementedError("loading from ctypes is not yet implemented")
 
 
 class Register(Value):
@@ -110,8 +167,6 @@ class Register(Value):
         emulator.write_register_label(self.name, self.get_label())
 
     def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
-        """Convert content to bytes."""
-
         value = self.get_content()
 
         if byteorder == platform.Byteorder.LITTLE:
