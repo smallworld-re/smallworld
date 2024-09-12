@@ -2,7 +2,7 @@ import abc
 import typing
 
 from .. import emulators, platform, utils
-import smallworld
+
 
 class Stateful(metaclass=abc.ABCMeta):
     """System state that can be applied to/loaded from an emulator."""
@@ -23,45 +23,6 @@ class Stateful(metaclass=abc.ABCMeta):
             emulator: The emulator to which state should applied.
         """
 
-class StatefulSet(Stateful):
-    def __init__(self):
-        self._states = []
-
-    def extract(self, emulator: emulators.Emulator) -> None:
-        for s in self._states:
-            s.extract(emulator)
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        for s in self._states:
-            s.apply(emulator)
-
-    def add(self, s: Stateful):
-        self._states.append(s)
-
-class CPU(StatefulSet):
-    @classmethod
-    @abc.abstractmethod
-    def get_platform(self) -> platform.Platform:
-        pass
-
-    @classmethod
-    def for_platform(cls, platform: platform.Platform):
-        try:
-            return utils.find_subclass(cls,lambda x: x.get_platform().architecture == platform.architecture and x.get_platform().byteorder == platform.byteorder)
-        except ValueError:
-            raise ValueError(f"No CPU model for {platform.architecture}:{platform.byteorder}")
-
-    @abc.abstractmethod
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        pass
-
-    def __repr__(self) -> str:
-        p = self.get_platform()
-        return f"{p.architecture} - {p.byteorder}"
-
-
-class Machine(StatefulSet):
-    pass
 
 class Value(Stateful):
     """An individual state value."""
@@ -114,6 +75,7 @@ class Value(Stateful):
 
         raise NotImplementedError("TODO")
 
+
 class Register(Value):
     """An individual register.
 
@@ -138,24 +100,27 @@ class Register(Value):
         self.size = size
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self._content = emulator.read_register_content(self.name)
-        self._type = emulator.read_register_type(self.name)
-        self._label = emulator.read_register_label(self.name)
+        self.set_content(emulator.read_register_content(self.name))
+        self.set_type(emulator.read_register_type(self.name))
+        self.set_label(emulator.read_register_label(self.name))
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_register_content(self.name, self._content)
-        emulator.write_register_type(self.name, self._type)
-        emulator.write_register_label(self.name, self._label)
-
+        emulator.write_register_content(self.name, self.get_content())
+        emulator.write_register_type(self.name, self.get_type())
+        emulator.write_register_label(self.name, self.get_label())
 
     def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
         """Convert content to bytes."""
+
+        value = self.get_content()
+
         if byteorder == platform.Byteorder.LITTLE:
-            return self._content.to_bytes(self.size, byteorder='little')
+            return value.to_bytes(self.size, byteorder="little")
         elif byteorder == platform.Byteorder.BIG:
-            return self._content.to_bytes(self.size, byteorder='big')
+            return value.to_bytes(self.size, byteorder="big")
         else:
-            b""
+            raise ValueError(f"unsupported byteorder {byteorder}")
+
 
 class RegisterAlias(Register):
     """An alias to a partial register.
@@ -188,38 +153,117 @@ class RegisterAlias(Register):
         return mask
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self.reference.get(emulator)
+        self.reference.extract(emulator)
 
-        self.content = self.reference.content & self.mask
-        self.content >>= self.offset * 8
+        value = self.reference.get_content() & self.mask
+        value >>= self.offset * 8
 
-        self.type = self.reference.type
-        self.label = self.reference.label
+        self.set_content(value)
+        self.set_type(self.reference.get_type())
+        self.set_label(self.reference.get_label())
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        reference = self.reference.content or 0
-        result = (reference & ~self.mask) + value
-        self.reference.content = result
+        value = self.reference.get_content()
+        value = (value & ~self.mask) + self.get_content()
 
-        self.reference.type = self.type
-        self.reference.label = self.label
+        self.reference.set_content(value)
+        self.reference.set_type(self.get_type())
+        self.reference.set_label(self.get_label())
 
-        self.reference.set(emulator)
 
-class Memory(Stateful):
-    def __init__(self, address, size) -> None:
+class Memory(Stateful, dict):
+    def __init__(self, address: int, size: int) -> None:
         super().__init__()
-        self._address = address
-        self._size = size
+        self.address: int = address
+        """The start address of this memory region."""
 
+        self.size: int = size
+        """The size address of this memory region."""
+
+    def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
+        """Convert this memory region into a byte string.
+
+        Missing/undefined space will be filled with zeros.
+
+        Arguments:
+            byteorder: Byteorder for conversion to raw bytes.
+
+        Returns:
+            Bytes for this object with the given byteorder.
+        """
+
+        result = b"\x00" * self.size
+        for offset, value in self.items():
+            data = value.get_content()
+            result = (
+                result[:offset]
+                + data.to_bytes(byteorder=byteorder)
+                + result[offset + value.size :]
+            )
+
+        return result
+
+    def get_allocated_size(self) -> int:
+        """Gets the allocated size of this memory region.
+
+        Returns:
+            The allocated size of this memory region.
+        """
+
+        return sum([v.size for v in self.values()])
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_memory(self._address, self.get_bytes())
+        emulator.write_memory(
+            self.address, self.to_bytes(byteorder=emulator.platform.byteorder)
+        )
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        raise NotImplemented
+        raise NotImplementedError("extracting memory not yet implemented")
+
 
 class Code(Memory):
+    pass
+
+
+class StatefulSet(Stateful, set):
+    def extract(self, emulator: emulators.Emulator) -> None:
+        for stateful in self:
+            stateful.extract(emulator)
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        for stateful in self:
+            stateful.apply(emulator)
+
+
+class CPU(StatefulSet):
+    @classmethod
+    @abc.abstractmethod
+    def get_platform(self) -> platform.Platform:
+        pass
+
+    @classmethod
+    def for_platform(cls, platform: platform.Platform):
+        try:
+            return utils.find_subclass(
+                cls,
+                lambda x: x.get_platform().architecture == platform.architecture
+                and x.get_platform().byteorder == platform.byteorder,
+            )
+        except ValueError:
+            raise ValueError(
+                f"No CPU model for {platform.architecture}:{platform.byteorder}"
+            )
+
+    @abc.abstractmethod
+    def get_general_purpose_registers(self) -> typing.List[str]:
+        pass
+
+    def __repr__(self) -> str:
+        p = self.get_platform()
+        return f"{p.architecture} - {p.byteorder}"
+
+
+class Machine(StatefulSet):
     pass
 
 
@@ -233,7 +277,9 @@ class i386CPUState(CPU):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.X86_32, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.X86_32, platform.Byteorder.LITTLE
+        )
 
     def __init__(self):
         self.eax = Register("eax")
@@ -290,9 +336,9 @@ class i386CPUState(CPU):
         self.cr3 = Register("cr3")
         self.cr4 = Register("cr4")
 
+
 class AMD64CPUState(i386CPUState):
     """AMD64 CPU state model."""
-
 
     _GENERAL_PURPOSE_REGS = [
         "rax",
@@ -313,10 +359,11 @@ class AMD64CPUState(i386CPUState):
         "r15",
     ]
 
-
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.X86_64, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.X86_64, platform.Byteorder.LITTLE
+        )
 
     def __init__(self):
         self.rax = Register("rax", size=8)
@@ -423,6 +470,7 @@ class AMD64CPUState(i386CPUState):
         self.cr3 = Register("cr3", size=8)
         self.cr4 = Register("cr4", size=8)
 
+
 class AArch64CPUState(CPU):
     """Auto-generated CPU state for aarch64:v8a:little
 
@@ -441,7 +489,9 @@ class AArch64CPUState(CPU):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.AARCH64, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.AARCH64, platform.Byteorder.LITTLE
+        )
 
     def __init__(self):
         # *** General Purpose Registers ***
@@ -740,13 +790,13 @@ class AArch64CPUState(CPU):
         # *** Vector registers vX ***
         # I'm not sure how to model these.
 
+
 class MIPSCPUState(CPU):
     """Auto-generated CPU state for mips:mips32:big
 
     Generated from Pcode language MIPS:BE:32:default,
     and Unicorn package unicorn.mips_const
     """
-
 
     # Excluded registers:
     # - zero: Hard-wired to zero
@@ -917,6 +967,7 @@ class MIPSCPUState(CPU):
         # TODO: MIPS has a boatload of extensions with their own registers.
         # There isn't a clean join between Sleigh, Unicorn, and MIPS docs.
 
+
 class MIPSELCPUState(MIPSCPUState):
     """Auto-generated CPU state for mips:mips32:little
 
@@ -926,7 +977,9 @@ class MIPSELCPUState(MIPSCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.MIPS32, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.MIPS32, platform.Byteorder.LITTLE
+        )
 
     def __init__(self):
         super().__init__()
@@ -945,6 +998,7 @@ class MIPSELCPUState(MIPSCPUState):
         self.ac3 = Register("ac3", size=8)
         self.lo3 = RegisterAlias("lo3", self.ac3, size=4, offset=0)
         self.hi3 = RegisterAlias("hi3", self.ac3, size=4, offset=4)
+
 
 class MIPSBECPUState(MIPSCPUState):
     """Auto-generated CPU state for mips:mips32:big
@@ -978,6 +1032,7 @@ class MIPSBECPUState(MIPSCPUState):
         self.lo3 = RegisterAlias("lo3", self.ac3, size=4, offset=4)
         # TODO: MIPS has a boatload of extensions with their own registers.
         # There isn't a clean join between Sleigh, Unicorn, and MIPS docs.
+
 
 class MIPS64CPUState(CPU):
     """Abstract CPU state object for all MIPS64 targets"""
@@ -1198,7 +1253,9 @@ class MIPS64ELCPUState(MIPS64CPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.MIPS64, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.MIPS64, platform.Byteorder.LITTLE
+        )
 
     def __init__(self):
         super().__init__()
@@ -1219,6 +1276,7 @@ class MIPS64ELCPUState(MIPS64CPUState):
         self.hi3 = RegisterAlias("hi3", self.ac3, size=8, offset=4)
         # TODO: MIPS has a boatload of extensions with their own registers.
         # There isn't a clean join between Sleigh, Unicorn, and MIPS docs.
+
 
 class PowerPCCPUState(CPU):
     """CPU state for 32-bit PowerPC."""
@@ -1341,6 +1399,7 @@ class PowerPCCPUState(CPU):
         # ppc has a huge number of privileged registers.
         # Extend this as needed.
 
+
 class PowerPC32CPUState(PowerPCCPUState):
     """CPU state for 32-bit PowerPC"""
 
@@ -1348,9 +1407,13 @@ class PowerPC32CPUState(PowerPCCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.POWERPC32, platform.Byteorder.BIG)
+        return platform.Platform(
+            platform.Architecture.POWERPC32, platform.Byteorder.BIG
+        )
+
     def __init__(self):
         super().__init__(4)
+
 
 class PowerPC64CPUState(PowerPCCPUState):
     """CPU state for 64-bit PowerPC"""
@@ -1359,7 +1422,9 @@ class PowerPC64CPUState(PowerPCCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.POWERPC64, platform.Byteorder.BIG)
+        return platform.Platform(
+            platform.Architecture.POWERPC64, platform.Byteorder.BIG
+        )
 
     def __init__(self):
         super().__init__(8)
@@ -1747,7 +1812,9 @@ class ARMv5TCPUState(ARMCPUMixinM, ARMCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.ARM_V5T, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.ARM_V5T, platform.Byteorder.LITTLE
+        )
 
 
 class ARMv6MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
@@ -1755,13 +1822,17 @@ class ARMv6MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.ARM_V6M, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.ARM_V6M, platform.Byteorder.LITTLE
+        )
 
 
 class ARMv6MThumbCPUState(ARMv6MCPUState):
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.ARM_V6M_THUMB, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.ARM_V6M_THUMB, platform.Byteorder.LITTLE
+        )
 
 
 class ARMv7MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
@@ -1769,7 +1840,10 @@ class ARMv7MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.ARM_V7M, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.ARM_V7M, platform.Byteorder.LITTLE
+        )
+
 
 class ARMv7RCPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
     """CPU Model for ARMv7-R little-endian"""
@@ -1777,7 +1851,9 @@ class ARMv7RCPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
     # TODO: v7r and v7a have different MMUs, which I don't implement yet.
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.ARM_V7R, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.ARM_V7R, platform.Byteorder.LITTLE
+        )
 
 
 class ARMv7ACPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
@@ -1785,6 +1861,9 @@ class ARMv7ACPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
 
     @classmethod
     def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.ARM_V7A, platform.Byteorder.LITTLE)
+        return platform.Platform(
+            platform.Architecture.ARM_V7A, platform.Byteorder.LITTLE
+        )
+
 
 __all__ = ["Stateful", "Value", "Register", "RegisterAlias", "Machine", "CPU"]
