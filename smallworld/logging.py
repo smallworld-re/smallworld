@@ -46,7 +46,7 @@ def setup_logging(
     level: int = logging.INFO,
     verbose: bool = False,
     colors: bool = True,
-    clear_handlers: bool = True,
+    clear: bool = True,
 ) -> None:
     """Setup log handling.
 
@@ -56,6 +56,7 @@ def setup_logging(
         level: Logging level (from `logging` module).
         verbose: Enable verbose logging mode.
         colors: Enable logging colors (if supported).
+        clear: Remove all other handlers from the root logger.
     """
 
     if verbose:
@@ -69,13 +70,10 @@ def setup_logging(
     root = logging.getLogger()
     root.setLevel(level)
 
-    if clear_handlers:
-        # Clear existing handlers.
-        # Some libraries (angr) install their own handlers.
-        # This results in multiple copies of each message.
+    if clear:
         handlers = list(root.handlers)
-        for old_handler in handlers:
-            root.removeHandler(old_handler)
+        for handler in handlers:
+            root.removeHandler(handler)
 
     formatter = logging.Formatter(format)
 
