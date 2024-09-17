@@ -226,8 +226,15 @@ class RegisterAlias(Register):
 
 
 class Memory(Stateful, dict):
-    def __init__(self, address: int, size: int) -> None:
-        super().__init__()
+    """A memory region.
+
+    This dictionary maps integer offsets from the base ``address`` to ``Value``
+    classes.
+    """
+
+    def __init__(self, address: int, size: int, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+
         self.address: int = address
         """The start address of this memory region."""
 
@@ -264,7 +271,7 @@ class Memory(Stateful, dict):
             The allocated size of this memory region.
         """
 
-        return sum([v.size for v in self.values()])
+        return sum([v.get_size() for v in self.values()])
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.write_memory(
@@ -1920,4 +1927,4 @@ class ARMv7ACPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
         )
 
 
-__all__ = ["Stateful", "Value", "Register", "RegisterAlias", "Machine", "CPU"]
+__all__ = ["Stateful", "Value", "Register", "RegisterAlias", "Memory", "Machine", "CPU"]
