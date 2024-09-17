@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from .. import emulators, platform, utils
+from .. import emulators, platforms, utils
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -114,7 +114,7 @@ class Value(Stateful):
         self.set_content(content)
 
     @abc.abstractmethod
-    def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
+    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         """Convert this object into a byte string.
 
         Arguments:
@@ -167,12 +167,12 @@ class Register(Value):
         emulator.write_register_type(self.name, self.get_type())
         emulator.write_register_label(self.name, self.get_label())
 
-    def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
+    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         value = self.get_content()
 
-        if byteorder == platform.Byteorder.LITTLE:
+        if byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self.size, byteorder="little")
-        elif byteorder == platform.Byteorder.BIG:
+        elif byteorder == platforms.Byteorder.BIG:
             return value.to_bytes(self.size, byteorder="big")
         else:
             raise ValueError(f"unsupported byteorder {byteorder}")
@@ -241,7 +241,7 @@ class Memory(Stateful, dict):
         self.size: int = size
         """The size address of this memory region."""
 
-    def to_bytes(self, byteorder: platform.Byteorder) -> bytes:
+    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         """Convert this memory region into a byte string.
 
         Missing/undefined space will be filled with zeros.
@@ -275,7 +275,7 @@ class Memory(Stateful, dict):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.write_memory(
-            self.address, self.to_bytes(byteorder=emulator.platform.byteorder)
+            self.address, self.to_bytes(byteorder=emulator.platforms.byteorder)
         )
 
     def extract(self, emulator: emulators.Emulator) -> None:
@@ -299,11 +299,11 @@ class StatefulSet(Stateful, set):
 class CPU(StatefulSet):
     @classmethod
     @abc.abstractmethod
-    def get_platform(cls) -> platform.Platform:
+    def get_platform(cls) -> platforms.Platform:
         pass
 
     @classmethod
-    def for_platform(cls, platform: platform.Platform):
+    def for_platform(cls, platform: platforms.Platform):
         try:
             return utils.find_subclass(
                 cls,
@@ -311,9 +311,7 @@ class CPU(StatefulSet):
                 and x.get_platform().byteorder == platform.byteorder,
             )
         except ValueError:
-            raise ValueError(
-                f"No CPU model for {platform.architecture}:{platform.byteorder}"
-            )
+            raise ValueError(f"No CPU model for {platform}")
 
     @abc.abstractmethod
     def get_general_purpose_registers(self) -> typing.List[str]:
@@ -337,9 +335,9 @@ class i386CPUState(CPU):
         return self._GENERAL_PURPOSE_REGS
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.X86_32, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
         )
 
     def __init__(self):
@@ -421,9 +419,9 @@ class AMD64CPUState(i386CPUState):
     ]
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.X86_64, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
         )
 
     def __init__(self):
@@ -549,9 +547,9 @@ class AArch64CPUState(CPU):
         return self._GENERAL_PURPOSE_REGS
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.AARCH64, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
         )
 
     def __init__(self):
@@ -1037,9 +1035,9 @@ class MIPSELCPUState(MIPSCPUState):
     """
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.MIPS32, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
         )
 
     def __init__(self):
@@ -1069,8 +1067,10 @@ class MIPSBECPUState(MIPSCPUState):
     """
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.MIPS32, platform.Byteorder.BIG)
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
 
     def __init__(self):
         super().__init__()
@@ -1283,8 +1283,10 @@ class MIPS64BECPUState(MIPS64CPUState):
     """
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(platform.Architecture.MIPS64, platform.Byteorder.BIG)
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
 
     def __init__(self):
         super().__init__()
@@ -1313,9 +1315,9 @@ class MIPS64ELCPUState(MIPS64CPUState):
     """
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.MIPS64, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
         )
 
     def __init__(self):
@@ -1467,9 +1469,9 @@ class PowerPC32CPUState(PowerPCCPUState):
     mode = "ppc32"
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.POWERPC32, platform.Byteorder.BIG
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
         )
 
     def __init__(self):
@@ -1482,9 +1484,9 @@ class PowerPC64CPUState(PowerPCCPUState):
     mode = "ppc64"
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.POWERPC64, platform.Byteorder.BIG
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
         )
 
     def __init__(self):
@@ -1872,9 +1874,9 @@ class ARMv5TCPUState(ARMCPUMixinM, ARMCPUState):
     """CPU Model for ARMv5t little-endian"""
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.ARM_V5T, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
         )
 
 
@@ -1882,17 +1884,17 @@ class ARMv6MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
     """CPU Model for ARMv6-M little-endian"""
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.ARM_V6M, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
         )
 
 
 class ARMv6MThumbCPUState(ARMv6MCPUState):
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.ARM_V6M_THUMB, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
         )
 
 
@@ -1900,9 +1902,9 @@ class ARMv7MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
     """CPU Model for ARMv7-M little-endian"""
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.ARM_V7M, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
         )
 
 
@@ -1911,9 +1913,9 @@ class ARMv7RCPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
 
     # TODO: v7r and v7a have different MMUs, which I don't implement yet.
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.ARM_V7R, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
         )
 
 
@@ -1921,9 +1923,9 @@ class ARMv7ACPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
     """CPU Model for ARMv7-A little-endian"""
 
     @classmethod
-    def get_platform(cls) -> platform.Platform:
-        return platform.Platform(
-            platform.Architecture.ARM_V7A, platform.Byteorder.LITTLE
+    def get_platform(cls) -> platforms.Platform:
+        return platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
         )
 
 

@@ -1,8 +1,11 @@
 import abc
+import code
 import logging
+import pdb
 import typing
 
-from .. import emulators, platform, state, utils
+from .. import emulators, platforms, utils
+from . import state
 
 logger = logging.getLogger(__name__)
 
@@ -10,7 +13,7 @@ logger = logging.getLogger(__name__)
 class Hook(state.Stateful):
     def __init__(
         self, address: int, function: typing.Callable[[emulators.Emulator], None]
-    ) -> None:
+    ):
         self._address = address
         self._function = function
 
@@ -18,41 +21,67 @@ class Hook(state.Stateful):
         raise NotImplementedError("extracting hooks is not possible")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError("applying hooks is not yet implemented")
+        emulator.hook_instruction(self._address, self._function)
+
+
+class Breakpoint(Hook):
+    def __init__(self, address: int):
+        super().__init__(address=address, function=self.interact)
+
+    @staticmethod
+    @abc.abstractmethod
+    def interact(emulator: emulators.Emulator) -> None:
+        pass
+
+
+class PDBBreakpoint(Breakpoint):
+    @staticmethod
+    def interact(emulator: emulators.Emulator) -> None:
+        pdb.set_trace()
+
+
+class PythonShellBreakpoint(Breakpoint):
+    @staticmethod
+    def interact(emulator: emulators.Emulator) -> None:
+        code.interact(local={"emulator": emulator})
 
 
 class Model(Hook):
-    def __init__(
-        self, address: int, function: typing.Callable[[emulators.Emulator], None]
-    ) -> None:
-        raise NotImplementedError("you should call `lookup()` instead")
+    def __init__(self, address: int):
+        super().__init__(address=address, function=self.model)
 
-    @classmethod
+    @property
     @abc.abstractmethod
-    def get_platform(cls) -> platform.Platform:
+    def name(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def platform(self) -> platforms.Platform:
+        pass
+
+    @property
+    @abc.abstractmethod
+    def abi(self) -> platforms.ABI:
         pass
 
     @classmethod
-    @abc.abstractmethod
-    def get_name() -> str:
-        pass
-
-    @classmethod
-    @abc.abstractmethod
-    def get_abi() -> platform.ABI:
-        pass
-
-    @classmethod
-    def lookup(cls, name: str, platform: platform.Platform, abi: platform.ABI):
+    def lookup(cls, name: str, platform: platforms.Platform, abi: platforms.ABI):
         try:
             return utils.find_subclass(
                 cls,
-                lambda x: x.get_name() == name
-                and x.get_platform() == platform
-                and x.get_abi() == abi,
+                lambda x: x.name == name and x.platform == platform and x.abi == abi,
             )
         except ValueError:
             raise ValueError(f"no model for '{name}' on {platform} with ABI '{abi}'")
 
+    def apply(self, emulator: emulators.Emulator) -> None:
+        emulator.hook_function(self._address, self._function)
 
-__all__ = ["Hook", "Model"]
+    @staticmethod
+    @abc.abstractmethod
+    def model(emulator: emulators.Emulator) -> None:
+        pass
+
+
+__all__ = ["Hook", "Breakpoint", "PDBBreakpoint", "PythonShellBreakpoint", "Model"]

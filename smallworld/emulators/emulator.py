@@ -3,8 +3,7 @@ from __future__ import annotations
 import abc
 import typing
 
-from .. import platform as _platform
-from .. import utils
+from .. import platforms, utils
 
 
 class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
@@ -14,8 +13,8 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         platform: Platform metadata for emulation.
     """
 
-    def __init__(self, platform: _platform.Platform):
-        self.platform: _platform.Platform = platform
+    def __init__(self, platform: platforms.Platform):
+        self.platform: platforms.Platform = platform
         """Configured platform metadata."""
 
     @abc.abstractmethod
