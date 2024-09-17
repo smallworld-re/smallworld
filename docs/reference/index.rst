@@ -8,9 +8,10 @@ Reference
     smallworld
     smallworld.logging
     smallworld.hinting
-    smallworld.platform
+    smallworld.platforms
     smallworld.emulators
     smallworld.state
+    smallworld.state.models
     smallworld.analyses
     smallworld.exceptions
     smallworld.extern.ctypes
