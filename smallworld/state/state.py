@@ -145,9 +145,6 @@ class Register(Value):
     _type = None
     _label = None
 
-    size = 0
-    """Register size in bytes."""
-
     def __init__(self, name: str, size: int = 4):
         super().__init__()
 
@@ -155,6 +152,10 @@ class Register(Value):
         """Canonical name."""
 
         self.size = size
+        """Register size in bytes."""
+
+    def get_size(self) -> int:
+        return self.size
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self.set_content(emulator.read_register_content(self.name))
@@ -195,13 +196,11 @@ class RegisterAlias(Register):
         self.reference: Register = reference
         """The register referenced by this alias."""
 
-        self.offset = offset
+        self.offset: int = offset
         """'The offset into the referenced register."""
 
     @property
     def mask(self) -> int:
-        """Generate a mask for this partial register."""
-
         mask = (1 << self.size * 8) - 1
         mask <<= self.offset * 8
 
