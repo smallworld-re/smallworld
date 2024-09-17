@@ -13,8 +13,10 @@ class EmulationError(Error):
 class EmulationBounds(EmulationError):
     """Raised when execution goes out of bounds."""
 
+
 class EmulationExitpoint(EmulationError):
     """Raised when execution hits an exit point."""
+
 
 class EmulationException(EmulationError):
     """Raised when the underlying emulator fails.
@@ -40,7 +42,8 @@ __all__ = [
     "Error",
     "ConfigurationError",
     "EmulationError",
-    "EmulationBoundsError",
+    "EmulationBounds",
+    "EmulationExitpoint",
     "EmulationException",
     "AnalysisError",
 ]
