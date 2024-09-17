@@ -11,6 +11,7 @@ Reference
     smallworld.platforms
     smallworld.emulators
     smallworld.state
+    smallworld.state.cpus
     smallworld.state.models
     smallworld.analyses
     smallworld.exceptions
