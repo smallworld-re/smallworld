@@ -33,6 +33,7 @@ class Architecture(enum.Enum):
     ARM_V7R = "arm-v7r"
     ARM_V7A = "arm-v7a"
 
+
 class Byteorder(enum.Enum):
     """Endianness."""
 
@@ -79,6 +80,9 @@ class Platform:
 
     byteorder: Byteorder
     """Endianness."""
+
+    def __repr__(self) -> str:
+        return f"{self.architecture}:{self.byteorder}"
 
 
 __all__ = ["Platform", "Architecture", "Byteorder", "ABI"]

@@ -2,26 +2,34 @@ import abc
 import logging
 import typing
 
-from smallworld.emulators.emulator import Emulator
-from smallworld.platform import ABI, Platform
-from smallworld.state.state import Stateful
-from .. import utils
+from .. import emulators, platform, state, utils
 
 logger = logging.getLogger(__name__)
 
-class Hook(Stateful):
-    def __init__(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+
+class Hook(state.Stateful):
+    def __init__(
+        self, address: int, function: typing.Callable[[emulators.Emulator], None]
+    ) -> None:
         self._address = address
         self._function = function
 
+    def extract(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError("extracting hooks is not possible")
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError("applying hooks is not yet implemented")
+
 
 class Model(Hook):
-    def __init__(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
-        raise NotImplemented("You should call lookup() instead")
+    def __init__(
+        self, address: int, function: typing.Callable[[emulators.Emulator], None]
+    ) -> None:
+        raise NotImplementedError("you should call `lookup()` instead")
 
     @classmethod
     @abc.abstractmethod
-    def get_platform(cls) -> Platform:
+    def get_platform(cls) -> platform.Platform:
         pass
 
     @classmethod
@@ -31,11 +39,11 @@ class Model(Hook):
 
     @classmethod
     @abc.abstractmethod
-    def get_abi() -> ABI:
+    def get_abi() -> platform.ABI:
         pass
 
     @classmethod
-    def lookup(cls, name: str, platform: Platform, abi: ABI):
+    def lookup(cls, name: str, platform: platform.Platform, abi: platform.ABI):
         try:
             return utils.find_subclass(
                 cls,
@@ -44,6 +52,7 @@ class Model(Hook):
                 and x.get_abi() == abi,
             )
         except ValueError:
-            raise ValueError(
-                f"No model for {name} on platform {platform.architecture}:{platform.byteorder} and abi {abi}"
-            )
+            raise ValueError(f"no model for '{name}' on {platform} with ABI '{abi}'")
+
+
+__all__ = ["Hook", "Model"]
