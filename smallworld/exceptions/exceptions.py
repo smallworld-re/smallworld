@@ -10,11 +10,15 @@ class EmulationError(Error):
     """Raised when emulation fails."""
 
 
-class EmulationBounds(EmulationError):
+class EmulationStop(EmulationError):
+    """Base class for all emulation stopping exceptions."""
+
+
+class EmulationBounds(EmulationStop):
     """Raised when execution goes out of bounds."""
 
 
-class EmulationExitpoint(EmulationError):
+class EmulationExitpoint(EmulationStop):
     """Raised when execution hits an exit point."""
 
 

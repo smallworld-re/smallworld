@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import abc
+import copy
 import ctypes
 import typing
 
-from .. import emulators, platforms, utils
+from .. import emulators, exceptions, platforms, utils
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -486,7 +489,25 @@ class StatefulSet(Stateful, set):
 
 
 class Machine(StatefulSet):
-    pass
+    def emulate(self, emulator: emulators.Emulator) -> Machine:
+        """Emulate this machine with the given emulator.
+
+        Arguments:
+            emulator: An emulator instance on which this machine state should
+                run.
+
+        Returns:
+            The final system state after emulation.
+        """
+
+        self.apply(emulator)
+
+        try:
+            emulator.run()
+        except exceptions.EmulationStop:
+            pass
+
+        return copy.deepcopy(self).extract(emulator)
 
 
 __all__ = [
