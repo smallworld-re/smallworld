@@ -9,12 +9,11 @@ from . import cpu
 # implemented each subsystem variant in its own mixin.
 
 
-class ARMCPUState(cpu.CPU):
-    """Base class for ARM 32-bit CPU models
+class ARM(cpu.CPU):
+    """Base class for ARM 32-bit CPU models.
 
-    All ARM CPUs share the same basic registers,
-    but there are at least two dimensions of difference
-    for the available modes.
+    All ARM CPUs share the same basic registers, but there are at least two
+    dimensions of difference for the available modes.
     """
 
     # Special registers:
@@ -381,60 +380,50 @@ class ARMCPUMixinVFPEL:
         self.d31 = state.RegisterAlias("d31", self.q15, size=8, offset=8)
 
 
-class ARMv5TCPUState(ARMCPUMixinM, ARMCPUState):
-    """CPU Model for ARMv5t little-endian"""
+class ARMv5T(ARMCPUMixinM, ARM):
+    """CPU Model for ARMv5t little-endian."""
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+    )
 
 
-class ARMv6MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
-    """CPU Model for ARMv6-M little-endian"""
+class ARMv6M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
+    """CPU Model for ARMv6-M little-endian."""
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+    )
 
 
-class ARMv6MThumbCPUState(ARMv6MCPUState):
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
-        )
+class ARMv6MThumb(ARMv6M):
+    """CPU Model for ARMv6-M little-endian in thumb mode."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+    )
 
 
-class ARMv7MCPUState(ARMCPUMixinFPEL, ARMCPUMixinM, ARMCPUState):
-    """CPU Model for ARMv7-M little-endian"""
+class ARMv7M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
+    """CPU Model for ARMv7-M little-endian."""
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+    )
 
 
-class ARMv7RCPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
-    """CPU Model for ARMv7-R little-endian"""
+class ARMv7R(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
+    """CPU Model for ARMv7-R little-endian."""
 
     # TODO: v7r and v7a have different MMUs, which I don't implement yet.
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+    )
 
 
-class ARMv7ACPUState(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARMCPUState):
-    """CPU Model for ARMv7-A little-endian"""
+class ARMv7A(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
+    """CPU Model for ARMv7-A little-endian."""
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+    )
