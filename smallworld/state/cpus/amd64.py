@@ -3,7 +3,7 @@ from .. import state
 from . import i386
 
 
-class AMD64CPUState(i386.i386CPUState):
+class AMD64(i386.I386):
     """AMD64 CPU state model."""
 
     _GENERAL_PURPOSE_REGS = [
@@ -25,11 +25,9 @@ class AMD64CPUState(i386.i386CPUState):
         "r15",
     ]
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    )
 
     def __init__(self):
         self.rax = state.Register("rax", size=8)

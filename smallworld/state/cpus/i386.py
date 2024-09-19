@@ -5,19 +5,17 @@ from .. import state
 from . import cpu
 
 
-class i386CPUState(cpu.CPU):
+class I386(cpu.CPU):
     """i386 CPU state model."""
+
+    platform = platforms.Platform(
+        platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+    )
 
     _GENERAL_PURPOSE_REGS = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
 
     def get_general_purpose_registers(self) -> typing.List[str]:
         return self._GENERAL_PURPOSE_REGS
-
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-        )
 
     def __init__(self):
         self.eax = state.Register("eax")

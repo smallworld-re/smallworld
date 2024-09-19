@@ -5,7 +5,7 @@ from .. import state
 from . import cpu
 
 
-class PowerPCCPUState(cpu.CPU):
+class PowerPC(cpu.CPU):
     """CPU state for 32-bit PowerPC."""
 
     _GENERAL_PURPOSE_REGS = [f"r{i}" for i in range(0, 32)]
@@ -127,31 +127,27 @@ class PowerPCCPUState(cpu.CPU):
         # Extend this as needed.
 
 
-class PowerPC32CPUState(PowerPCCPUState):
-    """CPU state for 32-bit PowerPC"""
+class PowerPC32(PowerPC):
+    """CPU state for 32-bit PowerPC."""
 
     mode = "ppc32"
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+    )
 
     def __init__(self):
         super().__init__(4)
 
 
-class PowerPC64CPUState(PowerPCCPUState):
-    """CPU state for 64-bit PowerPC"""
+class PowerPC64(PowerPC):
+    """CPU state for 64-bit PowerPC."""
 
     mode = "ppc64"
 
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
-        )
+    platform = platforms.Platform(
+        platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+    )
 
     def __init__(self):
         super().__init__(8)

@@ -5,27 +5,23 @@ from .. import state
 from . import cpu
 
 
-class AArch64CPUState(cpu.CPU):
+class AArch64(cpu.CPU):
     """Auto-generated CPU state for aarch64:v8a:little
 
-    Generated from Pcode language AARCH64:LE:64:v8A,
-    and Unicorn package unicorn.arm64_const
+    Generated from Pcode language AARCH64:LE:64:v8A, and Unicorn package
+    unicorn.arm64_const.
     """
 
-    # Special registers:
-    # x29: frame pointer
-    # x30: link register
-    # x31: stack pointer or zero, depending on instruction
-    _GENERAL_PURPOSE_REGS = [f"x{i}" for i in range(0, 29)]
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+    )
 
     def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
-
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
-        )
+        # Special registers:
+        # x29: frame pointer
+        # x30: link register
+        # x31: stack pointer or zero, depending on instruction
+        return [f"x{i}" for i in range(0, 29)]
 
     def __init__(self):
         # *** General Purpose Registers ***
