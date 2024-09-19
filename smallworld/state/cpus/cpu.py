@@ -8,7 +8,7 @@ from .. import state
 class CPU(state.StatefulSet):
     @property
     @abc.abstractmethod
-    def platform(self) -> platforms.Platform:
+    def get_platform(self) -> platforms.Platform:
         pass
 
     @classmethod
