@@ -13,13 +13,14 @@ class CPU(state.StatefulSet):
     def platform(self) -> platforms.Platform:
         pass
 
-    def get_platform(self) -> platforms.Platform:
+    @classmethod
+    def get_platform(cls) -> platforms.Platform:
         """Get the platform object for this CPU.
 
         Returns:
             The platform object for this CPU.
         """
-        return self.platform
+        return cls.platform
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
@@ -33,11 +34,7 @@ class CPU(state.StatefulSet):
         """
 
         try:
-            return utils.find_subclass(
-                cls,
-                lambda x: x.get_platform().architecture == platform.architecture
-                and x.get_platform().byteorder == platform.byteorder,
-            )()
+            return utils.find_subclass(cls, lambda x: x.get_platform() == platform)
         except ValueError:
             raise ValueError(f"no model for {platform}")
 
@@ -52,7 +49,7 @@ class CPU(state.StatefulSet):
         pass
 
     def __repr__(self) -> str:
-        return f"{self.platform}"
+        return f"{self.__class__.__name__}({self.platform})"
 
 
 __all__ = ["CPU"]
