@@ -121,6 +121,9 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         # this will run on *every instruction
         def code_callback(uc, address, size):
+            # check if we are out of bounds
+            self._check_pc_in_bounds(self, address)
+
             # check for if we've hit an exit point
             if address in self.exit_points:
                 logger.debug(f"stopping emulation at exit point {address:x}")
@@ -143,9 +146,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 if self.hook_return is None:
                     raise RuntimeError("return point for function hook is unknown")
                 self.write_register("pc", self.hook_return)
-            elif: 
-                # check if we are out of bounds
-                self._check_pc_in_bounds(self, address)
             # this is always keeping track of *next* instruction which, would be
             # return addr for a call.
             self.hook_return = address + size
