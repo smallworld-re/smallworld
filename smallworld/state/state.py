@@ -5,7 +5,7 @@ import copy
 import ctypes
 import typing
 
-from .. import analyses, emulators, exceptions, platforms, utils
+from .. import analyses, emulators, exceptions, platforms
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -137,6 +137,62 @@ class Value(metaclass=abc.ABCMeta):
         raise NotImplementedError("loading from ctypes is not yet implemented")
 
 
+class IntegerValue(Value):
+    def __init__(
+        self, integer: int, size: int, label: str, signed: bool = True
+    ) -> None:
+        if size == 8:
+            if signed:
+                self._type = ctypes.c_int64
+            else:
+                self._type = ctypes.c_uint64
+        elif size == 4:
+            if signed:
+                self._type = ctypes.c_int32
+            else:
+                self._type = ctypes.c_uint32
+        elif size == 2:
+            if signed:
+                self._type = ctypes.c_int16
+            else:
+                self._type = ctypes.c_uint16
+        elif size == 1:
+            if signed:
+                self._type = ctypes.c_int8
+            else:
+                self._type = ctypes.c_uint8
+        else:
+            raise NotImplementedError(f"{size}-bit integers are not yet implemented")
+        self._content = integer
+        self._label = label
+        self._size = size
+
+    def get_size(self) -> int:
+        return self._size
+
+    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+        if byteorder == platforms.Byteorder.LITTLE:
+            return self._content.to_bytes(self._size, byteorder="little")
+        elif byteorder == platforms.Byteorder.BIG:
+            return self._content.to_bytes(self._size, byteorder="big")
+        else:
+            raise NotImplementedError("middle endian integers are not yet implemented")
+
+
+class BytesValue(Value):
+    def __init__(self, content: typing.Union[bytes, bytearray], label: str) -> None:
+        self._content = bytes(content)
+        self._label = label
+        self._size = len(self._content)
+        self._type = ctypes.c_ubyte * self._size
+
+    def get_size(self) -> int:
+        return self._size
+
+    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+        return self._content
+
+
 class Register(Value, Stateful):
     """An individual register.
 
@@ -229,255 +285,6 @@ class RegisterAlias(Register):
         self.reference.set_label(self.get_label())
 
 
-class Memory(Stateful, Value, dict):
-    """A memory region.
-
-    This dictionary maps integer offsets from the base ``address`` to ``Value``
-    classes.
-    """
-
-    def __init__(self, address: int, size: int, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-
-        self.address: int = address
-        """The start address of this memory region."""
-
-        self.size: int = size
-        """The size address of this memory region."""
-
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
-        """Convert this memory region into a byte string.
-
-        Missing/undefined space will be filled with zeros.
-
-        Arguments:
-            byteorder: Byteorder for conversion to raw bytes.
-
-        Returns:
-            Bytes for this object with the given byteorder.
-        """
-
-        result = b"\x00" * self.size
-        for offset, value in self.items():
-            data = value.get_content()
-            result = (
-                result[:offset]
-                + data.to_bytes(byteorder=byteorder)
-                + result[offset + value.size :]
-            )
-
-        return result
-
-    def get_capacity(self) -> int:
-        """Gets the total number of bytes this memory region can store.
-        Returns:
-                    The total number of bytes this memory region can store.
-        """
-        return self.size
-
-    def get_used(self) -> int:
-        """Gets the number of bytes written to this memory region.
-
-        Returns:
-            The number of bytes written to this memory region.
-        """
-        return sum([v.get_size() for v in self.values()])
-
-    def _is_safe(self, value: Value):
-        if (self.get_used() + value.get_size()) > self.get_capacity():
-            raise ValueError("Stack is full")
-
-    def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_memory(
-            self.address, self.to_bytes(byteorder=emulator.platform.byteorder)
-        )
-
-    def extract(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError("extracting memory not yet implemented")
-
-
-class IntegerValue(Value):
-    def __init__(
-        self, integer: int, size: int, label: str, signed: bool = True
-    ) -> None:
-        if size == 8:
-            if signed:
-                self._type = ctypes.c_int64
-            else:
-                self._type = ctypes.c_uint64
-        elif size == 4:
-            if signed:
-                self._type = ctypes.c_int32
-            else:
-                self._type = ctypes.c_uint32
-        elif size == 2:
-            if signed:
-                self._type = ctypes.c_int16
-            else:
-                self._type = ctypes.c_uint16
-        elif size == 1:
-            if signed:
-                self._type = ctypes.c_int8
-            else:
-                self._type = ctypes.c_uint8
-        else:
-            raise NotImplementedError(f"{size}-bit integers are not yet implemented")
-        self._content = integer
-        self._label = label
-        self._size = size
-
-    def get_size(self) -> int:
-        return self._size
-
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
-        if byteorder == platforms.Byteorder.LITTLE:
-            return self._content.to_bytes(self._size, byteorder="little")
-        elif byteorder == platforms.Byteorder.BIG:
-            return self._content.to_bytes(self._size, byteorder="big")
-        else:
-            raise NotImplementedError("middle endian integers are not yet implemented")
-
-
-class BytesValue(Value):
-    def __init__(self, content: typing.Union[bytes, bytearray], label: str) -> None:
-        self._content = bytes(content)
-        self._label = label
-        self._size = len(self._content)
-        self._type = ctypes.c_ubyte * self._size
-
-    def get_size(self) -> int:
-        return self._size
-
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
-        return self._content
-
-
-class Stack(Memory):
-    @classmethod
-    @abc.abstractmethod
-    def get_platform(cls) -> platforms.Platform:
-        pass
-
-    @abc.abstractmethod
-    def get_pointer(self) -> int:
-        pass
-
-    @abc.abstractmethod
-    def get_alignment(self) -> int:
-        pass
-
-    @abc.abstractmethod
-    def push(self, value: Value) -> int:
-        pass
-
-    def push_integer(self, integer: int, size: int, label: str) -> int:
-        value = IntegerValue(integer, size, label)
-        return self.push(value)
-
-    def push_bytes(self, content: typing.Union[bytes, bytearray], label: str) -> int:
-        value = BytesValue(content, label)
-        return self.push(value)
-
-    def push_ctype(self, content, label: str) -> int:
-        value = Value.from_ctypes(content, label)
-        return self.push(value)
-
-    @classmethod
-    def for_platform(cls, platform: platforms.Platform):
-        try:
-            return utils.find_subclass(
-                cls,
-                lambda x: x.get_platform().architecture == platform.architecture
-                and x.get_platform().byteorder == platform.byteorder,
-            )
-        except ValueError:
-            raise ValueError(f"No stack for {platform}")
-
-
-class DescendingStack(Stack):
-    def push(self, value: Value) -> int:
-        self._is_safe(value)
-        offset = (self.get_capacity() - 1) - self.get_used()
-        self[offset] = value
-        return offset
-
-
-class x86_64Stack(DescendingStack):
-    @classmethod
-    def get_platform(cls) -> platforms.Platform:
-        return platforms.Platform(
-            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-        )
-
-    def get_pointer(self) -> int:
-        return ((self.address + self.size) - self.get_used() - 8) & 0xFFFFFFFFFFFFFFF0
-
-    def get_alignment(self) -> int:
-        return 16
-
-    @classmethod
-    def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
-        s = cls(*args, **kwargs)
-        argv_address = []
-        total_strings_bytes = 0
-        for i, arg in enumerate(argv):
-            arg_size = len(arg)
-            total_strings_bytes += arg_size
-            argv_address.append(
-                (i, s.push_bytes(bytes(arg, "utf-8"), label=f"argv[{i}]"))
-            )
-
-        argc = len(argv)
-        total_space = (8 * (argc + 2)) + total_strings_bytes
-        padding = 16 - (total_space % 16)
-        s.push_bytes(bytes(padding), label="stack alignment padding bytes")
-        s.push_integer(0, size=8, label="null terminator of argv array")
-        for i, addr in reversed(argv_address):
-            s.push_integer(addr, size=8, label=f"pointer to argv[{i}]")
-        s.push_integer(argc, size=8, label="argc")
-        return s
-
-
-class Heap(Memory):
-    @abc.abstractmethod
-    def allocate(self, value: Value) -> int:
-        pass
-
-    @abc.abstractmethod
-    def free(self, address: int) -> None:
-        pass
-
-    def allocate_integer(self, integer: int, size: int, label: str) -> int:
-        value = IntegerValue(integer, size, label)
-        return self.allocate(value)
-
-    def allocate_bytes(
-        self, content: typing.Union[bytes, bytearray], label: str
-    ) -> int:
-        value = BytesValue(content, label)
-        return self.allocate(value)
-
-    def allocate_ctype(self, content, label: str) -> int:
-        value = Value.from_ctypes(content, label)
-        return self.allocate(value)
-
-
-class BumpAllocator(Heap):
-    @abc.abstractmethod
-    def allocate(self, value: Value) -> int:
-        self._is_safe(value)
-        offset = self.get_used()
-        self[offset] = value
-
-    @abc.abstractmethod
-    def free(self, address: int) -> None:
-        raise NotImplementedError("freeing with a BumpAllocator is not yet implemented")
-
-
-class Code(Memory):
-    pass
-
-
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
@@ -522,9 +329,9 @@ class Machine(StatefulSet):
 __all__ = [
     "Stateful",
     "Value",
+    "IntegerValue",
+    "BytesValue",
     "Register",
     "RegisterAlias",
-    "Memory",
-    "Code",
     "Machine",
 ]
