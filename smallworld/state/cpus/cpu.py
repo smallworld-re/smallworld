@@ -10,7 +10,7 @@ class CPU(state.StatefulSet):
 
     @property
     @abc.abstractmethod
-    def get_platform(self) -> platforms.Platform:
+    def platform(self) -> platforms.Platform:
         pass
 
     @classmethod
@@ -20,6 +20,7 @@ class CPU(state.StatefulSet):
         Returns:
             The platform object for this CPU.
         """
+
         return cls.platform
 
     @classmethod

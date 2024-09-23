@@ -5,7 +5,7 @@ import copy
 import ctypes
 import typing
 
-from .. import emulators, exceptions, platforms, utils
+from .. import analyses, emulators, exceptions, platforms, utils
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -508,6 +508,15 @@ class Machine(StatefulSet):
             pass
 
         return copy.deepcopy(self).extract(emulator)
+
+    def analyze(self, analysis: analyses.Analysis) -> None:
+        """Run the given analysis on this machine.
+
+        Arguments:
+            analysis: The analysis to run.
+        """
+
+        analysis.run(self)
 
 
 __all__ = [
