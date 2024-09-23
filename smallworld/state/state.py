@@ -19,6 +19,8 @@ class Stateful(metaclass=abc.ABCMeta):
             emulator: The emulator from which to load
         """
 
+        pass
+
     @abc.abstractmethod
     def apply(self, emulator: emulators.Emulator) -> None:
         """Apply state to an emulator.
@@ -26,6 +28,11 @@ class Stateful(metaclass=abc.ABCMeta):
         Arguments:
             emulator: The emulator to which state should applied.
         """
+
+        pass
+
+    def __hash__(self) -> int:
+        return id(self)
 
 
 class Value(metaclass=abc.ABCMeta):
