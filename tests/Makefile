@@ -1,7 +1,7 @@
 .PHONY: all build clean check
 .DEFAULT_GOAL=all
 
-SOURCES := $(wildcard *.s)
+SOURCES := $(wildcard */*.s)
 MIPSEL_TARGETS := $(patsubst %.mips.s,%.mipsel.bin,$(wildcard *.mips.s)) 
 MIPS64EL_TARGETS := $(patsubst %.mips64.s,%.mips64el.bin,$(wildcard *.mips64.s)) 
 TARGETS := ${SOURCES:.s=.bin} $(MIPSEL_TARGETS) $(MIPS64EL_TARGETS)
