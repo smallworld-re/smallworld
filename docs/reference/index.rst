@@ -16,6 +16,7 @@ Reference
     smallworld.state.memory
     smallworld.state.memory.stack
     smallworld.state.memory.heap
+    smallworld.state.memory.code
     smallworld.analyses
     smallworld.exceptions
     smallworld.extern.ctypes
