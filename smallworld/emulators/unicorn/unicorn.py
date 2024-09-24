@@ -8,7 +8,7 @@ import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from ... import exceptions, instructions, state, platforms
+from ... import exceptions, state, platforms
 from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
 from enum import Enum
@@ -604,30 +604,31 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             raise AssertionError("invalid state -- cannot obtain code from memory for current pc")
 
         insns, _ = self.disassemble(code, 1)
-        i = instructions.Instruction.from_capstone(insns[0])
+#        i = instructions.Instruction.from_capstone(insns[0])
 
         if typ == "mem":
+            details = {}
             if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
                 msg = "Quit emulation due to read of unmapped memory"
-                details = {o.key(self): o.concretize(self) for o in i.reads}
+                #details = {o.key(self): o.concretize(self) for o in i.reads}
             elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
                 msg = "Quit emulation due to write to unmapped memory"
-                details = {o.key(self): o.concretize(self) for o in i.writes}
+                #details = {o.key(self): o.concretize(self) for o in i.writes}
             elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
                 msg = "Quit emulation due to fetch of unmapped memory"
                 details = {"pc": pc}
             elif error.errno == unicorn.UC_ERR_READ_PROT:
                 msg = "Quit emulation due to read of mapped but protected memory"
-                details = {o.key(self): o.concretize(self) for o in i.reads}
+                #details = {o.key(self): o.concretize(self) for o in i.reads}
             elif error.errno == unicorn.UC_ERR_WRITE_PROT:
                 msg = "Quit emulation due to write to mapped but protected memory"
-                details = {o.key(self): o.concretize(self) for o in i.writes}
+                #details = {o.key(self): o.concretize(self) for o in i.writes}
             elif error.errno == unicorn.UC_ERR_FETCH_PROT:
                 msg = "Quit emulation due to fetch of from mapped but protected memory"
                 details = {"pc": pc}
             elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
                 msg = "Quit emulation due to unaligned read"
-                details = {o.key(self): o.concretize(self) for o in i.reads}
+                #details = {o.key(self): o.concretize(self) for o in i.reads}
             elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
                 msg = "Quit emulation due to unaligned write"
                 details = {o.key(self): o.concretize(self) for o in i.writes}
