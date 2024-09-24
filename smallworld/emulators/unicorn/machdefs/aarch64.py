@@ -2,12 +2,13 @@ import capstone
 import unicorn
 
 from .machdef import UnicornMachineDef
+from ....platforms import Byteorder
 
 
 class AArch64MachineDef(UnicornMachineDef):
     arch = "aarch64"
     mode = "v8a"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
 
     uc_arch = unicorn.UC_ARCH_ARM64
     uc_mode = unicorn.UC_MODE_ARM

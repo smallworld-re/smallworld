@@ -1,6 +1,9 @@
 import sys
 
 import smallworld
+import logging
+
+smallworld.logging.setup_logging(level = logging.DEBUG)
 
 machine = smallworld.state.Machine()
 code = smallworld.state.memory.code.Executable.from_filepath(

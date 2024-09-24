@@ -2,6 +2,7 @@ import capstone
 import unicorn
 
 from .machdef import UnicornMachineDef
+from ....platforms import Byteorder
 
 
 class ARMMachineDef(UnicornMachineDef):
@@ -278,14 +279,14 @@ class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv5T little-endian"""
 
     mode = "v5t"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv6-M little-endian"""
 
     mode = "v6m"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv6MThumbMachineDef(ARMv6MMachineDef):
@@ -298,18 +299,18 @@ class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv7-M little-endian"""
 
     mode = "v7m"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv7RMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
     """Unicorn machine definition for ARMv7-R little-endian"""
 
     mode = "v7r"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
     """Unicorn machine definition for ARMv7-A little-endian"""
 
     mode = "v7a"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE

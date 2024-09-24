@@ -479,7 +479,7 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
     """An Emulator mixin that supports memory write hooking."""
 
     @abc.abstractmethod
-    def hook_write_read(
+    def hook_memory_write(
         self,
         start: int,
         end: int,

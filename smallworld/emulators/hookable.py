@@ -1,4 +1,5 @@
-from emulator import InstructionHookable, FunctionHookable, MemoryReadHookable, MemoryWriteHookable, InterruptHookable
+import typing 
+from .emulator import Emulator, InstructionHookable, FunctionHookable, MemoryReadHookable, MemoryWriteHookable, InterruptHookable
 
 
 def range_intersect(r1, r2):
@@ -17,9 +18,9 @@ emulators, both of which are Qemu-based.
 class QInstructionHookable(InstructionHookable):
  
     def __init__(self):
-        self.instruction_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator], None]] = {}
+        self.instruction_hooks = typing.Dict[int, typing.Callback[[Emulator], None]] = {}
 
-    def hook_instruction(self, address: int, function: Callable[[Emulator], None]) -> None:
+    def hook_instruction(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
         if address in self.instruction_hooks[address]:
             raise ValueError(f"can't hook instruction at {address:x} since already hooked")
         self.instruction_hooks[address] = function
@@ -33,9 +34,9 @@ class QInstructionHookable(InstructionHookable):
 class QFunctionHookable(FunctionHookable):
 
     def __init__(self):
-        self.function_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator], None]] = {}
+        self.function_hooks = typing.Dict[int, typing.Callback[[Emulator], None]] = {}
 
-    def hook_function(self, address: int, function: Callable[[Emulator], None]) -> None:
+    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
         if address in self.function_hooks[address]:
             raise ValueError(f"can't hook function at {address:x} since already hooked")
         self.function_hooks[address] = function
@@ -49,9 +50,9 @@ class QFunctionHookable(FunctionHookable):
 class QMemoryReadHookable(MemoryReadHookable):
 
     def __init__(self):
-        self.memory_read_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator, int, int], bytes]] = {}
+        self.memory_read_hooks = typing.Dict[int, typing.Callback[[Emulator, int, int], bytes]] = {}
 
-    def hook_memory_read(self, start: int, end: int, function: Callable[[Emulator, int, int], bytes]) -> None:
+    def hook_memory_read(self, start: int, end: int, function: typing.Callable[[Emulator, int, int], bytes]) -> None:
         new_range = range(start, end)
         for r in self.memory_read_hooks:
             if range_intersect(r, new_range):
@@ -68,16 +69,16 @@ class QMemoryReadHookable(MemoryReadHookable):
             
     def unhook_memory_read(address: int) -> None: 
         if address not in self.memory_read_hooks:
-            raise ValueError(f"can't unhook memory read range {range_to_hex_str(address}) since its not already hooked")
+            raise ValueError(f"can't unhook memory read range {range_to_hex_str(address)} since its not already hooked")
         self.memory_read_hooks.pop(address, None)
 
                 
 class QMemoryWriteHookable(MemoryWriteHookable):
 
     def __init__(self):
-        self.memory_write_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator, int, int], bytes]] = {}
+        self.memory_write_hooks = typing.Dict[int, typing.Callback[[Emulator, int, int], bytes]] = {}
 
-    def hook_memory_write(self, start: int, end: int, function: Callable[[Emulator, int, int], bytes]) -> None:
+    def hook_memory_write(self, start: int, end: int, function: typing.Callable[[Emulator, int, int], bytes]) -> None:
         new_range = range(start, end)
         for r in self.memory_write_hooks:
             if range_intersect(r, new_range):
@@ -94,7 +95,7 @@ class QMemoryWriteHookable(MemoryWriteHookable):
             
     def unhook_memory_write(self, address: int) -> None: 
         if address not in self.memory_write_hooks:
-            raise ValueError(f"can't unhook memory write range {range_to_hex_str(address}) since its not already hooked")
+            raise ValueError(f"can't unhook memory write range {range_to_hex_str(address)} since its not already hooked")
         self.memory_write_hooks.pop(address, None)
 
         
@@ -102,15 +103,15 @@ class QInterruptHookable(InterruptHookable):
 
     def __init__(self):
         self.all_interrupts_hook = None
-        self.interrupt_hooks = typing.Dict[int, typing.Callback[[emulator.Emulator, int], None]] = {}
+        self.interrupt_hooks = typing.Dict[int, typing.Callback[[Emulator, int], None]] = {}
 
-    def hook_interrupts(self, function: Callable[[Emulator, int], None]) -> None:
+    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
         self.all_interrupts_hook = function
 
     def unhook_interrupts(self):
         self.all_interrupts_hook = None
 
-    def hook_interrupt(self, intno: int, function: Callable[[Emulator], None]) -> None:
+    def hook_interrupt(self, intno: int, function: typing.Callable[[Emulator], None]) -> None:
         if intno in self.interrupt_hooks:
             raise Valueerror(f"can't hook interrupt number {intno} since its already hooked")
         self.interrupt_hooks[intno] = function

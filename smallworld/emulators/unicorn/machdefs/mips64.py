@@ -2,6 +2,7 @@ import capstone
 import unicorn
 
 from .machdef import UnicornMachineDef
+from ....platforms import Byteorder
 
 
 class MIPS64ELMachineDef(UnicornMachineDef):
@@ -9,7 +10,7 @@ class MIPS64ELMachineDef(UnicornMachineDef):
 
     arch = "mips"
     mode = "mips64"
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
 
     uc_arch = unicorn.UC_ARCH_MIPS
     uc_mode = unicorn.UC_MODE_MIPS64

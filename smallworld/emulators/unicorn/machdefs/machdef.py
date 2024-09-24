@@ -1,8 +1,26 @@
 import abc
 import typing
 
-from .... import utils
+from .... import utils, platforms
+#from ....platforms import Architecture
 
+architecture_to_arch_mode = {
+
+    platforms.Architecture.X86_32: ("x86", "32"),
+    platforms.Architecture.X86_64: ("x86", "64"),
+    platforms.Architecture.AARCH64: ("aarch64", "v8a"),
+    platforms.Architecture.MIPS32: ("mips", "mips32"),
+    platforms.Architecture.MIPS64: ("mips", "mips64"),
+    platforms.Architecture.ARM_V5T: ("arm", "v5t"),
+    platforms.Architecture.ARM_V6M: ("arm", "v6m"),
+    platforms.Architecture.ARM_V6M_THUMB: ("arm", "v6m-thumb"),
+    platforms.Architecture.ARM_V7M: ("arm", "v7m"),
+    platforms.Architecture.ARM_V7R: ("arm", "v7r"),
+    platforms.Architecture.ARM_V7A: ("arm", "v7a"),
+    # we dont have these yet...
+    platforms.Architecture.POWERPC64: (None, None),
+    platforms.Architecture.POWERPC32: (None, None),
+}
 
 class UnicornMachineDef(metaclass=abc.ABCMeta):
     """Container class for Unicorn architecture-specific definitions"""
@@ -78,13 +96,11 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             )
 
     @classmethod
-    def for_arch(cls, arch: str, mode: str, byteorder: str):
+    def for_platform(cls, platform: platforms.Platform):
         """Find the appropriate MachineDef for your architecture
 
         Arguments:
-            arch: The architecture ID you want
-            mode: The mode ID you want
-            byteorder: The byteorderness you want
+            platform: platform metadata
 
         Returns:
             An instance of the appropriate MachineDef
@@ -92,12 +108,32 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         Raises:
             ValueError: If no MachineDef subclass matches your request
         """
+
+        (arch, mode) = architecture_to_arch_mode[platform.architecture]
+        if arch is None:
+            raise NotImplementedException
         try:
+            def thef(md):
+                print (md)
+                if md.arch == arch:
+                    print("arch same")
+                    import pdb
+                    pdb.set_trace()
+                    if md.mode == mode:
+                        print("mode same")
+                        pdb.set_trace()
+                        if md.byteorder == platform.byteorder:
+                            print("byteorder same")
+                            return True
+                return False
+
             return utils.find_subclass(
                 cls,
+                #thef            
                 lambda x: x.arch == arch
                 and x.mode == mode
-                and x.byteorder == byteorder,
+                and x.byteorder == platform.byteorder,
             )
         except:
             raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
+

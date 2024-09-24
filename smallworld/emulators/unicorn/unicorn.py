@@ -8,7 +8,7 @@ import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from ... import exceptions, instructions, state
+from ... import exceptions, instructions, state, platforms
 from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
 from enum import Enum
@@ -17,7 +17,7 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 
-class UnicornEmulationError(EmulationError):
+class UnicornEmulationError(exceptions.EmulationError):
     def __init__(self, uc_err: unicorn.UcError, pc: int, msg:str, details: dict):
         self.uc_err = uc_err
         self.pc = pc
@@ -38,37 +38,20 @@ class UnicornEmulationExecutionError(UnicornEmulationError):
 
 class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable.QFunctionHookable, \
                       hookable.QMemoryReadHookable, hookable.QMemoryWriteHookable, hookable.QInterruptHookable):
-    """An emulator for the Unicorn emulation engine.
+    """An emulator for the Unicorn emulation engine."""
 
-    Arguments:
-        arch: Architecture ID string
-        mode: Mode ID string
-        byteorder: Byteorder
-
-    """
+    description = "This is a smallworld class encapsulating the Unicorn emulator."
+    name = "smallworld's-unicorn"
+    version = "0.0"
 
     PAGE_SIZE = 0x1000
 
-    # If in bounds for at least one of the allowed execuction intervals
-    # provided, then we are "in-bounds", else raise exception
-    def _check_pc_in_bounds(self, pc):            
-        any_in_bounds = False
-        for bound in self.bounds:
-            if pc in bound:
-                any_in_bounds = True
-                break
-        if any_in_bounds:
-            return
-        if self.emulation_in_progress == STEP_BLOCK or self.emulation_in_progress == RUN:
-            self.engine.emu_stop()
-        raise exceptions.EmulationBounds
-    
-    def __init__(self, arch: str, mode: str, byteorder: str):
-        super().__init__()
-        self.arch = arch
-        self.mode = mode
-        self.byteorder = byteorder
-        self.machdef = UnicornMachineDef.for_arch(arch, mode, byteorder)
+    def __init__(self, platform: platforms.Platform):
+        super().__init__(platform)
+        self.platform = platform
+#        import pdb
+#        pdb.set_trace()
+        self.machdef = UnicornMachineDef.for_platform(self.platform)
         self.engine = unicorn.Uc(self.machdef.uc_arch, self.machdef.uc_mode)
         self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
         self.disassembler.detail = True
@@ -121,8 +104,19 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         # this will run on *every instruction
         def code_callback(uc, address, size):
-            # check if we are out of bounds
-            self._check_pc_in_bounds(self, address)
+
+            if len(self.bounds) > 0:
+                # check that we are in bounds
+                any_in_bounds = False
+                for bound in self.bounds:
+                    if pc in bound:
+                        any_in_bounds = True
+                        break
+                if not any_in_bounds:
+                    # not in bounds for any of the ranges specified
+                    if self.emulation_in_progress == STEP_BLOCK or self.emulation_in_progress == RUN:
+                        self.engine.emu_stop()
+                    raise exceptions.EmulationBounds
 
             # check for if we've hit an exit point
             if address in self.exit_points:
@@ -165,7 +159,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         def mem_write_callback(uc, type, address, size, value, user_data):
             assert (type == unicorn.UC_HOOK_MEM_WRITE)
             if address in self.memory_write_hooks:
-                self.memory_write_hooks[address][address, size)
+                self.memory_write_hooks[address](address, size)
 
         self.engine.hook_add(unicorn.UC_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_MEM_READ, mem_read_callback)
@@ -216,7 +210,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         (reg, _, _ , _) = self._register(name)
         if reg == 0:
             logger.warn(
-                f"Unicorn doesn't support register {name} for {self.arch}:{self.mode}:{self.byteorder}"
+                f"Unicorn doesn't support register {name} for {self.platform}"
             )
         try:
             return self.engine.reg_read(reg)
@@ -664,4 +658,4 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             
 
     def __repr__(self) -> str:
-        return f"Unicorn(mode={self.mode}, arch={self.arch})"
+        return f"UnicornEmulator(platform={self.platform})"
