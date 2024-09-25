@@ -49,8 +49,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def __init__(self, platform: platforms.Platform):
         super().__init__(platform)
         self.platform = platform
-#        import pdb
-#        pdb.set_trace()
         self.machdef = UnicornMachineDef.for_platform(self.platform)
         self.engine = unicorn.Uc(self.machdef.uc_arch, self.machdef.uc_mode)
         self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
@@ -233,7 +231,9 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             ls = set([])
             for i in range(offset, offset+size):                
                 if i in self.label[base_reg]:
-                    ls.add(self.label[base_reg][i])
+                    l = self.label[base_reg][i]
+                    if l is not None:
+                        ls.add(l)
             return ":".join(list(ls))
         return None
 
@@ -243,8 +243,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
     
     def write_register_content(self, name: str, content: int) -> None:
-#        import pdb
-#        pdb.set_trace()
         if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
@@ -268,8 +266,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
     ) -> None:
-#        import pdb
-#        pdb.set_trace()
         (_, base_reg, offset, size) = self._register(name)
         if base_reg not in self.label:
             self.label[base_reg] = {}
@@ -392,8 +388,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         try:
             self.engine.mem_write(address, content)
         except unicorn.UcError as e:
-#            import pdb
-#            pdb.set_trace()
             logger.warn(f"Unicorn raised an exception on memory write {e}")
             self._error(e, "mem")
 
@@ -513,8 +507,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def _check(self) -> None:
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
-        import pdb
-        pdb.set_trace()
         (_, base_name, offset, size)  = self._register("pc")
         if base_name in self.initialized_registers and \
            len(self.initialized_registers[base_name]) == size:

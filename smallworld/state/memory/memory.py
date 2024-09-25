@@ -61,8 +61,6 @@ class Memory(state.Stateful, state.Value, dict):
             raise ValueError("Stack is full")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-#        import pdb
-#        pdb.set_trace()
         emulator.map_memory(self.get_capacity(), self.address)
         emulator.write_memory(
             self.address, self.to_bytes(byteorder=emulator.platform.byteorder)

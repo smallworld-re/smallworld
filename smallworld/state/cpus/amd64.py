@@ -30,6 +30,7 @@ class AMD64(i386.I386):
     )
 
     def __init__(self):
+
         self.rax = state.Register("rax", size=8)
         self.eax = state.RegisterAlias("eax", self.rax, size=4)
         self.ax = state.RegisterAlias("ax", self.rax, size=2)
@@ -161,3 +162,18 @@ class AMD64(i386.I386):
         self.add(self.cr2)
         self.add(self.cr3)
         self.add(self.cr4)
+
+
+    def __deepcopy__(self, memo):
+        
+        new_cpu = (type(self))()
+        for x in self.__dict__:
+            a = self.__getattribute__(x)
+            if type(a) is state.Register:
+                new_cpu.__getattribute__(x).set(self.__getattribute__(x).get())
+                new_cpu.__getattribute__(x).set_label(self.__getattribute__(x).get_label())
+                new_cpu.__getattribute__(x).set_type(self.__getattribute__(x).get_type())
+                
+        return new_cpu
+
+        

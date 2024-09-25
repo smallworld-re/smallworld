@@ -314,6 +314,7 @@ class RegisterAlias(Register):
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
+            logger.debug(f"extracting state {stateful} of type {type(stateful)} from emulator {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
@@ -341,9 +342,9 @@ class Machine(StatefulSet):
         except exceptions.EmulationStop:
             pass
 
-        import pdb
-        pdb.set_trace()
-        return copy.deepcopy(self).extract(emulator)
+        machine_copy = copy.deepcopy(self)
+        machine_copy.extract(emulator)
+        return machine_copy
 
     def analyze(self, analysis: analyses.Analysis) -> None:
         """Run the given analysis on this machine.

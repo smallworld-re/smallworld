@@ -113,23 +113,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         if arch is None:
             raise NotImplementedException
         try:
-            def thef(md):
-                print (md)
-                if md.arch == arch:
-                    print("arch same")
-                    import pdb
-                    pdb.set_trace()
-                    if md.mode == mode:
-                        print("mode same")
-                        pdb.set_trace()
-                        if md.byteorder == platform.byteorder:
-                            print("byteorder same")
-                            return True
-                return False
 
             return utils.find_subclass(
                 cls,
-                #thef            
                 lambda x: x.arch == arch
                 and x.mode == mode
                 and x.byteorder == platform.byteorder,
