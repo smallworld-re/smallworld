@@ -191,7 +191,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.read_memory_content(address, size)
 
     @abc.abstractmethod
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+    def map_memory(self,  size: int, address: typing.Optional[int] = None) -> int:
         """Map memory of a given size.
 
         Arguments:

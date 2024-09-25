@@ -4,8 +4,11 @@ import abc
 import copy
 import ctypes
 import typing
+import logging as lg
 
-from .. import analyses, emulators, exceptions, platforms
+logger = lg.getLogger(__name__)
+
+from .. import analyses, emulators, exceptions, platforms, logging
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -273,23 +276,39 @@ class RegisterAlias(Register):
 
         return mask
 
-    def extract(self, emulator: emulators.Emulator) -> None:
-        self.reference.extract(emulator)
-
+    def get_content(self) -> typing.Optional[typing.Any]:
+        r = self.reference.get_content()
+        if r is None:
+            return r
         value = self.reference.get_content() & self.mask
         value >>= self.offset * 8
+        return value
 
-        self.set_content(value)
-        self.set_type(self.reference.get_type())
-        self.set_label(self.reference.get_label())
+    def set_content(self, content: typing.Optional[typing.Any]) -> None:
+        if content is not None:
+            value = self.reference.get_content()            
+            if value is  None:
+                value = 0
+            value = (value & ~self.mask) | content
+            self.reference.set_content(value)
+
+    def get_type(self) -> typing.Optional[typing.Any]:
+        return self.reference.get_type()
+        
+    def set_type(self, type: typing.Optional[typing.Any]) -> None:
+        self.reference.set_type(type)
+
+    def get_label(self) -> typing.Optional[str]:
+        return self.reference.get_label()
+
+    def set_label(self, label: typing.Optional[str]) -> None:
+        self.reference.set_label(label)
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        pass
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        value = self.reference.get_content()
-        value = (value & ~self.mask) + self.get_content()
-
-        self.reference.set_content(value)
-        self.reference.set_type(self.get_type())
-        self.reference.set_label(self.get_label())
+        pass
 
 
 class StatefulSet(Stateful, set):
@@ -299,6 +318,7 @@ class StatefulSet(Stateful, set):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
+            logger.debug(f"applying state {stateful} of type {type(stateful)} to emulator {emulator}")
             stateful.apply(emulator)
 
 
@@ -321,6 +341,8 @@ class Machine(StatefulSet):
         except exceptions.EmulationStop:
             pass
 
+        import pdb
+        pdb.set_trace()
         return copy.deepcopy(self).extract(emulator)
 
     def analyze(self, analysis: analyses.Analysis) -> None:

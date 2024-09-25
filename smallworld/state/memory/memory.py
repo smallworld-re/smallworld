@@ -32,11 +32,11 @@ class Memory(state.Stateful, state.Value, dict):
 
         result = b"\x00" * self.size
         for offset, value in self.items():
-            data = value.get_content()
+            #data = value.get_content()
             result = (
                 result[:offset]
-                + data.to_bytes(byteorder=byteorder)
-                + result[offset + value.size :]
+                + value.to_bytes(byteorder=byteorder)
+                + result[offset + value.get_size() :]
             )
 
         return result
@@ -61,6 +61,9 @@ class Memory(state.Stateful, state.Value, dict):
             raise ValueError("Stack is full")
 
     def apply(self, emulator: emulators.Emulator) -> None:
+#        import pdb
+#        pdb.set_trace()
+        emulator.map_memory(self.get_capacity(), self.address)
         emulator.write_memory(
             self.address, self.to_bytes(byteorder=emulator.platform.byteorder)
         )

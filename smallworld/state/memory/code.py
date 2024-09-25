@@ -1,8 +1,8 @@
 import os
 import typing
 
+from ... import state
 from . import memory
-
 
 class Executable(memory.Memory):
     """An execuable piece of code."""
@@ -47,7 +47,7 @@ class Executable(memory.Memory):
         data, size = file.read(), file.tell()
 
         executable = cls(address=address, size=size)
-        executable[0] = data
+        executable[0] = state.BytesValue(data, "code")
 
         return executable
 

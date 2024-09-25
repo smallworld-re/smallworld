@@ -71,7 +71,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # translated via `hex(address)`.
         # In other words, self.label["0xdeadbeef"] = "came_from_hades" is
         # the label on that address in memory
-        self.label: typing.Dict[str, str]
+        self.label: typing.Dict[str, str] = {}
 
         # mmio read and write hooking data structs
         self.mmio_read_hooks: typing.Dict[
@@ -100,10 +100,12 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         self.hook_return = None
 
         # list of exit points which will end emulation
-        self.exit_points = []                
+        #self.exit_points = []                
+        self.instruction_hooks = {}
+        self.function_hooks = {}
 
         # this will run on *every instruction
-        def code_callback(uc, address, size):
+        def code_callback(uc, address, size, user_data):
 
             if len(self.bounds) > 0:
                 # check that we are in bounds
@@ -119,7 +121,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                     raise exceptions.EmulationBounds
 
             # check for if we've hit an exit point
-            if address in self.exit_points:
+            if address in self._exit_points:
                 logger.debug(f"stopping emulation at exit point {address:x}")
                 self.engine.emu_stop()
                 raise exception.EmulationExitpoint
@@ -241,17 +243,19 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
     
     def write_register_content(self, name: str, content: int) -> None:
-        if value is None:
+#        import pdb
+#        pdb.set_trace()
+        if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
         (reg, base_reg, offset, size) = self._register(name)
-        self.engine.reg_write(reg, value)        
+        self.engine.reg_write(reg, content)        
         # keep track of which bytes in this register have been initialized 
         if base_reg not in self.initialized_registers:
-            self.initialized_registers[base_reg] = {}
+            self.initialized_registers[base_reg] = set([])
         for o in range(offset, offset+size):
             self.initialized_registers[base_reg].add(o)
-        logger.debug(f"set register {name}={value}")
+        logger.debug(f"set register {name}={content}")
 
         
     def write_register_type(
@@ -264,6 +268,8 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
     ) -> None:
+#        import pdb
+#        pdb.set_trace()
         (_, base_reg, offset, size) = self._register(name)
         if base_reg not in self.label:
             self.label[base_reg] = {}
@@ -281,7 +287,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         try:
             return self.engine.mem_read(address, size)
         except unicorn.UcError as e:
-            logger.warn(f"Unicorn raised an exception on memory read {new_e.msg}")
+            logger.warn(f"Unicorn raised an exception on memory read {e}")
             self._error(e, "mem")
 
             
@@ -386,7 +392,9 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         try:
             self.engine.mem_write(address, content)
         except unicorn.UcError as e:
-            logger.warn(f"Unicorn raised an exception on memory write {new_e.msg}")
+#            import pdb
+#            pdb.set_trace()
+            logger.warn(f"Unicorn raised an exception on memory write {e}")
             self._error(e, "mem")
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
@@ -505,6 +513,8 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def _check(self) -> None:
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
+        import pdb
+        pdb.set_trace()
         (_, base_name, offset, size)  = self._register("pc")
         if base_name in self.initialized_registers and \
            len(self.initialized_registers[base_name]) == size:
@@ -515,7 +525,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 "pc not initialized, emulation cannot start"
             )
         # 2. an exit point is also required
-        if len(self.exit_points) == 0:
+        if len(self._exit_points) == 0:
             raise exceptions.ConfigurationError(
                 "at least one exit point must be set, emulation cannot start"
             )
@@ -548,10 +558,10 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 # stepping by block -- just start emulating and the block
                 # callback will end emulation when we hit next bb
                 # Note: assuming no block will be longer than 1000 instructions
-                self.engine.emu_start(pc, self.exit_point[0], count=1000)
+                self.engine.emu_start(pc, self._exit_point[0], count=1000)
             else:
                 # stepping by instruction
-                self.engine.emu_start(pc, self.exit_point[0], count=1)
+                self.engine.emu_start(pc, self._exit_point[0], count=1)
         except unicorn.UcError as e:            
             logger.warn(f"emulation stopped - reason: {e}")
             # translate this unicorn error into something richer
@@ -570,11 +580,11 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def run(self) -> None:
         self._check()
                 
-        logger.info(f"starting emulation at 0x{self.read_register('pc'):x} until 0x{self.exit:x}")
+        logger.info(f"starting emulation at 0x{self.read_register('pc'):x}") # until 0x{self._exit_point:x}")
 
         try:
             # unicorn requires one exit point so just use first
-            self.engine.emu_start(self.read_register('pc'), self.exit_points[0])
+            self.engine.emu_start(self.read_register('pc'), self._exit_points[0])
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")
