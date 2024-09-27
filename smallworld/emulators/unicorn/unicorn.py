@@ -105,6 +105,9 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
 
+            import pdb
+            pdb.set_trace()
+
             if len(self.bounds) > 0:
                 # check that we are in bounds
                 any_in_bounds = False
@@ -191,6 +194,24 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # keep track of which registers have been initialized
         self.initialized_registers = {}
 
+
+    def _check_pc_ok(self, pc):
+        """Check if this pc is ok to emulate, i.e. in bounds and not an exit
+        point."""
+
+        if len(self.bounds) > 0:
+            # check that we are in bounds
+            any_in_bounds = False
+            for bound in self.bounds:
+                if pc in bound:
+                    return True
+            return False
+
+        # check for if we've hit an exit point
+        if pc in self._exit_points:
+            logger.debug(f"stopping emulation at exit point {pc:x}")
+            return False
+        return True
 
     def _register(self, name: str) -> int:
         # Translate register name into the tuple
@@ -550,10 +571,10 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 # stepping by block -- just start emulating and the block
                 # callback will end emulation when we hit next bb
                 # Note: assuming no block will be longer than 1000 instructions
-                self.engine.emu_start(pc, self._exit_point[0], count=1000)
+                self.engine.emu_start(pc, self._exit_points[0], count=1000)
             else:
                 # stepping by instruction
-                self.engine.emu_start(pc, self._exit_point[0], count=1)
+                self.engine.emu_start(pc, self._exit_points[0], count=1)
         except unicorn.UcError as e:            
             logger.warn(f"emulation stopped - reason: {e}")
             # translate this unicorn error into something richer

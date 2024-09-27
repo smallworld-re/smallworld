@@ -8,7 +8,7 @@ import logging as lg
 
 logger = lg.getLogger(__name__)
 
-from .. import analyses, emulators, exceptions, platforms, logging
+from .. import analyses, emulators, exceptions, platforms, logging, state
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -343,7 +343,14 @@ class Machine(StatefulSet):
             pass
 
         machine_copy = copy.deepcopy(self)
+
+        cpu1 = self.get_cpu()
+        cpu2 = machine_copy.get_cpu()
+
         machine_copy.extract(emulator)
+
+        cpu3 = machine_copy.get_cpu()
+
         return machine_copy
 
     def analyze(self, analysis: analyses.Analysis) -> None:
@@ -354,6 +361,13 @@ class Machine(StatefulSet):
         """
 
         analysis.run(self)
+
+    def get_cpu(self):
+        for i in self:
+            if issubclass(type(i), state.cpus.cpu.CPU):
+                return i
+
+
 
 
 __all__ = [
