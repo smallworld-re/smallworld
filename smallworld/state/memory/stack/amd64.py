@@ -2,18 +2,20 @@ import typing
 
 from .... import platforms
 from . import stack
-
+from ... import state
 
 class AMD64Stack(stack.DescendingStack):
-    platform = platforms.Platform(
-        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-    )
+
+    platform = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
 
     def get_pointer(self) -> int:
         return ((self.address + self.size) - self.get_used() - 8) & 0xFFFFFFFFFFFFFFF0
 
     def get_alignment(self) -> int:
         return 16
+
+    def push(self, value: state.Value) -> int:
+        return super().push(value)
 
     @classmethod
     def initialize_stack(cls, argv: typing.List[bytes], *args, **kwargs):
