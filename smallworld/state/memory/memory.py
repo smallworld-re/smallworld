@@ -56,6 +56,9 @@ class Memory(state.Stateful, state.Value, dict):
         """
         return sum([v.get_size() for v in self.values()])
 
+    def get_size(self) -> int:
+        raise NotImplemented("You probably want get_capacity()")
+
     def _is_safe(self, value: state.Value):
         if (self.get_used() + value.get_size()) > self.get_capacity():
             raise ValueError("Stack is full")
@@ -67,7 +70,8 @@ class Memory(state.Stateful, state.Value, dict):
         )
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError("extracting memory not yet implemented")
+        bytes = emulator.read_memory(self.address, self.size)
+        self[0] = state.BytesValue(bytes, f"Extracted memory from {self.address}")
 
 
 __all__ = ["Memory"]
