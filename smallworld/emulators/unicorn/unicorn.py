@@ -105,9 +105,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
 
-            import pdb
-            pdb.set_trace()
-
             if len(self.bounds) > 0:
                 # check that we are in bounds
                 any_in_bounds = False
@@ -553,16 +550,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         pc = self.read_register("pc")
 
-        if by_block:
-            # hard to disassemble bb about to be emulated?
-            logger.info(f"block step at 0x{pc:x}")
-        else:
-            code = self.read_memory(pc, 15)  # longest possible instruction
-            if code is None:            
-                assert False, "impossible state"
-            (instr, disas) = self.disassemble(code, pc, 1)
-            logger.info(f"single step at 0x{pc:x}: {disas}")
-            
         try: 
             # NB: unicorn requires an exit point so just use first in our
             # list. Note that we still check all of them at each instruction in
@@ -571,9 +558,18 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 # stepping by block -- just start emulating and the block
                 # callback will end emulation when we hit next bb
                 # Note: assuming no block will be longer than 1000 instructions
+                logger.info(f"block step at 0x{pc:x}")
                 self.engine.emu_start(pc, self._exit_points[0], count=1000)
             else:
                 # stepping by instruction
+                if pc == self._exit_points[0]:
+                    raise exceptions.EmulationBounds
+                code = self.read_memory(pc, 15)  # longest possible instruction
+                if code is None:            
+                    assert False, "impossible state"
+                (instr, disas) = self.disassemble(code, pc, 1)
+                logger.info(f"single step at 0x{pc:x}: {disas}")
+            
                 self.engine.emu_start(pc, self._exit_points[0], count=1)
         except unicorn.UcError as e:            
             logger.warn(f"emulation stopped - reason: {e}")

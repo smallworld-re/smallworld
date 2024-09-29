@@ -343,13 +343,7 @@ class Machine(StatefulSet):
             pass
 
         machine_copy = copy.deepcopy(self)
-
-        cpu1 = self.get_cpu()
-        cpu2 = machine_copy.get_cpu()
-
         machine_copy.extract(emulator)
-
-        cpu3 = machine_copy.get_cpu()
 
         return machine_copy
 
