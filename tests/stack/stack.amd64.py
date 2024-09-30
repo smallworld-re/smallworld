@@ -3,7 +3,7 @@ import sys
 import smallworld
 import logging
 
-smallworld.logging.setup_logging(level = logging.INFO)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 machine = smallworld.state.Machine()
 code = smallworld.state.memory.code.Executable.from_filepath("stack.amd64.bin", address=0x1000)
