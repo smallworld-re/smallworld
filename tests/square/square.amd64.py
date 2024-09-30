@@ -26,7 +26,7 @@ platform = smallworld.platforms.Platform(
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
 cpu.rip.set(0x1000)
-cpu.edi.set(int(sys.argv[2]))
+cpu.edi.set(int(sys.argv[1]))
 machine.add(cpu)
 
 emulator = smallworld.emulators.UnicornEmulator(platform)
@@ -34,7 +34,8 @@ emulator.add_exit_point(cpu.rip.get() + 5)
 
 machine.apply(emulator)
 
-if len(sys.argv) == 4 and sys.argv[3] == "step":
+
+if len(sys.argv) == 3 and sys.argv[2] == "step":
     while True:
         try:
             emulator.step_instruction()
