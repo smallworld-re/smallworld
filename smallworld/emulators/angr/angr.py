@@ -8,9 +8,10 @@ import angr
 import claripy
 import cle
 
-from ... import exceptions, state
+from ... import exceptions, platforms, state
 from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
+from .exceptions import SymbolicValueError
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
 
@@ -49,7 +50,7 @@ class AngrEmulator(emulator.Emulator):
 
     PAGE_SIZE = 4096
 
-    def __init__(self, arch: str, mode: str, byteorder: str, preinit=None, init=None):
+    def __init__(self, platform: platforms.Platform, preinit=None, init=None):
         # Dirty bit; tells us if we've started emulation
         self._dirty: bool = False
 
@@ -59,8 +60,12 @@ class AngrEmulator(emulator.Emulator):
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
 
+        # Initialized registers.
+        # Used by "write_register_content" and "write_register_label" to deconflict
+        self._initialized_regs = set()
+
         # Locate the angr machine definition
-        self.machdef: AngrMachineDef = AngrMachineDef.for_arch(arch, mode, byteorder)
+        self.machdef: AngrMachineDef = AngrMachineDef.for_arch(platform)
 
         # Create an angr project using a blank byte stream,
         # and registered as self-modifying so we can load more code later.
@@ -114,7 +119,7 @@ class AngrEmulator(emulator.Emulator):
         if init:
             init(self)
 
-    def read_register(self, name: str):
+    def read_register_content(self, name: str) -> int:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Reading registers not supported once execution begins."
@@ -126,44 +131,137 @@ class AngrEmulator(emulator.Emulator):
             out = self.state.registers.load(off, size)
             if out.symbolic:
                 log.warn(f"Register {name} is symbolic: {out}")
-                return None
+                raise SymbolicValueError(f"Register {name} is symbolic")
             else:
                 return out.concrete_value
         except ValueError:
             # TODO: Handle invalid registers more gracefully
             return None
 
-    def write_register(
-        self,
-        reg: str,
-        value: typing.Optional[int],
-        label: typing.Optional[typing.Any] = None,
-    ) -> None:
+    def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
+        return None
+
+    def read_register_label(self, name: str) -> typing.Optional[str]:
+        # This considers all BVSs to be labeled values;
+        # if it has a name, we're giving it to you.
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Reading register not supported once execution begins."
+            )
+        if name == "pc":
+            name = self.machdef.pc_reg
+        try:
+            (off, size) = self.machdef.angr_reg(name)
+            out = self.state.registers.load(off, size)
+            if out.symbolic:
+                if out.op == "BVS":
+                    # This is a "pure" label; we can return it.
+                    return out.args[0]
+                else:
+                    # This is a mixed expression; we can't return it
+                    log.warn(f"Register {name} contains a symbolic expression: {out}")
+                    raise SymbolicValueError(
+                        f"Register {name} contains a symbolic expression"
+                    )
+            else:
+                # No propagated label
+                return None
+        except ValueError:
+            # TODO: Handle invalid registers more gracefully
+            return None
+
+    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
-        if value is not None:
-            if reg == "pc":
-                reg = self.machdef.pc_reg
-            (off, size) = self.machdef.angr_reg(reg)
-            v = claripy.BVV(value, size * 8)
-            self.state.registers.store(off, v)
 
-    def read_memory(self, addr: int, size: int):
+        # This will replace any value - symbolic or otherwise - currently in the emulator.
+        # Since labels are treated as symbolic values, it must be called before
+        # write_register_label().
+        if name == "pc":
+            name = self.machdef.pc_reg
+        (off, size) = self.machdef.angr_reg(reg)
+        if content is None:
+            v = claripy.BVS("UNINITIALIZED", size * 8)
+        else:
+            v = claripy.BVV(content, size * 8)
+        self.state.registers.store(off, v)
+
+    def write_register_type(self, name: str, type: typing.Optional[typing.Any] = None) -> None:
+        pass
+
+    def write_register_label(self, name: str, label: typing.Optional[str] = None) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing registers not supported once execution begins."
+            )
+        if name == "pc":
+            name = self.machdef.pc_reg
+        (off, size) = self.machdef.angr_reg(reg)
+
+        # This will bind whatever value is currently in the register
+        # to a symbol named after the label
+        # The same label will ALWAYS map to the same symbol!
+        # This can introduce unintended restrictions on exploration, 
+        # or even a contradictory state.
+        s = claripy.BVS(label, size * 8, explicit_name=True)
+        v = self.state.registers.load(off, size) 
+
+        if not self.state.solver.satisfiable(extra_constraints=(v == s)):
+            # Creating this binding will definitely cause a contradiction.
+            # Have you already used this label somewhere else?
+            raise ConfigurationError(f"Contradiction binding register {name} to label {label}")
+        
+        # Passing the last check doesn't guarantee you're safe.
+        self.state.registers.store(off, s)
+        self.state.solver.add(v == s)
+
+    def read_memory_content(self, address: int, size: int) -> bytes:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Reading memory not supported once execution begins."
             )
-        v = self.state.memory.load(addr, size)
+        v = self.state.memory.load(address, size)
         if v.symbolic:
-            log.warn(f"Memory at {hex(addr)} ({size} bytes) is symbolic: {v}")
-            return None
+            log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
+            raise SymbolicValueError(f"Memory at {hex(address)} is symbolic")
+        
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
+    def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
+        return None 
+
+    def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing memory not supported once execution begins."
+            )
+        v = self.state.memory.load(address, size)
+        if v.symbolic():
+            if op == "Extract":
+                # You got a piece of a possibly-labeled expression
+                # Try parsing the inner expression to see if it's a single symbol.
+                v = v.args[2]
+                
+            if v.op == "BVS":
+                # You got a single symbol; I'll treat it as a label
+                return v.args[0] 
+            else:
+                # You got a symbolic expression; I can't decode it further
+                log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
+                raise SymbolicValueError(f"Memory at {hex(address)} is symbolic")
+        else:
+            # Definitely no labels here
+            return None
+
+
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
-        raise NotImplementedError("Dynamic allocation not implemented for angr.")
+
+    def write_memory_content(self, address: int, content: typing.Optional[bytes]):
+        
+        
 
     def write_memory(
         self,

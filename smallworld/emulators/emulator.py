@@ -75,7 +75,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.read_register_content(name)
 
     @abc.abstractmethod
-    def write_register_content(self, name: str, content: int) -> None:
+    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
         """Write some content to a register.
 
         Arguments:

@@ -146,6 +146,28 @@ class Value(metaclass=abc.ABCMeta):
 
         raise NotImplementedError("loading from ctypes is not yet implemented")
 
+class EmptyValue(Value):
+    """An unconstrained value
+
+    This has a size, label, and type, but has no concrete value.
+    This is particularly useful for symbolic analyses with angr.
+    If used with Unicorn, it will resolve to a string of zeroes.
+
+    Arguments:
+        size: The size of the region
+        type: Optional typedef information
+        label: An optional metadata label
+    """
+    def __init__(self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]):
+        self._size = size
+        self._type = type
+        self._label = label
+
+    def get_size(self) -> int:
+        return self._size
+
+    def to_bytes(self):
+        return b'\0' * self._size
 
 class IntegerValue(Value):
     def __init__(
@@ -187,6 +209,7 @@ class IntegerValue(Value):
             return self._content.to_bytes(self._size, byteorder="big")
         else:
             raise NotImplementedError("middle endian integers are not yet implemented")
+
 
 
 class BytesValue(Value):

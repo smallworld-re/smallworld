@@ -65,9 +65,13 @@ class Memory(state.Stateful, state.Value, dict):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.map_memory(self.get_capacity(), self.address)
-        emulator.write_memory(
-            self.address, self.to_bytes(byteorder=emulator.platform.byteorder)
-        )
+        for offset, value in self.items():
+            if not isinstance(value, state.EmptyValue):
+                emulator.write_memory_content(self.address + offset, value.to_bytes())
+            if value.get_type() is not None:
+                emulator.write_memory_type(self.address + offset, value.get_size(), value.get_type())
+            if value.get_label() is not None:
+                emulator.write_memory_label(self.address + offset, value.get_size(), value.get_label())
 
     def extract(self, emulator: emulators.Emulator) -> None:
         bytes = emulator.read_memory(self.address, self.size)
