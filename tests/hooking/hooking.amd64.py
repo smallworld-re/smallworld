@@ -38,11 +38,16 @@ machine.add(puts)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.rip.get() + 20)
 
-try:
-    machine.emulate(emulator)
-except smallworld.exceptions.EmulationBounds:
-    print("emulation complete; encountered exit point or went out of bounds")
-except Exception as e:
-        print(f"emulation ended; raised exception {e}")
+machine.apply(emulator)
 
+while True:
+    try:
+        emulator.step()
+        #machine.emulate(emulator)
+    except smallworld.exceptions.EmulationBounds:
+        print("emulation complete; encountered exit point or went out of bounds")
+        break
+    except Exception as e:
+        print(f"emulation ended; raised exception {e}")
+        break
 

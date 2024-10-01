@@ -106,6 +106,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         def code_callback(uc, address, size, user_data):
 
             print(f"code callback addr={address:x}")
+
             if len(self.bounds) > 0:
                 # check that we are in bounds
                 any_in_bounds = False
@@ -130,14 +131,14 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 self.instruction_hooks[address]()
             # check function hooks *before* bounds since these might be out-of-bounds
             if address in self.function_hooks:
-                logger.debug(f"hit hooking address for function at {address:x}")
+                logger.debug(f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}")
                 # note that hooking a function means that we stop at function
                 # entry and, after running the hook, we do not let the function
                 # execute. Instead, we return from the function as if it ran.
                 # this permits modeling
                 # this is the model for the function
-                self.function_hooks[address]()
-                self.engine.emu_stop()                
+                self.function_hooks[address](self)
+                # self.engine.emu_stop()                
                 if self.hook_return is None:
                     raise RuntimeError("return point for function hook is unknown")
                 self.write_register("pc", self.hook_return)
@@ -437,7 +438,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
 
     def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
-        super(UnicornEmulator,self).hook_instruction(address, function)
+        super(UnicornEmulator,self).hook_function(address, function)
         self.map_memory(self.PAGE_SIZE, address)
 
         
@@ -587,8 +588,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 self.engine.emu_start(pc, self._exit_points[0], count=1)
 
         except unicorn.UcError as e:            
-            import pdb
-            pdb.set_trace()            
             if e.errno == unicorn.UC_ERR_FETCH_UNMAPPED and self.read_register("pc") in self.function_hooks:
                 # probably we tried to execute call to code that's not mapped?
                 pass

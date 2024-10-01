@@ -102,16 +102,9 @@ class Model(Hook):
     @classmethod
     def lookup(cls, name: str, platform: platforms.Platform, abi: platforms.ABI, address:int):
         try:
-            #def check_fn(x):
-            #    if (x.name == name and x.platform == platform and x.abi == abi):
-            #        pdb.set_trace()
-            #        return True
-            #    return False
-
             return utils.find_subclass(
                 cls,
                 lambda x: x.name == name and x.platform == platform and x.abi == abi,
-                #check_fn, 
                 address
             )
         except ValueError:
