@@ -34,6 +34,5 @@ emulator.add_exit_point(cpu.rip.get() + 12)
 
 
 final_machine = machine.emulate(emulator)
-for i in final_machine:
-    if type(i) is type(cpu):
-        print(i.eax.get())
+cpu = final_machine.get_cpu()
+print(cpu.eax.get()

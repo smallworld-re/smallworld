@@ -1,9 +1,9 @@
-from .amd64sysv import AMD64SystemVImplementedModel
-from .amd64win32 import AMD64Win32ImplementedModel
+from .amd64sysv import AMD64SystemVModel
+from .amd64win32 import AMD64Win32Model
 from .finder import model_for_name
 
 __all__ = [
     "model_for_name",
-    "AMD64SystemVImplementedModel",
-    "AMD64Win32ImplementedModel",
+    "AMD64SystemVModel",
+    "AMD64Win32Model",
 ]

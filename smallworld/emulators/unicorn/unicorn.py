@@ -105,6 +105,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
 
+            print(f"code callback addr={address:x}")
             if len(self.bounds) > 0:
                 # check that we are in bounds
                 any_in_bounds = False
@@ -429,6 +430,16 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
 
+
+    def hook_instruction(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        super(UnicornEmulator,self).hook_instruction(address, function)
+        self.map_memory(self.PAGE_SIZE, address)
+
+
+    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        super(UnicornEmulator,self).hook_instruction(address, function)
+        self.map_memory(self.PAGE_SIZE, address)
+
         
     def hook_mmio(
         self,
@@ -564,17 +575,28 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 # stepping by instruction
                 if pc == self._exit_points[0]:
                     raise exceptions.EmulationBounds
-                code = self.read_memory(pc, 15)  # longest possible instruction
-                if code is None:            
-                    assert False, "impossible state"
-                (instr, disas) = self.disassemble(code, pc, 1)
-                logger.info(f"single step at 0x{pc:x}: {disas}")
-            
+                if pc in self.function_hooks:
+                    pass
+                else:
+                    code = self.read_memory(pc, 15)  # longest possible instruction
+                    if code is None:            
+                        assert False, "impossible state"
+                    (instr, disas) = self.disassemble(code, pc, 1)
+                    logger.info(f"single step at 0x{pc:x}: {disas}")
+
                 self.engine.emu_start(pc, self._exit_points[0], count=1)
+
         except unicorn.UcError as e:            
-            logger.warn(f"emulation stopped - reason: {e}")
-            # translate this unicorn error into something richer
-            self._error(e, "exec")
+            import pdb
+            pdb.set_trace()            
+            if e.errno == unicorn.UC_ERR_FETCH_UNMAPPED and self.read_register("pc") in self.function_hooks:
+                # probably we tried to execute call to code that's not mapped?
+                pass
+            else:
+                logger.warn(f"emulation stopped - reason: {e}")
+                # translate this unicorn error into something richer
+                self._error(e, "exec")
+
 
             
     def step_instruction(self) -> bool:

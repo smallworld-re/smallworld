@@ -97,7 +97,7 @@ def _emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
 ######################################################
 
 
-class BasenameModel(state.models.ImplementedModel):
+class BasenameModel(state.models.Model):
     name = "basename"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -124,7 +124,7 @@ class BasenameModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, bn)
 
 
-class CallocModel(state.models.ImplementedModel):
+class CallocModel(state.models.Model):
     name = "calloc"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -136,15 +136,27 @@ class CallocModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, addr)
 
 
-class DaemonModel(state.models.Returns0ImplementedModel):
+class ReturnsNothingModel(state.models.Model):
+    def model(self, emulator: emulators.Emulator) -> None:
+        # so just do nothing
+        pass
+    
+    
+class Returns0Model(state.models.Model):
+    def model(self, emulator: emulators.Emulator) -> None:
+        # just return 0 
+        emulator.write_register(self.return_val, 0)
+
+
+class DaemonModel(Returns0Model):
     name = "daemon"
 
 
-class FlockModel(state.models.Returns0ImplementedModel):
+class FlockModel(Returns0Model):
     name = "flock"
 
 
-class Getopt_longModel(state.models.ImplementedModel):
+class Getopt_longModel(state.models.Model):
     name = "getopt_long"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -153,7 +165,7 @@ class Getopt_longModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, -1)
 
 
-class GetpagesizeModel(state.models.ImplementedModel):
+class GetpagesizeModel(state.models.Model):
     name = "getpagesize"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -161,11 +173,11 @@ class GetpagesizeModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, 0x1000)
 
 
-class GetppidModel(state.models.Returns0ImplementedModel):
+class GetppidModel(Returns0Model):
     name = "getppid"
 
 
-class GetsModel(state.models.ImplementedModel):
+class GetsModel(state.models.Model):
     name = "gets"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -180,7 +192,7 @@ class MallocModel(CallocModel):
     name = "malloc"
 
 
-class MemcpyModel(state.models.ImplementedModel):
+class MemcpyModel(state.models.Model):
     name = "memcpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -192,7 +204,7 @@ class MemcpyModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, dst)
 
 
-class OpenModel(state.models.ImplementedModel):
+class OpenModel(state.models.Model):
     name = "open"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -205,7 +217,7 @@ class Open64Model(OpenModel):
     name = "open64"
 
 
-class PutsModel(state.models.ImplementedModel):
+class PutsModel(state.models.Model):
     name = "puts"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -217,39 +229,39 @@ class PutsModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, 0)
 
 
-class PthreadCondInitModel(state.models.Returns0ImplementedModel):
+class PthreadCondInitModel(Returns0Model):
     name = "pthread_cond_init"
 
 
-class PthreadCondSignalModel(state.models.Returns0ImplementedModel):
+class PthreadCondSignalModel(Returns0Model):
     name = "pthread_cond_signal_model"
 
 
-class PthreadCondWaitModel(state.models.Returns0ImplementedModel):
+class PthreadCondWaitModel(Returns0Model):
     name = "pthread_cond_wait"
 
 
-class PthreadCreateModel(state.models.Returns0ImplementedModel):
+class PthreadCreateModel(Returns0Model):
     name = "pthread_create"
 
 
-class PthreadMutexInitModel(state.models.Returns0ImplementedModel):
+class PthreadMutexInitModel(Returns0Model):
     name = "pthread_mutex_init"
 
 
-class PthreadMutexLockModel(state.models.Returns0ImplementedModel):
+class PthreadMutexLockModel(Returns0Model):
     name = "ptherad_mutex_lock"
 
 
-class PthreadMutexUnlockModel(state.models.Returns0ImplementedModel):
+class PthreadMutexUnlockModel(Returns0Model):
     name = "pthread_mutex_unlock"
 
 
-class PtraceModel(state.models.Returns0ImplementedModel):
+class PtraceModel(Returns0Model):
     name = "ptrace"
 
 
-class RandModel(state.models.ImplementedModel):
+class RandModel(state.models.Model):
     name = "rand"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -257,7 +269,7 @@ class RandModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, random.randint(0, 0x7FFFFFFF))
 
 
-class RandomModel(state.models.ImplementedModel):
+class RandomModel(state.models.Model):
     name = "random"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -265,19 +277,19 @@ class RandomModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, random.randint(0, 0xFFFFFFFF))
 
 
-class SleepModel(state.models.Returns0ImplementedModel):
+class SleepModel(Returns0Model):
     name = "sleep"
 
 
-class SrandModel(state.models.ReturnsNothingImplementedModel):
+class SrandModel(ReturnsNothingModel):
     name = "srand"
 
 
-class SrandomModel(state.models.ReturnsNothingImplementedModel):
+class SrandomModel(ReturnsNothingModel):
     name = "srandom"
 
 
-class StrcatModel(state.models.ImplementedModel):
+class StrcatModel(state.models.Model):
     name = "strcat"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -287,7 +299,7 @@ class StrcatModel(state.models.ImplementedModel):
         _emu_strncat(emulator, dst, src, MAX_STRLEN)
 
 
-class StrncatModel(state.models.ImplementedModel):
+class StrncatModel(state.models.Model):
     name = "strncat"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -298,7 +310,7 @@ class StrncatModel(state.models.ImplementedModel):
         _emu_strncat(emulator, dst, src, msl)
 
 
-class StrcpyModel(state.models.ImplementedModel):
+class StrcpyModel(state.models.Model):
     name = "strcpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -308,7 +320,7 @@ class StrcpyModel(state.models.ImplementedModel):
         _emu_strncpy(emulator, dst, src, MAX_STRLEN, is_strncpy=False)
 
 
-class StrncpyModel(state.models.ImplementedModel):
+class StrncpyModel(state.models.Model):
     name = "strncpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -319,7 +331,7 @@ class StrncpyModel(state.models.ImplementedModel):
         _emu_strncpy(emulator, dst, src, sl, is_strncpy=True)
 
 
-class StrdupModel(state.models.ImplementedModel):
+class StrdupModel(state.models.Model):
     name = "strdup"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -331,7 +343,7 @@ class StrdupModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, dst)
 
 
-class StrlenModel(state.models.ImplementedModel):
+class StrlenModel(state.models.Model):
     name = "strlen"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -342,7 +354,7 @@ class StrlenModel(state.models.ImplementedModel):
         )
 
 
-class StrnlenModel(state.models.ImplementedModel):
+class StrnlenModel(state.models.Model):
     name = "strnlen"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -352,7 +364,7 @@ class StrnlenModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, _emu_strlen_n(emulator, ptr, n))
 
 
-class SysconfModel(state.models.ImplementedModel):
+class SysconfModel(state.models.Model):
     name = "sysconf"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -364,7 +376,7 @@ class SysconfModel(state.models.ImplementedModel):
             emulator.write_register(self.return_val, 1)
 
 
-class TimeModel(state.models.ImplementedModel):
+class TimeModel(state.models.Model):
     name = "time"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -373,11 +385,11 @@ class TimeModel(state.models.ImplementedModel):
         emulator.write_register(self.return_val, 0x1234)
 
 
-class UnlinkModel(state.models.Returns0ImplementedModel):
+class UnlinkModel(Returns0Model):
     name = "unlink"
 
 
-class WriteModel(state.models.ImplementedModel):
+class WriteModel(state.models.Model):
     name = "write"
 
     def model(self, emulator: emulators.Emulator) -> None:

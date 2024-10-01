@@ -2,7 +2,7 @@ from .. import state
 from .posix import GetsModel
 
 
-class AMD64Win32ImplementedModel(state.models.ImplementedModel):
+class AMD64Win32Model(state.models.Model):
     arch = "x86"
     mode = "64"
     byteorder = "little"
@@ -17,5 +17,5 @@ class AMD64Win32ImplementedModel(state.models.ImplementedModel):
     return_val = "rax"
 
 
-class AMD64MicrosoftGetsModel(GetsModel):
+class AMD64MicrosoftGetsModel(AMD64Win32Model, GetsModel):
     pass
