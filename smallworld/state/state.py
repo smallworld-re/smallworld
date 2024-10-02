@@ -366,6 +366,22 @@ class Machine(StatefulSet):
 
         analysis.run(self)
 
+    def step(self, emulator: emulators.Emulator) -> Machine:
+        self.apply(emulator)
+        while True:
+            try:
+                emulator.step()
+                machine_copy = copy.deepcopy(self)
+                machine_copy.extract(emulator)
+                yield machine_copy
+            except exceptions.EmulationBounds:
+                print("emulation complete; encountered exit point or went out of bounds")
+                break
+            except Exception as e:
+                print(f"emulation ended; raised exception {e}")
+                break
+
+
     def get_cpu(self):
         for i in self:
             if issubclass(type(i), state.cpus.cpu.CPU):

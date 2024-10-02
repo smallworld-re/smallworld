@@ -48,18 +48,11 @@ cpu.rsi.set_content(42)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.rip.get() + 26)
 
-# machine.apply(emulator)
-# while True:
-#     try:
-#         emulator.step()
-#     except smallworld.exceptions.EmulationBounds:
-#         print("emulation complete; encountered exit point or went out of bounds")
-#         break
-#     except Exception as e:
-#         print(f"emulation ended; raised exception {e}")
-#         break
-final_machine = machine.emulate(emulator)
-final_cpu = final_machine.get_cpu()
+# final_machine = machine.emulate(emulator)
+# final_cpu = final_machine.get_cpu()
 
+*_, final_cpu = machine.step(emulator)
+
+final_cpu = final_cpu.get_cpu()
 print(f"curr = {hex(final_cpu.rdi.get())}")
 print(f"arg2 = {final_cpu.esi.get()}")
