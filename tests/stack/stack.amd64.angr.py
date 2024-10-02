@@ -34,7 +34,7 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 stack.push_integer(0x44444444, 8, None)
 
 # rsp points to the next free stack slot
-rsp = stack.get_pointer()
+rsp = stack.get_pointer() + 8
 cpu.rsp.set(rsp)
 
 # add the stack into memory
@@ -46,9 +46,7 @@ emulator.add_exit_point(cpu.rip.get() + 12)
 emulator.enable_linear()
 final_machine = machine.emulate(emulator)
 
-print(rsp + 8)
-print(emulator.state.memory.load(rsp + 8, 8))
 
 # read out the final state
 final_cpu = final_machine.get_cpu()
-print(final_cpu.rax.get())
+print(hex(final_cpu.rax.get()))

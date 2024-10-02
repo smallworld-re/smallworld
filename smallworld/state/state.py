@@ -6,9 +6,10 @@ import ctypes
 import typing
 import logging
 
+logger = logging.getLogger(__name__)
+
 from .. import analyses, emulators, exceptions, platforms, logging, state
 
-logger = logging.getLogger(__name__)
 
 
 
