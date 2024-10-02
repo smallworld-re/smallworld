@@ -35,4 +35,4 @@ emulator.add_exit_point(cpu.rip.get() + 12)
 
 final_machine = machine.emulate(emulator)
 cpu = final_machine.get_cpu()
-print(cpu.eax.get()
+print(cpu.eax.get())
