@@ -34,6 +34,7 @@ class BumpAllocator(Heap):
         self._is_safe(value)
         offset = self.get_used()
         self[offset] = value
+        return self.address + offset
 
     def free(self, address: int) -> None:
         raise NotImplementedError("freeing with a BumpAllocator is not yet implemented")

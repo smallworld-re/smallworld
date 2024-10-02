@@ -141,10 +141,20 @@ class Value(metaclass=abc.ABCMeta):
         return b""
 
     @classmethod
-    def from_ctypes(cls, value: typing.Any, label: str):
+    def from_ctypes(cls, ctype: typing.Any, label: str):
         """Load from an existing ctypes object."""
+        class CTypeValue(Value):
+            _type = ctype.__class__
+            _label = label
+            _content = ctype
 
-        raise NotImplementedError("loading from ctypes is not yet implemented")
+            def get_size(self) -> int:
+                return ctypes.sizeof(self._content)
+
+            def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+                return bytes(self._content)
+
+        return CTypeValue()
 
 
 class IntegerValue(Value):
@@ -286,7 +296,7 @@ class RegisterAlias(Register):
 
     def set_content(self, content: typing.Optional[typing.Any]) -> None:
         if content is not None:
-            value = self.reference.get_content()            
+            value = self.reference.get_content()
             if value is  None:
                 value = 0
             value = (value & ~self.mask) | content
@@ -294,7 +304,7 @@ class RegisterAlias(Register):
 
     def get_type(self) -> typing.Optional[typing.Any]:
         return self.reference.get_type()
-        
+
     def set_type(self, type: typing.Optional[typing.Any]) -> None:
         self.reference.set_type(type)
 
