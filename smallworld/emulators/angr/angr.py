@@ -567,7 +567,8 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         )
 
         # Stop if we're out of active states
-        return len(self.mgr.active) == 0
+        if len(self.mgr.active) == 0:
+            raise exceptions.EmulationStop()
 
     def step_instruction(self) -> None:
         self._step(True)
@@ -580,10 +581,13 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
 
     def run(self):
         log.info("Starting angr run")
-        while len(self.mgr.active) > 0:
+        try:
             # Continue stepping as long as we have steps.
-            if self._step(False):
-                break
+            while True:
+                self._step(False)
+        except exceptions.EmulationStop:
+            return
+
 
     def enable_linear(self):
         """Enable linear execution
@@ -653,3 +657,7 @@ class ConcreteAngrEmulator(AngrEmulator):
 
     def __repr__(self):
         return f"Angr Hook ({self.state})"
+
+__all__ = [
+    "AngrEmulator"
+]
