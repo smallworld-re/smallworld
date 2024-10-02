@@ -29,6 +29,7 @@ class PatchedObjectFactory(AngrObjectFactory):
                 if ip in b:
                     bound = b
             if bound is None:
+                log.warn(f"No block at {state._ip}")
                 max_size = 0
             else:
                 max_size = bound.stop - ip

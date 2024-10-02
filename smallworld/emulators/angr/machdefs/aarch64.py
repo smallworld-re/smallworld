@@ -1,12 +1,12 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class AArch64MachineDef(AngrMachineDef):
-    arch = "aarch64"
-    mode = "v8a"
-    byteorder = "little"
+    arch = Architecture.AARCH64
+    byteorder = Byteorder.LITTLE
 
     angr_arch = archinfo.arch_aarch64.ArchAArch64()
     pc_reg = "pc"

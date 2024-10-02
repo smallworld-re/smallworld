@@ -502,7 +502,7 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def unhook_memory_read(self, start: int, end: int) -> None:
+    def unhook_memory_write(self, start: int, end: int) -> None:
         """Unhook a specific memory region write by address range.
 
         Arguments:

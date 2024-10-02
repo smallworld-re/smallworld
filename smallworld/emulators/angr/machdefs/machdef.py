@@ -4,27 +4,37 @@ import typing
 import angr
 import archinfo
 
-from .... import utils
+from .... import utils, platforms
 
+architecture_to_arch_mode = {
+    platforms.Architecture.X86_32: ("x86", "32"),
+    platforms.Architecture.X86_64: ("x86", "64"),
+    platforms.Architecture.AARCH64: ("aarch64", "v8a"),
+    platforms.Architecture.MIPS32: ("mips", "mips32"),
+    platforms.Architecture.MIPS64: ("mips", "mips64"),
+    platforms.Architecture.ARM_V5T: ("arm", "v5t"),
+    platforms.Architecture.ARM_V6M: ("arm", "v6m"),
+    platforms.Architecture.ARM_V6M_THUMB: ("arm", "v6m-thumb"),
+    platforms.Architecture.ARM_V7M: ("arm", "v7m"),
+    platforms.Architecture.ARM_V7R: ("arm", "v7r"),
+    platforms.Architecture.ARM_V7A: ("arm", "v7a"),
+    # we dont have these yet...
+    platforms.Architecture.POWERPC64: (None, None),
+    platforms.Architecture.POWERPC32: (None, None),
+}
 
 class AngrMachineDef:
     """Container class for angr architecture-specific definitions"""
 
     @property
     @abc.abstractmethod
-    def arch(self) -> str:
-        """The architecture ID string"""
+    def arch(self) -> platforms.Architecture:
+        """The architecture ID"""
         return ""
 
     @property
     @abc.abstractmethod
-    def mode(self) -> str:
-        """The mode ID string"""
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def byteorder(self) -> str:
+    def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
         return ""
 
@@ -64,18 +74,18 @@ class AngrMachineDef:
         """Find the offset and size of a register in the angr state's register file."""
         if name not in self._registers:
             raise KeyError(
-                f"Unknown register for {self.arch}:{self.mode}:{self.byteorder}: {name}"
+                f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
         name = self._registers[name]
 
         if name not in self.angr_arch.registers:
             raise ValueError(
-                f"Register {name} not recognized by angr for {self.arch}:{self.mode}:{self.byteorder}"
+                f"Register {name} not recognized by angr for {self.arch}:{self.byteorder}"
             )
         return self.angr_arch.registers[name]
 
     @classmethod
-    def for_arch(cls, arch: str, mode: str, byteorder: str):
+    def for_platform(cls, platform: platforms.Platform):
         """Find the appropriate MachineDef for your architecture
 
         Arguments:
@@ -92,12 +102,11 @@ class AngrMachineDef:
         try:
             return utils.find_subclass(
                 cls,
-                lambda x: x.arch == arch
-                and x.mode == mode
-                and x.byteorder == byteorder,
+                lambda x: x.arch == platform.architecture
+                and x.byteorder == platform.byteorder,
             )
         except:
-            raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
+            raise ValueError(f"No machine model for {platform}")
 
 
 class PcodeMachineDef(AngrMachineDef):

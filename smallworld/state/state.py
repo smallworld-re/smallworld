@@ -251,14 +251,32 @@ class Register(Value, Stateful):
         return self.size
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self.set_content(emulator.read_register_content(self.name))
-        self.set_type(emulator.read_register_type(self.name))
-        self.set_label(emulator.read_register_label(self.name))
+        try:
+            content = emulator.read_register_content(self.name)
+            if content is not None:
+                self.set_content(content)
+        except exceptions.SymbolicValueError:
+            pass
+
+        type = emulator.read_register_type(self.name)
+        if type is not None:
+            self.set_type(type)
+
+        try:
+            label = emulator.read_register_label(self.name)
+            if label is not None:
+                self.set_label(label)
+        except exceptions.SymbolicValueError:
+            pass
+        
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_register_content(self.name, self.get_content())
-        emulator.write_register_type(self.name, self.get_type())
-        emulator.write_register_label(self.name, self.get_label())
+        if self.get_content() is not None:
+            emulator.write_register_content(self.name, self.get_content())
+        if self.get_type() is not None:
+            emulator.write_register_type(self.name, self.get_type())
+        if self.get_label() is not None:
+            emulator.write_register_label(self.name, self.get_label())
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         value = self.get_content()
@@ -392,6 +410,7 @@ __all__ = [
     "Value",
     "IntegerValue",
     "BytesValue",
+    "EmptyValue",
     "Register",
     "RegisterAlias",
     "Machine",
