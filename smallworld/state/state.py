@@ -141,10 +141,20 @@ class Value(metaclass=abc.ABCMeta):
         return b""
 
     @classmethod
-    def from_ctypes(cls, value: typing.Any, label: str):
+    def from_ctypes(cls, ctype: typing.Any, label: str):
         """Load from an existing ctypes object."""
+        class CTypeValue(Value):
+            _type = ctype.__class__
+            _label = label
+            _content = ctype
 
-        raise NotImplementedError("loading from ctypes is not yet implemented")
+            def get_size(self) -> int:
+                return ctypes.sizeof(self._content)
+
+            def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+                return bytes(self._content)
+
+        return CTypeValue()
 
 class EmptyValue(Value):
     """An unconstrained value
@@ -327,7 +337,7 @@ class RegisterAlias(Register):
 
     def set_content(self, content: typing.Optional[typing.Any]) -> None:
         if content is not None:
-            value = self.reference.get_content()            
+            value = self.reference.get_content()
             if value is  None:
                 value = 0
             value = (value & ~self.mask) | content
@@ -335,7 +345,7 @@ class RegisterAlias(Register):
 
     def get_type(self) -> typing.Optional[typing.Any]:
         return self.reference.get_type()
-        
+
     def set_type(self, type: typing.Optional[typing.Any]) -> None:
         self.reference.set_type(type)
 
@@ -380,7 +390,7 @@ class Machine(StatefulSet):
 
         try:
             emulator.run()
-        except exceptions.EmulationStop:
+        except exceptions.EmulationBounds:
             pass
 
         machine_copy = copy.deepcopy(self)
@@ -396,6 +406,22 @@ class Machine(StatefulSet):
         """
 
         analysis.run(self)
+
+    def step(self, emulator: emulators.Emulator) -> Machine:
+        self.apply(emulator)
+        while True:
+            try:
+                emulator.step()
+                machine_copy = copy.deepcopy(self)
+                machine_copy.extract(emulator)
+                yield machine_copy
+            except exceptions.EmulationBounds:
+                print("emulation complete; encountered exit point or went out of bounds")
+                break
+            except Exception as e:
+                print(f"emulation ended; raised exception {e}")
+                break
+
 
     def get_cpu(self):
         for i in self:

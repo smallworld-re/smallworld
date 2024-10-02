@@ -47,6 +47,5 @@ emulator.enable_linear()
 final_machine = machine.emulate(emulator)
 
 # read out the final state
-for i in final_machine:
-    if type(i) is type(cpu):
-        print(hex(i.rax.get()))
+final_cpu = final_machine.get_cpu()
+print(final_cpu.rax.get())

@@ -11,6 +11,17 @@ logger = logging.getLogger(__name__)
 
 
 class Hook(state.Stateful):
+    """Hook a particular instruction with a function.
+
+    Runs the function provided when the emulator reaches (but has not
+    yet executed) the instruction at a particular address.
+
+    Arguments:
+        address: The address of the instruction.
+        function: The function to run.
+    """
+    
+
     def __init__(
         self, address: int, function: typing.Callable[[emulators.Emulator], None]
     ):
@@ -25,6 +36,17 @@ class Hook(state.Stateful):
 
 
 class Breakpoint(Hook):
+
+    """An interactive breakpoint.
+
+    Stops execution at the specified address and opens an interactive
+    shell, as specified in the self.interact method.
+
+    Arguments:
+        address: The address of the breakpoint.
+
+    """
+
     def __init__(self, address: int):
         super().__init__(address=address, function=self.interact)
 
@@ -47,6 +69,18 @@ class PythonShellBreakpoint(Breakpoint):
 
 
 class Model(Hook):
+    """A runtime function model implemented in Python.
+
+    If execution reaches the given address, call the given function,
+    self.model, instead of any code at that address and return. This
+    is most often used to model an external function, e.g., libc
+    `fread`. It is the responsibility of the model to read arguments
+    and generate reasonable return values.
+
+    Arguments:
+        address: The address to model.
+
+    """
     def __init__(self, address: int):
         super().__init__(address=address, function=self.model)
 
@@ -66,11 +100,12 @@ class Model(Hook):
         pass
 
     @classmethod
-    def lookup(cls, name: str, platform: platforms.Platform, abi: platforms.ABI):
+    def lookup(cls, name: str, platform: platforms.Platform, abi: platforms.ABI, address:int):
         try:
             return utils.find_subclass(
                 cls,
                 lambda x: x.name == name and x.platform == platform and x.abi == abi,
+                address
             )
         except ValueError:
             raise ValueError(f"no model for '{name}' on {platform} with ABI '{abi}'")
@@ -84,4 +119,16 @@ class Model(Hook):
         pass
 
 
-__all__ = ["Hook", "Breakpoint", "PDBBreakpoint", "PythonShellBreakpoint", "Model"]
+class ImplementedModel(Model):
+
+    model = None
+    name = "None"
+    platform = None
+    abi = None
+
+    def __init__(self, address:int, function):
+        self.model = function
+        super().__init__(address)
+    
+
+__all__ = ["Hook", "Breakpoint", "PDBBreakpoint", "PythonShellBreakpoint", "Model", "ImplementedModel"]

@@ -11,7 +11,7 @@ import smallworld
 import logging
 import copy
 
-smallworld.logging.setup_logging(level = logging.INFO) # DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO) 
 
 machine = smallworld.state.Machine()
 code = smallworld.state.memory.code.Executable.from_filepath(
@@ -32,18 +32,17 @@ machine.add(cpu)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.rip.get() + 5)
 
-machine.apply(emulator)
-
 
 if len(sys.argv) == 3 and sys.argv[2] == "step":
+    machine.apply(emulator)
     while True:
         try:
-            emulator.step_instruction()
+            emulator.step()
         except smallworld.exceptions.EmulationBounds:
             print("emulation complete; encountered exit point or went out of bounds")
             break
         except Exception as e:
-            print("emulation ended; raised exception {e}")
+            print(f"emulation ended; raised exception {e}")
             break
 
     final_machine = copy.deepcopy(machine)

@@ -3,7 +3,7 @@ import sys
 import smallworld
 import logging
 
-smallworld.logging.setup_logging(level = logging.INFO)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 machine = smallworld.state.Machine()
 code = smallworld.state.memory.code.Executable.from_filepath("stack.amd64.bin", address=0x1000)
@@ -34,6 +34,5 @@ emulator.add_exit_point(cpu.rip.get() + 12)
 
 
 final_machine = machine.emulate(emulator)
-for i in final_machine:
-    if type(i) is type(cpu):
-        print(hex(i.eax.get()))
+cpu = final_machine.get_cpu()
+print(cpu.eax.get())

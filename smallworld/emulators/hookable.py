@@ -21,7 +21,7 @@ class QInstructionHookable(InstructionHookable):
         self.instruction_hooks = typing.Dict[int, typing.Callback[[Emulator], None]] = {}
 
     def hook_instruction(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
-        if address in self.instruction_hooks[address]:
+        if address in self.instruction_hooks:
             raise ValueError(f"can't hook instruction at {address:x} since already hooked")
         self.instruction_hooks[address] = function
 
@@ -37,7 +37,7 @@ class QFunctionHookable(FunctionHookable):
         self.function_hooks = typing.Dict[int, typing.Callback[[Emulator], None]] = {}
 
     def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
-        if address in self.function_hooks[address]:
+        if address in self.function_hooks:
             raise ValueError(f"can't hook function at {address:x} since already hooked")
         self.function_hooks[address] = function
 
