@@ -8,7 +8,7 @@ import angr
 import claripy
 import cle
 
-from ... import exceptions, state
+from ... import exceptions, state, platforms
 from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
@@ -29,7 +29,7 @@ class HookHandler(angr.SimProcedure):
         return None
 
 
-class AngrEmulator(emulator.Emulator):
+class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.FunctionHookable, emulator.MemoryReadHookable, emulator.MemoryWriteHookable):
     """
     Angr symbolic execution emulator
 
@@ -49,7 +49,11 @@ class AngrEmulator(emulator.Emulator):
 
     PAGE_SIZE = 4096
 
-    def __init__(self, arch: str, mode: str, byteorder: str, preinit=None, init=None):
+    name = "angr-emulator"
+    description = "an emulator using angr as its backend"
+    version = "0.0"
+
+    def __init__(self, platform: platforms.Platform, preinit=None, init=None):
         # Dirty bit; tells us if we've started emulation
         self._dirty: bool = False
 
@@ -59,8 +63,10 @@ class AngrEmulator(emulator.Emulator):
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
 
+        self.platform: platforms.Platform = platform
+
         # Locate the angr machine definition
-        self.machdef: AngrMachineDef = AngrMachineDef.for_arch(arch, mode, byteorder)
+        self.machdef: AngrMachineDef = AngrMachineDef.for_platform(platform)
 
         # Create an angr project using a blank byte stream,
         # and registered as self-modifying so we can load more code later.
@@ -114,7 +120,7 @@ class AngrEmulator(emulator.Emulator):
         if init:
             init(self)
 
-    def read_register(self, name: str):
+    def read_register_content(self, name: str) -> int:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Reading registers not supported once execution begins."
@@ -126,275 +132,395 @@ class AngrEmulator(emulator.Emulator):
             out = self.state.registers.load(off, size)
             if out.symbolic:
                 log.warn(f"Register {name} is symbolic: {out}")
-                return None
+                raise exceptions.SymbolicValueError(f"Register {name} is symbolic")
             else:
                 return out.concrete_value
         except ValueError:
             # TODO: Handle invalid registers more gracefully
             return None
 
-    def write_register(
-        self,
-        reg: str,
-        value: typing.Optional[int],
-        label: typing.Optional[typing.Any] = None,
-    ) -> None:
+    def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
+        return None
+
+    def read_register_label(self, name: str) -> typing.Optional[str]:
+        # This considers all BVSs to be labeled values;
+        # if it has a name, we're giving it to you.
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Reading register not supported once execution begins."
+            )
+        if name == "pc":
+            name = self.machdef.pc_reg
+        try:
+            (off, size) = self.machdef.angr_reg(name)
+            out = self.state.registers.load(off, size)
+            if out.symbolic:
+                if out.op == "BVS":
+                    # This is a "pure" label; we can return it.
+                    return out.args[0]
+                else:
+                    # This is a mixed expression; we can't return it
+                    log.warn(f"Register {name} contains a symbolic expression: {out}")
+                    raise exceptions.SymbolicValueError(
+                        f"Register {name} contains a symbolic expression"
+                    )
+            else:
+                # No propagated label
+                return None
+        except ValueError:
+            # TODO: Handle invalid registers more gracefully
+            return None
+
+    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
-        if value is not None:
-            if reg == "pc":
-                reg = self.machdef.pc_reg
-            (off, size) = self.machdef.angr_reg(reg)
-            v = claripy.BVV(value, size * 8)
-            self.state.registers.store(off, v)
 
-    def read_memory(self, addr: int, size: int):
+        # This will replace any value - symbolic or otherwise - currently in the emulator.
+        # Since labels are treated as symbolic values, it must be called before
+        # write_register_label().
+        if name == "pc":
+            name = self.machdef.pc_reg
+        (off, size) = self.machdef.angr_reg(name)
+        if content is None:
+            v = claripy.BVS("UNINITIALIZED", size * 8)
+        else:
+            v = claripy.BVV(content, size * 8)
+        self.state.registers.store(off, v)
+
+    def write_register_type(self, name: str, type: typing.Optional[typing.Any] = None) -> None:
+        pass
+
+    def write_register_label(self, name: str, label: typing.Optional[str] = None) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing registers not supported once execution begins."
+            )
+        if name == "pc":
+            name = self.machdef.pc_reg
+        (off, size) = self.machdef.angr_reg(name)
+
+        # This will bind whatever value is currently in the register
+        # to a symbol named after the label
+        # The same label will ALWAYS map to the same symbol!
+        # This can introduce unintended restrictions on exploration, 
+        # or even a contradictory state.
+        s = claripy.BVS(label, size * 8, explicit_name=True)
+        v = self.state.registers.load(off, size) 
+
+        if not self.state.solver.satisfiable(extra_constraints=[v == s]):
+            # Creating this binding will definitely cause a contradiction.
+            # Have you already used this label somewhere else?
+            raise ConfigurationError(f"Contradiction binding register {name} to label {label}")
+        
+        # Passing the last check doesn't guarantee you're safe.
+        # There may be over-constraints.  Please be careful.
+        self.state.registers.store(off, s)
+        self.state.solver.add(v == s)
+
+    def read_memory_content(self, address: int, size: int) -> bytes:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Reading memory not supported once execution begins."
             )
-        v = self.state.memory.load(addr, size)
+        v = self.state.memory.load(address, size)
         if v.symbolic:
-            log.warn(f"Memory at {hex(addr)} ({size} bytes) is symbolic: {v}")
-            return None
+            log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
+            raise exceptions.SymbolicValueError(f"Memory at {hex(address)} is symbolic")
+        
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
-        raise NotImplementedError("Dynamic allocation not implemented for angr.")
+    def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
+        return None 
 
-    def write_memory(
-        self,
-        addr: int,
-        value: typing.Optional[bytes],
-        label: typing.Optional[typing.Dict[int, typing.Tuple[int, typing.Any]]] = None,
-    ):
+    def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing memory not supported once execution begins."
             )
-        prev_end = 0
-        if label is None:
-            label = dict()
-        if value is None:
-            log.warn(f"Backing memory at {hex(addr)} is not initialized")
-
-        items = list(label.items())
-        items.sort(key=lambda x: x[0])
-        for off, (lab_size, name) in label.items():
-            if off > prev_end and value is not None:
-                # Account for any unlabeled bits.
-                v = claripy.BVV(value[prev_end:off])
-                self.state.memory.store(addr + off, v)
-            if isinstance(name, str):
-                # Store a symbol containing the label
-                s = claripy.BVS(name, lab_size * 8, explicit_name=True)
-                self.state.memory.store(addr + off, s)
-                if value is not None:
-                    # If we have a value, bind the value to the symbol
-                    v = claripy.BVV(value[off : off + lab_size])
-                    self.state.solver.add(v == s)
+        v = self.state.memory.load(address, size)
+        if v.symbolic():
+            if op == "Extract":
+                # You got a piece of a possibly-labeled expression
+                # Try parsing the inner expression to see if it's a single symbol.
+                v = v.args[2]
+                
+            if v.op == "BVS":
+                # You got a single symbol; I'll treat it as a label
+                return v.args[0] 
             else:
-                log.warn(
-                    f"Cannot handle non-string labels; not applying label for {hex(addr + off)}"
-                )
-                if value is not None:
-                    v = claripy.BVV(value[off : off + lab_size])
-                    self.state.memory.store(addr + off, v)
-
-            if off + lab_size > prev_end:
-                prev_end = off + lab_size
-
-        if value is not None and prev_end < len(value):
-            # Account for any missing bit on the tail
-            v = claripy.BVV(value[prev_end:])
-            self.state.memory.store(addr + prev_end, v)
-
-    def load(self, code: state.Code) -> None:
-        # Check if code matches our configuration
-        if code.arch is None:
-            raise ValueError(f"arch is required: {code}")
-        if code.mode is None:
-            raise ValueError(f"mode is required: {code}")
-
-        if code.arch != self.machdef.arch:
-            raise ValueError(f"Expected arch {self.machdef.arch}; code has {code.arch}")
-        if code.mode != self.machdef.mode:
-            raise ValueError(f"Expected mode {self.machdef.mode}; code has {code.mode}")
-
-        if code.format != "blob":
-            raise NotImplementedError(f"Can only handle blob code, not {code.format}")
-
-        # Remember the code boundaries so we can stop cleanly
-        self.state.scratch.bounds.extend(code.bounds)
-
-        # Load the code into memory
-        self.state.memory.store(code.base, code.image)
-
-    def hook(
-        self,
-        address: int,
-        callback: typing.Callable[[emulator.Emulator], None],
-        finish: bool = False,
-    ) -> None:
-        if finish:
-            # Use the power of SimProcedures to finish out the frame once we're done
-            hook = HookHandler(callback=callback, parent=self)
-            self.proj.hook(address, hook, 0)
+                # You got a symbolic expression; I can't decode it further
+                log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
+                raise exceptions.SymbolicValueError(f"Memory at {hex(address)} is symbolic")
         else:
-            # Otherwise, hook our one instruction
-            @self.proj.hook(address, length=0)
-            def hook_handler(state):
-                emu = AngrHookEmulator(state, self)
-                callback(emu)
+            # Definitely no labels here
+            return None
 
-    def hook_memory(
-        self,
-        address: int,
-        size: int,
-        on_read: typing.Optional[
-            typing.Callable[[emulator.Emulator, int, int], bytes]
-        ] = None,
-        on_write: typing.Optional[
-            typing.Callable[[emulator.Emulator, int, int, bytes], None]
-        ] = None,
-    ) -> None:
+
+    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+        if address is not None:
+            log.info(f"Mapping {hex(address)} -> {hex(address + size)}")
+            self.state.scratch.bounds.append(range(address, address + size))
+            return address
+        else:
+            raise NotImplementedError("I actually need to implement this")
+
+    def write_memory_content(self, address: int, content: bytes) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing memory not supported once execution begins."
+            )
+        log.info(f"Storing {len(content)} bytes at {hex(address)}")
+        v = claripy.BVV(content)
+        self.state.memory.store(address, v)
+    
+    def write_memory_type(self, address: int, size: int, type: typing.Optional[typing.Any]) -> None:
+        pass
+
+    def write_memory_label(self, address: int, size: int, label: typing.Optional[str]) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Writing memory not supported once execution begins."
+            )
+        if label is None:
+            return  
+        # This will bind whatever value is currently at this address
+        # to a symbol named after the label
+        #
+        # The same label will ALWAYS map to the same symbol!
+        # This can introduce unintended restrictions on exploration, 
+        # or even a contradictory state.
+        #
+        # This will trigger angr's default value computation,
+        # which may cause spurious results in some analyses.
+        s = claripy.BVS(label, size * 8, explicit_name=True)
+        v = self.state.memory.load(address, size)
+        if not self.state.solver.satisfiable(extra_constraints=[v == s]):
+            # Creating this binding will definitely cause a contradiction.
+            # Have you already used this label somewhere else?
+            raise ConfigurationError(f"Contradiction binding memory at {hex(address)} to label {label}")
+
+        # Passing the last check doesn't mean you're safe. 
+        # There may be over-constraints.  Please be careful.
+        self.state.memory.store(address, s)
+        self.state.solver.add(v == s)
+
+    def hook_instruction(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Instruction hooking not supported once execution begins"
+            )
+        if address in self.state.scratch.insn_bps:
+            raise ConfigurationError("Instruction at address {hex(address)} is already hooked")
+
+        def hook_handler(state):
+            emu = AngrHookEmulator(state, self)
+            function(emu)
+
+        bp = self.state.inspect.b("instruction", hook_handler, instruction=address)
+        self.state.scratch.insn_bps[address] = bp
+
+    def unhook_instruction(self, address: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Instruction hooking not supported once execution begins"
+            )
+        if address not in self.state.scratch.insn_bps:
+            raise ConfigurationError("Instruction at address {hex(address)} is not hooked")
+        bp = self.state.scratch.insn_bps[address]
+        del self.state.scratch.insn_bps[address]
+        
+        self.state.inspect.remove_breakpoint("instruction", bp)
+            
+
+    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        hook = HookHandler(callback=function, parent=self)
+        self.proj.hook(address, hook, 0)
+
+    def unhook_function(self, address: int) -> None:
+        self.proj.unhook(address)
+
+    def hook_memory_read(self, address: int, size: int, function: typing.Callable[[Emulator, int, int], bytes]) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory hooking not supported once execution begins"
             )
+        if address in self.state.scratch.mem_read_bps:
+            raise ConfigurationError(f"{hex(address)} already hooked for reads")
 
-        if on_read is None and on_write is None:
-            raise exceptions.AnalysisError(
-                "Must specify at least one callback to hook_memory"
-            )
-
-        if on_read is not None:
-
-            def read_condition(state):
-                read_addr = state.inspect.mem_read_address
-                if not isinstance(read_addr, int):
-                    if read_addr.symbolic:
-                        try:
-                            values = state.solver.eval_atmost(read_addr, 1)
-                            # Truly unbound address.  Assume it's not MMIO.
-                            if len(values) < 1:
-                                return False
-                            read_addr = values[0]
-                        except angr.errors.SimUnsatError:
-                            return False
-                        except angr.errors.SimValueError:
-                            return False
-                    else:
-                        read_addr = read_addr.concrete_value
-                read_size = state.inspect.mem_read_length
-
-                return (
-                    read_size is not None
-                    and address <= read_addr
-                    and address + size >= read_addr + read_size
-                )
-
-            def read_callback(state):
-                addr = state.inspect.mem_read_address
-                if not isinstance(addr, int):
-                    addr = addr.concrete_value
-                size = state.inspect.mem_read_length
-
-                res = claripy.BVV(on_read(AngrHookEmulator(state, self), addr, size))
-
-                if self.machdef.byteorder == "little":
-                    # Fix byte order if needed.
-                    # I don't know _why_ this is needed,
-                    # but encoding the result as little-endian on a little-endian
-                    # system produces the incorrect value in the machine state.
-                    res = claripy.Reverse(res)
-                state.inspect.mem_read_expr = res
-
-            self.state.inspect.b(
-                "mem_read",
-                when=angr.BP_AFTER,
-                condition=read_condition,
-                action=read_callback,
-            )
-
-        if on_write is not None:
-
-            def write_condition(state):
-                write_addr = state.inspect.mem_write_address
-                if not isinstance(write_addr, int):
-                    if write_addr.symbolic:
-                        # Need to use the solver to resolve this.
-                        try:
-                            values = state.solver.eval_atmost(write_addr, 1)
-                            if len(values) < 1:
-                                return False
-                            write_addr = values[0]
-                        except angr.errors.SimUnsatError:
-                            return False
-                        except angr.errors.SimValueError:
-                            return False
-                    else:
-                        write_addr = write_addr.concrete_value
-                write_size = state.inspect.mem_write_length
-
-                return (
-                    write_size is not None
-                    and address <= write_addr
-                    and address + size >= write_addr + write_size
-                )
-
-            def write_callback(state):
-                addr = state.inspect.mem_write_address
-                if not isinstance(addr, int):
-                    addr = addr.concrete_value
-                size = state.inspect.mem_write_length
-                expr = state.inspect.mem_write_expr
-                if expr.symbolic:
-                    # Have the solver handle binding resolution for us.
+        # This uses angr's conditional breakpoint facility
+        def read_condition(state):
+            # The breakpoint condition.
+            # This needs to be a bit clever to detect reads at bound symbolic addresses.
+            # The actual address won't get concretized until later
+            read_addr = state.inspect.mem_read_address
+            if not isinstance(read_addr, int):
+                if read_addr.symbolic:
                     try:
-                        values = state.solver.eval_atmost(expr, 1)
+                        values = state.solver.eval_atmost(read_addr, 1)
+                        # Truly unbound address.  
+                        # Assume it won't collapse to our hook address
                         if len(values) < 1:
-                            raise exceptions.AnalysisError(
-                                f"No possible values fpr {expr}"
-                            )
-                        value = values[0].to_bytes(
-                            size, byteorder=self.machdef.byteorder
-                        )
-                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                            return False
+                        read_addr = values[0]
                     except angr.errors.SimUnsatError:
-                        raise exceptions.AnalysisError(f"No possible values for {expr}")
+                        return False
                     except angr.errors.SimValueError:
-                        raise exceptions.AnalysisError(
-                            f"Unbound value for MMIO write to {hex(addr)}: {expr}"
-                        )
+                        return False
                 else:
-                    value = expr.concrete_value.to_bytes(
+                    read_addr = read_addr.concrete_value
+            read_size = state.inspect.mem_read_length
+
+            return (
+                read_size is not None
+                and address <= read_addr
+                and address + size >= read_addr + read_size
+            )
+
+        def read_callback(state):
+            # The breakpoint action.
+            addr = state.inspect.mem_read_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_read_length
+
+            res = claripy.BVV(function(AngrHookEmulator(state, self), addr, size))
+
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                # Fix byte order if needed.
+                # I don't know _why_ this is needed,
+                # but encoding the result as little-endian on a little-endian
+                # system produces the incorrect value in the machine state.
+                res = claripy.Reverse(res)
+            state.inspect.mem_read_expr = res
+
+        bp = self.state.inspect.b(
+            "mem_read",
+            when=angr.BP_AFTER,
+            condition=read_condition,
+            action=read_callback,
+        )
+        self.state.scratch.mem_read_bps[address] = bp
+        
+    def unhook_memory_read(self, address):
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory hooking not supported once execution begins"
+            )
+        if address not in self.state.scratch.mem_read_bps:
+            raise ConfigurationError(f"{hex(address)} is not hooked for reads")
+
+        bp = self.state.scratch.mem_read_bps[address]
+        del self.state.scratch.mem_read_bps[address]
+        self.state.inspect.remove_breakpoint("mem_read", bp=bp)
+
+    def hook_memory_write(self, address: int, size: int, function: typing.Callable[[emulator.Emulator, int, int, bytes], None]) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory hooking not supported once execution begins"
+            )
+        if address in self.state.scratch.mem_write_bps:
+            raise ConfigurationError(f"{hex(address)} already hooked for writes")
+            
+        def write_condition(state):
+            write_addr = state.inspect.mem_write_address
+            if not isinstance(write_addr, int):
+                if write_addr.symbolic:
+                    # Need to use the solver to resolve this.
+                    try:
+                        values = state.solver.eval_atmost(write_addr, 1)
+                        if len(values) < 1:
+                            return False
+                        write_addr = values[0]
+                    except angr.errors.SimUnsatError:
+                        return False
+                    except angr.errors.SimValueError:
+                        return False
+                else:
+                    write_addr = write_addr.concrete_value
+            write_size = state.inspect.mem_write_length
+
+            return (
+                write_size is not None
+                and address <= write_addr
+                and address + size >= write_addr + write_size
+            )
+
+        def write_callback(state):
+            addr = state.inspect.mem_write_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_write_length
+            expr = state.inspect.mem_write_expr
+            if expr.symbolic:
+                # Have the solver handle binding resolution for us.
+                try:
+                    values = state.solver.eval_atmost(expr, 1)
+                    if len(values) < 1:
+                        raise exceptions.AnalysisError(
+                            f"No possible values fpr {expr}"
+                        )
+                    value = values[0].to_bytes(
                         size, byteorder=self.machdef.byteorder
                     )
+                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                except angr.errors.SimUnsatError:
+                    raise exceptions.AnalysisError(f"No possible values for {expr}")
+                except angr.errors.SimValueError:
+                    raise exceptions.AnalysisError(
+                        f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                    )
+            else:
+                value = expr.concrete_value.to_bytes(
+                    size, byteorder=self.machdef.byteorder
+                )
 
-                on_write(AngrHookEmulator(state, self), addr, size, value)
+            function(AngrHookEmulator(state, self), addr, size, value)
 
-            self.state.inspect.b(
-                "mem_write",
-                when=angr.BP_BEFORE,
-                condition=write_condition,
-                action=write_callback,
+        bp = self.state.inspect.b(
+            "mem_write",
+            when=angr.BP_BEFORE,
+            condition=write_condition,
+            action=write_callback,
+        )
+        self.state.scratch.mem_write_bps[address] = bp
+    
+    def unhook_memory_write(self, address: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory hooking not supported once execution begins"
             )
+        if address not in self.state.scratch.mem_write_bps:
+            raise ConfigurationError(f"{hex(address)} is not hooked for writes")
 
-    def step(self, single_insn: bool = False):
+        bp = self.state.scratch.mem_write_bps[address]
+        del self.state.scratch.mem_write_bps[address]
+        self.state.inspect.remove_breakpoint("mem_write", bp=bp)
+
+    def _step(self, single_insn: bool):
+        """Common routine for all step functions.
+        
+        This is rather verbose, so let's only write it once.
+        
+        Arguments:
+            single_insn: True to step one instruction.  False to step to the end of the block
+        """
         # As soon as we start executing, disable value access
         self._dirty = True
         if self._linear:
+            log.info(f"Stepping through {self.state.ip}")
             log.info(f"Stepping through {self.state.block().disassembly.insns[0]}")
 
-        # Step execution once
+        # Step execution once, however the user asked for it.
         if single_insn:
+            # Not all architectures support single-step execution.
+            # In particular, angr can't lift delay slot ISAs one instruction at a time,
+            # since it has to lift the instruction and the slot as one unit.
             if not self.machdef.supports_single_step:
-                raise exceptions.AnalysisError(
-                    f"AngrEmulator does not support single-instruction stepping for {self.machdef.arch}:{self.machdef.mode}:{self.machdef.byteorder}"
+                raise exceptions.ConfigurationError(
+                    f"AngrEmulator does not support single-instruction stepping for {self.platform}"
                 )
             num_inst = 1
         else:
@@ -443,11 +569,20 @@ class AngrEmulator(emulator.Emulator):
         # Stop if we're out of active states
         return len(self.mgr.active) == 0
 
+    def step_instruction(self) -> None:
+        self._step(True)
+
+    def step_block(self) -> None:
+        self._step(False)
+
+    def step(self) -> None:
+        self._step(True)
+
     def run(self):
         log.info("Starting angr run")
         while len(self.mgr.active) > 0:
             # Continue stepping as long as we have steps.
-            if self.step():
+            if self._step(False):
                 break
 
     def enable_linear(self):
@@ -467,7 +602,7 @@ class AngrEmulator(emulator.Emulator):
         return f"Angr ({self.mgr})"
 
 
-class AngrHookEmulator(AngrEmulator):
+class ConcreteAngrEmulator(AngrEmulator):
     """
     "Emulator" for angr state access
 
@@ -477,6 +612,11 @@ class AngrHookEmulator(AngrEmulator):
 
     For hook evaluation, we do need an emulator-like object
     that can access a single state.  Hence, this wrapper class.
+
+    NOTE: This is NOT a full emulator!
+    Think of it more as a view onto an AngrEmulator instance.
+    If you want to explore a single path using angr,
+    use AngrEmulator and call enable_linear() before exploration.
     """
 
     @property
@@ -485,34 +625,30 @@ class AngrHookEmulator(AngrEmulator):
         return self.pagesize
 
     def __init__(self, state: angr.SimState, parent: AngrEmulator):
-        self._dirty = False
-        self.state: angr.SimState = state
+        # Do NOT call the superclass constructor.
+        # It initializes the angr project, and we've already done that.
+        self._dirty: bool = False
+        self._linear: bool = False
 
+        self.platform: platforms.Platform = parent.platform
+        self.proj: angr.Project = parent.proj
+        self.state: angr.SimState = state
         self.machdef: AngrMachineDef = parent.machdef
         self.pagesize: int = parent.PAGE_SIZE
 
-    def load(self, code: state.Code) -> None:
-        # TODO: Look into dynamic code loading
-        # I bet angr supports this, I have no idea how.
-        # Before I spend time on this, what's your use case?
-        raise NotImplementedError("Loading new code not implemented inside a hook.")
+    # Function hooking is not supported;
+    # it relies on state global to the angr project, not individual states.
+    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        raise NotImplementedError("Function hooking not supported inside a hook.")
 
-    def hook(
-        self,
-        address: int,
-        callback: typing.Callable[[emulator.Emulator], None],
-        finish: bool = False,
-    ) -> None:
-        # TODO: I'm 90% of the way to handling runtime code loading
-        # The problem is capturing code bounds;
-        # I currently use a global array to test code bounds.
-        # I can probably tie 'bounds' to the angr state.
-        raise NotImplementedError("Hooking not implemented inside a hook.")
-
+    def unhook_function(self, address: int) -> None:
+        raise NotImplementedError("Function hooking not supported inside a hook.")
+ 
+    # Execution is not supported; this is not a complete emulator.
     def run(self) -> None:
         raise NotImplementedError("Running not supported inside a hook.")
 
-    def step(self, single_insn=False) -> bool:
+    def _step(self, single_insn: bool) -> None:
         raise NotImplementedError("Stepping not supported inside a hook.")
 
     def __repr__(self):

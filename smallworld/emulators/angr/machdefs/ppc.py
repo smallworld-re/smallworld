@@ -1,11 +1,12 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class PowerPCMachineDef(AngrMachineDef):
-    arch = "powerpc"
-    byteorder = "big"
+    arch = Architecture.POWERPC32
+    byteorder = Byteorder.BIG
 
     pc_reg = "pc"
 
@@ -92,10 +93,9 @@ class PowerPCMachineDef(AngrMachineDef):
 
 
 class PowerPC32MachineDef(PowerPCMachineDef):
-    mode = "ppc32"
     angr_arch = archinfo.arch_ppc32.ArchPPC32(archinfo.Endness.BE)
 
 
 class PowerPC64MachineDef(PowerPCMachineDef):
-    mode = "ppc64"
+    arch = Architecture.POWERPC64
     angr_arch = archinfo.arch_ppc64.ArchPPC64(archinfo.Endness.BE)

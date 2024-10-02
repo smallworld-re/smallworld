@@ -75,7 +75,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.read_register_content(name)
 
     @abc.abstractmethod
-    def write_register_content(self, name: str, content: int) -> None:
+    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
         """Write some content to a register.
 
         Arguments:
@@ -191,7 +191,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.read_memory_content(address, size)
 
     @abc.abstractmethod
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+    def map_memory(self,  size: int, address: typing.Optional[int] = None) -> int:
         """Map memory of a given size.
 
         Arguments:
@@ -502,7 +502,7 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def unhook_memory_read(self, start: int, end: int) -> None:
+    def unhook_memory_write(self, start: int, end: int) -> None:
         """Unhook a specific memory region write by address range.
 
         Arguments:

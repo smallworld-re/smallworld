@@ -1,12 +1,12 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class AMD64MachineDef(AngrMachineDef):
-    arch = "x86"
-    mode = "64"
-    byteorder = "little"
+    arch = Architecture.X86_64
+    byteorder = Byteorder.LITTLE
 
     angr_arch = archinfo.arch_amd64.ArchAMD64()
 

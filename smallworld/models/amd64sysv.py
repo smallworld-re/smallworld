@@ -1,4 +1,5 @@
-from .. import state
+from .. import state,platforms
+
 from .posix import (
     BasenameModel,
     CallocModel,
@@ -39,11 +40,11 @@ from .posix import (
 )
 
 
-class AMD64SystemVImplementedModel(state.models.ImplementedModel):
-    arch = "x86"
-    mode = "64"
-    byteorder = "little"
-    abi = "sysv"
+class AMD64SystemVModel(state.models.Model):
+
+    platform = platforms.Platform(platforms.Architecture.X86_64,platforms.Byteorder.LITTLE)
+
+    abi = platforms.ABI.SYSTEMV
 
     argument1 = "rdi"
     argument2 = "rsi"
@@ -54,163 +55,158 @@ class AMD64SystemVImplementedModel(state.models.ImplementedModel):
     return_val = "rax"
 
 
-class AMD64SystemVBasenameModel(AMD64SystemVImplementedModel, BasenameModel):
+class AMD64SystemVBasenameModel(AMD64SystemVModel, BasenameModel):
     pass
 
 
-class AMD64SystemVCallocModel(AMD64SystemVImplementedModel, CallocModel):
+class AMD64SystemVCallocModel(AMD64SystemVModel, CallocModel):
     pass
 
 
-class AMD64SystemVDaemonModel(AMD64SystemVImplementedModel, DaemonModel):
+class AMD64SystemVDaemonModel(AMD64SystemVModel, DaemonModel):
     pass
 
 
-class AMD64SystemVFlockModel(AMD64SystemVImplementedModel, FlockModel):
+class AMD64SystemVFlockModel(AMD64SystemVModel, FlockModel):
     pass
 
 
-class AMD64SystemVGetopt_longModel(AMD64SystemVImplementedModel, Getopt_longModel):
+class AMD64SystemVGetopt_longModel(AMD64SystemVModel, Getopt_longModel):
     pass
 
 
-class AMD64SystemVGetpagesizeModel(AMD64SystemVImplementedModel, GetpagesizeModel):
+class AMD64SystemVGetpagesizeModel(AMD64SystemVModel, GetpagesizeModel):
     pass
 
 
-class AMD64SystemVGetppidModel(AMD64SystemVImplementedModel, GetppidModel):
+class AMD64SystemVGetppidModel(AMD64SystemVModel, GetppidModel):
     pass
 
 
-class AMD64SystemVGetsModel(AMD64SystemVImplementedModel, GetsModel):
+class AMD64SystemVGetsModel(AMD64SystemVModel, GetsModel):
     pass
 
 
-class AMD64SystemVMallocModel(AMD64SystemVImplementedModel, MallocModel):
+class AMD64SystemVMallocModel(AMD64SystemVModel, MallocModel):
     pass
 
 
-class AMD64SystemVOpenModel(AMD64SystemVImplementedModel, OpenModel):
+class AMD64SystemVOpenModel(AMD64SystemVModel, OpenModel):
     pass
 
 
-class AMD64SystemVOpen64Model(AMD64SystemVImplementedModel, Open64Model):
+class AMD64SystemVOpen64Model(AMD64SystemVModel, Open64Model):
     pass
 
 
-class AMD64SystemVPutsModel(AMD64SystemVImplementedModel, PutsModel):
+class AMD64SystemVPutsModel(AMD64SystemVModel, PutsModel):
     pass
 
 
 class AMD64SystemVPthreadCondInitModel(
-    AMD64SystemVImplementedModel, PthreadCondInitModel
+    AMD64SystemVModel, PthreadCondInitModel
 ):
     pass
 
 
 class AMD64SystemVPthreadCondSignalModel(
-    AMD64SystemVImplementedModel, PthreadCondSignalModel
+    AMD64SystemVModel, PthreadCondSignalModel
 ):
     pass
 
 
 class AMD64SystemVPthreadCondWaitModel(
-    AMD64SystemVImplementedModel, PthreadCondWaitModel
+    AMD64SystemVModel, PthreadCondWaitModel
 ):
     pass
 
 
-class AMD64SystemVPthreadCreateModel(AMD64SystemVImplementedModel, PthreadCreateModel):
+class AMD64SystemVPthreadCreateModel(AMD64SystemVModel, PthreadCreateModel):
     pass
 
 
 class AMD64SystemVPthreadMutexInitModel(
-    AMD64SystemVImplementedModel, PthreadMutexInitModel
+    AMD64SystemVModel, PthreadMutexInitModel
 ):
     pass
 
 
 class AMD64SystemVPthreadMutexLockModel(
-    AMD64SystemVImplementedModel, PthreadMutexLockModel
+    AMD64SystemVModel, PthreadMutexLockModel
 ):
     pass
 
 
 class AMD64SystemVPthreadMutexUnlockModel(
-    AMD64SystemVImplementedModel, PthreadMutexUnlockModel
+    AMD64SystemVModel, PthreadMutexUnlockModel
 ):
     pass
 
 
-class AMD64SystemVPtraceModel(AMD64SystemVImplementedModel, PtraceModel):
+class AMD64SystemVPtraceModel(AMD64SystemVModel, PtraceModel):
     pass
 
 
-class AMD64SystemVRandModel(AMD64SystemVImplementedModel, RandModel):
+class AMD64SystemVRandModel(AMD64SystemVModel, RandModel):
     pass
 
 
-class AMD64SystemVRandomModel(AMD64SystemVImplementedModel, RandomModel):
+class AMD64SystemVRandomModel(AMD64SystemVModel, RandomModel):
     pass
 
 
-class AMD64SystemVSleepModel(AMD64SystemVImplementedModel, SleepModel):
+class AMD64SystemVSleepModel(AMD64SystemVModel, SleepModel):
     pass
 
 
-class AMD64SystemVSrandModel(AMD64SystemVImplementedModel, SrandModel):
+class AMD64SystemVSrandModel(AMD64SystemVModel, SrandModel):
     pass
 
 
-class AMD64SystemVSrandomModel(AMD64SystemVImplementedModel, SrandomModel):
+class AMD64SystemVSrandomModel(AMD64SystemVModel, SrandomModel):
     pass
 
 
-class AMD64SystemVStrcatModel(AMD64SystemVImplementedModel, StrcatModel):
+class AMD64SystemVStrcatModel(AMD64SystemVModel, StrcatModel):
     pass
 
 
-class AMD64SystemVStrncatModel(AMD64SystemVImplementedModel, StrncatModel):
+class AMD64SystemVStrncatModel(AMD64SystemVModel, StrncatModel):
     pass
 
 
-class AMD64SystemVStrcpyModel(AMD64SystemVImplementedModel, StrcpyModel):
+class AMD64SystemVStrcpyModel(AMD64SystemVModel, StrcpyModel):
     pass
 
 
-class AMD64SystemVStrncpyModel(AMD64SystemVImplementedModel, StrncpyModel):
+class AMD64SystemVStrncpyModel(AMD64SystemVModel, StrncpyModel):
     pass
 
 
-class AMD64SystemVStrdupModel(AMD64SystemVImplementedModel, StrdupModel):
+class AMD64SystemVStrdupModel(AMD64SystemVModel, StrdupModel):
     pass
 
 
-class AMD64SystemVStrlenModel(AMD64SystemVImplementedModel, StrlenModel):
+class AMD64SystemVStrlenModel(AMD64SystemVModel, StrlenModel):
     pass
 
 
-class AMD64SystemVStrnlenModel(AMD64SystemVImplementedModel, StrnlenModel):
+class AMD64SystemVStrnlenModel(AMD64SystemVModel, StrnlenModel):
     pass
 
 
-class AMD64SystemVSysconfModel(AMD64SystemVImplementedModel, SysconfModel):
+class AMD64SystemVSysconfModel(AMD64SystemVModel, SysconfModel):
     pass
 
 
-class AMD64SystemVTimeModel(AMD64SystemVImplementedModel, TimeModel):
+class AMD64SystemVTimeModel(AMD64SystemVModel, TimeModel):
     pass
 
 
-class AMD64SystemVUnlinkModel(AMD64SystemVImplementedModel, UnlinkModel):
+class AMD64SystemVUnlinkModel(AMD64SystemVModel, UnlinkModel):
     pass
 
 
-class AMD64SystemVWriteModel(AMD64SystemVImplementedModel, WriteModel):
+class AMD64SystemVWriteModel(AMD64SystemVModel, WriteModel):
     pass
 
-
-class AMD64SystemVNullModel(
-    AMD64SystemVImplementedModel, state.models.Returns0ImplementedModel
-):
-    name = "null"

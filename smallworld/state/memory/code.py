@@ -1,8 +1,8 @@
 import os
 import typing
 
+from ... import state,emulators, exceptions
 from . import memory
-
 
 class Executable(memory.Memory):
     """An execuable piece of code."""
@@ -47,7 +47,7 @@ class Executable(memory.Memory):
         data, size = file.read(), file.tell()
 
         executable = cls(address=address, size=size)
-        executable[0] = data
+        executable[0] = state.BytesValue(data, "code")
 
         return executable
 
@@ -94,6 +94,17 @@ class Executable(memory.Memory):
             An Executable parsed from the given PE file-like object.
         """
         raise NotImplementedError("PE parsing not yet implemented")
+
+
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        try:
+            the_memory = emulator.read_memory(self.address, self.get_capacity())        
+            value = state.BytesValue(the_memory, "code")
+        except exceptions.SymbolicValueError:
+            value = state.EmptyValue(self.get_capacity(), None, "code")
+        self[0] = value
+
 
 
 __all__ = ["Executable"]

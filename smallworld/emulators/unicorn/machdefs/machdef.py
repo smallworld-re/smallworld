@@ -1,5 +1,6 @@
 import abc
 import typing
+import inspect
 
 from .... import utils, platforms
 #from ....platforms import Architecture
@@ -113,23 +114,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         if arch is None:
             raise NotImplementedException
         try:
-            def thef(md):
-                print (md)
-                if md.arch == arch:
-                    print("arch same")
-                    import pdb
-                    pdb.set_trace()
-                    if md.mode == mode:
-                        print("mode same")
-                        pdb.set_trace()
-                        if md.byteorder == platform.byteorder:
-                            print("byteorder same")
-                            return True
-                return False
 
             return utils.find_subclass(
                 cls,
-                #thef            
                 lambda x: x.arch == arch
                 and x.mode == mode
                 and x.byteorder == platform.byteorder,
@@ -137,3 +124,21 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         except:
             raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
 
+
+
+def populate_registers(arch_info, unicorn_consts):
+
+    def find_uc_const(reg_name):
+        ew = f"_{reg_name.upper()}"
+        for name, num in inspect.getmembers(unicorn_consts):
+            if name.endswith(ew) and "REG" in name:
+                return (name, num)
+        return None
+
+    registers = {}
+    for (reg_name, info) in arch_info.items():
+        (base_reg_name,(start,end)) = info
+        (ucstr,ucnum) = find_uc_const(reg_name)
+        registers[reg_name] = (ucnum, base_reg_name, start, end)
+
+    return registers

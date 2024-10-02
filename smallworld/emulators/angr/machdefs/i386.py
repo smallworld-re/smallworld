@@ -1,12 +1,12 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class i386MachineDef(AngrMachineDef):
-    arch = "x86"
-    mode = "32"
-    byteorder = "little"
+    arch = Architecture.X86_32
+    byteorder = Byteorder.LITTLE
 
     angr_arch = archinfo.arch_x86.ArchX86()
 

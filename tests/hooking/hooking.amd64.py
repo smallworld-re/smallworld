@@ -1,39 +1,53 @@
-import logging
-
 import smallworld
+import logging
+import copy
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True)
+smallworld.logging.setup_logging(level=logging.INFO) #DEBUG) 
 
-state = smallworld.state.CPU.for_arch("x86", "64", "little")
+machine = smallworld.state.Machine()
+code = smallworld.state.memory.code.Executable.from_filepath("hooking.amd64.bin", address=0x1000)
+machine.add(code)
 
-code = smallworld.state.Code.from_filepath(
-    "hooking.amd64.bin", base=0x1000, entry=0x1000
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.rip.value = 0x1000
 
-stack = smallworld.state.Memory(address=0xFFFF0000, size=0x1000)
-stack.value = b"\x00" * 0x1000
-state.map(stack)
-state.rsp.value = stack.address
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+cpu.rip.set(0x1000)
 
-gets = smallworld.models.model_for_name("x86", "64", "little", "sysv", "gets", 0x3800)
-state.map(gets)
+stack = smallworld.state.memory.Memory(address=0xFFFF0000, size=0x1000)
+stack.set_content(b"\x00" * 0x1000)
+cpu.rsp.set(stack.address)
 
+gets = smallworld.state.models.Model.lookup("gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x3800) 
 
 def puts_model(emulator):
     s = emulator.read_register("rdi")
     read = emulator.read_memory(s, 0x100)
     read = read[: read.index(b"\x00")].decode("utf-8")
-
     print(read)
 
+puts = smallworld.state.models.ImplementedModel(0x3808, puts_model)
 
-puts = smallworld.state.models.Model(0x3808, puts_model)
-state.map(puts)
+machine.add(cpu)
+machine.add(code)
+machine.add(stack)
+machine.add(gets)
+machine.add(puts)
 
-emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
-emulator.emulate(state)
+emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator.add_exit_point(cpu.rip.get() + 20)
+
+machine.apply(emulator)
+
+while True:
+    try:
+        emulator.step()
+        #machine.emulate(emulator)
+    except smallworld.exceptions.EmulationBounds:
+        print("emulation complete; encountered exit point or went out of bounds")
+        break
+    except Exception as e:
+        print(f"emulation ended; raised exception {e}")
+        break
+
