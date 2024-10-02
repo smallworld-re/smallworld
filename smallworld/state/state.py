@@ -8,7 +8,7 @@ import logging
 
 from .. import analyses, emulators, exceptions, platforms, logging, state
 
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 
 
@@ -279,7 +279,7 @@ class Register(Value, Stateful):
                 self.set_label(label)
         except exceptions.SymbolicValueError:
             pass
-        
+
 
     def apply(self, emulator: emulators.Emulator) -> None:
         if self.get_content() is not None:
@@ -366,12 +366,12 @@ class RegisterAlias(Register):
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
+            # logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"applying state {stateful} of type {type(stateful)} to {emulator}")
+            # logger.debug(f"applying state {stateful} of type {type(stateful)} to {emulator}")
             stateful.apply(emulator)
 
 
