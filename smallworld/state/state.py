@@ -4,11 +4,12 @@ import abc
 import copy
 import ctypes
 import typing
-import logging as lg
-
-logger = lg.getLogger(__name__)
+import logging
 
 from .. import analyses, emulators, exceptions, platforms, logging, state
+
+logger = logging.getLogger(__name__)
+
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -365,12 +366,12 @@ class RegisterAlias(Register):
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"extracting state {stateful} of type {type(stateful)} from emulator {emulator}")
+            logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"applying state {stateful} of type {type(stateful)} to emulator {emulator}")
+            logger.debug(f"applying state {stateful} of type {type(stateful)} to {emulator}")
             stateful.apply(emulator)
 
 
