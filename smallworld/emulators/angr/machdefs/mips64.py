@@ -1,11 +1,11 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class MIPS64MachineDef(AngrMachineDef):
-    arch = "mips"
-    mode = "mips64"
+    arch = Architecture.MIPS64
 
     pc_reg = "pc"
 
@@ -175,10 +175,10 @@ class MIPS64MachineDef(AngrMachineDef):
 
 
 class MIPS64ELMachineDef(MIPS64MachineDef):
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
     angr_arch = archinfo.ArchMIPS64(archinfo.Endness.LE)
 
 
 class MIPS64BEMachineDef(MIPS64MachineDef):
-    byteorder = "big"
+    byteorder = Byteorder.BIG
     angr_arch = archinfo.ArchMIPS64(archinfo.Endness.BE)

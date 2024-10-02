@@ -4,11 +4,12 @@ import abc
 import copy
 import ctypes
 import typing
-import logging as lg
-
-logger = lg.getLogger(__name__)
+import logging
 
 from .. import analyses, emulators, exceptions, platforms, logging, state
+
+logger = logging.getLogger(__name__)
+
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -156,6 +157,28 @@ class Value(metaclass=abc.ABCMeta):
 
         return CTypeValue()
 
+class EmptyValue(Value):
+    """An unconstrained value
+
+    This has a size, label, and type, but has no concrete value.
+    This is particularly useful for symbolic analyses with angr.
+    If used with Unicorn, it will resolve to a string of zeroes.
+
+    Arguments:
+        size: The size of the region
+        type: Optional typedef information
+        label: An optional metadata label
+    """
+    def __init__(self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]):
+        self._size = size
+        self._type = type
+        self._label = label
+
+    def get_size(self) -> int:
+        return self._size
+
+    def to_bytes(self):
+        return b'\0' * self._size
 
 class IntegerValue(Value):
     def __init__(
@@ -199,6 +222,7 @@ class IntegerValue(Value):
             raise NotImplementedError("middle endian integers are not yet implemented")
 
 
+
 class BytesValue(Value):
     def __init__(self, content: typing.Union[bytes, bytearray], label: str) -> None:
         self._content = bytes(content)
@@ -238,14 +262,32 @@ class Register(Value, Stateful):
         return self.size
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self.set_content(emulator.read_register_content(self.name))
-        self.set_type(emulator.read_register_type(self.name))
-        self.set_label(emulator.read_register_label(self.name))
+        try:
+            content = emulator.read_register_content(self.name)
+            if content is not None:
+                self.set_content(content)
+        except exceptions.SymbolicValueError:
+            pass
+
+        type = emulator.read_register_type(self.name)
+        if type is not None:
+            self.set_type(type)
+
+        try:
+            label = emulator.read_register_label(self.name)
+            if label is not None:
+                self.set_label(label)
+        except exceptions.SymbolicValueError:
+            pass
+        
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.write_register_content(self.name, self.get_content())
-        emulator.write_register_type(self.name, self.get_type())
-        emulator.write_register_label(self.name, self.get_label())
+        if self.get_content() is not None:
+            emulator.write_register_content(self.name, self.get_content())
+        if self.get_type() is not None:
+            emulator.write_register_type(self.name, self.get_type())
+        if self.get_label() is not None:
+            emulator.write_register_label(self.name, self.get_label())
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         value = self.get_content()
@@ -324,12 +366,12 @@ class RegisterAlias(Register):
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"extracting state {stateful} of type {type(stateful)} from emulator {emulator}")
+            logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"applying state {stateful} of type {type(stateful)} to emulator {emulator}")
+            logger.debug(f"applying state {stateful} of type {type(stateful)} to {emulator}")
             stateful.apply(emulator)
 
 
@@ -424,6 +466,7 @@ __all__ = [
     "Value",
     "IntegerValue",
     "BytesValue",
+    "EmptyValue",
     "Register",
     "RegisterAlias",
     "Machine",

@@ -4,22 +4,29 @@ class Error(Exception):
 
 class ConfigurationError(Error):
     """Raised when there is a problem with configuration."""
-
+    pass
 
 class EmulationError(Error):
     """Raised when emulation fails."""
-
+    pass
 
 class EmulationStop(EmulationError):
     """Base class for all emulation stopping exceptions."""
-
+    pass
 
 class EmulationBounds(EmulationStop):
     """Raised when execution goes out of bounds."""
+    pass
 
 
 class EmulationExitpoint(EmulationStop):
     """Raised when execution hits an exit point."""
+    pass
+
+
+class SymbolicValueError(EmulationError):
+    """Raised if you try to collapse a symbolic value to a concrete one"""
+    pass
 
 
 class EmulationException(EmulationError):
@@ -46,8 +53,10 @@ __all__ = [
     "Error",
     "ConfigurationError",
     "EmulationError",
+    "EmulationStop",
     "EmulationBounds",
     "EmulationExitpoint",
     "EmulationException",
+    "SymbolicValueError",
     "AnalysisError",
 ]

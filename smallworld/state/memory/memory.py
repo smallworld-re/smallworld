@@ -1,4 +1,4 @@
-from ... import emulators, platforms
+from ... import emulators, platforms, exceptions
 from .. import state
 
 
@@ -65,13 +65,21 @@ class Memory(state.Stateful, state.Value, dict):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.map_memory(self.get_capacity(), self.address)
-        emulator.write_memory(
-            self.address, self.to_bytes(byteorder=emulator.platform.byteorder)
-        )
+        for offset, value in self.items():
+            if not isinstance(value, state.EmptyValue):
+                emulator.write_memory_content(self.address + offset, value.to_bytes(emulator.platform.byteorder))
+            if value.get_type() is not None:
+                emulator.write_memory_type(self.address + offset, value.get_size(), value.get_type())
+            if value.get_label() is not None:
+                emulator.write_memory_label(self.address + offset, value.get_size(), value.get_label())
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        bytes = emulator.read_memory(self.address, self.size)
-        self[0] = state.BytesValue(bytes, f"Extracted memory from {self.address}")
+        try:
+            bytes = emulator.read_memory(self.address, self.get_capacity())
+            value = state.BytesValue(bytes, f"Extracted memory from {self.address}")
+        except exceptions.SymbolicValueError:
+            value = state.EmptyValue(self.get_capacity(), None, f"Extracted memory from {self.address}")
+        self[0] = value
 
 
 __all__ = ["Memory"]

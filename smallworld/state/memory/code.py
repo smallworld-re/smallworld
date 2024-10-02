@@ -1,7 +1,7 @@
 import os
 import typing
 
-from ... import state,emulators
+from ... import state,emulators, exceptions
 from . import memory
 
 class Executable(memory.Memory):
@@ -98,8 +98,12 @@ class Executable(memory.Memory):
 
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        the_memory = emulator.read_memory(self.address, self.get_capacity())        
-        self[0] = state.BytesValue(the_memory, "code")
+        try:
+            the_memory = emulator.read_memory(self.address, self.get_capacity())        
+            value = state.BytesValue(the_memory, "code")
+        except exceptions.SymbolicValueError:
+            value = state.EmptyValue(self.get_capacity(), None, "code")
+        self[0] = value
 
 
 

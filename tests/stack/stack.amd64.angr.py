@@ -2,42 +2,53 @@ import logging
 
 import smallworld
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+smallworld.logging.setup_logging(level=logging.INFO)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("x86", "64", "little")
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "stack.amd64.bin", arch="x86", mode="64", format="blob", base=0x1000, entry=0x1000
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.rip.value = code.entry
+
+# Create a machine
+machine = smallworld.state.Machine()
+
+# create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
+
+# load and add code into the state and set ip
+code = smallworld.state.memory.code.Executable.from_filepath(
+    "stack.amd64.bin", address=0x1000
+)
+machine.add(code)
+cpu.rip.set(code.address)
 
 # initialize some values
-state.rdi.value = 0x11111111
-state.rdx.value = 0x22222222
-state.r8.value = 0x33333333
+cpu.rdi.set(0x11111111)
+cpu.rdx.set(0x22222222)
+cpu.r8.set(0x33333333)
 
 # create a stack and push a value
-stack = smallworld.state.Stack(address=0x2000, size=0x1000)
-stack.push(value=0xFFFFFFFF, size=8, type=int, label="fake return address")
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+stack.push_integer(0x44444444, 8, None)
+
 # rsp points to the next free stack slot
-rsp = stack.push(value=0x44444444, size=8, type=int) - 8
+rsp = stack.get_pointer()
+cpu.rsp.set(rsp)
 
-# map the stack into memory
-state.map(stack)
-
-# set the stack pointer
-state.rsp.value = rsp
+# add the stack into memory
+machine.add(stack)
 
 # emulate
-emulator = smallworld.emulators.AngrEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.add_exit_point(cpu.rip.get() + 12)
 emulator.enable_linear()
-final_state = emulator.emulate(state)
+final_machine = machine.emulate(emulator)
+
+print(rsp + 8)
+print(emulator.state.memory.load(rsp + 8, 8))
 
 # read out the final state
-print(final_state.rax)
+final_cpu = final_machine.get_cpu()
+print(final_cpu.rax.get())
