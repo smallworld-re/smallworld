@@ -366,16 +366,12 @@ class RegisterAlias(Register):
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"extracting state {stateful} of type {type(stateful)} from emulator {emulator}")
+            logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-<<<<<<< HEAD
             logger.debug(f"applying state {stateful} of type {type(stateful)} to {emulator}")
-=======
-            logger.debug(f"applying state {stateful} of type {type(stateful)} to emulator {emulator}")
->>>>>>> 814dbf5a67a27ec05474d6f34d07c72e8bcfb58c
             stateful.apply(emulator)
 
 
