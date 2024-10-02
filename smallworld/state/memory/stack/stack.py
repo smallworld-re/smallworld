@@ -58,7 +58,7 @@ class Stack(memory.Memory):
 class DescendingStack(Stack):
     def push(self, value: state.Value) -> int:
         self._is_safe(value)
-        offset = (self.get_capacity() - 1) - self.get_used()
+        offset = (self.get_capacity()) - self.get_used() - value.get_size()
         self[offset] = value
         return offset
 

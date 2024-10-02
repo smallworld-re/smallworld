@@ -21,7 +21,7 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 stack.push_integer(0x44444444, 8, "")
 
-rsp = stack.get_pointer() + 15
+rsp = stack.get_pointer() + 8
 cpu.rip.set(0x1000)
 cpu.rsp.set(rsp)
 
