@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 from . import analyses, emulators, state
 
-T = typing.TypeVar("T", bound=state.CPU)
+T = typing.TypeVar("T", bound=state.Machine)
 
 
 def analyze(cpu: T) -> None:
@@ -90,3 +90,6 @@ def fuzz(
         always_validate=always_validate,
         persistent_iters=iterations,
     )
+
+
+__all__ = ["analyze", "fuzz"]

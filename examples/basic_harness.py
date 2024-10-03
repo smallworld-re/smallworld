@@ -3,18 +3,30 @@ import sys
 
 import smallworld
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+# setup logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-# create a state object
-state = smallworld.cpus.AMD64CPUState()
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    sys.argv[1], base=0x1000, entry=0x1000, arch="x86", mode="64", format="blob"
+# configure the platform for emulation
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.rip.value = code.entry
+
+# create a machine
+machine = smallworld.state.Machine()
+
+# create a CPU and add it to the machine
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
+
+# create an executable and add it to the machine
+code = smallworld.state.memory.code.Executable.from_filepath(
+    sys.argv[1], address=0x1000
+)
+machine.add(code)
+
+# set the instruction pointer to the entrypoint of our executable
+cpu.rip.set(code.address)
 
 # analyze
-smallworld.analyze(state)
+smallworld.helpers.analyze(machine)

@@ -5,6 +5,5 @@ Using SmallWorld
 
     state
     emulators
-    initializers
     hinting
     analyses
