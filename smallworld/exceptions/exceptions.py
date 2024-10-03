@@ -53,6 +53,7 @@ __all__ = [
     "Error",
     "ConfigurationError",
     "EmulationError",
+    "EmulationStop",
     "EmulationBounds",
     "EmulationExitpoint",
     "EmulationException",

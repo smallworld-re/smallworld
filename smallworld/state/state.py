@@ -279,7 +279,7 @@ class Register(Value, Stateful):
                 self.set_label(label)
         except exceptions.SymbolicValueError:
             pass
-        
+
 
     def apply(self, emulator: emulators.Emulator) -> None:
         if self.get_content() is not None:
@@ -366,7 +366,7 @@ class RegisterAlias(Register):
 class StatefulSet(Stateful, set):
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"extracting state {stateful} of type {type(stateful)} from emulator {emulator}")
+            # logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
@@ -423,6 +423,35 @@ class Machine(StatefulSet):
                 print(f"emulation ended; raised exception {e}")
                 break
 
+    def fuzz(self, emulator: emulators.Emulator, input_callback: typing.Callable,
+        crash_callback: typing.Optional[typing.Callable] = None,
+        always_validate: bool = False,
+        iterations: int = 1,
+    ) -> None:
+        try:
+            import unicornafl
+            import argparse
+        except ImportError:
+            raise RuntimeError("missing `unicornafl` - afl++ must be installed manually from source")
+
+        arg_parser = argparse.ArgumentParser(description="AFL Harness")
+        arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
+        args = arg_parser.parse_args()
+
+        if type(emulator) != emulators.UnicornEmulator:
+            raise RuntimeError("you must use a unicorn emulator to fuzz")
+
+        self.apply(emulator)
+
+        unicornafl.uc_afl_fuzz(
+                uc=emulator.engine,
+                input_file=args.input_file,
+                place_input_callback=input_callback,
+                exits=emulator.get_exitpoints(),
+                validate_crash_callback=crash_callback,
+                always_validate=always_validate,
+                persistent_iters=iterations,
+            )
 
     def get_cpu(self):
         for i in self:
