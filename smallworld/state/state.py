@@ -6,8 +6,6 @@ import ctypes
 import typing
 import logging as lg
 
-logger = logging.getLogger(__name__)
-
 from .. import analyses, emulators, exceptions, platforms, logging, state
 
 logger = lg.getLogger(__name__)
