@@ -158,7 +158,7 @@ class ARMMachineMixinFP:
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     angr_arch = archinfo.arch_arm.ArchARMEL()
     arch = Architecture.ARM_V5T
-    bytoerder = Byteorder.LITTLE
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
