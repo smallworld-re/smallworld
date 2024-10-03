@@ -1,8 +1,9 @@
-from .. import state
-from .posix import GetsModel
+from ... import state
+from ..posix import GetsModel
 
+from ..model import Model
 
-class AMD64Win32Model(state.models.Model):
+class AMD64Win32Model(Model):
     arch = "x86"
     mode = "64"
     byteorder = "little"
@@ -19,3 +20,6 @@ class AMD64Win32Model(state.models.Model):
 
 class AMD64MicrosoftGetsModel(AMD64Win32Model, GetsModel):
     pass
+
+
+__all__ = []

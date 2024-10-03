@@ -20,19 +20,18 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 machine.add(code)
 
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
-cpu.rip.set(0x1000)
+cpu.eip.set(0x1000)
 cpu.edi.set(int(sys.argv[1]))
 
 machine.add(cpu)
 
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + 5)
-
+emulator.add_exit_point(cpu.eip.get() + 5)
 
 if len(sys.argv) == 3 and sys.argv[2] == "step":
     machine.apply(emulator)

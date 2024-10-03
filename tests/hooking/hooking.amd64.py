@@ -19,7 +19,7 @@ stack = smallworld.state.memory.Memory(address=0xFFFF0000, size=0x1000)
 stack.set_content(b"\x00" * 0x1000)
 cpu.rsp.set(stack.address)
 
-gets = smallworld.state.models.Model.lookup("gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x3800) 
+gets = smallworld.state.models.model.Model.lookup("gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x3800) 
 
 def puts_model(emulator):
     s = emulator.read_register("rdi")
