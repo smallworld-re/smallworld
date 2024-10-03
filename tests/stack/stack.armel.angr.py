@@ -2,7 +2,9 @@ import logging
 
 import smallworld
 
+# Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -16,31 +18,32 @@ machine = smallworld.state.Machine()
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
-# load and add code into the state and set ip
+# load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
     "stack.armel.bin", address=0x1000
 )
 machine.add(code)
+
+# Create and register a stack
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+machine.add(stack)
+
+# Set the instruction pointer to the machine entrypoint
 cpu.pc.set(code.address)
 
-# initialize some values
+# Initialize argument registers
 cpu.r0.set(0x11111111)
 cpu.r1.set(0x01010101)
 cpu.r2.set(0x22222222)
 cpu.r3.set(0x01010101)
 
-# create a stack and push a value
-stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+# Push additional arguments onto the stack, and configure the stack pointer
 stack.push_integer(0x44444444, 4, None)
 stack.push_integer(0x01010101, 4, None)
 stack.push_integer(0x33333333, 4, None)
 
-# rsp points to the next free stack slot
 sp = stack.get_pointer()
 cpu.sp.set(sp)
-
-# add the stack into memory
-machine.add(stack)
 
 # emulate
 emulator = smallworld.emulators.AngrEmulator(platform)

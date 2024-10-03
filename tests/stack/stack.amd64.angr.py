@@ -1,8 +1,11 @@
-import logging
+import sys
 
 import smallworld
+import logging
 
+# Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -12,41 +15,40 @@ platform = smallworld.platforms.Platform(
 # Create a machine
 machine = smallworld.state.Machine()
 
-# create a CPU
+# Create a CPU
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
-# load and add code into the state and set ip
-code = smallworld.state.memory.code.Executable.from_filepath(
-    "stack.amd64.bin", address=0x1000
-)
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("stack.amd64.bin", address=0x1000)
 machine.add(code)
+
+# Create a stack and add it to the state
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+machine.add(stack)
+
+# Set the instruction pointer to the code entrypoint 
 cpu.rip.set(code.address)
 
-# initialize some values
+# Initialize argument registers
 cpu.rdi.set(0x11111111)
 cpu.rdx.set(0x22222222)
 cpu.r8.set(0x33333333)
 
-# create a stack and push a value
-stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+# Push a return address and an extra argument onto the stack
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 stack.push_integer(0x44444444, 8, None)
 
-# rsp points to the next free stack slot
+# Configure the stack pointer
 rsp = stack.get_pointer() + 8
 cpu.rsp.set(rsp)
 
-# add the stack into memory
-machine.add(stack)
-
-# emulate
+# Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + 12)
 emulator.enable_linear()
+emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
-
 # read out the final state
-final_cpu = final_machine.get_cpu()
-print(hex(final_cpu.rax.get()))
+cpu = final_machine.get_cpu()
+print(hex(cpu.eax.get()))

@@ -2,44 +2,55 @@ import logging
 
 import smallworld
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("arm", "v7m", "little")
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "stack.armel.bin", arch="arm", mode="v7m", format="blob", base=0x1000, entry=0x1000
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.pc.value = code.entry
 
-# initialize some values
-state.r0.value = 0x11111111
-state.r1.value = 0x01010101
-state.r2.value = 0x22222222
-state.r3.value = 0x01010101
+# Create a machine
+machine = smallworld.state.Machine()
 
-# create a stack and push a value
-stack = smallworld.state.Stack(address=0x2000, size=0x1000)
-# rsp points to the next free stack slot
-stack.push(value=0x44444444, size=4, type=int)
-stack.push(value=0x01010101, size=4, type=int)
-sp = stack.push(value=0x33333333, size=4, type=int)
+# create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-# map the stack into memory
-state.map(stack)
+# load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath(
+    "stack.armhf.bin", address=0x1000
+)
+machine.add(code)
 
-# set the stack pointer
-state.sp.value = sp
+# Create and register a stack
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+machine.add(stack)
+
+# Set the instruction pointer to the machine entrypoint
+cpu.pc.set(code.address)
+
+# Initialize argument registers
+cpu.r0.set(0x11111111)
+cpu.r1.set(0x01010101)
+cpu.r2.set(0x22222222)
+cpu.r3.set(0x01010101)
+
+# Push additional arguments onto the stack, and configure the stack pointer
+stack.push_integer(0x44444444, 4, None)
+stack.push_integer(0x01010101, 4, None)
+stack.push_integer(0x33333333, 4, None)
+
+sp = stack.get_pointer()
+cpu.sp.set(sp)
 
 # emulate
-emulator = smallworld.emulators.AngrEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
+emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-final_state = emulator.emulate(state)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
 # read out the final state
-print(final_state.r0)
+final_cpu = final_machine.get_cpu()
+print(hex(final_cpu.r0.get()))
