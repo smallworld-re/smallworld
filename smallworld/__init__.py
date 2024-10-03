@@ -17,7 +17,6 @@ from . import (
     logging,
     platforms,
     state,
-    models
 )
 
 __all__ = [
@@ -29,5 +28,4 @@ __all__ = [
     "analyses",
     "exceptions",
     "extern",
-    "models",
 ]

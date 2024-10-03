@@ -4,11 +4,11 @@ import abc
 import copy
 import ctypes
 import typing
-import logging
+import logging as lg
 
 from .. import analyses, emulators, exceptions, platforms, logging, state
 
-logger = logging.getLogger(__name__)
+logger = lg.getLogger(__name__)
 
 
 
@@ -371,11 +371,7 @@ class StatefulSet(Stateful, set):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-<<<<<<< HEAD
-            logger.debug(f"applying state {stateful} of type {type(stateful)} to {emulator}")
-=======
             logger.debug(f"applying state {stateful} of type {type(stateful)} to emulator {emulator}")
->>>>>>> 814dbf5a67a27ec05474d6f34d07c72e8bcfb58c
             stateful.apply(emulator)
 
 

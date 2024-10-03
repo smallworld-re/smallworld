@@ -1,7 +1,8 @@
 import logging
 import random
 
-from .. import emulators, state
+from .model import Model
+from ... import emulators, state
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def _emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
 ######################################################
 
 
-class BasenameModel(state.models.Model):
+class BasenameModel(Model):
     name = "basename"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -124,7 +125,7 @@ class BasenameModel(state.models.Model):
         emulator.write_register(self.return_val, bn)
 
 
-class CallocModel(state.models.Model):
+class CallocModel(Model):
     name = "calloc"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -136,13 +137,13 @@ class CallocModel(state.models.Model):
         emulator.write_register(self.return_val, addr)
 
 
-class ReturnsNothingModel(state.models.Model):
+class ReturnsNothingModel(Model):
     def model(self, emulator: emulators.Emulator) -> None:
         # so just do nothing
         pass
     
     
-class Returns0Model(state.models.Model):
+class Returns0Model(Model):
     def model(self, emulator: emulators.Emulator) -> None:
         # just return 0 
         emulator.write_register(self.return_val, 0)
@@ -156,7 +157,7 @@ class FlockModel(Returns0Model):
     name = "flock"
 
 
-class Getopt_longModel(state.models.Model):
+class Getopt_longModel(Model):
     name = "getopt_long"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -165,7 +166,7 @@ class Getopt_longModel(state.models.Model):
         emulator.write_register(self.return_val, -1)
 
 
-class GetpagesizeModel(state.models.Model):
+class GetpagesizeModel(Model):
     name = "getpagesize"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -177,7 +178,7 @@ class GetppidModel(Returns0Model):
     name = "getppid"
 
 
-class GetsModel(state.models.Model):
+class GetsModel(Model):
     name = "gets"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -192,7 +193,7 @@ class MallocModel(CallocModel):
     name = "malloc"
 
 
-class MemcpyModel(state.models.Model):
+class MemcpyModel(Model):
     name = "memcpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -204,7 +205,7 @@ class MemcpyModel(state.models.Model):
         emulator.write_register(self.return_val, dst)
 
 
-class OpenModel(state.models.Model):
+class OpenModel(Model):
     name = "open"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -217,7 +218,7 @@ class Open64Model(OpenModel):
     name = "open64"
 
 
-class PutsModel(state.models.Model):
+class PutsModel(Model):
     name = "puts"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -261,7 +262,7 @@ class PtraceModel(Returns0Model):
     name = "ptrace"
 
 
-class RandModel(state.models.Model):
+class RandModel(Model):
     name = "rand"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -269,7 +270,7 @@ class RandModel(state.models.Model):
         emulator.write_register(self.return_val, random.randint(0, 0x7FFFFFFF))
 
 
-class RandomModel(state.models.Model):
+class RandomModel(Model):
     name = "random"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -289,7 +290,7 @@ class SrandomModel(ReturnsNothingModel):
     name = "srandom"
 
 
-class StrcatModel(state.models.Model):
+class StrcatModel(Model):
     name = "strcat"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -299,7 +300,7 @@ class StrcatModel(state.models.Model):
         _emu_strncat(emulator, dst, src, MAX_STRLEN)
 
 
-class StrncatModel(state.models.Model):
+class StrncatModel(Model):
     name = "strncat"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -310,7 +311,7 @@ class StrncatModel(state.models.Model):
         _emu_strncat(emulator, dst, src, msl)
 
 
-class StrcpyModel(state.models.Model):
+class StrcpyModel(Model):
     name = "strcpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -320,7 +321,7 @@ class StrcpyModel(state.models.Model):
         _emu_strncpy(emulator, dst, src, MAX_STRLEN, is_strncpy=False)
 
 
-class StrncpyModel(state.models.Model):
+class StrncpyModel(Model):
     name = "strncpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -331,7 +332,7 @@ class StrncpyModel(state.models.Model):
         _emu_strncpy(emulator, dst, src, sl, is_strncpy=True)
 
 
-class StrdupModel(state.models.Model):
+class StrdupModel(Model):
     name = "strdup"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -343,7 +344,7 @@ class StrdupModel(state.models.Model):
         emulator.write_register(self.return_val, dst)
 
 
-class StrlenModel(state.models.Model):
+class StrlenModel(Model):
     name = "strlen"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -354,7 +355,7 @@ class StrlenModel(state.models.Model):
         )
 
 
-class StrnlenModel(state.models.Model):
+class StrnlenModel(Model):
     name = "strnlen"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -364,7 +365,7 @@ class StrnlenModel(state.models.Model):
         emulator.write_register(self.return_val, _emu_strlen_n(emulator, ptr, n))
 
 
-class SysconfModel(state.models.Model):
+class SysconfModel(Model):
     name = "sysconf"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -376,7 +377,7 @@ class SysconfModel(state.models.Model):
             emulator.write_register(self.return_val, 1)
 
 
-class TimeModel(state.models.Model):
+class TimeModel(Model):
     name = "time"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -389,7 +390,7 @@ class UnlinkModel(Returns0Model):
     name = "unlink"
 
 
-class WriteModel(state.models.Model):
+class WriteModel(Model):
     name = "write"
 
     def model(self, emulator: emulators.Emulator) -> None:

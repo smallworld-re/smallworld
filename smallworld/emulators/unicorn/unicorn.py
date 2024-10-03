@@ -104,6 +104,10 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
+            #if address == 0x3800:
+            #    import pdb
+            #    pdb.set_trace()
+
             if len(self.bounds) > 0:
                 # check that we are in bounds
                 any_in_bounds = False
