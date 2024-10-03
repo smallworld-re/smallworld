@@ -1,3 +1,5 @@
+import typing
+
 from ... import platforms
 from .. import state
 from . import i386
@@ -31,9 +33,13 @@ class AMD64(i386.I386):
 
     arch_info = amd64_arch.info
 
+    def get_general_purpose_registers(self) -> typing.List[str]:
+        return self._GENERAL_PURPOSE_REGS
+
+
     # this should be unnecessary (?) when i386 cpu has been implemented.
-    def __init__(self):
-        # use arch_info to create all these regs and reg aliases...
-        super(i386.I386, self).__init__()
+    #def __init__(self):
+    #    # use arch_info to create all these regs and reg aliases...
+    #    super(i386.I386, self).__init__()
 
         

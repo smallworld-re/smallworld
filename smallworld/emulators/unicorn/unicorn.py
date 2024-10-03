@@ -267,6 +267,8 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
+#        import pdb
+#        pdb.set_trace()
         (reg, base_reg, offset, size) = self._register(name)
         self.engine.reg_write(reg, content)
         # keep track of which bytes in this register have been initialized
@@ -536,6 +538,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
 
     def _check(self) -> None:
+
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
         (_, base_name, offset, size)  = self._register("pc")
