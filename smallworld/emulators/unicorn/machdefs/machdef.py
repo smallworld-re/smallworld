@@ -5,42 +5,18 @@ import inspect
 from .... import utils, platforms
 #from ....platforms import Architecture
 
-architecture_to_arch_mode = {
-
-    platforms.Architecture.X86_32: ("x86", "32"),
-    platforms.Architecture.X86_64: ("x86", "64"),
-    platforms.Architecture.AARCH64: ("aarch64", "v8a"),
-    platforms.Architecture.MIPS32: ("mips", "mips32"),
-    platforms.Architecture.MIPS64: ("mips", "mips64"),
-    platforms.Architecture.ARM_V5T: ("arm", "v5t"),
-    platforms.Architecture.ARM_V6M: ("arm", "v6m"),
-    platforms.Architecture.ARM_V6M_THUMB: ("arm", "v6m-thumb"),
-    platforms.Architecture.ARM_V7M: ("arm", "v7m"),
-    platforms.Architecture.ARM_V7R: ("arm", "v7r"),
-    platforms.Architecture.ARM_V7A: ("arm", "v7a"),
-    # we dont have these yet...
-    platforms.Architecture.POWERPC64: (None, None),
-    platforms.Architecture.POWERPC32: (None, None),
-}
-
 class UnicornMachineDef(metaclass=abc.ABCMeta):
     """Container class for Unicorn architecture-specific definitions"""
 
     @property
     @abc.abstractmethod
-    def arch(self) -> str:
-        """The architecture ID string"""
+    def arch(self) -> platforms.Architecture:
+        """The architecture ID"""
         return ""
 
     @property
     @abc.abstractmethod
-    def mode(self) -> str:
-        """The mode ID string"""
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def byteorder(self) -> str:
+    def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
         return ""
 
@@ -93,7 +69,7 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             return self._registers[name]
         else:
             raise ValueError(
-                f"Unknown register for {self.arch}:{self.mode}:{self.byteorder}: {name}"
+                f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
     @classmethod
@@ -110,19 +86,15 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             ValueError: If no MachineDef subclass matches your request
         """
 
-        (arch, mode) = architecture_to_arch_mode[platform.architecture]
-        if arch is None:
-            raise NotImplementedException
         try:
 
             return utils.find_subclass(
                 cls,
-                lambda x: x.arch == arch
-                and x.mode == mode
+                lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
         except:
-            raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
+            raise ValueError(f"No machine model for {platform.architecture}:{platform.byteorder}")
 
 
 

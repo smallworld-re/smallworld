@@ -2,9 +2,10 @@
 .DEFAULT_GOAL=all
 
 SOURCES := $(wildcard */*.s)
-MIPSEL_TARGETS := $(patsubst %.mips.s,%.mipsel.bin,$(wildcard *.mips.s)) 
-MIPS64EL_TARGETS := $(patsubst %.mips64.s,%.mips64el.bin,$(wildcard *.mips64.s)) 
+MIPSEL_TARGETS := $(patsubst %.mips.s,%.mipsel.bin,$(wildcard */*.mips.s)) 
+MIPS64EL_TARGETS := $(patsubst %.mips64.s,%.mips64el.bin,$(wildcard */*.mips64.s)) 
 TARGETS := ${SOURCES:.s=.bin} $(MIPSEL_TARGETS) $(MIPS64EL_TARGETS)
+
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
@@ -28,6 +29,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	arm-linux-gnueabihf-as $*.armhf.s -o $*.armhf.o
 	arm-linux-gnueabihf-objcopy -O binary -j .text $*.armhf.o $*.armhf.bin
 	rm $*.armhf.o
+
+%.i386.bin: %.i386.s
+	touch $@
 
 %.mips.bin: %.mips.s
 	mips-linux-gnu-as $*.mips.s -o $*.mips.o

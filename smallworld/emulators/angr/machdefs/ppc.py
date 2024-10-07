@@ -5,7 +5,6 @@ from .machdef import AngrMachineDef
 
 
 class PowerPCMachineDef(AngrMachineDef):
-    arch = Architecture.POWERPC32
     byteorder = Byteorder.BIG
 
     pc_reg = "pc"
@@ -93,6 +92,7 @@ class PowerPCMachineDef(AngrMachineDef):
 
 
 class PowerPC32MachineDef(PowerPCMachineDef):
+    arch = Architecture.POWERPC32
     angr_arch = archinfo.arch_ppc32.ArchPPC32(archinfo.Endness.BE)
 
 
