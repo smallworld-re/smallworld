@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -20,7 +20,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("recursion.ppc.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath("recursion.i386.bin", address=0x1000)
 machine.add(code)
 
 # Create a stack and add it to the state
@@ -28,24 +28,24 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 machine.add(stack)
 
 # Set the instruction pointer to the code entrypoint 
-cpu.pc.set(code.address)
+cpu.eip.set(code.address)
 
-# Initialize argument registers
-cpu.r3.set(int(sys.argv[1]))
+# Push the first argument
+stack.push_integer(int(sys.argv[1]), 4, None)
 
 # Push a return address onto the stack
 stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.esp.set(sp)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.r3.get()))
+print(hex(cpu.eax.get()))
