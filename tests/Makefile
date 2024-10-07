@@ -31,7 +31,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	rm $*.armhf.o
 
 %.i386.bin: %.i386.s
-	touch $@
+	i686-linux-gnu-as $*.i386.s -o $*.i386.o
+	i686-linux-gnu-objcopy -O binary -j .text $*.i386.o $*.i386.bin
+	rm $*.i386.o
 
 %.mips.bin: %.mips.s
 	mips-linux-gnu-as $*.mips.s -o $*.mips.o
@@ -78,7 +80,7 @@ all: prereqs build
 build: ${TARGETS}
 
 clean:
-	rm -fr *.bin
+	find . -name '*.bin' -type f -delete
 
 nasm: $(NASM_TARGETS)
 

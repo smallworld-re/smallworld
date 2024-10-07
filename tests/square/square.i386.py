@@ -1,56 +1,39 @@
 import sys
 
-"""
-python square.amd64.py square.amd64.bin 42 [step]
-
-That last optional arg will run in single step mode.
-
-"""
-
 import smallworld
 import logging
-import copy
 
-smallworld.logging.setup_logging(level=logging.INFO) 
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-machine = smallworld.state.Machine()
-code = smallworld.state.memory.code.Executable.from_filepath(
-    "square.amd64.bin", address=0x1000
-)
-machine.add(code)
-
+# Define the platform
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
+# Create a machine
+machine = smallworld.state.Machine()
+
+# Create a CPU
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
-
-cpu.eip.set(0x1000)
-cpu.edi.set(int(sys.argv[1]))
-
 machine.add(cpu)
 
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("square.i386.bin", address=0x1000)
+machine.add(code)
+
+# Set the instruction pointer to the code entrypoint 
+cpu.eip.set(code.address)
+
+# Initialize argument registers
+cpu.edi.set(int(sys.argv[1]))
+
+# Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.eip.get() + 5)
+emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
-if len(sys.argv) == 3 and sys.argv[2] == "step":
-    machine.apply(emulator)
-    while True:
-        try:
-            emulator.step()
-        except smallworld.exceptions.EmulationBounds:
-            print("emulation complete; encountered exit point or went out of bounds")
-            break
-        except Exception as e:
-            print(f"emulation ended; raised exception {e}")
-            break
-
-    final_machine = copy.deepcopy(machine)
-    final_machine.extract(emulator)
-
-else:
-    final_machine = machine.emulate(emulator)
-
+# read out the final state
 cpu = final_machine.get_cpu()
-print(cpu.eax.get())
-
+print(hex(cpu.eax.get()))
