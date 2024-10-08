@@ -2,13 +2,11 @@ import capstone
 import unicorn
 
 from .machdef import UnicornMachineDef
-from ....platforms import Byteorder
+from ....platforms import Architecture, Byteorder
 
 
 class ARMMachineDef(UnicornMachineDef):
     """Base Unicorn machine definition for 32-bit ARM"""
-
-    arch = "arm"
 
     uc_arch = unicorn.UC_ARCH_ARM
     uc_mode = unicorn.UC_MODE_ARM
@@ -278,19 +276,21 @@ class ARMMachineMixinVFP:
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv5T little-endian"""
 
-    mode = "v5t"
+    arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv6-M little-endian"""
 
-    mode = "v6m"
+    arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
 
 
 class ARMv6MThumbMachineDef(ARMv6MMachineDef):
-    mode = "v6m-thumb"
+    """Unicorn machine definition for ARMv6-M little-endian, THUMB ISA"""
+
+    arch = Architecture.ARM_V6M_THUMB
     uc_mode = unicorn.UC_MODE_THUMB
     cs_mode = capstone.CS_MODE_THUMB
 
@@ -298,19 +298,19 @@ class ARMv6MThumbMachineDef(ARMv6MMachineDef):
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     """Unicorn machine definition for ARMv7-M little-endian"""
 
-    mode = "v7m"
+    arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
 
 
 class ARMv7RMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
     """Unicorn machine definition for ARMv7-R little-endian"""
 
-    mode = "v7r"
+    arch = Architecture.ARM_V7R
     byteorder = Byteorder.LITTLE
 
 
 class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinRA, ARMMachineDef):
     """Unicorn machine definition for ARMv7-A little-endian"""
 
-    mode = "v7a"
+    arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE

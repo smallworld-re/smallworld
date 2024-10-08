@@ -1,42 +1,51 @@
-import logging
 import sys
 
 import smallworld
+import logging
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("x86", "64", "little")
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "recursion.amd64.bin",
-    arch="x86",
-    mode="64",
-    format="blob",
-    base=0x1000,
-    entry=0x1000,
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.rip.value = 0x1000
 
-# set input register
-state.edi.value = int(sys.argv[-1])
-print(state.edi.value)
+# Create a machine
+machine = smallworld.state.Machine()
 
-# Set up stack
-stack = smallworld.state.Stack(address=0x2000, size=0x8000)
-rsp = stack.push(value=0xFFFFFFFF, size=8, type=int, label="fake return address")
-state.map(stack)
-state.rsp.value = rsp
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-# now we can do a single micro-execution without error
-emulator = smallworld.emulators.AngrEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("recursion.amd64.bin", address=0x1000)
+machine.add(code)
+
+# Create a stack and add it to the state
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+machine.add(stack)
+
+# Set the instruction pointer to the code entrypoint 
+cpu.rip.set(code.address)
+
+# Initialize argument registers
+cpu.rdi.set(int(sys.argv[1]))
+
+# Push a return address onto the stack
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+
+# Configure the stack pointer
+rsp = stack.get_pointer() + 8
+cpu.rsp.set(rsp)
+
+# Emulate
+emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-final_state = emulator.emulate(state)
+emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
-# read the result
-print(final_state.eax)
+# read out the final state
+cpu = final_machine.get_cpu()
+print(hex(cpu.eax.get()))

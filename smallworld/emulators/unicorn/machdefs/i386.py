@@ -2,14 +2,13 @@ import capstone
 import unicorn
 
 from .machdef import UnicornMachineDef,populate_registers
-from ....platforms import Byteorder
+from ....platforms import Architecture, Byteorder
 from ....arch import i386_arch
 
 class i386MachineDef(UnicornMachineDef):
     """Unicorn machine definition for i386"""
 
-    arch = "x86"
-    mode = "32"
+    arch = Architecture.X86_32
     byteorder = Byteorder.LITTLE
 
     uc_arch = unicorn.UC_ARCH_X86

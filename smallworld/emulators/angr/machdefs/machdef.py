@@ -6,23 +6,6 @@ import archinfo
 
 from .... import utils, platforms
 
-architecture_to_arch_mode = {
-    platforms.Architecture.X86_32: ("x86", "32"),
-    platforms.Architecture.X86_64: ("x86", "64"),
-    platforms.Architecture.AARCH64: ("aarch64", "v8a"),
-    platforms.Architecture.MIPS32: ("mips", "mips32"),
-    platforms.Architecture.MIPS64: ("mips", "mips64"),
-    platforms.Architecture.ARM_V5T: ("arm", "v5t"),
-    platforms.Architecture.ARM_V6M: ("arm", "v6m"),
-    platforms.Architecture.ARM_V6M_THUMB: ("arm", "v6m-thumb"),
-    platforms.Architecture.ARM_V7M: ("arm", "v7m"),
-    platforms.Architecture.ARM_V7R: ("arm", "v7r"),
-    platforms.Architecture.ARM_V7A: ("arm", "v7a"),
-    # we dont have these yet...
-    platforms.Architecture.POWERPC64: (None, None),
-    platforms.Architecture.POWERPC32: (None, None),
-}
-
 class AngrMachineDef:
     """Container class for angr architecture-specific definitions"""
 

@@ -1,4 +1,6 @@
     .text
+    .set noreorder
+    .set nomacro
 manyargs:
     # Add arg1 ($4) and arg2 ($6)
     # Store result in return register ($2)

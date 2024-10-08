@@ -3,22 +3,21 @@ from __future__ import annotations
 import logging
 import sys
 import typing
+from enum import Enum
 
 import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from ... import exceptions, state, platforms
+from ... import exceptions, platforms, state
 from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
-from enum import Enum
-
 
 logger = logging.getLogger(__name__)
 
 
 class UnicornEmulationError(exceptions.EmulationError):
-    def __init__(self, uc_err: unicorn.UcError, pc: int, msg:str, details: dict):
+    def __init__(self, uc_err: unicorn.UcError, pc: int, msg: str, details: dict):
         self.uc_err = uc_err
         self.pc = pc
         self.msg = msg
@@ -29,15 +28,23 @@ class UnicornEmulationError(exceptions.EmulationError):
             f"{self.__class__.__name__}({self.uc_err}, {hex(self.pc)}, {self.details})"
         )
 
+
 class UnicornEmulationMemoryError(UnicornEmulationError):
     pass
+
 
 class UnicornEmulationExecutionError(UnicornEmulationError):
     pass
 
 
-class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable.QFunctionHookable, \
-                      hookable.QMemoryReadHookable, hookable.QMemoryWriteHookable, hookable.QInterruptHookable):
+class UnicornEmulator(
+    emulator.Emulator,
+    hookable.QInstructionHookable,
+    hookable.QFunctionHookable,
+    hookable.QMemoryReadHookable,
+    hookable.QMemoryWriteHookable,
+    hookable.QInterruptHookable,
+):
     """An emulator for the Unicorn emulation engine."""
 
     description = "This is a smallworld class encapsulating the Unicorn emulator."
@@ -98,7 +105,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         self.hook_return = None
 
         # list of exit points which will end emulation
-        #self.exit_points = []
+        # self.exit_points = []
         self.instruction_hooks = {}
         self.function_hooks = {}
 
@@ -108,6 +115,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             #    import pdb
             #    pdb.set_trace()
 
+            print(f"code callback addr={address:x}")
             if len(self.bounds) > 0:
                 # check that we are in bounds
                 any_in_bounds = False
@@ -117,7 +125,12 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                         break
                 if not any_in_bounds:
                     # not in bounds for any of the ranges specified
-                    if self.emulation_in_progress == STEP_BLOCK or self.emulation_in_progress == RUN:
+                    print("boudns?")
+
+                    if (
+                        self.emulation_in_progress == STEP_BLOCK
+                        or self.emulation_in_progress == RUN
+                    ):
                         self.engine.emu_stop()
                     raise exceptions.EmulationBounds
 
@@ -129,7 +142,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             # run instruciton hooks
             if address in self.instruction_hooks:
                 logger.debug(f"hit hooking address for instruction at {address:x}")
-                self.instruction_hooks[address]()
+                self.instruction_hooks[address](self)
             # check function hooks *before* bounds since these might be out-of-bounds
             if address in self.function_hooks:
                 logger.debug(f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}")
@@ -155,12 +168,12 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         self.memory_write_hooks = {}
 
         def mem_read_callback(uc, type, address, size, value, user_data):
-            assert (type == unicorn.UC_HOOK_MEM_READ)
+            assert type == unicorn.UC_HOOK_MEM_READ
             if address in self.memory_read_hooks:
                 self.memory_read_hooks[address](address, size)
 
         def mem_write_callback(uc, type, address, size, value, user_data):
-            assert (type == unicorn.UC_HOOK_MEM_WRITE)
+            assert type == unicorn.UC_HOOK_MEM_WRITE
             if address in self.memory_write_hooks:
                 self.memory_write_hooks[address](address, size)
 
@@ -194,7 +207,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # keep track of which registers have been initialized
         self.initialized_registers = {}
 
-
     def _check_pc_ok(self, pc):
         """Check if this pc is ok to emulate, i.e. in bounds and not an exit
         point."""
@@ -226,23 +238,18 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             name = self.machdef.pc_reg
         return self.machdef.uc_reg(name)
 
-
     def read_register_content(self, name: str) -> int:
-        (reg, _, _ , _) = self._register(name)
+        (reg, _, _, _) = self._register(name)
         if reg == 0:
-            logger.warn(
-                f"Unicorn doesn't support register {name} for {self.platform}"
-            )
+            logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
         try:
             return self.engine.reg_read(reg)
         except:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})")
 
-
     def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
         # not supported yet
         return None
-
 
     def read_register_label(self, name: str) -> typing.Optional[str]:
         (_, base_reg, offset, size) = self._register(name)
@@ -250,7 +257,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             # we'll return a string repr of set of labels on all byte offsets
             # for this register
             ls = set([])
-            for i in range(offset, offset+size):
+            for i in range(offset, offset + size):
                 if i in self.label[base_reg]:
                     l = self.label[base_reg][i]
                     if l is not None:
@@ -258,10 +265,8 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             return ":".join(list(ls))
         return None
 
-
     def read_register(self, name: str) -> int:
         return self.read_register_content(name)
-
 
     def write_register_content(self, name: str, content: int) -> None:
         if content is None:
@@ -274,17 +279,15 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         # keep track of which bytes in this register have been initialized
         if base_reg not in self.initialized_registers:
             self.initialized_registers[base_reg] = set([])
-        for o in range(offset, offset+size):
+        for o in range(offset, offset + size):
             self.initialized_registers[base_reg].add(o)
         logger.debug(f"set register {name}={content}")
-
 
     def write_register_type(
         self, name: str, typ: typing.Optional[typing.Any] = None
     ) -> None:
         # not supported yet
         pass
-
 
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
@@ -299,7 +302,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def write_register(self, name: str, content: int) -> None:
         self.write_register_content(name, content)
 
-
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
@@ -309,15 +311,13 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             logger.warn(f"Unicorn raised an exception on memory read {e}")
             self._error(e, "mem")
 
-
     def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
         # not supported yet
         return None
 
-
     def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
         ls = set([])
-        for a in range(address, address+size):
+        for a in range(address, address + size):
             addr_key = f"{a:x}"
             if addr_key in self.label:
                 ls.add(self.label[addr_key])
@@ -329,9 +329,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def read_memory(self, address: int, size: int) -> bytes:
         return self.read_memory_content(address, size)
 
-
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
-
         def page(address: int) -> int:
             """Compute the page number of an address.
 
@@ -397,7 +395,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         return address
 
-
     def write_memory_content(self, address: int, content: bytes) -> None:
         if content is None:
             raise ValueError(f"{self.__class__.__name__} requires concrete state")
@@ -416,16 +413,14 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 
-
     def write_memory_type(
-        self, address: int, size:int, type: typing.Optional[typing.Any] = None
+        self, address: int, size: int, type: typing.Optional[typing.Any] = None
     ) -> None:
         # not supported yet
         pass
 
-
     def write_memory_label(
-        self, address: int, size:int, label: typing.Optional[str] = None
+        self, address: int, size: int, label: typing.Optional[str] = None
     ) -> None:
         for a in range(address, address+size):
             self.label[f"{a:x}"] = label
@@ -434,16 +429,18 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
 
-
-    def hook_instruction(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
-        super(UnicornEmulator,self).hook_instruction(address, function)
+    def hook_instruction(
+        self, address: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        super(UnicornEmulator, self).hook_instruction(address, function)
         self.map_memory(self.PAGE_SIZE, address)
 
 
-    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
-        super(UnicornEmulator,self).hook_function(address, function)
+    def hook_function(
+        self, address: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        super(UnicornEmulator, self).hook_function(address, function)
         self.map_memory(self.PAGE_SIZE, address)
-
 
     def hook_mmio(
         self,
@@ -513,7 +510,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 if on_write is not None:
                     write_hooks.append((address, size, on_write))
 
-
     def disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
@@ -527,7 +523,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             disassembly.append(f"{instruction.mnemonic} {instruction.op_str}")
         return (insns, "\n".join(disassembly))
 
-
     def current_instruction(self) -> capstone.CsInsn:
         pc = self.read_register("pc")
         code = self.read_memory(pc, 15)
@@ -536,16 +531,17 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         for i in self.disassembler.disasm(code, pc):
             return i
 
-
     def _check(self) -> None:
 
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
-        (_, base_name, offset, size)  = self._register("pc")
-        if base_name in self.initialized_registers and \
-           len(self.initialized_registers[base_name]) == size:
-               # pc is fully initialized
-               pass
+        (_, base_name, offset, size) = self._register("pc")
+        if (
+            base_name in self.initialized_registers
+            and len(self.initialized_registers[base_name]) == size
+        ):
+            # pc is fully initialized
+            pass
         else:
             raise exceptions.ConfigurationError(
                 "pc not initialized, emulation cannot start"
@@ -557,7 +553,7 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             )
 
 
-    def _step(self, by_block:bool=False) -> None:
+    def _step(self, by_block: bool = False) -> None:
         self._check()
 
         # by_block == True means stepping by a basic block at a time
@@ -600,25 +596,22 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
                 # translate this unicorn error into something richer
                 self._error(e, "exec")
 
-
-
     def step_instruction(self) -> bool:
         self._step()
 
-
     def step_block(self) -> bool:
-
         self._step(by_block=True)
-
 
     def run(self) -> None:
         self._check()
 
-        logger.info(f"starting emulation at 0x{self.read_register('pc'):x}") # until 0x{self._exit_point:x}")
+        logger.info(
+            f"starting emulation at 0x{self.read_register('pc'):x}"
+        )  # until 0x{self._exit_point:x}")
 
         try:
             # unicorn requires one exit point so just use first
-            self.engine.emu_start(self.read_register('pc'), self._exit_points[0])
+            self.engine.emu_start(self.read_register("pc"), self._exit_points[0])
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")
@@ -626,9 +619,8 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
 
         logger.info("emulation complete")
 
-
     def _error(
-        self, error: unicorn.UcError, typ:str
+        self, error: unicorn.UcError, typ: str
     ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes]]:
         """Raises new exception from unicorn exception with extra details.
 
@@ -645,34 +637,36 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
         code = self.read_memory(pc, 16)
 
         if code is None:
-            raise AssertionError("invalid state -- cannot obtain code from memory for current pc")
+            raise AssertionError(
+                "invalid state -- cannot obtain code from memory for current pc"
+            )
 
         insns, _ = self.disassemble(code, 1)
-#        i = instructions.Instruction.from_capstone(insns[0])
+        #        i = instructions.Instruction.from_capstone(insns[0])
 
         if typ == "mem":
             details = {}
             if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
                 msg = "Quit emulation due to read of unmapped memory"
-                #details = {o.key(self): o.concretize(self) for o in i.reads}
+                # details = {o.key(self): o.concretize(self) for o in i.reads}
             elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
                 msg = "Quit emulation due to write to unmapped memory"
-                #details = {o.key(self): o.concretize(self) for o in i.writes}
+                # details = {o.key(self): o.concretize(self) for o in i.writes}
             elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
                 msg = "Quit emulation due to fetch of unmapped memory"
                 details = {"pc": pc}
             elif error.errno == unicorn.UC_ERR_READ_PROT:
                 msg = "Quit emulation due to read of mapped but protected memory"
-                #details = {o.key(self): o.concretize(self) for o in i.reads}
+                # details = {o.key(self): o.concretize(self) for o in i.reads}
             elif error.errno == unicorn.UC_ERR_WRITE_PROT:
                 msg = "Quit emulation due to write to mapped but protected memory"
-                #details = {o.key(self): o.concretize(self) for o in i.writes}
+                # details = {o.key(self): o.concretize(self) for o in i.writes}
             elif error.errno == unicorn.UC_ERR_FETCH_PROT:
                 msg = "Quit emulation due to fetch of from mapped but protected memory"
                 details = {"pc": pc}
             elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
                 msg = "Quit emulation due to unaligned read"
-                #details = {o.key(self): o.concretize(self) for o in i.reads}
+                # details = {o.key(self): o.concretize(self) for o in i.reads}
             elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
                 msg = "Quit emulation due to unaligned write"
                 details = {o.key(self): o.concretize(self) for o in i.writes}
@@ -700,7 +694,6 @@ class UnicornEmulator(emulator.Emulator, hookable.QInstructionHookable, hookable
             raise UnicornEmulationExecutionError(error, pc, msg, details)
 
         raise ValueError(f"typ={typ} is not known")
-
 
     def __repr__(self) -> str:
         return f"UnicornEmulator(platform={self.platform})"

@@ -1,3 +1,6 @@
+import os
+import typing
+
 from ... import emulators, platforms, exceptions
 from .. import state
 
@@ -81,5 +84,60 @@ class Memory(state.Stateful, state.Value, dict):
             value = state.EmptyValue(self.get_capacity(), None, f"Extracted memory from {self.address}")
         self[0] = value
 
+class RawMemory(Memory):
 
-__all__ = ["Memory"]
+    @classmethod
+    def from_bytes(cls, bytes: bytes, address: int):
+        """Load an memory from a byte array.
+
+        Arguments:
+            bytes: The bytes of the memory.
+            address: The address where this memory should be loaded.
+
+        Returns:
+            An RawMemory parsed from the given bytes.
+        """
+
+        memory = cls(address=address, size=len(bytes))
+        memory[0] = state.BytesValue(bytes, None)
+
+        return memory
+
+    @classmethod
+    def from_file(cls, file: typing.BinaryIO, address: int, label:str = "memory"):
+        """Load an memory from an open file-like object.
+
+        Arguments:
+            file: The open file-like object from which to read.
+            address: The address where this memory should be loaded.
+
+        Returns:
+            An RawMemory parsed from the given file-like object.
+        """
+
+        data, size = file.read(), file.tell()
+
+        memory = cls(address=address, size=size)
+        memory[0] = state.BytesValue(data, label)
+
+        return memory
+
+    @classmethod
+    def from_filepath(cls, path: str, address: int):
+        """Load an memory from a file path.
+
+        Arguments:
+            path: The path to the file to load.
+            address: The address where this memory should be loaded.
+
+        Returns:
+            An RawMemory parsed from the given file path.
+        """
+
+        path = os.path.abspath(os.path.expanduser(path))
+
+        with open(path, "rb") as f:
+            return cls.from_file(file=f, address=address)
+
+
+__all__ = ["Memory", "RawMemory"]

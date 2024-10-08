@@ -29,7 +29,10 @@ class Hook(state.Stateful):
         self._function = function
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError("extracting hooks is not possible")
+        # Hooks have no state to extract;
+        # Just as we assume the memory layout is the same,
+        # we have to assume the hook layout is the same.
+        pass
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.hook_instruction(self._address, self._function)

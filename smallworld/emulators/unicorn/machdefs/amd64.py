@@ -3,14 +3,13 @@ import capstone
 import unicorn
 
 from .machdef import UnicornMachineDef,populate_registers
-from ....platforms import Byteorder
+from ....platforms import Architecture, Byteorder
 from ....arch import amd64_arch
 
 class AMD64MachineDef(UnicornMachineDef):
     """Unicorn machine definition for amd64"""
 
-    arch = "x86"
-    mode = "64"
+    arch = Architecture.X86_64
     byteorder = Byteorder.LITTLE
 
     uc_arch = unicorn.UC_ARCH_X86

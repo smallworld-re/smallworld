@@ -1,44 +1,57 @@
-import logging
 import sys
 
 import smallworld
+import logging
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-log = logging.getLogger("__main__")
-
-# create a state object
-state = smallworld.state.CPU.for_arch("arm", "v7m", "little")
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "strlen.armhf.bin",
-    arch="arm",
-    mode="v7m",
-    format="blob",
-    base=0x1000,
-    entry=0x1000,
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.pc.value = code.entry
 
-string = sys.argv[1].encode("utf-8")
+# Create a machine
+machine = smallworld.state.Machine()
 
-# Set up stack
-stack = smallworld.state.Stack(address=0x2000, size=0x8000)
-arg1 = stack.push(value=string, size=len(string))
-sp = stack.push(value=0xFFFFFFFF, size=4, type=int, label="fake return address")
-state.map(stack)
-state.sp.value = sp
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-# Set input regsiter
-state.r0.value = arg1
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("strlen.armhf.bin", address=0x1000)
+machine.add(code)
 
-# now we can do a single micro-execution without error
-emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
-final_state = emulator.emulate(state)
-# read the result
-print(final_state.r0)
+# Create a stack and add it to the state
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+machine.add(stack)
+
+# Set the instruction pointer to the code entrypoint 
+cpu.pc.set(code.address)
+
+# Push a string onto the stack, padded to 16 bytes to make life easier.
+# Remember the starting address
+string = sys.argv[1]
+padding = b'\0' * (16 - (len(string) % 16))
+stack.push_bytes(string.encode('utf-8') + padding, None)
+
+saddr = stack.get_pointer()
+
+# Push a return address
+stack.push_integer(0x00000000, 4, None)
+
+# Configure the stack
+cpu.sp.set(stack.get_pointer())
+
+# Set the first argument to the stack address
+cpu.r0.set(saddr)
+
+# Emulate
+emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
+
+# read out the final state
+cpu = final_machine.get_cpu()
+print(hex(cpu.r0.get()))
