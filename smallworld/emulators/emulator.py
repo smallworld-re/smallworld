@@ -300,7 +300,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
     _exit_points: typing.List[int] = []
 
-    def get_exitpoints(self) -> typing.List[int]:
+    def get_exit_points(self) -> typing.List[int]:
         """Get a list of all registered exit points.
 
         Returns:

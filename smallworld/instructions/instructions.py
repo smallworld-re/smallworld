@@ -88,7 +88,7 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class Instruction(utils.Serializable):
+class Instruction():
     """An instruction storage and semantic metadata class.
 
     Arguments:
@@ -167,26 +167,26 @@ class Instruction(utils.Serializable):
                 f"No instruction format for {instruction._cs.arch}:{instruction._cs.mode}"
             )
 
-    @classmethod
-    def from_angr(cls, instruction, block, arch: str):
-        """Construct from an angr disassembler instruction
+    # @classmethod
+    # def from_angr(cls, instruction, block, arch: str):
+    #     """Construct from an angr disassembler instruction
 
-        Arguments:
-            instruction: An existing angr disassembler instruction
-            arch: angr architecture string
-        """
-        # angr's instructions don't include raw bytes.
-        off = instruction.address - block.addr
-        raw = block.bytes[off : off + instruction.size]
-        try:
-            return utils.find_subclass(
-                cls,
-                check=lambda x: x.angr_arch == arch,
-                instruction=raw,
-                address=instruction.address,
-            )
-        except ValueError:
-            raise ValueError(f"No instruction format for {arch}")
+    #     Arguments:
+    #         instruction: An existing angr disassembler instruction
+    #         arch: angr architecture string
+    #     """
+    #     # angr's instructions don't include raw bytes.
+    #     off = instruction.address - block.addr
+    #     raw = block.bytes[off : off + instruction.size]
+    #     try:
+    #         return utils.find_subclass(
+    #             cls,
+    #             check=lambda x: x.angr_arch == arch,
+    #             instruction=raw,
+    #             address=instruction.address,
+    #         )
+    #     except ValueError:
+    #         raise ValueError(f"No instruction format for {arch}")
 
     @classmethod
     def from_bytes(cls, raw: bytes, address: int, arch: str, mode: str):
@@ -250,23 +250,23 @@ class Instruction(utils.Serializable):
 
         return write
 
-    def to_json(self) -> dict:
-        return {
-            "instruction": base64.b64encode(self.instruction).decode(),
-            "disasm": self.disasm,
-            "address": self.address,
-            "arch": self.arch,
-            "mode": self.mode,
-        }
+    # def to_json(self) -> dict:
+    #     return {
+    #         "instruction": base64.b64encode(self.instruction).decode(),
+    #         "disasm": self.disasm,
+    #         "address": self.address,
+    #         "arch": self.arch,
+    #         "mode": self.mode,
+    #     }
 
-    @classmethod
-    def from_json(cls, dict):
-        if "instruction" not in dict:
-            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+    # @classmethod
+    # def from_json(cls, dict):
+    #     if "instruction" not in dict:
+    #         raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
-        dict["instruction"] = base64.b64decode(dict["instruction"])
+    #     dict["instruction"] = base64.b64decode(dict["instruction"])
 
-        return cls(**dict)
+    #     return cls(**dict)
 
     def __repr__(self) -> str:
         string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()

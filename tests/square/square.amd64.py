@@ -11,7 +11,10 @@ import smallworld
 import logging
 import copy
 
+#smallworld.logging.setup_logging(level=logging.DEBUG)
 smallworld.logging.setup_logging(level=logging.INFO) 
+smallworld.hinting.setup_hinting(level=logging.DEBUG) 
+
 
 machine = smallworld.state.Machine()
 code = smallworld.state.memory.code.Executable.from_filepath(
@@ -25,33 +28,28 @@ platform = smallworld.platforms.Platform(
 
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
+
 cpu.rip.set(0x1000)
-cpu.edi.set(int(sys.argv[1]))
+    
 
-machine.add(cpu)
-
-emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + 5)
-
-
-if len(sys.argv) == 3 and sys.argv[2] == "step":
-    machine.apply(emulator)
-    while True:
-        try:
-            emulator.step()
-        except smallworld.exceptions.EmulationBounds:
-            print("emulation complete; encountered exit point or went out of bounds")
-            break
-        except Exception as e:
-            print(f"emulation ended; raised exception {e}")
-            break
-
-    final_machine = copy.deepcopy(machine)
-    final_machine.extract(emulator)
+if len(sys.argv) == 2 and sys.argv[1] == "analyze":
+    machine.add(cpu)
+    colrz = smallworld.analyses.ColorizerAnalysis()
+    machine.analyze(colrz)
 
 else:
-    final_machine = machine.emulate(emulator)
 
-cpu = final_machine.get_cpu()
-print(cpu.eax.get())
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(cpu.rip.get() + 5)
+    cpu.edi.set(int(sys.argv[1]))
+    machine.add(cpu)
+
+    if len(sys.argv) == 3 and sys.argv[2] == "step":
+        for final_machine in machine.step(emulator):
+            pass
+    else:
+        final_machine = machine.emulate(emulator)
+
+    cpu = final_machine.get_cpu()
+    print(cpu.eax.get())
 

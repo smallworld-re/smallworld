@@ -258,6 +258,15 @@ class Register(Value, Stateful):
         self.size = size
         """Register size in bytes."""
 
+    def __str__(self):
+        s = f"Reg({self.name},{self.size})="
+        x = self.get_content()
+        if x is None:
+            s = s+"=None"
+        else:
+            s = s+f"x:x"
+        return s
+
     def get_size(self) -> int:
         return self.size
 
@@ -410,6 +419,7 @@ class Machine(StatefulSet):
 
     def step(self, emulator: emulators.Emulator) -> Machine:
         self.apply(emulator)
+
         while True:
             try:
                 emulator.step()
@@ -417,11 +427,17 @@ class Machine(StatefulSet):
                 machine_copy.extract(emulator)
                 yield machine_copy
             except exceptions.EmulationBounds:
+                #import pdb
+                #pdb.set_trace()
                 print("emulation complete; encountered exit point or went out of bounds")
                 break
             except Exception as e:
+                #import pdb
+                #pdb.set_trace()
                 print(f"emulation ended; raised exception {e}")
                 break
+
+        return machine_copy
 
     def fuzz(self, emulator: emulators.Emulator, input_callback: typing.Callable,
         crash_callback: typing.Optional[typing.Callable] = None,
@@ -457,6 +473,7 @@ class Machine(StatefulSet):
         for i in self:
             if issubclass(type(i), state.cpus.cpu.CPU):
                 return i
+
 
 
 
