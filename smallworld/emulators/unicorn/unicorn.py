@@ -142,7 +142,7 @@ class UnicornEmulator(
             # run instruciton hooks
             if address in self.instruction_hooks:
                 logger.debug(f"hit hooking address for instruction at {address:x}")
-                self.instruction_hooks[address]()
+                self.instruction_hooks[address](self)
             # check function hooks *before* bounds since these might be out-of-bounds
             if address in self.function_hooks:
                 logger.debug(f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}")
@@ -439,7 +439,7 @@ class UnicornEmulator(
     def hook_function(
         self, address: int, function: typing.Callable[[Emulator], None]
     ) -> None:
-        super(UnicornEmulator, self).hook_instruction(address, function)
+        super(UnicornEmulator, self).hook_function(address, function)
         self.map_memory(self.PAGE_SIZE, address)
 
     def hook_mmio(
