@@ -33,6 +33,8 @@ class PatchedObjectFactory(AngrObjectFactory):
                 max_size = 0
             else:
                 max_size = bound.stop - ip
+            if max_size == 0:
+                log.warn(f"Empty block at {state._ip}")
             max_size = min(max_size, 4096)
             kwargs["size"] = max_size
 

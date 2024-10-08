@@ -1,63 +1,83 @@
-import logging
+import sys
 
 import smallworld
+import logging
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True)
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-state = smallworld.state.CPU.for_arch("arm", "v5t", "little")
-
-code = smallworld.state.Code.from_filepath(
-    "hooking.armel.bin",
-    arch="arm",
-    mode="v5t",
-    format="blob",
-    base=0x1000,
-    entry=0x1008,
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.pc.value = 0x1008
 
-stack = smallworld.state.Stack(address=0xFFFF0000, size=0x1000)
-sp = stack.push(value=0xFFFFFFFF, size=4, type=int, label="fake return address")
-state.map(stack)
-state.sp.value = sp
+# Create a machine
+machine = smallworld.state.Machine()
 
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-def gets_model(emulator):
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("hooking.armel.bin", address=0x1000)
+machine.add(code)
+
+# Create a stack and add it to the state
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+machine.add(stack)
+
+# Set the instruction pointer to the code entrypoint 
+cpu.pc.set(code.address + 8)
+
+# Push a return address onto the stack
+stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+
+# Configure the stack pointer
+sp = stack.get_pointer()
+cpu.sp.set(sp)
+
+# Configure gets model
+def gets_model(emulator: smallworld.emulators.Emulator) -> None:
     s = emulator.read_register("r0")
-    v = input().encode("utf-8") + b"\x00"
-    emulator.write_memory(s, v)
+    v = input().encode("utf-8") + b"\0"
+    try:
+        emulator.write_memory_content(s, v) 
+    except:
+        raise smallworld.exceptions.AnalysisError(f"Failed writing {len(v)} bytes to {hex(s)} ")
 
+gets = smallworld.state.models.ImplementedModel(0x1000, gets_model)
+machine.add(gets)
 
-gets = smallworld.state.models.Model(0x1000, gets_model)
-state.map(gets)
-
-
-def puts_model(emulator):
-    s = emulator.read_register("r0")
-    v = b""
+# Configure puts model
+def puts_model(emulator: smallworld.emulators.Emulator) -> None:
     # Reading a block of memory from angr will fail,
     # since values beyond the string buffer's bounds
     # are guaranteed to be symbolic.
     #
     # Thus, we must step one byte at a time.
-    b = emulator.read_memory(s, 1)
+    s = emulator.read_register("r0")
+    start = s
+    v = b""
+    try:
+        b = emulator.read_memory_content(s, 1)
+    except smallworld.exceptions.SymbolicValueError:
+        b = None
     while b is not None and b != b"\x00":
         v = v + b
-        s += 1
-        b = emulator.read_memory(s, 0x1)
+        s = s + 1
+        try:
+            b = emulator.read_memory_content(s, 1)
+        except smallworld.exceptions.SymbolicValueError:
+            b = None
     if b is None:
-        raise smallworld.exceptions.AnalysisError(f"Symbolic byte at 0x{s:x}")
-    v = v.decode("utf-8")
+        raise smallworld.exceptions.SymbolicValueError(f"Symbolic byte at offset {hex(s - start)} from {hex(start)}")
     print(v)
+puts = smallworld.state.models.ImplementedModel(0x1004, puts_model)
+machine.add(puts)
 
-
-puts = smallworld.state.models.Model(0x1004, puts_model)
-state.map(puts)
-
-emulator = smallworld.emulators.AngrEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
+# Emulate
+emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.emulate(state)
+emulator.add_exit_point(code.address + code.get_capacity())
+final_machine = machine.emulate(emulator)

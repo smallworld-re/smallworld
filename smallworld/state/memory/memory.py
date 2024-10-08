@@ -99,7 +99,7 @@ class RawMemory(Memory):
         """
 
         memory = cls(address=address, size=len(bytes))
-        memory[0] = bytes
+        memory[0] = state.BytesValue(bytes, None)
 
         return memory
 

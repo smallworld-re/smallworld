@@ -24,7 +24,7 @@ class HookHandler(angr.SimProcedure):
     """
 
     def run(self, *args, callback, parent):
-        emu = AngrHookEmulator(self.state, parent)
+        emu = ConcreteAngrEmulator(self.state, parent)
         callback(emu)
         return None
 
@@ -336,10 +336,17 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             
 
     def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError("Cannot hook functions once emulation starts")
         hook = HookHandler(callback=function, parent=self)
         self.proj.hook(address, hook, 0)
+        
+        self.map_memory(1, address)
+        self.state.scratch.func_bps[address] = None
 
     def unhook_function(self, address: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError("Cannot unhook functions once emulation starts")
         self.proj.unhook(address)
 
     def hook_memory_read(self, address: int, size: int, function: typing.Callable[[Emulator, int, int], bytes]) -> None:
@@ -510,8 +517,10 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         # As soon as we start executing, disable value access
         self._dirty = True
         if self._linear:
-            log.info(f"Stepping through {self.state.ip}")
-            log.info(f"Stepping through {self.state.block().disassembly.insns[0]}")
+            if self.state._ip.concrete_value not in self.state.scratch.func_bps:
+                log.info(f"Stepping through {self.state.block().disassembly.insns[0]}")
+            else:
+                log.info(f"Stepping through {self.state._ip} (hook)")
 
         # Step execution once, however the user asked for it.
         if single_insn:

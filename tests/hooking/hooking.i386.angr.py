@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -20,7 +20,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("hooking.armhf.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath("hooking.i386.bin", address=0x1000)
 machine.add(code)
 
 # Create a stack and add it to the state
@@ -28,23 +28,25 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 machine.add(stack)
 
 # Set the instruction pointer to the code entrypoint 
-cpu.pc.set(code.address + 8)
+cpu.eip.set(code.address + 2)
 
 # Push a return address onto the stack
 stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.esp.set(sp)
 
 # Configure gets model
 def gets_model(emulator: smallworld.emulators.Emulator) -> None:
-    s = emulator.read_register("r0")
+    a = emulator.read_register("esp")
+    s = int.from_bytes(emulator.read_memory(a + 4, 4), "little")
     v = input().encode("utf-8") + b"\0"
     try:
         emulator.write_memory_content(s, v) 
     except:
         raise smallworld.exceptions.AnalysisError(f"Failed writing {len(v)} bytes to {hex(s)} ")
+    #emulator.write_register("esp", a + 4)
 
 gets = smallworld.state.models.ImplementedModel(0x1000, gets_model)
 machine.add(gets)
@@ -56,7 +58,8 @@ def puts_model(emulator: smallworld.emulators.Emulator) -> None:
     # are guaranteed to be symbolic.
     #
     # Thus, we must step one byte at a time.
-    s = emulator.read_register("r0")
+    a = emulator.read_register("esp")
+    s = int.from_bytes(emulator.read_memory(a + 4, 4), "little")
     v = b""
     try:
         b = emulator.read_memory_content(s, 1)
@@ -72,10 +75,12 @@ def puts_model(emulator: smallworld.emulators.Emulator) -> None:
     if b is None:
         raise smallworld.exceptions.SymbolicValueError(f"Symbolic byte at {hex(s)}")
     print(v)
-puts = smallworld.state.models.ImplementedModel(0x1004, puts_model)
+    #emulator.write_register("esp", a + 4)
+puts = smallworld.state.models.ImplementedModel(0x1001, puts_model)
 machine.add(puts)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)
