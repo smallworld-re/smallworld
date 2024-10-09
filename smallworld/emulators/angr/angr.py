@@ -393,7 +393,7 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
                 addr = addr.concrete_value
             size = state.inspect.mem_read_length
 
-            res = claripy.BVV(function(AngrHookEmulator(state, self), addr, size))
+            res = claripy.BVV(function(ConcreteAngrEmulator(state, self), addr, size))
 
             if self.platform.byteorder == platforms.Byteorder.LITTLE:
                 # Fix byte order if needed.
@@ -481,10 +481,10 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
                     )
             else:
                 value = expr.concrete_value.to_bytes(
-                    size, byteorder=self.machdef.byteorder
+                    size, byteorder=self.platform.byteorder.value
                 )
 
-            function(AngrHookEmulator(state, self), addr, size, value)
+            function(ConcreteAngrEmulator(state, self), addr, size, value)
 
         bp = self.state.inspect.b(
             "mem_write",
