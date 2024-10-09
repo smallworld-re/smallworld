@@ -3,7 +3,6 @@ import sys
 import smallworld
 import logging
 
-import smallworld.state.unstable.mmio
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -29,10 +28,10 @@ machine.add(code)
 cpu.pc.set(code.address)
 
 # Initialize argument registers
-cpu.r0.set(int(sys.argv[1]))
-cpu.r1.set(int(sys.argv[2]))
+cpu.a0.set(int(sys.argv[1]))
+cpu.a1.set(int(sys.argv[2]))
 
-class HDivModel(smallworld.state.unstable.mmio.MMIOModel):
+class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self, address: int, nbytes: int):
         super().__init__(address, nbytes * 4)
         self.reg_size = nbytes
@@ -104,4 +103,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.r0.get_content()))
+print(hex(cpu.v0.get_content()))

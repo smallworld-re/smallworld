@@ -1,36 +1,37 @@
-import logging
 import sys
 
 import smallworld
+import logging
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
 
-logger = logging.getLogger("test")
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("powerpc", "ppc64", "big")
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "dma.ppc64.bin",
-    base=0x1000,
-    entry=0x1000,
-    arch="powerpc",
-    mode="ppc64",
-    format="blob",
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.POWERPC64, smallworld.platforms.Byteorder.BIG
 )
-state.map(code)
-state.pc.value = 0x1000
 
-# set input register
-state.r3.value = int(sys.argv[1])
-state.r4.value = int(sys.argv[2])
-print(state.r3.value)
-print(state.r4.value)
+# Create a machine
+machine = smallworld.state.Machine()
 
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-class HDivModel(smallworld.state.mmio.MMIOModel):
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("dma.ppc.bin", address=0x1000)
+machine.add(code)
+
+# Set the instruction pointer to the code entrypoint 
+cpu.pc.set(code.address)
+
+# Initialize argument registers
+cpu.r3.set(int(sys.argv[1]))
+cpu.r4.set(int(sys.argv[2]))
+
+class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self, address: int, nbytes: int):
         super().__init__(address, nbytes * 4)
         self.reg_size = nbytes
@@ -62,7 +63,7 @@ class HDivModel(smallworld.state.mmio.MMIOModel):
             return self.remainder.to_bytes(self.reg_size, "big")[start:end]
         else:
             raise smallworld.exceptions.AnalysisError(
-                f"Unexpected read from MMIO register {hex(addr)}"
+                "Unexpected read from MMIO register {hex(addr)}"
             )
 
     def on_write(
@@ -87,20 +88,19 @@ class HDivModel(smallworld.state.mmio.MMIOModel):
                 self.remainder = self.numerator % self.denominator
         else:
             raise smallworld.exceptions.AnalysisError(
-                f"Unexpected write to MMIO register {hex(addr)}"
+                "Unexpected write to MMIO register {hex(addr)}"
             )
 
 
-hdiv = HDivModel(0x50014000, 8)
-state.map(hdiv)
+hdiv = HDivModel(0x50014000, 4)
+machine.add(hdiv)
 
-# now we can do a single micro-execution without error
-emulator = smallworld.emulators.AngrEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
-
+# Emulate
+emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-final_state = emulator.emulate(state)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
-# read the result
-print(final_state.r3)
+# read out the final state
+cpu = final_machine.get_cpu()
+print(hex(cpu.r3.get_content()))
