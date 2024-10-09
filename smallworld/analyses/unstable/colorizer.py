@@ -219,6 +219,8 @@ class ColorizerAnalysis(analysis.Analysis):
                     tup = (write_operand, write_operand_color, sz)
                     writes.append(tup)
                 writes.sort(key=lambda e: e[0].__repr__())
+                #import pdb
+                #pdb.set_trace()
                 self._check_colors_instruction_writes(writes, sw_insn, i, j, hint_list)
 
 
@@ -523,6 +525,18 @@ class ColorizerAnalysis(analysis.Analysis):
             if color in self.colors.keys():
                 # write of a previously seen value
                 # ... its just a copy so no hint, right?
+                hint = self._dynamic_value_hint(
+                    operand,
+                    operand_size,
+                    color,
+                    insn,
+                    False,
+                    False,
+                    exec_num,
+                    insn_num,
+                    "write-copy")
+                hinter.debug(hint)
+                hint_list.append(hint)
                 pass
             else:
                 # write-def: write of a NOT previously recorded color value as
