@@ -224,8 +224,8 @@ class ColorizerAnalysis(analysis.Analysis):
 
             hint_list_list.append(hint_list)
 
-        import pdb
-        pdb.set_trace()
+#        import pdb
+#        pdb.set_trace()
         logger.info("-------------------------")
 
         # if two hints map to the same key then they are in same equivalence class
