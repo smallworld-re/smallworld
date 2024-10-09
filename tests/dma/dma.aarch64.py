@@ -1,36 +1,38 @@
-import logging
 import sys
 
 import smallworld
+import logging
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+import smallworld.state.unstable.mmio
 
-logger = logging.getLogger("test")
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("aarch64", "v8a", "little")
-
-# load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "dma.aarch64.bin",
-    base=0x1000,
-    entry=0x1000,
-    arch="aarch64",
-    mode="v8a",
-    format="blob",
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
 )
-state.map(code)
-state.pc.value = 0x1000
 
-# set input register
-state.w0.value = int(sys.argv[1])
-state.w1.value = int(sys.argv[2])
-print(state.w0.value)
-print(state.w1.value)
+# Create a machine
+machine = smallworld.state.Machine()
 
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-class HDivModel(smallworld.state.mmio.MMIOModel):
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("dma.aarch64.bin", address=0x1000)
+machine.add(code)
+
+# Set the instruction pointer to the code entrypoint 
+cpu.pc.set(code.address)
+
+# Initialize argument registers
+cpu.x0.set(int(sys.argv[1]))
+cpu.x1.set(int(sys.argv[2]))
+
+class HDivModel(smallworld.state.unstable.mmio.MMIOModel):
     def __init__(self, address: int, nbytes: int):
         super().__init__(address, nbytes * 4)
         self.reg_size = nbytes
@@ -92,14 +94,13 @@ class HDivModel(smallworld.state.mmio.MMIOModel):
 
 
 hdiv = HDivModel(0x50014000, 8)
-state.map(hdiv)
+machine.add(hdiv)
 
-# now we can do a single micro-execution without error
-emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
+# Emulate
+emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
-final_state = emulator.emulate(state, single_step=True)
-
-# read the result
-print(final_state.x0)
+# read out the final state
+cpu = final_machine.get_cpu()
+print(hex(cpu.w0.get_content()))

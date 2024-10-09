@@ -1,13 +1,13 @@
 import abc
 import logging
 
-from .. import emulators, initializers
-from . import state
+from ... import emulators
+from .. import state
 
 logger = logging.getLogger(__name__)
 
 
-class MMIOModel(state.Value):
+class MMIOModel(state.Stateful):
     """A model of a memory-mapped IO device.
 
     This lets you specify alternate handler routines
@@ -86,19 +86,21 @@ class MMIOModel(state.Value):
     def value(self, value) -> None:
         raise NotImplementedError("MMIO models don't have a value")
 
-    def initialize(
-        self, initializer: initializers.Initializer, override: bool = False
-    ) -> None:
-        logger.debug(f"Skipping initialization for {self} (mmio)")
-
-    def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-        logger.debug(f"Skipping load for {self} (mmio)")
+    def extract(self, emulator: emulators.Emulator) -> None:
+        logger.debug(f"Skipping extract for {self} (mmio)")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        logger.debug(f"Hooking MMIO {self} {self.address:x}")
-        emulator.hook_memory(
-            self.address, self.size, on_read=self.on_read, on_write=self.on_write
-        )
+        logger.warn(f"Hooking MMIO {self} {self.address:x}")
+        emulator.map_memory(self.size, self.address)
+        if self.on_read is not None:
+            if not isinstance(emulator, emulators.MemoryReadHookable):
+                raise NotImplementedError("Emulator does not support read hooking")
+            logger.info(f"Adding read callback {self.on_read}")
+            emulator.hook_memory_read(self.address, self.address + self.size, self.on_read)
+        if self.on_write is not None:
+            if not isinstance(emulator, emulators.MemoryWriteHookable):
+                raise NotImplementedError("Emulator does not support write hooking")
+            emulator.hook_memory_write(self.address, self.address + self.size, self.on_write)
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({hex(self.address)})"
