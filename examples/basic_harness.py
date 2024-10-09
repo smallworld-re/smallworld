@@ -17,7 +17,6 @@ machine = smallworld.state.Machine()
 
 # create a CPU and add it to the machine
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
-machine.add(cpu)
 
 # create an executable and add it to the machine
 code = smallworld.state.memory.code.Executable.from_filepath(
@@ -27,6 +26,8 @@ machine.add(code)
 
 # set the instruction pointer to the entrypoint of our executable
 cpu.rip.set(code.address)
+
+machine.add(cpu)
 
 # analyze
 smallworld.helpers.analyze(machine)
