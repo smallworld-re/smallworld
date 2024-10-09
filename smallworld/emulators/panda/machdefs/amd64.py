@@ -1,17 +1,18 @@
 import capstone
 import pandare
 
-from ....platforms import Byteorder
+from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class AMD64MachineDef(PandaMachineDef):
-    arch = "x86"
-    mode = "64"
+
+    arch = Architecture.X86_64 
     byteorder = Byteorder.LITTLE
 
     panda_arch_str = "x86_64"
     panda_arch = pandare.arch.X86_64Arch(None)
+
     cs_arch = capstone.CS_ARCH_X86
     cs_mode = capstone.CS_MODE_64
 
