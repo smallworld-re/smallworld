@@ -333,7 +333,7 @@ class DynamicValueHint(hinting.Hint):
       new: True if its a new value, first sighting
     """
 
-    instruction: typing.Any
+    #instruction: typing.Any
     pc: int
     micro_exec_num: int
     instruction_num: int
@@ -392,7 +392,7 @@ class DynamicMemoryValueHint(DynamicValueHint):
 
 @dataclass(frozen=True)
 class DynamicValueProbHint(hinting.Hint):
-    instruction: typing.Any
+    #instruction: typing.Any
     pc: int
     color: int
     size: int

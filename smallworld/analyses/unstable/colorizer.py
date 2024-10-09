@@ -6,16 +6,17 @@ import typing
 
 import capstone
 
-from .. import hinting, state
-from ..emulators import UnicornEmulator
-from ..exceptions import AnalysisRunError
-from ..instructions import (
+from ...platforms import Platform
+from ... import hinting, state
+from ...emulators import UnicornEmulator
+from ...exceptions import AnalysisRunError
+from ...instructions import (
     BSIDMemoryReferenceOperand,
     Instruction,
     Operand,
     RegisterOperand,
 )
-from . import analysis
+from .. import analysis
 
 logger = logging.getLogger(__name__)
 hinter = hinting.getHinter(__name__)
@@ -86,17 +87,23 @@ class ColorizerAnalysis(analysis.Analysis):
     def _operand_size(self, operand: Operand) -> int:
         if type(operand) is RegisterOperand:
             # return size of a reg based on its name
-            return getattr(self.cpu, operand.name).width
+            return getattr(self.cpu, operand.name).size
         elif type(operand) is BSIDMemoryReferenceOperand:
             # memory operand knows its size
             return operand.size
         return 0
 
-    def run(self, start_cpustate: state.CPU) -> None:
+    def run(self, machine: state.Machine) -> None:
         # note that start pc is in start_cpustate
 
         # collect hints for each microexecution, in a list of lists
         hint_list_list: typing.List[typing.List[hinting.Hint]] = []
+
+        self.orig_machine = copy.deepcopy(machine)
+        self.orig_cpu = self.orig_machine.get_cpu()
+        self.platform = self.orig_cpu.platform
+
+        start_pc = self.orig_cpu.rip.get() + 5
 
         for i in range(self.num_micro_executions):
             logger.info("-------------------------")
@@ -105,10 +112,16 @@ class ColorizerAnalysis(analysis.Analysis):
             if self.seed is not None:
                 self.random.seed(a=self.seed)
 
-            self.cpu = copy.deepcopy(start_cpustate)
-            self.emu = UnicornEmulator(self.cpu.arch, self.cpu.mode, self.cpu.byteorder)
+            self.machine = copy.deepcopy(self.orig_machine)
+            self.cpu = self.machine.get_cpu()
+            self.emu = UnicornEmulator(self.platform)
+            self.machine.apply(self.emu)
+
 
             # initialize registers with random values
+#            import pdb
+#            pdb.set_trace()
+
             self._randomize_registers()
 
             # map from color values to first use / def
@@ -116,19 +129,32 @@ class ColorizerAnalysis(analysis.Analysis):
 
             # copy regs and any stack / heap init
             # and load the code to analyze into emulator
-            self.cpu.apply(self.emu)
+#            import pdb
+#            pdb.set_trace()
+
+            self.emu.add_exit_point(start_pc)
 
             hint_list = []
             for j in range(self.num_insns):
                 # obtain instr about to be emulated
                 pc = self.emu.read_register("pc")
+                if pc in self.emu.get_exit_points():
+                    break
                 cs_insn = self._get_instr_at_pc(pc)
                 sw_insn = Instruction.from_capstone(cs_insn)
 
                 logger.debug(sw_insn)
 
                 # pull state back out of the emulator for inspection
-                self.cpu.load(self.emu)
+
+                m = copy.deepcopy(self.machine)
+                m.extract(self.emu)
+                self.cpu = m.get_cpu()
+#                self.cpu = copy.deepcopy(self.machine).extract(self.emu).get_cpu()
+                #curr_machine = copy.deepcopy(self.machine)
+                #curr_machine.extract(self.emu)
+                #curr_machine = self.eself.cpu.load(self.emu)
+                #self.cpu = curr_machien.get_cpu()
 
                 reads: typing.List[typing.Tuple[Operand, str, int]] = []
                 for read_operand in sw_insn.reads:
@@ -155,7 +181,10 @@ class ColorizerAnalysis(analysis.Analysis):
                 self._check_colors_instruction_reads(reads, sw_insn, i, j, hint_list)
 
                 try:
-                    done = self.emu.step()
+                    self.emu.step()
+                except exceptions.EmulationBounds:
+                    logger.info("emulation complete. encountered exit point or went out of bounds")
+                    break
                 except Exception as e:
                     # emulating this instruction failed
                     exhint = hinting.EmulationException(
@@ -192,11 +221,11 @@ class ColorizerAnalysis(analysis.Analysis):
                 writes.sort(key=lambda e: e[0].__repr__())
                 self._check_colors_instruction_writes(writes, sw_insn, i, j, hint_list)
 
-                if done:
-                    break
 
             hint_list_list.append(hint_list)
 
+#        import pdb
+#        pdb.set_trace()
         logger.info("-------------------------")
 
         # if two hints map to the same key then they are in same equivalence class
@@ -284,7 +313,7 @@ class ColorizerAnalysis(analysis.Analysis):
             if type(hint) is hinting.DynamicRegisterValueHint:
                 hinter.info(
                     hinting.DynamicRegisterValueProbHint(
-                        instruction=hint.instruction,
+#                        instruction=hint.instruction,
                         pc=hint.pc,
                         reg_name=hint.reg_name,
                         color=hint.color,
@@ -298,7 +327,7 @@ class ColorizerAnalysis(analysis.Analysis):
             if type(hint) is hinting.DynamicMemoryValueHint:
                 hinter.info(
                     hinting.DynamicMemoryValueProbHint(
-                        instruction=hint.instruction,
+#                        instruction=hint.instruction,
                         pc=hint.pc,
                         size=hint.size,
                         base=hint.base,
@@ -321,7 +350,7 @@ class ColorizerAnalysis(analysis.Analysis):
                         index_reg_name=hint.index_reg_name,
                         offset=hint.offset,
                         scale=hint.scale,
-                        instruction=hint.instruction,
+#                        instruction=hint.instruction,
                         pc=hint.pc,
                         prob=prob,
                         message=hint.message + "-prob",
@@ -352,19 +381,35 @@ class ColorizerAnalysis(analysis.Analysis):
         return base64.b64encode(the_bytes).decode()
 
     def _randomize_registers(self) -> None:
-        for name, reg in self.cpu.members(state.Register).items():
+        for reg in self.orig_cpu: 
             # only colorize the "regular" registers
-            if name not in self.cpu.GENERAL_PURPOSE_REGS:
+            if (type(reg) is not state.Register) or \
+               (reg.name not in self.orig_cpu.get_general_purpose_registers()):
                 continue
-            # !! don't colorize a register that has already been initialized
-            if not (reg.value is None):
+            orig_val = self.emu.read_register(reg.name)
+            logger.debug(f"_randomize_registers {reg.name} orig_val={orig_val:x}")
+            new_val = 0
+            bc = 0
+            for i in range(reg.size):
+                new_val = new_val << 8
+                if reg.name in self.emu.initialized_registers and \
+                   i in self.emu.initialized_registers[reg.name]:
+                    b = orig_val >> (i*8) & 0xff
+                    new_val |= b
+                else:
+                    new_val |= random.randint(0,255)
+                    bc += 1
+            if bc == 0:
                 logger.debug(
-                    f"Not colorizing register {name} since it is already initialized with {reg.value:x}"
+                    f"Not colorizing register {reg.name} since it is already fully initialized with {orig_val:x}"
                 )
-                continue
-            val = self.random.randint(0, 0xFFFFFFFFFFFFFFF)
-            reg.value = val
-            logger.debug(f"Colorizing register {name} with {val:x}")
+            else:
+                # make sure to update cpu as well as emu not sure why
+                self.emu.write_register(reg.name, new_val)
+                setattr(self.cpu, reg.name, new_val)
+                logger.debug(
+                    f"Colorized {bc} bytes in register {reg.name}, old value was {orig_val:x} new is {new_val:x}"
+                )
 
     # helper for read/write unavailable hint
     def _mem_unavailable_hint(
@@ -425,6 +470,8 @@ class ColorizerAnalysis(analysis.Analysis):
         insn_num: int,
         hint_list: typing.List[hinting.Hint],
     ):
+#        import pdb
+#        pdb.set_trace()
         for operand, color, operand_size in reads:
             if color in self.colors.keys():
                 # read-flow: use of a previously recorded color value
@@ -521,7 +568,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 dynamic_value=color,
                 use=is_use,
                 new=is_new,
-                instruction=insn,
+                #instruction=insn,
                 pc=pc,
                 micro_exec_num=exec_num,
                 instruction_num=insn_num,
@@ -545,7 +592,7 @@ class ColorizerAnalysis(analysis.Analysis):
                 size=operand.size,
                 use=is_use,
                 new=is_new,
-                instruction=insn,
+                #instruction=insn,
                 pc=pc,
                 micro_exec_num=exec_num,
                 instruction_num=insn_num,
