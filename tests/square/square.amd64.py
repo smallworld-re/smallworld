@@ -3,54 +3,37 @@ import sys
 import smallworld
 import logging
 
-smallworld.logging.setup_logging(level=logging.INFO) 
-smallworld.hinting.setup_hinting(level=logging.DEBUG) 
-
-# Create a machine
-machine = smallworld.state.Machine()
-
-# Load code and add to the machien
-code = smallworld.state.memory.code.Executable.from_filepath(
-    "square.amd64.bin", address=0x1000
-)
-machine.add(code)
+# Set up logging and hinting
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
-# Create a CPU for that platform
+# Create a machine
+machine = smallworld.state.Machine()
+
+# Create a CPU
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
-# Set the instruction pointer to the code entrypoint
-cpu.rip.set(0x1000)
-    
+# Load and add code into the state
+code = smallworld.state.memory.code.Executable.from_filepath("square.amd64.bin", address=0x1000)
+machine.add(code)
 
-if len(sys.argv) == 2 and sys.argv[1] == "analyze":
+# Set the instruction pointer to the code entrypoint 
+cpu.rip.set(code.address)
 
-    machine.add(cpu)
-    colorizer = smallworld.analyses.ColorizerAnalysis()
-    machine.analyze(colorizer)
+# Initialize argument registers
+cpu.rdi.set(int(sys.argv[1]))
 
-else:
+# Emulate
+emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
-    # Initialize argument register
-    cpu.rdi.set(int(sys.argv[1]))
-    
-    machine.add(cpu)
-
-    emulator = smallworld.emulators.UnicornEmulator(platform)
-    emulator.add_exit_point(cpu.rip.get() + 5)
-
-    # Emulate
-    if len(sys.argv) == 3 and sys.argv[2] == "step":
-        for final_machine in machine.step(emulator):
-            pass
-    else:
-        final_machine = machine.emulate(emulator)
-
-    # Read out the final state
-    cpu = final_machine.get_cpu()
-    print(cpu.eax.get())
-
+# read out the final state
+cpu = final_machine.get_cpu()
+print(hex(cpu.eax.get()))
