@@ -88,6 +88,7 @@ class PandaEmulator(
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
+                print(f"Panda: setting up state")
                 self.setup_state(cpu)
                 self.signal_and_wait()
 
@@ -105,29 +106,12 @@ class PandaEmulator(
 
             @self.panda.cb_insn_exec
             def on_insn(cpu, pc):
-                print(f"Panda: on_insn: {pc}, {self.state}")
-                print(self.manager.pc)
                 self.update_state(cpu, pc)
 
-                if self.state == PandaEmulator.ThreadState.SETUP:
-                    print("on_insn: setup")
-                    self.signal_and_wait()
-
-                # Always call hooked code first
-                if f := self.manager.is_instruction_hooked(pc):
-                    f(self.manager)
-
-                # Now, if we for some reason have a different pc
-                # then the one that is set for us, break out of this
-                # This would be from changing eip in a hook
-                if self.manager.pc != pc:
-                    self.panda.libpanda.cpu_loop_exit_noexc(cpu)
-
-                # If we were in SETUP mode, we need to be able to move
-                # from setup to here
                 if pc in self.manager.exitpoints:
                     # stay here until i say die
                     print("on_insn: exit")
+                    #print(self.manager.read_register("r0"))
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
                     # gracefully (enough) exit here
@@ -137,12 +121,28 @@ class PandaEmulator(
                 elif self.state == PandaEmulator.ThreadState.STEP:
                     # stop and wait for me
                     print("on_insn: step")
-                    print(cpu.env_ptr.eip)
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.BLOCK:
                     # keep going until the end
                     print("on_insn: block")
+
+                print(f"Panda: on_insn: {pc}, {self.state}")
+
+                # Always call hooked code first
+                if f := self.manager.is_instruction_hooked(pc):
+                    f(self.manager)
+
+                # Now, if we for some reason have a different pc
+                # then the one that is set for us, break out of this
+                # This would be from changing eip in a hook
+                print(f"Panda: {pc}, {self.manager.pc}")
+                #print(self.manager.read_register('pc'))
+                #if self.manager.read_register("pc") != pc:
+                if self.manager.pc != pc: 
+                    self.panda.libpanda.cpu_loop_exit_noexc(cpu)
+
                 print(f"on_insn: done {self.state}")
+
                 return True
 
             # Used for stepping over blocks
@@ -167,7 +167,6 @@ class PandaEmulator(
             def on_write(cpu, pc, addr, size):
                 print(f"on_write: {pc}")
                 import os
-
                 os._exit(0)
 
             # TODO: Untested
@@ -238,7 +237,12 @@ class PandaEmulator(
 
     def read_register_content(self, name: str) -> int:
         # i dont support yet
-        self.panda_thread.machdef.check_panda_reg(name)
+        if name == "pc":
+            name = self.panda_thread.machdef.pc_reg
+
+        if not self.panda_thread.machdef.check_panda_reg(name): 
+            logger.warn(f"Panda doesn't support register {name} for {self.platform}") 
+            return
 
         try:
             return self.panda_thread.machdef.panda_arch.get_reg(self.cpu, name)
@@ -253,13 +257,21 @@ class PandaEmulator(
             logger.debug(f"ignoring register write to {name} - no value")
             return
 
-        self.panda_thread.machdef.check_panda_reg(name)
+        if name == "pc":
+            name = self.panda_thread.machdef.pc_reg
 
-        if name == "rip" or name == "eip" or name == "pc":
+        # This is my internal pc 
+        if name == self.panda_thread.machdef.pc_reg:
             self.pc = content
+
+        if not self.panda_thread.machdef.check_panda_reg(name): 
+            logger.warn(f"Panda doesn't support register {name} for {self.platform}") 
+            return
+
             # self.panda_thread.machdef.panda_arch.set_pc(self.cpu, content)
         # else:
-        print("setting")
+        self.panda_thread.machdef.check_panda_reg(name)
+        print(f"setting {name}")
         self.panda_thread.machdef.panda_arch.set_reg(self.cpu, name, content)
 
         logger.debug(f"set register {name}={content}")
@@ -323,8 +335,10 @@ class PandaEmulator(
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 
+
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
+
 
     def add_bound(self, bounds, start, end):
         import bisect
@@ -440,8 +454,8 @@ class PandaEmulator(
         # on_block callback, but also run it once
         self.panda_thread.panda.enable_callback("on_block")
 
-        if self.panda_thread.state == self.ThreadState.SETUP:
-            self.signal_and_wait()
+        #if self.panda_thread.state == self.ThreadState.SETUP:
+        #    self.signal_and_wait()
 
         self.panda_thread.state = self.ThreadState.BLOCK
         self.signal_and_wait()
@@ -454,7 +468,12 @@ class PandaEmulator(
         self.check()
 
         if self.panda_thread.state == self.ThreadState.SETUP:
+            # Move past setup
+            self.panda_thread.state = self.ThreadState.STEP
             self.signal_and_wait()
+            # step into first instruction
+            #self.panda_thread.state = self.ThreadState.STEP
+            #self.signal_and_wait()
 
         self.panda_thread.state = self.ThreadState.STEP
 
@@ -468,7 +487,7 @@ class PandaEmulator(
 
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
-        # We can run now;
+        # We can run now and wait at next instr;
         self.signal_and_wait()
         return
 
