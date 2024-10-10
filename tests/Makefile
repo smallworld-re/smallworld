@@ -2,9 +2,11 @@
 .DEFAULT_GOAL=all
 
 SOURCES := $(wildcard */*.s)
-MIPSEL_TARGETS := $(patsubst %.mips.s,%.mipsel.bin,$(wildcard */*.mips.s)) 
-MIPS64EL_TARGETS := $(patsubst %.mips64.s,%.mips64el.bin,$(wildcard */*.mips64.s)) 
-TARGETS := ${SOURCES:.s=.bin} $(MIPSEL_TARGETS) $(MIPS64EL_TARGETS)
+BINS := $(patsubst %.s,%.bin,$(filter-out %.elf.s, $(SOURCES)))
+ELFS := $(patsubst %.elf.s,%.elf,$(filter %.elf.s, $(SOURCES)))
+MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
+MIPSEL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
+TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS)
 
 
 NASM_SOURCES := $(wildcard *.amd64.s)
@@ -16,6 +18,11 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	aarch64-linux-gnu-as $*.aarch64.s -o $*.aarch64.o
 	aarch64-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
 	rm $*.aarch64.o
+
+%.amd64.elf: %.amd64.elf.s
+	as $*.amd64.elf.s -o $*.amd64.elf.o
+	ld $*.amd64.elf.o -o $*.amd64.elf
+	rm $*.amd64.elf.o
 
 %.amd64.bin: %.amd64.s
 	nasm $*.amd64.s -o $*.amd64.bin

@@ -4,12 +4,6 @@ import typing
 import pandare
 
 from .... import platforms, utils
-from ....platforms import Byteorder
-
-architecture_to_arch_mode = {
-    platforms.Architecture.X86_32: ("x86", "32"),
-    platforms.Architecture.X86_64: ("x86", "64"),
-}
 
 
 class PandaMachineDef(metaclass=abc.ABCMeta):
@@ -17,21 +11,15 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def arch(self) -> str:
-        """The architecture ID string"""
+    def arch(self) -> platforms.Architecture:
+        """The architecture ID"""
         return ""
 
     @property
     @abc.abstractmethod
-    def mode(self) -> str:
-        """The mode ID string"""
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def byteorder(self) -> Byteorder:
+    def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        return Byteorder.LITTLE
+        return ""
 
     @property
     @abc.abstractmethod
@@ -57,9 +45,7 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         if name in self._registers:
             return True
         else:
-            raise ValueError(
-                f"Unknown register for {self.arch}:{self.mode}:{self.byteorder}: {name}"
-            )
+            return False
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
@@ -76,15 +62,13 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         Raises:
             ValueError: If no MachineDef subclass matches your request
         """
-        (arch, mode) = architecture_to_arch_mode[platform.architecture]
-        if arch is None:
-            raise NotImplementedError
         try:
             return utils.find_subclass(
                 cls,
-                lambda x: x.arch == arch
-                and x.mode == mode
+                lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
         except:
-            raise ValueError(f"No machine model for {arch}:{mode}:{platform.byteorder}")
+            raise ValueError(
+                f"No machine model for {platform.architecture}:{platform.byteorder}"
+            )

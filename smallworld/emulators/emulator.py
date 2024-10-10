@@ -272,7 +272,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         self.write_memory_content(address, content)
 
-    _bounds: typing.List[typing.Tuple[int, int]] = []
+    _bounds: utils.RangeCollection = utils.RangeCollection()
 
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         """Get a list of all registered execution bounds.
@@ -281,7 +281,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             A list of registered execution bounds.
         """
 
-        return self._bounds
+        return self._bounds.ranges
 
     def add_bound(self, start: int, end: int) -> None:
         """Add valid execution bounds.
@@ -297,11 +297,14 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             end: The end address of a valid executable region.
         """
 
-        self._bounds.append((start, end))
+        self._bounds.add_range((start, end))
 
-    _exit_points: typing.List[int] = []
+    def remove_bound(self, start: int, end: int) -> None:
+        self._bounds.remove_range((start, end))
 
-    def get_exit_points(self) -> typing.List[int]:
+    _exit_points: typing.Set[int] = set()
+
+    def get_exitpoints(self) -> typing.Set[int]:
         """Get a list of all registered exit points.
 
         Returns:
@@ -319,7 +322,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             address: The address of the exitpoint.
         """
 
-        self._exit_points.append(address)
+        self._exit_points.add(address)
 
     @abc.abstractmethod
     def step_instruction(self) -> None:
@@ -484,7 +487,7 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
         self,
         start: int,
         end: int,
-        function: typing.Callable[[Emulator, int, int, bytes], None],
+        function: typing.Callable[[Emulator, int, int], bytes],
     ) -> None:
         """Hook memory writes within a given range.
 

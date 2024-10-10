@@ -7,7 +7,7 @@ from .. import state
 logger = logging.getLogger(__name__)
 
 
-class MMIOModel(state.Stateful):
+class MemoryMappedModel(state.Stateful):
     """A model of a memory-mapped IO device.
 
     This lets you specify alternate handler routines
@@ -19,7 +19,7 @@ class MMIOModel(state.Stateful):
 
     The callback routines on_read() and on_write()
     will trigger on any access within the specified range;
-    one MMIOModel can handle multiple registers,
+    one MemoryMappedModel can handle multiple registers,
     allowing you to model an entire device, or even a set of adjacent devices
     in one object.
 
@@ -37,10 +37,6 @@ class MMIOModel(state.Stateful):
         """Callback handling reads from an MMIO register
 
         NOTE: Results must be encoded in the emulator's byte order.
-
-        NOTE: Models should be robust to partial reads.
-        The Unicorn emulator's MMIO model reads at most 4 bytes at once.
-        Larger reads will be broken into multiple operations.
 
         NOTE: Attempting to access memory in this MMIO range
         inside this handler will produce undefined behavior.
@@ -63,10 +59,6 @@ class MMIOModel(state.Stateful):
 
         NOTE: `value` will be encoded in the emulator's byte order.
 
-        NOTE: Models should be robust to partial writes.
-        The Unicorn emulator's MMIO model writes at most 4 bytes at once.
-        Larger writes will be broken into multiple operations.
-
         NOTE: Attempting to access memory in this MMIO range
         inside this handler will produce undefined behavior.
 
@@ -78,24 +70,15 @@ class MMIOModel(state.Stateful):
         """
         raise NotImplementedError("Abstract method")
 
-    @property
-    def value(self):
-        raise NotImplementedError("MMIO models don't have a value")
-
-    @value.setter
-    def value(self, value) -> None:
-        raise NotImplementedError("MMIO models don't have a value")
-
     def extract(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"Skipping extract for {self} (mmio)")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        logger.warn(f"Hooking MMIO {self} {self.address:x}")
+        logger.debug(f"Hooking MMIO {self} {self.address:x}")
         emulator.map_memory(self.size, self.address)
         if self.on_read is not None:
             if not isinstance(emulator, emulators.MemoryReadHookable):
                 raise NotImplementedError("Emulator does not support read hooking")
-            logger.info(f"Adding read callback {self.on_read}")
             emulator.hook_memory_read(self.address, self.address + self.size, self.on_read)
         if self.on_write is not None:
             if not isinstance(emulator, emulators.MemoryWriteHookable):

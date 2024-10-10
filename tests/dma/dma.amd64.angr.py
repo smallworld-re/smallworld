@@ -3,7 +3,6 @@ import sys
 import smallworld
 import logging
 
-import smallworld.state.unstable.mmio
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -32,7 +31,7 @@ cpu.rip.set(code.address)
 cpu.rdi.set(int(sys.argv[1]))
 cpu.rsi.set(int(sys.argv[2]))
 
-class HDivModel(smallworld.state.unstable.mmio.MMIOModel):
+class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self, address: int, nbytes: int):
         super().__init__(address, nbytes * 4)
         self.reg_size = nbytes

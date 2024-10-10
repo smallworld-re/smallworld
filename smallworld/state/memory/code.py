@@ -16,7 +16,7 @@ class Executable(memory.RawMemory):
     """
 
     @classmethod
-    def from_elf(cls, file: typing.BinaryIO):
+    def from_elf(cls, file: typing.BinaryIO, address: typing.Optional[int] = None):
         """Load an ELF executable from an open file-like object.
 
         Arguments:
@@ -26,8 +26,9 @@ class Executable(memory.RawMemory):
         Returns:
             An Executable parsed from the given ELF file-like object.
         """
-
-        raise NotImplementedError("ELF parsing not yet implemented")
+        from .elf import ElfExecutable
+        return ElfExecutable(file, user_base=address)
+        #raise NotImplementedError("ELF parsing not yet implemented")
 
     @classmethod
     def from_pe(cls, file: typing.BinaryIO):
