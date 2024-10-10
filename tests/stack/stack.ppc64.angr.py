@@ -46,7 +46,7 @@ cpu.r9.set(0x4444)
 cpu.r10.set(0x01010101)
 
 # Push additional arguments onto the stack, and configure the stack pointer
-stack.push_integer(0x5555, 4, None)
+stack.push_integer(0x5555, 8, None)
 
 # Leave the rest of the "stack frame" uninitialized
 sp = stack.get_pointer() - 116

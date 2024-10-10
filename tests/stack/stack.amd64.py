@@ -36,11 +36,12 @@ cpu.rdx.set(0x22222222)
 cpu.r8.set(0x33333333)
 
 # Push a return address and an extra argument onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 stack.push_integer(0x44444444, 8, None)
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
-rsp = stack.get_pointer() + 8
+rsp = stack.get_pointer()
+print(hex(rsp))
 cpu.rsp.set(rsp)
 
 # Emulate
