@@ -291,7 +291,6 @@ class UnicornEmulator(
         for i in range(offset, offset+size):
             self.label[base_reg][i] = label
 
-
     def write_register(self, name: str, content: int) -> None:
         self.write_register_content(name, content)
 

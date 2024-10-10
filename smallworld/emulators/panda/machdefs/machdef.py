@@ -4,13 +4,6 @@ import typing
 import pandare
 
 from .... import platforms, utils
-from ....platforms import Byteorder
-
-#architecture_to_arch_mode = {
-#    platforms.Architecture.X86_32: ("x86", "32"),
-#    platforms.Architecture.X86_64: ("x86", "64"),
-#    platforms.Architecture.ARM_V5T: ("arm", "32"), 
-#}
 
 
 class PandaMachineDef(metaclass=abc.ABCMeta):
@@ -69,18 +62,13 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         Raises:
             ValueError: If no MachineDef subclass matches your request
         """
-        #(arch, mode) = architecture_to_arch_mode[platform.architecture]
         try:
             return utils.find_subclass(
                 cls,
                 lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
-            #return utils.find_subclass(
-            #    cls,
-            #    lambda x: x.arch == arch
-            #    and x.mode == mode
-            #    and x.byteorder == platform.byteorder,
-            #)
         except:
-            raise ValueError(f"No machine model for {platform.architecture}:{platform.byteorder}")
+            raise ValueError(
+                f"No machine model for {platform.architecture}:{platform.byteorder}"
+            )

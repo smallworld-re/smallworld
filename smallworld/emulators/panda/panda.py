@@ -9,7 +9,7 @@ from enum import Enum
 import capstone
 import pandare
 
-from ... import exceptions, platforms
+from ... import exceptions, platforms, utils
 from .. import emulator, hookable
 from .machdefs import PandaMachineDef
 
@@ -88,7 +88,7 @@ class PandaEmulator(
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
-                print(f"Panda: setting up state")
+                print("Panda: setting up state")
                 self.setup_state(cpu)
                 self.signal_and_wait()
 
@@ -108,10 +108,10 @@ class PandaEmulator(
             def on_insn(cpu, pc):
                 self.update_state(cpu, pc)
 
-                if pc in self.manager.exitpoints:
+                if pc in self.manager._exit_points:
                     # stay here until i say die
                     print("on_insn: exit")
-                    #print(self.manager.read_register("r0"))
+                    # print(self.manager.read_register("r0"))
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
                     # gracefully (enough) exit here
@@ -127,6 +127,14 @@ class PandaEmulator(
                     print("on_insn: block")
 
                 print(f"Panda: on_insn: {pc}, {self.state}")
+                # Check if our pc is in bounds; if not stop
+                if (
+                    not self.manager._bounds.is_empty()
+                    and self.manager._bounds.find_range(pc) is None
+                ):
+                    print(f"Panda: {pc} out of bounds")
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait()
 
                 # Always call hooked code first
                 if f := self.manager.is_instruction_hooked(pc):
@@ -136,9 +144,9 @@ class PandaEmulator(
                 # then the one that is set for us, break out of this
                 # This would be from changing eip in a hook
                 print(f"Panda: {pc}, {self.manager.pc}")
-                #print(self.manager.read_register('pc'))
-                #if self.manager.read_register("pc") != pc:
-                if self.manager.pc != pc: 
+                # print(self.manager.read_register('pc'))
+                # if self.manager.read_register("pc") != pc:
+                if self.manager.pc != pc:
                     self.panda.libpanda.cpu_loop_exit_noexc(cpu)
 
                 print(f"on_insn: done {self.state}")
@@ -167,6 +175,7 @@ class PandaEmulator(
             def on_write(cpu, pc, addr, size):
                 print(f"on_write: {pc}")
                 import os
+
                 os._exit(0)
 
             # TODO: Untested
@@ -199,17 +208,12 @@ class PandaEmulator(
 
     def __init__(self, platform: platforms.Platform):
         super().__init__(platform=platform)
-        # import code
-        # code.interact(local=locals())
-        print(self.instruction_hooks)
 
         self.PAGE_SIZE = 0x1000
         self.platform = platform
 
         # Emulator variables
-        self.exitpoints: typing.Set[int] = set()
-        self.mapped_pages: typing.List[typing.Tuple[int, int]] = []
-        self.bounds: typing.List[typing.Tuple[int, int]] = []
+        self.mapped_pages = utils.RangeCollection()
 
         # Thread/Main sync variables
         self.condition = threading.Condition()
@@ -218,7 +222,7 @@ class PandaEmulator(
 
         # Thread communication variables
         self.cpu = None
-        self.pc : int = 0
+        self.pc: int = 0
 
         self.panda_thread = self.PandaThread(self, self.ThreadState.SETUP)
         self.panda_thread.start()
@@ -228,20 +232,21 @@ class PandaEmulator(
         )
         self.disassembler.detail = True
 
+        # Wait until panda is up and ready
         with self.condition:
-            # Wait until main tells us to run panda
             while not self.run_main:
                 self.condition.wait()
             # Clear the event for the next iteration
             self.run_main = False
 
     def read_register_content(self, name: str) -> int:
-        # i dont support yet
+        # If we are reading a "pc" reg, refer to actual pc reg
         if name == "pc":
             name = self.panda_thread.machdef.pc_reg
 
-        if not self.panda_thread.machdef.check_panda_reg(name): 
-            logger.warn(f"Panda doesn't support register {name} for {self.platform}") 
+        if not self.panda_thread.machdef.check_panda_reg(name):
+            logger.warn(f"Panda doesn't support register {name} for {self.platform}")
+            # TODO what should i return here
             return
 
         try:
@@ -249,10 +254,7 @@ class PandaEmulator(
         except:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {name})")
 
-    def read_register(self, name: str) -> int:
-        return self.read_register_content(name)
-
-    def write_register_content(self, name: str, content: int) -> None:
+    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
         if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
@@ -260,24 +262,19 @@ class PandaEmulator(
         if name == "pc":
             name = self.panda_thread.machdef.pc_reg
 
-        # This is my internal pc 
+        # This is my internal pc
         if name == self.panda_thread.machdef.pc_reg:
             self.pc = content
 
-        if not self.panda_thread.machdef.check_panda_reg(name): 
-            logger.warn(f"Panda doesn't support register {name} for {self.platform}") 
+        if not self.panda_thread.machdef.check_panda_reg(name):
+            logger.warn(f"Panda doesn't support register {name} for {self.platform}")
             return
 
-            # self.panda_thread.machdef.panda_arch.set_pc(self.cpu, content)
-        # else:
         self.panda_thread.machdef.check_panda_reg(name)
         print(f"setting {name}")
         self.panda_thread.machdef.panda_arch.set_reg(self.cpu, name, content)
 
         logger.debug(f"set register {name}={content}")
-
-    def write_register(self, name: str, content: int) -> None:
-        self.write_register_content(name, content)
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
@@ -285,36 +282,36 @@ class PandaEmulator(
 
         return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
 
-    def read_memory(self, address: int, size: int) -> bytes:
-        return self.read_memory_content(address, size)
-
-    # TODO
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
         def page(address):
             return address // self.PAGE_SIZE
 
-        # Lets find our missing pages
-        region = (page(address), page(address + size) + 1)
-        pages = region[1] - region[0]
-        start_page, end_page = region
-        prev_end = start_page
-        missing_range = []
-        for start, end in self.mapped_pages:
-            if start > prev_end:
-                missing_range.append((prev_end, start))
-            prev_end = max(prev_end, end)
-            if end_page > prev_end:
-                missing_range.append((prev_end, end))
+        if address:
+            # Translate an addressi + size to a page range
+            region = (page(address), page(address + size) + 1)
 
-        print(missing_range)
-        print(self.mapped_pages)
+            # Get the missing pages first. Those are the ones we want to map
+            missing_range = self.mapped_pages.get_missing_ranges(region)
 
-        # Whatever you do map just map a page size or above
-        self.panda_thread.panda.map_memory(
-            f"{address}", pages * self.PAGE_SIZE, address
-        )
-        print(f"Mapping memory {pages} page(s) original {size} and {address}.")
-        return address 
+            # Map in those pages and change the memory mapping
+            # Whatever you do map just map a page size or above
+            print(
+                f"Mapping memory {missing_range} page(s) original {size} and {address}."
+            )
+            for start_page, end_page in missing_range:
+                page_size = end_page - start_page
+                self.panda_thread.panda.map_memory(
+                    f"{address}",
+                    page_size * self.PAGE_SIZE,
+                    start_page * self.PAGE_SIZE,
+                )
+            # Make sure we add our new region to our mapped_pages
+            self.mapped_pages.add_range(region)
+        else:
+            # TODO: map a region if we have no address provided
+            pass
+
+        return address
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         # Should we type check, if content isnt bytes mad?
@@ -334,44 +331,6 @@ class PandaEmulator(
         )
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
-
-
-    def write_memory(self, address: int, content: bytes) -> None:
-        self.write_memory_content(address, content)
-
-
-    def add_bound(self, bounds, start, end):
-        import bisect
-
-        i = bisect.bisect_left(bounds, (start, end))
-        new_bounds = []
-
-        # Handle the case where the bound falls to the left of i
-        if i > 0 and start <= bounds[i - 1][1]:
-            i -= 1
-            start = min(start, bounds[i][0])
-            end = max(end, bounds[i][1])
-        new_bounds.extend(bounds[:i])
-
-        # Merge with all right bounds until we are the min right bound
-        while i < len(bounds) and bounds[i][0] <= end:
-            start = min(start, bounds[i][0])
-            end = max(end, bounds[i][1])
-            i += 1
-
-        # Add the merged bound
-        new_bounds.append((start, end))
-
-        # Add the remaining non-overlapping bounds
-        new_bounds.extend(bounds[i:])
-
-        return new_bounds
-
-    def add_bounds(self, start: int, end: int) -> None:
-        self.bounds = self.add_bound(self.bounds, start, end)
-
-    def add_exit_point(self, address: int):
-        self.exitpoints.add(address)
 
     def disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
@@ -404,12 +363,11 @@ class PandaEmulator(
             return i
 
     def check(self) -> None:
-        if len(self.exitpoints) == 0:
+        if len(self._exit_points) == 0:
             # TODO warn here
             raise exceptions.ConfigurationError(
                 "no exitpoint provided, emulation cannot start"
             )
-        print(self.pc)
         if self.panda_thread.state == self.ThreadState.EXIT:
             logger.debug("stopping emulation at exit point")
             raise exceptions.EmulationBounds
@@ -420,17 +378,12 @@ class PandaEmulator(
             )
 
         return
-        if not self.bounds:
-            raise exceptions.ConfigurationError(
-                "no bounds provided, emulation cannot start"
-            )
 
     def run(self) -> None:
         self.check()
         logger.info(f"starting emulation at 0x{self.pc}")
         self.panda_thread.state = self.ThreadState.RUN
         self.signal_and_wait()
-
         logger.info("emulation complete")
 
     def signal_and_wait(self) -> None:
@@ -452,17 +405,14 @@ class PandaEmulator(
 
         # If we just came from setting up, we need to get into the
         # on_block callback, but also run it once
+        # TODO disable this callback when appropriate
         self.panda_thread.panda.enable_callback("on_block")
 
-        #if self.panda_thread.state == self.ThreadState.SETUP:
+        # if self.panda_thread.state == self.ThreadState.SETUP:
         #    self.signal_and_wait()
 
         self.panda_thread.state = self.ThreadState.BLOCK
         self.signal_and_wait()
-
-    def step(self) -> None:
-        print("stepping")
-        self.step_instruction()
 
     def step_instruction(self) -> None:
         self.check()
@@ -471,9 +421,6 @@ class PandaEmulator(
             # Move past setup
             self.panda_thread.state = self.ThreadState.STEP
             self.signal_and_wait()
-            # step into first instruction
-            #self.panda_thread.state = self.ThreadState.STEP
-            #self.signal_and_wait()
 
         self.panda_thread.state = self.ThreadState.STEP
 
