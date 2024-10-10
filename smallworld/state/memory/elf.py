@@ -29,11 +29,17 @@ PT_HIOS = 0x6FFFFFFF  # End of OS-specific types
 PT_LOPROC = 0x70000000  # Start of processor-specific types
 PT_HIPROC = 0x7FFFFFFF  # End of processor-specific types
 
+# Program header flags
+PF_X = 0x1  # Segment is executable
+PF_W = 0x2  # Segment is writable
+PF_R = 0x4  # Segment is readable
+
 class ElfExecutable(Executable):
     def __init__(self, file: typing.BinaryIO, user_base: typing.Optional[int]=None, page_size:int=0x1000):
         # Initialize with null address and size;
         # we will update these later.
         super().__init__(0, 0)
+        self.bounds = []
         self._page_size = page_size
         self._user_base = user_base
         self._file_base = 0
@@ -229,6 +235,10 @@ class ElfExecutable(Executable):
             raise ConfigurationError(
                 f"Expected segment of size {seg_size}, but got {len(seg_data)}"
             )
+        if (phdr.flags & PF_X) != 0:
+            # This is a code segment; add it to program bounds 
+            self.bounds.append(range(seg_addr, seg_addr + seg_size))
 
+        # Add the segment to the memory map
         seg_value = BytesValue(seg_data, None)
-        self[seg_addr] = seg_value
+        self[seg_addr - self.address] = seg_value
