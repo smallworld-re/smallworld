@@ -4,8 +4,8 @@ import sys
 import smallworld
 
 # setup logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=True, verbose=True)
+smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.hinting.setup_hinting(level=logging.DEBUG) 
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(
@@ -30,4 +30,4 @@ cpu.rip.set(code.address)
 machine.add(cpu)
 
 # analyze
-smallworld.helpers.analyze(machine)
+smallworld.analyze(machine)

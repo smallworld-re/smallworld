@@ -27,7 +27,7 @@ BAD_COLOR = "BAD_COLOR"
 Colors = typing.Dict[str, typing.Tuple[Operand, int, int, Instruction, int]]
 
 
-class ColorizerAnalysis(analysis.Analysis):
+class Colorizer(analysis.Analysis):
     """A simple kind of data flow analysis via tracking distinct values (colors)
     and employing instruction use/def analysis
 
