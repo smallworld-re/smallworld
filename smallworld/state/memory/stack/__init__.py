@@ -9,6 +9,18 @@ from .stack import *  # noqa: F401, F403
 from .stack import __all__ as __stack__
 
 __all__ = __stack__ + [
-    "AArch64Stack"
-    "AMD64Stack"
+    "AArch64Stack",
+    "AMD64Stack",
+    "ARMv5tStack", 
+    "ARMv6mStack", 
+    "ARMv7mStack", 
+    "ARMv7rStack", 
+    "ARMv7aStack",
+    "X86Stack",
+    "MIPSBEStack", 
+    "MIPSELStack",
+    "MIPS64BEStack", 
+    "MIPS64ELStack",
+    "PowerPC32Stack", 
+    "PowerPC64Stack"
 ]

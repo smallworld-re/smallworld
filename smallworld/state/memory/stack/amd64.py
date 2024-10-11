@@ -5,6 +5,7 @@ from . import stack
 from ... import state
 
 class AMD64Stack(stack.DescendingStack):
+    """A stack for an AMD 64-bit CPU"""
 
     platform = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
 
