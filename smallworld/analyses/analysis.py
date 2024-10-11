@@ -6,13 +6,13 @@ from .. import hinting, state, utils
 
 
 class Analysis(utils.MetadataMixin):
-    """An analysis that emits some information to help with harnessing."""
+    """An analysis that emits some information about some code, possibly to help with harnessing."""
 
     @abc.abstractmethod
     def run(self, machine: state.Machine) -> None:
         """Run the analysis.
 
-        This function **should not** modify the provided State - instead, it
+        This function **should not** modify the provided Machine. Instead, it
         should be coppied before modification.
 
         Arguments:
@@ -25,9 +25,11 @@ class Analysis(utils.MetadataMixin):
 class Filter(utils.MetadataMixin):
     """Analyses that consume and sometimes produce additional hints.
 
-    Filter analyses are analyses that consume some part of the hint stream and
-    possibly emit additional hints. These analyses do not run any analysis on
-    the system state, they just react to hints from other analyses.
+    Filter analyses are analyses that consume some part of the hint
+    stream and possibly emit new higher-level, synthetic hints. These
+    analyses do not inspect machine state directly, they just react to
+    hints from other analyses.
+
     """
 
     def __init__(self):
@@ -38,7 +40,7 @@ class Filter(utils.MetadataMixin):
         hint: typing.Type[hinting.Hint],
         method: typing.Callable[[hinting.Hint], None],
     ) -> None:
-        """Register a listener on the hint stream.
+        """Register a listener for a particular hint type on the hint stream.
 
         Arguments:
             hint: A hint type that should trigger this listener. Note: All
