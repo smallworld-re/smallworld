@@ -37,7 +37,7 @@ cpu.rdi.set(int(sys.argv[1]))
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
-rsp = stack.get_pointer() + 8
+rsp = stack.get_pointer()
 cpu.rsp.set(rsp)
 
 # Emulate

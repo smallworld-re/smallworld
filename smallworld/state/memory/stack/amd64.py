@@ -9,7 +9,7 @@ class AMD64Stack(stack.DescendingStack):
     platform = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
 
     def get_pointer(self) -> int:
-        return ((self.address + self.size) - self.get_used() - 8) & 0xFFFFFFFFFFFFFFF0
+        return ((self.address + self.size) - self.get_used())
 
     def get_alignment(self) -> int:
         return 16
