@@ -6,10 +6,10 @@ import lief
 from .code import Executable
 from ..state import BytesValue
 from ...exceptions import ConfigurationError
-from ...hinting import Hint, getHinter
+from ...hinting import Hint, get_hinter
 
 log = logging.getLogger(__name__)
-hinter = getHinter(__name__)
+hinter = get_hinter(__name__)
 
 # Program header types
 PT_NULL = 0  # Empty/unused program header

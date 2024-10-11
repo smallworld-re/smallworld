@@ -19,7 +19,7 @@ from ...instructions import (
 from .. import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.getHinter(__name__)
+hinter = hinting.get_hinter(__name__)
 
 MIN_ACCEPTABLE_COLOR_INT = 20
 BAD_COLOR = "BAD_COLOR"

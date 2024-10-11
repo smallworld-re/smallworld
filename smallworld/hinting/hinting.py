@@ -5,6 +5,12 @@ import sys
 import typing
 from dataclasses import dataclass
 
+"""
+Will this appear in docs?
+
+
+"""
+
 # logging re-exports
 from logging import WARNING
 
@@ -38,13 +44,24 @@ class Hint(Serializable):
     """A detailed description."""
 
     def to_dict(self) -> dict:
-        """Convert this to a dict which can be trivially serialized."""
+        """Convert to a dictionary which can be trivially serialized.
+
+        Returns: 
+            A dictionary containing the hint.
+        """
 
         return self.__dict__
 
     @classmethod
     def from_dict(cls, dict):
-        """Load from a dictionary."""
+        """Load from a dictionary.
+
+        Arguments:
+            dict: Dictionary from which to construct the hint.
+
+        Returns:
+            The constructed hint.
+        """
 
         return cls(**dict)
 
@@ -65,7 +82,7 @@ Hinter.manager = logging.Manager(Hinter.root)
 Hinter.manager.loggerClass = Hinter
 
 
-def getHinter(name: typing.Optional[str] = None) -> Hinter:
+def get_hinter(name: typing.Optional[str] = None) -> Hinter:
     """Get a hinter with the given name.
 
     Arguments:
@@ -146,7 +163,7 @@ def setup_hinting(
     stream: bool = True,
     file: typing.Optional[str] = None,
 ) -> None:
-    """Setup hint handling.
+    """Set up hint handling.
 
     Note:
         This should only be called once.
@@ -168,7 +185,7 @@ def setup_hinting(
     else:
         keys = {}
 
-    root = getHinter()
+    root = get_hinter()
     root.setLevel(level)
 
     if stream:
@@ -191,4 +208,4 @@ def setup_hinting(
         formatter = JSONFormatter("%(message)s", keys=keys)
 
 
-__all__ = ["Hint", "root", "getHinter", "setup_hinting"]
+__all__ = ["Hint", "root", "get_hinter", "setup_hinting"]

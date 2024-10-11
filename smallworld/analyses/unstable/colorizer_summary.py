@@ -6,7 +6,7 @@ import networkx as nx
 from ... import hinting
 from .. import analysis
 
-hinter = hinting.getHinter(__name__)
+hinter = hinting.get_hinter(__name__)
 logger = logging.getLogger(__name__)
 
 

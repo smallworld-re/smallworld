@@ -48,43 +48,43 @@ class Value(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_size(self) -> int:
-        """Get the size of this object.
+        """Get the size of this value.
 
         Returns:
-            The size this object should occupy in memory.
+            The number of bytes this value should occupy in memory.
         """
 
         return 0
 
     def get_content(self) -> typing.Optional[typing.Any]:
-        """Get the content of this object.
+        """Get the content of this value.
 
         Returns:
-            The content of this object.
+            The content of this value.
         """
 
         return self._content
 
     def set_content(self, content: typing.Optional[typing.Any]) -> None:
-        """Set the content of this object.
+        """Set the content of this value.
 
         Arguments:
-            content: The content value to set.
+            content: The content to which the value will be set.
         """
 
         self._content = content
 
     def get_type(self) -> typing.Optional[typing.Any]:
-        """Get the type of this object.
+        """Get the type of this value.
 
         Returns:
-            The type of this object.
+            The type of this value.
         """
 
         return self._type
 
     def set_type(self, type: typing.Optional[typing.Any]) -> None:
-        """Set the type of this object.
+        """Set the type of this value.
 
         Arguments:
             type: The type value to set.
@@ -93,16 +93,16 @@ class Value(metaclass=abc.ABCMeta):
         self._type = type
 
     def get_label(self) -> typing.Optional[str]:
-        """Get the label of this object.
+        """Get the label of this value.
 
         Returns:
-            The label of this object.
+            The label of this value.
         """
 
         return self._label
 
     def set_label(self, label: typing.Optional[str]) -> None:
-        """Set the label of this object.
+        """Set the label of this value.
 
         Arguments:
             type: The label value to set.
@@ -111,16 +111,16 @@ class Value(metaclass=abc.ABCMeta):
         self._label = label
 
     def get(self) -> typing.Optional[typing.Any]:
-        """A helper to get the content of this object.
+        """A helper to get the content of this value.
 
         Returns:
-            The content of this object.
+            The content of this value.
         """
 
         return self.get_content()
 
     def set(self, content: typing.Optional[typing.Any]) -> None:
-        """A helper to set the content of this object.
+        """A helper to set the content of this value.
 
         Arguments:
             content: The content value to set.
@@ -130,20 +130,28 @@ class Value(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
-        """Convert this object into a byte string.
+        """Convert this value into a byte string.
 
         Arguments:
             byteorder: Byteorder for conversion to raw bytes.
 
         Returns:
-            Bytes for this object with the given byteorder.
+            Bytes for this value with the given byteorder.
         """
 
         return b""
 
     @classmethod
     def from_ctypes(cls, ctype: typing.Any, label: str):
-        """Load from an existing ctypes object."""
+        """Load from an existing ctypes value.
+
+        Arguements:
+            ctype: The data in ctype form.
+
+        Reutrns:
+            The value constructed from ctypes data.
+        """
+
         class CTypeValue(Value):
             _type = ctype.__class__
             _label = label
@@ -385,7 +393,13 @@ class StatefulSet(Stateful, set):
 
 
 class Machine(StatefulSet):
+    """A container for all state needed to begin or resume emulation or 
+    analysis), including CPU with register values, code, raw memory or 
+    even stack and heap memory.
+    """
+
     def emulate(self, emulator: emulators.Emulator) -> Machine:
+
         """Emulate this machine with the given emulator.
 
         Arguments:

@@ -8,8 +8,8 @@ from .. import state
 class Memory(state.Stateful, state.Value, dict):
     """A memory region.
 
-    This dictionary maps integer offsets from the base ``address`` to ``Value``
-    classes.
+    A memory maps integer offsets (implicitly from the base ``address``) 
+    to ``Value`` objects.
     """
 
     def __init__(self, address: int, size: int, *args, **kwargs) -> None:
@@ -88,14 +88,15 @@ class RawMemory(Memory):
 
     @classmethod
     def from_bytes(cls, bytes: bytes, address: int):
-        """Load an memory from a byte array.
+        """Load from a byte array.
 
         Arguments:
             bytes: The bytes of the memory.
-            address: The address where this memory should be loaded.
+            address: The address where this memory should be loaded 
+               into an emulator's memory.
 
         Returns:
-            An RawMemory parsed from the given bytes.
+            A RawMemory contstructed from the given bytes.
         """
 
         memory = cls(address=address, size=len(bytes))
@@ -105,14 +106,15 @@ class RawMemory(Memory):
 
     @classmethod
     def from_file(cls, file: typing.BinaryIO, address: int, label:str = "memory"):
-        """Load an memory from an open file-like object.
+        """Load from an open file-like object.
 
         Arguments:
-            file: The open file-like object from which to read.
-            address: The address where this memory should be loaded.
+            file: The open file-like object from which to load data.
+            address: The address where this memory should be loaded 
+               into an emulator's memory.
 
         Returns:
-            An RawMemory parsed from the given file-like object.
+            A RawMemory from the given file-like object.
         """
 
         data, size = file.read(), file.tell()
@@ -124,14 +126,15 @@ class RawMemory(Memory):
 
     @classmethod
     def from_filepath(cls, path: str, address: int):
-        """Load an memory from a file path.
+        """Load from a file.
 
         Arguments:
-            path: The path to the file to load.
-            address: The address where this memory should be loaded.
+            path: The path to the file.
+            address: The address where this memory should be loaded 
+               into an emulator's memory.
 
         Returns:
-            An RawMemory parsed from the given file path.
+            A RawMemory parsed from the given file path.
         """
 
         path = os.path.abspath(os.path.expanduser(path))
