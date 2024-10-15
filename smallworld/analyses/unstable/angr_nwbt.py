@@ -6,7 +6,7 @@ from .angr.nwbt import configure_nwbt_plugins, configure_nwbt_strategy
 from .angr.utils import print_state
 
 log = logging.getLogger(__name__)
-hinter = hinting.getHinter(__name__)
+hinter = hinting.get_hinter(__name__)
 
 
 class AngrNWBTAnalysis(analysis.Analysis):

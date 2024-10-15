@@ -7,7 +7,7 @@ from .. import emulators, exceptions, hinting, instructions, state
 from . import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.getHinter(__name__)
+hinter = hinting.get_hinter(__name__)
 
 
 class PointerFinder(analysis.Analysis):

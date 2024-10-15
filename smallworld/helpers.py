@@ -10,13 +10,13 @@ from . import analyses, emulators, state
 T = typing.TypeVar("T", bound=state.Machine)
 
 
-def analyze(cpu: T) -> None:
+def analyze(machine: T) -> None:
     """Run all available analyses on some code.
 
     All analyses are run with default parameters.
 
     Arguments:
-        cpu: A state class from which emulation should begin.
+        machine: A state class from which emulation should begin.
     """
 
     filters = []
@@ -33,7 +33,7 @@ def analyze(cpu: T) -> None:
                 issubclass(module, analyses.Analysis)
                 and module is not analyses.Analysis
             ):
-                module().run(cpu)
+                module().run(machine)
     finally:
         for filter in filters:
             filter.deactivate()
@@ -92,4 +92,4 @@ def fuzz(
     )
 
 
-__all__ = ["analyze", "fuzz"]
+__all__ = ["analyze"]

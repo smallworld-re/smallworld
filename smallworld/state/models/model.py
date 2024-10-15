@@ -60,12 +60,16 @@ class Breakpoint(Hook):
 
 
 class PDBBreakpoint(Breakpoint):
+    """A PDB interactive breakpoint."""
+    
     @staticmethod
     def interact(emulator: emulators.Emulator) -> None:
         pdb.set_trace()
 
 
 class PythonShellBreakpoint(Breakpoint):
+    """A Python shell interactive breakpoint."""
+
     @staticmethod
     def interact(emulator: emulators.Emulator) -> None:
         code.interact(local={"emulator": emulator})
@@ -74,11 +78,11 @@ class PythonShellBreakpoint(Breakpoint):
 class Model(Hook):
     """A runtime function model implemented in Python.
 
-    If execution reaches the given address, call the given function,
-    self.model, instead of any code at that address and return. This
-    is most often used to model an external function, e.g., libc
-    `fread`. It is the responsibility of the model to read arguments
-    and generate reasonable return values.
+    If execution reaches the given address, call the function assigned
+    to self.model, instead of any code at that address in the
+    emulator, and return. This is most often used to model an external
+    function, e.g., libc `fread`. It is the responsibility of the
+    model to read arguments and generate reasonable return values.
 
     Arguments:
         address: The address to model.
@@ -90,20 +94,34 @@ class Model(Hook):
     @property
     @abc.abstractmethod
     def name(self) -> str:
+        """A name for this model, e.g., fread or ioctl."""
         return ""
 
     @property
     @abc.abstractmethod
     def platform(self) -> platforms.Platform:
+        """The platform for which this model is defined."""
         pass
 
     @property
     @abc.abstractmethod
     def abi(self) -> platforms.ABI:
+        """The ABI according to which this model works."""
         pass
 
     @classmethod
     def lookup(cls, name: str, platform: platforms.Platform, abi: platforms.ABI, address:int):
+        """Instantiate a model by name, platform, and ABI.
+
+        Arguments: 
+            name: The name of the model.
+            platform: The platform for which this model is defined.
+            abi: The ABI according to which this model works.
+            address: The instruction address which the model will hook.
+
+        Returns:
+            The fully instantiated model.
+        """
         try:
             return utils.find_subclass(
                 cls,
@@ -119,6 +137,13 @@ class Model(Hook):
     @staticmethod
     @abc.abstractmethod
     def model(emulator: emulators.Emulator) -> None:
+        """This is the implementation of the model for the named function.
+
+        Note that implementation will have to make use of knowledge of
+        the ABI to obtain arguments and return results, as well as
+        modeling the semantics of the modeled functions appropriately.
+
+        """
         pass
 
 

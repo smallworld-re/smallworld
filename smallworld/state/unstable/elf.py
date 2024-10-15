@@ -5,11 +5,11 @@ import lief
 
 from ..emulators import Emulator
 from ..exceptions import ConfigurationError
-from ..hinting import Hint, getHinter
+from ..hinting import Hint, get_hinter
 from .state import Code, Memory
 
 log = logging.getLogger(__name__)
-hinter = getHinter(__name__)
+hinter = get_hinter(__name__)
 
 # Prorgam header types
 PT_NULL = 0  # Empty/unused program header
