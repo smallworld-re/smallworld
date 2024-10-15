@@ -535,7 +535,8 @@ class UnicornEmulator(
 
         try:
             # unicorn requires one exit point so just use first
-            self.engine.emu_start(self.read_register("pc"), self._exit_points[0])
+            exit_point = list(self._exit_points)[0]
+            self.engine.emu_start(self.read_register("pc"), exit_point)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")

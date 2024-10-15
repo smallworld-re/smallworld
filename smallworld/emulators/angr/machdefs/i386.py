@@ -13,8 +13,7 @@ class i386MachineDef(AngrMachineDef):
     pc_reg = "eip"
 
     _registers = {
-        # Yes, this is the identity mapping.
-        # I'm not sorry.
+        # *** General Purpose Registers ***
         "eax": "eax",
         "ax": "ax",
         "al": "al",
@@ -43,18 +42,73 @@ class i386MachineDef(AngrMachineDef):
         "esp": "esp",
         "sp": "sp",
         "spl": "spl",
+        # *** Instruction Pointer ***
         "eip": "eip",
         "ip": "ip",
+        # *** Segment Registers ***
         "cs": "cs",
         "ds": "ds",
         "es": "es",
         "fs": "fs",
         "gs": "gs",
+        "ss": "ss",
+        # *** Flags Register ***
         "eflags": "eflags",
         "flags": "flags",
-        "cr0": "cr0",
-        "cr1": "cr1",
-        "cr2": "cr2",
-        "cr3": "cr3",
-        "cr4": "cr4",
+        # *** Control Registers ***
+        "cr0": "",
+        "cr1": "",
+        "cr2": "",
+        "cr3": "",
+        "cr4": "",
+        "cr8": "",
+        # *** Debug Registers ***
+        "dr0": "",
+        "dr1": "",
+        "dr2": "",
+        "dr3": "",
+        "dr6": "",
+        "dr7": "",
+        # *** Descriptor Table Registers ***
+        "gdtr": "",
+        "idtr": "",
+        "ldtr": "",
+        # *** Task Register ***
+        "tr": "",
+        # *** x87 Registers ***
+        # TODO: angr seems to support x87, but I have no idea how its register file works
+        # I can't find most of the control registers,
+        # and there don't seem to be separate "fprN" registers; just one giant blob
+        "fpr0": "",
+        "fpr1": "",
+        "fpr2": "",
+        "fpr3": "",
+        "fpr4": "",
+        "fpr5": "",
+        "fpr6": "",
+        "fpr7": "",
+        "fctrl": "",
+        "fstat": "",
+        "ftag": "fptag",
+        "fip": "",
+        "fdp": "",
+        "fop": "",
+        # *** MMX Registers ***
+        "mm0": "mm0",
+        "mm1": "mm1",
+        "mm2": "mm2",
+        "mm3": "mm3",
+        "mm4": "mm4",
+        "mm5": "mm5",
+        "mm6": "mm6",
+        "mm7": "mm7",
+        # *** SSE Registers ***
+        "xmm0": "xmm0",
+        "xmm1": "xmm1",
+        "xmm2": "xmm2",
+        "xmm3": "xmm3",
+        "xmm4": "xmm4",
+        "xmm5": "xmm5",
+        "xmm6": "xmm6",
+        "xmm7": "xmm7",
     }
