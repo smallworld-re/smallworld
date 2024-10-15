@@ -3,7 +3,6 @@ import typing
 from ... import platforms
 from .. import state
 from . import cpu
-from ...arch import i386_arch
 
 
 class I386(cpu.CPU):
@@ -15,75 +14,220 @@ class I386(cpu.CPU):
 
     _GENERAL_PURPOSE_REGS = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
 
-    platform = platforms.Platform(
-        platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
-    )
-
-    arch_info = i386_arch.info
-
     def get_general_purpose_registers(self) -> typing.List[str]:
         return self._GENERAL_PURPOSE_REGS
 
 
-    # this should be unnecessary (?) when i386 cpu has been implemented.
-    #def __init__(self):
-    #    # use arch_info to create all these regs and reg aliases...
-    #    super(i386.I386, self).__init__()
+    def __init__(self):
+        # *** General Purpose Registers ***
+        self.eax    = state.Register("eax", 4)
+        self.add(self.eax)
+        self.ax     = state.RegisterAlias("ax", self.eax, 2)
+        self.add(self.ax)
+        self.al     = state.RegisterAlias("al", self.eax, 1)
+        self.add(self.al)
+        self.ah     = state.RegisterAlias("ah", self.eax, 1, offset=1)
+        self.add(self.ah)
 
+        self.ebx    = state.Register("ebx")
+        self.add(self.ebx)
+        self.bx     = state.RegisterAlias("bx", self.ebx, 2)
+        self.add(self.bx)
+        self.bl     = state.RegisterAlias("bl", self.ebx, 1)
+        self.add(self.bl)
+        self.bh     = state.RegisterAlias("bh", self.ebx, 1, offset=1)
+        self.add(self.bh)
+
+        self.ecx    = state.Register("ecx")
+        self.add(self.ecx)
+        self.cx     = state.RegisterAlias("cx", self.ecx, 2)
+        self.add(self.cx)
+        self.cl     = state.RegisterAlias("cl", self.ecx, 1)
+        self.add(self.cl)
+        self.ch     = state.RegisterAlias("ch", self.ecx, 1, offset=1)
+        self.add(self.ch)
+
+        self.edx    = state.Register("edx")
+        self.add(self.edx)
+        self.dx     = state.RegisterAlias("dx", self.edx, 2)
+        self.add(self.dx)
+        self.dl     = state.RegisterAlias("dl", self.edx, 1)
+        self.add(self.dl)
+        self.dh     = state.RegisterAlias("dh", self.edx, 1, offset=1)
+        self.add(self.dh)
+
+        self.esi    = state.Register("esi")
+        self.add(self.esi)
+        self.si     = state.RegisterAlias("si", self.esi, 2)
+        self.add(self.si)
+        self.sil    = state.RegisterAlias("sil", self.esi, 1)
+        self.add(self.sil)
+
+        self.edi    = state.Register("edi")
+        self.add(self.edi)
+        self.di     = state.RegisterAlias("di", self.edi, 2)
+        self.add(self.di)
+        self.dil    = state.RegisterAlias("dil", self.edi, 1)
+        self.add(self.dil)
+
+        self.ebp    = state.Register("ebp")
+        self.add(self.ebp)
+        self.bp     = state.RegisterAlias("bp", self.ebp, 2)
+        self.add(self.bp)
+        self.bpl    = state.RegisterAlias("bpl", self.ebp, 1)
+        self.add(self.bpl)
+
+        self.esp    = state.Register("esp")
+        self.add(self.esp)
+        self.sp     = state.RegisterAlias("sp", self.esp, 2)
+        self.add(self.sp)
+        self.spl    = state.RegisterAlias("spl", self.esp, 1)
+        self.add(self.spl)
+
+        # *** Instruction Pointer ***
+        self.eip    = state.Register("eip")
+        self.add(self.eip)
+        self.ip     = state.RegisterAlias("ip", self.eip, 2)
+        self.add(self.ip)
+
+        # *** Segment Registers ***
+        self.cs     = state.Register("cs", 2)
+        self.add(self.cs)
+        self.ds     = state.Register("ds", 2)
+        self.add(self.ds)
+        self.es     = state.Register("es", 2)
+        self.add(self.es)
+        self.fs     = state.Register("fs", 2)
+        self.add(self.fs)
+        self.gs     = state.Register("gs", 2)
+        self.add(self.gs)
+
+        # *** Flags Registers ***
+        self.eflags = state.Register("eflags", 4)
+        self.add(self.eflags)
+        self.flags  = state.RegisterAlias("flags", self.eflags, 2)
+        self.add(self.flags)
+
+        # *** Control Registers ***
+        self.cr0    = state.Register("cr0", 4)
+        self.add(self.cr0)
+        self.cr1    = state.Register("cr1", 4)
+        self.add(self.cr1)
+        self.cr2    = state.Register("cr2", 4)
+        self.add(self.cr2)
+        self.cr3    = state.Register("cr3", 4)
+        self.add(self.cr3)
+        self.cr4    = state.Register("cr4", 4)
+        self.add(self.cr4)
+        # NOTE: I've got conflicting reports whether cr8 exists in i386.
+        self.cr8    = state.Register("cr8", 4)
+        self.add(self.cr8)
         
+        # *** Debug Registers ***
+        self.dr0    = state.Register("dr0", 4)
+        self.add(self.dr0)
+        self.dr1    = state.Register("dr1", 4)
+        self.add(self.dr1)
+        self.dr2    = state.Register("dr2", 4)
+        self.add(self.dr2)
+        self.dr3    = state.Register("dr3", 4)
+        self.add(self.dr3)
+        self.dr6    = state.Register("dr6", 4)
+        self.add(self.dr6)
+        self.dr7    = state.Register("dr7", 4)
+        self.add(self.dr7)
         
+        # *** Descriptor Table Registers
+        # NOTE: Yes, this is 6 bytes; 2 byte segment selector plus 4 byte offset
+        self.gdtr   = state.Register("gdtr", 6)
+        self.add(self.gdtr)
+        self.idtr   = state.Register("idtr", 6)
+        self.add(self.idtr)
+        self.ldtr   = state.Register("ldtr", 6)
+        self.add(self.ldtr)
 
-    # def __init__(self):
-    #     self.eax = state.Register("eax")
-    #     self.ax = state.RegisterAlias("ax", self.eax, size=2)
-    #     self.al = state.RegisterAlias("al", self.eax, size=1)
-    #     self.ah = state.RegisterAlias("ah", self.eax, size=1, offset=1)
+        # *** Task Register ***
+        # NOTE: Yes, this is 6 bytes; 2 byte segment selector plus 4 byte offset
+        self.tr     = state.Register("tr", 6) 
+        self.add(self.tr)
+        
+        # *** x87 registers ***
+        self.fpr0   = state.Register("fpr0", 10)
+        self.add(self.fpr0)
+        self.fpr1   = state.Register("fpr1", 10)
+        self.add(self.fpr1)
+        self.fpr2   = state.Register("fpr2", 10)
+        self.add(self.fpr2)
+        self.fpr3   = state.Register("fpr3", 10)
+        self.add(self.fpr3)
+        self.fpr4   = state.Register("fpr4", 10)
+        self.add(self.fpr4)
+        self.fpr5   = state.Register("fpr5", 10)
+        self.add(self.fpr5)
+        self.fpr6   = state.Register("fpr6", 10)
+        self.add(self.fpr6)
+        self.fpr7   = state.Register("fpr7", 10)
+        self.add(self.fpr7)
+         
+        # x87 Control Register
+        self.fctrl  = state.Register("fctrl", 2)
+        self.add(self.fctrl)
+        # x87 Status Register
+        self.fstat  = state.Register("fstat", 2)
+        self.add(self.fstat)
+        # x87 Tag Register
+        self.ftag   = state.Register("ftag", 2)
+        self.add(self.ftag)
+        # x87 Last Instruction Register
+        self.fip    = state.Register("fip", 8)
+        self.add(self.fip)
+        # x87 Last Operand Pointer
+        self.fdp    = state.Register("fdp", 8)
+        self.add(self.fdp)
+        # x87 Last Opcode
+        self.fop    = state.Register("fop", 2)
+        self.add(self.fop)
+        
+        # NOTE: Docs disagree on the format of fip and fdp.
+        # One source describes them as 48-bit offset-plus-segment,
+        # the other describes them as 64-bit.
+        # There may also be separate segment registers.
+        # If you care about the x87 debug info, please feel free to update.
 
-    #     self.ebx = state.Register("ebx")
-    #     self.bx = state.RegisterAlias("bx", self.ebx, size=2)
-    #     self.bl = state.RegisterAlias("bl", self.ebx, size=1)
-    #     self.bh = state.RegisterAlias("bh", self.ebx, size=1, offset=1)
-
-    #     self.ecx = state.Register("ecx")
-    #     self.cx = state.RegisterAlias("cx", self.ecx, size=2)
-    #     self.cl = state.RegisterAlias("cl", self.ecx, size=1)
-    #     self.ch = state.RegisterAlias("ch", self.ecx, size=1, offset=1)
-
-    #     self.edx = state.Register("edx")
-    #     self.dx = state.RegisterAlias("dx", self.edx, size=2)
-    #     self.dl = state.RegisterAlias("dl", self.edx, size=1)
-    #     self.dh = state.RegisterAlias("dh", self.edx, size=1, offset=1)
-
-    #     self.esi = state.Register("esi")
-    #     self.si = state.RegisterAlias("si", self.esi, size=2)
-    #     self.sil = state.RegisterAlias("sil", self.esi, size=1)
-
-    #     self.edi = state.Register("edi")
-    #     self.di = state.RegisterAlias("di", self.edi, size=2)
-    #     self.dil = state.RegisterAlias("dil", self.edi, size=1)
-
-    #     self.ebp = state.Register("ebp")
-    #     self.bp = state.RegisterAlias("bp", self.ebp, size=2)
-    #     self.bpl = state.RegisterAlias("bpl", self.ebp, size=1)
-
-    #     self.esp = state.Register("esp")
-    #     self.sp = state.RegisterAlias("sp", self.esp, size=2)
-    #     self.spl = state.RegisterAlias("spl", self.esp, size=1)
-
-    #     self.eip = state.Register("eip")
-    #     self.ip = state.RegisterAlias("ip", self.eip, size=2)
-
-    #     self.cs = state.Register("cs")
-    #     self.ds = state.Register("ds")
-    #     self.es = state.Register("es")
-    #     self.fs = state.Register("fs")
-    #     self.gs = state.Register("gs")
-
-    #     self.eflags = state.Register("eflags")
-    #     self.flags = state.RegisterAlias("flags", self.eflags, size=2)
-
-    #     self.cr0 = state.Register("cr0")
-    #     self.cr1 = state.Register("cr1")
-    #     self.cr2 = state.Register("cr2")
-    #     self.cr3 = state.Register("cr3")
-    #     self.cr4 = state.Register("cr4")
+        # *** MMX Registers ***
+        # NOTE: The MMX registers are aliases for the low 8 bytes of the x87 registers.
+        # The two subsystems cannot be used simultaneously.
+        self.mm0    = state.RegisterAlias("mm0", self.fpr0, 0, 8)
+        self.add(self.mm0)
+        self.mm1    = state.RegisterAlias("mm1", self.fpr1, 0, 8)
+        self.add(self.mm1)
+        self.mm2    = state.RegisterAlias("mm2", self.fpr2, 0, 8)
+        self.add(self.mm2)
+        self.mm3    = state.RegisterAlias("mm3", self.fpr3, 0, 8)
+        self.add(self.mm3)
+        self.mm4    = state.RegisterAlias("mm4", self.fpr4, 0, 8)
+        self.add(self.mm4)
+        self.mm5    = state.RegisterAlias("mm5", self.fpr5, 0, 8)
+        self.add(self.mm5)
+        self.mm6    = state.RegisterAlias("mm6", self.fpr6, 0, 8)
+        self.add(self.mm6)
+        self.mm7    = state.RegisterAlias("mm7", self.fpr7, 0, 8)
+        self.add(self.mm7)
+        
+        # *** SSE Registers ***
+        self.xmm0   = state.Register("xmm0", 16)
+        self.add(self.xmm0)
+        self.xmm1   = state.Register("xmm1", 16)
+        self.add(self.xmm1)
+        self.xmm2   = state.Register("xmm2", 16)
+        self.add(self.xmm2)
+        self.xmm3   = state.Register("xmm3", 16)
+        self.add(self.xmm3)
+        self.xmm4   = state.Register("xmm4", 16)
+        self.add(self.xmm4)
+        self.xmm5   = state.Register("xmm5", 16)
+        self.add(self.xmm5)
+        self.xmm6   = state.Register("xmm6", 16)
+        self.add(self.xmm6)
+        self.xmm7   = state.Register("xmm7", 16)
+        self.add(self.xmm7)
