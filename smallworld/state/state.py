@@ -296,7 +296,7 @@ class Register(Value, Stateful):
         except exceptions.SymbolicValueError:
             pass
         except exceptions.UnsupportedRegisterError:
-            pass
+            return
 
         type = emulator.read_register_type(self.name)
         if type is not None:

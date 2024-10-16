@@ -6,7 +6,14 @@ from . import cpu
 
 
 class AMD64(cpu.CPU):
-    """AMD64 CPU state model."""
+    """Generic AMD64 CPU state model.
+
+    Specific implementations support different vector extensions.
+    Because of how smallworld works, an emulator can only support
+    platforms if it supports all base registers.
+    Since the AVX extensions keep adding registers under
+    the old ones, we need new platforms. 
+    """
 
     _GENERAL_PURPOSE_REGS = [
         "rax",
@@ -27,14 +34,11 @@ class AMD64(cpu.CPU):
         "r15",
     ]
 
-    platform = platforms.Platform(
-        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
-    )
-
     def get_general_purpose_registers(self) -> typing.List[str]:
         return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
+        super().__init__()
         # *** General Purpose Registers ***
         self.rax = state.Register("rax", 8)
         self.add(self.rax)
@@ -335,10 +339,107 @@ class AMD64(cpu.CPU):
         self.mm7 = state.RegisterAlias("mm7", self.fpr7, 8, 0)
         self.add(self.mm7)
 
-        # *** SSE/AVX registers ***
-        # NOTE: This models the full AVX-512 register set of 32 512-bit registers.
-        # Older AVX extensions only supported 16 256-bit registers.
-        # The even older SSE extensions only supported 16 128-bit registers
+
+class AMD64AVX2(AMD64):
+    """AMD64 CPU supporting up to AVX2
+
+    This is our default, since all emulators support up to AVX2,
+    and 99.9% of our users won't use the vector extensions.
+    """
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    )
+    def __init__(self):
+        super().__init__()
+        # *** SSE/AVX/AVX2 registers ***
+        self.ymm0 = state.Register("ymm0", 32)
+        self.add(self.ymm0)
+        self.xmm0 = state.RegisterAlias("xmm0", self.ymm0, 16, 0)
+        self.add(self.xmm0)
+
+        self.ymm1 = state.Register("ymm1", 32)
+        self.add(self.ymm1)
+        self.xmm1 = state.RegisterAlias("xmm1", self.ymm1, 16, 0)
+        self.add(self.xmm1)
+
+        self.ymm2 = state.Register("ymm2", 32)
+        self.add(self.ymm2)
+        self.xmm2 = state.RegisterAlias("xmm2", self.ymm2, 16, 0)
+        self.add(self.xmm2)
+
+        self.ymm3 = state.Register("ymm3", 32)
+        self.add(self.ymm3)
+        self.xmm3 = state.RegisterAlias("xmm3", self.ymm3, 16, 0)
+        self.add(self.xmm3)
+
+        self.ymm4 = state.Register("ymm4", 32)
+        self.add(self.ymm4)
+        self.xmm4 = state.RegisterAlias("xmm4", self.ymm4, 16, 0)
+        self.add(self.xmm4)
+
+        self.ymm5 = state.Register("ymm5", 32)
+        self.add(self.ymm5)
+        self.xmm5 = state.RegisterAlias("xmm5", self.ymm5, 16, 0)
+        self.add(self.xmm5)
+
+        self.ymm6 = state.Register("ymm6", 32)
+        self.add(self.ymm6)
+        self.xmm6 = state.RegisterAlias("xmm6", self.ymm6, 16, 0)
+        self.add(self.xmm6)
+
+        self.ymm7 = state.Register("ymm7", 32)
+        self.add(self.ymm7)
+        self.xmm7 = state.RegisterAlias("xmm7", self.ymm7, 16, 0)
+        self.add(self.xmm7)
+
+        self.ymm8 = state.Register("ymm8", 32)
+        self.add(self.ymm8)
+        self.xmm8 = state.RegisterAlias("xmm8", self.ymm8, 16, 0)
+        self.add(self.xmm8)
+
+        self.ymm9 = state.Register("ymm9", 32)
+        self.add(self.ymm9)
+        self.xmm9 = state.RegisterAlias("xmm9", self.ymm9, 16, 0)
+        self.add(self.xmm9)
+
+        self.ymm10 = state.Register("ymm10", 32)
+        self.add(self.ymm10)
+        self.xmm10 = state.RegisterAlias("xmm10", self.ymm10, 16, 0)
+        self.add(self.xmm10)
+
+        self.ymm11 = state.Register("ymm11", 32)
+        self.add(self.ymm11)
+        self.xmm11 = state.RegisterAlias("xmm11", self.ymm11, 16, 0)
+        self.add(self.xmm11)
+
+        self.ymm12 = state.Register("ymm12", 32)
+        self.add(self.ymm12)
+        self.xmm12 = state.RegisterAlias("xmm12", self.ymm12, 16, 0)
+        self.add(self.xmm12)
+
+        self.ymm13 = state.Register("ymm13", 32)
+        self.add(self.ymm13)
+        self.xmm13 = state.RegisterAlias("xmm13", self.ymm13, 16, 0)
+        self.add(self.xmm13)
+
+        self.ymm14 = state.Register("ymm14", 32)
+        self.add(self.ymm14)
+        self.xmm14 = state.RegisterAlias("xmm14", self.ymm14, 16, 0)
+        self.add(self.xmm14)
+
+        self.ymm15 = state.Register("ymm15", 32)
+        self.add(self.ymm15)
+        self.xmm15 = state.RegisterAlias("xmm15", self.ymm15, 16, 0)
+        self.add(self.xmm15)
+
+class AMD64AVX512(AMD64):
+    """AMD64 CPU supporting up to AVX512"""
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+    )
+    def __init__(self):
+        super().__init__()
+        # *** SSE/AVX/AVX2/AVX512 registers ***
         self.zmm0 = state.Register("zmm0", 64)
         self.add(self.zmm0)
         self.ymm0 = state.RegisterAlias("ymm0", self.zmm0, 32, 0)
