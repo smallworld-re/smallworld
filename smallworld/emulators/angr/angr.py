@@ -8,7 +8,7 @@ import angr
 import claripy
 import cle
 
-from ... import exceptions, state, platforms
+from ... import exceptions, platforms
 from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
@@ -29,7 +29,13 @@ class HookHandler(angr.SimProcedure):
         return None
 
 
-class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.FunctionHookable, emulator.MemoryReadHookable, emulator.MemoryWriteHookable):
+class AngrEmulator(
+    emulator.Emulator,
+    emulator.InstructionHookable,
+    emulator.FunctionHookable,
+    emulator.MemoryReadHookable,
+    emulator.MemoryWriteHookable,
+):
     """
     Angr symbolic execution emulator
 
@@ -127,17 +133,13 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             )
         if name == "pc":
             name = self.machdef.pc_reg
-        try:
-            (off, size) = self.machdef.angr_reg(name)
-            out = self.state.registers.load(off, size)
-            if out.symbolic:
-                log.warn(f"Register {name} is symbolic: {out}")
-                raise exceptions.SymbolicValueError(f"Register {name} is symbolic")
-            else:
-                return out.concrete_value
-        except ValueError:
-            # TODO: Handle invalid registers more gracefully
-            return None
+        (off, size) = self.machdef.angr_reg(name)
+        out = self.state.registers.load(off, size)
+        if out.symbolic:
+            log.warn(f"Register {name} is symbolic: {out}")
+            raise exceptions.SymbolicValueError(f"Register {name} is symbolic")
+        else:
+            return out.concrete_value
 
     def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
         return None
@@ -189,14 +191,20 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             v = claripy.BVV(content, size * 8)
         self.state.registers.store(off, v)
 
-    def write_register_type(self, name: str, type: typing.Optional[typing.Any] = None) -> None:
+    def write_register_type(
+        self, name: str, type: typing.Optional[typing.Any] = None
+    ) -> None:
         pass
 
-    def write_register_label(self, name: str, label: typing.Optional[str] = None) -> None:
+    def write_register_label(
+        self, name: str, label: typing.Optional[str] = None
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
+        if label is None:
+            return
         if name == "pc":
             name = self.machdef.pc_reg
         (off, size) = self.machdef.angr_reg(name)
@@ -204,16 +212,18 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         # This will bind whatever value is currently in the register
         # to a symbol named after the label
         # The same label will ALWAYS map to the same symbol!
-        # This can introduce unintended restrictions on exploration, 
+        # This can introduce unintended restrictions on exploration,
         # or even a contradictory state.
         s = claripy.BVS(label, size * 8, explicit_name=True)
-        v = self.state.registers.load(off, size) 
+        v = self.state.registers.load(off, size)
 
         if not self.state.solver.satisfiable(extra_constraints=[v == s]):
             # Creating this binding will definitely cause a contradiction.
             # Have you already used this label somewhere else?
-            raise ConfigurationError(f"Contradiction binding register {name} to label {label}")
-        
+            raise exceptions.ConfigurationError(
+                f"Contradiction binding register {name} to label {label}"
+            )
+
         # Passing the last check doesn't guarantee you're safe.
         # There may be over-constraints.  Please be careful.
         self.state.registers.store(off, s)
@@ -228,12 +238,12 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         if v.symbolic:
             log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
             raise exceptions.SymbolicValueError(f"Memory at {hex(address)} is symbolic")
-        
+
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
     def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
-        return None 
+        return None
 
     def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
         if self._dirty and not self._linear:
@@ -242,22 +252,23 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             )
         v = self.state.memory.load(address, size)
         if v.symbolic():
-            if op == "Extract":
+            if v.op == "Extract":
                 # You got a piece of a possibly-labeled expression
                 # Try parsing the inner expression to see if it's a single symbol.
                 v = v.args[2]
-                
+
             if v.op == "BVS":
                 # You got a single symbol; I'll treat it as a label
-                return v.args[0] 
+                return v.args[0]
             else:
                 # You got a symbolic expression; I can't decode it further
                 log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
-                raise exceptions.SymbolicValueError(f"Memory at {hex(address)} is symbolic")
+                raise exceptions.SymbolicValueError(
+                    f"Memory at {hex(address)} is symbolic"
+                )
         else:
             # Definitely no labels here
             return None
-
 
     def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
         if address is not None:
@@ -275,22 +286,26 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         log.info(f"Storing {len(content)} bytes at {hex(address)}")
         v = claripy.BVV(content)
         self.state.memory.store(address, v)
-    
-    def write_memory_type(self, address: int, size: int, type: typing.Optional[typing.Any]) -> None:
+
+    def write_memory_type(
+        self, address: int, size: int, type: typing.Optional[typing.Any] = None
+    ) -> None:
         pass
 
-    def write_memory_label(self, address: int, size: int, label: typing.Optional[str]) -> None:
+    def write_memory_label(
+        self, address: int, size: int, label: typing.Optional[str] = None
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing memory not supported once execution begins."
             )
         if label is None:
-            return  
+            return
         # This will bind whatever value is currently at this address
         # to a symbol named after the label
         #
         # The same label will ALWAYS map to the same symbol!
-        # This can introduce unintended restrictions on exploration, 
+        # This can introduce unintended restrictions on exploration,
         # or even a contradictory state.
         #
         # This will trigger angr's default value computation,
@@ -300,23 +315,29 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         if not self.state.solver.satisfiable(extra_constraints=[v == s]):
             # Creating this binding will definitely cause a contradiction.
             # Have you already used this label somewhere else?
-            raise ConfigurationError(f"Contradiction binding memory at {hex(address)} to label {label}")
+            raise exceptions.ConfigurationError(
+                f"Contradiction binding memory at {hex(address)} to label {label}"
+            )
 
-        # Passing the last check doesn't mean you're safe. 
+        # Passing the last check doesn't mean you're safe.
         # There may be over-constraints.  Please be careful.
         self.state.memory.store(address, s)
         self.state.solver.add(v == s)
 
-    def hook_instruction(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+    def hook_instruction(
+        self, address: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Instruction hooking not supported once execution begins"
             )
         if address in self.state.scratch.insn_bps:
-            raise ConfigurationError("Instruction at address {hex(address)} is already hooked")
+            raise exceptions.ConfigurationError(
+                "Instruction at address {hex(address)} is already hooked"
+            )
 
         def hook_handler(state):
-            emu = AngrHookEmulator(state, self)
+            emu = ConcreteAngrEmulator(state, self)
             function(emu)
 
         bp = self.state.inspect.b("instruction", hook_handler, instruction=address)
@@ -328,19 +349,22 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
                 "Instruction hooking not supported once execution begins"
             )
         if address not in self.state.scratch.insn_bps:
-            raise ConfigurationError("Instruction at address {hex(address)} is not hooked")
+            raise exceptions.ConfigurationError(
+                "Instruction at address {hex(address)} is not hooked"
+            )
         bp = self.state.scratch.insn_bps[address]
         del self.state.scratch.insn_bps[address]
-        
-        self.state.inspect.remove_breakpoint("instruction", bp)
-            
 
-    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+        self.state.inspect.remove_breakpoint("instruction", bp)
+
+    def hook_function(
+        self, address: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError("Cannot hook functions once emulation starts")
         hook = HookHandler(callback=function, parent=self)
         self.proj.hook(address, hook, 0)
-        
+
         self.map_memory(1, address)
         self.state.scratch.func_bps[address] = None
 
@@ -349,42 +373,49 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             raise NotImplementedError("Cannot unhook functions once emulation starts")
         self.proj.unhook(address)
 
-    def hook_memory_read(self, address: int, size: int, function: typing.Callable[[Emulator, int, int], bytes]) -> None:
+    def hook_memory_read(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[emulator.Emulator, int, int], bytes],
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory hooking not supported once execution begins"
             )
-        if address in self.state.scratch.mem_read_bps:
-            raise ConfigurationError(f"{hex(address)} already hooked for reads")
+        if (start, end) in self.state.scratch.mem_read_bps:
+            raise exceptions.ConfigurationError(
+                f"{hex(start)}-{hex(end)} already hooked for reads"
+            )
 
         # This uses angr's conditional breakpoint facility
         def read_condition(state):
             # The breakpoint condition.
             # This needs to be a bit clever to detect reads at bound symbolic addresses.
             # The actual address won't get concretized until later
-            read_addr = state.inspect.mem_read_address
-            if not isinstance(read_addr, int):
-                if read_addr.symbolic:
+            read_start = state.inspect.mem_read_address
+            if not isinstance(read_start, int):
+                if read_start.symbolic:
                     try:
-                        values = state.solver.eval_atmost(read_addr, 1)
-                        # Truly unbound address.  
+                        values = state.solver.eval_atmost(read_start, 1)
+                        # Truly unbound address.
                         # Assume it won't collapse to our hook address
                         if len(values) < 1:
                             return False
-                        read_addr = values[0]
+                        read_start = values[0]
                     except angr.errors.SimUnsatError:
                         return False
                     except angr.errors.SimValueError:
                         return False
                 else:
-                    read_addr = read_addr.concrete_value
+                    read_start = read_start.concrete_value
             read_size = state.inspect.mem_read_length
 
-            return (
-                read_size is not None
-                and address <= read_addr
-                and address + size >= read_addr + read_size
-            )
+            if read_size is None:
+                return False
+            read_end = read_start + read_size
+
+            return start <= read_start and end >= read_end
 
         def read_callback(state):
             # The breakpoint action.
@@ -409,51 +440,60 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             condition=read_condition,
             action=read_callback,
         )
-        self.state.scratch.mem_read_bps[address] = bp
-        
-    def unhook_memory_read(self, address):
+        self.state.scratch.mem_read_bps[(start, end)] = bp
+
+    def unhook_memory_read(self, start: int, end: int):
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory hooking not supported once execution begins"
             )
-        if address not in self.state.scratch.mem_read_bps:
-            raise ConfigurationError(f"{hex(address)} is not hooked for reads")
+        if (start, end) not in self.state.scratch.mem_read_bps:
+            raise exceptions.ConfigurationError(
+                f"{hex(start)} - {hex(end)} is not hooked for reads"
+            )
 
-        bp = self.state.scratch.mem_read_bps[address]
-        del self.state.scratch.mem_read_bps[address]
+        bp = self.state.scratch.mem_read_bps[(start, end)]
+        del self.state.scratch.mem_read_bps[(start, end)]
         self.state.inspect.remove_breakpoint("mem_read", bp=bp)
 
-    def hook_memory_write(self, address: int, size: int, function: typing.Callable[[emulator.Emulator, int, int, bytes], None]) -> None:
+    def hook_memory_write(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[emulator.Emulator, int, int, bytes], None],
+    ) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory hooking not supported once execution begins"
             )
-        if address in self.state.scratch.mem_write_bps:
-            raise ConfigurationError(f"{hex(address)} already hooked for writes")
-            
+        if (start, end) in self.state.scratch.mem_write_bps:
+            raise exceptions.ConfigurationError(
+                f"{hex(start)} - {hex(end)} already hooked for writes"
+            )
+
         def write_condition(state):
-            write_addr = state.inspect.mem_write_address
-            if not isinstance(write_addr, int):
-                if write_addr.symbolic:
+            write_start = state.inspect.mem_write_address
+            if not isinstance(write_start, int):
+                if write_start.symbolic:
                     # Need to use the solver to resolve this.
                     try:
-                        values = state.solver.eval_atmost(write_addr, 1)
+                        values = state.solver.eval_atmost(write_start, 1)
                         if len(values) < 1:
                             return False
-                        write_addr = values[0]
+                        write_start = values[0]
                     except angr.errors.SimUnsatError:
                         return False
                     except angr.errors.SimValueError:
                         return False
                 else:
-                    write_addr = write_addr.concrete_value
+                    write_start = write_start.concrete_value
             write_size = state.inspect.mem_write_length
 
-            return (
-                write_size is not None
-                and address <= write_addr
-                and address + size >= write_addr + write_size
-            )
+            if write_size is None:
+                return False
+            write_end = write_start + write_size
+
+            return start <= write_start and end >= write_end
 
         def write_callback(state):
             addr = state.inspect.mem_write_address
@@ -466,12 +506,8 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
                 try:
                     values = state.solver.eval_atmost(expr, 1)
                     if len(values) < 1:
-                        raise exceptions.AnalysisError(
-                            f"No possible values fpr {expr}"
-                        )
-                    value = values[0].to_bytes(
-                        size, byteorder=self.machdef.byteorder
-                    )
+                        raise exceptions.AnalysisError(f"No possible values fpr {expr}")
+                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
                     log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
@@ -492,25 +528,27 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
             condition=write_condition,
             action=write_callback,
         )
-        self.state.scratch.mem_write_bps[address] = bp
-    
-    def unhook_memory_write(self, address: int) -> None:
+        self.state.scratch.mem_write_bps[(start, end)] = bp
+
+    def unhook_memory_write(self, start: int, end: int) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory hooking not supported once execution begins"
             )
-        if address not in self.state.scratch.mem_write_bps:
-            raise ConfigurationError(f"{hex(address)} is not hooked for writes")
+        if (start, end) not in self.state.scratch.mem_write_bps:
+            raise exceptions.ConfigurationError(
+                f"{hex(start)} - {hex(end)} is not hooked for writes"
+            )
 
-        bp = self.state.scratch.mem_write_bps[address]
-        del self.state.scratch.mem_write_bps[address]
+        bp = self.state.scratch.mem_write_bps[(start, end)]
+        del self.state.scratch.mem_write_bps[(start, end)]
         self.state.inspect.remove_breakpoint("mem_write", bp=bp)
 
     def _step(self, single_insn: bool):
         """Common routine for all step functions.
-        
+
         This is rather verbose, so let's only write it once.
-        
+
         Arguments:
             single_insn: True to step one instruction.  False to step to the end of the block
         """
@@ -597,7 +635,6 @@ class AngrEmulator(emulator.Emulator, emulator.InstructionHookable, emulator.Fun
         except exceptions.EmulationStop:
             return
 
-
     def enable_linear(self):
         """Enable linear execution
 
@@ -651,12 +688,14 @@ class ConcreteAngrEmulator(AngrEmulator):
 
     # Function hooking is not supported;
     # it relies on state global to the angr project, not individual states.
-    def hook_function(self, address: int, function: typing.Callable[[Emulator], None]) -> None:
+    def hook_function(
+        self, address: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
         raise NotImplementedError("Function hooking not supported inside a hook.")
 
     def unhook_function(self, address: int) -> None:
         raise NotImplementedError("Function hooking not supported inside a hook.")
- 
+
     # Execution is not supported; this is not a complete emulator.
     def run(self) -> None:
         raise NotImplementedError("Running not supported inside a hook.")
@@ -667,6 +706,5 @@ class ConcreteAngrEmulator(AngrEmulator):
     def __repr__(self):
         return f"Angr Hook ({self.state})"
 
-__all__ = [
-    "AngrEmulator"
-]
+
+__all__ = ["AngrEmulator"]

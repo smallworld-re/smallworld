@@ -4,19 +4,20 @@ import logging
 
 import smallworld
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(verbose=True, stream=True, file=None)
 
 
 # create a small world
-cpu = smallworld.state.CPU.for_arch("x86", "64", "little")
-zero = smallworld.initializers.ZeroInitializer()
-cpu.initialize(zero)
-
-code = smallworld.state.Code.from_filepath(
-    "struct.amd64.bin", base=0x1000, entry=0x1000
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
-cpu.map(code)
+machine = smallworld.state.Machine()
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
+
+code = smallworld.state.memory.code.Executable.from_filepath("struct.amd64.bin", 0x1000)
+machine.add(code)
 
 # Next we, look at hints and see fail at
 # 2nd instruction bc
@@ -45,7 +46,8 @@ cpu.map(code)
 
 # this is an allocator in charge of a memory region that
 # starts at 0x2000 and is of size 0x1000 and full of zeros.
-alloc = smallworld.state.BumpAllocator(address=0x2000, size=0x2000)
+alloc = smallworld.state.memory.heap.BumpAllocator(address=0x2000, size=0x2000)
+machine.add(alloc)
 
 
 # seems like ctypes is a good way to compactly express a type like `struct node` from struct.s
@@ -55,8 +57,8 @@ class StructNode(ctypes.LittleEndianStructure):
 
 StructNode._fields_ = [
     ("data", ctypes.c_int32),
-    ("next", smallworld.ctypes.typed_pointer(StructNode)),
-    ("prev", smallworld.ctypes.typed_pointer(StructNode)),
+    ("next", smallworld.extern.ctypes.create_typed_pointer(StructNode)),
+    ("prev", smallworld.extern.ctypes.create_typed_pointer(StructNode)),
     ("empty", ctypes.c_int32),
 ]
 
@@ -66,12 +68,12 @@ node1 = StructNode()
 node1.data = 4  # thus ->next will get used to traverse
 node1.empty = 0
 node1.prev = 0
-node1_addr = alloc.malloc(node1, label="node1")
+node1_addr = alloc.allocate_ctype(node1, label="node1")
 
 node2 = StructNode()
 node2.data = 1  # thus ->prev wil get used to traverse
 node2.empty = 1
-node2_addr = alloc.malloc(node2, label="node2")
+node2_addr = alloc.allocate_ctype(node2, label="node2")
 
 # and link them up
 node1.next = node2_addr
@@ -79,15 +81,14 @@ node2.prev = node1_addr
 
 # this will point to the root of this doubly linked list
 # commenting this out to make mypy happy
-cpu.rdi.value = node1_addr
-cpu.rdi.type = smallworld.ctypes.typed_pointer(StructNode)
-cpu.rdi.label = "arg1"
+cpu.rdi.set(node1_addr)
+cpu.rdi.set_type(smallworld.extern.ctypes.create_typed_pointer(StructNode))
+cpu.rdi.set_label("arg1")
 
-print(f"RDI: {hex(cpu.rdi.value)}")
+print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
-cpu.map(alloc)
 
-smallworld.analyze(cpu)
+smallworld.helpers.analyze(machine)
 
 # now we can do a single micro-execution without error
 # final_state = smallworld.emulate(code, cpu)

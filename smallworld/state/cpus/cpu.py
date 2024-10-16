@@ -9,7 +9,6 @@ class CPU(state.StatefulSet):
     """A CPU state object."""
 
     def __init__(self):
-
         # uses cpu-specific arch info
         # to add all registers and register aliases to the cpu
         # and to the stateful set
@@ -22,21 +21,20 @@ class CPU(state.StatefulSet):
             self.add(attr)
             return attr
 
-        for (reg_name, info) in self.arch_info.items(): # amd64_arch.info.items():
-            (base_reg_name,(start,end)) = info
-            size = end-start
+        for reg_name, info in self.arch_info.items():  # amd64_arch.info.items():
+            (base_reg_name, (start, end)) = info
+            size = end - start
             if reg_name == base_reg_name:
                 _ = add_base_reg(reg_name, size)
             else:
                 if not hasattr(self, base_reg_name):
-                    #(base_reg_name,(start,end)) = amd64_arch.info[base_reg_name]            
-                    (base_reg_name,(start,end)) = self.arch_info[base_reg_name]            
-                    size = end-start
+                    # (base_reg_name,(start,end)) = amd64_arch.info[base_reg_name]
+                    (base_reg_name, (start, end)) = self.arch_info[base_reg_name]
+                    size = end - start
                     reference = add_base_reg(base_reg_name, size)
                 else:
                     reference = self.__getattribute__(base_reg_name)
-                val = state.RegisterAlias(reg_name, reference, \
-                                          size, start)
+                val = state.RegisterAlias(reg_name, reference, size, start)
                 setattr(self, reg_name, val)
 
     def __deepcopy__(self, memo):
@@ -45,8 +43,12 @@ class CPU(state.StatefulSet):
             a = self.__getattribute__(x)
             if type(a) is state.Register:
                 new_cpu.__getattribute__(x).set(self.__getattribute__(x).get())
-                new_cpu.__getattribute__(x).set_label(self.__getattribute__(x).get_label())
-                new_cpu.__getattribute__(x).set_type(self.__getattribute__(x).get_type())                
+                new_cpu.__getattribute__(x).set_label(
+                    self.__getattribute__(x).get_label()
+                )
+                new_cpu.__getattribute__(x).set_type(
+                    self.__getattribute__(x).get_type()
+                )
         return new_cpu
 
     @property
@@ -61,7 +63,8 @@ class CPU(state.StatefulSet):
         Returns:
             The platform object for this CPU.
         """
-
+        if not isinstance(cls.platform, platforms.Platform):
+            raise TypeError(f"{cls.__name__}.platform is not a Platform object")
         return cls.platform
 
     @classmethod

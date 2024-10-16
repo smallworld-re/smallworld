@@ -3,9 +3,9 @@ import logging
 import angr
 from angr.storage import MemoryMixin
 
-from ... import hinting, instructions
-from ...emulators.angr import PathTerminationSignal
-from ...exceptions import AnalysisSignal
+from .... import hinting, instructions
+from ....emulators.angr import PathTerminationSignal
+from ....exceptions import AnalysisSignal
 from .base import BaseMemoryMixin
 from .utils import print_state
 from .visitor import ConditionalVisitor

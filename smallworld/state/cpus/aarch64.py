@@ -1,9 +1,8 @@
 import typing
 
 from ... import platforms
-from .. import state
-from . import cpu
 from ...arch import aarch64_arch
+from . import cpu
 
 
 class AArch64(cpu.CPU):
@@ -18,7 +17,6 @@ class AArch64(cpu.CPU):
     )
 
     arch_info = aarch64_arch.info
-
 
     def get_general_purpose_registers(self) -> typing.List[str]:
         # Special registers:

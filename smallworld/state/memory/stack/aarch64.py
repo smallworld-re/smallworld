@@ -2,13 +2,15 @@ import typing
 
 from .... import platforms
 from . import stack
-from ... import state
+
 
 class AArch64Stack(stack.DescendingStack):
     """A stack for an ARM 64-bit CPU"""
 
-    platform = platforms.Platform(platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE)
-    
+    platform = platforms.Platform(
+        platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+    )
+
     def get_pointer(self) -> int:
         return (self.address + self.size) - self.get_used()
 

@@ -1,5 +1,4 @@
 import abc
-import base64
 import logging
 import typing
 
@@ -88,7 +87,7 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class Instruction():
+class Instruction:
     """An instruction storage and semantic metadata class.
 
     Arguments:

@@ -22,7 +22,7 @@ class Heap(memory.Memory):
     @abc.abstractmethod
     def free(self, address: int) -> None:
         """Free space on the heap for previously allocated data.
-        
+
         Arguements:
             address: The start address of the previously allocated data.
         """
@@ -41,7 +41,7 @@ class Heap(memory.Memory):
         value = state.IntegerValue(integer, size, label)
         return self.allocate(value)
 
-    def allocate_bytes(            
+    def allocate_bytes(
         self, content: typing.Union[bytes, bytearray], label: str
     ) -> int:
         """Allocate space for and write bytes to the heap.
@@ -50,14 +50,14 @@ class Heap(memory.Memory):
             content: The bytes to go on the heap.
             label: The label to give to the bytes on the heap.
         Returns:
-            The address at which the integer was allocated.        
+            The address at which the integer was allocated.
         """
         value = state.BytesValue(content, label)
         return self.allocate(value)
 
     def allocate_ctype(self, content, label: str) -> int:
         """Allocate space for and write structured bytes to the heap.
-        
+
         Arguements:
             content: The ctypes-structured data to go on the heap.
             label: The label to give to the data bytes on the heap.

@@ -4,7 +4,8 @@ import typing
 import angr
 import archinfo
 
-from .... import utils, platforms
+from .... import exceptions, platforms, utils
+
 
 class AngrMachineDef:
     """Container class for angr architecture-specific definitions"""
@@ -13,13 +14,13 @@ class AngrMachineDef:
     @abc.abstractmethod
     def arch(self) -> platforms.Architecture:
         """The architecture ID"""
-        return ""
+        raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
     def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        return ""
+        raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
@@ -56,13 +57,11 @@ class AngrMachineDef:
     def angr_reg(self, name: str) -> typing.Tuple[int, int]:
         """Find the offset and size of a register in the angr state's register file."""
         if name not in self._registers:
-            raise KeyError(
-                f"Unknown register for {self.arch}:{self.byteorder}: {name}"
-            )
+            raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
         name = self._registers[name]
 
         if name not in self.angr_arch.registers:
-            raise ValueError(
+            raise exceptions.UnsupportedRegisterError(
                 f"Register {name} not recognized by angr for {self.arch}:{self.byteorder}"
             )
         return self.angr_arch.registers[name]

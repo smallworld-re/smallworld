@@ -3,10 +3,10 @@ import typing
 
 import lief
 
-from .code import Executable
-from ..state import BytesValue
 from ...exceptions import ConfigurationError
 from ...hinting import Hint, get_hinter
+from ..state import BytesValue
+from .code import Executable
 
 log = logging.getLogger(__name__)
 hinter = get_hinter(__name__)
@@ -34,16 +34,22 @@ PF_X = 0x1  # Segment is executable
 PF_W = 0x2  # Segment is writable
 PF_R = 0x4  # Segment is readable
 
+
 class ElfExecutable(Executable):
-    def __init__(self, file: typing.BinaryIO, user_base: typing.Optional[int]=None, page_size:int=0x1000):
+    def __init__(
+        self,
+        file: typing.BinaryIO,
+        user_base: typing.Optional[int] = None,
+        page_size: int = 0x1000,
+    ):
         # Initialize with null address and size;
         # we will update these later.
         super().__init__(0, 0)
-        self.bounds = []
+        self.bounds: typing.List[range] = []
         self._page_size = page_size
         self._user_base = user_base
         self._file_base = 0
-        
+
         # Read the entire image out of the file.
         image = file.read()
 
@@ -51,18 +57,18 @@ class ElfExecutable(Executable):
         # NOTE: For some reason, this takes list(int), not bytes
         if not lief.is_elf(list(image)):
             raise ConfigurationError("Image is not an ELF")
-       
+
         # Use lief to parse the ELF.
         # NOTE: For some reason, this takes list(int), not bytes
         elf = lief.ELF.parse(list(image))
         if elf is None:
             raise ConfigurationError("Failed parsing ELF")
-        
+
         # Extract the file header
         ehdr = elf.header
         if ehdr is None:
             raise ConfigurationError("Failed extracting ELF header")
-        
+
         # TODO: Check machine compatibility
 
         # Figure out if this file is loadable.
@@ -78,19 +84,21 @@ class ElfExecutable(Executable):
             raise ConfigurationError(
                 f"Invalid program header offset {hex(ehdr.program_header_offset)}"
             )
-        
+
         # Determine the file base address.
-        self._file_base = elf.imagebase 
+        self._file_base = elf.imagebase
         self._determine_base()
 
         # Determine if the file specifies an entrypoint
-        if elf.entrypoint != 0:
+        if elf.entrypoint is not None and elf.entrypoint != 0:
             # Check if the entrypoint is valid (falls within the image)
-            self.entrypoint = elf.entrypoint - self._file_base
-            if self.entrypoint < 0 or self.entrypoint >= len(image):
-                raise ConfigurationError(f"Invalid entrypoint address {hex(self.entrypoint)}")
+            entrypoint = elf.entrypoint - self._file_base
+            if entrypoint < 0 or entrypoint >= len(image):
+                raise ConfigurationError(
+                    f"Invalid entrypoint address {hex(entrypoint)}"
+                )
             # Entrypoint is relative to the file base; rebase it to whatever base we picked.
-            self.entrypoint += self.address
+            self.entrypoint = entrypoint + self.address
         else:
             # No entrypoint specified
             self.entrypoint = None
@@ -110,9 +118,7 @@ class ElfExecutable(Executable):
                 # Program interpreter
                 # This completely changes how program loading works.
                 # Whether you care is a different matter.
-                interp = self.image[
-                    phdr.file_offset : phdr.file_offset + phdr.physical_size
-                ]
+                interp = image[phdr.file_offset : phdr.file_offset + phdr.physical_size]
                 hint = Hint(message=f"Program specifies interpreter {interp!r}")
                 hinter.info(hint)
             elif phdr.type == PT_NOTE:
@@ -173,20 +179,22 @@ class ElfExecutable(Executable):
         #
         # Normally, the loader respects the wishes of the file;
         # an external base address is only used if the image doesn't define one.
-        # 
+        #
         # Here, the user doesn't know the image layout ahead of time,
         # and may need to adjust their environment to fit,
         # so a user-provided base is given equal weight.
         #
         # If both base addresses are specified,
         # or neither is specified, it's a configuratione rror.
- 
+
         if self._user_base is None:
             # No user base requested
             if self._file_base == 0:
                 # No file base defined.
                 # Need the user to provide one
-                raise ConfigurationError("No base address provided for position-independent ELF image")
+                raise ConfigurationError(
+                    "No base address provided for position-independent ELF image"
+                )
             else:
                 self.address = self._file_base
         else:
@@ -202,11 +210,11 @@ class ElfExecutable(Executable):
                 # We (probably) cannot move the image without problems.
                 raise ConfigurationError("Base address defined for fixed-position ELF")
 
-    def _rebase_file(self, val:int):
+    def _rebase_file(self, val: int):
         # Rebase an offset from file-relative to image-relative
         return val - self._file_base + self.address
 
-    def _page_align(self, val:int, up: bool=True):
+    def _page_align(self, val: int, up: bool = True):
         # Align an address to a page boundary
         # There are a number of cases where ELF files are imprecise;
         # they rely on the kernel/libc to map things at page-aligned addresses.
@@ -236,7 +244,7 @@ class ElfExecutable(Executable):
                 f"Expected segment of size {seg_size}, but got {len(seg_data)}"
             )
         if (phdr.flags & PF_X) != 0:
-            # This is a code segment; add it to program bounds 
+            # This is a code segment; add it to program bounds
             self.bounds.append(range(seg_addr, seg_addr + seg_size))
 
         # Add the segment to the memory map

@@ -152,7 +152,7 @@ class AMD64MachineDef(AngrMachineDef):
         "mm5": "mm5",
         "mm6": "mm6",
         "mm7": "mm7",
-        # SSE/AVX registers 
+        # SSE/AVX registers
         "zmm0": "ymm0",
         "ymm0": "ymm0",
         "xmm0": "xmm0",

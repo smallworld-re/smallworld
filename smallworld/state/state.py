@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import abc
+import collections
 import copy
 import ctypes
-import typing
 import logging as lg
+import typing
 
-from .. import analyses, emulators, exceptions, platforms, logging, state
+from .. import analyses, emulators, exceptions, logging, platforms, state
 
 logger = lg.getLogger(__name__)
-
 
 
 class Stateful(metaclass=abc.ABCMeta):
@@ -165,6 +165,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return CTypeValue()
 
+
 class EmptyValue(Value):
     """An unconstrained value
 
@@ -177,7 +178,10 @@ class EmptyValue(Value):
         type: Optional typedef information
         label: An optional metadata label
     """
-    def __init__(self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]):
+
+    def __init__(
+        self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]
+    ):
         self._size = size
         self._type = type
         self._label = label
@@ -186,7 +190,8 @@ class EmptyValue(Value):
         return self._size
 
     def to_bytes(self):
-        return b'\0' * self._size
+        return b"\0" * self._size
+
 
 class IntegerValue(Value):
     def __init__(
@@ -222,6 +227,8 @@ class IntegerValue(Value):
         return self._size
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+        if self._content is None:
+            raise ValueError("IntegerValue must have an integer value")
         if byteorder == platforms.Byteorder.LITTLE:
             return self._content.to_bytes(self._size, byteorder="little")
         elif byteorder == platforms.Byteorder.BIG:
@@ -230,9 +237,10 @@ class IntegerValue(Value):
             raise NotImplementedError("middle endian integers are not yet implemented")
 
 
-
 class BytesValue(Value):
-    def __init__(self, content: typing.Union[bytes, bytearray], label: str) -> None:
+    def __init__(
+        self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
+    ) -> None:
         self._content = bytes(content)
         self._label = label
         self._size = len(self._content)
@@ -242,6 +250,8 @@ class BytesValue(Value):
         return self._size
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+        if self._content is None:
+            raise ValueError("BytesValue must have a bytes value")
         return self._content
 
 
@@ -270,9 +280,9 @@ class Register(Value, Stateful):
         s = f"Reg({self.name},{self.size})="
         x = self.get_content()
         if x is None:
-            s = s+"=None"
+            s = s + "=None"
         else:
-            s = s+f"x:x"
+            s = s + f"{x:x}"
         return s
 
     def get_size(self) -> int:
@@ -284,6 +294,8 @@ class Register(Value, Stateful):
             if content is not None:
                 self.set_content(content)
         except exceptions.SymbolicValueError:
+            pass
+        except exceptions.UnsupportedRegisterError:
             pass
 
         type = emulator.read_register_type(self.name)
@@ -297,7 +309,6 @@ class Register(Value, Stateful):
         except exceptions.SymbolicValueError:
             pass
 
-
     def apply(self, emulator: emulators.Emulator) -> None:
         if self.get_content() is not None:
             emulator.write_register_content(self.name, self.get_content())
@@ -309,7 +320,10 @@ class Register(Value, Stateful):
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         value = self.get_content()
 
-        if byteorder == platforms.Byteorder.LITTLE:
+        if value is None:
+            # Default to zeros if no value present.
+            return b"\0" * self.size
+        elif byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self.size, byteorder="little")
         elif byteorder == platforms.Byteorder.BIG:
             return value.to_bytes(self.size, byteorder="big")
@@ -349,14 +363,16 @@ class RegisterAlias(Register):
         r = self.reference.get_content()
         if r is None:
             return r
-        value = self.reference.get_content() & self.mask
-        value >>= self.offset * 8
+        value = self.reference.get_content()
+        if value is not None:
+            value = value & self.mask
+            value >>= self.offset * 8
         return value
 
     def set_content(self, content: typing.Optional[typing.Any]) -> None:
         if content is not None:
             value = self.reference.get_content()
-            if value is  None:
+            if value is None:
                 value = 0
             value = (value & ~self.mask) | content
             self.reference.set_content(value)
@@ -380,7 +396,10 @@ class RegisterAlias(Register):
         pass
 
 
-class StatefulSet(Stateful, set):
+class StatefulSet(Stateful, collections.abc.MutableSet):
+    def __init__(self):
+        self._contents = set()
+
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
             # logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
@@ -388,18 +407,37 @@ class StatefulSet(Stateful, set):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            logger.debug(f"applying state {stateful} of type {type(stateful)} to emulator {emulator}")
+            logger.debug(
+                f"applying state {stateful} of type {type(stateful)} to emulator {emulator}"
+            )
             stateful.apply(emulator)
+
+    def __contains__(self, item):
+        return item in self._contents
+
+    def __iter__(self):
+        return self._contents.__iter__()
+
+    def __len__(self):
+        return len(self._contents)
+
+    def add(self, item):
+        self._contents.add(item)
+
+    def discard(self, item):
+        self._contents.discard(item)
+
+    def members(self, type):
+        return set(filter(lambda x: isinstance(x, type), self._contents))
 
 
 class Machine(StatefulSet):
-    """A container for all state needed to begin or resume emulation or 
-    analysis), including CPU with register values, code, raw memory or 
+    """A container for all state needed to begin or resume emulation or
+    analysis), including CPU with register values, code, raw memory or
     even stack and heap memory.
     """
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:
-
         """Emulate this machine with the given emulator.
 
         Arguments:
@@ -431,7 +469,9 @@ class Machine(StatefulSet):
 
         analysis.run(self)
 
-    def step(self, emulator: emulators.Emulator) -> Machine:
+    def step(
+        self, emulator: emulators.Emulator
+    ) -> typing.Generator[Machine, None, Machine]:
         self.apply(emulator)
 
         while True:
@@ -441,55 +481,62 @@ class Machine(StatefulSet):
                 machine_copy.extract(emulator)
                 yield machine_copy
             except exceptions.EmulationBounds:
-                #import pdb
-                #pdb.set_trace()
-                print("emulation complete; encountered exit point or went out of bounds")
+                # import pdb
+                # pdb.set_trace()
+                print(
+                    "emulation complete; encountered exit point or went out of bounds"
+                )
                 break
             except Exception as e:
-                #import pdb
-                #pdb.set_trace()
+                # import pdb
+                # pdb.set_trace()
                 print(f"emulation ended; raised exception {e}")
                 break
 
         return machine_copy
 
-    def fuzz(self, emulator: emulators.Emulator, input_callback: typing.Callable,
+    def fuzz(
+        self,
+        emulator: emulators.Emulator,
+        input_callback: typing.Callable,
         crash_callback: typing.Optional[typing.Callable] = None,
         always_validate: bool = False,
         iterations: int = 1,
     ) -> None:
         try:
-            import unicornafl
             import argparse
+
+            import unicornafl
         except ImportError:
-            raise RuntimeError("missing `unicornafl` - afl++ must be installed manually from source")
+            raise RuntimeError(
+                "missing `unicornafl` - afl++ must be installed manually from source"
+            )
 
         arg_parser = argparse.ArgumentParser(description="AFL Harness")
-        arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
+        arg_parser.add_argument(
+            "input_file", type=str, help="File path AFL will mutate"
+        )
         args = arg_parser.parse_args()
 
-        if type(emulator) != emulators.UnicornEmulator:
+        if not isinstance(emulator, emulators.UnicornEmulator):
             raise RuntimeError("you must use a unicorn emulator to fuzz")
 
         self.apply(emulator)
 
         unicornafl.uc_afl_fuzz(
-                uc=emulator.engine,
-                input_file=args.input_file,
-                place_input_callback=input_callback,
-                exits=emulator.get_exitpoints(),
-                validate_crash_callback=crash_callback,
-                always_validate=always_validate,
-                persistent_iters=iterations,
-            )
+            uc=emulator.engine,
+            input_file=args.input_file,
+            place_input_callback=input_callback,
+            exits=emulator.get_exitpoints(),
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=iterations,
+        )
 
     def get_cpu(self):
         for i in self:
             if issubclass(type(i), state.cpus.cpu.CPU):
                 return i
-
-
-
 
 
 __all__ = [

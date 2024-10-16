@@ -1,7 +1,7 @@
+import logging
 import sys
 
 import smallworld
-import logging
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -20,21 +20,23 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("strlen.i386.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    "strlen.i386.bin", address=0x1000
+)
 machine.add(code)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-# Set the instruction pointer to the code entrypoint 
+# Set the instruction pointer to the code entrypoint
 cpu.eip.set(code.address)
 
 # Push a string onto the stack, padded to 16 bytes to make life easier.
 # Set the first argument as the starting address
 string = sys.argv[1]
-padding = b'\0' * (16 - (len(string) % 16))
-stack.push_bytes(string.encode('utf-8') + padding, None)
+padding = b"\0" * (16 - (len(string) % 16))
+stack.push_bytes(string.encode("utf-8") + padding, None)
 
 saddr = stack.get_pointer()
 stack.push_integer(saddr, 4, None)

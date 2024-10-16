@@ -2,10 +2,6 @@ import logging
 
 import smallworld
 
-import logging
-
-import smallworld
-
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.DEBUG)
 smallworld.hinting.setup_hinting(stream=True, verbose=True)

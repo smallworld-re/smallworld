@@ -1,14 +1,14 @@
 import os
 import typing
 
-from ... import emulators, platforms, exceptions
+from ... import emulators, exceptions, platforms
 from .. import state
 
 
-class Memory(state.Stateful, state.Value, dict):
+class Memory(state.Stateful, dict):
     """A memory region.
 
-    A memory maps integer offsets (implicitly from the base ``address``) 
+    A memory maps integer offsets (implicitly from the base ``address``)
     to ``Value`` objects.
     """
 
@@ -35,7 +35,7 @@ class Memory(state.Stateful, state.Value, dict):
 
         result = b"\x00" * self.size
         for offset, value in self.items():
-            #data = value.get_content()
+            # data = value.get_content()
             result = (
                 result[:offset]
                 + value.to_bytes(byteorder=byteorder)
@@ -60,7 +60,7 @@ class Memory(state.Stateful, state.Value, dict):
         return sum([v.get_size() for v in self.values()])
 
     def get_size(self) -> int:
-        raise NotImplemented("You probably want get_capacity()")
+        raise NotImplementedError("You probably want get_capacity()")
 
     def _is_safe(self, value: state.Value):
         if (self.get_used() + value.get_size()) > self.get_capacity():
@@ -70,29 +70,41 @@ class Memory(state.Stateful, state.Value, dict):
         emulator.map_memory(self.get_capacity(), self.address)
         for offset, value in self.items():
             if not isinstance(value, state.EmptyValue):
-                emulator.write_memory_content(self.address + offset, value.to_bytes(emulator.platform.byteorder))
+                emulator.write_memory_content(
+                    self.address + offset, value.to_bytes(emulator.platform.byteorder)
+                )
             if value.get_type() is not None:
-                emulator.write_memory_type(self.address + offset, value.get_size(), value.get_type())
+                emulator.write_memory_type(
+                    self.address + offset, value.get_size(), value.get_type()
+                )
             if value.get_label() is not None:
-                emulator.write_memory_label(self.address + offset, value.get_size(), value.get_label())
+                emulator.write_memory_label(
+                    self.address + offset, value.get_size(), value.get_label()
+                )
 
     def extract(self, emulator: emulators.Emulator) -> None:
+        value: state.Value
         try:
             bytes = emulator.read_memory(self.address, self.get_capacity())
             value = state.BytesValue(bytes, f"Extracted memory from {self.address}")
         except exceptions.SymbolicValueError:
-            value = state.EmptyValue(self.get_capacity(), None, f"Extracted memory from {self.address}")
+            value = state.EmptyValue(
+                self.get_capacity(), None, f"Extracted memory from {self.address}"
+            )
         self[0] = value
 
-class RawMemory(Memory):
+    def __hash__(self):
+        return super(dict, self).__hash__()
 
+
+class RawMemory(Memory):
     @classmethod
     def from_bytes(cls, bytes: bytes, address: int):
         """Load from a byte array.
 
         Arguments:
             bytes: The bytes of the memory.
-            address: The address where this memory should be loaded 
+            address: The address where this memory should be loaded
                into an emulator's memory.
 
         Returns:
@@ -105,12 +117,12 @@ class RawMemory(Memory):
         return memory
 
     @classmethod
-    def from_file(cls, file: typing.BinaryIO, address: int, label:str = "memory"):
+    def from_file(cls, file: typing.BinaryIO, address: int, label: str = "memory"):
         """Load from an open file-like object.
 
         Arguments:
             file: The open file-like object from which to load data.
-            address: The address where this memory should be loaded 
+            address: The address where this memory should be loaded
                into an emulator's memory.
 
         Returns:
@@ -130,7 +142,7 @@ class RawMemory(Memory):
 
         Arguments:
             path: The path to the file.
-            address: The address where this memory should be loaded 
+            address: The address where this memory should be loaded
                into an emulator's memory.
 
         Returns:

@@ -1,4 +1,3 @@
-
 from .colorizer import Colorizer
 from .colorizer_summary import ColorizerSummary
 

@@ -13,18 +13,18 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def arch(self) -> platforms.Architecture:
         """The architecture ID"""
-        return ""
+        raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
     def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        return ""
+        raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
     def panda_arch(self) -> pandare.arch.PandaArch:
-        """The angr architecture to use"""
+        """The panda architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
     @property

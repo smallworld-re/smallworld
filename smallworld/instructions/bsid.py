@@ -1,6 +1,6 @@
 import typing
 
-from .. import emulators, utils
+from .. import emulators
 from .instructions import MemoryReferenceOperand
 
 

@@ -2,8 +2,8 @@ import copy
 import logging
 import typing
 
-from .. import emulators, exceptions, hinting, instructions, state
-from . import analysis
+from ... import emulators, exceptions, hinting, instructions, state
+from .. import analysis
 
 logger = logging.getLogger(__name__)
 hinter = hinting.get_hinter(__name__)
@@ -24,22 +24,23 @@ class CodeCoverage(analysis.Analysis):
     description = ""
     version = "0.0.1"
 
-    def run(self, state: state.CPU) -> None:
-        cpu = copy.deepcopy(state)
-        emulator = emulators.UnicornEmulator(state.arch, state.mode, state.byteorder)
-        cpu.apply(emulator)
+    def run(self, state: state.Machine) -> None:
+        machine = copy.deepcopy(state)
+        cpu = machine.get_cpu()
+        emulator = emulators.UnicornEmulator(cpu.platform)
+        machine.apply(emulator)
         coverage: typing.Dict[int, int] = {}
         for i in range(self.num_instructions):
-            pc = emulator.read_register("pc")
+            pc = emulator.read_register_content("pc")
             if pc in coverage:
                 coverage[pc] += 1
             else:
                 coverage[pc] = 1
 
             try:
-                done = emulator.step()
-                if done:
-                    break
+                emulator.step()
+            except exceptions.EmulationStop:
+                break
             except exceptions.EmulationError as e:
                 instruction = emulator.current_instruction()
                 exhint = hinting.EmulationException(

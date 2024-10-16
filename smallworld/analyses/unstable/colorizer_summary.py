@@ -35,8 +35,8 @@ class ColorizerSummary(analysis.Filter):
     @staticmethod
     def dynamic_value_summary(hint: hinting.Hint):
         #        print(hint)
-        #instr_node = hint.instruction
-        #du_graph.add_node(instr_node)
+        # instr_node = hint.instruction
+        # du_graph.add_node(instr_node)
         du_graph.add_node(hint.pc)
         if type(hint) is hinting.DynamicRegisterValueProbHint:
             dv_info = [
@@ -61,7 +61,7 @@ class ColorizerSummary(analysis.Filter):
             assert hint.color not in color2nodeDv
             if hint.use:
                 assert "read" in hint.message
-                #color2nodeDv[hint.color] = (instr_node, dv_info)
+                # color2nodeDv[hint.color] = (instr_node, dv_info)
                 color2nodeDv[hint.color] = (hint.pc, dv_info)
             else:
                 assert "write" in hint.message
@@ -80,8 +80,8 @@ class ColorizerSummary(analysis.Filter):
             # not a new color.  so its a flow
             assert "def" not in hint.message
             # we should never see new && !use since that is just a value copy
-            
-            #assert hint.use
+
+            # assert hint.use
             (def_node, def_dv_info) = color2nodeDv[hint.color]
             du_graph.add_def_use(def_node, hint.pc, def_dv_info, dv_info, hint.color)
 
