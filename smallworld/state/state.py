@@ -430,12 +430,30 @@ class StatefulSet(Stateful, collections.abc.MutableSet):
     def members(self, type):
         return set(filter(lambda x: isinstance(x, type), self._contents))
 
-
 class Machine(StatefulSet):
     """A container for all state needed to begin or resume emulation or
     analysis), including CPU with register values, code, raw memory or
     even stack and heap memory.
     """
+
+    def __init__(self):
+        super().__init__()
+        self._exitpoints = set()
+
+    def add_exit_point(self, address: int):
+        self._exitpoints.add(address)
+
+    def get_exit_points(self) -> typing.Set[int]:
+        return self._exitpoints
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        for address in self._exitpoints:
+            emulator.add_exit_point(address)
+        return super().apply(emulator)
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        self._exitpoints = emulator.get_exitpoints()
+        return super().extract(emulator)
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:
         """Emulate this machine with the given emulator.
@@ -492,8 +510,6 @@ class Machine(StatefulSet):
                 # pdb.set_trace()
                 print(f"emulation ended; raised exception {e}")
                 break
-
-        return machine_copy
 
     def fuzz(
         self,
