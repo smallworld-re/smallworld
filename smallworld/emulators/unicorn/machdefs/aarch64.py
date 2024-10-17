@@ -20,4 +20,3 @@ class AArch64MachineDef(UnicornMachineDef):
 
     arch_info = aarch64_arch.info
     unicorn_consts = unicorn.arm64_const
-

@@ -12,7 +12,7 @@ class AMD64(cpu.CPU):
     Because of how smallworld works, an emulator can only support
     platforms if it supports all base registers.
     Since the AVX extensions keep adding registers under
-    the old ones, we need new platforms. 
+    the old ones, we need new platforms.
     """
 
     _GENERAL_PURPOSE_REGS = [
@@ -349,9 +349,11 @@ class AMD64AVX2(AMD64):
     This is our default, since all emulators support up to AVX2,
     and 99.9% of our users won't use the vector extensions.
     """
+
     platform = platforms.Platform(
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
+
     def __init__(self):
         super().__init__()
         # *** SSE/AVX/AVX2 registers ***
@@ -435,11 +437,14 @@ class AMD64AVX2(AMD64):
         self.xmm15 = state.RegisterAlias("xmm15", self.ymm15, 16, 0)
         self.add(self.xmm15)
 
+
 class AMD64AVX512(AMD64):
     """AMD64 CPU supporting up to AVX512"""
+
     platform = platforms.Platform(
         platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
     )
+
     def __init__(self):
         super().__init__()
         # *** SSE/AVX/AVX2/AVX512 registers ***

@@ -430,6 +430,7 @@ class StatefulSet(Stateful, collections.abc.MutableSet):
     def members(self, type):
         return set(filter(lambda x: isinstance(x, type), self._contents))
 
+
 class Machine(StatefulSet):
     """A container for all state needed to begin or resume emulation or
     analysis), including CPU with register values, code, raw memory or
@@ -510,6 +511,7 @@ class Machine(StatefulSet):
                 # pdb.set_trace()
                 print(f"emulation ended; raised exception {e}")
                 break
+        return None
 
     def fuzz(
         self,
