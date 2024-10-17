@@ -533,10 +533,23 @@ class Machine(StatefulSet):
             persistent_iters=iterations,
         )
 
+    def get_cpus(self):
+        return [i for i in self if issubclass(type(i), state.cpus.cpu.CPU)]
+
+    def get_platforms(self):
+        return set([i.get_platform() for i in self.get_cpus()])
+
     def get_cpu(self):
-        for i in self:
-            if issubclass(type(i), state.cpus.cpu.CPU):
-                return i
+        cpus = self.get_cpus()
+        if len(cpus) != 1:
+            raise exceptions.ConfigurationError("You have more than one CPU")
+        return cpus[0]
+
+    def get_platform(self):
+        platforms = self.get_platforms()
+        if len(platforms) != 1:
+            raise exceptions.ConfigurationError("You have more than one platform")
+        return platforms.pop()
 
 
 __all__ = [

@@ -89,6 +89,9 @@ class I386(cpu.CPU):
         self.ip = state.RegisterAlias("ip", self.eip, 2, 0)
         self.add(self.ip)
 
+        self.pc = state.RegisterAlias("pc", self.eip, 4, 0)
+        self.add(self.pc)
+
         # *** Segment Registers ***
         self.cs = state.Register("cs", 2)
         self.add(self.cs)
