@@ -26,6 +26,7 @@ class ARM(cpu.CPU):
         return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
+        super().__init__()
         # *** General-purpose registers ***
         self.r0 = state.Register("r0", size=4)
         self.add(self.r0)

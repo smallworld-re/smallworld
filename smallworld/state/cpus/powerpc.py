@@ -14,6 +14,7 @@ class PowerPC(cpu.CPU):
         return self._GENERAL_PURPOSE_REGS
 
     def __init__(self, wordsize):
+        super().__init__()
         # *** General Purpose Registers ***
         # NOTE: Used expressive names for GPRs and FPRs.
         # gasm just refers to GPRs and FPRS by number.
