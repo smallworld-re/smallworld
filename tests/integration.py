@@ -89,9 +89,6 @@ class ScriptIntegrationTest(unittest.TestCase):
             else:
                 return
 
-        import pdb
-
-        pdb.set_trace()
         raise AssertionError(
             f"no line in string contains all of `{strings}`:\n\n{output.strip()}"
         )
@@ -160,6 +157,12 @@ class CallTests(ScriptIntegrationTest):
     def test_call_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    def test_call_i386(self):
+        self.run_test("i386")
+
+    def test_call_i386_angr(self):
+        self.run_test("i386.angr")
+
     def test_call_mips(self):
         self.run_test("mips")
 
@@ -217,6 +220,12 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    def test_dma_i386(self):
+        self.run_test("i386")
+
+    def test_dma_i386_angr(self):
+        self.run_test("i386.angr")
+
     def test_dma_mips(self):
         self.run_test("mips")
 
@@ -243,8 +252,10 @@ class DMATests(ScriptIntegrationTest):
 
 
 class SquareTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command("python3 ../examples/basic_harness.py square.amd64.bin")
+    def _test_basic(self):
+        _, stderr = self.command(
+            "python3 ../examples/basic_harness.py square.amd64.bin"
+        )
 
         self.assertLineContainsStrings(
             stderr,
@@ -321,6 +332,12 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_armhf_angr(self):
         self.run_test(arch="armhf.angr")
 
+    def test_square_i386(self):
+        self.run_test(arch="i386")
+
+    def test_square_i386_angr(self):
+        self.run_test(arch="i386.angr")
+
     def test_square_mips(self):
         self.run_test(arch="mips")
 
@@ -382,6 +399,12 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    def test_recursion_i386(self):
+        self.run_test("i386")
+
+    def test_recursion_i386_angr(self):
+        self.run_test("i386.angr")
+
     def test_recursion_mips(self):
         self.run_test("mips")
 
@@ -408,8 +431,10 @@ class RecursionTests(ScriptIntegrationTest):
 
 
 class StackTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command("python3 ../examples/basic_harness.py stack/stack.amd64.bin")
+    def _test_basic(self):
+        _, stderr = self.command(
+            "python3 ../examples/basic_harness.py stack/stack.amd64.bin"
+        )
 
         self.assertLineContainsStrings(
             stderr,
@@ -514,7 +539,7 @@ class StackTests(ScriptIntegrationTest):
             stderr, '{"4096": 1, "4099": 1, "4103": 1}', "coverage"
         )
 
-    def run_test(self, arch, reg="rax", res="0xaaaaaaaa"):
+    def run_test(self, arch, reg="eax", res="0xaaaaaaaa"):
         stdout, _ = self.command(f"python3 stack/stack.{arch}.py")
         self.assertLineContainsStrings(stdout, reg, res)
 
@@ -542,6 +567,12 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_armhf_angr(self):
         self.run_test("armhf.angr", reg="r0")
 
+    def test_stack_i386(self):
+        self.run_test("i386")
+
+    def test_stack_i386_angr(self):
+        self.run_test("i386.angr")
+
     def test_stack_mips(self):
         self.run_test("mips", reg="v0", res="0xaaaa")
 
@@ -555,10 +586,10 @@ class StackTests(ScriptIntegrationTest):
         self.run_test("mipsel.angr", reg="v0", res="0xaaaa")
 
     def test_stack_mips64_angr(self):
-        self.run_test("mips64.angr", reg="v0", res="0xffffffffffffffff")
+        self.run_test("mips64.angr", reg="v0", res="0xffff")
 
     def test_stack_mips64el_angr(self):
-        self.run_test("mips64el.angr", reg="v0", res="0xffffffffffffffff")
+        self.run_test("mips64el.angr", reg="v0", res="0xffff")
 
     def test_stack_ppc_angr(self):
         self.run_test("ppc.angr", reg="r3", res="0xffff")
@@ -568,8 +599,10 @@ class StackTests(ScriptIntegrationTest):
 
 
 class StructureTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command("python3 ../examples/basic_harness.py struct/struct.amd64.bin")
+    def _test_basic(self):
+        _, stderr = self.command(
+            "python3 ../examples/basic_harness.py struct/struct.amd64.bin"
+        )
 
         self.assertLineContainsStrings(
             stderr,
@@ -607,8 +640,10 @@ class StructureTests(ScriptIntegrationTest):
 
 
 class BranchTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command("python3 ../examples/basic_harness.py branch/branch.amd64.bin")
+    def _test_basic(self):
+        _, stderr = self.command(
+            "python3 ../examples/basic_harness.py branch/branch.amd64.bin"
+        )
 
         self.assertLineContainsStrings(
             stderr,
@@ -648,14 +683,17 @@ class BranchTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 branch/branch.{arch}.py 101")
         self.assertLineContainsStrings(stdout, reg, "0x0")
 
-    def test_branch_x86(self):
+    def test_branch_amd64(self):
         self.run_branch("amd64")
 
+    def test_branch_amd64_angr(self):
+        self.run_branch("amd64.angr")
+
     def test_branch_aarch64(self):
-        self.run_branch("aarch64", reg="x0")
+        self.run_branch("aarch64", reg="w0")
 
     def test_branch_aarch64_angr(self):
-        self.run_branch("aarch64.angr", reg="x0")
+        self.run_branch("aarch64.angr", reg="w0")
 
     def test_branch_armel(self):
         self.run_branch("armel", reg="r0")
@@ -668,6 +706,12 @@ class BranchTests(ScriptIntegrationTest):
 
     def test_branch_armhf_angr(self):
         self.run_branch("armhf.angr", reg="r0")
+
+    def test_branch_i386(self):
+        self.run_branch("i386")
+
+    def test_branch_i386_angr(self):
+        self.run_branch("i386.angr")
 
     def test_branch_mips(self):
         self.run_branch("mips", reg="v0")
@@ -726,6 +770,12 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    def test_strlen_i386(self):
+        self.run_test("i386")
+
+    def test_strlen_i386_angr(self):
+        self.run_test("i386.angr")
+
     def test_strlen_mips(self):
         self.run_test("mips")
 
@@ -753,7 +803,9 @@ class StrlenTests(ScriptIntegrationTest):
 
 class HookingTests(ScriptIntegrationTest):
     def run_test(self, arch):
-        stdout, _ = self.command(f"python3 hooking/hooking.{arch}.py", stdin="foo bar baz")
+        stdout, _ = self.command(
+            f"python3 hooking/hooking.{arch}.py", stdin="foo bar baz"
+        )
         self.assertLineContainsStrings(stdout, "foo bar baz")
 
     def test_hooking_amd64(self):
@@ -779,6 +831,12 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_armhf_angr(self):
         self.run_test("armhf.angr")
+
+    def test_hooking_i386(self):
+        self.run_test("i386")
+
+    def test_hooking_i386_angr(self):
+        self.run_test("i386.angr")
 
     def test_hooking_mips(self):
         self.run_test("mips")

@@ -1,5 +1,4 @@
 import logging
-import pathlib
 import sys
 
 import smallworld
