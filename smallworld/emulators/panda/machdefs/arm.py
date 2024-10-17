@@ -37,13 +37,15 @@ class ARMMachineDef(PandaMachineDef):
             "ip",
         }
 
+        self._registers = {i:i for i in self._registers} 
+
 
 class ARMMachineMixinM:
     """Mixin for ARM M-series machine models"""
 
     def __init__(self):
         super().__init__()
-        self._registers.update(
+        self._registers_m = \
             {
                 # NOTE: PSR is aliased to CPSR
                 # This is an artifact of the fact that Unicorn
@@ -56,7 +58,7 @@ class ARMMachineMixinM:
                 "msp",
                 "psp",
             }
-        )
+        self._registers = self._registers | {i:i for i in self._registers_m}
 
 
 class ARMv5TMachineDef(ARMMachineDef):

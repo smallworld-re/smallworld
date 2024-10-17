@@ -126,7 +126,7 @@ class RangeCollection:
         return missing_ranges
 
     # Returns either the range or the range BEFORE you
-    def find_closest_range(self, value):
+    def find_closest_range(self, value : int) -> int:
         for i, (start, end) in enumerate(self.ranges):
             if start <= value < end:
                 return i
@@ -134,7 +134,7 @@ class RangeCollection:
                 return i
         return 0
 
-    def remove_range(self, arange):
+    def remove_range(self, arange : typing.Tuple[int, int]) -> None:
         start, end = arange
         if start > end or start == end:
             print("no")
@@ -166,7 +166,7 @@ class RangeCollection:
         self.ranges = new_ranges
         return
 
-    def add_range(self, arange):
+    def add_range(self, arange : typing.Tuple[int,int]) -> None:
         start, end = arange
         if start > end or start == end:
             print("no")

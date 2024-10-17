@@ -24,7 +24,13 @@ class i386MachineDef(PandaMachineDef):
     _registers_byte = {"al", "bl", "cl", "dl", "ah", "bh", "ch", "dh"}
     _registers_seg = {"es", "cs", "ss", "ds", "fs", "gs"}
     _registers_control = {"cr0", "cr1", "cr2", "cr3", "cr4"}
-    _registers = (
-        _registers_general | _registers_byte | _registers_seg | _registers_control
-    )
+
+    _registers = {} 
+    _registers = _registers | {i:i for i in _registers_general} 
+    _registers = _registers | {i:i for i in _registers_byte} 
+    _registers = _registers | {i:i for i in _registers_seg} 
+    _registers = _registers | {i:i for i in _registers_control} 
+    #_registers = (
+    #    _registers_general | _registers_byte | _registers_seg | _registers_control
+    #)
     # _registers = {**_registers_general, **_register_short, **_registers_seg, **_registers_control}

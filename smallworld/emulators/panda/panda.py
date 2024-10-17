@@ -244,10 +244,15 @@ class PandaEmulator(
         if name == "pc":
             name = self.panda_thread.machdef.pc_reg
 
+        if name == self.panda_thread.machdef.pc_reg:
+            self.panda_thread.machdef.panda_arch.get_pc(self.cpu)
+            return
+
         if not self.panda_thread.machdef.check_panda_reg(name):
             logger.warn(f"Panda doesn't support register {name} for {self.platform}")
             # TODO what should i return here
             return
+        name = self.panda_thread.machdef.panda_reg(name)
 
         try:
             return self.panda_thread.machdef.panda_arch.get_reg(self.cpu, name)
@@ -265,6 +270,8 @@ class PandaEmulator(
         # This is my internal pc
         if name == self.panda_thread.machdef.pc_reg:
             self.pc = content
+            self.panda_thread.machdef.panda_arch.set_pc(self.cpu, content)
+            return
 
         if not self.panda_thread.machdef.check_panda_reg(name):
             logger.warn(f"Panda doesn't support register {name} for {self.platform}")
