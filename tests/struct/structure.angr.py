@@ -9,7 +9,7 @@ if __name__ == "__main__":
     smallworld.hinting.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
     # Load the 'struct.bin' test.
-    infile = "struct.amd64.bin"
+    infile = __file__.replace(".py", ".bin").replace(".angr", "")
 
     # Silence angr's logger; it's too verbose.
     logging.getLogger("angr").setLevel(logging.INFO)

@@ -21,7 +21,7 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "strlen.amd64.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 
@@ -34,15 +34,11 @@ cpu.rip.set(code.address)
 
 # Push a string onto the stack, padded to 16 bytes to make life easier.
 # Remember the starting address
-string = sys.argv[1]
+string = sys.argv[1].encode("utf-8") + b"\0"
 padding = b"\0" * (16 - (len(string) % 16))
-stack.push_bytes(string.encode("utf-8") + padding, None)
-print(stack)
+stack.push_bytes(string + padding, None)
 
-# FIXME: Magic number, since we're fighting the auto-alignment
-saddr = stack.get_pointer() + 16
-
-print(hex(saddr))
+saddr = stack.get_pointer()
 
 # Push a return address
 stack.push_integer(0x00000000, 8, None)

@@ -20,7 +20,7 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "stack.amd64.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 
@@ -42,7 +42,6 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 rsp = stack.get_pointer()
-print(hex(rsp))
 cpu.rsp.set(rsp)
 
 # Emulate
@@ -52,4 +51,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.eax.get()))
+print(cpu.eax)

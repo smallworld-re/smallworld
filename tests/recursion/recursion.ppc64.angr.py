@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.POWERPC64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -21,7 +21,7 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "recursion.ppc.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 

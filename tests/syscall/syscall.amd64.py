@@ -19,7 +19,7 @@ machine.add(cpu)
 
 # load and map code into the state and set ip
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "syscall.amd64.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 

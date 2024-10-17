@@ -584,7 +584,7 @@ class AngrEmulator(
         if self._linear:
             if len(self.mgr.active) > 1:
                 log.warn("Path diverged!  Detailes stored in simulation manager.")
-                return True
+                raise exceptions.EmulationStop("Path diverged in linear mode")
             elif len(self.mgr.active) > 0:
                 self.state = self.mgr.active[0]
             elif len(self.mgr.deadended) > 0:

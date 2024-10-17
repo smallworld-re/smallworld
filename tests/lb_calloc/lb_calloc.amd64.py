@@ -36,7 +36,7 @@ machine.add(cpu)
 
 # load and map code into the state and set ip
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "lb_calloc.amd64.bin", 0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), 0x1000
 )
 machine.add(code)
 cpu.rip.set(code.address)
