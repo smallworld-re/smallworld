@@ -174,7 +174,7 @@ class AMD64AVX2MachineDef(AMD64MachineDef):
     arch = Architecture.X86_64
     def __init__(self):
         super().__init__()
-        self.registers.update({
+        self._registers.update({
             # *** SSE/AVX registers ***
             "ymm0": (unicorn.x86_const.UC_X86_REG_YMM0, "ymm0", 32, 0),
             "xmm0": (unicorn.x86_const.UC_X86_REG_XMM0, "ymm0", 16, 0),

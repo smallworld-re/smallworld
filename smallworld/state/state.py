@@ -282,7 +282,7 @@ class Register(Value, Stateful):
         if x is None:
             s = s + "=None"
         else:
-            s = s + f"{x:x}"
+            s = s + f"0x{x:x}"
         return s
 
     def get_size(self) -> int:

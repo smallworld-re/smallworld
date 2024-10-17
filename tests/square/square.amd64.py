@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import sys
 
 import smallworld
@@ -21,7 +22,7 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "square.amd64.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 

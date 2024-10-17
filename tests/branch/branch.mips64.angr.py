@@ -21,7 +21,7 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "branch.mips64.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 
@@ -39,4 +39,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+print(cpu.v0)

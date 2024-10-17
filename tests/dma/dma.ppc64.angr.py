@@ -21,7 +21,7 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "dma.ppc.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 
@@ -94,7 +94,7 @@ class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
             )
 
 
-hdiv = HDivModel(0x50014000, 4)
+hdiv = HDivModel(0x50014000, 8)
 machine.add(hdiv)
 
 # Emulate
