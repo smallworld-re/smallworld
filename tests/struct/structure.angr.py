@@ -1,44 +1,43 @@
-import ctypes as ct
+import ctypes
 import logging
 
-from smallworld import cpus, ctypes, state, utils
+import smallworld
 from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
 
 if __name__ == "__main__":
-    # Load the 'struct.bin' test.
-    infile = "struct.amd64.bin"
-    fmt = "blob"
-    arch = "x86"
-    mode = "64"
-    byteorder = "little"
-    base = 0x1000
-    entry = base
+    smallworld.logging.setup_logging(level=logging.DEBUG)
+    smallworld.hinting.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
-    utils.setup_logging(level=logging.DEBUG)
+    # Load the 'struct.bin' test.
+    infile = __file__.replace(".py", ".bin").replace(".angr", "")
+
     # Silence angr's logger; it's too verbose.
     logging.getLogger("angr").setLevel(logging.INFO)
     logging.getLogger("claripy").setLevel(logging.INFO)
-    utils.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
-    target = state.Code.from_filepath(
-        infile, format=fmt, arch=arch, mode=mode, base=base, entry=entry
-    )
-
-    class StructNode(ct.LittleEndianStructure):
+    class StructNode(ctypes.LittleEndianStructure):
         _pack_ = 8
 
     StructNode._fields_ = [
-        ("data", ct.c_int32),
-        ("next", ctypes.typed_pointer(StructNode)),
-        ("prev", ctypes.typed_pointer(StructNode)),
-        ("empty", ct.c_int32),
+        ("data", ctypes.c_int32),
+        ("next", smallworld.extern.ctypes.create_typed_pointer(StructNode)),
+        ("prev", smallworld.extern.ctypes.create_typed_pointer(StructNode)),
+        ("empty", ctypes.c_int32),
     ]
 
-    cpu = cpus.AMD64CPUState()
+    platform = smallworld.platforms.Platform(
+        smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    )
 
-    cpu.rdi.type = ctypes.typed_pointer(StructNode)
-    cpu.map(target)
-    cpu.rip.value = entry
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    code = smallworld.state.memory.code.Executable.from_filepath(infile, address=0x1000)
+    machine.add(code)
+
+    cpu.rdi.set_type(smallworld.extern.ctypes.create_typed_pointer(StructNode))
+    cpu.rip.set(code.address)
 
     analysis = AngrNWBTAnalysis()
     analysis.run(cpu)

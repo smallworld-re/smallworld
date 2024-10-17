@@ -1,7 +1,7 @@
+import logging
 import sys
 
 import smallworld
-import logging
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.POWERPC64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -20,14 +20,16 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("recursion.ppc.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+)
 machine.add(code)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-# Set the instruction pointer to the code entrypoint 
+# Set the instruction pointer to the code entrypoint
 cpu.pc.set(code.address)
 
 # Initialize argument registers

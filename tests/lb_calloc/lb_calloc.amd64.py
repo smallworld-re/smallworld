@@ -23,16 +23,23 @@ output in `rdi` is displayed.
 
 """
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(verbose=True, stream=True, file=None)
 
-# create a state object
-state = smallworld.state.CPU.for_arch("x86", "64", "little")
+# create a small world
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+)
+machine = smallworld.state.Machine()
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
 # load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath("lb_calloc.bin", base=0x1000, entry=0x1000)
-state.map(code)
-state.rip.value = code.entry
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), 0x1000
+)
+machine.add(code)
+cpu.rip.set(code.address)
 
 RAND_MAX = 0x7FFFFFFF
 
@@ -40,14 +47,13 @@ for i in range(int(sys.argv[1])):
     randv = random.randint(0, RAND_MAX)
     print(f"randv = {randv}")
 
-    state.eax.value = randv
-    print(state.eax.value)
+    cpu.eax.set(randv)
+    print(cpu.eax.get())
 
     # now we can do a single micro-execution without error
-    emulator = smallworld.emulators.UnicornEmulator(
-        arch=state.arch, mode=state.mode, byteorder=state.byteorder
-    )
-    final_state = emulator.emulate(state)
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    final_machine = machine.emulate(emulator)
+    final_cpu = final_machine.get_cpu()
 
     # read the result
-    print(final_state.rdi)
+    print(final_cpu.rdi.get())

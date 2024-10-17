@@ -2,17 +2,13 @@ import logging
 
 import smallworld
 
-import logging
-
-import smallworld
-
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -24,7 +20,7 @@ machine.add(cpu)
 
 # load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "stack.mips64el.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
 machine.add(code)
 
@@ -60,4 +56,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 final_cpu = final_machine.get_cpu()
-print(hex(final_cpu.v0.get()))
+print(final_cpu.v0)

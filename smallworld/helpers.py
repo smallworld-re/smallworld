@@ -5,12 +5,12 @@ import typing
 logger = logging.getLogger(__name__)
 
 
-from . import analyses, emulators, state
+from . import analyses, emulators, exceptions, state
 
 T = typing.TypeVar("T", bound=state.Machine)
 
 
-def analyze(machine: T) -> None:
+def analyze(machine: state.Machine) -> None:
     """Run all available analyses on some code.
 
     All analyses are run with default parameters.
@@ -40,7 +40,7 @@ def analyze(machine: T) -> None:
 
 
 def fuzz(
-    cpu: T,
+    machine: state.Machine,
     input_callback: typing.Callable,
     crash_callback: typing.Optional[typing.Callable] = None,
     always_validate: bool = False,
@@ -71,14 +71,25 @@ def fuzz(
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
     args = arg_parser.parse_args()
 
-    emu = emulators.UnicornEmulator(cpu.arch, cpu.mode, cpu.byteorder)
-    cpu.apply(emu)
+    cpu: typing.Optional[state.cpus.CPU] = None
+    for c in machine.members(state.cpus.CPU).items():
+        if cpu is not None:
+            raise exceptions.ConfigurationError("cannot fuzz a multi-core machine")
+        cpu = c
+    if cpu is None:
+        raise exceptions.ConfigurationError("cannot fuzz a zero-core machine")
+
+    emu = emulators.UnicornEmulator(cpu.platform)
+    machine.apply(emu)
 
     exits = []
-    for _, code in cpu.members(state.Code).items():
+    code = None
+    for code in machine.members(state.memory.code.Executable).items():
         exits.extend([b.stop for b in code.bounds])
 
     if len(exits) == 0:
+        if code is None:
+            raise exceptions.ConfigurationError("Cannot fuzz a machine with no code")
         exits.append(code.base + len(code.image))
 
     unicornafl.uc_afl_fuzz(

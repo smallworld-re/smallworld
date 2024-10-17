@@ -4,7 +4,7 @@ import logging
 import pdb
 import typing
 
-from ... import emulators, platforms, utils
+from ... import emulators, exceptions, platforms, utils
 from .. import state
 
 logger = logging.getLogger(__name__)
@@ -20,7 +20,6 @@ class Hook(state.Stateful):
         address: The address of the instruction.
         function: The function to run.
     """
-    
 
     def __init__(
         self, address: int, function: typing.Callable[[emulators.Emulator], None]
@@ -35,6 +34,8 @@ class Hook(state.Stateful):
         pass
 
     def apply(self, emulator: emulators.Emulator) -> None:
+        if not isinstance(emulator, emulators.InstructionHookable):
+            raise exceptions.ConfigurationError("Emulator cannot hook instructions")
         emulator.hook_instruction(self._address, self._function)
 
 
@@ -61,7 +62,7 @@ class Breakpoint(Hook):
 
 class PDBBreakpoint(Breakpoint):
     """A PDB interactive breakpoint."""
-    
+
     @staticmethod
     def interact(emulator: emulators.Emulator) -> None:
         pdb.set_trace()
@@ -88,6 +89,7 @@ class Model(Hook):
         address: The address to model.
 
     """
+
     def __init__(self, address: int):
         super().__init__(address=address, function=self.model)
 
@@ -110,10 +112,12 @@ class Model(Hook):
         pass
 
     @classmethod
-    def lookup(cls, name: str, platform: platforms.Platform, abi: platforms.ABI, address:int):
+    def lookup(
+        cls, name: str, platform: platforms.Platform, abi: platforms.ABI, address: int
+    ):
         """Instantiate a model by name, platform, and ABI.
 
-        Arguments: 
+        Arguments:
             name: The name of the model.
             platform: The platform for which this model is defined.
             abi: The ABI according to which this model works.
@@ -126,17 +130,18 @@ class Model(Hook):
             return utils.find_subclass(
                 cls,
                 lambda x: x.name == name and x.platform == platform and x.abi == abi,
-                address
+                address,
             )
         except ValueError:
             raise ValueError(f"no model for '{name}' on {platform} with ABI '{abi}'")
 
     def apply(self, emulator: emulators.Emulator) -> None:
+        if not isinstance(emulator, emulators.FunctionHookable):
+            raise exceptions.ConfigurationError("Emulator cannot hook functions")
         emulator.hook_function(self._address, self._function)
 
-    @staticmethod
     @abc.abstractmethod
-    def model(emulator: emulators.Emulator) -> None:
+    def model(self, emulator: emulators.Emulator) -> None:
         """This is the implementation of the model for the named function.
 
         Note that implementation will have to make use of knowledge of
@@ -147,16 +152,10 @@ class Model(Hook):
         pass
 
 
-class ImplementedModel(Model):
-
-    model = None
-    name = "None"
-    platform = None
-    abi = None
-
-    def __init__(self, address:int, function):
-        self.model = function
-        super().__init__(address)
-    
-
-__all__ = ["Hook", "Breakpoint", "PDBBreakpoint", "PythonShellBreakpoint", "Model", "ImplementedModel"]
+__all__ = [
+    "Hook",
+    "Breakpoint",
+    "PDBBreakpoint",
+    "PythonShellBreakpoint",
+    "Model",
+]

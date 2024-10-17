@@ -129,14 +129,14 @@ class QMemoryWriteHookable(MemoryWriteHookable):
     def __init__(self):
         super().__init__()
         self.memory_write_hooks: typing.Dict[
-            range, typing.Callable[[Emulator, int, int], bytes]
+            range, typing.Callable[[Emulator, int, int, bytes], None]
         ] = {}
 
     def hook_memory_write(
         self,
         start: int,
         end: int,
-        function: typing.Callable[[Emulator, int, int], bytes],
+        function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
         new_range = range(start, end)
         for r in self.memory_write_hooks:
@@ -168,9 +168,7 @@ class QInterruptHookable(InterruptHookable):
     def __init__(self):
         super().__init__()
         self.all_interrupts_hook = None
-        self.interrupt_hooks: typing.Dict[
-            int, typing.Callable[[Emulator, int], None]
-        ] = {}
+        self.interrupt_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
 
     def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
         self.all_interrupts_hook = function

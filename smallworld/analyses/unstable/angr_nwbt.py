@@ -1,7 +1,7 @@
 import logging
 
-from .. import emulators, hinting, state
-from . import analysis
+from ... import emulators, hinting, state
+from .. import analysis
 from .angr.nwbt import configure_nwbt_plugins, configure_nwbt_strategy
 from .angr.utils import print_state
 
@@ -26,31 +26,32 @@ class AngrNWBTAnalysis(analysis.Analysis):
         if self.initfunc is not None:
             self.initfunc(self, emu.entry)
 
-    def run(self, cpu: state.CPU):
-        emu = emulators.AngrEmulator(
-            cpu.arch, cpu.mode, cpu.byteorder, self.analysis_preint, self.analysis_init
-        )
-        cpu.apply(emu)
+    def run(self, machine: state.Machine):
+        cpu = machine.get_cpu()
+        emu = emulators.AngrEmulator(cpu.platform)
+        machine.apply(emu)
 
         # Extract typedef info from the CPU state,
         # and bind it to the machine state
-        for name, item in cpu.members().items():
+        for item in cpu:
             if isinstance(item, state.Register):
-                if item.type is not None:
+                if item.get_type() is not None:
                     log.debug(f"Applying type for {item}")
-                    emu.state.typedefs.bind_register(name, item.type)
-            elif isinstance(item, state.Memory):
-                for offset, typedef in item.type.items():
-                    addr = item.address + offset
-                    log.debug(f"Applying type for {hex(addr)}")
-                    emu.state.typedefs.bind_address(addr, typedef)
-            elif isinstance(item, state.Code):
+                    emu.state.typedefs.bind_register(item.name, item.get_type())
+        for item in machine:
+            if isinstance(item, state.memory.code.Executable):
                 # TODO: Code is also memory, so it should have types...?
                 pass
+            elif isinstance(item, state.memory.Memory):
+                for offset, value in item.items():
+                    if value.get_type() is not None:
+                        addr = item.address + offset
+                        log.debug(f"Applying type for {hex(addr)}")
+                        emu.state.typedefs.bind_address(addr, value.get_type())
             else:
                 if item.type is not None:
                     raise NotImplementedError(
-                        f"Applying typedef {item.type} for {name} of type {type(item)} not implemented"
+                        f"Applying typedef {item.get_type()} of type {type(item)} not implemented"
                     )
 
         while (self.steps_left is None or self.steps_left > 0) and not self.step(emu):

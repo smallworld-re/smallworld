@@ -1,13 +1,20 @@
-import logging
-import smallworld
 import ctypes
+import logging
+
+import smallworld
+
 smallworld.logging.setup_logging(level=logging.INFO)
 
 machine = smallworld.state.Machine()
-code = smallworld.state.memory.code.Executable.from_filepath("struct.amd64.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+)
 
-platform = smallworld.platforms.Platform(smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE)
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+)
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
+
 
 class StructNode(ctypes.LittleEndianStructure):
     _pack_ = 8

@@ -1,7 +1,6 @@
-import sys
+import logging
 
 import smallworld
-import logging
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -20,14 +19,16 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("stack.amd64.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+)
 machine.add(code)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-# Set the instruction pointer to the code entrypoint 
+# Set the instruction pointer to the code entrypoint
 cpu.rip.set(code.address)
 
 # Initialize argument registers
@@ -41,7 +42,6 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 rsp = stack.get_pointer()
-print(hex(rsp))
 cpu.rsp.set(rsp)
 
 # Emulate
@@ -51,4 +51,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.eax.get()))
+print(cpu.eax)

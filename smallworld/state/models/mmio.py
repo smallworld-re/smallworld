@@ -79,11 +79,15 @@ class MemoryMappedModel(state.Stateful):
         if self.on_read is not None:
             if not isinstance(emulator, emulators.MemoryReadHookable):
                 raise NotImplementedError("Emulator does not support read hooking")
-            emulator.hook_memory_read(self.address, self.address + self.size, self.on_read)
+            emulator.hook_memory_read(
+                self.address, self.address + self.size, self.on_read
+            )
         if self.on_write is not None:
             if not isinstance(emulator, emulators.MemoryWriteHookable):
                 raise NotImplementedError("Emulator does not support write hooking")
-            emulator.hook_memory_write(self.address, self.address + self.size, self.on_write)
+            emulator.hook_memory_write(
+                self.address, self.address + self.size, self.on_write
+            )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({hex(self.address)})"

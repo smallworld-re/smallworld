@@ -2,44 +2,55 @@ import logging
 
 import smallworld
 
-smallworld.setup_logging(level=logging.INFO)
-smallworld.setup_hinting(verbose=True, stream=True, file=None)
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(verbose=True, stream=True, file=None)
+
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+)
 
 # create a state object
-state = smallworld.state.CPU.for_arch("x86", "64", "little")
+machine = smallworld.state.Machine()
+
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
 # load and map code into the state and set ip
-code = smallworld.state.Code.from_filepath(
-    "syscall.amd64.bin", arch="x86", mode="64", base=0x1000, entry=0x1000
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
 )
-state.map(code)
-state.rip.value = code.entry
+machine.add(code)
 
 # create a stack and push a value
-data = b"Hello, world!\n\0"
-stack = smallworld.state.Stack(address=0x2000, size=0x1000)
-arg1 = stack.push(value=data, size=len(data))
-sp = stack.push(value=0xFFFF0000, size=8)
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x1000)
+machine.add(stack)
 
-# map the stack into memory
-state.map(stack)
+
+data = b"Hello, world!\n\0"
+stack.push_bytes(data, None)
+arg1 = stack.get_pointer()
+
+# Push a fake return address
+stack.push_integer(0xFFFFFFFF, 8, None)
 
 # set the stack pointer
-state.rsp.value = sp
+cpu.rsp.set(stack.get_pointer())
 
 # Initialize call to write():
 # - edi: File descriptor 1 (stdout)
 # - rsi: Buffer containing output
 # - rdx: Size of output buffer
-state.edi.value = 0x1
-state.rsi.value = arg1
-state.rdx.value = len(data) - 1
+cpu.edi.set(0x1)
+cpu.rsi.set(arg1)
+cpu.rdx.set(len(data) - 1)
 
-# emulate
-emulator = smallworld.emulators.UnicornEmulator(
-    arch=state.arch, mode=state.mode, byteorder=state.byteorder
-)
-final_state = emulator.emulate(state, single_step=True)
+# Emulate
+emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+final_machine = machine.emulate(emulator)
 
 # read out the final state
-print(final_state.rax)
+final_cpu = final_machine.get_cpu()
+print(hex(final_cpu.eax.get()))

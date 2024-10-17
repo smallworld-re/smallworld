@@ -123,7 +123,7 @@ class ScriptIntegrationTest(unittest.TestCase):
 class CallTests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):
         def test_output(number, res):
-            stdout, _ = self.command(f"python3 call.{arch}.py {number}")
+            stdout, _ = self.command(f"python3 call/call.{arch}.py {number}")
             self.assertLineContainsStrings(stdout, hex(res))
 
         if signext:
@@ -188,7 +188,7 @@ class CallTests(ScriptIntegrationTest):
 class DMATests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):
         def test_output(number1, number2, res):
-            stdout, _ = self.command(f"python3 dma.{arch}.py {number1} {number2}")
+            stdout, _ = self.command(f"python3 dma/dma.{arch}.py {number1} {number2}")
             self.assertLineContainsStrings(stdout, hex(res))
 
         test_output(10, 2, 0x5)
@@ -244,7 +244,7 @@ class DMATests(ScriptIntegrationTest):
 
 class SquareTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py square.amd64.bin")
+        _, stderr = self.command("python3 ../examples/basic_harness.py square.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -285,7 +285,7 @@ class SquareTests(ScriptIntegrationTest):
 
     def run_test(self, arch, signext=False):
         def test_output(number):
-            stdout, _ = self.command(f"python3 square.{arch}.py {number}")
+            stdout, _ = self.command(f"python3 square/square.{arch}.py {number}")
             res = number**2
             if signext and res & 0xFFFFFFFF80000000 != 0:
                 # MIPS64 sign-extends 32-bit ints to use the full 64-bit register.
@@ -349,7 +349,7 @@ class SquareTests(ScriptIntegrationTest):
 class RecursionTests(ScriptIntegrationTest):
     def run_test(self, arch):
         def test_output(number, res):
-            stdout, _ = self.command(f"python3 recursion.{arch}.py {number}")
+            stdout, _ = self.command(f"python3 recursion/recursion.{arch}.py {number}")
             self.assertLineContainsStrings(stdout, hex(res))
 
         test_output(-1, 91)
@@ -409,7 +409,7 @@ class RecursionTests(ScriptIntegrationTest):
 
 class StackTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py stack.amd64.bin")
+        _, stderr = self.command("python3 ../examples/basic_harness.py stack/stack.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -515,7 +515,7 @@ class StackTests(ScriptIntegrationTest):
         )
 
     def run_test(self, arch, reg="rax", res="0xaaaaaaaa"):
-        stdout, _ = self.command(f"python3 stack.{arch}.py")
+        stdout, _ = self.command(f"python3 stack/stack.{arch}.py")
         self.assertLineContainsStrings(stdout, reg, res)
 
     def test_stack_amd64(self):
@@ -569,7 +569,7 @@ class StackTests(ScriptIntegrationTest):
 
 class StructureTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py struct.amd64.bin")
+        _, stderr = self.command("python3 ../examples/basic_harness.py struct/struct.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -608,7 +608,7 @@ class StructureTests(ScriptIntegrationTest):
 
 class BranchTests(ScriptIntegrationTest):
     def test_basic(self):
-        _, stderr = self.command("python3 basic_harness.py branch.amd64.bin")
+        _, stderr = self.command("python3 ../examples/basic_harness.py branch/branch.amd64.bin")
 
         self.assertLineContainsStrings(
             stderr,
@@ -639,13 +639,13 @@ class BranchTests(ScriptIntegrationTest):
         )
 
     def run_branch(self, arch, reg="eax"):
-        stdout, _ = self.command(f"python3 branch.{arch}.py 99")
+        stdout, _ = self.command(f"python3 branch/branch.{arch}.py 99")
         self.assertLineContainsStrings(stdout, reg, "0x0")
 
-        stdout, _ = self.command(f"python3 branch.{arch}.py 100")
+        stdout, _ = self.command(f"python3 branch/branch.{arch}.py 100")
         self.assertLineContainsStrings(stdout, reg, "0x1")
 
-        stdout, _ = self.command(f"python3 branch.{arch}.py 101")
+        stdout, _ = self.command(f"python3 branch/branch.{arch}.py 101")
         self.assertLineContainsStrings(stdout, reg, "0x0")
 
     def test_branch_x86(self):
@@ -696,10 +696,10 @@ class BranchTests(ScriptIntegrationTest):
 
 class StrlenTests(ScriptIntegrationTest):
     def run_test(self, arch):
-        stdout, _ = self.command(f"python3 strlen.{arch}.py ''")
+        stdout, _ = self.command(f"python3 strlen/strlen.{arch}.py ''")
         self.assertLineContainsStrings(stdout, "0x0")
 
-        stdout, _ = self.command(f"python3 strlen.{arch}.py foobar")
+        stdout, _ = self.command(f"python3 strlen/strlen.{arch}.py foobar")
         self.assertLineContainsStrings(stdout, "0x6")
 
     def test_strlen_amd64(self):
@@ -753,7 +753,7 @@ class StrlenTests(ScriptIntegrationTest):
 
 class HookingTests(ScriptIntegrationTest):
     def run_test(self, arch):
-        stdout, _ = self.command(f"python3 hooking.{arch}.py", stdin="foo bar baz")
+        stdout, _ = self.command(f"python3 hooking/hooking.{arch}.py", stdin="foo bar baz")
         self.assertLineContainsStrings(stdout, "foo bar baz")
 
     def test_hooking_amd64(self):
@@ -813,16 +813,16 @@ except ImportError:
 
 class FuzzTests(ScriptIntegrationTest):
     def test_fuzz(self):
-        stdout, _ = self.command("python3 fuzz.py")
+        stdout, _ = self.command("python3 fuzz/fuzz.py")
         self.assertLineContainsStrings(stdout, "eax", "0x0")
 
-        _, stderr = self.command("python3 fuzz.py -c")
+        _, stderr = self.command("python3 fuzz/fuzz.py -c")
         self.assertLineContainsStrings(stderr, "UC_ERR_WRITE_UNMAPPED")
 
     @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzzing(self):
         stdout, _ = self.command(
-            "afl-showmap -U -m none -o /dev/stdout -- python3 afl_fuzz.py fuzz_inputs/good_input",
+            "afl-showmap -U -m none -o /dev/stdout -- python3 fuzz/afl_fuzz.py fuzz/fuzz_inputs/good_input",
             error=False,
         )
         self.assertLineContainsStrings(stdout, "001445:1")

@@ -1,16 +1,19 @@
 import typing
 
 from .... import platforms
-from . import stack
 from ... import state
+from . import stack
+
 
 class AMD64Stack(stack.DescendingStack):
     """A stack for an AMD 64-bit CPU"""
 
-    platform = platforms.Platform(platforms.Architecture.X86_64, platforms.Byteorder.LITTLE)
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    )
 
     def get_pointer(self) -> int:
-        return ((self.address + self.size) - self.get_used())
+        return (self.address + self.size) - self.get_used()
 
     def get_alignment(self) -> int:
         return 16
@@ -26,9 +29,7 @@ class AMD64Stack(stack.DescendingStack):
         for i, arg in enumerate(argv):
             arg_size = len(arg)
             total_strings_bytes += arg_size
-            argv_address.append(
-                (i, s.push_bytes(bytes(arg, "utf-8"), label=f"argv[{i}]"))
-            )
+            argv_address.append((i, s.push_bytes(arg, label=f"argv[{i}]")))
 
         argc = len(argv)
         total_space = (8 * (argc + 2)) + total_strings_bytes

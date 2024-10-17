@@ -1,9 +1,9 @@
 import capstone
 import unicorn
 
-from .machdef import UnicornMachineDef, populate_registers
-from ....platforms import Architecture, Byteorder
 from ....arch import aarch64_arch
+from ....platforms import Architecture, Byteorder
+from .machdef import UnicornMachineDef
 
 
 class AArch64MachineDef(UnicornMachineDef):
@@ -20,5 +20,3 @@ class AArch64MachineDef(UnicornMachineDef):
 
     arch_info = aarch64_arch.info
     unicorn_consts = unicorn.arm64_const
-
-    _registers = populate_registers(arch_info, unicorn_consts)

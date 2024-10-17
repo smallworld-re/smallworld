@@ -46,7 +46,7 @@ class Hint(Serializable):
     def to_dict(self) -> dict:
         """Convert to a dictionary which can be trivially serialized.
 
-        Returns: 
+        Returns:
             A dictionary containing the hint.
         """
 

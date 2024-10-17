@@ -1,7 +1,7 @@
+import logging
 import sys
 
 import smallworld
-import logging
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -34,17 +34,17 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 machine.add(stack)
 
 # Push a string onto the stack
-string = sys.argv[1].encode('utf-8')
-string += b'\0'
-string += b'\0' * (16 - (len(string) % 16))
+string = sys.argv[1].encode("utf-8")
+string += b"\0"
+string += b"\0" * (16 - (len(string) % 16))
 
-stack.push_bytes(string , None)
+stack.push_bytes(string, None)
 str_addr = stack.get_pointer()
 
 # Push argv
-stack.push_integer(0, 8, None)          # NULL terminator
-stack.push_integer(str_addr, 8, None)   # pointer to string
-stack.push_integer(0x10101010, 8, None) # Bogus pointer to argv[0]
+stack.push_integer(0, 8, None)  # NULL terminator
+stack.push_integer(str_addr, 8, None)  # pointer to string
+stack.push_integer(0x10101010, 8, None)  # Bogus pointer to argv[0]
 
 # Push address of argv
 argv = stack.get_pointer()

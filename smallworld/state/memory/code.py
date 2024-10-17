@@ -1,8 +1,7 @@
-import os
 import typing
 
-from ... import state,emulators, exceptions
 from . import memory
+
 
 class Executable(memory.RawMemory):
     """An execuable piece of code."""
@@ -27,8 +26,8 @@ class Executable(memory.RawMemory):
             An Executable parsed from the given ELF file-like object.
         """
         from .elf import ElfExecutable
+
         return ElfExecutable(file, user_base=address)
-        #raise NotImplementedError("ELF parsing not yet implemented")
 
     @classmethod
     def from_pe(cls, file: typing.BinaryIO):

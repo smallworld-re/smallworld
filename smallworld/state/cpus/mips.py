@@ -50,6 +50,7 @@ class MIPS(cpu.CPU):
         return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
+        super().__init__()
         # NOTE: MIPS registers have both a name and a number.
 
         # *** General-Purpose Registers ***

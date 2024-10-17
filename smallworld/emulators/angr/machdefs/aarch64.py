@@ -1,8 +1,8 @@
 import archinfo
 
+from ....arch import aarch64_arch
 from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
-from ....arch import aarch64_arch
 
 
 class AArch64MachineDef(AngrMachineDef):
@@ -12,7 +12,7 @@ class AArch64MachineDef(AngrMachineDef):
     angr_arch = archinfo.arch_aarch64.ArchAArch64()
     pc_reg = "pc"
 
-    _registers = { k: k for k in aarch64_arch.info }
+    _registers = {k: k for k in aarch64_arch.info}
     # Angr is very strictly user-space; it does not model most system registers
     _registers["elr_el1"] = ""
     _registers["elr_el2"] = ""

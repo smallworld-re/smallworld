@@ -1,7 +1,5 @@
-from .... import state,platforms
-
+from .... import platforms
 from ..model import Model
-
 from ..posix import (
     BasenameModel,
     CallocModel,
@@ -43,8 +41,9 @@ from ..posix import (
 
 
 class AMD64SystemVModel(Model):
-
-    platform = platforms.Platform(platforms.Architecture.X86_64,platforms.Byteorder.LITTLE)
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    )
 
     abi = platforms.ABI.SYSTEMV
 
@@ -105,21 +104,15 @@ class AMD64SystemVPutsModel(AMD64SystemVModel, PutsModel):
     pass
 
 
-class AMD64SystemVPthreadCondInitModel(
-    AMD64SystemVModel, PthreadCondInitModel
-):
+class AMD64SystemVPthreadCondInitModel(AMD64SystemVModel, PthreadCondInitModel):
     pass
 
 
-class AMD64SystemVPthreadCondSignalModel(
-    AMD64SystemVModel, PthreadCondSignalModel
-):
+class AMD64SystemVPthreadCondSignalModel(AMD64SystemVModel, PthreadCondSignalModel):
     pass
 
 
-class AMD64SystemVPthreadCondWaitModel(
-    AMD64SystemVModel, PthreadCondWaitModel
-):
+class AMD64SystemVPthreadCondWaitModel(AMD64SystemVModel, PthreadCondWaitModel):
     pass
 
 
@@ -127,21 +120,15 @@ class AMD64SystemVPthreadCreateModel(AMD64SystemVModel, PthreadCreateModel):
     pass
 
 
-class AMD64SystemVPthreadMutexInitModel(
-    AMD64SystemVModel, PthreadMutexInitModel
-):
+class AMD64SystemVPthreadMutexInitModel(AMD64SystemVModel, PthreadMutexInitModel):
     pass
 
 
-class AMD64SystemVPthreadMutexLockModel(
-    AMD64SystemVModel, PthreadMutexLockModel
-):
+class AMD64SystemVPthreadMutexLockModel(AMD64SystemVModel, PthreadMutexLockModel):
     pass
 
 
-class AMD64SystemVPthreadMutexUnlockModel(
-    AMD64SystemVModel, PthreadMutexUnlockModel
-):
+class AMD64SystemVPthreadMutexUnlockModel(AMD64SystemVModel, PthreadMutexUnlockModel):
     pass
 
 
@@ -213,40 +200,41 @@ class AMD64SystemVWriteModel(AMD64SystemVModel, WriteModel):
     pass
 
 
-
-__all__ = ["AMD64SystemVBasenameModel",
-           "AMD64SystemVCallocModel",
-           "AMD64SystemVDaemonModel",
-           "AMD64SystemVFlockModel",
-           "AMD64SystemVGetopt_longModel",
-           "AMD64SystemVGetpagesizeModel",
-           "AMD64SystemVGetppidModel",
-           "AMD64SystemVGetsModel",
-           "AMD64SystemVMallocModel",
-           "AMD64SystemVOpenModel",
-           "AMD64SystemVOpen64Model",
-           "AMD64SystemVPutsModel",
-           "AMD64SystemVPthreadCondInitModel",
-           "AMD64SystemVPthreadCondSignalModel",
-           "AMD64SystemVPthreadCondWaitModel",
-           "AMD64SystemVPthreadCreateModel",
-           "AMD64SystemVPthreadMutexInitModel",
-           "AMD64SystemVPthreadMutexLockModel",
-           "AMD64SystemVPthreadMutexUnlockModel",
-           "AMD64SystemVPtraceModel",
-           "AMD64SystemVRandModel",
-           "AMD64SystemVRandomModel",
-           "AMD64SystemVSleepModel",
-           "AMD64SystemVSrandModel",
-           "AMD64SystemVSrandomModel",
-           "AMD64SystemVStrcatModel",
-           "AMD64SystemVStrncatModel",
-           "AMD64SystemVStrcpyModel",
-           "AMD64SystemVStrncpyModel",
-           "AMD64SystemVStrdupModel",
-           "AMD64SystemVStrlenModel",
-           "AMD64SystemVStrnlenModel",
-           "AMD64SystemVSysconfModel",
-           "AMD64SystemVTimeModel",
-           "AMD64SystemVUnlinkModel",
-           "AMD64SystemVWriteModel"]
+__all__ = [
+    "AMD64SystemVBasenameModel",
+    "AMD64SystemVCallocModel",
+    "AMD64SystemVDaemonModel",
+    "AMD64SystemVFlockModel",
+    "AMD64SystemVGetopt_longModel",
+    "AMD64SystemVGetpagesizeModel",
+    "AMD64SystemVGetppidModel",
+    "AMD64SystemVGetsModel",
+    "AMD64SystemVMallocModel",
+    "AMD64SystemVOpenModel",
+    "AMD64SystemVOpen64Model",
+    "AMD64SystemVPutsModel",
+    "AMD64SystemVPthreadCondInitModel",
+    "AMD64SystemVPthreadCondSignalModel",
+    "AMD64SystemVPthreadCondWaitModel",
+    "AMD64SystemVPthreadCreateModel",
+    "AMD64SystemVPthreadMutexInitModel",
+    "AMD64SystemVPthreadMutexLockModel",
+    "AMD64SystemVPthreadMutexUnlockModel",
+    "AMD64SystemVPtraceModel",
+    "AMD64SystemVRandModel",
+    "AMD64SystemVRandomModel",
+    "AMD64SystemVSleepModel",
+    "AMD64SystemVSrandModel",
+    "AMD64SystemVSrandomModel",
+    "AMD64SystemVStrcatModel",
+    "AMD64SystemVStrncatModel",
+    "AMD64SystemVStrcpyModel",
+    "AMD64SystemVStrncpyModel",
+    "AMD64SystemVStrdupModel",
+    "AMD64SystemVStrlenModel",
+    "AMD64SystemVStrnlenModel",
+    "AMD64SystemVSysconfModel",
+    "AMD64SystemVTimeModel",
+    "AMD64SystemVUnlinkModel",
+    "AMD64SystemVWriteModel",
+]

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import smallworld
 import logging
+
+import smallworld
 
 smallworld.logging.setup_logging(level=logging.INFO)
 
@@ -13,9 +14,13 @@ arg_parser.add_argument(
 args = arg_parser.parse_args()
 
 machine = smallworld.state.Machine()
-platform = smallworld.platforms.Platform(smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE)
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+)
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
-code = smallworld.state.memory.code.Executable.from_filepath("fuzz.amd64.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+)
 heap = smallworld.state.memory.heap.BumpAllocator(0x2000, 0x1000)
 
 user_input = None

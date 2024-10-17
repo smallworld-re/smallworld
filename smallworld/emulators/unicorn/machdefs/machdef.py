@@ -1,9 +1,11 @@
 import abc
-import typing
 import inspect
+import typing
 
-from .... import utils, platforms
-#from ....platforms import Architecture
+from .... import platforms, utils
+
+# from ....platforms import Architecture
+
 
 class UnicornMachineDef(metaclass=abc.ABCMeta):
     """Container class for Unicorn architecture-specific definitions"""
@@ -12,13 +14,13 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def arch(self) -> platforms.Architecture:
         """The architecture ID"""
-        return ""
+        raise NotImplementedError("Abstract unicorn machine def has no architecture")
 
     @property
     @abc.abstractmethod
     def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        return ""
+        raise NotImplementedError("Abstract unicorn machine def has no byteorder")
 
     @property
     @abc.abstractmethod
@@ -56,9 +58,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """The name of the Program Counter register for this machine"""
         return ""
 
-    _registers: typing.Dict[str, int] = {}
+    _registers: typing.Dict[str, typing.Tuple[typing.Any, str, int, int]] = {}
 
-    def uc_reg(self, name: str) -> int:
+    def uc_reg(self, name: str) -> typing.Tuple[typing.Any, str, int, int]:
         """Convert a register name to unicorn constant
 
         This must cover all names defined in the CPU state model
@@ -87,19 +89,18 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
 
         try:
-
             return utils.find_subclass(
                 cls,
                 lambda x: x.arch == platform.architecture
                 and x.byteorder == platform.byteorder,
             )
         except:
-            raise ValueError(f"No machine model for {platform.architecture}:{platform.byteorder}")
-
+            raise ValueError(
+                f"No machine model for {platform.architecture}:{platform.byteorder}"
+            )
 
 
 def populate_registers(arch_info, unicorn_consts):
-
     def find_uc_const(reg_name):
         ew = f"_{reg_name.upper()}"
         for name, num in inspect.getmembers(unicorn_consts):
@@ -108,9 +109,9 @@ def populate_registers(arch_info, unicorn_consts):
         return None
 
     registers = {}
-    for (reg_name, info) in arch_info.items():
-        (base_reg_name,(start,end)) = info
-        (ucstr,ucnum) = find_uc_const(reg_name)
+    for reg_name, info in arch_info.items():
+        (base_reg_name, (start, end)) = info
+        (ucstr, ucnum) = find_uc_const(reg_name)
         registers[reg_name] = (ucnum, base_reg_name, start, end)
 
     return registers

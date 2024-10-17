@@ -249,9 +249,9 @@ class PandaEmulator(
             return
 
         if not self.panda_thread.machdef.check_panda_reg(name):
-            logger.warn(f"Panda doesn't support register {name} for {self.platform}")
-            # TODO what should i return here
-            return
+            raise exceptions.UnsupportedRegisterError(
+                f"Panda doesn't support register {name} for {self.platform}"
+            )
         name = self.panda_thread.machdef.panda_reg(name)
 
         try:
@@ -293,7 +293,7 @@ class PandaEmulator(
         def page(address):
             return address // self.PAGE_SIZE
 
-        if address:
+        if address is not None:
             # Translate an addressi + size to a page range
             region = (page(address), page(address + size) + 1)
 
@@ -314,11 +314,10 @@ class PandaEmulator(
                 )
             # Make sure we add our new region to our mapped_pages
             self.mapped_pages.add_range(region)
+            return address
         else:
             # TODO: map a region if we have no address provided
-            pass
-
-        return address
+            raise NotImplementedError("Dynamic mapping not yet supported")
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         # Should we type check, if content isnt bytes mad?

@@ -12,10 +12,13 @@ class Architecture(enum.Enum):
     """
 
     X86_32 = "x86-32"
-    """32-bit x86."""
+    """32-bit x86 supporting SSE extensions."""
 
     X86_64 = "x86-64"
-    """64-bit x86."""
+    """64-bit x86 supporting AVX2 extensions."""
+
+    X86_64_AVX512 = "x86-64-avx512"
+    """64-bit x86 supporting AVX512 extensions."""
 
     AARCH64 = "aarch64"
 

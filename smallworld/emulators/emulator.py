@@ -487,7 +487,7 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
         self,
         start: int,
         end: int,
-        function: typing.Callable[[Emulator, int, int], bytes],
+        function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
         """Hook memory writes within a given range.
 

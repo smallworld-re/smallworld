@@ -1,7 +1,6 @@
-import sys
+import logging
 
 import smallworld
-import logging
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -20,25 +19,27 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("stack.i386.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+)
 machine.add(code)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-# Set the instruction pointer to the code entrypoint 
+# Set the instruction pointer to the code entrypoint
 cpu.eip.set(code.address)
 
 # Push a return address and arguments onto the stack
-stack.push_integer(0x44444444, 4, None) # Argument 7
-stack.push_integer(0x01010101, 4, None) # Argument 6
-stack.push_integer(0x33333333, 4, None) # Argument 5
-stack.push_integer(0x01010101, 4, None) # Argument 4
-stack.push_integer(0x22222222, 4, None) # Argument 3
-stack.push_integer(0x01010101, 4, None) # Argument 2
-stack.push_integer(0x11111111, 4, None) # Argument 1
-stack.push_integer(0x01010101, 4, None) # Return address
+stack.push_integer(0x44444444, 4, None)  # Argument 7
+stack.push_integer(0x01010101, 4, None)  # Argument 6
+stack.push_integer(0x33333333, 4, None)  # Argument 5
+stack.push_integer(0x01010101, 4, None)  # Argument 4
+stack.push_integer(0x22222222, 4, None)  # Argument 3
+stack.push_integer(0x01010101, 4, None)  # Argument 2
+stack.push_integer(0x11111111, 4, None)  # Argument 1
+stack.push_integer(0x01010101, 4, None)  # Return address
 
 # Configure the stack pointer
 rsp = stack.get_pointer()
@@ -52,4 +53,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.eax.get()))
+print(cpu.eax)

@@ -1,8 +1,9 @@
+import abc
 import logging
 import random
 
+from ... import emulators
 from .model import Model
-from ... import emulators, state
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,52 @@ def _emu_strncat(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
 ######################################################
 
 
-class BasenameModel(Model):
+class PosixModel(Model):
+    # Base class for POSIX models.
+    #
+    # Most POSIX ABIS use a register-based calling convention.
+    # Rather than tailor each model for each ABI, this base class
+    # lets us play madlibs with the argument and return registers.
+    #
+    # TODO: i386 and mips32 also have stack-passed arguments.
+
+    @property
+    @abc.abstractmethod
+    def argument1(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def argument2(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def argument3(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def argument4(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def argument5(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def argument6(self) -> str:
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def return_val(self) -> str:
+        return ""
+
+
+class BasenameModel(PosixModel):
     name = "basename"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -125,7 +171,7 @@ class BasenameModel(Model):
         emulator.write_register(self.return_val, bn)
 
 
-class CallocModel(Model):
+class CallocModel(PosixModel):
     name = "calloc"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -137,15 +183,15 @@ class CallocModel(Model):
         emulator.write_register(self.return_val, addr)
 
 
-class ReturnsNothingModel(Model):
+class ReturnsNothingModel(PosixModel):
     def model(self, emulator: emulators.Emulator) -> None:
         # so just do nothing
         pass
-    
-    
-class Returns0Model(Model):
+
+
+class Returns0Model(PosixModel):
     def model(self, emulator: emulators.Emulator) -> None:
-        # just return 0 
+        # just return 0
         emulator.write_register(self.return_val, 0)
 
 
@@ -157,7 +203,7 @@ class FlockModel(Returns0Model):
     name = "flock"
 
 
-class Getopt_longModel(Model):
+class Getopt_longModel(PosixModel):
     name = "getopt_long"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -166,7 +212,7 @@ class Getopt_longModel(Model):
         emulator.write_register(self.return_val, -1)
 
 
-class GetpagesizeModel(Model):
+class GetpagesizeModel(PosixModel):
     name = "getpagesize"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -178,7 +224,7 @@ class GetppidModel(Returns0Model):
     name = "getppid"
 
 
-class GetsModel(Model):
+class GetsModel(PosixModel):
     name = "gets"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -193,7 +239,7 @@ class MallocModel(CallocModel):
     name = "malloc"
 
 
-class MemcpyModel(Model):
+class MemcpyModel(PosixModel):
     name = "memcpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -205,7 +251,7 @@ class MemcpyModel(Model):
         emulator.write_register(self.return_val, dst)
 
 
-class OpenModel(Model):
+class OpenModel(PosixModel):
     name = "open"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -218,13 +264,14 @@ class Open64Model(OpenModel):
     name = "open64"
 
 
-class PutsModel(Model):
+class PutsModel(PosixModel):
     name = "puts"
 
     def model(self, emulator: emulators.Emulator) -> None:
         # int fputs(const char *restrict s, FILE *restrict stream);
-        sl = _emu_strlen(emulator, self.argument1)
-        b_opt = emulator.read_memory(self.argument1, sl)
+        addr = emulator.read_register_content(self.argument1)
+        sl = _emu_strlen(emulator, addr)
+        b_opt = emulator.read_memory(addr, sl)
         if b_opt is not None:
             logger.debug(f"puts stream={self.argument2:x} s=[{b_opt!r}]")
         emulator.write_register(self.return_val, 0)
@@ -262,7 +309,7 @@ class PtraceModel(Returns0Model):
     name = "ptrace"
 
 
-class RandModel(Model):
+class RandModel(PosixModel):
     name = "rand"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -270,7 +317,7 @@ class RandModel(Model):
         emulator.write_register(self.return_val, random.randint(0, 0x7FFFFFFF))
 
 
-class RandomModel(Model):
+class RandomModel(PosixModel):
     name = "random"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -290,7 +337,7 @@ class SrandomModel(ReturnsNothingModel):
     name = "srandom"
 
 
-class StrcatModel(Model):
+class StrcatModel(PosixModel):
     name = "strcat"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -300,7 +347,7 @@ class StrcatModel(Model):
         _emu_strncat(emulator, dst, src, MAX_STRLEN)
 
 
-class StrncatModel(Model):
+class StrncatModel(PosixModel):
     name = "strncat"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -311,7 +358,7 @@ class StrncatModel(Model):
         _emu_strncat(emulator, dst, src, msl)
 
 
-class StrcpyModel(Model):
+class StrcpyModel(PosixModel):
     name = "strcpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -321,7 +368,7 @@ class StrcpyModel(Model):
         _emu_strncpy(emulator, dst, src, MAX_STRLEN, is_strncpy=False)
 
 
-class StrncpyModel(Model):
+class StrncpyModel(PosixModel):
     name = "strncpy"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -332,7 +379,7 @@ class StrncpyModel(Model):
         _emu_strncpy(emulator, dst, src, sl, is_strncpy=True)
 
 
-class StrdupModel(Model):
+class StrdupModel(PosixModel):
     name = "strdup"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -344,7 +391,7 @@ class StrdupModel(Model):
         emulator.write_register(self.return_val, dst)
 
 
-class StrlenModel(Model):
+class StrlenModel(PosixModel):
     name = "strlen"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -355,7 +402,7 @@ class StrlenModel(Model):
         )
 
 
-class StrnlenModel(Model):
+class StrnlenModel(PosixModel):
     name = "strnlen"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -365,7 +412,7 @@ class StrnlenModel(Model):
         emulator.write_register(self.return_val, _emu_strlen_n(emulator, ptr, n))
 
 
-class SysconfModel(Model):
+class SysconfModel(PosixModel):
     name = "sysconf"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -377,7 +424,7 @@ class SysconfModel(Model):
             emulator.write_register(self.return_val, 1)
 
 
-class TimeModel(Model):
+class TimeModel(PosixModel):
     name = "time"
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -390,12 +437,14 @@ class UnlinkModel(Returns0Model):
     name = "unlink"
 
 
-class WriteModel(Model):
+class WriteModel(PosixModel):
     name = "write"
 
     def model(self, emulator: emulators.Emulator) -> None:
         # ssize_t write(int fildes, const void *buf, size_t nbyte);
-        b_opt = emulator.read_memory(self.argument2, self.argument3)
+        addr = emulator.read_register_content(self.argument2)
+        size = emulator.read_register_content(self.argument3)
+        b_opt = emulator.read_memory(addr, size)
         if b_opt is not None:
             logger.debug(f"write fd={self.argument1} buf=[{b_opt!r}]")
         emulator.write_register(self.return_val, 0)

@@ -1,6 +1,8 @@
 import logging
 import typing
 
+from ... import platforms, state
+
 # TODO fix these imports after refactoring state module
 # from ... import models, state
 
@@ -27,6 +29,11 @@ def setup_default_libc(
         cpustate: cpu state into which to map models
     """
 
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    )
+    abi = platforms.ABI.SYSTEMV
+
     program = flat_api.getCurrentProgram()
     listing = program.getListing()
 
@@ -52,8 +59,8 @@ def setup_default_libc(
                 try:
                     # func is in plt and it is a function for which we want to use a default model
                     int_entry = int(entry.getOffset())
-                    model = models.model_for_name(
-                        "x86", "64", "little", "sysv", func_name, int_entry
+                    model = state.models.Model.lookup(
+                        func_name, platform, abi, int_entry
                     )
                     cpustate.map(model)
                     logger.debug(
@@ -64,9 +71,7 @@ def setup_default_libc(
                     logger.debug(
                         f"As there is no default model for {func_name}, adding with null model, entry {int_entry:x}"
                     )
-                    model = models.model_for_name(
-                        "x86", "64", "little", "sysv", "null", int_entry
-                    )
+                    model = state.models.Model.lookup("null", platform, abi, int_entry)
                     cpustate.map(model)
                     num_no_model += 1
 
@@ -119,7 +124,6 @@ def setup_section(
         with open(elf_file, "rb") as e:
             e.seek(offs_in_elf)
             section_bytes = e.read(size)
-    section = state.Memory(address=address, size=size)
-    section.value = section_bytes
+    section = state.memory.RawMemory.from_bytes(section_bytes, address)
     cpustate.map(section, section_name)
     return section_bytes

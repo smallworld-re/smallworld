@@ -1,7 +1,7 @@
+import logging
 import sys
 
 import smallworld
-import logging
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -20,10 +20,12 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath("square.ppc.bin", address=0x1000)
+code = smallworld.state.memory.code.Executable.from_filepath(
+    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+)
 machine.add(code)
 
-# Set the instruction pointer to the code entrypoint 
+# Set the instruction pointer to the code entrypoint
 cpu.pc.set(code.address)
 
 # Initialize argument registers

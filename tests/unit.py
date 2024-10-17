@@ -2,7 +2,7 @@ import signal
 import typing
 import unittest
 
-from smallworld import emulators, initializers, state
+from smallworld import emulators, state
 
 
 class assertTimeout:
@@ -45,11 +45,6 @@ class StateTests(unittest.TestCase):
 
         @value.setter
         def value(self, value) -> None:
-            pass
-
-        def initialize(
-            self, initializer: initializers.Initializer, override: bool = False
-        ) -> None:
             pass
 
         def load(self, emulator: emulators.Emulator, override: bool = True) -> None:

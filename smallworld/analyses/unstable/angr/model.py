@@ -4,10 +4,10 @@ import logging
 import claripy
 from angr.storage import MemoryMixin
 
-from ... import hinting, instructions
-from ...ctypes import TypedPointer
-from ...emulators.angr import PathTerminationSignal
-from ...emulators.angr.utils import reg_name_from_offset
+from .... import hinting, instructions
+from ....ctypes import TypedPointer
+from ....emulators.angr import PathTerminationSignal
+from ....emulators.angr.utils import reg_name_from_offset
 from .base import BaseMemoryMixin
 from .visitor import EvalVisitor
 

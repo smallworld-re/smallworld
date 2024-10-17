@@ -1,8 +1,8 @@
 import copy
 import logging
 
-from .. import emulators, exceptions, hinting, instructions, state
-from . import analysis
+from ... import emulators, exceptions, hinting, instructions, state
+from .. import analysis
 
 logger = logging.getLogger(__name__)
 hinter = hinting.get_hinter(__name__)
@@ -23,10 +23,11 @@ class ControlFlowTracer(analysis.Analysis):
     description = ""
     version = "0.0.1"
 
-    def run(self, state: state.CPU) -> None:
-        cpu = copy.deepcopy(state)
-        emulator = emulators.UnicornEmulator(state.arch, state.mode, state.byteorder)
-        cpu.apply(emulator)
+    def run(self, state: state.Machine) -> None:
+        machine = copy.deepcopy(state)
+        cpu = machine.get_cpu()
+        emulator = emulators.UnicornEmulator(cpu.platform)
+        machine.apply(emulator)
 
         from_instruction = None
 
@@ -45,9 +46,9 @@ class ControlFlowTracer(analysis.Analysis):
             if self.is_cfi(instruction):
                 from_instruction = instruction
             try:
-                done = emulator.step()
-                if done:
-                    break
+                emulator.step()
+            except exceptions.EmulationStop:
+                break
             except exceptions.EmulationError as e:
                 exhint = hinting.EmulationException(
                     message="Emulation single step raised an exception",
