@@ -871,10 +871,10 @@ except ImportError:
 
 class FuzzTests(ScriptIntegrationTest):
     def test_fuzz(self):
-        stdout, _ = self.command("python3 fuzz/fuzz.py")
+        stdout, _ = self.command("python3 fuzz/fuzz.amd64.py")
         self.assertLineContainsStrings(stdout, "eax", "0x0")
 
-        _, stderr = self.command("python3 fuzz/fuzz.py -c")
+        _, stderr = self.command("python3 fuzz/fuzz.amd64.py -c")
         self.assertLineContainsStrings(stderr, "UC_ERR_WRITE_UNMAPPED")
 
     @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
