@@ -200,6 +200,9 @@ class AMD64(cpu.CPU):
         self.ip = state.RegisterAlias("ip", self.rip, 2, 0)
         self.add(self.ip)
 
+        self.pc = state.RegisterAlias("pc", self.rip, 8, 0)
+        self.add(self.pc)
+
         # *** Flags register ***
         self.rflags = state.Register("rflags", 8)
         self.add(self.rflags)

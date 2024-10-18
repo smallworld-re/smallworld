@@ -437,6 +437,25 @@ class Machine(StatefulSet):
     even stack and heap memory.
     """
 
+    def __init__(self):
+        super().__init__()
+        self._exitpoints = set()
+
+    def add_exit_point(self, address: int):
+        self._exitpoints.add(address)
+
+    def get_exit_points(self) -> typing.Set[int]:
+        return self._exitpoints
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        for address in self._exitpoints:
+            emulator.add_exit_point(address)
+        return super().apply(emulator)
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        self._exitpoints = emulator.get_exitpoints()
+        return super().extract(emulator)
+
     def emulate(self, emulator: emulators.Emulator) -> Machine:
         """Emulate this machine with the given emulator.
 
@@ -471,7 +490,7 @@ class Machine(StatefulSet):
 
     def step(
         self, emulator: emulators.Emulator
-    ) -> typing.Generator[Machine, None, Machine]:
+    ) -> typing.Generator[Machine, None, None]:
         self.apply(emulator)
 
         while True:
@@ -492,8 +511,7 @@ class Machine(StatefulSet):
                 # pdb.set_trace()
                 print(f"emulation ended; raised exception {e}")
                 break
-
-        return machine_copy
+        return None
 
     def fuzz(
         self,
@@ -533,10 +551,23 @@ class Machine(StatefulSet):
             persistent_iters=iterations,
         )
 
+    def get_cpus(self):
+        return [i for i in self if issubclass(type(i), state.cpus.cpu.CPU)]
+
+    def get_platforms(self):
+        return set([i.get_platform() for i in self.get_cpus()])
+
     def get_cpu(self):
-        for i in self:
-            if issubclass(type(i), state.cpus.cpu.CPU):
-                return i
+        cpus = self.get_cpus()
+        if len(cpus) != 1:
+            raise exceptions.ConfigurationError("You have more than one CPU")
+        return cpus[0]
+
+    def get_platform(self):
+        platforms = self.get_platforms()
+        if len(platforms) != 1:
+            raise exceptions.ConfigurationError("You have more than one platform")
+        return platforms.pop()
 
 
 __all__ = [
