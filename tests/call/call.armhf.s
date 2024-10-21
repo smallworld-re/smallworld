@@ -7,7 +7,7 @@ bar:
         mul     r1, r0, r1
         cmp     r0, #101
         mov     r0, r1
-        blo     .L2
+        blt     .L2
         mov     r0, #32
 .L2:
         pop     {fp, pc}

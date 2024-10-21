@@ -229,10 +229,15 @@ class IntegerValue(Value):
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         if self._content is None:
             raise ValueError("IntegerValue must have an integer value")
+        value = self._content
+        if value < 0:
+            # Convert signed python into unsigned int containing 2s-compliment value.
+            # Python's to_bytes() doesn't do this on its own.
+            value = 2 ** (self._size * 8) + value
         if byteorder == platforms.Byteorder.LITTLE:
-            return self._content.to_bytes(self._size, byteorder="little")
+            return value.to_bytes(self._size, byteorder="little")
         elif byteorder == platforms.Byteorder.BIG:
-            return self._content.to_bytes(self._size, byteorder="big")
+            return value.to_bytes(self._size, byteorder="big")
         else:
             raise NotImplementedError("middle endian integers are not yet implemented")
 
@@ -491,7 +496,7 @@ class Machine(StatefulSet):
 
     def step(
         self, emulator: emulators.Emulator
-    ) -> typing.Generator[Machine, None, Machine]:
+    ) -> typing.Generator[Machine, None, None]:
         self.apply(emulator)
 
         while True:

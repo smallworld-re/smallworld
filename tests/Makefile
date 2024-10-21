@@ -5,9 +5,8 @@ SOURCES := $(wildcard */*.s)
 BINS := $(patsubst %.s,%.bin,$(filter-out %.elf.s, $(SOURCES)))
 ELFS := $(patsubst %.elf.s,%.elf,$(filter %.elf.s, $(SOURCES)))
 MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
-MIPSEL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
+MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
 TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS)
-
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)

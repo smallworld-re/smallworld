@@ -18,6 +18,7 @@ class I386(cpu.CPU):
         return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
+        super().__init__()
         # *** General Purpose Registers ***
         self.eax = state.Register("eax", 4)
         self.add(self.eax)
