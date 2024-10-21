@@ -11,6 +11,7 @@ class ARMMachineDef(PandaMachineDef):
 
     pc_reg = "ip"
 
+    panda_cpu_str = "cortex-a9"  # -cpu cortex-a9
     panda_arch_str = "arm"
     # We don't need this
     panda_arch = pandare.arch.ArmArch(None)
@@ -37,7 +38,7 @@ class ARMMachineDef(PandaMachineDef):
             "ip",
         }
 
-        self._registers = {i:i for i in self._registers} 
+        self._registers = {i: i for i in self._registers}
 
 
 class ARMMachineMixinM:
@@ -45,20 +46,19 @@ class ARMMachineMixinM:
 
     def __init__(self):
         super().__init__()
-        self._registers_m = \
-            {
-                # NOTE: PSR is aliased to CPSR
-                # This is an artifact of the fact that Unicorn
-                # seems to emulate a mash-up of M- and A-series arm.
-                "psr",
-                "primask",
-                "basepri",
-                "faultmask",
-                "control",
-                "msp",
-                "psp",
-            }
-        self._registers = self._registers | {i:i for i in self._registers_m}
+        self._registers_m = {
+            # NOTE: PSR is aliased to CPSR
+            # This is an artifact of the fact that Unicorn
+            # seems to emulate a mash-up of M- and A-series arm.
+            "psr",
+            "primask",
+            "basepri",
+            "faultmask",
+            "control",
+            "msp",
+            "psp",
+        }
+        self._registers = self._registers | {i: i for i in self._registers_m}
 
 
 class ARMv5TMachineDef(ARMMachineDef):

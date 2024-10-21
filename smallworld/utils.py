@@ -104,29 +104,35 @@ class RangeCollection:
             return [arange]
 
         for start, end in self.ranges:
-            # We were at the last part
+            # our range is completely before the first range
             if new_end < start:
                 missing_ranges.append((new_start, new_end))
+                return missing_ranges
 
-            # Haven't found our start yet
+            # New range starts after this range ends
             elif new_start > end:
                 continue
 
-            # We have found our start i.e. new_start > prev end
+            # We have found our start i.e. new_start >= prev end
 
-            # Gap before current start
+            # Gap before current start, it falls overlapping ranges
             if new_start < start:
                 missing_ranges.append((new_start, min(new_end, start)))
 
+            # Adjust new start to end of current range
             new_start = max(new_start, end)
 
-            if new_start > new_end:
+            # If the new range ends before the current range, done
+            if new_start >= new_end:
                 break
+
+        if new_start < new_end:
+            missing_ranges.append((new_start, new_end))
 
         return missing_ranges
 
     # Returns either the range or the range BEFORE you
-    def find_closest_range(self, value : int) -> int:
+    def find_closest_range(self, value: int) -> int:
         for i, (start, end) in enumerate(self.ranges):
             if start <= value < end:
                 return i
@@ -134,7 +140,7 @@ class RangeCollection:
                 return i
         return 0
 
-    def remove_range(self, arange : typing.Tuple[int, int]) -> None:
+    def remove_range(self, arange: typing.Tuple[int, int]) -> None:
         start, end = arange
         if start > end or start == end:
             print("no")
@@ -166,7 +172,7 @@ class RangeCollection:
         self.ranges = new_ranges
         return
 
-    def add_range(self, arange : typing.Tuple[int,int]) -> None:
+    def add_range(self, arange: typing.Tuple[int, int]) -> None:
         start, end = arange
         if start > end or start == end:
             print("no")
@@ -198,4 +204,4 @@ class RangeCollection:
 
         self.ranges = new_ranges
 
-        return new_ranges
+        return

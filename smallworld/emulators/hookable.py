@@ -162,6 +162,11 @@ class QMemoryWriteHookable(MemoryWriteHookable):
     #            f"can't unhook memory write range {range_to_hex_str(address)} since its not already hooked"
     #        )
     #    self.memory_write_hooks.pop(address, None)
+    def is_memory_write_hooked(self, address: int) -> typing.Optional[range]:
+        for rng in self.memory_write_hooks:
+            if address in rng:
+                return rng
+        return None
 
 
 class QInterruptHookable(InterruptHookable):

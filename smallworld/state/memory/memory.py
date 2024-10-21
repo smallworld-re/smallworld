@@ -70,6 +70,8 @@ class Memory(state.Stateful, dict):
         emulator.map_memory(self.get_capacity(), self.address)
         for offset, value in self.items():
             if not isinstance(value, state.EmptyValue):
+                print(emulator.platform.byteorder)
+                print(value.to_bytes(emulator.platform.byteorder))
                 emulator.write_memory_content(
                     self.address + offset, value.to_bytes(emulator.platform.byteorder)
                 )
