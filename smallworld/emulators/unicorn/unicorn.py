@@ -555,6 +555,8 @@ class UnicornEmulator(
             # unicorn requires one exit point so just use first
             exit_point = list(self._exit_points)[0]
             self.engine.emu_start(self.read_register("pc"), exit_point)
+        except exceptions.EmulationStop:
+            pass
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")
@@ -577,14 +579,12 @@ class UnicornEmulator(
         """
 
         pc = self.read_register("pc")
-        code = self.read_memory(pc, 16)
+        code = b""
+        # TODO: If the PC is unmapped, this will cause an infinite loop.
+        # We can turn this back on when we can detect unmapped addresses.
+        # code = self.read_memory(pc, 16)
 
-        if code is None:
-            raise AssertionError(
-                "invalid state -- cannot obtain code from memory for current pc"
-            )
-
-        insns, _ = self.disassemble(code, 1)
+        # insns, _ = self.disassemble(code, 1)
         #        i = instructions.Instruction.from_capstone(insns[0])
 
         if typ == "mem":
