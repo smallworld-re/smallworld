@@ -141,6 +141,9 @@ class PandaEmulator(
                     self.signal_and_wait()
 
                 # Always call hooked code first
+                if self.manager.all_instructions_hook:
+                    self.manager.all_instructions_hook(self.manager)
+
                 if f := self.manager.is_instruction_hooked(pc):
                     f(self.manager)
 
@@ -169,6 +172,8 @@ class PandaEmulator(
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
                 print(self.manager)
+                if self.manager.all_reads_hook:
+                    self.manager.all_reads_hook(self.manager, addr, size)
                 if rng := self.manager.is_memory_read_hooked(addr):
                     self.manager.memory_read_hooks[rng](self.manager, addr, size)
                 print(f"on_read: {addr}")
@@ -178,6 +183,9 @@ class PandaEmulator(
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
                 # print(f"on_write: {pc}")
+                if self.manager.all_writes_hook:
+                    self.manager.all_writes_hook(self.manager, addr, size, bytes())
+
                 if rng := self.manager.is_memory_write_hooked(addr):
                     # TODO: the type of buf is <class '_cffi_backend._CDataBase'>
                     # how do i translate this to bytes?
@@ -186,7 +194,7 @@ class PandaEmulator(
                     )
 
             # TODO: Untested
-            @self.panda.cb_before_handle_interrupt(enabled=False)
+            @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
                 # First if all interrupts are hooked, run that function
                 if self.manager.all_interrupts_hook:
@@ -299,11 +307,11 @@ class PandaEmulator(
         def page(address):
             return address // self.PAGE_SIZE
 
-
         if address is not None:
             print(f"map_memory: mapping at {hex(address)}, size {hex(size)}")
             # Translate an addressi + size to a page range
             region = (page(address), page(address + size) + 1)
+            print(page(address + size))
 
             # Get the missing pages first. Those are the ones we want to map
             missing_range = self.mapped_pages.get_missing_ranges(region)
@@ -343,7 +351,7 @@ class PandaEmulator(
 
         # self.map_memory(len(bytes(content)), address)
         # content = content[::-1]
-        #print(f"write_memory: {content}")
+        # print(f"write_memory: {content}")
         self.panda_thread.panda.physical_memory_write(address, content)
         print(
             self.panda_thread.panda.virtual_memory_read(self.cpu, address, len(content))

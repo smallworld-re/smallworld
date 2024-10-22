@@ -13,6 +13,7 @@ class MIPSMachineDef(PandaMachineDef):
     pc_reg = "pc"
 
     # We don't need this
+    panda_cpu_str = ""
     panda_arch = pandare.arch.MipsArch(None)
 
     # I'm going to define all the ones we are making possible as of now

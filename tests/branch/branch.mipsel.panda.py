@@ -32,7 +32,7 @@ cpu.pc.set(code.address)
 cpu.a0.set(int(sys.argv[1]))
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.PandaEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 

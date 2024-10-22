@@ -411,6 +411,7 @@ class UnicornEmulator(
             raise ValueError("memory write cannot be empty")
 
         try:
+            # print(f"write_memory: {content}")
             self.engine.mem_write(address, content)
         except unicorn.UcError as e:
             logger.warn(f"Unicorn raised an exception on memory write {e}")
