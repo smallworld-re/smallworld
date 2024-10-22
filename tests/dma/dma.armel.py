@@ -94,7 +94,8 @@ class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
             )
 
 
-hdiv = HDivModel(0x50014000, 4)
+# NOTE: Address 0x50014000 is not easy to encode in armv5t.
+hdiv = HDivModel(0x50004000, 4)
 machine.add(hdiv)
 
 # Emulate

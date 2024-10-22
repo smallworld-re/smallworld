@@ -64,7 +64,8 @@ emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(0)
 for bound in code.bounds:
     emulator.add_bound(bound.start, bound.stop)
-machine.apply(emulator)
-while True:
-    emulator.step()
+    # I happen to know that the code _actually_ stops
+    # at .text + 0x2d
+    emulator.add_exit_point(bound.start + 0x2D)
+
 machine.emulate(emulator)
