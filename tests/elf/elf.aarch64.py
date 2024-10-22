@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -28,7 +28,7 @@ with open(filename, "rb") as f:
 # Set entrypoint from the ELF
 if code.entrypoint is None:
     raise ValueError("ELF has no entrypoint")
-cpu.rip.set(code.entrypoint)
+cpu.pc.set(code.entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
@@ -56,7 +56,7 @@ stack.push_integer(2, 8, None)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.rsp.set(sp)
+cpu.sp.set(sp)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
@@ -66,7 +66,7 @@ emulator.add_exit_point(0)
 for bound in code.bounds:
     emulator.add_bound(bound.start, bound.stop)
     # I happen to know that the code _actually_ stops
-    # at .text + 0x2d
-    emulator.add_exit_point(bound.start + 0x2D)
+    # at .text + 0xac
+    emulator.add_exit_point(bound.start + 0xAC)
 
 machine.emulate(emulator)

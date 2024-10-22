@@ -59,14 +59,11 @@ sp = stack.get_pointer()
 cpu.rsp.set(sp)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 
 # Use code bounds from the ELF
-emulator.add_exit_point(0)
 for bound in code.bounds:
     emulator.add_bound(bound.start, bound.stop)
-    # I happen to know that the code _actually_ stops
-    # at .text + 0x2d
-    emulator.add_exit_point(bound.start + 0x2D)
 
 machine.emulate(emulator)
