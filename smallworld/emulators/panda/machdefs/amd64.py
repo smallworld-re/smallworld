@@ -10,6 +10,7 @@ class AMD64MachineDef(PandaMachineDef):
     byteorder = Byteorder.LITTLE
 
     panda_arch_str = "x86_64"
+    panda_cpu_str = ""
     panda_arch = pandare.arch.X86_64Arch(None)
 
     cs_arch = capstone.CS_ARCH_X86
@@ -43,10 +44,17 @@ class AMD64MachineDef(PandaMachineDef):
     _registers_byte = {"al", "bl", "cl", "dl", "ah", "bh", "ch", "dh"}
     _registers_seg = {"es", "cs", "ss", "ds", "fs", "gs"}
     _registers_control = {"cr0", "cr1", "cr2", "cr3", "cr4"}
-    _registers = (
-        _registers_64
-        | _registers_general
-        | _registers_byte
-        | _registers_seg
-        | _registers_control
-    )
+
+    # _registers = (
+    #    _registers_64
+    #    | _registers_general
+    #    | _registers_byte
+    #    | _registers_seg
+    #    | _registers_control
+    # )
+    _registers = {}
+    _registers = _registers | {i: i for i in _registers_64}
+    _registers = _registers | {i: i for i in _registers_general}
+    _registers = _registers | {i: i for i in _registers_byte}
+    _registers = _registers | {i: i for i in _registers_seg}
+    _registers = _registers | {i: i for i in _registers_control}

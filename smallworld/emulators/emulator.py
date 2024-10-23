@@ -403,6 +403,16 @@ class InstructionHookable(metaclass=abc.ABCMeta):
 
         pass
 
+    @abc.abstractmethod
+    def hook_instructions(self, function: typing.Callable[[Emulator], None]) -> None:
+        pass
+
+    @abc.abstractmethod
+    def unhook_instructions(self) -> None:
+        """Unhook all system interrupts."""
+
+        pass
+
 
 class FunctionHookable(metaclass=abc.ABCMeta):
     """An Emulator mixin that supports function hooking."""
@@ -478,6 +488,18 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
 
         pass
 
+    @abc.abstractmethod
+    def hook_memory_reads(
+        self, function: typing.Callable[[Emulator, int, int], bytes]
+    ) -> None:
+        pass
+
+    @abc.abstractmethod
+    def unhook_memory_reads(self) -> None:
+        """Unhook all system interrupts."""
+
+        pass
+
 
 class MemoryWriteHookable(metaclass=abc.ABCMeta):
     """An Emulator mixin that supports memory write hooking."""
@@ -513,6 +535,18 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
             start: The start address of the memory write hook to remove.
             end: The end address of the memory write hook to remove.
         """
+
+        pass
+
+    @abc.abstractmethod
+    def hook_memory_writes(
+        self, function: typing.Callable[[Emulator, int, int, bytes], None]
+    ) -> None:
+        pass
+
+    @abc.abstractmethod
+    def unhook_memory_writes(self) -> None:
+        """Unhook all system interrupts."""
 
         pass
 

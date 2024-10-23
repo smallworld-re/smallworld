@@ -33,7 +33,15 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         """The name of the Program Counter register for this machine"""
         return ""
 
-    _registers: typing.Set[str] = set()
+    _registers: typing.Dict[str, str] = {}
+
+    def panda_reg(self, name: str) -> str:
+        if name in self._registers:
+            return self._registers[name]
+        else:
+            raise ValueError(
+                f"Unknown register for {self.arch}:{self.byteorder}: {name}"
+            )
 
     def check_panda_reg(self, name: str) -> bool:
         """Convert a register name to panda cpu field, index, mask

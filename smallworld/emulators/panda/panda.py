@@ -82,6 +82,10 @@ class PandaEmulator(
 
         def run(self):
             panda_args = ["-M", "configurable", "-nographic"]  # "-singlestep"]
+
+            if self.machdef.panda_cpu_str != "":
+                panda_args.extend(["-cpu", self.machdef.panda_cpu_str])
+
             self.panda = pandare.Panda(
                 self.machdef.panda_arch_str, extra_args=panda_args
             )
@@ -126,7 +130,7 @@ class PandaEmulator(
                     # keep going until the end
                     print("on_insn: block")
 
-                print(f"Panda: on_insn: {pc}, {self.state}")
+                print(f"Panda: on_insn: {hex(pc)}, {self.state}")
                 # Check if our pc is in bounds; if not stop
                 if (
                     not self.manager._bounds.is_empty()
@@ -137,13 +141,16 @@ class PandaEmulator(
                     self.signal_and_wait()
 
                 # Always call hooked code first
+                if self.manager.all_instructions_hook:
+                    self.manager.all_instructions_hook(self.manager)
+
                 if f := self.manager.is_instruction_hooked(pc):
                     f(self.manager)
 
                 # Now, if we for some reason have a different pc
                 # then the one that is set for us, break out of this
                 # This would be from changing eip in a hook
-                print(f"Panda: {pc}, {self.manager.pc}")
+                # print(f"Panda: {pc}, {self.manager.pc}")
                 # print(self.manager.read_register('pc'))
                 # if self.manager.read_register("pc") != pc:
                 if self.manager.pc != pc:
@@ -165,21 +172,29 @@ class PandaEmulator(
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
                 print(self.manager)
+                if self.manager.all_reads_hook:
+                    self.manager.all_reads_hook(self.manager, addr, size)
                 if rng := self.manager.is_memory_read_hooked(addr):
-                    self.manager.memory_read_hooks[rng](self.manager)
+                    self.manager.memory_read_hooks[rng](self.manager, addr, size)
                 print(f"on_read: {addr}")
 
             # TODO: Untested
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
-            def on_write(cpu, pc, addr, size):
-                print(f"on_write: {pc}")
-                import os
+            def on_write(cpu, pc, addr, size, buf):
+                # print(f"on_write: {pc}")
+                if self.manager.all_writes_hook:
+                    self.manager.all_writes_hook(self.manager, addr, size, bytes())
 
-                os._exit(0)
+                if rng := self.manager.is_memory_write_hooked(addr):
+                    # TODO: the type of buf is <class '_cffi_backend._CDataBase'>
+                    # how do i translate this to bytes?
+                    self.manager.memory_write_hooks[rng](
+                        self.manager, addr, size, bytes()
+                    )
 
             # TODO: Untested
-            @self.panda.cb_before_handle_interrupt(enabled=False)
+            @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
                 # First if all interrupts are hooked, run that function
                 if self.manager.all_interrupts_hook:
@@ -244,10 +259,14 @@ class PandaEmulator(
         if name == "pc":
             name = self.panda_thread.machdef.pc_reg
 
+        if name == self.panda_thread.machdef.pc_reg:
+            return self.panda_thread.machdef.panda_arch.get_pc(self.cpu)
+
         if not self.panda_thread.machdef.check_panda_reg(name):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
+        name = self.panda_thread.machdef.panda_reg(name)
 
         try:
             return self.panda_thread.machdef.panda_arch.get_reg(self.cpu, name)
@@ -265,6 +284,8 @@ class PandaEmulator(
         # This is my internal pc
         if name == self.panda_thread.machdef.pc_reg:
             self.pc = content
+            self.panda_thread.machdef.panda_arch.set_pc(self.cpu, content)
+            return
 
         if not self.panda_thread.machdef.check_panda_reg(name):
             logger.warn(f"Panda doesn't support register {name} for {self.platform}")
@@ -287,8 +308,10 @@ class PandaEmulator(
             return address // self.PAGE_SIZE
 
         if address is not None:
+            print(f"map_memory: mapping at {hex(address)}, size {hex(size)}")
             # Translate an addressi + size to a page range
             region = (page(address), page(address + size) + 1)
+            print(page(address + size))
 
             # Get the missing pages first. Those are the ones we want to map
             missing_range = self.mapped_pages.get_missing_ranges(region)
@@ -300,8 +323,11 @@ class PandaEmulator(
             )
             for start_page, end_page in missing_range:
                 page_size = end_page - start_page
+                print(
+                    f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {page_size * self.PAGE_SIZE}"
+                )
                 self.panda_thread.panda.map_memory(
-                    f"{address}",
+                    f"{start_page*self.PAGE_SIZE}",
                     page_size * self.PAGE_SIZE,
                     start_page * self.PAGE_SIZE,
                 )
@@ -324,6 +350,8 @@ class PandaEmulator(
             raise ValueError("memory write cannot be empty")
 
         # self.map_memory(len(bytes(content)), address)
+        # content = content[::-1]
+        # print(f"write_memory: {content}")
         self.panda_thread.panda.physical_memory_write(address, content)
         print(
             self.panda_thread.panda.virtual_memory_read(self.cpu, address, len(content))

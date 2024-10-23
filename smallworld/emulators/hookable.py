@@ -28,6 +28,13 @@ class QInstructionHookable(InstructionHookable):
     def __init__(self):
         super().__init__()
         self.instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
+        self.all_instructions_hook = None
+
+    def hook_instructions(self, function: typing.Callable[[Emulator], None]) -> None:
+        self.all_instructions_hook = function
+
+    def unhook_instructions(self):
+        self.all_instructions_hook = None
 
     def hook_instruction(
         self, address: int, function: typing.Callable[[Emulator], None]
@@ -86,6 +93,15 @@ class QMemoryReadHookable(MemoryReadHookable):
         self.memory_read_hooks: typing.Dict[
             range, typing.Callable[[Emulator, int, int], bytes]
         ] = {}
+        self.all_reads_hook = None
+
+    def hook_memory_reads(
+        self, function: typing.Callable[[Emulator, int, int], bytes]
+    ) -> None:
+        self.all_reads_hook = function
+
+    def unhook_memory_reads(self):
+        self.all_reads_hook = None
 
     def hook_memory_read(
         self,
@@ -131,6 +147,15 @@ class QMemoryWriteHookable(MemoryWriteHookable):
         self.memory_write_hooks: typing.Dict[
             range, typing.Callable[[Emulator, int, int, bytes], None]
         ] = {}
+        self.all_writes_hook = None
+
+    def hook_memory_writes(
+        self, function: typing.Callable[[Emulator, int, int, bytes], None]
+    ) -> None:
+        self.all_writes_hook = function
+
+    def unhook_memory_writes(self):
+        self.all_writes_hook = None
 
     def hook_memory_write(
         self,
@@ -162,6 +187,11 @@ class QMemoryWriteHookable(MemoryWriteHookable):
     #            f"can't unhook memory write range {range_to_hex_str(address)} since its not already hooked"
     #        )
     #    self.memory_write_hooks.pop(address, None)
+    def is_memory_write_hooked(self, address: int) -> typing.Optional[range]:
+        for rng in self.memory_write_hooks:
+            if address in rng:
+                return rng
+        return None
 
 
 class QInterruptHookable(InterruptHookable):

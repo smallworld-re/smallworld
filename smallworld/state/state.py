@@ -403,6 +403,7 @@ class RegisterAlias(Register):
 
 class StatefulSet(Stateful, collections.abc.MutableSet):
     def __init__(self):
+        super().__init__()
         self._contents = set()
 
     def extract(self, emulator: emulators.Emulator) -> None:
