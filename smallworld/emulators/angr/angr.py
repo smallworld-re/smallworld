@@ -556,7 +556,13 @@ class AngrEmulator(
         self._dirty = True
         if self._linear:
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
-                log.info(f"Stepping through {self.state.block().disassembly.insns[0]}")
+                insns = self.state.block().disassembly.insns
+                if len(insns) > 0:
+                    log.info(f"Stepping through {insns[0]}")
+                else:
+                    # Capstone only supports a subset of the instructions supported by LibVEX.
+                    # I can only disassemble what I can disassemble.
+                    log.info(f"Stepping through {self.state._ip} (untranslatable!)")
             else:
                 log.info(f"Stepping through {self.state._ip} (hook)")
 
