@@ -163,7 +163,9 @@ class ElfExecutable(Executable):
                 # This is probably a non-Intel ISA.
                 # Most of these are harmless, serving to tell the RTLD
                 # where to find machine-specific metadata
-                hint = Hint(f"Unknown machine-specific program header: {phdr.type:08x}")
+                hint = Hint(
+                    f"Unknown machine-specific program header: {phdr.type.value:08x}"
+                )
                 hinter.warn(hint)
             else:
                 # Unknown program header outside the allowed custom ranges
