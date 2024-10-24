@@ -7,7 +7,7 @@ import ctypes
 import logging as lg
 import typing
 
-from .. import analyses, emulators, exceptions, logging, platforms, state
+from .. import analyses, emulators, exceptions, logging, platforms, state, utils
 
 logger = lg.getLogger(__name__)
 
@@ -445,6 +445,7 @@ class Machine(StatefulSet):
 
     def __init__(self):
         super().__init__()
+        self._bounds = utils.RangeCollection()
         self._exitpoints = set()
 
     def add_exitpoint(self, address: int):
@@ -453,13 +454,23 @@ class Machine(StatefulSet):
     def get_exitpoints(self) -> typing.Set[int]:
         return self._exitpoints
 
+    def add_bound(self, start: int, end: int):
+        self._bounds.add_range((start, end))
+
+    def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
+        return list(self._bounds.ranges)
+
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exitpoints:
             emulator.add_exitpoint(address)
+        for (start, end) in self.get_bounds():
+            emulator.add_bound(start, end)
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exitpoints = emulator.get_exitpoints()
+        for (start, end) in emulator.get_bounds():
+            self.add_bound(start, end)
         return super().extract(emulator)
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:

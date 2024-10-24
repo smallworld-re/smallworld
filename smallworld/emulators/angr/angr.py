@@ -406,7 +406,7 @@ class AngrEmulator(
         hook = HookHandler(callback=function, parent=self)
         self.proj.hook(address, hook, 0)
 
-        self.map_memory(1, address)
+        self.map_memory(address, 1)
         self.state.scratch.func_bps[address] = None
 
     def unhook_function(self, address: int) -> None:

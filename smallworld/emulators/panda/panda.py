@@ -359,7 +359,7 @@ class PandaEmulator(
         if not len(content):
             raise ValueError("memory write cannot be empty")
 
-        # self.map_memory(len(bytes(content)), address)
+        # self.map_memory(address, len(bytes(content)))
         # content = content[::-1]
         # print(f"write_memory: {content}")
         self.panda_thread.panda.physical_memory_write(address, content)

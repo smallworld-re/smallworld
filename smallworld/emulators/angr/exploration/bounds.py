@@ -20,7 +20,7 @@ class BoundedExplorationMixin:
                 i = state.scratch.bounds.find_range(ip)
                 if i is None:
                     return dict()
-                (_, stop) = state.scratch.bounds[i]
+                (_, stop) = state.scratch.bounds.ranges[i]
                 size = min(size, stop - ip)
 
             kwargs["size"] = size
