@@ -70,5 +70,5 @@ class ARMv5TMachineDef(ARMMachineDef):
 class ARMv7MMachineDef(ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
-    panda_cpu_str = ""
+    panda_cpu_str = "cortex-a9"
     # panda_cpu_str = "cortex-m3"  # -cpu cortex-a9

@@ -64,6 +64,8 @@ class PandaEmulator(
         # control flow changes potentially but you should run in single step mode,
         # (2) running in normal mode, if you try to run code without an "end" to
         # your bb, it will crash
+        # NOTE: if there is ANY error in the thread panda code, (typos)  it will just die...
+        # be careful
 
         def __init__(self, manager, thread_state):
             super().__init__(daemon=True)
@@ -145,11 +147,11 @@ class PandaEmulator(
                 if self.manager.all_instructions_hook:
                     self.manager.all_instructions_hook(self.manager)
 
-                if f := self.manager.is_instruction_hooked(pc):
-                    f(self.manager)
+                if cb := self.manager.is_instruction_hooked(pc):
+                    cb(self.manager)
 
-                if f := self.manager.is_function_hooked(pc):
-                    f(self.manager)
+                if cb := self.manager.is_function_hooked(pc):
+                    cb(self.manager)
                     # The only way i can do this is to use capstone
                     self.manager.write_register("pc", self.hook_return)
 
@@ -185,8 +187,8 @@ class PandaEmulator(
                 print(f"on_read: {addr}")
                 if self.manager.all_reads_hook:
                     self.manager.all_reads_hook(self.manager, addr, size)
-                if rng := self.manager.is_memory_read_hooked(addr):
-                    self.manager.memory_read_hooks[rng](self.manager, addr, size)
+                if cb := self.manager.is_memory_read_hooked(addr):
+                    cb(self.manager, addr, size)
 
             # TODO: Untested
             # Used for hooking mem writes
@@ -196,12 +198,10 @@ class PandaEmulator(
                 if self.manager.all_writes_hook:
                     self.manager.all_writes_hook(self.manager, addr, size, bytes())
 
-                if rng := self.manager.is_memory_write_hooked(addr):
+                if cb := self.manager.is_memory_write_hooked(addr):
                     # TODO: the type of buf is <class '_cffi_backend._CDataBase'>
                     # how do i translate this to bytes?
-                    self.manager.memory_write_hooks[rng](
-                        self.manager, addr, size, bytes()
-                    )
+                    cb(self.manager, addr, size, bytes())
 
             # TODO: Untested
             @self.panda.cb_before_handle_interrupt(enabled=True)
@@ -211,8 +211,8 @@ class PandaEmulator(
                 if self.manager.all_interrupts_hook:
                     self.manager.all_interrupts_hook(self.manager)
                 # Then run interrupt specific function
-                if self.manager.is_interrupt_hooked(intno):
-                    self.manager.interrupt_hooks[intno](self.manager)
+                if cb := self.manager.is_interrupt_hooked(intno):
+                    cb(self.manager)
 
             self.panda.run()
 
