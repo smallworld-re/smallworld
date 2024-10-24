@@ -99,7 +99,7 @@ class QMemoryReadHookable(MemoryReadHookable):
         ] = {}
         self.all_reads_hook: typing.Optional[
             typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
-        ]
+        ] = None
 
     def hook_memory_reads(
         self, function: typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
