@@ -1,5 +1,6 @@
     .arch armv7-a
-	.fpu softvfp
+	.fpu vfpv3-d16
+    .eabi_attribute 28, 1
 	.eabi_attribute 20, 1
 	.eabi_attribute 21, 1
 	.eabi_attribute 23, 3

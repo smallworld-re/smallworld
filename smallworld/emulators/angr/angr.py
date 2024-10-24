@@ -357,6 +357,39 @@ class AngrEmulator(
 
         self.state.inspect.remove_breakpoint("instruction", bp)
 
+    def hook_instructions(
+        self, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Global instruction hooking not supported once execution begins"
+            )
+
+        if self.state.scratch.global_insn_bp is not None:
+            raise exceptions.ConfigurationError(
+                "Global instruction hook already registered"
+            )
+
+        def hook_handler(state):
+            emu = ConcreteAngrEmulator(state, self)
+            function(emu)
+
+        self.state.scratch.global_insn_bp = self.state.inspect.b(
+            "instruction", hook_handler
+        )
+
+    def unhook_instructions(self) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Global instruction unhooking not supported once execution begins"
+            )
+
+        if self.state.scratch.global_insn_bp is None:
+            raise exceptions.ConfigurationError("No global instruction hook present")
+        bp = self.state.scratch.global_insn_bp
+        self.state.scratch.global_insn_bp = None
+        self.state.inspect.remove_breakpoint("instruction", bp)
+
     def hook_function(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:
@@ -456,6 +489,54 @@ class AngrEmulator(
         del self.state.scratch.mem_read_bps[(start, end)]
         self.state.inspect.remove_breakpoint("mem_read", bp=bp)
 
+    def hook_memory_reads(
+        self, function: typing.Callable[[emulator.Emulator, int, int], bytes]
+    ) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory hooking not supported once execution begins"
+            )
+        if self.state.scratch.global_read_bp is not None:
+            raise exceptions.ConfigurationError(
+                "Global memory read hook already present"
+            )
+
+        def read_callback(state):
+            # the breakpoint action.
+            addr = state.inspect.mem_read_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_read_length
+
+            res = claripy.BVV(function(ConcreteAngrEmulator(state, self), addr, size))
+
+            if self.platform.byteorder == platforms.byteorder.LITTLE:
+                # fix byte order if needed.
+                # i don't know _why_ this is needed,
+                # but encoding the result as little-endian on a little-endian
+                # system produces the incorrect value in the machine state.
+                res = claripy.Reverse(res)
+            state.inspect.mem_read_expr = res
+
+        bp = self.state.inspect.b(
+            "mem_read",
+            when=angr.bp_after,
+            action=read_callback,
+        )
+        self.state.scratch.global_read_bp = bp
+
+    def unhook_memory_reads(self) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory unhooking not supported once execution begins"
+            )
+        if self.state.scratch.global_read_bp is not None:
+            raise exceptions.ConfigurationError("Global memory read hook not present")
+
+        bp = self.state.scratch.global_read_bp
+        self.state.scratch.global_read_bp = None
+        self.state.inspect.remove_breakpoint("mem_read", bp)
+
     def hook_memory_write(
         self,
         start: int,
@@ -544,6 +625,65 @@ class AngrEmulator(
         del self.state.scratch.mem_write_bps[(start, end)]
         self.state.inspect.remove_breakpoint("mem_write", bp=bp)
 
+    def hook_memory_writes(
+        self, function: typing.Callable[[emulator.Emulator, int, int, bytes], None]
+    ) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory hooking not supported once execution begins"
+            )
+        if self.state.scratch.global_write_bp is not None:
+            raise exceptions.ConfigurationError(
+                "Global memory write hook already present"
+            )
+
+        def write_callback(state):
+            addr = state.inspect.mem_write_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_write_length
+            expr = state.inspect.mem_write_expr
+            if expr.symbolic:
+                # Have the solver handle binding resolution for us.
+                try:
+                    values = state.solver.eval_atmost(expr, 1)
+                    if len(values) < 1:
+                        raise exceptions.AnalysisError(f"No possible values fpr {expr}")
+                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                except angr.errors.SimUnsatError:
+                    raise exceptions.AnalysisError(f"No possible values for {expr}")
+                except angr.errors.SimValueError:
+                    raise exceptions.AnalysisError(
+                        f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                    )
+            else:
+                value = expr.concrete_value.to_bytes(
+                    size, byteorder=self.platform.byteorder.value
+                )
+
+            function(ConcreteAngrEmulator(state, self), addr, size, value)
+
+        bp = self.state.inspect.b(
+            "mem_write",
+            when=angr.BP_BEFORE,
+            action=write_callback,
+        )
+
+        self.state.scratch.global_write_bp = bp
+
+    def unhook_memory_writes(self) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Memory unhooking not supported once execution begins"
+            )
+        if self.state.scratch.global_write_bp is not None:
+            raise exceptions.ConfigurationError("Global memory write hook not present")
+
+        bp = self.state.scratch.global_read_bp
+        self.state.scratch.global_read_bp = None
+        self.state.inspect.remove_breakpoint("mem_write", bp)
+
     def _step(self, single_insn: bool):
         """Common routine for all step functions.
 
@@ -556,7 +696,13 @@ class AngrEmulator(
         self._dirty = True
         if self._linear:
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
-                log.info(f"Stepping through {self.state.block().disassembly.insns[0]}")
+                insns = self.state.block().disassembly.insns
+                if len(insns) > 0:
+                    log.info(f"Stepping through {insns[0]}")
+                else:
+                    # Capstone only supports a subset of the instructions supported by LibVEX.
+                    # I can only disassemble what I can disassemble.
+                    log.info(f"Stepping through {self.state._ip} (untranslatable!)")
             else:
                 log.info(f"Stepping through {self.state._ip} (hook)")
 

@@ -10,7 +10,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -27,22 +27,23 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 machine.add(code)
 
 # Set the instruction pointer to the code entrypoint
-cpu.rip.set(code.address)
+cpu.pc.set(code.address)
 
 # Initialize argument registers
 arg1 = int.from_bytes(struct.pack("d", float(sys.argv[1])), "little")
 arg2 = int.from_bytes(struct.pack("d", float(sys.argv[2])), "little")
 
-cpu.xmm0.set(arg1)
-cpu.xmm1.set(arg2)
+cpu.d0.set(arg1)
+cpu.d1.set(arg2)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-raw = cpu.xmm0.get()
+raw = cpu.d0.get()
 (res,) = struct.unpack("d", raw.to_bytes(8, "little"))
 print(f"{res}")

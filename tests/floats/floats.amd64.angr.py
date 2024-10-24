@@ -37,7 +37,8 @@ cpu.xmm0.set(arg1)
 cpu.xmm1.set(arg2)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
