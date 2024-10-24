@@ -1,0 +1,46 @@
+Adding memory region 32768 (size: 0x5000) at address 0x8000
+Adding memory region 4096 (size: 0x1000) at address 0x1000
+Adding memory region 12288 (size: 0x2000) at address 0x3000
+[PYPANDA] Panda args: [/home/he27553/maestro-panda/build/x86_64-softmmu/libpanda-x86_64.so -L /home/he27553/maestro-panda/build/pc-bios -M configurable -nographic -m 128M -monitor unix:/tmp/pypanda_mg5v90gmr,server,nowait]
+Panda: setting up state
+Signaling main to run
+exiting at 4116
+setting rsp
+map_memory: mapping at 0x8000, size 0x4000
+12
+Mapping memory [(8, 13)] page(s) original 16384 and 32768.
+Mapping at 0x8000 in panda of size 20480
+Byteorder.LITTLE
+b'\xff\xff\xff\xff\x00\x00\x00\x00'
+b'\xff\xff\xff\xff\x00\x00\x00\x00'
+map_memory: mapping at 0x1000, size 0x14
+1
+Mapping memory [(1, 2)] page(s) original 20 and 4096.
+Mapping at 0x1000 in panda of size 4096
+Byteorder.LITTLE
+b"H\x89\xe5H\x83\xc4@H\x89\xe7\xe8\xf1'\x00\x00\xe8\xf4'\x00\x00"
+b"H\x89\xe5H\x83\xc4@H\x89\xe7\xe8\xf1'\x00\x00\xe8\xf4'\x00\x00"
+map_memory: mapping at 0x3800, size 0x1000
+4
+Mapping memory [(3, 5)] page(s) original 4096 and 14336.
+Mapping at 0x3000 in panda of size 8192
+map_memory: mapping at 0x3808, size 0x1000
+4
+Mapping memory [] page(s) original 4096 and 14344.
+Main signaling panda to run
+on_insn: run
+Panda: on_insn: 0x1000, ThreadState.RUN
+on_insn: done ThreadState.RUN
+on_insn: run
+Panda: on_insn: 0x1003, ThreadState.RUN
+on_insn: done ThreadState.RUN
+on_insn: run
+Panda: on_insn: 0x1007, ThreadState.RUN
+on_insn: done ThreadState.RUN
+on_insn: run
+Panda: on_insn: 0x100a, ThreadState.RUN
+on_insn: done ThreadState.RUN
+on_write: 4096
+on_insn: run
+Panda: on_insn: 0x3800, ThreadState.RUN
+function hook

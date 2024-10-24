@@ -1,6 +1,8 @@
     .text
     .set    noreorder
     .set    nomacro
+    .set    nomips16
+    .set    nomicromips
 _start:
     bal     foo
     nop
@@ -22,6 +24,7 @@ foo:
     sw      $fp,24($sp)
     move    $fp,$sp
     
-    bal     bar
     addi    $a0,$a0,-1      # Delay slot
+    bal     bar
+    nop
     addi    $v0,$v0,1
