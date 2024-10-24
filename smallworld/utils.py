@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import abc
 import bisect
 import inspect
@@ -91,6 +93,21 @@ class RangeCollection:
                 return i
         return None
 
+    def contains(self, arange: typing.Tuple[int, int]) -> bool:  # new function
+        self._check_range(arange)
+        start, end = arange
+        start_index, start_found = self.find_closest_range(start)
+        end_index, end_found = self.find_closest_range(end - 1)
+
+        if start_index == end_index and not start_found and not end_found:
+            return False
+        else:
+            return True
+
+    def update(self, other: RangeCollection) -> None:
+        for rng in other.ranges:
+            self.add_range(rng)
+
     def add_value(self, value: int) -> None:
         self.add_range((value, value + 1))
 
@@ -99,6 +116,7 @@ class RangeCollection:
     ) -> typing.List[typing.Tuple[int, int]]:
         new_start, new_end = arange
         missing_ranges = []
+        self._check_range(arange)
 
         if not len(self.ranges):
             return [arange]
@@ -132,23 +150,22 @@ class RangeCollection:
         return missing_ranges
 
     # Returns either the range or the range BEFORE you
-    def find_closest_range(self, value: int) -> int:
+    # -1 if its lower than first range
+    def find_closest_range(self, value: int) -> typing.Tuple[int, bool]:
         for i, (start, end) in enumerate(self.ranges):
             if start <= value < end:
-                return i
+                return i, True
             elif value < start:
-                return i
-        return 0
+                return i - 1, False
+        return 0, False
 
     def remove_range(self, arange: typing.Tuple[int, int]) -> None:
         start, end = arange
-        if start > end or start == end:
-            print("no")
-            return
+        self._check_range(arange)
 
-        i1 = self.find_closest_range(start)
+        i1, _ = self.find_closest_range(start)
         range1 = self.ranges[i1]
-        i2 = self.find_closest_range(end)
+        i2, _ = self.find_closest_range(end)
         range2 = self.ranges[i2]
 
         # Keep everything up to our first find
@@ -172,11 +189,14 @@ class RangeCollection:
         self.ranges = new_ranges
         return
 
-    def add_range(self, arange: typing.Tuple[int, int]) -> None:
+    def _check_range(self, arange: typing.Tuple[int, int]) -> None:
         start, end = arange
         if start > end or start == end:
-            print("no")
-            return
+            raise ValueError(f"Start value must be less than end in {arange}")
+
+    def add_range(self, arange: typing.Tuple[int, int]) -> None:
+        self._check_range(arange)
+        start, end = arange
 
         i = bisect.bisect_left(self.ranges, arange)
         new_ranges = []

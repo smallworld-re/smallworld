@@ -85,8 +85,6 @@ class UnicornEmulator(
 
         # list of exit points which will end emulation
         # self.exit_points = []
-        self.instruction_hooks = {}
-        self.function_hooks = {}
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
@@ -119,11 +117,15 @@ class UnicornEmulator(
                 self.engine.emu_stop()
                 raise exceptions.EmulationExitpoint
             # run instruciton hooks
-            if address in self.instruction_hooks:
+            if self.all_instructions_hook:
+                print("here")
+                self.all_instructions_hook(self)
+
+            if cb := self.is_instruction_hooked(address):
                 logger.debug(f"hit hooking address for instruction at {address:x}")
-                self.instruction_hooks[address](self)
+                cb(self)
             # check function hooks *before* bounds since these might be out-of-bounds
-            if address in self.function_hooks:
+            if cb := self.is_function_hooked(address):
                 logger.debug(
                     f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}"
                 )
@@ -132,7 +134,7 @@ class UnicornEmulator(
                 # execute. Instead, we return from the function as if it ran.
                 # this permits modeling
                 # this is the model for the function
-                self.function_hooks[address](self)
+                cb(self)
                 # self.engine.emu_stop()
                 if self.hook_return is None:
                     raise RuntimeError("return point for function hook is unknown")
@@ -145,24 +147,27 @@ class UnicornEmulator(
 
         # functions to run before memory read and write for
         # specific addresses
-        self.memory_read_hooks = {}
-        self.memory_write_hooks = {}
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
-            for seg, cb in self.memory_read_hooks.items():
-                if address in seg:
-                    # Execute registered callback
+            if self.memory_read_hooks:
+                if self.all_reads_hook:
+                    data = self.manager.all_reads_hook(self, address, size)
+
+                if cb := self.is_memory_read_hooked(address):
                     data = cb(self, address, size)
+
+                    # Execute registered callback
+                    # data = cb(self, address, size)
                     # Overwrite memory being read.
                     # The instruction is emulated after this callback fires,
                     # so the new value will get used for computation.
-                    if len(data) != size:
-                        raise exceptions.EmulationError(
-                            f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
-                        )
-                    uc.mem_write(address, data)
-                    break
+                    if data:
+                        if len(data) != size:
+                            raise exceptions.EmulationError(
+                                f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
+                            )
+                        uc.mem_write(address, data)
 
         def mem_write_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_WRITE
@@ -437,18 +442,6 @@ class UnicornEmulator(
 
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
-
-    def hook_instruction(
-        self, address: int, function: typing.Callable[[emulator.Emulator], None]
-    ) -> None:
-        super(UnicornEmulator, self).hook_instruction(address, function)
-        self.map_memory(self.PAGE_SIZE, address)
-
-    def hook_function(
-        self, address: int, function: typing.Callable[[emulator.Emulator], None]
-    ) -> None:
-        super(UnicornEmulator, self).hook_function(address, function)
-        self.map_memory(self.PAGE_SIZE, address)
 
     def disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None

@@ -136,6 +136,8 @@ class Model(Hook):
             raise ValueError(f"no model for '{name}' on {platform} with ABI '{abi}'")
 
     def apply(self, emulator: emulators.Emulator) -> None:
+        logger.debug(f"Hooking Model {self} {self._address:x}")
+        emulator.map_memory(emulator.PAGE_SIZE, self._address)
         if not isinstance(emulator, emulators.FunctionHookable):
             raise exceptions.ConfigurationError("Emulator cannot hook functions")
         emulator.hook_function(self._address, self._function)

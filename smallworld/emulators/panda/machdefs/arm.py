@@ -7,11 +7,11 @@ from .machdef import PandaMachineDef
 
 class ARMMachineDef(PandaMachineDef):
     cs_arch = capstone.CS_ARCH_ARM
-    cs_mode = capstone.CS_MODE_ARM
+    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_LITTLE_ENDIAN
 
     pc_reg = "ip"
 
-    panda_cpu_str = "cortex-a9"  # -cpu cortex-a9
+    # panda_cpu_str = "cortex-a9"  # -cpu cortex-a9
     panda_arch_str = "arm"
     # We don't need this
     panda_arch = pandare.arch.ArmArch(None)
@@ -64,8 +64,11 @@ class ARMMachineMixinM:
 class ARMv5TMachineDef(ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
+    panda_cpu_str = "pxa255"  # -cpu cortex-a9
 
 
 class ARMv7MMachineDef(ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
+    panda_cpu_str = ""
+    # panda_cpu_str = "cortex-m3"  # -cpu cortex-a9

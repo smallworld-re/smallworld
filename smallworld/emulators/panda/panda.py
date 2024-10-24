@@ -71,6 +71,7 @@ class PandaEmulator(
             self.machdef = PandaMachineDef.for_platform(self.manager.platform)
             self.state = thread_state
             self.panda = None
+            self.hook_return = None
 
         # Functions to update state, this prob should be changed
         def setup_state(self, cpu):
@@ -147,6 +148,11 @@ class PandaEmulator(
                 if f := self.manager.is_instruction_hooked(pc):
                     f(self.manager)
 
+                if f := self.manager.is_function_hooked(pc):
+                    f(self.manager)
+                    # The only way i can do this is to use capstone
+                    self.manager.write_register("pc", self.hook_return)
+
                 # Now, if we for some reason have a different pc
                 # then the one that is set for us, break out of this
                 # This would be from changing eip in a hook
@@ -157,6 +163,11 @@ class PandaEmulator(
                     self.panda.libpanda.cpu_loop_exit_noexc(cpu)
 
                 print(f"on_insn: done {self.state}")
+
+                if self.manager.current_instruction():
+                    # report error if function hooking is enabled?
+                    pass
+                self.hook_return = pc + self.manager.current_instruction().size
 
                 return True
 
@@ -171,18 +182,17 @@ class PandaEmulator(
             # Used for hooking mem reads
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
-                print(self.manager)
+                print(f"on_read: {addr}")
                 if self.manager.all_reads_hook:
                     self.manager.all_reads_hook(self.manager, addr, size)
                 if rng := self.manager.is_memory_read_hooked(addr):
                     self.manager.memory_read_hooks[rng](self.manager, addr, size)
-                print(f"on_read: {addr}")
 
             # TODO: Untested
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
-                # print(f"on_write: {pc}")
+                print(f"on_write: {pc}")
                 if self.manager.all_writes_hook:
                     self.manager.all_writes_hook(self.manager, addr, size, bytes())
 
@@ -196,6 +206,7 @@ class PandaEmulator(
             # TODO: Untested
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
+                print("interrupt hook")
                 # First if all interrupts are hooked, run that function
                 if self.manager.all_interrupts_hook:
                     self.manager.all_interrupts_hook(self.manager)
@@ -308,9 +319,12 @@ class PandaEmulator(
             return address // self.PAGE_SIZE
 
         if address is not None:
-            print(f"map_memory: mapping at {hex(address)}, size {hex(size)}")
+            print(f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}")
             # Translate an addressi + size to a page range
-            region = (page(address), page(address + size) + 1)
+            if page(address) == page(address + size):
+                region = (page(address), page(address + size) + 1)
+            else:
+                region = (page(address), page(address + size))
             print(page(address + size))
 
             # Get the missing pages first. Those are the ones we want to map
@@ -318,13 +332,11 @@ class PandaEmulator(
 
             # Map in those pages and change the memory mapping
             # Whatever you do map just map a page size or above
-            print(
-                f"Mapping memory {missing_range} page(s) original {size} and {address}."
-            )
+            print(f"Mapping memory {missing_range} page(s).")
             for start_page, end_page in missing_range:
                 page_size = end_page - start_page
                 print(
-                    f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {page_size * self.PAGE_SIZE}"
+                    f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
                 )
                 self.panda_thread.panda.map_memory(
                     f"{start_page*self.PAGE_SIZE}",
@@ -353,9 +365,9 @@ class PandaEmulator(
         # content = content[::-1]
         # print(f"write_memory: {content}")
         self.panda_thread.panda.physical_memory_write(address, content)
-        print(
-            self.panda_thread.panda.virtual_memory_read(self.cpu, address, len(content))
-        )
+        # print(
+        #    self.panda_thread.panda.virtual_memory_read(self.cpu, address, len(content))
+        # )
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 

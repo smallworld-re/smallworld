@@ -8,7 +8,6 @@ from .machdef import PandaMachineDef
 class MIPSMachineDef(PandaMachineDef):
     arch = Architecture.MIPS32
     cs_arch = capstone.CS_ARCH_MIPS
-    cs_mode = capstone.CS_MODE_MIPS32
 
     pc_reg = "pc"
 
@@ -92,8 +91,12 @@ class MIPSMachineDef(PandaMachineDef):
 class MIPSELMachineDef(MIPSMachineDef):
     panda_arch_str = "mipsel"
     byteorder = Byteorder.LITTLE
+    cs_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_LITTLE_ENDIAN
+    panda_cpu_str = "M14K"  # -cpu cortex-a9
 
 
 class MIPSBEMachineDef(MIPSMachineDef):
     panda_arch_str = "mips"
     byteorder = Byteorder.BIG
+    cs_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_BIG_ENDIAN
+    panda_cpu_str = "M14K"  # -cpu cortex-a9
