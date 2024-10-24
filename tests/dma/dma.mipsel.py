@@ -99,7 +99,7 @@ machine.add(hdiv)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+emulator.add_exitpoint(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state

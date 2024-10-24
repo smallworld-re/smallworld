@@ -82,5 +82,5 @@ machine.add(puts)
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
 print(f"exiting at {code.address + code.get_capacity()}")
-emulator.add_exit_point(code.address + code.get_capacity())
+emulator.add_exitpoint(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)

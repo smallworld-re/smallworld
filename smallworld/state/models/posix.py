@@ -18,7 +18,12 @@ MAX_STRLEN = 0x10000
 # obtain addr of emulator heap memory of this size
 # NB: this will map new pages into emulator as needed
 def _emu_alloc(emulator: emulators.Emulator, size: int) -> int:
-    return emulator.map_memory(size)
+    address = 0x10000
+    memory_map = emulator.get_memory_map()
+    if len(memory_map) > 0:
+        address = memory_map[-1][1]
+    emulator.map_memory(address, size)
+    return address
 
 
 def _emu_calloc(emulator: emulators.Emulator, size: int) -> int:

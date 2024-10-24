@@ -314,41 +314,39 @@ class PandaEmulator(
 
         return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
 
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+    def map_memory(self, address: int, size: int) -> None:
         def page(address):
             return address // self.PAGE_SIZE
 
-        if address is not None:
-            print(f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}")
-            # Translate an addressi + size to a page range
-            if page(address) == page(address + size):
-                region = (page(address), page(address + size) + 1)
-            else:
-                region = (page(address), page(address + size))
-            print(page(address + size))
-
-            # Get the missing pages first. Those are the ones we want to map
-            missing_range = self.mapped_pages.get_missing_ranges(region)
-
-            # Map in those pages and change the memory mapping
-            # Whatever you do map just map a page size or above
-            print(f"Mapping memory {missing_range} page(s).")
-            for start_page, end_page in missing_range:
-                page_size = end_page - start_page
-                print(
-                    f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
-                )
-                self.panda_thread.panda.map_memory(
-                    f"{start_page*self.PAGE_SIZE}",
-                    page_size * self.PAGE_SIZE,
-                    start_page * self.PAGE_SIZE,
-                )
-            # Make sure we add our new region to our mapped_pages
-            self.mapped_pages.add_range(region)
-            return address
+        print(f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}")
+        # Translate an addressi + size to a page range
+        if page(address) == page(address + size):
+            region = (page(address), page(address + size) + 1)
         else:
-            # TODO: map a region if we have no address provided
-            raise NotImplementedError("Dynamic mapping not yet supported")
+            region = (page(address), page(address + size))
+        print(page(address + size))
+
+        # Get the missing pages first. Those are the ones we want to map
+        missing_range = self.mapped_pages.get_missing_ranges(region)
+
+        # Map in those pages and change the memory mapping
+        # Whatever you do map just map a page size or above
+        print(f"Mapping memory {missing_range} page(s).")
+        for start_page, end_page in missing_range:
+            page_size = end_page - start_page
+            print(
+                f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
+            )
+            self.panda_thread.panda.map_memory(
+                f"{start_page*self.PAGE_SIZE}",
+                page_size * self.PAGE_SIZE,
+                start_page * self.PAGE_SIZE,
+            )
+        # Make sure we add our new region to our mapped_pages
+        self.mapped_pages.add_range(region)
+
+    def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
+        return list(self.mapped_pages.ranges)
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         # Should we type check, if content isnt bytes mad?
@@ -361,7 +359,7 @@ class PandaEmulator(
         if not len(content):
             raise ValueError("memory write cannot be empty")
 
-        # self.map_memory(len(bytes(content)), address)
+        # self.map_memory(address, len(bytes(content)))
         # content = content[::-1]
         # print(f"write_memory: {content}")
         self.panda_thread.panda.physical_memory_write(address, content)

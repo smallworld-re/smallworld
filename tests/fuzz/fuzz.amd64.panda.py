@@ -19,7 +19,8 @@ platform = smallworld.platforms.Platform(
 )
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", "").replace(".panda", ""),
+    address=0x1000,
 )
 heap = smallworld.state.memory.heap.BumpAllocator(0x2000, 0x1000)
 
@@ -38,11 +39,8 @@ cpu.rdi.set_content(size_addr)
 machine.add(heap)
 machine.add(cpu)
 machine.add(code)
-try:
-    emulator = smallworld.emulators.UnicornEmulator(platform)
-    emulator.add_exitpoint(cpu.rip.get() + 55)
-    final_machine = machine.emulate(emulator)
-    final_cpu = final_machine.get_cpu()
-    print(final_cpu.eax)
-except smallworld.exceptions.EmulationError as e:
-    print(e)
+emulator = smallworld.emulators.PandaEmulator(platform)
+emulator.add_exitpoint(cpu.rip.get() + 55)
+final_machine = machine.emulate(emulator)
+final_cpu = final_machine.get_cpu()
+print(final_machine.get_cpu().eax.get())

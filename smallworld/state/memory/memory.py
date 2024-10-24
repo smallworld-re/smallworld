@@ -67,11 +67,9 @@ class Memory(state.Stateful, dict):
             raise ValueError("Stack is full")
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        emulator.map_memory(self.get_capacity(), self.address)
+        emulator.map_memory(self.address, self.get_capacity())
         for offset, value in self.items():
             if not isinstance(value, state.EmptyValue):
-                print(emulator.platform.byteorder)
-                print(value.to_bytes(emulator.platform.byteorder))
                 emulator.write_memory_content(
                     self.address + offset, value.to_bytes(emulator.platform.byteorder)
                 )
@@ -93,6 +91,8 @@ class Memory(state.Stateful, dict):
             value = state.EmptyValue(
                 self.get_capacity(), None, f"Extracted memory from {self.address}"
             )
+        except Exception as e:
+            raise exceptions.EmulationException(f"Failed reading {hex(self.address)}") from e
         self[0] = value
 
     def __hash__(self):

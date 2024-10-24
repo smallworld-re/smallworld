@@ -75,7 +75,7 @@ class MemoryMappedModel(state.Stateful):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"Hooking MMIO {self} {self.address:x}")
-        emulator.map_memory(self.size, self.address)
+        emulator.map_memory(self.address, self.size)
         if self.on_read is not None:
             if not isinstance(emulator, emulators.MemoryReadHookable):
                 raise NotImplementedError("Emulator does not support read hooking")
