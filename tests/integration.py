@@ -863,6 +863,98 @@ class HookingTests(ScriptIntegrationTest):
         self.run_test("ppc64.angr")
 
 
+class ElfTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        self.command(f"python3 elf/elf.{arch}.py foobar")
+
+    def test_elf_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_elf_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_elf_amd64(self):
+        self.run_test("amd64")
+
+    def test_elf_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_elf_armel(self):
+        self.run_test("armel")
+
+    def test_elf_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_elf_armhf(self):
+        self.run_test("armhf")
+
+    def test_elf_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_elf_i386(self):
+        self.run_test("i386")
+
+    def test_elf_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_elf_mips(self):
+        self.run_test("mips")
+
+    def test_elf_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_elf_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_elf_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_elf_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_elf_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_elf_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_elf_ppc64_angr(self):
+        self.run_test("ppc64.angr")
+
+
+class FloatsTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 floats/floats.{arch}.py 2.2 1.1")
+        self.assertLineContainsStrings("3.3")
+
+    def test_floats_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_floats_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_floats_amd64(self):
+        self.run_test("amd64")
+
+    def test_floats_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    # NOTE: armel has no FPU, so no tests
+
+    # NOTE: Unicorn does not support armhf float instructions
+
+    def test_floats_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_floats_i386(self):
+        self.run_test("i386")
+
+    def test_floats_i386_angr(self):
+        self.run_test("i386.angr")
+
+    # NOTE: mips be crazy
+
+
 try:
     import unicornafl
 except ImportError:
