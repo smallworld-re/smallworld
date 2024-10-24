@@ -21,7 +21,6 @@ class PatchedObjectFactory(AngrObjectFactory):
             # Angr's Vex lifter will happily run off the edge of memory,
             # interpreting undefined memory as zeroes.
             state = kwargs["backup_state"]
-            bound = None
             if state._ip.symbolic:
                 raise AnalysisError("Cannot build a block for a symbolic IP")
             ip = state._ip.concrete_value

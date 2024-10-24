@@ -16,6 +16,7 @@ from .machdefs import AngrMachineDef
 
 log = logging.getLogger(__name__)
 
+
 class HookHandler(angr.SimProcedure):
     """SimProcedure for implementing "finish" hooks.
 
@@ -279,7 +280,11 @@ class AngrEmulator(
         self.state.scratch.memory_map.add_range(region)
 
     def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
-        return list(self.memory_map.ranges)
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Mapping memory not supported once execution begins."
+            )
+        return list(self.state.scratch.memory_map.ranges)
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         if self._dirty and not self._linear:
@@ -523,7 +528,7 @@ class AngrEmulator(
 
         bp = self.state.inspect.b(
             "mem_read",
-            when=angr.bp_after,
+            when=angr.BP_AFTER,
             action=read_callback,
         )
         self.state.scratch.global_read_bp = bp
@@ -754,7 +759,10 @@ class AngrEmulator(
 
         def filter_func(state):
             ip = state._ip.concrete_value
-            if not self.state.scratch.bounds.is_empty() and self.state.scratch.bounds.find_range(ip) is None:
+            if (
+                not self.state.scratch.bounds.is_empty()
+                and self.state.scratch.bounds.find_range(ip) is None
+            ):
                 return True
             if self.state.scratch.memory_map.find_range(ip) is None:
                 return True
@@ -800,7 +808,7 @@ class AngrEmulator(
             )
         self._linear = True
         log.warn("Linear execution mode enabled")
-    
+
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         if self._dirty and not self._linear:
             raise NotImplementedError(
@@ -814,7 +822,6 @@ class AngrEmulator(
                 "Accessing bounds not supported once execution begins"
             )
         self.state.scratch.bounds.add_range((start, end))
-
 
     def remove_bound(self, start: int, end: int) -> None:
         if self._dirty and not self._linear:

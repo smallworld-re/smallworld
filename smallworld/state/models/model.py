@@ -137,7 +137,7 @@ class Model(Hook):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"Hooking Model {self} {self._address:x}")
-        emulator.map_memory(emulator.PAGE_SIZE, self._address)
+        emulator.map_memory(self._address, 16)
         if not isinstance(emulator, emulators.FunctionHookable):
             raise exceptions.ConfigurationError("Emulator cannot hook functions")
         emulator.hook_function(self._address, self._function)

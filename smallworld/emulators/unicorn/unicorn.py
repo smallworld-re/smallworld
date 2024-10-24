@@ -337,13 +337,15 @@ class UnicornEmulator(
         page_size = size + address - page_address
 
         # Round page_size up to the next page
-        page_size = ((page_size + self.PAGE_SIZE - 1) // self.PAGE_SIZE) * self.PAGE_SIZE
+        page_size = (
+            (page_size + self.PAGE_SIZE - 1) // self.PAGE_SIZE
+        ) * self.PAGE_SIZE
 
-        # Fill in any gaps in the specified region 
+        # Fill in any gaps in the specified region
         region = (page_address, page_address + page_size)
         missing_ranges = self.memory_map.get_missing_ranges(region)
 
-        for (start, end) in missing_ranges:
+        for start, end in missing_ranges:
             self.memory_map.add_range((start, end))
             self.engine.mem_map(start, end - start)
 

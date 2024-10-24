@@ -22,6 +22,6 @@ class BoundedExplorationMixin:
                     return dict()
                 (_, stop) = state.scratch.bounds[i]
                 size = min(size, stop - ip)
-            
+
             kwargs["size"] = size
         return super().step_state(simgr, state, **kwargs)
