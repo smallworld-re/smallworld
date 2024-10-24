@@ -16,6 +16,8 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def __init__(self, platform: platforms.Platform):
         self.platform: platforms.Platform = platform
         super().__init__()
+        self._bounds: utils.RangeCollection = utils.RangeCollection()
+        self._exit_points: typing.Set[int] = set()
         """Configured platform metadata."""
 
     @abc.abstractmethod
@@ -192,20 +194,28 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.read_memory_content(address, size)
 
     @abc.abstractmethod
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
+    def map_memory(self, address: int, size: int) -> None:
         """Map memory of a given size.
 
-        Arguments:
-            size: The size of the allocation.
-            address: The requested address of the allocation. If not provided,
-                the emulator is free choose the location of the allocation
-                based on available and mapped memory.
+        If the requested allocation overlaps with existing regions,
+        this will fill in the gaps.
 
-        Returns:
-            The start address of the allocation.
+        Arguments:
+            address: The requested address of the allocation.
+            size: The size of the allocation.
         """
 
-        return 0
+        pass
+
+    @abc.abstractmethod
+    def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
+        """Retrieve the memory map as understood by the emulator.
+
+        Returns:
+            The list of tuples (start, end) of the mapped segments
+        """
+
+        return []
 
     @abc.abstractmethod
     def write_memory_content(self, address: int, content: bytes) -> None:
@@ -272,8 +282,6 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         self.write_memory_content(address, content)
 
-    _bounds: utils.RangeCollection = utils.RangeCollection()
-
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         """Get a list of all registered execution bounds.
 
@@ -281,7 +289,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             A list of registered execution bounds.
         """
 
-        return self._bounds.ranges
+        return list(self._bounds.ranges)
 
     def add_bound(self, start: int, end: int) -> None:
         """Add valid execution bounds.
@@ -301,8 +309,6 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
     def remove_bound(self, start: int, end: int) -> None:
         self._bounds.remove_range((start, end))
-
-    _exit_points: typing.Set[int] = set()
 
     def get_exitpoints(self) -> typing.Set[int]:
         """Get a list of all registered exit points.

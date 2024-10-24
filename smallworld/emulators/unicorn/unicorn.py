@@ -8,7 +8,7 @@ import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from ... import exceptions, platforms
+from ... import exceptions, platforms, utils
 from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
 
@@ -60,7 +60,7 @@ class UnicornEmulator(
         self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
         self.disassembler.detail = True
 
-        self.bounds: typing.Iterable[range] = []
+        self.memory_map: utils.RangeCollection = utils.RangeCollection()
 
         # labels are per byte
 
@@ -93,14 +93,9 @@ class UnicornEmulator(
             #    pdb.set_trace()
 
             print(f"code callback addr={address:x}")
-            if len(self.bounds) > 0:
+            if not self._bounds.is_empty():
                 # check that we are in bounds
-                any_in_bounds = False
-                for bound in self.bounds:
-                    if address in bound:
-                        any_in_bounds = True
-                        break
-                if not any_in_bounds:
+                if self._bounds.find_range(address) is None:
                     # not in bounds for any of the ranges specified
                     print("boudns?")
 
@@ -210,8 +205,6 @@ class UnicornEmulator(
             if self.stepping_by_block:
                 self.engine.emu_stop()
 
-        self.bounds = []
-
         # keep track of which registers have been initialized
         self.initialized_registers: typing.Dict[str, typing.Set[int]] = {}
 
@@ -219,11 +212,8 @@ class UnicornEmulator(
         """Check if this pc is ok to emulate, i.e. in bounds and not an exit
         point."""
 
-        if len(self.bounds) > 0:
-            # check that we are in bounds
-            for bound in self.bounds:
-                if pc in bound:
-                    break
+        if not self._bounds.is_empty and self._bounds.find_range(pc) is None:
+            # There are bounds, and we are not in them
             return False
 
         # check for if we've hit an exit point
@@ -339,71 +329,26 @@ class UnicornEmulator(
     def read_memory(self, address: int, size: int) -> bytes:
         return self.read_memory_content(address, size)
 
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
-        def page(address: int) -> int:
-            """Compute the page number of an address.
+    def map_memory(self, address: int, size: int) -> None:
+        # Round address down to a page boundary
+        page_address = (address // self.PAGE_SIZE) * self.PAGE_SIZE
 
-            Returns:
-                The page number of this address.
-            """
+        # Expand the size to accound for moving address
+        page_size = size + address - page_address
 
-            return address // self.PAGE_SIZE
+        # Round page_size up to the next page
+        page_size = ((page_size + self.PAGE_SIZE - 1) // self.PAGE_SIZE) * self.PAGE_SIZE
 
-        def subtract(first, second):
-            result = []
-            endpoints = sorted((*first, *second))
-            if endpoints[0] == first[0] and endpoints[1] != first[0]:
-                result.append((endpoints[0], endpoints[1]))
-            if endpoints[3] == first[1] and endpoints[2] != first[1]:
-                result.append((endpoints[2], endpoints[3]))
+        # Fill in any gaps in the specified region 
+        region = (page_address, page_address + page_size)
+        missing_ranges = self.memory_map.get_missing_ranges(region)
 
-            return result
+        for (start, end) in missing_ranges:
+            self.memory_map.add_range((start, end))
+            self.engine.mem_map(start, end - start)
 
-        def map(start: int, end: int):
-            """Map a region of memory by start and end page.
-
-            Arguments:
-                start: Starting page of allocation.
-                end: Ending page of allocation.
-            """
-
-            address = start * self.PAGE_SIZE
-            allocation = (end - start) * self.PAGE_SIZE
-
-            logger.debug(f"new memory map 0x{address:x}[{allocation}]")
-
-            self.engine.mem_map(address, allocation)
-
-        # Fixed address, map only pages which are not yet mapped.
-        if address:
-            region = (page(address), page(address + size) + 1)
-
-            for start, end, _ in self.engine.mem_regions():
-                mapped = (page(start), page(end) + 1)
-
-                regions = subtract(region, mapped)
-
-                if len(regions) == 0:
-                    break
-                elif len(regions) == 1:
-                    region = regions[0]
-                elif len(regions) == 2:
-                    emit, region = regions
-                    map(*emit)
-            else:
-                map(*region)
-
-        # Address not provided, find a suitable region.
-        else:
-            target = 0
-            for start, end, _ in self.engine.mem_regions():
-                if page(end) > target:
-                    target = page(end) + 1
-
-            map(target, target + page(size) + 1)
-            address = target * self.PAGE_SIZE
-
-        return address
+    def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
+        return list(self.memory_map.ranges)
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         if content is None:
