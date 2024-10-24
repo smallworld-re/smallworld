@@ -130,7 +130,7 @@ class Colorizer(analysis.Analysis):
             #            import pdb
             #            pdb.set_trace()
 
-            self.emu.add_exit_point(start_pc)
+            self.emu.add_exitpoint(start_pc)
 
             hint_list = []
             for j in range(self.num_insns):

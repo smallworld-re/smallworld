@@ -54,7 +54,7 @@ cpu.rip.set(0x1000)
 cpu.rdi.set_content(node_a_addr)
 cpu.rsi.set_content(42)
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + 26)
+emulator.add_exitpoint(cpu.rip.get() + 26)
 
 # final_machine = machine.emulate(emulator)
 # final_cpu = final_machine.get_cpu()

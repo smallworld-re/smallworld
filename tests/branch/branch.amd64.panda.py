@@ -33,7 +33,7 @@ cpu.rdi.set(int(sys.argv[1]))
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+emulator.add_exitpoint(cpu.rip.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state

@@ -1,10 +1,14 @@
 import angr
 
+from ...utils import RangeCollection
+
 
 class ExpandedScratchPlugin(angr.state_plugins.SimStateScratch):
     def __init__(self, scratch=None):
         super().__init__(scratch=scratch)
-        self.bounds = list()
+        self.exitpoints = set()
+        self.bounds = RangeCollection()
+        self.memory_map = RangeCollection()
         self.global_insn_bp = None
         self.global_read_bp = None
         self.global_write_bp = None
@@ -14,10 +18,12 @@ class ExpandedScratchPlugin(angr.state_plugins.SimStateScratch):
         self.mem_write_bps = dict()
 
         if scratch is not None:
+            self.exitpoints |= scratch.exitpoints
+            self.bounds.update(scratch.bounds)
+            self.memory_map.update(scratch.memory_map)
             self.global_insn_bp = scratch.global_insn_bp
             self.global_read_bp = scratch.global_read_bp
             self.global_write_bp = scratch.global_write_bp
-            self.bounds.extend(scratch.bounds)
             self.insn_bps.update(scratch.insn_bps)
             self.func_bps.update(scratch.func_bps)
             self.mem_read_bps.update(scratch.mem_read_bps)

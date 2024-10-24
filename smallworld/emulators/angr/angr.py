@@ -16,7 +16,6 @@ from .machdefs import AngrMachineDef
 
 log = logging.getLogger(__name__)
 
-
 class HookHandler(angr.SimProcedure):
     """SimProcedure for implementing "finish" hooks.
 
@@ -270,13 +269,17 @@ class AngrEmulator(
             # Definitely no labels here
             return None
 
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
-        if address is not None:
-            log.info(f"Mapping {hex(address)} -> {hex(address + size)}")
-            self.state.scratch.bounds.append(range(address, address + size))
-            return address
-        else:
-            raise NotImplementedError("I actually need to implement this")
+    def map_memory(self, address: int, size: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Mapping memory not supported once execution begins."
+            )
+        # Unlike Unicorn, angr doesn't care about pages.
+        region = (address, address + size)
+        self.state.scratch.memory_map.add_range(region)
+
+    def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
+        return list(self.memory_map.ranges)
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         if self._dirty and not self._linear:
@@ -750,10 +753,14 @@ class AngrEmulator(
         )
 
         def filter_func(state):
-            for bound in self.state.scratch.bounds:
-                if state._ip.concrete_value in bound:
-                    return False
-            return True
+            ip = state._ip.concrete_value
+            if not self.state.scratch.bounds.is_empty() and self.state.scratch.bounds.find_range(ip) is None:
+                return True
+            if self.state.scratch.memory_map.find_range(ip) is None:
+                return True
+            if ip in self.state.scratch.exitpoints:
+                return True
+            return False
 
         self.mgr.move(
             from_stash="active", to_stash="deadended", filter_func=filter_func
@@ -793,6 +800,50 @@ class AngrEmulator(
             )
         self._linear = True
         log.warn("Linear execution mode enabled")
+    
+    def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing bounds not supported once execution begins"
+            )
+        return list(self.state.scratch.bounds.ranges)
+
+    def add_bound(self, start: int, end: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing bounds not supported once execution begins"
+            )
+        self.state.scratch.bounds.add_range((start, end))
+
+
+    def remove_bound(self, start: int, end: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing bounds not supported once execution begins"
+            )
+
+        self.state.scratch.bounds.remove_range((start, end))
+
+    def get_exitpoints(self) -> typing.Set[int]:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing exitpoints not supported once execution begins"
+            )
+        return set(self.state.scratch.exitpoints)
+
+    def add_exitpoint(self, address: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing exitpoints not supported once execution begins"
+            )
+        self.state.scratch.exitpoints.add(address)
+
+    def remove_exitpoint(self, address: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing exitpoints not supported once execution begins"
+            )
+        self.state.scratch.exitpoints.remove(address)
 
     def __repr__(self):
         return f"Angr ({self.mgr})"

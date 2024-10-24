@@ -319,7 +319,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         return self._exit_points
 
-    def add_exit_point(self, address: int) -> None:
+    def add_exitpoint(self, address: int) -> None:
         """Add an exitpoint.
 
         If execution reaches an exitpoint emulation should stop.

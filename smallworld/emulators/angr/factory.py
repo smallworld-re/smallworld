@@ -25,14 +25,29 @@ class PatchedObjectFactory(AngrObjectFactory):
             if state._ip.symbolic:
                 raise AnalysisError("Cannot build a block for a symbolic IP")
             ip = state._ip.concrete_value
-            for b in state.scratch.bounds:
-                if ip in b:
-                    bound = b
-            if bound is None:
-                log.warn(f"No block at {state._ip}")
+
+            # Check if the ip is mapped
+            i = state.scratch.memory_map.find_range(ip)
+            if i is None:
+                # Nope.  No code here.
+                log.warn(f"No block mapped at {state._ip}")
                 max_size = 0
             else:
-                max_size = bound.stop - ip
+                # Yep.  We have an upper bound on our block
+                (start, stop) = state.scratch.memory_map.ranges[i]
+                max_size = stop - ip
+                if not state.scratch.bounds.is_empty():
+                    # We also have bounds.  Test if we're in those
+                    i = state.scratch.bounds.find_range(ip)
+                    if i is None:
+                        # Nope.  Out of bounds.
+                        log.warn(f"{state._ip} is out of bounds")
+                        max_size = 0
+                    else:
+                        # Yep.  Allow anything in bounds and in memory
+                        (start, stop) = state.scratch.bounds.ranges[i]
+                        max_size = min(max_size, stop - ip)
+
             if max_size == 0:
                 log.warn(f"Empty block at {state._ip}")
             max_size = min(max_size, 4096)

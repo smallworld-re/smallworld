@@ -447,15 +447,15 @@ class Machine(StatefulSet):
         super().__init__()
         self._exitpoints = set()
 
-    def add_exit_point(self, address: int):
+    def add_exitpoint(self, address: int):
         self._exitpoints.add(address)
 
-    def get_exit_points(self) -> typing.Set[int]:
+    def get_exitpoints(self) -> typing.Set[int]:
         return self._exitpoints
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exitpoints:
-            emulator.add_exit_point(address)
+            emulator.add_exitpoint(address)
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:

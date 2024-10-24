@@ -40,7 +40,7 @@ machine.add(cpu)
 machine.add(code)
 try:
     emulator = smallworld.emulators.UnicornEmulator(platform)
-    emulator.add_exit_point(cpu.rip.get() + 55)
+    emulator.add_exitpoint(cpu.rip.get() + 55)
     final_machine = machine.emulate(emulator)
     final_cpu = final_machine.get_cpu()
     print(final_cpu.eax)
