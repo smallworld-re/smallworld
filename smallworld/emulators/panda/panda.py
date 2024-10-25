@@ -64,7 +64,7 @@ class PandaEmulator(
         # control flow changes potentially but you should run in single step mode,
         # (2) running in normal mode, if you try to run code without an "end" to
         # your bb, it will crash
-        # NOTE: if there is ANY error in the thread panda code, (typos)  it will just die...
+        # NOTE: if there is ANY error in the thread panda code (typos) it will just die...
         # be careful
 
         def __init__(self, manager, thread_state):

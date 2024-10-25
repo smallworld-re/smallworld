@@ -97,7 +97,6 @@ class UnicornEmulator(
                 # check that we are in bounds
                 if self._bounds.find_range(address) is None:
                     # not in bounds for any of the ranges specified
-                    print("boudns?")
 
                     if (
                         self.emulation_in_progress == STEP_BLOCK
@@ -113,7 +112,6 @@ class UnicornEmulator(
                 raise exceptions.EmulationExitpoint
             # run instruciton hooks
             if self.all_instructions_hook:
-                print("here")
                 self.all_instructions_hook(self)
 
             if cb := self.is_instruction_hooked(address):
@@ -145,36 +143,42 @@ class UnicornEmulator(
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
-            if self.memory_read_hooks:
-                if self.all_reads_hook:
-                    data = self.manager.all_reads_hook(self, address, size)
+            if self.all_reads_hook:
+                data = self.all_reads_hook(self, address, size)
 
-                if cb := self.is_memory_read_hooked(address):
-                    data = cb(self, address, size)
+            if cb := self.is_memory_read_hooked(address):
+                data = cb(self, address, size)
+                print(data)
 
-                    # Execute registered callback
-                    # data = cb(self, address, size)
-                    # Overwrite memory being read.
-                    # The instruction is emulated after this callback fires,
-                    # so the new value will get used for computation.
-                    if data:
-                        if len(data) != size:
-                            raise exceptions.EmulationError(
-                                f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
-                            )
-                        uc.mem_write(address, data)
+                # Execute registered callback
+                # data = cb(self, address, size)
+                # Overwrite memory being read.
+                # The instruction is emulated after this callback fires,
+                # so the new value will get used for computation.
+                if data:
+                    if len(data) != size:
+                        raise exceptions.EmulationError(
+                            f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
+                        )
+                    uc.mem_write(address, data)
 
         def mem_write_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_WRITE
-            for seg, cb in self.memory_write_hooks.items():
-                if address in seg:
-                    cb(
-                        self,
-                        address,
-                        size,
-                        value.to_bytes(size, self.platform.byteorder.value),
-                    )
-                    break
+            if self.all_writes_hook:
+                self.all_writes_hook(
+                    self,
+                    address,
+                    size,
+                    value.to_bytes(size, self.platform.byteorder.value),
+                )
+
+            if cb := self.is_memory_write_hooked(address):
+                cb(
+                    self,
+                    address,
+                    size,
+                    value.to_bytes(size, self.platform.byteorder.value),
+                )
 
         self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_HOOK_MEM_READ, mem_read_callback)
