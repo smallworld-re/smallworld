@@ -244,19 +244,14 @@ class UnicornEmulator(
         if reg == 0:
             logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
         try:
-            res = self.engine.reg_read(reg)
-            if isinstance(res, int):
-                # This is an ordinary, sane register
-                return res
-            elif isinstance(res, tuple):
-                # This is an oddly-sized or multi-part register.
-                # TODO: I don't know what this representation means.
-                logger.warn(f"Cannot interpret Unicorn output for register {name}")
-                return 0
-            else:
-                # I have no idea what's in this thing.
+            help(self.engine.reg_read)
+            res = self.engine.reg_read(reg, tuple)
+            if not isinstance(res, int):
+                # Unicorn decided to expand this register's bit fields into a tuple.
+                # TODO: Handle Unicorn tuple values.
+                # These are rare/unimportant enough that they're not worth breaking the API.
                 raise TypeError(
-                    f"Expected int or tuple as value of {name}, got {type(res)}"
+                    f"Expected int as value of {name}, got {type(res)}"
                 )
         except Exception as e:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
