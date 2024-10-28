@@ -159,6 +159,10 @@ class CallTests(ScriptIntegrationTest):
     def test_call_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_call_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
     def test_call_armel(self):
         self.run_test("armel")
 
@@ -245,6 +249,10 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_aarch64_angr(self):
         self.run_test("aarch64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_dma_aarch64_panda(self):
+        self.run_test("aarch64.panda")
 
     def test_dma_armel(self):
         self.run_test("armel")
@@ -382,6 +390,10 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_aarch64_angr(self):
         self.run_test(arch="aarch64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_square_aarch64_panda(self):
+        self.run_test(arch="aarch64.panda")
+
     def test_square_armel(self):
         self.run_test(arch="armel")
 
@@ -472,6 +484,10 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_aarch64_angr(self):
         self.run_test("aarch64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_recursion_aarch64_panda(self):
+        self.run_test("aarch64.panda")
 
     def test_recursion_armel(self):
         self.run_test("armel")
@@ -665,6 +681,10 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_aarch64_angr(self):
         self.run_test("aarch64.angr", reg="x0", res="0xffffffff")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_stack_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
     def test_stack_armel(self):
         self.run_test("armel", reg="r0")
 
@@ -829,6 +849,10 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_aarch64_angr(self):
         self.run_branch("aarch64.angr", reg="w0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_branch_aarch64_panda(self):
+        self.run_branch("aarch64.panda")
+
     def test_branch_armel(self):
         self.run_branch("armel", reg="r0")
 
@@ -916,6 +940,10 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_strlen_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
     def test_strlen_armel(self):
         self.run_test("armel")
 
@@ -1001,6 +1029,10 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_aarch64_angr(self):
         self.run_test("aarch64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_hooking_aarch64_panda(self):
+        self.run_test("aarch64.panda")
 
     def test_hooking_armel(self):
         self.run_test("armel")
