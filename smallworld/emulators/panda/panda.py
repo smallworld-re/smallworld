@@ -66,6 +66,7 @@ class PandaEmulator(
         # your bb, it will crash
         # NOTE: if there is ANY error in the thread panda code (typos) it will just die...
         # be careful
+        # If we want to support repeated panda instances we need to make this a subprocess, not thread
 
         def __init__(self, manager, thread_state):
             super().__init__(daemon=True)
@@ -118,10 +119,8 @@ class PandaEmulator(
                 if pc in self.manager._exit_points:
                     # stay here until i say die
                     print("on_insn: exit")
-                    # print(self.manager.read_register("r0"))
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
-                    # gracefully (enough) exit here
                 elif self.state == PandaEmulator.ThreadState.RUN:
                     # keep going until the end
                     print("on_insn: run")
@@ -166,7 +165,7 @@ class PandaEmulator(
 
                 print(f"on_insn: done {self.state}")
 
-                if self.manager.current_instruction():
+                if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
                     pass
                 self.hook_return = pc + self.manager.current_instruction().size
@@ -190,7 +189,6 @@ class PandaEmulator(
                 if cb := self.manager.is_memory_read_hooked(addr):
                     cb(self.manager, addr, size)
 
-            # TODO: Untested
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
@@ -203,7 +201,6 @@ class PandaEmulator(
                     # how do i translate this to bytes?
                     cb(self.manager, addr, size, bytes())
 
-            # TODO: Untested
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
                 print("interrupt hook")
@@ -299,12 +296,15 @@ class PandaEmulator(
             return
 
         if not self.panda_thread.machdef.check_panda_reg(name):
-            logger.warn(f"Panda doesn't support register {name} for {self.platform}")
-            return
+            raise exceptions.UnsupportedRegisterError(
+                f"Panda doesn't support register {name} for {self.platform}"
+            )
 
-        self.panda_thread.machdef.check_panda_reg(name)
-        print(f"setting {name}")
-        self.panda_thread.machdef.panda_arch.set_reg(self.cpu, name, content)
+        name = self.panda_thread.machdef.panda_reg(name)
+        try:
+            self.panda_thread.machdef.panda_arch.set_reg(self.cpu, name, content)
+        except:
+            raise exceptions.AnalysisError(f"Failed writing {name} (id: {name})")
 
         logger.debug(f"set register {name}={content}")
 
@@ -359,13 +359,7 @@ class PandaEmulator(
         if not len(content):
             raise ValueError("memory write cannot be empty")
 
-        # self.map_memory(address, len(bytes(content)))
-        # content = content[::-1]
-        # print(f"write_memory: {content}")
         self.panda_thread.panda.physical_memory_write(address, content)
-        # print(
-        #    self.panda_thread.panda.virtual_memory_read(self.cpu, address, len(content))
-        # )
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 
@@ -403,18 +397,11 @@ class PandaEmulator(
         if len(self._exit_points) == 0:
             # TODO warn here
             raise exceptions.ConfigurationError(
-                "no exitpoint provided, emulation cannot start"
+                "at least one exit point must be set, emulation cannot start"
             )
         if self.panda_thread.state == self.ThreadState.EXIT:
             logger.debug("stopping emulation at exit point")
             raise exceptions.EmulationBounds
-
-        if self.pc is None:
-            raise exceptions.ConfigurationError(
-                "no entry provided, emulation cannot start"
-            )
-
-        return
 
     def run(self) -> None:
         self.check()
