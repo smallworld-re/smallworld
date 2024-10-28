@@ -7,6 +7,16 @@ import unittest
 
 from sphinx import application, errors
 
+try:
+    import unicornafl
+except ImportError:
+    unicornafl = None
+
+try:
+    import pandare
+except ImportError:
+    pandare = None
+
 
 class DetailedCalledProcessError(Exception):
     def __init__(self, error: subprocess.CalledProcessError):
@@ -139,6 +149,7 @@ class CallTests(ScriptIntegrationTest):
     def test_call_amd64_angr(self):
         self.run_test("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_call_amd64_panda(self):
         self.run_test("amd64.panda")
 
@@ -154,6 +165,7 @@ class CallTests(ScriptIntegrationTest):
     def test_call_armel_angr(self):
         self.run_test("armel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_call_armel_panda(self):
         self.run_test("armel.panda")
 
@@ -163,6 +175,7 @@ class CallTests(ScriptIntegrationTest):
     def test_call_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_call_armhf_panda(self):
         self.run_test("armhf.panda")
 
@@ -172,6 +185,7 @@ class CallTests(ScriptIntegrationTest):
     def test_call_i386_angr(self):
         self.run_test("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_call_i386_panda(self):
         self.run_test("i386.panda")
 
@@ -181,6 +195,7 @@ class CallTests(ScriptIntegrationTest):
     def test_call_mips_angr(self):
         self.run_test("mips.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_call_mips_panda(self):
         self.run_test("mips.panda")
 
@@ -190,6 +205,7 @@ class CallTests(ScriptIntegrationTest):
     def test_call_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_call_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
@@ -220,6 +236,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_amd64_angr(self):
         self.run_test("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_dma_amd64_panda(self):
         self.run_test("amd64.panda")
 
@@ -235,6 +252,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_armel_angr(self):
         self.run_test("armel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_dma_armel_panda(self):
         self.run_test("armel.panda")
 
@@ -244,6 +262,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_dma_armhf_panda(self):
         self.run_test("armhf.panda")
 
@@ -253,6 +272,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_i386_angr(self):
         self.run_test("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_dma_i386_panda(self):
         self.run_test("i386.panda")
 
@@ -262,6 +282,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_mips_angr(self):
         self.run_test("mips.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_dma_mips_panda(self):
         self.run_test("mips.panda")
 
@@ -271,6 +292,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_dma_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
@@ -350,6 +372,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_amd64_angr(self):
         self.run_test(arch="amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_square_amd64_panda(self):
         self.run_test(arch="amd64.panda")
 
@@ -365,6 +388,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_armel_angr(self):
         self.run_test(arch="armel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_square_armel_panda(self):
         self.run_test(arch="armel.panda")
 
@@ -374,6 +398,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_armhf_angr(self):
         self.run_test(arch="armhf.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_square_armhf_panda(self):
         self.run_test(arch="armhf.panda")
 
@@ -383,6 +408,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_i386_angr(self):
         self.run_test(arch="i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_square_i386_panda(self):
         self.run_test(arch="i386.panda")
 
@@ -392,6 +418,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips_angr(self):
         self.run_test(arch="mips.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_square_mips_panda(self):
         self.run_test(arch="mips.panda")
 
@@ -401,6 +428,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mipsel_angr(self):
         self.run_test(arch="mipsel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_square_mipsel_panda(self):
         self.run_test(arch="mipsel.panda")
 
@@ -435,6 +463,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_amd64_angr(self):
         self.run_test("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_recursion_amd64_panda(self):
         self.run_test("amd64.panda")
 
@@ -450,6 +479,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_armel_angr(self):
         self.run_test("armel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_recursion_armel_panda(self):
         self.run_test("armel.panda")
 
@@ -459,6 +489,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_recursion_armhf_panda(self):
         self.run_test("armhf.panda")
 
@@ -468,6 +499,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_i386_angr(self):
         self.run_test("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_recursion_i386_panda(self):
         self.run_test("i386.panda")
 
@@ -477,6 +509,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_mips_angr(self):
         self.run_test("mips.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_recursion_mips_panda(self):
         self.run_test("mips.panda")
 
@@ -486,6 +519,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_recursion_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
@@ -621,6 +655,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_amd64_angr(self):
         self.run_test("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_stack_amd64_panda(self):
         self.run_test("amd64.panda")
 
@@ -636,6 +671,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_armel_angr(self):
         self.run_test("armel.angr", reg="r0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_stack_armel_panda(self):
         self.run_test("armel.panda", reg="r0")
 
@@ -645,6 +681,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_armhf_angr(self):
         self.run_test("armhf.angr", reg="r0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_stack_armhf_panda(self):
         self.run_test("armhf.panda", reg="r0")
 
@@ -654,6 +691,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_i386_angr(self):
         self.run_test("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_stack_i386_panda(self):
         self.run_test("i386.panda")
 
@@ -663,6 +701,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mips_angr(self):
         self.run_test("mips.angr", reg="v0", res="0xaaaa")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_stack_mips_panda(self):
         self.run_test("mips.panda", reg="v0", res="0xaaaa")
 
@@ -672,6 +711,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mipsel_angr(self):
         self.run_test("mipsel.angr", reg="v0", res="0xaaaa")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_stack_mipsel_panda(self):
         self.run_test("mipsel.panda", reg="v0", res="0xaaaa")
 
@@ -779,6 +819,7 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_amd64_angr(self):
         self.run_branch("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_branch_amd64_panda(self):
         self.run_branch("amd64.panda")
 
@@ -794,6 +835,7 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_armel_angr(self):
         self.run_branch("armel.angr", reg="r0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_branch_armel_panda(self):
         self.run_branch("armel.panda", reg="r0")
 
@@ -803,6 +845,7 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_armhf_angr(self):
         self.run_branch("armhf.angr", reg="r0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_branch_armhf_panda(self):
         self.run_branch("armhf.panda", reg="r0")
 
@@ -812,6 +855,7 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_i386_angr(self):
         self.run_branch("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_branch_i386_panda(self):
         self.run_branch("i386.panda")
 
@@ -821,6 +865,7 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_mips_angr(self):
         self.run_branch("mips.angr", reg="v0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_branch_mips_panda(self):
         self.run_branch("mips.panda", reg="v0")
 
@@ -830,6 +875,7 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_mipsel_angr(self):
         self.run_branch("mipsel.angr", reg="v0")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_branch_mipsel_panda(self):
         self.run_branch("mipsel.panda", reg="v0")
 
@@ -860,6 +906,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_amd64_angr(self):
         self.run_test("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_strlen_amd64_panda(self):
         self.run_test("amd64.panda")
 
@@ -875,6 +922,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_armel_angr(self):
         self.run_test("armel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_strlen_armel_panda(self):
         self.run_test("armel.panda")
 
@@ -884,6 +932,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_strlen_armhf_panda(self):
         self.run_test("armhf.panda")
 
@@ -893,6 +942,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_i386_angr(self):
         self.run_test("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_strlen_i386_panda(self):
         self.run_test("i386.panda")
 
@@ -902,6 +952,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mips_angr(self):
         self.run_test("mips.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_strlen_mips_panda(self):
         self.run_test("mips.panda")
 
@@ -911,6 +962,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_strlen_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
@@ -940,6 +992,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_amd64_angr(self):
         self.run_test("amd64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_amd64_panda(self):
         self.run_test("amd64.panda")
 
@@ -955,6 +1008,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_armel_angr(self):
         self.run_test("armel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_armel_panda(self):
         self.run_test("armel.panda")
 
@@ -964,6 +1018,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_armhf_angr(self):
         self.run_test("armhf.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_armhf_panda(self):
         self.run_test("armhf.panda")
 
@@ -973,6 +1028,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_i386_angr(self):
         self.run_test("i386.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_i386_panda(self):
         self.run_test("i386.panda")
 
@@ -982,6 +1038,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_mips_angr(self):
         self.run_test("mips.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_mips_panda(self):
         self.run_test("mips.panda")
 
@@ -991,6 +1048,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
@@ -1097,12 +1155,6 @@ class FloatsTests(ScriptIntegrationTest):
         self.run_test("i386.angr")
 
     # NOTE: mips be crazy
-
-
-try:
-    import unicornafl
-except ImportError:
-    unicornafl = None
 
 
 class FuzzTests(ScriptIntegrationTest):

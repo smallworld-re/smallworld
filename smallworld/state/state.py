@@ -290,6 +290,19 @@ class Register(Value, Stateful):
             s = s + f"0x{x:x}"
         return s
 
+    def set_content(self, content: typing.Optional[typing.Any]):
+        if content is not None:
+            if not isinstance(content, int):
+                raise TypeError(
+                    f"Expected None or int as content for Register {self.name}, got {type(content)}"
+                )
+            if content < 0:
+                logger.warn(
+                    "Converting content {hex(content)} of {self.name} to unsigned."
+                )
+                content = content + (2 ** (self.size * 8))
+        super().set_content(content)
+
     def get_size(self) -> int:
         return self.size
 
@@ -376,6 +389,16 @@ class RegisterAlias(Register):
 
     def set_content(self, content: typing.Optional[typing.Any]) -> None:
         if content is not None:
+            if not isinstance(content, int):
+                raise TypeError(
+                    f"Expected None or int as content for RegisterAlias {self.name}, got {type(content)}"
+                )
+            if content < 0:
+                logger.warn(
+                    f"Converting content {hex(content)} of {self.name} to unsigned."
+                )
+                content = content + (2 ** (self.size * 8))
+
             value = self.reference.get_content()
             if value is None:
                 value = 0
@@ -463,13 +486,13 @@ class Machine(StatefulSet):
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exitpoints:
             emulator.add_exitpoint(address)
-        for (start, end) in self.get_bounds():
+        for start, end in self.get_bounds():
             emulator.add_bound(start, end)
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exitpoints = emulator.get_exitpoints()
-        for (start, end) in emulator.get_bounds():
+        for start, end in emulator.get_bounds():
             self.add_bound(start, end)
         return super().extract(emulator)
 

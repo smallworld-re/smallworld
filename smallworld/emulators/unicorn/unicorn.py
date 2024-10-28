@@ -244,9 +244,22 @@ class UnicornEmulator(
         if reg == 0:
             logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
         try:
-            return self.engine.reg_read(reg)
-        except:
-            raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})")
+            res = self.engine.reg_read(reg)
+            if isinstance(res, int):
+                # This is an ordinary, sane register
+                return res
+            elif isinstance(res, tuple):
+                # This is an oddly-sized or multi-part register.
+                # TODO: I don't know what this representation means.
+                logger.warn(f"Cannot interpret Unicorn output for register {name}")
+                return 0
+            else:
+                # I have no idea what's in this thing.
+                raise TypeError(
+                    f"Expected int or tuple as value of {name}, got {type(res)}"
+                )
+        except Exception as e:
+            raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
     def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
         # not supported yet

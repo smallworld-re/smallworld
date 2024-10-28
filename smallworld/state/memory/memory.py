@@ -92,7 +92,9 @@ class Memory(state.Stateful, dict):
                 self.get_capacity(), None, f"Extracted memory from {self.address}"
             )
         except Exception as e:
-            raise exceptions.EmulationException(f"Failed reading {hex(self.address)}") from e
+            raise exceptions.EmulationError(
+                f"Failed reading {hex(self.address)}"
+            ) from e
         self[0] = value
 
     def __hash__(self):
