@@ -131,7 +131,17 @@ class UnicornEmulator(
                 # self.engine.emu_stop()
                 if self.hook_return is None:
                     raise RuntimeError("return point for function hook is unknown")
+
                 self.write_register("pc", self.hook_return)
+                # On i386 and amd64, `ret` has a second side-effect
+                # of popping the stack
+                if self.platform.architecture == platforms.Architecture.X86_32:
+                    sp = self.read_register("esp")
+                    self.write_register("esp", sp + 4)
+                elif self.platform.architecture == platforms.Architecture.X86_64:
+                    sp = self.read_register("rsp")
+                    self.write_register("rsp", sp + 8)
+                
             # this is always keeping track of *next* instruction which, would be
             # return addr for a call.
             self.hook_return = address + size

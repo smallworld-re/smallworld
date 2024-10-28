@@ -7,7 +7,7 @@ BITS 64;
 ; This requires external calls, notionally to gets and puts which will need to
 ; be modeled.
         mov     rbp, rsp
-        add     rsp, 64
+        sub     rsp, 64
         mov     rdi, rsp
         call    gets@PLT
         call    puts@PLT

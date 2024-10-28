@@ -38,6 +38,8 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 sp = stack.get_pointer()
 cpu.rsp.set(sp)
 
+print(f"SP: {hex(sp)}")
+
 # Configure gets model
 gets = smallworld.state.models.Model.lookup(
     "gets", platform, smallworld.platforms.ABI.SYSTEMV, code.address + 0x2800

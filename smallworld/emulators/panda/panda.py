@@ -154,6 +154,14 @@ class PandaEmulator(
                     cb(self.manager)
                     # The only way i can do this is to use capstone
                     self.manager.write_register("pc", self.hook_return)
+                    # On i386 and amd64, `ret` has a second side-effect
+                    # of popping the stack
+                    if self.manager.platform.architecture == platforms.Architecture.X86_32:
+                        sp = self.manager.read_register("esp")
+                        self.manager.write_register("esp", sp + 4)
+                    elif self.manager.platform.architecture == platforms.Architecture.X86_64:
+                        sp = self.manager.read_register("rsp")
+                        self.manager.write_register("rsp", sp + 8)
 
                 # Now, if we for some reason have a different pc
                 # then the one that is set for us, break out of this
