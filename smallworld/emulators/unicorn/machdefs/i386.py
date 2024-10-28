@@ -78,18 +78,12 @@ class i386MachineDef(UnicornMachineDef):
         "dr7": (unicorn.x86_const.UC_X86_REG_DR7, "dr7", 4, 0),
         # *** Descriptor Table Registers
         # NOTE: Yes, this is 6 bytes; 2 byte segment selector plus 4 byte offset
-        # NOTE: DTRs are supported by Unicorn, but not by SmallWorld.
-        # Unicorn represents these as 4-tuples.
-        # If you need *dtr support, open a ticket.
-        "gdtr": (unicorn.x86_const.UC_X86_REG_INVALID, "gdtr", 6, 0),
-        "idtr": (unicorn.x86_const.UC_X86_REG_INVALID, "idtr", 6, 0),
-        "ldtr": (unicorn.x86_const.UC_X86_REG_INVALID, "ldtr", 6, 0),
+        "gdtr": (unicorn.x86_const.UC_X86_REG_GDTR, "gdtr", 6, 0),
+        "idtr": (unicorn.x86_const.UC_X86_REG_IDTR, "idtr", 6, 0),
+        "ldtr": (unicorn.x86_const.UC_X86_REG_LDTR, "ldtr", 6, 0),
         # *** Task Register ***
         # NOTE: Yes, this is 6 bytes; 2 byte segment selector plus 4 byte offset
-        # NOTE: DTRs are supported by Unicorn, but not by SmallWorld.
-        # Unicorn represents these as 4-tuples.
-        # If you need *dtr support, open a ticket.
-        "tr": (unicorn.x86_const.UC_X86_REG_INVALID, "tr", 6, 0),
+        "tr": (unicorn.x86_const.UC_X86_REG_TR, "tr", 6, 0),
         # *** x87 registers ***
         # NOTE: x87 is supported by Unicorn, but not by SmallWorld.
         # Values are represented as tuples (exponent: int, mantissa: int).

@@ -126,17 +126,11 @@ class AMD64MachineDef(UnicornMachineDef):
             "dr14": (unicorn.x86_const.UC_X86_REG_INVALID, "dr14", 8, 0),
             "dr15": (unicorn.x86_const.UC_X86_REG_INVALID, "dr15", 8, 0),
             # *** Descriptor Table Registers ***
-            # NOTE: DTRs are supported by Unicorn, but not by SmallWorld.
-            # Unicorn represents these as 4-tuples.
-            # If you need *dtr support, open a ticket.
-            "gdtr": (unicorn.x86_const.UC_X86_REG_INVALID, "gdtr", 10, 0),
-            "idtr": (unicorn.x86_const.UC_X86_REG_INVALID, "idtr", 10, 0),
-            "ldtr": (unicorn.x86_const.UC_X86_REG_INVALID, "ldtr", 10, 0),
+            "gdtr": (unicorn.x86_const.UC_X86_REG_GDTR, "gdtr", 10, 0),
+            "idtr": (unicorn.x86_const.UC_X86_REG_IDTR, "idtr", 10, 0),
+            "ldtr": (unicorn.x86_const.UC_X86_REG_LDTR, "ldtr", 10, 0),
             # *** Task Register ***
-            # NOTE: DTRs are supported by Unicorn, but not by SmallWOrld.
-            # Unicorn represents these as 4-tuples.
-            # If you need tr support, upen a ticket.
-            "tr": (unicorn.x86_const.UC_X86_REG_INVALID, "tr", 2, 0),
+            "tr": (unicorn.x86_const.UC_X86_REG_TR, "tr", 2, 0),
             # *** x87 registers ***
             # NOTE: x87 is supported by Unicorn, but not by SmallWorld.
             # Values are represented as tuples (exponent: int, mantissa: int).

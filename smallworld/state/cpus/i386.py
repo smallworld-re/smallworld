@@ -2,6 +2,7 @@ import typing
 
 from ... import platforms
 from .. import state
+from ..x86_registers import X86MMRRegister
 from . import cpu
 
 
@@ -142,16 +143,16 @@ class I386(cpu.CPU):
 
         # *** Descriptor Table Registers
         # NOTE: Yes, this is 6 bytes; 2 byte segment selector plus 4 byte offset
-        self.gdtr = state.Register("gdtr", 6)
+        self.gdtr = X86MMRRegister("gdtr", 6)
         self.add(self.gdtr)
-        self.idtr = state.Register("idtr", 6)
+        self.idtr = X86MMRRegister("idtr", 6)
         self.add(self.idtr)
-        self.ldtr = state.Register("ldtr", 6)
+        self.ldtr = X86MMRRegister("ldtr", 6)
         self.add(self.ldtr)
 
         # *** Task Register ***
         # NOTE: Yes, this is 6 bytes; 2 byte segment selector plus 4 byte offset
-        self.tr = state.Register("tr", 6)
+        self.tr = X86MMRRegister("tr", 6)
         self.add(self.tr)
 
         # *** x87 registers ***

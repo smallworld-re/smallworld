@@ -42,9 +42,10 @@ class Stateful(metaclass=abc.ABCMeta):
 class Value(metaclass=abc.ABCMeta):
     """An individual state value."""
 
-    _content: typing.Optional[typing.Any] = None
-    _type: typing.Optional[typing.Any] = None
-    _label: typing.Optional[str] = None
+    def __init__(self):
+        self._content: typing.Optional[typing.Any] = None
+        self._type: typing.Optional[typing.Any] = None
+        self._label: typing.Optional[str] = None
 
     @abc.abstractmethod
     def get_size(self) -> int:
@@ -182,6 +183,7 @@ class EmptyValue(Value):
     def __init__(
         self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]
     ):
+        super().__init__()
         self._size = size
         self._type = type
         self._label = label
@@ -197,6 +199,7 @@ class IntegerValue(Value):
     def __init__(
         self, integer: int, size: int, label: str, signed: bool = True
     ) -> None:
+        super().__init__()
         if size == 8:
             if signed:
                 self._type = ctypes.c_int64
@@ -246,6 +249,7 @@ class BytesValue(Value):
     def __init__(
         self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> None:
+        super().__init__()
         self._content = bytes(content)
         self._label = label
         self._size = len(self._content)
@@ -267,10 +271,6 @@ class Register(Value, Stateful):
         name: The canonical name of the register.
         size: The size (in bytes) of the register.
     """
-
-    _content: typing.Optional[int] = None
-    _type = None
-    _label = None
 
     def __init__(self, name: str, size: int = 4):
         super().__init__()
