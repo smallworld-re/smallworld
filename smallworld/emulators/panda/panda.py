@@ -193,13 +193,13 @@ class PandaEmulator(
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
                 print(f"on_write: {pc}")
+                byte_val = bytes([buf[i] for i in range(size)])
+
                 if self.manager.all_writes_hook:
-                    self.manager.all_writes_hook(self.manager, addr, size, bytes())
+                    self.manager.all_writes_hook(self.manager, addr, size, byte_val)
 
                 if cb := self.manager.is_memory_write_hooked(addr):
-                    # TODO: the type of buf is <class '_cffi_backend._CDataBase'>
-                    # how do i translate this to bytes?
-                    cb(self.manager, addr, size, bytes())
+                    cb(self.manager, addr, size, byte_val)
 
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
