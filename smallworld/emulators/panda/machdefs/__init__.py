@@ -1,6 +1,4 @@
 from .aarch64 import AArch64MachineDef
-
-# from .arm import ARMMachineDef
 from .amd64 import AMD64MachineDef
 from .arm import (  # ARMv6MMachineDef,; ARMv6MThumbMachineDef,
     ARMv5TMachineDef,
@@ -9,9 +7,8 @@ from .arm import (  # ARMv6MMachineDef,; ARMv6MThumbMachineDef,
 from .i386 import i386MachineDef
 from .machdef import PandaMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
-from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
-
-# from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
+from .mips64 import MIPS64BEMachineDef  # , MIPS64ELMachineDef
+from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
 
 __all__ = [
     "AArch64MachineDef",
@@ -25,5 +22,7 @@ __all__ = [
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",
-    "MIPS64ELMachineDef",
+    # "MIPS64ELMachineDef",
+    "PowerPC32MachineDef",
+    "PowerPC64MachineDef",
 ]
