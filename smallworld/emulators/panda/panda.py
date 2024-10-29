@@ -155,10 +155,16 @@ class PandaEmulator(
                     self.manager.write_register("pc", self.hook_return)
                     # On i386 and amd64, `ret` has a second side-effect
                     # of popping the stack
-                    if self.manager.platform.architecture == platforms.Architecture.X86_32:
+                    if (
+                        self.manager.platform.architecture
+                        == platforms.Architecture.X86_32
+                    ):
                         sp = self.manager.read_register("esp")
                         self.manager.write_register("esp", sp + 4)
-                    elif self.manager.platform.architecture == platforms.Architecture.X86_64:
+                    elif (
+                        self.manager.platform.architecture
+                        == platforms.Architecture.X86_64
+                    ):
                         sp = self.manager.read_register("rsp")
                         self.manager.write_register("rsp", sp + 8)
 
@@ -176,6 +182,7 @@ class PandaEmulator(
                 if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
                     pass
+                print(self.manager.current_instruction())
                 self.hook_return = pc + self.manager.current_instruction().size
 
                 return True
@@ -200,7 +207,7 @@ class PandaEmulator(
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
-                print(f"on_write: {pc}")
+                print(f"on_write: {hex(addr)}")
                 byte_val = bytes([buf[i] for i in range(size)])
 
                 if self.manager.all_writes_hook:
@@ -332,7 +339,6 @@ class PandaEmulator(
             region = (page(address), page(address + size) + 1)
         else:
             region = (page(address), page(address + size))
-        print(page(address + size))
 
         # Get the missing pages first. Those are the ones we want to map
         missing_range = self.mapped_pages.get_missing_ranges(region)

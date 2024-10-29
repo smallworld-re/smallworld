@@ -72,7 +72,7 @@ class PowerPCMachineDef(PandaMachineDef):
 
 class PowerPC32MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC32
-    panda_cpu_str = "750"
+    panda_cpu_str = "ppc32"
     cs_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
 
 
