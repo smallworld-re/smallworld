@@ -1,4 +1,7 @@
     .text
+_start:
+    bl      main
+ 
 strlen:
     li      4,0
 .L2:
@@ -11,3 +14,6 @@ strlen:
 .L3:
     mr      3,4
     blr
+
+main:
+    bl      strlen
