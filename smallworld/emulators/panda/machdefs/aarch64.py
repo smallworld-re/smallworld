@@ -1,23 +1,17 @@
 import capstone
-import pandare
 
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class AArch64MachineDef(PandaMachineDef):
-    cs_arch = capstone.CS_ARCH_ARM64
-    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_LITTLE_ENDIAN
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
 
-    pc_reg = "pc"
-    panda_cpu_str = ""
+    cs_arch = capstone.CS_ARCH_ARM64
+    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_LITTLE_ENDIAN
 
-    # panda_cpu_str = "cortex-a9"  # -cpu cortex-a9
-    panda_arch_str = "aarch64"
-    # We don't need this
-    panda_arch = pandare.arch.Aarch64Arch(None)
+    panda_arch = "aarch64"
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags

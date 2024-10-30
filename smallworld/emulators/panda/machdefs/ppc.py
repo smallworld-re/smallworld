@@ -1,5 +1,4 @@
 import capstone
-import pandare
 
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
@@ -7,14 +6,11 @@ from .machdef import PandaMachineDef
 
 class PowerPCMachineDef(PandaMachineDef):
     byteorder = Byteorder.BIG
+
     cs_arch = capstone.CS_ARCH_PPC
     cs_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
 
-    pc_reg = "pc"
-
-    # We don't need this
-    panda_arch = pandare.arch.PowerPCArch(None)
-    panda_arch_str = "ppc"
+    panda_arch = "ppc"
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
@@ -72,11 +68,12 @@ class PowerPCMachineDef(PandaMachineDef):
 
 class PowerPC32MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC32
-    panda_cpu_str = "ppc32"
     cs_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
+    cpu = "ppc32"
 
 
+# TODO: Do we have a panda PPC 64 bit cpu?
 class PowerPC64MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC64
-    panda_cpu_str = "970"
     cs_mode = capstone.CS_MODE_64 | capstone.CS_MODE_BIG_ENDIAN
+    # cpu = "970"

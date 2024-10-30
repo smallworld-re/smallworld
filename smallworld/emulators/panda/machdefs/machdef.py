@@ -27,12 +27,6 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         """The panda architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    @property
-    @abc.abstractmethod
-    def pc_reg(self) -> str:
-        """The name of the Program Counter register for this machine"""
-        return ""
-
     _registers: typing.Dict[str, str] = {}
 
     def panda_reg(self, name: str) -> str:

@@ -60,12 +60,8 @@ class PandaEmulator(
         # sure at this point how its determining the bounds of a block but it definitely has
         # something to do with mapped memory
 
-        # NOTE: there are two methods here (1) you can run arbitrary code (without
-        # control flow changes potentially but you should run in single step mode,
-        # (2) running in normal mode, if you try to run code without an "end" to
-        # your bb, it will crash
         # NOTE: if there is ANY error in the thread panda code (typos) it will just die...
-        # be careful
+        # be careful in callbacks
         # If we want to support repeated panda instances we need to make this a subprocess, not thread
 
         def __init__(self, manager, thread_state):
@@ -84,15 +80,26 @@ class PandaEmulator(
             self.manager.cpu = cpu
             self.manager.pc = pc
 
+        def get_panda_args_from_machdef(self):
+            panda_args = []
+
+            if hasattr(self.machdef, "machine"):
+                panda_args.extend(["-M", self.machdef.machine])
+            else:
+                panda_args.extend(["-M", "configurable"])
+
+            if hasattr(self.machdef, "cpu"):  # != "":
+                panda_args.extend(["-cpu", self.machdef.cpu])
+
+            panda_args.extend(["-nographic"])
+            # At some point we can send something in that only supports singlestep?
+            # panda_args.extend(["singlestep"])
+            return panda_args
+
         def run(self):
-            panda_args = ["-M", "configurable", "-nographic"]  # "-singlestep"]
+            panda_args = self.get_panda_args_from_machdef()
 
-            if self.machdef.panda_cpu_str != "":
-                panda_args.extend(["-cpu", self.machdef.panda_cpu_str])
-
-            self.panda = pandare.Panda(
-                self.machdef.panda_arch_str, extra_args=panda_args
-            )
+            self.panda = pandare.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
@@ -100,37 +107,33 @@ class PandaEmulator(
                 self.setup_state(cpu)
                 self.signal_and_wait()
 
-            # The following two are used for both hooking, single step, and
-            # when to stop panda from executing, I would love to be able to
-            # actually use this to not instrument things we don't want but
-            # it runs the ENTIRE BLOCK before it calls anything else
-            # ordering -> should_run_on_insn, start_block_exec, on_insn
-            # We could potentially instrument by determining ahead of time
-            # but thats a problem also because you dont know which block exit pc
-            # lives in so nope.
             @self.panda.cb_insn_translate
             def should_run_on_insn(env, pc):
                 return True
 
             @self.panda.cb_insn_exec
             def on_insn(cpu, pc):
+                # PowerPC pc move pc to end of instr
+                # so we need to do some stuff to fix that
+                if self.machdef.panda_arch == "ppc":
+                    pc = pc - 4  # DONT BLAME ME, BLAME ALEX H AND ME :)
                 self.update_state(cpu, pc)
 
                 if pc in self.manager._exit_points:
                     # stay here until i say die
-                    print("on_insn: exit")
+                    print("\ton_insn: exit")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.RUN:
                     # keep going until the end
-                    print("on_insn: run")
+                    print("\ton_insn: run")
                 elif self.state == PandaEmulator.ThreadState.STEP:
                     # stop and wait for me
-                    print("on_insn: step")
+                    print("\ton_insn: step")
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.BLOCK:
                     # keep going until the end
-                    print("on_insn: block")
+                    print("\ton_insn: block")
 
                 print(f"Panda: on_insn: {hex(pc)}, {self.state}")
                 # Check if our pc is in bounds; if not stop
@@ -177,37 +180,40 @@ class PandaEmulator(
                 if self.manager.pc != pc:
                     self.panda.libpanda.cpu_loop_exit_noexc(cpu)
 
-                print(f"on_insn: done {self.state}")
-
                 if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
                     pass
-                print(self.manager.current_instruction())
+                print(f"\t{self.manager.current_instruction()}")
                 self.hook_return = pc + self.manager.current_instruction().size
 
                 return True
 
             # Used for stepping over blocks
-            @self.panda.cb_start_block_exec(enabled=False)
+            @self.panda.cb_start_block_exec(enabled=True)
             def on_block(cpu, tb):
                 self.update_state(cpu, tb.pc)
-                print(f"Panda: on_block: {tb}, {self.state}")
-                # We need to pause on the next block and wait
-                self.signal_and_wait()
+                if self.state == PandaEmulator.ThreadState.BLOCK:
+                    print(f"Panda: on_block: {tb}, {self.state}")
+                    # We need to pause on the next block and wait
+                    self.signal_and_wait()
 
             # Used for hooking mem reads
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
-                print(f"on_read: {addr}")
+                print(f"\ton_read: {addr}")
                 if self.manager.all_reads_hook:
-                    self.manager.all_reads_hook(self.manager, addr, size)
+                    val = self.manager.all_reads_hook(self.manager, addr, size)
+                    if val:
+                        self.manager.write_memory(addr, val)
                 if cb := self.manager.is_memory_read_hooked(addr):
-                    cb(self.manager, addr, size)
+                    val = cb(self.manager, addr, size)
+                    if val:
+                        self.manager.write_memory(addr, val)
 
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
-                print(f"on_write: {hex(addr)}")
+                print(f"\ton_write: {hex(addr)}")
                 byte_val = bytes([buf[i] for i in range(size)])
 
                 if self.manager.all_writes_hook:
@@ -218,13 +224,19 @@ class PandaEmulator(
 
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
-                print("interrupt hook")
+                print(f"\ton_interrupt: {intno}")
                 # First if all interrupts are hooked, run that function
                 if self.manager.all_interrupts_hook:
                     self.manager.all_interrupts_hook(self.manager)
                 # Then run interrupt specific function
                 if cb := self.manager.is_interrupt_hooked(intno):
                     cb(self.manager)
+
+            @self.panda.cb_before_handle_exception(enabled=True)
+            def on_exception(cpu, exception_index):
+                print(
+                    "Panda for help: you are hitting an exception at {exception_index}."
+                )
 
             self.panda.run()
 
@@ -279,11 +291,8 @@ class PandaEmulator(
 
     def read_register_content(self, name: str) -> int:
         # If we are reading a "pc" reg, refer to actual pc reg
-        if name == "pc":
-            name = self.panda_thread.machdef.pc_reg
-
-        if name == self.panda_thread.machdef.pc_reg:
-            return self.panda_thread.machdef.panda_arch.get_pc(self.cpu)
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
+            return self.panda_thread.panda.arch.get_pc(self.cpu)
 
         if not self.panda_thread.machdef.check_panda_reg(name):
             raise exceptions.UnsupportedRegisterError(
@@ -292,7 +301,7 @@ class PandaEmulator(
         name = self.panda_thread.machdef.panda_reg(name)
 
         try:
-            return self.panda_thread.machdef.panda_arch.get_reg(self.cpu, name)
+            return self.panda_thread.panda.arch.get_reg(self.cpu, name)
         except:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {name})")
 
@@ -301,13 +310,10 @@ class PandaEmulator(
             logger.debug(f"ignoring register write to {name} - no value")
             return
 
-        if name == "pc":
-            name = self.panda_thread.machdef.pc_reg
-
-        # This is my internal pc
-        if name == self.panda_thread.machdef.pc_reg:
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
+            # This is my internal pc
             self.pc = content
-            self.panda_thread.machdef.panda_arch.set_pc(self.cpu, content)
+            self.panda_thread.panda.arch.set_pc(self.cpu, content)
             return
 
         if not self.panda_thread.machdef.check_panda_reg(name):
@@ -317,7 +323,7 @@ class PandaEmulator(
 
         name = self.panda_thread.machdef.panda_reg(name)
         try:
-            self.panda_thread.machdef.panda_arch.set_reg(self.cpu, name, content)
+            self.panda_thread.panda.arch.set_reg(self.cpu, name, content)
         except:
             raise exceptions.AnalysisError(f"Failed writing {name} (id: {name})")
 
@@ -409,7 +415,6 @@ class PandaEmulator(
 
     def check(self) -> None:
         if len(self._exit_points) == 0:
-            # TODO warn here
             raise exceptions.ConfigurationError(
                 "at least one exit point must be set, emulation cannot start"
             )
@@ -440,15 +445,6 @@ class PandaEmulator(
 
     def step_block(self) -> None:
         self.check()
-
-        # If we just came from setting up, we need to get into the
-        # on_block callback, but also run it once
-        # TODO disable this callback when appropriate
-        self.panda_thread.panda.enable_callback("on_block")
-
-        # if self.panda_thread.state == self.ThreadState.SETUP:
-        #    self.signal_and_wait()
-
         self.panda_thread.state = self.ThreadState.BLOCK
         self.signal_and_wait()
 
