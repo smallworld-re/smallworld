@@ -1,5 +1,4 @@
 import capstone
-import pandare
 
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
@@ -9,12 +8,7 @@ class ARMMachineDef(PandaMachineDef):
     cs_arch = capstone.CS_ARCH_ARM
     cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_LITTLE_ENDIAN
 
-    pc_reg = "ip"
-
-    # panda_cpu_str = "cortex-a9"  # -cpu cortex-a9
-    panda_arch_str = "arm"
-    # We don't need this
-    panda_arch = pandare.arch.ArmArch(None)
+    panda_arch = "arm"
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
@@ -39,6 +33,7 @@ class ARMMachineDef(PandaMachineDef):
         }
 
         self._registers = {i: i for i in self._registers}
+        self._registers = self._registers | {"pc": "ip"}
 
 
 class ARMMachineMixinM:
@@ -64,11 +59,10 @@ class ARMMachineMixinM:
 class ARMv5TMachineDef(ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
-    panda_cpu_str = "pxa255"  # -cpu cortex-a9
+    cpu = "pxa255"
 
 
 class ARMv7MMachineDef(ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
-    panda_cpu_str = "cortex-a9"
-    # panda_cpu_str = "cortex-m3"  # -cpu cortex-a9
+    cpu = "cortex-a9"

@@ -1,5 +1,4 @@
 import capstone
-import pandare
 
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
@@ -9,12 +8,8 @@ class MIPS64MachineDef(PandaMachineDef):
     arch = Architecture.MIPS64
     cs_arch = capstone.CS_ARCH_MIPS
 
-    pc_reg = "pc"
-
     # We don't need this
-    panda_arch_str = "mips64"
-    panda_arch = pandare.arch.Mips64Arch(None)
-    panda_cpu_str = ""
+    panda_arch = "mips64"
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
@@ -89,12 +84,8 @@ class MIPS64MachineDef(PandaMachineDef):
         }
 
 
-# class MIPS64ELMachineDef(MIPS64MachineDef):
-#    byteorder = Byteorder.LITTLE
-#    panda_cpu_str = "P5600"
-#    cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_LITTLE_ENDIAN
-
-
 class MIPS64BEMachineDef(MIPS64MachineDef):
     byteorder = Byteorder.BIG
+    machine = "mipssim"
+    cpu = "20Kc"
     cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
