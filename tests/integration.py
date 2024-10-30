@@ -222,6 +222,10 @@ class CallTests(ScriptIntegrationTest):
     def test_call_ppc_angr(self):
         self.run_test("ppc.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_call_ppc_panda(self):
+        self.run_test("ppc.panda")
+
     def test_call_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
@@ -312,6 +316,10 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_ppc_angr(self):
         self.run_test("ppc.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_dma_ppc_panda(self):
+        self.run_test("ppc.panda")
 
     def test_dma_ppc64_angr(self):
         self.run_test("ppc64.angr")
@@ -453,6 +461,10 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_ppc_angr(self):
         self.run_test("ppc.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_square_ppc_panda(self):
+        self.run_test("ppc.panda")
+
     def test_square_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
@@ -547,6 +559,10 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_call_ppc_angr(self):
         self.run_test("ppc.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_call_ppc_panda(self):
+        self.run_test("ppc.panda")
 
     def test_call_ppc64_angr(self):
         self.run_test("ppc64.angr")
@@ -744,6 +760,10 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_ppc_angr(self):
         self.run_test("ppc.angr", reg="r3", res="0xffff")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_stack_ppc_panda(self):
+        self.run_test("ppc.panda", reg="r3", res="0xffff")
+
     def test_stack_ppc64_angr(self):
         self.run_test("ppc64.angr", reg="r3", res="0xffff")
 
@@ -912,6 +932,10 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_ppc_angr(self):
         self.run_branch("ppc.angr", reg="r3")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_branch_ppc_panda(self):
+        self.run_test("ppc.panda", reg="r3")
+
     def test_branch_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
 
@@ -1003,6 +1027,10 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_ppc_angr(self):
         self.run_test("ppc.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_strlen_ppc_panda(self):
+        self.run_test("ppc.panda")
+
     def test_strlen_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
@@ -1092,6 +1120,10 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_ppc_angr(self):
         self.run_test("ppc.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_hooking_ppc_panda(self):
+        self.run_test("ppc.panda")
 
     def test_hooking_ppc64_angr(self):
         self.run_test("ppc64.angr")

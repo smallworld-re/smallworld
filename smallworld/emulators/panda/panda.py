@@ -114,23 +114,27 @@ class PandaEmulator(
 
             @self.panda.cb_insn_exec
             def on_insn(cpu, pc):
+                # PowerPC pc move pc to end of instr
+                # so we need to do some stuff to fix that
+                if self.machdef.panda_arch_str == "ppc":
+                    pc = pc - 4  # DONT BLAME ME, BLAME ALEX H AND ME :)
                 self.update_state(cpu, pc)
 
                 if pc in self.manager._exit_points:
                     # stay here until i say die
-                    print("on_insn: exit")
+                    print("\ton_insn: exit")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.RUN:
                     # keep going until the end
-                    print("on_insn: run")
+                    print("\ton_insn: run")
                 elif self.state == PandaEmulator.ThreadState.STEP:
                     # stop and wait for me
-                    print("on_insn: step")
+                    print("\ton_insn: step")
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.BLOCK:
                     # keep going until the end
-                    print("on_insn: block")
+                    print("\ton_insn: block")
 
                 print(f"Panda: on_insn: {hex(pc)}, {self.state}")
                 # Check if our pc is in bounds; if not stop
@@ -177,12 +181,10 @@ class PandaEmulator(
                 if self.manager.pc != pc:
                     self.panda.libpanda.cpu_loop_exit_noexc(cpu)
 
-                print(f"on_insn: done {self.state}")
-
                 if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
                     pass
-                print(self.manager.current_instruction())
+                print(f"\t{self.manager.current_instruction()}")
                 self.hook_return = pc + self.manager.current_instruction().size
 
                 return True
@@ -198,16 +200,20 @@ class PandaEmulator(
             # Used for hooking mem reads
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
-                print(f"on_read: {addr}")
+                print(f"\ton_read: {addr}")
                 if self.manager.all_reads_hook:
-                    self.manager.all_reads_hook(self.manager, addr, size)
+                    val = self.manager.all_reads_hook(self.manager, addr, size)
+                    if val:
+                        self.manager.write_memory(addr, val)
                 if cb := self.manager.is_memory_read_hooked(addr):
-                    cb(self.manager, addr, size)
+                    val = cb(self.manager, addr, size)
+                    if val:
+                        self.manager.write_memory(addr, val)
 
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
-                print(f"on_write: {hex(addr)}")
+                print(f"\ton_write: {hex(addr)}")
                 byte_val = bytes([buf[i] for i in range(size)])
 
                 if self.manager.all_writes_hook:
