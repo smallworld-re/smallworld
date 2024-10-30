@@ -216,6 +216,10 @@ class CallTests(ScriptIntegrationTest):
     def test_call_mips64_angr(self):
         self.run_test("mips64.angr", signext=True)
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_call_mips64_panda(self):
+        self.run_test("mips64.panda", signext=True)
+
     def test_call_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
 
@@ -310,6 +314,10 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_mips64_angr(self):
         self.run_test("mips64.angr", signext=True)
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_dma_mips64_panda(self):
+        self.run_test("mips64.panda", signext=True)
 
     def test_dma_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
@@ -455,6 +463,10 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips64_angr(self):
         self.run_test(arch="mips64.angr", signext=True)
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_square_mips64_panda(self):
+        self.run_test(arch="mips64.panda", signext=True)
+
     def test_square_mips64el_angr(self):
         self.run_test(arch="mips64el.angr", signext=True)
 
@@ -553,6 +565,10 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_mips64_angr(self):
         self.run_test("mips64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_recursion_mips64_panda(self):
+        self.run_test("mips64.panda")
 
     def test_recursion_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -754,6 +770,10 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mips64_angr(self):
         self.run_test("mips64.angr", reg="v0", res="0xffff")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_stack_mips64_panda(self):
+        self.run_test("mips64.panda", reg="v0", res="0xffff")
+
     def test_stack_mips64el_angr(self):
         self.run_test("mips64el.angr", reg="v0", res="0xffff")
 
@@ -925,6 +945,10 @@ class BranchTests(ScriptIntegrationTest):
 
     def test_branch_mips64_angr(self):
         self.run_branch("mips64.angr", reg="v0")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_branch_mips64_panda(self):
+        self.run_branch("mips64.panda", reg="v0")
 
     def test_branch_mips64el_angr(self):
         self.run_branch("mips64el.angr", reg="v0")
@@ -1114,6 +1138,10 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_mips64_angr(self):
         self.run_test("mips64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_hooking_mips64_panda(self):
+        self.run_test("mips64.panda")
 
     def test_hooking_mips64el_angr(self):
         self.run_test("mips64el.angr")
