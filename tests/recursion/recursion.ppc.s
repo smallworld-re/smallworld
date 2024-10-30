@@ -1,4 +1,7 @@
     .text
+_start:
+    bl      main
+
 mc91:
     # Set up the stack frame
     stwu    1,-16(1)
@@ -24,4 +27,5 @@ mc91:
     addi    1,1,16
     blr
     
-    
+main:
+    bl mc91    
