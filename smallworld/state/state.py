@@ -469,13 +469,13 @@ class Machine(StatefulSet):
     def __init__(self):
         super().__init__()
         self._bounds = utils.RangeCollection()
-        self._exitpoints = set()
+        self._exit_points = set()
 
-    def add_exitpoint(self, address: int):
-        self._exitpoints.add(address)
+    def add_exit_point(self, address: int):
+        self._exit_points.add(address)
 
-    def get_exitpoints(self) -> typing.Set[int]:
-        return self._exitpoints
+    def get_exit_points(self) -> typing.Set[int]:
+        return self._exit_points
 
     def add_bound(self, start: int, end: int):
         self._bounds.add_range((start, end))
@@ -484,14 +484,14 @@ class Machine(StatefulSet):
         return list(self._bounds.ranges)
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        for address in self._exitpoints:
-            emulator.add_exitpoint(address)
+        for address in self._exit_points:
+            emulator.add_exit_point(address)
         for start, end in self.get_bounds():
             emulator.add_bound(start, end)
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self._exitpoints = emulator.get_exitpoints()
+        self._exit_points = emulator.get_exit_points()
         for start, end in emulator.get_bounds():
             self.add_bound(start, end)
         return super().extract(emulator)
@@ -585,7 +585,7 @@ class Machine(StatefulSet):
             uc=emulator.engine,
             input_file=args.input_file,
             place_input_callback=input_callback,
-            exits=emulator.get_exitpoints(),
+            exits=emulator.get_exit_points(),
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
             persistent_iters=iterations,
