@@ -1045,6 +1045,10 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mips64_angr(self):
         self.run_test("mips64.angr")
 
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_strlen_mips64_panda(self):
+        self.run_test("mips64.panda")
+
     def test_strlen_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
