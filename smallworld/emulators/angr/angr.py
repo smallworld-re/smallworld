@@ -343,12 +343,14 @@ class AngrEmulator(
             raise exceptions.ConfigurationError(
                 "Instruction at address {hex(address)} is already hooked"
             )
-        
+
         def hook_handler(state):
             emu = ConcreteAngrEmulator(state, self)
             function(emu)
 
-        bp = self.state.inspect.b("instruction", when=angr.BP_BEFORE, action=hook_handler, instruction=address)
+        bp = self.state.inspect.b(
+            "instruction", when=angr.BP_BEFORE, action=hook_handler, instruction=address
+        )
         self.state.scratch.insn_bps[address] = bp
 
     def unhook_instruction(self, address: int) -> None:

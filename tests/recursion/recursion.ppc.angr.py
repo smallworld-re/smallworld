@@ -45,7 +45,7 @@ stack.push_integer(0xFFFFFFFF, 4, "empty space")
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
-cpu.lr.set_label('old-lr')
+cpu.lr.set_label("old-lr")
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)

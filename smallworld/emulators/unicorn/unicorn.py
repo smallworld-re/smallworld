@@ -141,7 +141,7 @@ class UnicornEmulator(
                 elif self.platform.architecture == platforms.Architecture.X86_64:
                     sp = self.read_register("rsp")
                     self.write_register("rsp", sp + 8)
-                
+
             # this is always keeping track of *next* instruction which, would be
             # return addr for a call.
             self.hook_return = address + size

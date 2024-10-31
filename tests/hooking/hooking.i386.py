@@ -56,6 +56,7 @@ class GetsModel(smallworld.state.models.Model):
                 f"Failed writing {len(v)} bytes to {hex(s)} "
             )
 
+
 gets = GetsModel(0x1000)
 machine.add(gets)
 
