@@ -256,7 +256,7 @@ class ELFImage(Code):
             raise ConfigurationError("Invalid program header offset")
 
         # Determine the file base address,
-        # entrypoint, and exitpoints
+        # entrypoint, and exit points
         self.file_base = elf.imagebase
         self.file_entry = elf.entrypoint
         self.determine_base()

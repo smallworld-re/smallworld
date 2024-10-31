@@ -769,7 +769,7 @@ class AngrEmulator(
                 return True
             if self.state.scratch.memory_map.find_range(ip) is None:
                 return True
-            if ip in self.state.scratch.exitpoints:
+            if ip in self.state.scratch.exit_points:
                 return True
             return False
 
@@ -834,26 +834,26 @@ class AngrEmulator(
 
         self.state.scratch.bounds.remove_range((start, end))
 
-    def get_exitpoints(self) -> typing.Set[int]:
+    def get_exit_points(self) -> typing.Set[int]:
         if self._dirty and not self._linear:
             raise NotImplementedError(
-                "Accessing exitpoints not supported once execution begins"
+                "Accessing exit points not supported once execution begins"
             )
-        return set(self.state.scratch.exitpoints)
+        return set(self.state.scratch.exit_points)
 
-    def add_exitpoint(self, address: int) -> None:
+    def add_exit_point(self, address: int) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
-                "Accessing exitpoints not supported once execution begins"
+                "Accessing exit points not supported once execution begins"
             )
-        self.state.scratch.exitpoints.add(address)
+        self.state.scratch.exit_points.add(address)
 
-    def remove_exitpoint(self, address: int) -> None:
+    def remove_exit_point(self, address: int) -> None:
         if self._dirty and not self._linear:
             raise NotImplementedError(
-                "Accessing exitpoints not supported once execution begins"
+                "Accessing exit points not supported once execution begins"
             )
-        self.state.scratch.exitpoints.remove(address)
+        self.state.scratch.exit_points.remove(address)
 
     def __repr__(self):
         return f"Angr ({self.mgr})"
