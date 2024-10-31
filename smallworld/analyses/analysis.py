@@ -82,7 +82,7 @@ class Filter(utils.MetadataMixin):
 
     def __del__(self):
         self.deactivate()
-        super().__del__()
+        #super().__del__()
 
 
 __all__ = ["Analysis", "Filter"]

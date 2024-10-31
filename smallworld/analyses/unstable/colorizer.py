@@ -7,7 +7,7 @@ import typing
 import capstone
 
 from ... import hinting, state
-from ...emulators import UnicornEmulator
+from ...emulators import UnicornEmulator, UnicornEmulationMemoryReadError, UnicornEmulationMemoryWriteError, UnicornEmulationExecutionError
 from ...exceptions import AnalysisRunError, EmulationBounds
 from ...instructions import (
     BSIDMemoryReferenceOperand,
@@ -79,7 +79,7 @@ class Colorizer(analysis.Analysis):
             raise AnalysisRunError(
                 "Unable to read next instruction out of emulator memory"
             )
-        (insns, disas) = self.emu.disassemble(code, pc, 2)
+        (insns, disas) = self.emu._disassemble(code, pc, 2)
         insn = insns[0]
         return insn
 
@@ -102,7 +102,7 @@ class Colorizer(analysis.Analysis):
         self.orig_cpu = self.orig_machine.get_cpu()
         self.platform = self.orig_cpu.platform
 
-        start_pc = self.orig_cpu.rip.get() + 5
+        start_pc = self.orig_cpu.rip.get()
 
         for i in range(self.num_micro_executions):
             logger.info("-------------------------")
@@ -117,26 +117,16 @@ class Colorizer(analysis.Analysis):
             self.machine.apply(self.emu)
 
             # initialize registers with random values
-            #            import pdb
-            #            pdb.set_trace()
-
             self._randomize_registers()
 
             # map from color values to first use / def
             self.colors: Colors = {}
 
-            # copy regs and any stack / heap init
-            # and load the code to analyze into emulator
-            #            import pdb
-            #            pdb.set_trace()
-
-            self.emu.add_exit_point(start_pc)
-
             hint_list = []
             for j in range(self.num_insns):
                 # obtain instr about to be emulated
                 pc = self.emu.read_register("pc")
-                if pc in self.emu.get_exitpoints():
+                if pc in self.emu.get_exit_points():
                     break
                 cs_insn = self._get_instr_at_pc(pc)
                 sw_insn = Instruction.from_capstone(cs_insn)
@@ -144,7 +134,6 @@ class Colorizer(analysis.Analysis):
                 logger.debug(sw_insn)
 
                 # pull state back out of the emulator for inspection
-
                 m = copy.deepcopy(self.machine)
                 m.extract(self.emu)
                 self.cpu = m.get_cpu()
@@ -168,7 +157,7 @@ class Colorizer(analysis.Analysis):
                     except Exception as e:
                         print(e)
                         h = self._mem_unavailable_hint(
-                            read_operand, sw_insn, pc, i, j, True
+                            read_operand, pc, i, j, True
                         )
                         hint_list.append(h)
                         continue
@@ -185,11 +174,33 @@ class Colorizer(analysis.Analysis):
                         "emulation complete. encountered exit point or went out of bounds"
                     )
                     break
+                except UnicornEmulationMemoryWriteError as e:
+#                    import pdb
+#                    pdb.set_trace()
+                    for (write_operand, conc_val) in e.details["writes"]:
+                        if conc_val is None:
+                            h = self._mem_unavailable_hint(write_operand, e.pc, i, j, False)
+                            hint_list.append(h)
+                            break
+                    h = self._mem_unavailable_hint(None, e.pc, i, j, False)
+                    continue
+                except UnicornEmulationMemoryReadError as e:
+#                    import pdb
+#                    pdb.set_trace()                    
+                    for (read_operand, conc_val) in e.details["reads"]:
+                        if conc_val is None:
+                            h = self._mem_unavailable_hint(read_operand, e.pc, i. j, True)
+                            hint_list.append(h)
+                    h = self._mem_unavailable_hint(None, e.pc, i, j, True)
+                    continue
                 except Exception as e:
                     # emulating this instruction failed
+#                    import pdb
+#                    pdb.set_trace()
                     exhint = hinting.EmulationException(
                         message=f"In analysis, single step raised an exception {e}",
-                        instruction=sw_insn,
+                        pc = pc,
+#                        instruction=sw_insn,
                         instruction_num=j,
                         exception=str(e),
                     )
@@ -212,7 +223,7 @@ class Colorizer(analysis.Analysis):
                     except Exception as e:
                         print(e)
                         h = self._mem_unavailable_hint(
-                            write_operand, sw_insn, pc, i, j, False
+                            write_operand, pc, i, j, False
                         )
                         hint_list.append(h)
                         continue
@@ -225,8 +236,6 @@ class Colorizer(analysis.Analysis):
 
             hint_list_list.append(hint_list)
 
-        #        import pdb
-        #        pdb.set_trace()
         logger.info("-------------------------")
 
         # if two hints map to the same key then they are in same equivalence class
@@ -268,7 +277,7 @@ class Colorizer(analysis.Analysis):
             if type(hint) is hinting.EmulationException:
                 return (
                     "emulation_exception",
-                    hint.instruction.__str__(),
+                    hint.pc,
                     hint.instruction_num,
                     hint.exception,
                 )
@@ -283,6 +292,8 @@ class Colorizer(analysis.Analysis):
                 if hk not in hk_exemplar:
                     hk_exemplar[hk] = hint
 
+#        import pdb
+#        pdb.set_trace()
         hint_keys_sorted = sorted(list(all_hint_keys))
 
         # given the equivalence classes established by `hint_key`, determine
@@ -418,7 +429,6 @@ class Colorizer(analysis.Analysis):
     def _mem_unavailable_hint(
         self,
         operand: BSIDMemoryReferenceOperand,
-        insn: Instruction,
         pc: int,
         exec_num: int,
         insn_num: int,
@@ -442,7 +452,6 @@ class Colorizer(analysis.Analysis):
             offset=operand.offset,
             scale=operand.scale,
             address=operand.address(self.emu),
-            instruction=insn,
             pc=pc,
             micro_exec_num=exec_num,
             instruction_num=insn_num,

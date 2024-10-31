@@ -56,7 +56,8 @@ class ReachableCodeHint(hinting.Hint):
 class EmulationException(hinting.Hint):
     """Something went wrong emulating this instruction"""
 
-    instruction: typing.Any
+    #instruction: typing.Any
+    pc: int
     instruction_num: int
     exception: str
 

@@ -34,6 +34,7 @@ class x86Instruction(Instruction):
         the_reads: typing.Set[Operand] = set(
             [RegisterOperand(self._instruction.reg_name(r)) for r in reg_reads]
         )
+
         for operand in self._instruction.operands:
             if operand.access & capstone.CS_AC_READ:
                 if operand.type == capstone.x86.X86_OP_MEM:
@@ -46,10 +47,10 @@ class x86Instruction(Instruction):
                     if index_name:
                         the_reads.add(RegisterOperand(index_name))
                 elif operand.type == capstone.x86.X86_OP_REG:
-                    # This list does not include implicit reads;
-                    # use regs_read instead
+                    # these are already in the list bc of regs_access above
                     pass
                 else:
+                    # shouldn't happen
                     assert 1 == 0
         return the_reads
 

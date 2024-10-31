@@ -459,7 +459,7 @@ class Machine(StatefulSet):
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self._exitpoints = emulator.get_exitpoints()
+        self._exitpoints = emulator.get_exit_points()
         return super().extract(emulator)
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:
