@@ -8,7 +8,7 @@ import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from ... import exceptions, platforms, instructions, utils
+from ... import exceptions, instructions, platforms, utils
 from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
 
@@ -30,6 +30,7 @@ class UnicornEmulationError(exceptions.EmulationError):
 
 class UnicornEmulationMemoryReadError(UnicornEmulationError):
     pass
+
 
 class UnicornEmulationMemoryWriteError(UnicornEmulationError):
     pass
@@ -91,7 +92,6 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
-
             print(f"code callback addr={address:x}")
             if not self._bounds.is_empty():
                 # check that we are in bounds
@@ -252,7 +252,7 @@ class UnicornEmulator(
         (reg, _, _, _) = self._register(name)
         if reg == 0:
             pass
-        #logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
+        # logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
         try:
             return self.engine.reg_read(reg, tuple)
         except Exception as e:
@@ -402,7 +402,6 @@ class UnicornEmulator(
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
 
-
     def hook_instruction(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:
@@ -532,7 +531,7 @@ class UnicornEmulator(
 
     def _error(
         self, error: unicorn.UcError, typ: str
-    ) -> typing.Dict[typing.Union[str, int], typing.Union[int, bytes]]:
+    ) -> typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]]:
         """Raises new exception from unicorn exception with extra details.
 
         Should only be run while single stepping.
@@ -569,17 +568,17 @@ class UnicornEmulator(
         # reads or writes that is not actually available, i.e. memory
         # not mapped
         def get_unavailable_rw(rws):
-            l = []
+            out = []
             for rw in rws:
                 try:
                     c = rw.concretize(self)
-                except:                    
+                except:
                     c = None
-                p = (rw,c)
-                l.append(p)
-            return l
+                p = (rw, c)
+                out.append(p)
+            return out
 
-        details: typing.Dict[typing.Union[str, int], typing.Union[int, bytes]] = {}
+        details: typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]] = {}
 
         if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
             msg = f"{prefix} due to read of unmapped memory"
@@ -638,5 +637,9 @@ class UnicornEmulator(
         return f"UnicornEmulator(platform={self.platform})"
 
 
-__all__ = ["UnicornEmulator", "UnicornEmulationMemoryReadError", "UnicornEmulationMemoryWriteError", "UnicornEmulationExecutionError"]
-
+__all__ = [
+    "UnicornEmulator",
+    "UnicornEmulationMemoryReadError",
+    "UnicornEmulationMemoryWriteError",
+    "UnicornEmulationExecutionError",
+]

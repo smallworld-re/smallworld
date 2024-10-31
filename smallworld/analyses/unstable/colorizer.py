@@ -7,7 +7,11 @@ import typing
 import capstone
 
 from ... import hinting, state
-from ...emulators import UnicornEmulator, UnicornEmulationMemoryReadError, UnicornEmulationMemoryWriteError, UnicornEmulationExecutionError
+from ...emulators import (
+    UnicornEmulationMemoryReadError,
+    UnicornEmulationMemoryWriteError,
+    UnicornEmulator,
+)
 from ...exceptions import AnalysisRunError, EmulationBounds
 from ...instructions import (
     BSIDMemoryReferenceOperand,
@@ -102,8 +106,6 @@ class Colorizer(analysis.Analysis):
         self.orig_cpu = self.orig_machine.get_cpu()
         self.platform = self.orig_cpu.platform
 
-        start_pc = self.orig_cpu.rip.get()
-
         for i in range(self.num_micro_executions):
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
@@ -156,9 +158,7 @@ class Colorizer(analysis.Analysis):
                             continue
                     except Exception as e:
                         print(e)
-                        h = self._mem_unavailable_hint(
-                            read_operand, pc, i, j, True
-                        )
+                        h = self._mem_unavailable_hint(read_operand, pc, i, j, True)
                         hint_list.append(h)
                         continue
                     tup = (read_operand, read_operand_color, sz)
@@ -175,32 +175,36 @@ class Colorizer(analysis.Analysis):
                     )
                     break
                 except UnicornEmulationMemoryWriteError as e:
-#                    import pdb
-#                    pdb.set_trace()
-                    for (write_operand, conc_val) in e.details["writes"]:
+                    #                    import pdb
+                    #                    pdb.set_trace()
+                    for write_operand, conc_val in e.details["writes"]:
                         if conc_val is None:
-                            h = self._mem_unavailable_hint(write_operand, e.pc, i, j, False)
+                            h = self._mem_unavailable_hint(
+                                write_operand, e.pc, i, j, False
+                            )
                             hint_list.append(h)
                             break
                     h = self._mem_unavailable_hint(None, e.pc, i, j, False)
                     continue
                 except UnicornEmulationMemoryReadError as e:
-#                    import pdb
-#                    pdb.set_trace()                    
-                    for (read_operand, conc_val) in e.details["reads"]:
+                    #                    import pdb
+                    #                    pdb.set_trace()
+                    for read_operand, conc_val in e.details["reads"]:
                         if conc_val is None:
-                            h = self._mem_unavailable_hint(read_operand, e.pc, i. j, True)
+                            h = self._mem_unavailable_hint(
+                                read_operand, e.pc, i.j, True
+                            )
                             hint_list.append(h)
                     h = self._mem_unavailable_hint(None, e.pc, i, j, True)
                     continue
                 except Exception as e:
                     # emulating this instruction failed
-#                    import pdb
-#                    pdb.set_trace()
+                    #                    import pdb
+                    #                    pdb.set_trace()
                     exhint = hinting.EmulationException(
                         message=f"In analysis, single step raised an exception {e}",
-                        pc = pc,
-#                        instruction=sw_insn,
+                        pc=pc,
+                        #                        instruction=sw_insn,
                         instruction_num=j,
                         exception=str(e),
                     )
@@ -222,9 +226,7 @@ class Colorizer(analysis.Analysis):
                             continue
                     except Exception as e:
                         print(e)
-                        h = self._mem_unavailable_hint(
-                            write_operand, pc, i, j, False
-                        )
+                        h = self._mem_unavailable_hint(write_operand, pc, i, j, False)
                         hint_list.append(h)
                         continue
                     tup = (write_operand, write_operand_color, sz)
@@ -292,8 +294,8 @@ class Colorizer(analysis.Analysis):
                 if hk not in hk_exemplar:
                     hk_exemplar[hk] = hint
 
-#        import pdb
-#        pdb.set_trace()
+        #        import pdb
+        #        pdb.set_trace()
         hint_keys_sorted = sorted(list(all_hint_keys))
 
         # given the equivalence classes established by `hint_key`, determine

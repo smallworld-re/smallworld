@@ -310,7 +310,6 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def remove_bound(self, start: int, end: int) -> None:
         self._bounds.remove_range((start, end))
 
-
     _exit_points: typing.Set[int] = set()
 
     def get_exit_points(self) -> typing.Set[int]:

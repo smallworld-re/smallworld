@@ -80,10 +80,9 @@ class PointerFinder(analysis.Analysis):
             except exceptions.EmulationStop:
                 break
             except exceptions.EmulationError as e:
-                instruction = emulator.current_instruction()
                 exhint = hinting.EmulationException(
                     message="Emulation single step raised an exception",
-                    instruction=instructions.Instruction.from_capstone(instruction),
+                    pc=emulator.current_instruction().address,
                     instruction_num=i,
                     exception=str(e),
                 )

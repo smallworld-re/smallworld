@@ -92,9 +92,8 @@ class ColorizerSummary(analysis.Filter):
         self.listen(hinting.DynamicMemoryValueProbHint, self.dynamic_value_summary)
 
     def deactivate(self):
-
-        #import pdb
-        #pdb.set_trace()
+        # import pdb
+        # pdb.set_trace()
 
         jsg = nx.node_link_data(du_graph)
         with open("dugraph.json", "w") as j:

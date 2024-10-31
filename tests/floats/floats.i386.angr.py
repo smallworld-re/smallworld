@@ -39,7 +39,7 @@ cpu.xmm1.set(arg2)
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.add_exitpoint(cpu.eip.get() + code.get_capacity())
+emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state

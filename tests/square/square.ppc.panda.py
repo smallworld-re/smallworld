@@ -34,7 +34,7 @@ cpu.r3.set(int(sys.argv[1]))
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exitpoint(cpu.pc.get() + code.get_capacity())
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 print(f"exiting at {cpu.pc.get() + code.get_capacity()}")
 final_machine = machine.emulate(emulator)
 

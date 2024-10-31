@@ -37,6 +37,6 @@ def input_callback(uc, input, persistent_round, data):
 
 
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exitpoint(cpu.rip.get() + 55)
+emulator.add_exit_point(cpu.rip.get() + 55)
 
 machine.fuzz(emulator, input_callback)

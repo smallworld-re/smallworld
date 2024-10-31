@@ -92,7 +92,6 @@ class ScriptIntegrationTest(unittest.TestCase):
             `strings`.
         """
 
-
         for line in output.split("\n"):
             for string in strings:
                 if not (string in line):
@@ -102,14 +101,13 @@ class ScriptIntegrationTest(unittest.TestCase):
 
         # this means we didn't match any!  Let's figure out a little more detail
 
+        # import pdb
+        # pdb.set_trace()
 
-        #import pdb
-        #pdb.set_trace()
-
-        #best_count = 0
-        #for line in output.split("\n"):
+        # best_count = 0
+        # for line in output.split("\n"):
         #    count = 0
-        #missing = []
+        # missing = []
         #    for string in strings:
         #        if string in line:
         #            count += 1
@@ -120,10 +118,10 @@ class ScriptIntegrationTest(unittest.TestCase):
         #        best_line = line
         #        best_missing = missing
         #
-        #pdb.set_trace()
+        # pdb.set_trace()
 
-        raise AssertionError(            
-            f"no line in string contains all of `{strings}`:\n\n{output.strip()}" # but best line with {count} of {len(strings)} is [{best_line}]"            
+        raise AssertionError(
+            f"no line in string contains all of `{strings}`:\n\n{output.strip()}"  # but best line with {count} of {len(strings)} is [{best_line}]"
         )
 
     def assertLineContainsRegexes(self, output: str, *matches) -> None:
@@ -357,7 +355,7 @@ class DMATests(ScriptIntegrationTest):
 
 
 class SquareTests(ScriptIntegrationTest):
-    def _test_basic(self):
+    def test_basic(self):
         _, stderr = self.command(
             "python3 ../examples/basic_harness.py ./square/square.amd64.bin"
         )

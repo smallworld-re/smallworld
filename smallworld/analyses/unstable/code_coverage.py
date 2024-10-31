@@ -2,7 +2,7 @@ import copy
 import logging
 import typing
 
-from ... import emulators, exceptions, hinting, instructions, state
+from ... import emulators, exceptions, hinting, state
 from .. import analysis
 
 logger = logging.getLogger(__name__)
@@ -42,10 +42,9 @@ class CodeCoverage(analysis.Analysis):
             except exceptions.EmulationStop:
                 break
             except exceptions.EmulationError as e:
-                instruction = emulator.current_instruction()
                 exhint = hinting.EmulationException(
                     message="Emulation single step raised an exception",
-                    instruction=instructions.Instruction.from_capstone(instruction),
+                    pc=pc,
                     instruction_num=i,
                     exception=str(e),
                 )

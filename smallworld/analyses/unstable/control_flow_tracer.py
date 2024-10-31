@@ -52,7 +52,7 @@ class ControlFlowTracer(analysis.Analysis):
             except exceptions.EmulationError as e:
                 exhint = hinting.EmulationException(
                     message="Emulation single step raised an exception",
-                    instruction=instructions.Instruction.from_capstone(instruction),
+                    pc=instruction.address,
                     instruction_num=i,
                     exception=str(e),
                 )
