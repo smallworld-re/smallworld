@@ -2,14 +2,14 @@ import ctypes
 import logging
 
 import smallworld
-from smallworld.analyses.angr_nwbt import AngrNWBTAnalysis
+from smallworld.analyses.unstable.angr_nwbt import AngrNWBTAnalysis
 
 if __name__ == "__main__":
     smallworld.logging.setup_logging(level=logging.DEBUG)
     smallworld.hinting.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
     # Load the 'struct.bin' test.
-    infile = __file__.replace(".py", ".bin").replace(".angr", "")
+    infile = "struct.amd64.bin"
 
     # Silence angr's logger; it's too verbose.
     logging.getLogger("angr").setLevel(logging.INFO)
@@ -39,5 +39,7 @@ if __name__ == "__main__":
     cpu.rdi.set_type(smallworld.extern.ctypes.create_typed_pointer(StructNode))
     cpu.rip.set(code.address)
 
+    machine.add_bound(code.address, code.address + code.get_capacity())
+
     analysis = AngrNWBTAnalysis()
-    analysis.run(cpu)
+    analysis.run(machine)

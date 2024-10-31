@@ -166,26 +166,26 @@ class Instruction:
                 f"No instruction format for {instruction._cs.arch}:{instruction._cs.mode}"
             )
 
-    # @classmethod
-    # def from_angr(cls, instruction, block, arch: str):
-    #     """Construct from an angr disassembler instruction
+    @classmethod
+    def from_angr(cls, instruction, block, arch: str):
+        """Construct from an angr disassembler instruction
 
-    #     Arguments:
-    #         instruction: An existing angr disassembler instruction
-    #         arch: angr architecture string
-    #     """
-    #     # angr's instructions don't include raw bytes.
-    #     off = instruction.address - block.addr
-    #     raw = block.bytes[off : off + instruction.size]
-    #     try:
-    #         return utils.find_subclass(
-    #             cls,
-    #             check=lambda x: x.angr_arch == arch,
-    #             instruction=raw,
-    #             address=instruction.address,
-    #         )
-    #     except ValueError:
-    #         raise ValueError(f"No instruction format for {arch}")
+        Arguments:
+            instruction: An existing angr disassembler instruction
+            arch: angr architecture string
+        """
+        # angr's instructions don't include raw bytes.
+        off = instruction.address - block.addr
+        raw = block.bytes[off : off + instruction.size]
+        try:
+            return utils.find_subclass(
+                cls,
+                check=lambda x: x.angr_arch == arch,
+                instruction=raw,
+                address=instruction.address,
+            )
+        except ValueError:
+            raise ValueError(f"No instruction format for {arch}")
 
     @classmethod
     def from_bytes(cls, raw: bytes, address: int, arch: str, mode: str):

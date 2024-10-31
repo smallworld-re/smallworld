@@ -1,10 +1,10 @@
 import angr
 
-from ...emulators.angr.exploration import (
+from ....emulators.angr.exploration import (
     BoundedExplorationMixin,
     TerminationExplorationMixin,
 )
-from ...emulators.angr.memory import TrackerMemoryMixin
+from ....emulators.angr.memory import TrackerMemoryMixin
 from .divergence import DivergenceExplorationMixin, DivergenceMemoryMixin
 from .model import ModelMemoryMixin
 from .typedefs import TypeDefPlugin

@@ -18,7 +18,8 @@ class AngrNWBTAnalysis(analysis.Analysis):
         self.steps_left = max_steps
         self.initfunc = initfunc
 
-    def analysis_preint(self, emu):
+    def analysis_preinit(self, emu):
+        log.info("Registering plugins")
         configure_nwbt_plugins(emu)
 
     def analysis_init(self, emu):
@@ -28,7 +29,9 @@ class AngrNWBTAnalysis(analysis.Analysis):
 
     def run(self, machine: state.Machine):
         cpu = machine.get_cpu()
-        emu = emulators.AngrEmulator(cpu.platform)
+        emu = emulators.AngrEmulator(
+            cpu.platform, preinit=self.analysis_preinit, init=self.analysis_init
+        )
         machine.apply(emu)
 
         # Extract typedef info from the CPU state,
@@ -49,7 +52,7 @@ class AngrNWBTAnalysis(analysis.Analysis):
                         log.debug(f"Applying type for {hex(addr)}")
                         emu.state.typedefs.bind_address(addr, value.get_type())
             else:
-                if item.type is not None:
+                if not isinstance(item, state.cpus.CPU) and item.type is not None:
                     raise NotImplementedError(
                         f"Applying typedef {item.get_type()} of type {type(item)} not implemented"
                     )
@@ -59,6 +62,9 @@ class AngrNWBTAnalysis(analysis.Analysis):
                 self.steps_left -= 1
 
     def _report_status(self, emu):
+        for st in emu.mgr.active:
+            dis = "\r".join(map(str, st.block().disassembly.insns))
+            log.debug(f"Active state: {dis}")
         for st in emu.mgr.unconstrained:
             hint = hinting.OutputHint(
                 message="State left the program",

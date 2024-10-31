@@ -4,10 +4,10 @@ import logging
 import claripy
 from angr.storage import MemoryMixin
 
-from .... import hinting, instructions
-from ....ctypes import TypedPointer
+from .... import hinting
 from ....emulators.angr import PathTerminationSignal
 from ....emulators.angr.utils import reg_name_from_offset
+from ....extern.ctypes import TypedPointer
 from .base import BaseMemoryMixin
 from .visitor import EvalVisitor
 
@@ -155,9 +155,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     message="Register has type, but no value",
                     typedef=str(reg_def),
                     register=reg_name,
-                    instruction=instructions.Instruction.from_angr(
-                        insn, block, self.state.arch.name
-                    ),
+                    instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -166,9 +164,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                 hint = hinting.UntypedUnderSpecifiedRegisterHint(
                     message="Register has no type or value",
                     register=reg_name,
-                    instruction=instructions.Instruction.from_angr(
-                        insn, block, self.state.arch.name
-                    ),
+                    instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -183,9 +179,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     typedef=str(addr_def),
                     address=addr,
                     size=size,
-                    instruction=instructions.Instruction.from_angr(
-                        insn, block, self.state.arch.name
-                    ),
+                    instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -194,9 +188,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     message="Memory has no type or value",
                     address=addr,
                     size=size,
-                    instruction=instructions.Instruction.from_angr(
-                        insn, block, self.state.arch.name
-                    ),
+                    instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
                 hinter.info(hint)
@@ -238,9 +230,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         message="Symbol has no type",
                         symbol=v.args[0],
                         addr=str(addr),
-                        instruction=instructions.Instruction.from_angr(
-                            insn, block, self.state.arch.name
-                        ),
+                        instruction=self.state._ip.concrete_value,
                         value=str(value),
                     )
                 else:
@@ -262,9 +252,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         typedef=str(binding),
                         symbol=v.args[0],
                         addr=str(addr),
-                        instruction=instructions.Instruction.from_angr(
-                            insn, block, self.state.arch.name
-                        ),
+                        instruction=self.state._ip.concrete_value,
                         value=str(value),
                     )
                     hinter.info(hint)
@@ -316,8 +304,8 @@ class ModelMemoryMixin(BaseMemoryMixin):
     def typed_value_alloc(self, typedef=None, **kwargs):
         # User wants to allocate a new instance
         environ = self.state.typedefs
-        res = environ.allocate(typedef.reftype)
-        log.warn(f"Allocated {ctypes.sizeof(typedef.reftype)} bytes at {res:x}")
+        res = environ.allocate(typedef.type)
+        log.warn(f"Allocated {ctypes.sizeof(typedef.type)} bytes at {res:x}")
         return res
 
     def typed_value_reuse(self, typedef=None, **kwargs):

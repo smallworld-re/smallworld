@@ -3,7 +3,7 @@ import logging
 import angr
 from angr.storage import MemoryMixin
 
-from .... import hinting, instructions
+from .... import hinting
 from ....emulators.angr import PathTerminationSignal
 from ....exceptions import AnalysisSignal
 from .base import BaseMemoryMixin
@@ -140,9 +140,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
             # We've got a conditional dereference.
             hint = hinting.UnderSpecifiedMemoryBranchHint(
                 message="Conditional address dereference",
-                instruction=instructions.Instruction.from_angr(
-                    insn, block, self.state.arch.name
-                ),
+                instruction=self.state._ip.concrete_value,
                 address=str(addr),
                 options=[(str(k), str(v)) for (k, v) in guards.items()],
             )
