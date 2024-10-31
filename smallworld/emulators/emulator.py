@@ -310,7 +310,10 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def remove_bound(self, start: int, end: int) -> None:
         self._bounds.remove_range((start, end))
 
-    def get_exitpoints(self) -> typing.Set[int]:
+
+    _exit_points: typing.Set[int] = set()
+
+    def get_exit_points(self) -> typing.Set[int]:
         """Get a list of all registered exit points.
 
         Returns:
@@ -319,13 +322,13 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         return self._exit_points
 
-    def add_exitpoint(self, address: int) -> None:
-        """Add an exitpoint.
+    def add_exit_point(self, address: int) -> None:
+        """Add an exit point.
 
-        If execution reaches an exitpoint emulation should stop.
+        If execution reaches an exit point emulation should stop.
 
         Arguments:
-            address: The address of the exitpoint.
+            address: The address of the exit point.
         """
 
         self._exit_points.add(address)
@@ -363,7 +366,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def run(self) -> None:
         """Run execution indefinitely.
 
-        Emulation should stop if an exitpoint is reached or execution leaves
+        Emulation should stop if an exit point is reached or execution leaves
         valid bounds.
 
         Raises:

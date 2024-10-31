@@ -92,6 +92,7 @@ class ScriptIntegrationTest(unittest.TestCase):
             `strings`.
         """
 
+
         for line in output.split("\n"):
             for string in strings:
                 if not (string in line):
@@ -99,8 +100,30 @@ class ScriptIntegrationTest(unittest.TestCase):
             else:
                 return
 
-        raise AssertionError(
-            f"no line in string contains all of `{strings}`:\n\n{output.strip()}"
+        # this means we didn't match any!  Let's figure out a little more detail
+
+
+        #import pdb
+        #pdb.set_trace()
+
+        #best_count = 0
+        #for line in output.split("\n"):
+        #    count = 0
+        #missing = []
+        #    for string in strings:
+        #        if string in line:
+        #            count += 1
+        #        else:
+        #            missing.append(string)
+        #    if count > best_count:
+        #        best_count = count
+        #        best_line = line
+        #        best_missing = missing
+        #
+        #pdb.set_trace()
+
+        raise AssertionError(            
+            f"no line in string contains all of `{strings}`:\n\n{output.strip()}" # but best line with {count} of {len(strings)} is [{best_line}]"            
         )
 
     def assertLineContainsRegexes(self, output: str, *matches) -> None:
@@ -336,14 +359,13 @@ class DMATests(ScriptIntegrationTest):
 class SquareTests(ScriptIntegrationTest):
     def _test_basic(self):
         _, stderr = self.command(
-            "python3 ../examples/basic_harness.py square.amd64.bin"
+            "python3 ../examples/basic_harness.py ./square/square.amd64.bin"
         )
 
         self.assertLineContainsStrings(
             stderr,
             "DynamicRegisterValueProbHint",
             "read-def-prob",
-            "imul edi, edi",
             '"pc": 4096',
             '"color": 1',
             '"use": true',
@@ -355,7 +377,6 @@ class SquareTests(ScriptIntegrationTest):
             stderr,
             "DynamicRegisterValueProbHint",
             "write-def-prob",
-            "imul edi, edi",
             '"pc": 4096',
             '"color": 2',
             '"use": false',
@@ -366,14 +387,35 @@ class SquareTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(
             stderr,
             "DynamicRegisterValueProbHint",
+            "write-def-prob",
+            '"pc": 4096',
+            '"color": 3',
+            '"use": false',
+            '"new": true',
+            '"prob": 1.0',
+            '"reg_name": "rflags"',
+        )
+        self.assertLineContainsStrings(
+            stderr,
+            "DynamicRegisterValueProbHint",
             "read-flow-prob",
-            "mov eax, edi",
             '"pc": 4099',
             '"color": 2',
             '"use": true',
             '"new": false',
             '"prob": 1.0',
             '"reg_name": "edi"',
+        )
+        self.assertLineContainsStrings(
+            stderr,
+            "DynamicRegisterValueProbHint",
+            "write-copy-prob",
+            '"pc": 4099',
+            '"color": 2',
+            '"use": false',
+            '"new": false',
+            '"prob": 1.0',
+            '"reg_name": "eax"',
         )
 
     def run_test(self, arch, signext=False):
@@ -1044,6 +1086,10 @@ class StrlenTests(ScriptIntegrationTest):
 
     def test_strlen_mips64_angr(self):
         self.run_test("mips64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_strlen_mips64_panda(self):
+        self.run_test("mips64.panda")
 
     def test_strlen_mips64el_angr(self):
         self.run_test("mips64el.angr")

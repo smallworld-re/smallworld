@@ -4,8 +4,8 @@ import sys
 import smallworld
 
 # setup logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
-smallworld.hinting.setup_hinting(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.hinting.setup_hinting(level=logging.INFO)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(
@@ -24,8 +24,11 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 )
 machine.add(code)
 
+
+machine.add_exit_point(code.address + code.get_capacity())
 # set the instruction pointer to the entrypoint of our executable
 cpu.rip.set(code.address)
+
 
 machine.add(cpu)
 
