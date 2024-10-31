@@ -7,7 +7,7 @@ import ctypes
 import logging as lg
 import typing
 
-from .. import analyses, emulators, exceptions, logging, platforms, state
+from .. import analyses, emulators, exceptions, logging, platforms, state, utils
 
 logger = lg.getLogger(__name__)
 
@@ -42,9 +42,10 @@ class Stateful(metaclass=abc.ABCMeta):
 class Value(metaclass=abc.ABCMeta):
     """An individual state value."""
 
-    _content: typing.Optional[typing.Any] = None
-    _type: typing.Optional[typing.Any] = None
-    _label: typing.Optional[str] = None
+    def __init__(self):
+        self._content: typing.Optional[typing.Any] = None
+        self._type: typing.Optional[typing.Any] = None
+        self._label: typing.Optional[str] = None
 
     @abc.abstractmethod
     def get_size(self) -> int:
@@ -182,6 +183,7 @@ class EmptyValue(Value):
     def __init__(
         self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]
     ):
+        super().__init__()
         self._size = size
         self._type = type
         self._label = label
@@ -197,6 +199,7 @@ class IntegerValue(Value):
     def __init__(
         self, integer: int, size: int, label: str, signed: bool = True
     ) -> None:
+        super().__init__()
         if size == 8:
             if signed:
                 self._type = ctypes.c_int64
@@ -246,6 +249,7 @@ class BytesValue(Value):
     def __init__(
         self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> None:
+        super().__init__()
         self._content = bytes(content)
         self._label = label
         self._size = len(self._content)
@@ -268,10 +272,6 @@ class Register(Value, Stateful):
         size: The size (in bytes) of the register.
     """
 
-    _content: typing.Optional[int] = None
-    _type = None
-    _label = None
-
     def __init__(self, name: str, size: int = 4):
         super().__init__()
 
@@ -289,6 +289,19 @@ class Register(Value, Stateful):
         else:
             s = s + f"0x{x:x}"
         return s
+
+    def set_content(self, content: typing.Optional[typing.Any]):
+        if content is not None:
+            if not isinstance(content, int):
+                raise TypeError(
+                    f"Expected None or int as content for Register {self.name}, got {type(content)}"
+                )
+            if content < 0:
+                logger.warn(
+                    "Converting content {hex(content)} of {self.name} to unsigned."
+                )
+                content = content + (2 ** (self.size * 8))
+        super().set_content(content)
 
     def get_size(self) -> int:
         return self.size
@@ -376,6 +389,16 @@ class RegisterAlias(Register):
 
     def set_content(self, content: typing.Optional[typing.Any]) -> None:
         if content is not None:
+            if not isinstance(content, int):
+                raise TypeError(
+                    f"Expected None or int as content for RegisterAlias {self.name}, got {type(content)}"
+                )
+            if content < 0:
+                logger.warn(
+                    f"Converting content {hex(content)} of {self.name} to unsigned."
+                )
+                content = content + (2 ** (self.size * 8))
+
             value = self.reference.get_content()
             if value is None:
                 value = 0
@@ -445,21 +468,32 @@ class Machine(StatefulSet):
 
     def __init__(self):
         super().__init__()
+        self._bounds = utils.RangeCollection()
         self._exitpoints = set()
 
-    def add_exit_point(self, address: int):
+    def add_exitpoint(self, address: int):
         self._exitpoints.add(address)
 
-    def get_exit_points(self) -> typing.Set[int]:
+    def get_exitpoints(self) -> typing.Set[int]:
         return self._exitpoints
+
+    def add_bound(self, start: int, end: int):
+        self._bounds.add_range((start, end))
+
+    def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
+        return list(self._bounds.ranges)
 
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exitpoints:
-            emulator.add_exit_point(address)
+            emulator.add_exitpoint(address)
+        for start, end in self.get_bounds():
+            emulator.add_bound(start, end)
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
-        self._exitpoints = emulator.get_exit_points()
+        self._exitpoints = emulator.get_exitpoints()
+        for start, end in emulator.get_bounds():
+            self.add_bound(start, end)
         return super().extract(emulator)
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:

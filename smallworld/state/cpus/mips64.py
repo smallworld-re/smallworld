@@ -30,9 +30,6 @@ class MIPS64(cpu.CPU):
         "t2",
         "t3",
         "t4",
-        "t5",
-        "t6",
-        "t7",
         "t8",
         "t9",
         "s0",
@@ -52,6 +49,9 @@ class MIPS64(cpu.CPU):
     def __init__(self):
         super().__init__()
         # NOTE: MIPS registers have both a name and a number.
+        # NOTE: This follows the n64 ABI.
+        # According to n64, there are only six temporary registers;
+        # t0 - t3, t8 and t9.
 
         # *** General-Purpose Registers ***
         # Assembler-Temporary Register
@@ -85,50 +85,43 @@ class MIPS64(cpu.CPU):
         self.add(self.a3)
         self._7 = state.RegisterAlias("7", self.a3, size=8, offset=0)
         self.add(self._7)
+        self.a4 = state.Register("a4", size=8)
+        self.add(self.a4)
+        self._8 = state.RegisterAlias("8", self.a4, size=8, offset=0)
+        self.add(self._8)
+        self.a5 = state.Register("a5", size=8)
+        self.add(self.a5)
+        self._9 = state.RegisterAlias("9", self.a5, size=8, offset=0)
+        self.add(self._9)
+        self.a6 = state.Register("a6", size=8)
+        self.add(self.a6)
+        self._10 = state.RegisterAlias("10", self.a6, size=8, offset=0)
+        self.add(self._10)
+        self.a7 = state.Register("a7", size=8)
+        self.add(self.a7)
+        self._11 = state.RegisterAlias("11", self.a7, size=8, offset=0)
+        self.add(self._11)
         # Temporary Registers
-        # NOTE: Temp registers t0 - t3 are double-aliased as a4 - a7 in the n64 ABI
         self.t0 = state.Register("t0", size=8)
         self.add(self.t0)
-        self.a4 = state.RegisterAlias("a4", self.t0, size=8, offset=0)
-        self.add(self.a4)
-        self._8 = state.RegisterAlias("8", self.t0, size=8, offset=0)
-        self.add(self._8)
+        self._12 = state.RegisterAlias("12", self.t0, size=8, offset=0)
+        self.add(self._12)
         self.t1 = state.Register("t1", size=8)
         self.add(self.t1)
-        self.a5 = state.RegisterAlias("a5", self.t1, size=8, offset=0)
-        self.add(self.a5)
-        self._9 = state.RegisterAlias("9", self.t1, size=8, offset=0)
-        self.add(self._9)
+        self._13 = state.RegisterAlias("13", self.t1, size=8, offset=0)
+        self.add(self._13)
         self.t2 = state.Register("t2", size=8)
         self.add(self.t2)
-        self.a6 = state.RegisterAlias("a6", self.t2, size=8, offset=0)
-        self.add(self.a6)
-        self._10 = state.RegisterAlias("10", self.t2, size=8, offset=0)
-        self.add(self._10)
+        self._14 = state.RegisterAlias("14", self.t2, size=8, offset=0)
+        self.add(self._14)
         self.t3 = state.Register("t3", size=8)
         self.add(self.t3)
-        self.a7 = state.RegisterAlias("a7", self.t3, size=8, offset=0)
-        self.add(self.a7)
-        self._11 = state.RegisterAlias("11", self.t3, size=8, offset=0)
-        self.add(self._11)
-        self.t4 = state.Register("t4", size=8)
-        self.add(self.t4)
-        self._12 = state.RegisterAlias("12", self.t4, size=8, offset=0)
-        self.add(self._12)
-        self.t5 = state.Register("t5", size=8)
-        self.add(self.t5)
-        self._13 = state.RegisterAlias("13", self.t5, size=8, offset=0)
-        self.add(self._13)
-        self.t6 = state.Register("t6", size=8)
-        self.add(self.t6)
-        self._14 = state.RegisterAlias("14", self.t6, size=8, offset=0)
-        self.add(self._14)
-        self.t7 = state.Register("t7", size=8)
-        self.add(self.t7)
-        self._15 = state.RegisterAlias("15", self.t7, size=8, offset=0)
+        self._15 = state.RegisterAlias("15", self.t3, size=8, offset=0)
         self.add(self._15)
         # NOTE: These numbers aren't out of order.
-        # t8 and t9 are later in the register file than t0 - t7.
+        # t8 and t9 are later in the register file than t0 - t3.
+        # The gap is also intentional; t4 - t7 were sacrificed
+        # to make room for a4 - a7
         self.t8 = state.Register("t8", size=8)
         self.add(self.t8)
         self._24 = state.RegisterAlias("24", self.t8, size=8, offset=0)

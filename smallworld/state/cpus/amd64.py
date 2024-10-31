@@ -2,6 +2,7 @@ import typing
 
 from ... import platforms
 from .. import state
+from ..x86_registers import X86MMRRegister
 from . import cpu
 
 
@@ -268,15 +269,15 @@ class AMD64(cpu.CPU):
         self.add(self.dr15)
 
         # *** Descriptor Table Registers ***
-        self.gdtr = state.Register("gdtr", 10)
+        self.gdtr = X86MMRRegister("gdtr", 10)
         self.add(self.gdtr)
-        self.idtr = state.Register("idtr", 10)
+        self.idtr = X86MMRRegister("idtr", 10)
         self.add(self.idtr)
-        self.ldtr = state.Register("ldtr", 10)
+        self.ldtr = X86MMRRegister("ldtr", 10)
         self.add(self.ldtr)
 
         # *** Task Register ***
-        self.tr = state.Register("tr", 2)
+        self.tr = X86MMRRegister("tr", 2)
         self.add(self.tr)
 
         # *** x87 registers ***

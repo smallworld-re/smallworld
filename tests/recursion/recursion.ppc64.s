@@ -1,4 +1,7 @@
     .text
+_start:
+    bl      main
+
 mc91:
     # Set up the stack frame
     mflr    0
@@ -26,3 +29,6 @@ mc91:
     ld      0,16(1)
     mtlr    0
     blr
+
+main:
+    bl      mc91

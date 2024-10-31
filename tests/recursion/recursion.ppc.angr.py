@@ -35,17 +35,22 @@ cpu.pc.set(code.address)
 # Initialize argument registers
 cpu.r3.set(int(sys.argv[1]))
 
-# Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+# Push a placeholder for a return address onto the stack.
+# PowerPC's calling convention is strange;
+# the callee pushes its link register four bytes above its
+# stack frame, so we need extra space
+stack.push_integer(0xFFFFFFFF, 4, "placeholder for lr")
+stack.push_integer(0xFFFFFFFF, 4, "empty space")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
+cpu.lr.set_label("old-lr")
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+emulator.add_exitpoint(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state

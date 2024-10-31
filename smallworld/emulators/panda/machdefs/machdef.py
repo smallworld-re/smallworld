@@ -1,8 +1,6 @@
 import abc
 import typing
 
-import pandare
-
 from .... import platforms, utils
 
 
@@ -23,15 +21,21 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def panda_arch(self) -> pandare.arch.PandaArch:
+    def panda_arch(self) -> str:
         """The panda architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
-    def pc_reg(self) -> str:
-        """The name of the Program Counter register for this machine"""
-        return ""
+    def cs_arch(self) -> int:
+        """The capstone architecture to use"""
+        raise NotImplementedError("This is an abstract method.")
+
+    @property
+    @abc.abstractmethod
+    def cs_mode(self) -> int:
+        """The capstone mode to use"""
+        raise NotImplementedError("This is an abstract method.")
 
     _registers: typing.Dict[str, str] = {}
 

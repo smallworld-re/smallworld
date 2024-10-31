@@ -132,14 +132,17 @@ class AMD64MachineDef(UnicornMachineDef):
             # *** Task Register ***
             "tr": (unicorn.x86_const.UC_X86_REG_TR, "tr", 2, 0),
             # *** x87 registers ***
-            "fpr0": (unicorn.x86_const.UC_X86_REG_FP0, "fpr0", 10, 0),
-            "fpr1": (unicorn.x86_const.UC_X86_REG_FP1, "fpr1", 10, 0),
-            "fpr2": (unicorn.x86_const.UC_X86_REG_FP2, "fpr2", 10, 0),
-            "fpr3": (unicorn.x86_const.UC_X86_REG_FP3, "fpr3", 10, 0),
-            "fpr4": (unicorn.x86_const.UC_X86_REG_FP4, "fpr4", 10, 0),
-            "fpr5": (unicorn.x86_const.UC_X86_REG_FP5, "fpr5", 10, 0),
-            "fpr6": (unicorn.x86_const.UC_X86_REG_FP6, "fpr6", 10, 0),
-            "fpr7": (unicorn.x86_const.UC_X86_REG_FP7, "fpr7", 10, 0),
+            # NOTE: x87 is supported by Unicorn, but not by SmallWorld.
+            # Values are represented as tuples (exponent: int, mantissa: int).
+            # If you need x87 support, open a ticket.
+            "fpr0": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr0", 10, 0),
+            "fpr1": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr1", 10, 0),
+            "fpr2": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr2", 10, 0),
+            "fpr3": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr3", 10, 0),
+            "fpr4": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr4", 10, 0),
+            "fpr5": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr5", 10, 0),
+            "fpr6": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr6", 10, 0),
+            "fpr7": (unicorn.x86_const.UC_X86_REG_INVALID, "fpr7", 10, 0),
             # x87 Control Register
             "fctrl": (unicorn.x86_const.UC_X86_REG_FPCW, "fctrl", 2, 0),
             # x87 Status Register

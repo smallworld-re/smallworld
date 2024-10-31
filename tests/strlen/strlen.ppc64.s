@@ -1,4 +1,7 @@
     .text
+_start:
+    bl      main
+
 strlen:
     li      4,0
     extsw   4,4
@@ -14,3 +17,6 @@ strlen:
     mr      3,4
     blr
     
+
+main:
+    bl      strlen

@@ -64,7 +64,7 @@ emulator.enable_linear()
 
 # Use code bounds from the ELF
 for bound in code.bounds:
-    emulator.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound.start, bound.stop)
     # I happen to know that the code _actually_ stops
     # at .text + 0x88
 

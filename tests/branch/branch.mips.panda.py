@@ -21,7 +21,8 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    "branch.mips.bin", address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", "").replace(".panda", ""),
+    address=0x1000,
 )
 machine.add(code)
 
@@ -33,9 +34,9 @@ cpu.a0.set(int(sys.argv[1]))
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+emulator.add_exitpoint(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+print(cpu.v0)

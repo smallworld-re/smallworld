@@ -28,7 +28,9 @@ class QInstructionHookable(InstructionHookable):
     def __init__(self):
         super().__init__()
         self.instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
-        self.all_instructions_hook = None
+        self.all_instructions_hook: typing.Optional[
+            typing.Callable[[Emulator], None]
+        ] = None
 
     def hook_instructions(self, function: typing.Callable[[Emulator], None]) -> None:
         self.all_instructions_hook = function
@@ -80,23 +82,27 @@ class QFunctionHookable(FunctionHookable):
             )
         self.function_hooks.pop(address, None)
 
-    def is_function_hooked(self, address: int) -> bool:
+    def is_function_hooked(
+        self, address: int
+    ) -> typing.Optional[typing.Callable[[Emulator], None]]:
         if address in self.function_hooks:
-            return True
+            return self.function_hooks[address]
         else:
-            return False
+            return None
 
 
 class QMemoryReadHookable(MemoryReadHookable):
     def __init__(self):
         super().__init__()
         self.memory_read_hooks: typing.Dict[
-            range, typing.Callable[[Emulator, int, int], bytes]
+            range, typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
         ] = {}
-        self.all_reads_hook = None
+        self.all_reads_hook: typing.Optional[
+            typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
+        ] = None
 
     def hook_memory_reads(
-        self, function: typing.Callable[[Emulator, int, int], bytes]
+        self, function: typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
     ) -> None:
         self.all_reads_hook = function
 
@@ -107,7 +113,7 @@ class QMemoryReadHookable(MemoryReadHookable):
         self,
         start: int,
         end: int,
-        function: typing.Callable[[Emulator, int, int], bytes],
+        function: typing.Callable[[Emulator, int, int], typing.Optional[bytes]],
     ) -> None:
         new_range = range(start, end)
         for r in self.memory_read_hooks:
@@ -134,10 +140,12 @@ class QMemoryReadHookable(MemoryReadHookable):
     #        )
     #    self.memory_read_hooks.pop(address, None)
 
-    def is_memory_read_hooked(self, address: int) -> typing.Optional[range]:
+    def is_memory_read_hooked(
+        self, address: int
+    ) -> typing.Optional[typing.Callable[[Emulator, int, int], typing.Optional[bytes]]]:
         for rng in self.memory_read_hooks:
             if address in rng:
-                return rng
+                return self.memory_read_hooks[rng]
         return None
 
 
@@ -147,7 +155,9 @@ class QMemoryWriteHookable(MemoryWriteHookable):
         self.memory_write_hooks: typing.Dict[
             range, typing.Callable[[Emulator, int, int, bytes], None]
         ] = {}
-        self.all_writes_hook = None
+        self.all_writes_hook: typing.Optional[
+            typing.Callable[[Emulator, int, int, bytes], None]
+        ] = None
 
     def hook_memory_writes(
         self, function: typing.Callable[[Emulator, int, int, bytes], None]
@@ -187,17 +197,21 @@ class QMemoryWriteHookable(MemoryWriteHookable):
     #            f"can't unhook memory write range {range_to_hex_str(address)} since its not already hooked"
     #        )
     #    self.memory_write_hooks.pop(address, None)
-    def is_memory_write_hooked(self, address: int) -> typing.Optional[range]:
+    def is_memory_write_hooked(
+        self, address: int
+    ) -> typing.Optional[typing.Callable[[Emulator, int, int, bytes], None]]:
         for rng in self.memory_write_hooks:
             if address in rng:
-                return rng
+                return self.memory_write_hooks[rng]
         return None
 
 
 class QInterruptHookable(InterruptHookable):
     def __init__(self):
         super().__init__()
-        self.all_interrupts_hook = None
+        self.all_interrupts_hook: typing.Optional[
+            typing.Callable[[Emulator, int], None]
+        ] = None
         self.interrupt_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
 
     def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
@@ -222,8 +236,10 @@ class QInterruptHookable(InterruptHookable):
             )
         self.interrupt_hooks.pop(intno, None)
 
-    def is_interrupt_hooked(self, intno: int) -> bool:
+    def is_interrupt_hooked(
+        self, intno: int
+    ) -> typing.Optional[typing.Callable[[Emulator], None]]:
         if intno in self.interrupt_hooks:
-            return True
+            return self.interrupt_hooks[intno]
         else:
-            return False
+            return None

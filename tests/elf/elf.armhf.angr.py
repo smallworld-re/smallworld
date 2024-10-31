@@ -64,6 +64,6 @@ emulator.enable_linear()
 
 # Use code bounds from the ELF
 for bound in code.bounds:
-    emulator.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound.start, bound.stop)
 
 machine.emulate(emulator)

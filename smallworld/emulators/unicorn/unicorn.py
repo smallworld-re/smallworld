@@ -8,7 +8,7 @@ import capstone
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
-from ... import exceptions, platforms, instructions
+from ... import exceptions, platforms, instructions, utils
 from .. import emulator, hookable
 from .machdefs import UnicornMachineDef
 
@@ -63,7 +63,7 @@ class UnicornEmulator(
         self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
         self.disassembler.detail = True
 
-        self.bounds: typing.Iterable[range] = []
+        self.memory_map: utils.RangeCollection = utils.RangeCollection()
 
         # labels are per byte
 
@@ -88,21 +88,14 @@ class UnicornEmulator(
 
         # list of exit points which will end emulation
         # self.exit_points = []
-        self.instruction_hooks = {}
-        self.function_hooks = {}
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
 
-            #print(f"code callback addr={address:x}")
-            if len(self.bounds) > 0:
+            print(f"code callback addr={address:x}")
+            if not self._bounds.is_empty():
                 # check that we are in bounds
-                any_in_bounds = False
-                for bound in self.bounds:
-                    if address in bound:
-                        any_in_bounds = True
-                        break
-                if not any_in_bounds:
+                if self._bounds.find_range(address) is None:
                     # not in bounds for any of the ranges specified
                     if (
                         self.emulation_in_progress == STEP_BLOCK
@@ -117,11 +110,14 @@ class UnicornEmulator(
                 self.engine.emu_stop()
                 raise exceptions.EmulationExitpoint
             # run instruciton hooks
-            if address in self.instruction_hooks:
+            if self.all_instructions_hook:
+                self.all_instructions_hook(self)
+
+            if cb := self.is_instruction_hooked(address):
                 logger.debug(f"hit hooking address for instruction at {address:x}")
-                self.instruction_hooks[address](self)
+                cb(self)
             # check function hooks *before* bounds since these might be out-of-bounds
-            if address in self.function_hooks:
+            if cb := self.is_function_hooked(address):
                 logger.debug(
                     f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}"
                 )
@@ -130,11 +126,21 @@ class UnicornEmulator(
                 # execute. Instead, we return from the function as if it ran.
                 # this permits modeling
                 # this is the model for the function
-                self.function_hooks[address](self)
+                cb(self)
                 # self.engine.emu_stop()
                 if self.hook_return is None:
                     raise RuntimeError("return point for function hook is unknown")
+
                 self.write_register("pc", self.hook_return)
+                # On i386 and amd64, `ret` has a second side-effect
+                # of popping the stack
+                if self.platform.architecture == platforms.Architecture.X86_32:
+                    sp = self.read_register("esp")
+                    self.write_register("esp", sp + 4)
+                elif self.platform.architecture == platforms.Architecture.X86_64:
+                    sp = self.read_register("rsp")
+                    self.write_register("rsp", sp + 8)
+
             # this is always keeping track of *next* instruction which, would be
             # return addr for a call.
             self.hook_return = address + size
@@ -143,36 +149,45 @@ class UnicornEmulator(
 
         # functions to run before memory read and write for
         # specific addresses
-        self.memory_read_hooks = {}
-        self.memory_write_hooks = {}
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
-            for seg, cb in self.memory_read_hooks.items():
-                if address in seg:
-                    # Execute registered callback
-                    data = cb(self, address, size)
-                    # Overwrite memory being read.
-                    # The instruction is emulated after this callback fires,
-                    # so the new value will get used for computation.
+            if self.all_reads_hook:
+                data = self.all_reads_hook(self, address, size)
+
+            if cb := self.is_memory_read_hooked(address):
+                data = cb(self, address, size)
+                print(data)
+
+                # Execute registered callback
+                # data = cb(self, address, size)
+                # Overwrite memory being read.
+                # The instruction is emulated after this callback fires,
+                # so the new value will get used for computation.
+                if data:
                     if len(data) != size:
                         raise exceptions.EmulationError(
                             f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
                         )
                     uc.mem_write(address, data)
-                    break
 
         def mem_write_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_WRITE
-            for seg, cb in self.memory_write_hooks.items():
-                if address in seg:
-                    cb(
-                        self,
-                        address,
-                        size,
-                        value.to_bytes(size, self.platform.byteorder.value),
-                    )
-                    break
+            if self.all_writes_hook:
+                self.all_writes_hook(
+                    self,
+                    address,
+                    size,
+                    value.to_bytes(size, self.platform.byteorder.value),
+                )
+
+            if cb := self.is_memory_write_hooked(address):
+                cb(
+                    self,
+                    address,
+                    size,
+                    value.to_bytes(size, self.platform.byteorder.value),
+                )
 
         self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_HOOK_MEM_READ, mem_read_callback)
@@ -203,8 +218,6 @@ class UnicornEmulator(
             if self.stepping_by_block:
                 self.engine.emu_stop()
 
-        self.bounds = []
-
         # keep track of which registers have been initialized
         self.initialized_registers: typing.Dict[str, typing.Set[int]] = {}
 
@@ -212,11 +225,8 @@ class UnicornEmulator(
         """Check if this pc is ok to emulate, i.e. in bounds and not an exit
         point."""
 
-        if len(self.bounds) > 0:
-            # check that we are in bounds
-            for bound in self.bounds:
-                if pc in bound:
-                    break
+        if not self._bounds.is_empty() and self._bounds.find_range(pc) is None:
+            # There are bounds, and we are not in them
             return False
 
         # check for if we've hit an exit point
@@ -244,9 +254,9 @@ class UnicornEmulator(
             pass
         #logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
         try:
-            return self.engine.reg_read(reg)
-        except:
-            raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})")
+            return self.engine.reg_read(reg, tuple)
+        except Exception as e:
+            raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
     def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
         # not supported yet
@@ -331,71 +341,28 @@ class UnicornEmulator(
     def read_memory(self, address: int, size: int) -> bytes:
         return self.read_memory_content(address, size)
 
-    def map_memory(self, size: int, address: typing.Optional[int] = None) -> int:
-        def page(address: int) -> int:
-            """Compute the page number of an address.
+    def map_memory(self, address: int, size: int) -> None:
+        # Round address down to a page boundary
+        page_address = (address // self.PAGE_SIZE) * self.PAGE_SIZE
 
-            Returns:
-                The page number of this address.
-            """
+        # Expand the size to accound for moving address
+        page_size = size + address - page_address
 
-            return address // self.PAGE_SIZE
+        # Round page_size up to the next page
+        page_size = (
+            (page_size + self.PAGE_SIZE - 1) // self.PAGE_SIZE
+        ) * self.PAGE_SIZE
 
-        def subtract(first, second):
-            result = []
-            endpoints = sorted((*first, *second))
-            if endpoints[0] == first[0] and endpoints[1] != first[0]:
-                result.append((endpoints[0], endpoints[1]))
-            if endpoints[3] == first[1] and endpoints[2] != first[1]:
-                result.append((endpoints[2], endpoints[3]))
+        # Fill in any gaps in the specified region
+        region = (page_address, page_address + page_size)
+        missing_ranges = self.memory_map.get_missing_ranges(region)
 
-            return result
+        for start, end in missing_ranges:
+            self.memory_map.add_range((start, end))
+            self.engine.mem_map(start, end - start)
 
-        def map(start: int, end: int):
-            """Map a region of memory by start and end page.
-
-            Arguments:
-                start: Starting page of allocation.
-                end: Ending page of allocation.
-            """
-
-            address = start * self.PAGE_SIZE
-            allocation = (end - start) * self.PAGE_SIZE
-
-            logger.debug(f"new memory map 0x{address:x}[{allocation}]")
-
-            self.engine.mem_map(address, allocation)
-
-        # Fixed address, map only pages which are not yet mapped.
-        if address:
-            region = (page(address), page(address + size) + 1)
-
-            for start, end, _ in self.engine.mem_regions():
-                mapped = (page(start), page(end) + 1)
-
-                regions = subtract(region, mapped)
-
-                if len(regions) == 0:
-                    break
-                elif len(regions) == 1:
-                    region = regions[0]
-                elif len(regions) == 2:
-                    emit, region = regions
-                    map(*emit)
-            else:
-                map(*region)
-
-        # Address not provided, find a suitable region.
-        else:
-            target = 0
-            for start, end, _ in self.engine.mem_regions():
-                if page(end) > target:
-                    target = page(end) + 1
-
-            map(target, target + page(size) + 1)
-            address = target * self.PAGE_SIZE
-
-        return address
+    def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
+        return list(self.memory_map.ranges)
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         if content is None:
@@ -434,6 +401,7 @@ class UnicornEmulator(
 
     def write_memory(self, address: int, content: bytes) -> None:
         self.write_memory_content(address, content)
+
 
     def hook_instruction(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]

@@ -55,7 +55,6 @@ class GetsModel(smallworld.state.models.Model):
             raise smallworld.exceptions.AnalysisError(
                 f"Failed writing {len(v)} bytes to {hex(s)} "
             )
-        emulator.write_register("esp", a + 4)
 
 
 gets = GetsModel(0x1000)
@@ -91,7 +90,6 @@ class PutsModel(smallworld.state.models.Model):
         if b is None:
             raise smallworld.exceptions.SymbolicValueError(f"Symbolic byte at {hex(s)}")
         print(v)
-        emulator.write_register("esp", a + 4)
 
 
 puts = PutsModel(0x1001)
@@ -99,5 +97,5 @@ machine.add(puts)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(code.address + code.get_capacity())
+emulator.add_exitpoint(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)

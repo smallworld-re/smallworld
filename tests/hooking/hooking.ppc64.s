@@ -30,5 +30,4 @@ test:
     ld      0,16(1)
     mtlr    0
     ld      31,-8(1)
-    blr
 

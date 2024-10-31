@@ -14,7 +14,7 @@ test:
     # This requires a stack, and libc models for gets and puts
 
     # Set up the stack
-    stp x29, x30, [sp, -32]
+    stp x29, x30, [sp, -32]!
     # alloca a 64-byte stack buffer
     sub sp, sp, 64
     # Put a pointer to the stack buffer in arg1
