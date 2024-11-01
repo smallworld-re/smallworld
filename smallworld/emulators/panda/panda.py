@@ -358,10 +358,10 @@ class PandaEmulator(
         for start_page, end_page in missing_range:
             page_size = end_page - start_page
             print(
-                f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
+                f"Mapping at {hex(start_page * self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
             )
             self.panda_thread.panda.map_memory(
-                f"{start_page*self.PAGE_SIZE}",
+                f"{start_page * self.PAGE_SIZE}",
                 page_size * self.PAGE_SIZE,
                 start_page * self.PAGE_SIZE,
             )
