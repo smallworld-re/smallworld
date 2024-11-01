@@ -646,7 +646,7 @@ class BlockTests(ScriptIntegrationTest):
 
 
 class StackTests(ScriptIntegrationTest):
-    def _test_basic(self):
+    def test_basic(self):
         _, stderr = self.command(
             "python3 ../examples/basic_harness.py stack/stack.amd64.bin"
         )
@@ -850,7 +850,7 @@ class StackTests(ScriptIntegrationTest):
 
 
 class StructureTests(ScriptIntegrationTest):
-    def _test_basic(self):
+    def test_basic(self):
         _, stderr = self.command(
             "python3 ../examples/basic_harness.py struct/struct.amd64.bin"
         )
@@ -891,7 +891,7 @@ class StructureTests(ScriptIntegrationTest):
 
 
 class BranchTests(ScriptIntegrationTest):
-    def _test_basic(self):
+    def test_basic(self):
         _, stderr = self.command(
             "python3 ../examples/basic_harness.py branch/branch.amd64.bin"
         )
