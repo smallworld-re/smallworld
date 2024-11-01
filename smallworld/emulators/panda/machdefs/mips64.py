@@ -86,6 +86,6 @@ class MIPS64MachineDef(PandaMachineDef):
 
 class MIPS64BEMachineDef(MIPS64MachineDef):
     byteorder = Byteorder.BIG
-    machine = "mipssim"
-    cpu = "20Kc"
+    machine = "malta"
+    cpu = "MIPS64R2-generic"
     cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
