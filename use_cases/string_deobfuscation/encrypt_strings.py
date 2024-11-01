@@ -62,7 +62,7 @@ print(find_dollars(c))
 
 # NOTE: lief's section.content is a memoryview object,
 # but it also accepts List[int].  No way to fix, just ignore.
-data.content = c    # type: ignore
+data.content = c  # type: ignore
 
 # write out new version of the binary that decrypts strings in order to print them out
 # meaning the strings don't exist in the original string
