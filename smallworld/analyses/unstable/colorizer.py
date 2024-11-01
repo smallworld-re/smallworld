@@ -435,10 +435,10 @@ class Colorizer(analysis.Analysis):
         exec_num: int,
         insn_num: int,
         is_read: bool,
-    ) -> hinting.Hint:    
+    ) -> hinting.Hint:
         (base_name, base_val) = ("None", 0)
         (index_name, index_val) = ("None", 0)
-        (operand_size, operand_scale, operand_offset, operand_address) = (0,0,0,0)
+        (operand_size, operand_scale, operand_offset, operand_address) = (0, 0, 0, 0)
         if operand:
             operand_size = operand.size
             operand_scale = operand.scale
@@ -448,7 +448,7 @@ class Colorizer(analysis.Analysis):
                 base_name = operand.base
             if operand.index is not None:
                 index_val = self.emu.read_register(operand.index)
-                index_name = operand.index        
+                index_name = operand.index
         hint = hinting.MemoryUnavailableHint(
             is_read=is_read,
             size=operand_size,
