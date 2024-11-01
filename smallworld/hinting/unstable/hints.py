@@ -299,7 +299,6 @@ class MemoryUnavailableHint(hinting.Hint):
     offset: int
     scale: int
     address: int
-    instruction: typing.Any
     pc: int
     micro_exec_num: int
     instruction_num: int

@@ -42,7 +42,7 @@ class Stateful(metaclass=abc.ABCMeta):
 class Value(metaclass=abc.ABCMeta):
     """An individual state value."""
 
-    def __init__(self):
+    def __init__(self:typing.Any) -> None:
         self._content: typing.Optional[typing.Any] = None
         self._type: typing.Optional[typing.Any] = None
         self._label: typing.Optional[str] = None

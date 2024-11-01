@@ -192,7 +192,7 @@ class Colorizer(analysis.Analysis):
                     for read_operand, conc_val in e.details["reads"]:
                         if conc_val is None:
                             h = self._mem_unavailable_hint(
-                                read_operand, e.pc, i.j, True
+                                read_operand, e.pc, i, j, True
                             )
                             hint_list.append(h)
                     h = self._mem_unavailable_hint(None, e.pc, i, j, True)
@@ -430,30 +430,35 @@ class Colorizer(analysis.Analysis):
     # helper for read/write unavailable hint
     def _mem_unavailable_hint(
         self,
-        operand: BSIDMemoryReferenceOperand,
+        operand: typing.Optional[BSIDMemoryReferenceOperand],
         pc: int,
         exec_num: int,
         insn_num: int,
         is_read: bool,
-    ) -> hinting.Hint:
+    ) -> hinting.Hint:    
         (base_name, base_val) = ("None", 0)
-        if operand.base is not None:
-            base_val = self.emu.read_register(operand.base)
-            base_name = operand.base
         (index_name, index_val) = ("None", 0)
-        if operand.index is not None:
-            index_val = self.emu.read_register(operand.index)
-            index_name = operand.index
+        (operand_size, operand_scale, operand_offset, operand_address) = (0,0,0,0)
+        if operand:
+            operand_size = operand.size
+            operand_scale = operand.scale
+            operand_address = operand.address(self.emu)
+            if operand.base is not None:
+                base_val = self.emu.read_register(operand.base)
+                base_name = operand.base
+            if operand.index is not None:
+                index_val = self.emu.read_register(operand.index)
+                index_name = operand.index        
         hint = hinting.MemoryUnavailableHint(
             is_read=is_read,
-            size=operand.size,
+            size=operand_size,
             base_reg_name=base_name,
             base_reg_val=base_val,
             index_reg_name=index_name,
             index_reg_val=index_val,
-            offset=operand.offset,
-            scale=operand.scale,
-            address=operand.address(self.emu),
+            offset=operand_offset,
+            scale=operand_scale,
+            address=operand_address,
             pc=pc,
             micro_exec_num=exec_num,
             instruction_num=insn_num,

@@ -25,7 +25,7 @@ emulators, both of which are Qemu-based.
 
 
 class QInstructionHookable(InstructionHookable):
-    def __init__(self):
+    def __init__(self:typing.Any) -> None:
         super().__init__()
         self.instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
         self.all_instructions_hook: typing.Optional[
@@ -64,7 +64,7 @@ class QInstructionHookable(InstructionHookable):
 
 
 class QFunctionHookable(FunctionHookable):
-    def __init__(self):
+    def __init__(self:typing.Any) -> None:
         super().__init__()
         self.function_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
 
@@ -92,7 +92,7 @@ class QFunctionHookable(FunctionHookable):
 
 
 class QMemoryReadHookable(MemoryReadHookable):
-    def __init__(self):
+    def __init__(self:typing.Any) -> None:
         super().__init__()
         self.memory_read_hooks: typing.Dict[
             range, typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
@@ -150,7 +150,7 @@ class QMemoryReadHookable(MemoryReadHookable):
 
 
 class QMemoryWriteHookable(MemoryWriteHookable):
-    def __init__(self):
+    def __init__(self:typing.Any) -> None:
         super().__init__()
         self.memory_write_hooks: typing.Dict[
             range, typing.Callable[[Emulator, int, int, bytes], None]
@@ -207,7 +207,7 @@ class QMemoryWriteHookable(MemoryWriteHookable):
 
 
 class QInterruptHookable(InterruptHookable):
-    def __init__(self):
+    def __init__(self:typing.Any) -> None:
         super().__init__()
         self.all_interrupts_hook: typing.Optional[
             typing.Callable[[Emulator, int], None]
