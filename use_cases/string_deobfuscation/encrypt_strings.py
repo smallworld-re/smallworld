@@ -21,6 +21,8 @@ with open("new_strings", "rb") as s:
 
 
 bin = lief.parse("strdeobfus")
+if bin is None:
+    raise Exception("Failed parsing binary file")
 data = bin.get_section(".data")
 
 c = data.content.tolist()
