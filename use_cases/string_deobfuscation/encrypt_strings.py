@@ -20,7 +20,13 @@ with open("new_strings", "rb") as s:
     enc_string2 = read_str(s)
 
 
-bin = lief.parse("strdeobfus")
+raw_bin = lief.parse("strdeobfus")
+if raw_bin is None:
+    raise Exception("Failed parsing binary file")
+if not isinstance(raw_bin, lief.ELF.Binary):
+    raise Exception("Binary is not an ELF")
+bin: lief.ELF.Binary = raw_bin
+
 data = bin.get_section(".data")
 
 c = data.content.tolist()
@@ -54,7 +60,9 @@ c = (
 )
 print(find_dollars(c))
 
-data.content = c
+# NOTE: lief's section.content is a memoryview object,
+# but it also accepts List[int].  No way to fix, just ignore.
+data.content = c  # type: ignore
 
 # write out new version of the binary that decrypts strings in order to print them out
 # meaning the strings don't exist in the original string

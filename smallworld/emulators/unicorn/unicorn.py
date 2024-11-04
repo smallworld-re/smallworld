@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 import typing
+from enum import Enum
 
 import capstone
 import unicorn
@@ -40,6 +41,15 @@ class UnicornEmulationExecutionError(UnicornEmulationError):
     pass
 
 
+class EmulatorState(Enum):
+    START_BLOCK = 1
+    START_STEP = 2
+    STEP = 3
+    BLOCK = 4
+    RUN = 5
+    SETUP = 6
+
+
 class UnicornEmulator(
     emulator.Emulator,
     hookable.QInstructionHookable,
@@ -65,7 +75,7 @@ class UnicornEmulator(
         self.disassembler.detail = True
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
-
+        self.state: EmulatorState = EmulatorState.SETUP
         # labels are per byte
 
         # We'll have one entry in this dictionary per full-width base
@@ -93,22 +103,22 @@ class UnicornEmulator(
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
             print(f"code callback addr={address:x}")
-            if not self._bounds.is_empty():
-                # check that we are in bounds
-                if self._bounds.find_range(address) is None:
-                    # not in bounds for any of the ranges specified
-                    if (
-                        self.emulation_in_progress == STEP_BLOCK
-                        or self.emulation_in_progress == RUN
-                    ):
-                        self.engine.emu_stop()
-                    raise exceptions.EmulationBounds
+            # We want to end on the instruction after
+            if self.state == EmulatorState.STEP:
+                self.engine.emu_stop()
+            if self.state == EmulatorState.START_STEP:
+                self.state = EmulatorState.STEP
+
+            if not self._bounds.is_empty() and self._bounds.find_range(address) is None:
+                self.engine.emu_stop()
+                raise exceptions.EmulationBounds
 
             # check for if we've hit an exit point
             if address in self._exit_points:
                 logger.debug(f"stopping emulation at exit point {address:x}")
                 self.engine.emu_stop()
                 raise exceptions.EmulationExitpoint
+
             # run instruciton hooks
             if self.all_instructions_hook:
                 self.all_instructions_hook(self)
@@ -210,13 +220,13 @@ class UnicornEmulator(
 
         self.engine.hook_add(unicorn.UC_HOOK_INTR, interrupt_callback)
 
-        # controls how we step: by block or by instruction
-        self.stepping_by_block = False
-
-        # this callback is used to manage `step_block` I guess
         def block_callback(uc, address, block_size, user_data):
-            if self.stepping_by_block:
+            if self.state == EmulatorState.BLOCK:
                 self.engine.emu_stop()
+            if self.state == EmulatorState.START_BLOCK:
+                self.state = EmulatorState.BLOCK
+
+        self.engine.hook_add(unicorn.UC_HOOK_BLOCK, block_callback)
 
         # keep track of which registers have been initialized
         self.initialized_registers: typing.Dict[str, typing.Set[int]] = {}
@@ -258,10 +268,6 @@ class UnicornEmulator(
         except Exception as e:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
-    def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
-        # not supported yet
-        return None
-
     def read_register_label(self, name: str) -> typing.Optional[str]:
         (_, base_reg, size, offset) = self._register(name)
         if base_reg in self.label:
@@ -292,12 +298,6 @@ class UnicornEmulator(
             self.initialized_registers[base_reg].add(o)
         logger.debug(f"set register {name}={content}")
 
-    def write_register_type(
-        self, name: str, typ: typing.Optional[typing.Any] = None
-    ) -> None:
-        # not supported yet
-        pass
-
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
     ) -> None:
@@ -321,10 +321,6 @@ class UnicornEmulator(
             logger.warn(f"Unicorn raised an exception on memory read {e}")
             self._error(e, "mem")
             assert False  # Line is unreachable
-
-    def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
-        # not supported yet
-        return None
 
     def read_memory_label(self, address: int, size: int) -> typing.Optional[str]:
         labels = set()
@@ -394,12 +390,6 @@ class UnicornEmulator(
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 
-    def write_memory_type(
-        self, address: int, size: int, type: typing.Optional[typing.Any] = None
-    ) -> None:
-        # not supported yet
-        pass
-
     def write_memory_label(
         self, address: int, size: int, label: typing.Optional[str] = None
     ) -> None:
@@ -466,41 +456,21 @@ class UnicornEmulator(
                 "at least one exit point must be set, emulation cannot start"
             )
 
-    def _step(self, by_block: bool = False) -> None:
+    def step_instruction(self) -> None:
         self._check()
-
-        # by_block == True means stepping by a basic block at a time
-        # by_block == False means stepping by instruction
-        self.stepping_by_block = by_block
+        self.state = EmulatorState.START_STEP
 
         pc = self.read_register("pc")
+        exit_point = list(self._exit_points)[0]
+        if pc == exit_point:
+            raise exceptions.EmulationBounds
+
+        if pc not in self.function_hooks:
+            disas = self.current_instruction()
+            logger.info(f"single step at 0x{pc:x}: {disas}")
 
         try:
-            # NB: unicorn requires an exit point so just use first in our
-            # list. Note that we still check all of them at each instruction in
-            # code callback
-            if by_block:
-                # stepping by block -- just start emulating and the block
-                # callback will end emulation when we hit next bb
-                # Note: assuming no block will be longer than 1000 instructions
-                logger.info(f"block step at 0x{pc:x}")
-                exit_point = list(self._exit_points)[0]
-                self.engine.emu_start(pc, exit_point, count=1000)
-            else:
-                # stepping by instruction
-                exit_point = list(self._exit_points)[0]
-                if pc == exit_point:
-                    raise exceptions.EmulationBounds
-                if pc in self.function_hooks:
-                    pass
-                else:
-                    code = self.read_memory(pc, 15)  # longest possible instruction
-                    if code is None:
-                        assert False, "impossible state"
-                    (instr, disas) = self._disassemble(code, pc, 1)
-                    logger.info(f"single step at 0x{pc:x}: {disas}")
-
-                self.engine.emu_start(pc, exit_point, count=1)
+            self.engine.emu_start(pc, exit_point)
 
         except unicorn.UcError as e:
             if (
@@ -514,14 +484,27 @@ class UnicornEmulator(
                 # translate this unicorn error into something richer
                 self._error(e, "exec")
 
-    def step_instruction(self) -> None:
-        self._step()
-
     def step_block(self) -> None:
-        self._step(by_block=True)
+        self._check()
+        pc = self.read_register("pc")
+        exit_point = list(self._exit_points)[0]
+
+        disas = self.current_instruction()
+        logger.info(f"step block at 0x{pc:x}: {disas}")
+        try:
+            self.state = EmulatorState.START_BLOCK
+            self.engine.emu_start(pc, exit_point)
+            pc = self.read_register("pc")
+
+            self.state = EmulatorState.BLOCK
+            self.engine.emu_start(pc, exit_point)
+        except unicorn.UcError as e:
+            logger.warn(f"emulation stopped - reason: {e}")
+            logger.warn("for more details, run emulation in single step mode")
 
     def run(self) -> None:
         self._check()
+        self.state = EmulatorState.RUN
 
         logger.info(
             f"starting emulation at 0x{self.read_register('pc'):x}"

@@ -613,6 +613,27 @@ class RecursionTests(ScriptIntegrationTest):
         self.run_test("ppc64.angr")
 
 
+class BlockTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        def test_output():
+            stdout, _ = self.command(f"python3 block/block.{arch}.py 2740 1760")
+            self.assertLineContainsStrings(stdout, "1", "1760")
+            self.assertLineContainsStrings(stdout, "2", "1760")
+            self.assertLineContainsStrings(stdout, "3", "0")
+            self.assertLineContainsStrings(stdout, "4", "1")
+            self.assertLineContainsStrings(stdout, "5", "980")
+            self.assertLineContainsStrings(stdout, "6", "20")
+
+        test_output()
+
+    def test_block_amd64(self):
+        self.run_test("amd64")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_block_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+
 class StackTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command(

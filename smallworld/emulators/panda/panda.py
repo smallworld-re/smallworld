@@ -192,7 +192,10 @@ class PandaEmulator(
             @self.panda.cb_start_block_exec(enabled=True)
             def on_block(cpu, tb):
                 self.update_state(cpu, tb.pc)
-                if self.state == PandaEmulator.ThreadState.BLOCK:
+                if (
+                    self.state == PandaEmulator.ThreadState.BLOCK
+                    or self.state == PandaEmulator.ThreadState.SETUP
+                ):
                     print(f"Panda: on_block: {tb}, {self.state}")
                     # We need to pause on the next block and wait
                     self.signal_and_wait()
@@ -355,10 +358,10 @@ class PandaEmulator(
         for start_page, end_page in missing_range:
             page_size = end_page - start_page
             print(
-                f"Mapping at {hex(start_page*self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
+                f"Mapping at {hex(start_page * self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
             )
             self.panda_thread.panda.map_memory(
-                f"{start_page*self.PAGE_SIZE}",
+                f"{start_page * self.PAGE_SIZE}",
                 page_size * self.PAGE_SIZE,
                 start_page * self.PAGE_SIZE,
             )
@@ -445,14 +448,29 @@ class PandaEmulator(
 
     def step_block(self) -> None:
         self.check()
+        if self.panda_thread.state == self.ThreadState.SETUP:
+            # Move past setup
+            self.signal_and_wait()
+
+        pc = self.pc
+        code = self.read_memory(pc, 15)  # longest possible instruction
+        if code is None:
+            assert False, "impossible state"
+        (instr, disas) = self.disassemble(code, pc, 1)
+
+        logger.info(f"block step at 0x{pc:x}: {disas}")
+
         self.panda_thread.state = self.ThreadState.BLOCK
         self.signal_and_wait()
 
     def step_instruction(self) -> None:
         self.check()
 
-        if self.panda_thread.state == self.ThreadState.SETUP:
-            # Move past setup
+        if (
+            self.panda_thread.state == self.ThreadState.SETUP
+            or self.panda_thread.state == self.ThreadState.BLOCK
+        ):
+            # Move past setup or block
             self.panda_thread.state = self.ThreadState.STEP
             self.signal_and_wait()
 
