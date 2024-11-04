@@ -263,7 +263,7 @@ class UnicornEmulator(
         return None
 
     def read_register_label(self, name: str) -> typing.Optional[str]:
-        (_, base_reg, offset, size) = self._register(name)
+        (_, base_reg, size, offset) = self._register(name)
         if base_reg in self.label:
             # we'll return a string repr of set of labels on all byte offsets
             # for this register
@@ -283,12 +283,12 @@ class UnicornEmulator(
         if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
-        (reg, base_reg, offset, size) = self._register(name)
+        (reg, base_reg, size, start_offset) = self._register(name)
         self.engine.reg_write(reg, content)
         # keep track of which bytes in this register have been initialized
         if base_reg not in self.initialized_registers:
             self.initialized_registers[base_reg] = set([])
-        for o in range(offset, offset + size):
+        for o in range(start_offset, start_offset + size):
             self.initialized_registers[base_reg].add(o)
         logger.debug(f"set register {name}={content}")
 
@@ -303,7 +303,7 @@ class UnicornEmulator(
     ) -> None:
         if label is None:
             return
-        (_, base_reg, offset, size) = self._register(name)
+        (_, base_reg, size, offset) = self._register(name)
         if base_reg not in self.label:
             self.label[base_reg] = {}
         for i in range(offset, offset + size):
@@ -363,6 +363,17 @@ class UnicornEmulator(
 
     def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
         return list(self.memory_map.ranges)
+
+    def _is_address_mapped(self, address):
+        (ind, found) = self.memory_map.find_closest_range(address)
+        return found
+
+    def _is_address_range_mapped(self, address_range):
+        (a, b) = address_range
+        for address in range(a, b):
+            if self._is_address_mapped(address) is False:
+                return False
+        return True
 
     def write_memory_content(self, address: int, content: bytes) -> None:
         if content is None:
@@ -438,7 +449,7 @@ class UnicornEmulator(
     def _check(self) -> None:
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
-        (_, base_name, offset, size) = self._register("pc")
+        (_, base_name, size, offset) = self._register("pc")
         if (
             base_name in self.initialized_registers
             and len(self.initialized_registers[base_name]) == size
@@ -570,12 +581,10 @@ class UnicornEmulator(
         def get_unavailable_rw(rws):
             out = []
             for rw in rws:
-                try:
-                    c = rw.concretize(self)
-                except:
-                    c = None
-                p = (rw, c)
-                out.append(p)
+                if type(rw) is instructions.BSIDMemoryReferenceOperand:
+                    a = rw.address(self)
+                    if not (self._is_address_mapped(a)):
+                        out.append(rw)
             return out
 
         details: typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]] = {}
@@ -584,33 +593,33 @@ class UnicornEmulator(
             msg = f"{prefix} due to read of unmapped memory"
             # actually this is a memory read error
             exc = UnicornEmulationMemoryReadError
-            details["reads"] = get_unavailable_rw(i.reads)
+            details["unmapped_reads"] = get_unavailable_rw(i.reads)
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
             # actually this is a memory read error
             exc = UnicornEmulationMemoryReadError
-            details["reads"] = get_unavailable_rw(i.reads)
+            details["protected_reads"] = get_unavailable_rw(i.reads)
         elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
             msg = f"{prefix} due to unaligned read"
             # actually this is a memory read error
             exc = UnicornEmulationMemoryReadError
-            details["reads"] = get_unavailable_rw(i.reads)
+            details["unaligned_reads"] = get_unavailable_rw(i.reads)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
             msg = f"{prefix} due to write to unmapped memory"
             # actually this is a memory write error
             exc = UnicornEmulationMemoryWriteError
-            details["writes"] = get_unavailable_rw(i.writes)
+            details["unmapped_writes"] = get_unavailable_rw(i.writes)
         elif error.errno == unicorn.UC_ERR_WRITE_PROT:
             msg = f"{prefix} due to write to mapped but protected memory"
             # actually this is a memory write error
             exc = UnicornEmulationMemoryWriteError
-            details["writes"] = get_unavailable_rw(i.writes)
+            details["protected_writes"] = get_unavailable_rw(i.writes)
         elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
             msg = f"{prefix} due to unaligned write"
             # actually this is a memory write error
             exc = UnicornEmulationMemoryWriteError
-            details["writes"] = get_unavailable_rw(i.writes)
+            details["unaligned_writes"] = get_unavailable_rw(i.writes)
 
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
             msg = f"{prefix} due to fetch of unmapped memory"
