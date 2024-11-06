@@ -1,6 +1,5 @@
 from .analysis import *  # noqa: F401, F403
 from .analysis import __all__ as __analysis__
-
 from .colorizer import Colorizer
 from .colorizer_summary import ColorizerSummary
 
