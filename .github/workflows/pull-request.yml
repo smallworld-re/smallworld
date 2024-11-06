@@ -71,5 +71,5 @@ jobs:
         if: ${{ !(contains(needs.*.results, 'failure')) }}
         run: exit 0
       - name: Tests Failed
-        if: ${{ contains(needs.*.results, 'failure')) }}
+        if: ${{ contains(needs.*.results, 'failure') }}
         run: exit 1
