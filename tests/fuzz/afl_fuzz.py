@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # import unicornafl
 import logging
-
+import pathlib
 import smallworld
 
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -13,7 +13,7 @@ platform = smallworld.platforms.Platform(
 )
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+    (pathlib.Path(__file__).parent / "fuzz.amd64.bin").as_posix(), address=0x1000
 )
 heap = smallworld.state.memory.heap.BumpAllocator(0x2000, 0x4000)
 
