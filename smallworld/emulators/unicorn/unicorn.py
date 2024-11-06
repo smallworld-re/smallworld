@@ -261,10 +261,10 @@ class UnicornEmulator(
     def read_register_content(self, name: str) -> int:
         (reg, _, _, _) = self._register(name)
         if reg == 0:
-            pass
+            return 0
         # logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
         try:
-            return self.engine.reg_read(reg, tuple)
+            return self.engine.reg_read(reg)
         except Exception as e:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
