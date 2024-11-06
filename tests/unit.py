@@ -2,7 +2,7 @@ import signal
 import typing
 import unittest
 
-from smallworld import emulators, state, utils
+from smallworld import utils
 
 
 class assertTimeout:
