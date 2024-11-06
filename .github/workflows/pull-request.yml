@@ -12,6 +12,23 @@ jobs:
       image: ubuntu:latest
       env:
         TZ: UTC
+    strategy:
+      matrix:
+        include:
+          - testsuite: BlockTests
+          - testsuite: BranchTests
+          - testsuite: CallTests
+          - testsuite: DMATests
+          - testsuite: DocumentationTests
+          - testsuite: ElfTests
+          - testsuite: FloatsTests
+          - testsuite: FuzzTests
+          - testsuite: HookingTests
+          - testsuite: RecursionTests
+          - testsuite: SquareTests
+          - testsuite: StackTests
+          - testsuite: StrlenTests
+          - testsuite: StructureTests
     steps:
       - name: preinit
         run: |
@@ -44,4 +61,15 @@ jobs:
       - name: Test
         run: |
           python tests/unit.py
-          python tests/integration.py
+          python tests/integration.py ${{ matrix.testsuite }}
+  Results:
+    runs-on: smallworld-arc
+    needs: Test
+    if: always()
+    steps:
+      - name: All tests OK
+        if: ${{ !(contains(needs.*.results, 'failure')) }}
+        run: exit 0
+      - name: Tests Failed
+        if: ${{ contains(needs.*.results, 'failure') }}
+        run: exit 1

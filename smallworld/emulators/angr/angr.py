@@ -13,6 +13,7 @@ from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
 from .machdefs import AngrMachineDef
+from .simos import HookableSimOS
 
 log = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class AngrEmulator(
     emulator.Emulator,
     emulator.InstructionHookable,
     emulator.FunctionHookable,
+    emulator.SyscallHookable,
     emulator.MemoryReadHookable,
     emulator.MemoryWriteHookable,
 ):
@@ -80,7 +82,10 @@ class AngrEmulator(
         stream = io.BytesIO(b"")
         loader = cle.Loader(stream, main_opts=options)
         self.proj: angr.Project = angr.Project(
-            loader, engine=self.machdef.angr_engine, selfmodifying_code=True
+            loader,
+            engine=self.machdef.angr_engine,
+            selfmodifying_code=True,
+            simos=HookableSimOS,
         )
         # Override the default factory
         self.proj.factory = PatchedObjectFactory(
@@ -100,6 +105,7 @@ class AngrEmulator(
         self.state = self.proj.factory.blank_state(
             plugin_preset=self._plugin_preset,
             add_options={
+                # angr.options.BYPASS_UNSUPPORTED_SYSCALL,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
             },
@@ -416,6 +422,50 @@ class AngrEmulator(
         if self._dirty and not self._linear:
             raise NotImplementedError("Cannot unhook functions once emulation starts")
         self.proj.unhook(address)
+
+    def hook_syscall(
+        self, number: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError("Cannot hook syscalls once emulation starts")
+        if number in self.state.scratch.syscall_funcs:
+            raise exceptions.ConfigurationError(
+                f"Already have a syscall hook for {number}"
+            )
+
+        def syscall_handler(state):
+            function(ConcreteAngrEmulator(state, self))
+
+        self.state.scratch.syscall_funcs[number] = syscall_handler
+
+    def unhook_syscall(self, number: int) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError("Cannot unhook syscalls once emulation starts")
+        if number not in self.state.scratch.syscall_funcs:
+            raise exceptions.ConfigurationError(f"No syscall hook for {number}")
+        del self.state.scratch.syscall_funcs[number]
+
+    def hook_syscalls(
+        self, function: typing.Callable[[emulator.Emulator, int], None]
+    ) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError("Cannot hook syscalls once emulation starts")
+
+        if self.state.scratch.global_syscall_func is not None:
+            raise exceptions.ConfigurationError("Already have a global syscall hook")
+
+        def syscall_handler(state, number: int):
+            function(ConcreteAngrEmulator(state, self), number)
+
+        self.state.scratch.global_syscall_func = syscall_handler
+
+    def unhook_syscalls(self) -> None:
+        if self._dirty and not self._linear:
+            raise NotImplementedError("Cannot unhook syscalls once emulation starts")
+
+        if self.state.scratch.global_syscall_func is None:
+            raise exceptions.ConfigurationError("No global syscall hook registered")
+        self.state.scratch.global_syscall_func = None
 
     def hook_memory_read(
         self,

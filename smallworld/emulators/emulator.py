@@ -459,6 +459,56 @@ class FunctionHookable(metaclass=abc.ABCMeta):
         pass
 
 
+class SyscallHookable(metaclass=abc.ABCMeta):
+    """An emulator mixin that supports syscall hooking."""
+
+    @abc.abstractmethod
+    def hook_syscall(
+        self, number: int, function: typing.Callable[[Emulator], None]
+    ) -> None:
+        """Hook a specific syscall by number.
+
+        This hook will fire if emulation hits a platform-specific syscall instruction
+        invoking the specified syscall number.
+
+        Emulation will resume at the instruction after the syscall.
+        To change this, the handler should modify the PC register in the emulator.
+
+        Arguments:
+            number: The syscall number to handle
+            function: The handler function for this syscall
+        """
+        pass
+
+    @abc.abstractmethod
+    def unhook_syscall(self, number: int) -> None:
+        """Unhook a specific syscall by number.
+
+        Arguments:
+            number: The syscall number to unhook
+        """
+        pass
+
+    @abc.abstractmethod
+    def hook_syscalls(self, function: typing.Callable[[Emulator, int], None]) -> None:
+        """Hook all syscalls
+
+        This hook will fire if emulation hits a platform-specific syscall instruction.
+
+        Emulation will resume at the instruction after the syscall.
+        To change this, the handler should modify the PC register in the emulator.
+
+        Arguments:
+            function: The handler function for all syscalls
+        """
+        pass
+
+    @abc.abstractmethod
+    def unhook_syscalls(self) -> None:
+        """Unhook all syscalls"""
+        pass
+
+
 class MemoryReadHookable(metaclass=abc.ABCMeta):
     """An Emulator mixin that supports memory read hooking."""
 
