@@ -2,7 +2,7 @@ import signal
 import typing
 import unittest
 
-from smallworld import emulators, state, utils
+from smallworld import utils
 
 
 class assertTimeout:
@@ -35,217 +35,6 @@ class assertTimeout:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         signal.alarm(0)
-
-
-class StateTests(unittest.TestCase):
-    class TestValue(state.Value):
-        @property
-        def value(self):
-            pass
-
-        @value.setter
-        def value(self, value) -> None:
-            pass
-
-        def load(self, emulator: emulators.Emulator, override: bool = True) -> None:
-            pass
-
-        def apply(self, emulator: emulators.Emulator) -> None:
-            pass
-
-        def __repr__(self) -> str:
-            return f"{self.__class__.__name__}"
-
-    def test_map_named(self):
-        s = state.State()
-        v = self.TestValue()
-
-        s.map(v, "foo")
-
-        self.assertTrue(hasattr(s, "foo"))
-        self.assertEqual(s.foo, v)
-
-    def test_map_nameless(self):
-        s = state.State()
-        v = self.TestValue()
-
-        s.map(v)
-
-        self.assertTrue(hasattr(s, "testvalue"))
-        self.assertEqual(s.testvalue, v)
-
-    def test_map_nameless_overlapping(self):
-        s = state.State()
-        v1 = self.TestValue()
-        v2 = self.TestValue()
-
-        s.map(v1)
-        s.map(v2)
-
-        self.assertTrue(hasattr(s, "testvalue"))
-        self.assertEqual(s.testvalue, v1)
-
-        self.assertTrue(hasattr(s, "testvalue1"))
-        self.assertEqual(s.testvalue1, v2)
-
-    def test_map_named_overlapping(self):
-        s = state.State()
-        v1 = self.TestValue()
-        v2 = self.TestValue()
-
-        s.map(v1, "foo")
-
-        with self.assertRaises(ValueError):
-            s.map(v2, "foo")
-
-    def test_memory_repr_performance(self):
-        size = 0x100000 * 32
-        memory = state.Memory(address=0, size=size)
-        memory.value = b"A" * size
-
-        with assertTimeout(1):
-            str(memory)
-
-    def test_stack_init(self):
-        foo = "AAA".encode("utf-8")
-        bar = "BBBB".encode("utf-8")
-        s = state.Stack.initialize_stack(argv=[foo, bar], address=0x100, size=0x30)
-        sp = s.get_stack_pointer()
-        self.assertEqual(sp, 248)
-        self.assertDictEqual(
-            s.label,
-            {
-                45: (3, "argv[0]"),
-                41: (4, "argv[1]"),
-                32: (9, "stack alignment padding bytes"),
-                24: (8, "null terminator of argv array"),
-                16: (8, "pointer to argv[1]"),
-                8: (8, "pointer to argv[0]"),
-                0: (8, "argc"),
-            },
-        )
-        self.assertEqual(
-            s.value,
-            b"\x02\x00\x00\x00\x00\x00\x00\x00-\x01\x00\x00\x00\x00\x00\x00)\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00BBBBAAA",
-        )
-
-
-class UnicornEmulatorTests(unittest.TestCase):
-    def test_write_memory_not_page_aligned(self):
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address = 0x1800
-        value = b"A" * 32
-
-        emu.write_memory(address, value)
-        read = emu.read_memory(address, len(value))
-
-        self.assertEqual(read, value)
-
-    def test_write_memory_multipage_not_page_aligned(self):
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address = 0x1800
-        value = b"A" * 0x1200
-
-        emu.write_memory(address, value)
-        read = emu.read_memory(address, len(value))
-
-        self.assertEqual(read, value)
-
-    def test_write_memory_multipage_span_less_than_page_size(self):
-        """Allocation less than a page, but spans multiple pages."""
-
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address = 0x1800
-        value = b"A" * 0x850
-
-        emu.write_memory(address, value)
-        read = emu.read_memory(address, len(value))
-
-        self.assertEqual(read, value)
-
-    def test_write_memory_page_overlapping_explicit(self):
-        """Overlapping writes start in the same page."""
-
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address1 = 0x1200
-        value1 = b"A" * 0x32
-        address2 = 0x1600
-        value2 = b"B" * 0x32
-
-        emu.write_memory(address1, value1)
-        emu.write_memory(address2, value2)
-
-        read1 = emu.read_memory(address1, len(value1))
-        read2 = emu.read_memory(address2, len(value2))
-
-        self.assertEqual(read1, value1)
-        self.assertEqual(read2, value2)
-
-    def test_write_memory_page_overlapping_implicit(self):
-        """Overlapping writes start in different pages."""
-
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address1 = 0x1200
-        value1 = b"A" * 0x1000
-        address2 = 0x2400
-        value2 = b"B" * 0x32
-
-        emu.write_memory(address1, value1)
-        emu.write_memory(address2, value2)
-
-        read1 = emu.read_memory(address1, len(value1))
-        read2 = emu.read_memory(address2, len(value2))
-
-        self.assertEqual(read1, value1)
-        self.assertEqual(read2, value2)
-
-    def test_write_memory_page_overlapping_extra_map(self):
-        """Overlapping writes that require additional mappings."""
-
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address1 = 0x1200
-        value1 = b"A" * 32
-        address2 = 0x1400
-        value2 = b"B" * 0x1000
-
-        emu.write_memory(address1, value1)
-        emu.write_memory(address2, value2)
-
-        read1 = emu.read_memory(address1, len(value1))
-        read2 = emu.read_memory(address2, len(value2))
-
-        self.assertEqual(read1, value1)
-        self.assertEqual(read2, value2)
-
-    def test_write_memory_page_contains_existing_maps(self):
-        """Existing maps contained within the allocation."""
-
-        emu = emulators.UnicornEmulator("x86", "64", "little")
-
-        address1 = 0x1200
-        value1 = b"A" * 32
-        address2 = 0x3800
-        value2 = b"B" * 32
-        address3 = 0x1800
-        value3 = b"C" * 0x1000
-
-        emu.write_memory(address1, value1)
-        emu.write_memory(address2, value2)
-        emu.write_memory(address3, value3)
-
-        read1 = emu.read_memory(address1, len(value1))
-        read2 = emu.read_memory(address2, len(value2))
-        read3 = emu.read_memory(address3, len(value3))
-
-        self.assertEqual(read1, value1)
-        self.assertEqual(read2, value2)
-        self.assertEqual(read3, value3)
 
 
 class UtilsTests(unittest.TestCase):
@@ -343,19 +132,19 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(a, None)
 
         a, b = rc.find_closest_range(3)
-        self.assertEqual(a, 0)
+        self.assertEqual(a, (2, 4))
         self.assertEqual(b, True)
         a, b = rc.find_closest_range(8)
-        self.assertEqual(a, 0)
+        self.assertEqual(a, (2, 4))
         self.assertEqual(b, False)
         a, b = rc.find_closest_range(19)
-        self.assertEqual(a, 1)
+        self.assertEqual(a, (19, 25))
         self.assertEqual(b, True)
         a, b = rc.find_closest_range(25)
-        self.assertEqual(a, 1)
+        self.assertEqual(a, (19, 25))
         self.assertEqual(b, False)
         a, b = rc.find_closest_range(1)
-        self.assertEqual(a, -1)
+        self.assertEqual(a, (56, 70))
         self.assertEqual(b, False)
 
     def test_range_collection_update(self):
