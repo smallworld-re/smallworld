@@ -7,8 +7,16 @@ on:
 
 jobs:
   Test:
-    runs-on: ubuntu-latest
+    runs-on: smallworld-arc
+    container:
+      image: ubuntu:latest
+      env:
+        TZ: UTC
     steps:
+      - name: preinit
+        run: |
+          apt-get update
+          apt-get install -y git-lfs
       - uses: actions/checkout@v3
         with:
           lfs: true
@@ -19,12 +27,12 @@ jobs:
           bash .github/workflows/scripts/conventional.sh "$TITLE"
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.10'
       - name: Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y $(cat ./tests/dependencies/apt.txt)
-          sudo apt-get install -y ./tests/dependencies/*.deb
+          apt-get update
+          apt-get install -y $(cat ./tests/dependencies/apt.txt)
+          apt-get install -y ./tests/dependencies/*.deb
           python -m pip install ./tests/dependencies/*.whl
       - name: Install
         run: |
