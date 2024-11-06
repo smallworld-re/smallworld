@@ -102,7 +102,7 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
-            #print(f"code callback addr={address:x}")
+            # print(f"code callback addr={address:x}")
             # We want to end on the instruction after
             if self.state == EmulatorState.STEP:
                 self.engine.emu_stop()
