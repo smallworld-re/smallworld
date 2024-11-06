@@ -1304,7 +1304,7 @@ class FuzzTests(ScriptIntegrationTest):
     @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
     def test_fuzzing(self):
         stdout, _ = self.command(
-            "afl-showmap -U -m none -o /dev/stdout -- python3 fuzz/afl_fuzz.py fuzz/fuzz_inputs/good_input",
+            "afl-showmap -t 10000 -U -m none -o /dev/stdout -- python3 fuzz/afl_fuzz.py fuzz/fuzz_inputs/good_input",
             error=False,
         )
         self.assertLineContainsStrings(stdout, "001445:1")
