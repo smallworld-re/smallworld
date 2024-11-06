@@ -44,4 +44,4 @@ jobs:
       - name: Test
         run: |
           python tests/unit.py
-          python tests/integration.py FuzzTests
+          python tests/integration.py
