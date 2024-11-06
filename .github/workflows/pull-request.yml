@@ -8,7 +8,10 @@ on:
 jobs:
   Test:
     runs-on: smallworld-arc
-    container: ubuntu:latest
+    container:
+      image: ubuntu:latest
+      env:
+        TZ: UTC
     steps:
       - name: preinit
         run: |
