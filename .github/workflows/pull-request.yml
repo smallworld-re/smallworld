@@ -62,3 +62,14 @@ jobs:
         run: |
           python tests/unit.py
           python tests/integration.py ${{ matrix.testsuite }}
+  Results:
+    runs-on: smallworld-arc
+    needs: Test
+    if: always()
+    steps:
+      - name: All tests OK
+        if: ${{ !(contains(needs.*.results, 'failure')) }}
+        run: exit 0
+      - name: Tests Failed
+        if: ${{ contains(needs.*.results, 'failure')) }}
+        run: exit 1
