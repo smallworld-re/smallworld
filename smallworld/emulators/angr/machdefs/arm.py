@@ -1,10 +1,10 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class ARMMachineDef(AngrMachineDef):
-    arch = "arm"
     pc_reg = "pc"
 
     def __init__(self):
@@ -157,31 +157,27 @@ class ARMMachineMixinFP:
 
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     angr_arch = archinfo.arch_arm.ArchARMEL()
-    arch = "arm"
-    mode = "v5t"
-    byteorder = "little"
+    arch = Architecture.ARM_V5T
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     angr_arch = archinfo.arch_arm.ArchARMEL()
-    arch = "arm"
-    mode = "v6m"
-    byteorder = "little"
+    arch = Architecture.ARM_V6M
+    byteorder = Byteorder.LITTLE
 
 
 class ARMv6MThumbMachineDef(ARMv6MMachineDef):
     angr_arch = archinfo.arch_arm.ArchARMCortexM()
-    arch = "arm"
-    mode = "v6m-thumb"
-    byteorder = "little"
+    arch = Architecture.ARM_V6M_THUMB
+    byteorder = Byteorder.LITTLE
     is_thumb = True
 
 
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     angr_arch = archinfo.arch_arm.ArchARMHF()
-    arch = "arm"
-    mode = "v7m"
-    byteorder = "little"
+    arch = Architecture.ARM_V7M
+    byteorder = Byteorder.LITTLE
 
 
 # angr does not have good enough R- or A- series support,

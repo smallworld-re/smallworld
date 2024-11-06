@@ -7,35 +7,29 @@ __description__ = metadata["Summary"]
 __author__ = metadata["Author"]
 __version__ = metadata["version"]
 
+
 from . import (
     analyses,
-    cpus,
-    ctypes,
     emulators,
     exceptions,
+    extern,
     hinting,
-    initializers,
-    models,
+    instructions,
+    logging,
+    platforms,
     state,
 )
-from .ghidra import setup_default_libc, setup_section
-from .helpers import analyze, fuzz
-from .utils import setup_hinting, setup_logging
+from .helpers import *  # noqa: F401, F403
+from .helpers import __all__ as __helpers__
 
-__all__ = [
+__all__ = __helpers__ + [
     "analyses",
-    "cpus",
-    "ctypes",
     "emulators",
     "exceptions",
+    "extern",
     "hinting",
-    "initializers",
-    "models",
+    "instructions",
+    "logging",
+    "platforms",
     "state",
-    "setup_hinting",
-    "setup_logging",
-    "analyze",
-    "fuzz",
-    "setup_default_libc",
-    "setup_section",
 ]

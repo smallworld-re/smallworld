@@ -1,10 +1,10 @@
 import typing
 
-from .. import emulators, utils
+from .. import emulators
 from .instructions import MemoryReferenceOperand
 
 
-class BSIDMemoryReferenceOperand(MemoryReferenceOperand, utils.Serializable):
+class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
     """Memory Operand based on the base-scale-index-displacement pattern."""
 
     def __init__(
@@ -34,13 +34,13 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand, utils.Serializable):
 
         return base + self.scale * index + self.offset
 
-    def to_json(self) -> dict:
-        return {
-            "base": self.base,
-            "index": self.index,
-            "scale": self.scale,
-            "offset": self.offset,
-        }
+    # def to_json(self) -> dict:
+    #     return {
+    #         "base": self.base,
+    #         "index": self.index,
+    #         "scale": self.scale,
+    #         "offset": self.offset,
+    #     }
 
     @classmethod
     def from_json(cls, dict):

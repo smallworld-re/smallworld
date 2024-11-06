@@ -2,71 +2,34 @@ import abc
 import logging
 import typing
 
-from .. import hinting, state
-
-logger = logging.getLogger(__name__)
-hinter = hinting.getHinter(__name__)
+from .. import hinting, state, utils
 
 
-class Metadata(metaclass=abc.ABCMeta):
-    @property
-    @abc.abstractmethod
-    def name(self) -> str:
-        """The name of this analysis.
-
-        Names should be kebab-case, all lowercase, no whitespace for proper
-        formatting.
-        """
-        pass
-
-    @property
-    @abc.abstractmethod
-    def description(self) -> str:
-        """A description of this analysis.
-
-        Descriptions should be a single sentence, lowercase, with no final
-        punctuation for proper formatting.
-        """
-
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def version(self) -> str:
-        """The version string for this analysis.
-
-        We recommend using `Semantic Versioning`_
-
-        .. _Semantic Versioning:
-            https://semver.org/
-        """
-
-        return ""
-
-
-class Analysis(Metadata):
-    """The base class for all analyses."""
+class Analysis(utils.MetadataMixin):
+    """An analysis that emits some information about some code, possibly to help with harnessing."""
 
     @abc.abstractmethod
-    def run(self, state: state.CPU) -> None:
-        """Actually run the analysis.
+    def run(self, machine: state.Machine) -> None:
+        """Run the analysis.
 
-        This function **should not** modify the provided State - instead, it
+        This function **should not** modify the provided Machine. Instead, it
         should be coppied before modification.
 
         Arguments:
-            state: A state class on which this analysis should run.
+            machine: A machine state object on which this analysis should run.
         """
 
         pass
 
 
-class Filter(Metadata):
-    """The base class for filter analyses.
+class Filter(utils.MetadataMixin):
+    """Analyses that consume and sometimes produce additional hints.
 
-    Filter analyses are analyses that consume some part of the hint stream and
-    possibly emit additional hints. These analyses do not run any analysis on
-    the system state, they just react to hints from other analyses.
+    Filter analyses are analyses that consume some part of the hint
+    stream and possibly emit new higher-level, synthetic hints. These
+    analyses do not inspect machine state directly, they just react to
+    hints from other analyses.
+
     """
 
     def __init__(self):
@@ -76,8 +39,8 @@ class Filter(Metadata):
         self,
         hint: typing.Type[hinting.Hint],
         method: typing.Callable[[hinting.Hint], None],
-    ):
-        """Register a listener on the hint stream.
+    ) -> None:
+        """Register a listener for a particular hint type on the hint stream.
 
         Arguments:
             hint: A hint type that should trigger this listener. Note: All
@@ -116,3 +79,10 @@ class Filter(Metadata):
 
         for handler in self.listeners:
             hinting.root.removeHandler(handler)
+
+    def __del__(self):
+        self.deactivate()
+        # super().__del__()
+
+
+__all__ = ["Analysis", "Filter"]

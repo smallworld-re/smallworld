@@ -4,7 +4,7 @@ import typing
 import angr
 import archinfo
 
-from .... import utils
+from .... import exceptions, platforms, utils
 
 
 class AngrMachineDef:
@@ -12,21 +12,15 @@ class AngrMachineDef:
 
     @property
     @abc.abstractmethod
-    def arch(self) -> str:
-        """The architecture ID string"""
-        return ""
+    def arch(self) -> platforms.Architecture:
+        """The architecture ID"""
+        raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
-    def mode(self) -> str:
-        """The mode ID string"""
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def byteorder(self) -> str:
+    def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        return ""
+        raise NotImplementedError("This is an abstract method.")
 
     @property
     @abc.abstractmethod
@@ -63,19 +57,17 @@ class AngrMachineDef:
     def angr_reg(self, name: str) -> typing.Tuple[int, int]:
         """Find the offset and size of a register in the angr state's register file."""
         if name not in self._registers:
-            raise KeyError(
-                f"Unknown register for {self.arch}:{self.mode}:{self.byteorder}: {name}"
-            )
+            raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
         name = self._registers[name]
 
         if name not in self.angr_arch.registers:
-            raise ValueError(
-                f"Register {name} not recognized by angr for {self.arch}:{self.mode}:{self.byteorder}"
+            raise exceptions.UnsupportedRegisterError(
+                f"Register {name} not recognized by angr for {self.arch}:{self.byteorder}"
             )
         return self.angr_arch.registers[name]
 
     @classmethod
-    def for_arch(cls, arch: str, mode: str, byteorder: str):
+    def for_platform(cls, platform: platforms.Platform):
         """Find the appropriate MachineDef for your architecture
 
         Arguments:
@@ -92,12 +84,11 @@ class AngrMachineDef:
         try:
             return utils.find_subclass(
                 cls,
-                lambda x: x.arch == arch
-                and x.mode == mode
-                and x.byteorder == byteorder,
+                lambda x: x.arch == platform.architecture
+                and x.byteorder == platform.byteorder,
             )
         except:
-            raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
+            raise ValueError(f"No machine model for {platform}")
 
 
 class PcodeMachineDef(AngrMachineDef):

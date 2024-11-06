@@ -12,4 +12,8 @@ about some of the concepts in smallworld.
     harnessing-a-simple-program
     mapping-memory
     local-types-and-the-heap
+    modeling-and-hooking
+    analyses
+    fuzzing
+    putting-it-all-together
     next-steps

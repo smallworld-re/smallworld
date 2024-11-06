@@ -1,18 +1,21 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class AMD64MachineDef(AngrMachineDef):
-    arch = "x86"
-    mode = "64"
-    byteorder = "little"
+    # NOTE: angr doesn't support AVX512
+    # Thus, this is our only amd64 machdef
+    arch = Architecture.X86_64
+    byteorder = Byteorder.LITTLE
 
     angr_arch = archinfo.arch_amd64.ArchAMD64()
 
     pc_reg = "rip"
 
     _registers = {
+        # *** General Purpose Registers ***
         "rax": "rax",
         "eax": "eax",
         "ax": "ax",
@@ -81,20 +84,109 @@ class AMD64MachineDef(AngrMachineDef):
         "esp": "esp",
         "sp": "sp",
         "spl": "spl",
+        # *** Instruction Pointer ***
         "rip": "rip",
         "eip": "eip",
         "ip": "ip",
-        "cs": "cs",
-        "ds": "ds",
-        "es": "es",
+        # *** Segment Registers ***
+        "cs": "",
+        "ds": "",
+        "es": "",
         "fs": "fs",
         "gs": "gs",
+        "ss": "",
+        # *** Flags Register ***
         "rflags": "rflags",
         "eflags": "eflags",
         "flags": "flags",
+        # *** Control Registers ***
         "cr0": "cr0",
-        "cr1": "cr1",
+        "cr1": "",
         "cr2": "cr2",
         "cr3": "cr3",
         "cr4": "cr4",
+        "cr8": "cr8",
+        # *** Debug Registers ***
+        "dr0": "",
+        "dr1": "",
+        "dr2": "",
+        "dr3": "",
+        "dr6": "",
+        "dr7": "",
+        "dr8": "",
+        "dr9": "",
+        "dr10": "",
+        "dr11": "",
+        "dr12": "",
+        "dr13": "",
+        "dr14": "",
+        "dr15": "",
+        # *** Descriptor Table Registers ***
+        "gdtr": "",
+        "idtr": "",
+        "ldtr": "",
+        # *** Task Register ***
+        "tr": "",
+        # *** x87 Registers ***
+        # TODO: angr seems to support x87, but I have no idea how its register file works
+        # I can't find most of the control registers,
+        # and there don't seem to be separate "fprN" registers; just one giant blob
+        "fpr0": "",
+        "fpr1": "",
+        "fpr2": "",
+        "fpr3": "",
+        "fpr4": "",
+        "fpr5": "",
+        "fpr6": "",
+        "fpr7": "",
+        "fctrl": "",
+        "fstat": "",
+        "ftag": "fptag",
+        "fip": "",
+        "fdp": "",
+        "fop": "",
+        # *** MMX Registers ***
+        "mm0": "mm0",
+        "mm1": "mm1",
+        "mm2": "mm2",
+        "mm3": "mm3",
+        "mm4": "mm4",
+        "mm5": "mm5",
+        "mm6": "mm6",
+        "mm7": "mm7",
+        # SSE/AVX registers
+        "ymm0": "ymm0",
+        "xmm0": "xmm0",
+        "ymm1": "ymm1",
+        "xmm1": "xmm1",
+        "ymm2": "ymm2",
+        "xmm2": "xmm2",
+        "ymm3": "ymm3",
+        "xmm3": "xmm3",
+        "ymm4": "ymm4",
+        "xmm4": "xmm4",
+        "ymm5": "ymm5",
+        "xmm5": "xmm5",
+        "ymm6": "ymm6",
+        "xmm6": "xmm6",
+        "ymm7": "ymm7",
+        "xmm7": "xmm7",
+        "ymm8": "ymm8",
+        "xmm8": "xmm8",
+        "ymm9": "ymm9",
+        "xmm9": "xmm9",
+        "ymm10": "ymm10",
+        "xmm10": "xmm10",
+        "ymm11": "ymm11",
+        "xmm11": "xmm11",
+        "ymm12": "ymm12",
+        "xmm12": "xmm12",
+        "ymm13": "ymm13",
+        "xmm13": "xmm13",
+        "ymm14": "ymm14",
+        "xmm14": "xmm14",
+        "ymm15": "ymm15",
+        "xmm15": "xmm15",
+        "ymm16": "ymm16",
+        "xmm16": "xmm16",
     }

@@ -1,5 +1,4 @@
 import abc
-import base64
 import logging
 import typing
 
@@ -88,7 +87,7 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class Instruction(utils.Serializable):
+class Instruction:
     """An instruction storage and semantic metadata class.
 
     Arguments:
@@ -250,23 +249,23 @@ class Instruction(utils.Serializable):
 
         return write
 
-    def to_json(self) -> dict:
-        return {
-            "instruction": base64.b64encode(self.instruction).decode(),
-            "disasm": self.disasm,
-            "address": self.address,
-            "arch": self.arch,
-            "mode": self.mode,
-        }
+    # def to_json(self) -> dict:
+    #     return {
+    #         "instruction": base64.b64encode(self.instruction).decode(),
+    #         "disasm": self.disasm,
+    #         "address": self.address,
+    #         "arch": self.arch,
+    #         "mode": self.mode,
+    #     }
 
-    @classmethod
-    def from_json(cls, dict):
-        if "instruction" not in dict:
-            raise ValueError(f"malformed {cls.__name__}: {dict!r}")
+    # @classmethod
+    # def from_json(cls, dict):
+    #     if "instruction" not in dict:
+    #         raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
-        dict["instruction"] = base64.b64decode(dict["instruction"])
+    #     dict["instruction"] = base64.b64decode(dict["instruction"])
 
-        return cls(**dict)
+    #     return cls(**dict)
 
     def __repr__(self) -> str:
         string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()

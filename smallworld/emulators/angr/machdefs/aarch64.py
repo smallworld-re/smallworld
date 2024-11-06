@@ -1,17 +1,18 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class AArch64MachineDef(AngrMachineDef):
-    arch = "aarch64"
-    mode = "v8a"
-    byteorder = "little"
+    arch = Architecture.AARCH64
+    byteorder = Byteorder.LITTLE
 
     angr_arch = archinfo.arch_aarch64.ArchAArch64()
     pc_reg = "pc"
 
     _registers = {
+        # *** General Purpose Registers ***
         "x0": "x0",
         "w0": "w0",
         "x1": "x1",
@@ -74,47 +75,43 @@ class AArch64MachineDef(AngrMachineDef):
         "w29": "w29",
         "x30": "x30",
         "w30": "w30",
-        # *** Special Registers ***
-        # Program Counter
         "pc": "pc",
-        # Stack Pointer
         "sp": "sp",
-        "wsp": "wsp",
-        # fp: Frame pointer; alias for x29
         "fp": "fp",
-        # lr: Link register; alias for x30
         "lr": "lr",
-        # Zero Register
         "xzr": "xzr",
         "wzr": "wzr",
-        # sp_elX: Banked stack pointers for exception handlers
+        # *** System Control Registers ***
+        # NOTE: "_elX" indicates that only exception level X or greater can access this register.
+        # NOTE: This list is far from complete; it only covers what Unicorn supports
+        # NOTE: angr's aarch64 model is aggressively userspace-only.  None of these are supported
+        # Condition Code Register
+        "fpcr": "",
+        # Floating Point Status Register
+        "fpsr": "",
+        # Banked stack pointers for exception handlers
         "sp_el0": "",
         "sp_el1": "",
         "sp_el2": "",
         "sp_el3": "",
-        # *** System Registers ***
-        # Condition code register
-        "fpcr": "fpcr",
-        # Floating Point Status Register
-        "fpsr": "fpsr",
-        # elr_elX: Banked Exception Link Registers for exception handlers.
+        # Banked link registers for exception handlers
+        # NOTE: Unicorn thinks there's an elr_el0; according to docs, it doesn't exist
         "elr_el1": "",
         "elr_el2": "",
         "elr_el3": "",
-        # esr_elX: Banked Exception Syndrome Registers for exception handlers.
-        "esr_el1": "",
-        "esr_el2": "",
-        "esr_el3": "",
-        # far_elX: Banked Fault Address Registers for exception handlers.
+        # Banked exception syndrome registers for exception handlers
+        # NOTE: Unicorn thinks there's a far_el0; according to docs, it doesn't exist
         "far_el1": "",
         "far_el2": "",
         "far_el3": "",
-        # vbar_elX: Banked Vector Base Address Registers for exception handlers
-        "vbar_el0": "",
+        # Banked vector base address registers for exception handlers
+        # NOTE: vbar_el0 and vbar_el1 are aliases for each other.
+        # Since vbar_el0 doesn't exist in angr, vbar_el1 has to be the "real" copy.
         "vbar_el1": "",
+        "vbar_el0": "",
         "vbar_el2": "",
         "vbar_el3": "",
-        # Coprocessor Access Control Register
+        # Coprocessor access control register
         "cpacr_el1": "",
         # Memory Attribute Indirection Register
         "mair_el1": "",
@@ -125,11 +122,13 @@ class AArch64MachineDef(AngrMachineDef):
         # Translation Table One Base Register
         "ttbr1_el1": "",
         # Thread ID Register
+        # NOTE: According to docs, there should be an el2 and el3 copy, too.
         "tpidr_el0": "",
         "tpidr_el1": "",
         # Userspace-visible Thread ID register
         "tpidrro_el0": "",
-        # Scalar floating point registers
+        # *** Floating Point Registers ***
+        # Scalar Floating Point Registers
         "q0": "q0",
         "d0": "d0",
         "s0": "s0",

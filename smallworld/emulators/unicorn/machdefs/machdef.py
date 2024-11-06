@@ -1,7 +1,10 @@
 import abc
+import inspect
 import typing
 
-from .... import utils
+from .... import platforms, utils
+
+# from ....platforms import Architecture
 
 
 class UnicornMachineDef(metaclass=abc.ABCMeta):
@@ -9,21 +12,15 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def arch(self) -> str:
-        """The architecture ID string"""
-        return ""
+    def arch(self) -> platforms.Architecture:
+        """The architecture ID"""
+        raise NotImplementedError("Abstract unicorn machine def has no architecture")
 
     @property
     @abc.abstractmethod
-    def mode(self) -> str:
-        """The mode ID string"""
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def byteorder(self) -> str:
+    def byteorder(self) -> platforms.Byteorder:
         """The byte order"""
-        return ""
+        raise NotImplementedError("Abstract unicorn machine def has no byteorder")
 
     @property
     @abc.abstractmethod
@@ -61,9 +58,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """The name of the Program Counter register for this machine"""
         return ""
 
-    _registers: typing.Dict[str, int] = {}
+    _registers: typing.Dict[str, typing.Tuple[typing.Any, str, int, int]] = {}
 
-    def uc_reg(self, name: str) -> int:
+    def uc_reg(self, name: str) -> typing.Tuple[typing.Any, str, int, int]:
         """Convert a register name to unicorn constant
 
         This must cover all names defined in the CPU state model
@@ -74,17 +71,15 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             return self._registers[name]
         else:
             raise ValueError(
-                f"Unknown register for {self.arch}:{self.mode}:{self.byteorder}: {name}"
+                f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
     @classmethod
-    def for_arch(cls, arch: str, mode: str, byteorder: str):
+    def for_platform(cls, platform: platforms.Platform):
         """Find the appropriate MachineDef for your architecture
 
         Arguments:
-            arch: The architecture ID you want
-            mode: The mode ID you want
-            byteorder: The byteorderness you want
+            platform: platform metadata
 
         Returns:
             An instance of the appropriate MachineDef
@@ -92,12 +87,31 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         Raises:
             ValueError: If no MachineDef subclass matches your request
         """
+
         try:
             return utils.find_subclass(
                 cls,
-                lambda x: x.arch == arch
-                and x.mode == mode
-                and x.byteorder == byteorder,
+                lambda x: x.arch == platform.architecture
+                and x.byteorder == platform.byteorder,
             )
         except:
-            raise ValueError(f"No machine model for {arch}:{mode}:{byteorder}")
+            raise ValueError(
+                f"No machine model for {platform.architecture}:{platform.byteorder}"
+            )
+
+
+def populate_registers(arch_info, unicorn_consts):
+    def find_uc_const(reg_name):
+        ew = f"_{reg_name.upper()}"
+        for name, num in inspect.getmembers(unicorn_consts):
+            if name.endswith(ew) and "REG" in name:
+                return (name, num)
+        return None
+
+    registers = {}
+    for reg_name, info in arch_info.items():
+        (base_reg_name, (start, end)) = info
+        (ucstr, ucnum) = find_uc_const(reg_name)
+        registers[reg_name] = (ucnum, base_reg_name, start, end)
+
+    return registers

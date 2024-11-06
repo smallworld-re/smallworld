@@ -1,17 +1,20 @@
 import archinfo
 
+from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
 
 
 class MIPS64MachineDef(AngrMachineDef):
-    arch = "mips"
-    mode = "mips64"
+    arch = Architecture.MIPS64
 
     pc_reg = "pc"
 
     # NOTE: MIPS registers have a name and a number
     # angr's machine state doesn't use the number,
     # so... name.
+    # NOTE: angr's register names are wrong.
+    # It follows Wikipedia's definition of the 64-bit ABI,
+    # which has a4 - a7 and t0 - t3 overlapping.
     _registers = {
         # *** General-Purpose Registers ***
         # Assembler-Temporary Register
@@ -21,7 +24,7 @@ class MIPS64MachineDef(AngrMachineDef):
         "v0": "v0",
         "2": "v0",
         "v1": "v1",
-        "3": "v3",
+        "3": "v1",
         # Argument Registers
         "a0": "a0",
         "4": "a0",
@@ -31,22 +34,24 @@ class MIPS64MachineDef(AngrMachineDef):
         "6": "a2",
         "a3": "a3",
         "7": "a3",
+        "a4": "a4",
+        "8": "a4",
+        "a5": "a5",
+        "9": "a5",
+        "a6": "a6",
+        "10": "a6",
+        "a7": "a7",
+        "11": "a7",
         # Temporary Registers
-        "t0": "t0",
-        "8": "t0",
-        "t1": "t1",
-        "9": "t1",
-        "t2": "t2",
-        "10": "t2",
-        "t3": "t3",
-        "11": "t3",
-        "t4": "t4",
+        # NOTE: angr names registers 12 - 15 incorrectly.
+        # Be very careful if accessing angr's state directly.
+        "t0": "t4",
         "12": "t4",
-        "t5": "t5",
+        "t1": "t5",
         "13": "t5",
-        "t6": "t6",
+        "t2": "t6",
         "14": "t6",
-        "t7": "t7",
+        "t3": "t7",
         "15": "t7",
         # NOTE: These numbers aren't out of order.
         # t8 and t9 are later in the register file than t0 - t7.
@@ -175,10 +180,10 @@ class MIPS64MachineDef(AngrMachineDef):
 
 
 class MIPS64ELMachineDef(MIPS64MachineDef):
-    byteorder = "little"
+    byteorder = Byteorder.LITTLE
     angr_arch = archinfo.ArchMIPS64(archinfo.Endness.LE)
 
 
 class MIPS64BEMachineDef(MIPS64MachineDef):
-    byteorder = "big"
+    byteorder = Byteorder.BIG
     angr_arch = archinfo.ArchMIPS64(archinfo.Endness.BE)
