@@ -6,20 +6,20 @@ import typing
 
 import capstone
 
-from ... import hinting, state
-from ...emulators import (
+from .. import hinting, state
+from ..emulators import (
     UnicornEmulationMemoryReadError,
     UnicornEmulationMemoryWriteError,
     UnicornEmulator,
 )
-from ...exceptions import AnalysisRunError, EmulationBounds
-from ...instructions import (
+from ..exceptions import AnalysisRunError, EmulationBounds
+from ..instructions import (
     BSIDMemoryReferenceOperand,
     Instruction,
     Operand,
     RegisterOperand,
 )
-from .. import analysis
+from . import analysis
 
 logger = logging.getLogger(__name__)
 hinter = hinting.get_hinter(__name__)

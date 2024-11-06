@@ -3,8 +3,8 @@ import logging
 
 import networkx as nx
 
-from ... import hinting
-from .. import analysis
+from .. import hinting
+from . import analysis
 
 hinter = hinting.get_hinter(__name__)
 logger = logging.getLogger(__name__)
