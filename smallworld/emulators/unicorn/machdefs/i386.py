@@ -68,7 +68,7 @@ class i386MachineDef(UnicornMachineDef):
         "cr3": (unicorn.x86_const.UC_X86_REG_CR3, "cr3", 4, 0),
         "cr4": (unicorn.x86_const.UC_X86_REG_CR4, "cr4", 4, 0),
         # NOTE: I've got conflicting reports whether cr8 exists in i386.
-        "cr8": (unicorn.x86_const.UC_X86_REG_CR8, "cr8", 4, 0),
+        "cr8": (unicorn.x86_const.UC_X86_REG_INVALID, "cr8", 4, 0),
         # *** Debug Registers ***
         "dr0": (unicorn.x86_const.UC_X86_REG_DR0, "dr0", 4, 0),
         "dr1": (unicorn.x86_const.UC_X86_REG_DR1, "dr1", 4, 0),

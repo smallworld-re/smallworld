@@ -91,8 +91,8 @@ class AArch64MachineDef(UnicornMachineDef):
         # *** Link Register ***
         "lr": (unicorn.arm64_const.UC_ARM64_REG_LR, "x30", 8, 0),
         # *** Zero Register ***
-        "xzr": (unicorn.arm64_const.UC_ARM64_REG_XZR, "xzr", 8, 0),
-        "wzr": (unicorn.arm64_const.UC_ARM64_REG_XZR, "wzr", 4, 0),
+        "xzr": (unicorn.arm64_const.UC_ARM64_REG_INVALID, "xzr", 8, 0),
+        "wzr": (unicorn.arm64_const.UC_ARM64_REG_INVALID, "wzr", 4, 0),
         # *** System Control Registers ***
         # NOTE: "_elX" indicates that only exception level X or greater can access this register.
         # NOTE: This list is far from complete; it only covers what Unicorn supports
