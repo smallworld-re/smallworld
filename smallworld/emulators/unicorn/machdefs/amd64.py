@@ -109,7 +109,7 @@ class AMD64MachineDef(UnicornMachineDef):
             "cr2": (unicorn.x86_const.UC_X86_REG_CR2, "cr2", 8, 0),
             "cr3": (unicorn.x86_const.UC_X86_REG_CR3, "cr3", 8, 0),
             "cr4": (unicorn.x86_const.UC_X86_REG_CR4, "cr4", 8, 0),
-            "cr8": (unicorn.x86_const.UC_X86_REG_CR8, "cr8", 8, 0),
+            "cr8": (unicorn.x86_const.UC_X86_REG_INVALID, "cr8", 8, 0),
             # *** Debug Registers ***
             "dr0": (unicorn.x86_const.UC_X86_REG_DR0, "dr0", 8, 0),
             "dr1": (unicorn.x86_const.UC_X86_REG_DR1, "dr1", 8, 0),
