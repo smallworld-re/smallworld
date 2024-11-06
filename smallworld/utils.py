@@ -81,23 +81,29 @@ def find_subclass(
 
 
 class RangeCollection:
+    """A class representing a collection of non-overlapping ranges."""
+
     def __init__(self):
         self.ranges = []
 
     def is_empty(self):
+        """Returns true iff there are no ranges in this collection."""
         return 0 == len(self.ranges)
 
     def find_range(self, value: int) -> typing.Optional[int]:
+        """Returns a single range containing this value, or None if no range contains it."""
+
         for i, (start, end) in enumerate(self.ranges):
             if start <= value < end:
                 return i
         return None
 
     def contains(self, arange: typing.Tuple[int, int]) -> bool:  # new function
+        """Returns True iff this range `arange` overlaps with one or more ranges in the collection."""
         self._check_range(arange)
         start, end = arange
-        start_index, start_found = self.find_closest_range(start)
-        end_index, end_found = self.find_closest_range(end - 1)
+        start_index, start_found = self._find_closest_range(start)
+        end_index, end_found = self._find_closest_range(end - 1)
 
         if start_index == end_index and not start_found and not end_found:
             return False
@@ -105,15 +111,27 @@ class RangeCollection:
             return True
 
     def update(self, other: RangeCollection) -> None:
+        """Add all ranges in this collection to this other collection."""
         for rng in other.ranges:
             self.add_range(rng)
 
     def add_value(self, value: int) -> None:
+        """Add a single value to this collection."""
         self.add_range((value, value + 1))
 
     def get_missing_ranges(
         self, arange: typing.Tuple[int, int]
     ) -> typing.List[typing.Tuple[int, int]]:
+        """Return list of ranges missing in this collection.
+
+        Say min_r is the *first* range in the collection, i.e., the one with the lowest start value.
+        And say that max_r is the *last* range in the collection, i.e., the one wiht the largest end value.
+
+        Then this method will return the list of ranges that, if added
+        to this collection, would turn it into a single range, starting with
+        min_r.start, and ending with max_r.end.
+        """
+
         new_start, new_end = arange
         missing_ranges = []
         self._check_range(arange)
@@ -151,7 +169,19 @@ class RangeCollection:
 
     # Returns either the range or the range BEFORE you
     # -1 if its lower than first range
-    def find_closest_range(self, value: int) -> typing.Tuple[int, bool]:
+    def _find_closest_range(self, value: int) -> typing.Tuple[int, bool]:
+        """Attempt to find this value in some range in the collection and report result.
+
+        Result return value is the pair (index, found), where
+        `index` is list index of the closest range to the left of
+           this value
+        `found` is a boolean indicating if this value is actually
+        in the range at `index`.
+
+        Return -1 if this value is strictly *before* every range in the collection.
+
+        """
+
         for i, (start, end) in enumerate(self.ranges):
             if start <= value < end:
                 return i, True
@@ -159,13 +189,40 @@ class RangeCollection:
                 return i - 1, False
         return 0, False
 
+    def find_closest_range(
+        self, value: int
+    ) -> typing.Tuple[typing.Optional[typing.Tuple[int, int]], bool]:
+        """Attempt to find this value in some range in the collection and report result.
+
+        Result return value is the pair (range, found), where
+        `range` is closest range to the left of this value
+        `found` is a boolean indicating if this value is actually
+        in the range.
+
+        Return None for `range` if this value is strictly *before* every range in the collection.
+
+        """
+        (index, found) = self._find_closest_range(value)
+        arange = None
+        if arange != -1:
+            arange = self.ranges[index]
+        return (arange, found)
+
     def remove_range(self, arange: typing.Tuple[int, int]) -> None:
+        """Remove this range from the collection.
+
+        Note that this doesn't look for this specific range and remove
+        it. Rather, it compares this range to every range in the collection
+        and, for each, removes the intersection with the input `arange`.
+
+        """
+
         start, end = arange
         self._check_range(arange)
 
-        i1, _ = self.find_closest_range(start)
+        i1, _ = self._find_closest_range(start)
         range1 = self.ranges[i1]
-        i2, _ = self.find_closest_range(end)
+        i2, _ = self._find_closest_range(end)
         range2 = self.ranges[i2]
 
         # Keep everything up to our first find
@@ -195,6 +252,8 @@ class RangeCollection:
             raise ValueError(f"Start value must be less than end in {arange}")
 
     def add_range(self, arange: typing.Tuple[int, int]) -> None:
+        """Add this range to the collection."""
+
         self._check_range(arange)
         start, end = arange
 

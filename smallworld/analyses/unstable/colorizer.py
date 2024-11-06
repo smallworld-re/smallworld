@@ -65,7 +65,7 @@ class Colorizer(analysis.Analysis):
         self,
         *args,
         num_micro_executions: int = 5,
-        num_insns: int = 10,
+        num_insns: int = 200,
         seed: typing.Optional[int] = 99,
         **kwargs
         #        self, *args, num_micro_executions: int = 1, num_insns: int = 10, **kwargs
@@ -124,8 +124,9 @@ class Colorizer(analysis.Analysis):
             # map from color values to first use / def
             self.colors: Colors = {}
 
-            hint_list = []
+            hint_list: typing.List[hinting.Hint] = []
             for j in range(self.num_insns):
+                logger.info(f"instr_count = {j}")
                 # obtain instr about to be emulated
                 pc = self.emu.read_register("pc")
                 if pc in self.emu.get_exit_points():
@@ -145,22 +146,42 @@ class Colorizer(analysis.Analysis):
                 # curr_machine = self.eself.cpu.load(self.emu)
                 # self.cpu = curr_machien.get_cpu()
 
+                # print(f"pc={pc:x} {sw_insn}")
+                # import pdb
+                # pdb.set_trace()
+
                 reads: typing.List[typing.Tuple[Operand, str, int]] = []
                 for read_operand in sw_insn.reads:
                     logger.debug(f"pc={pc:x} read_operand={read_operand}")
-                    sz = self._operand_size(read_operand)
-                    try:
-                        read_operand_color = self._concrete_val_to_color(
-                            read_operand.concretize(self.emu), sz
-                        )
-                        # discard bad colors
-                        if read_operand_color == BAD_COLOR:
-                            continue
-                    except Exception as e:
-                        print(e)
-                        h = self._mem_unavailable_hint(read_operand, pc, i, j, True)
-                        hint_list.append(h)
+
+                    if (
+                        type(read_operand) is RegisterOperand
+                        and read_operand.name == "rflags"
+                    ):
                         continue
+
+                    sz = self._operand_size(read_operand)
+                    if type(read_operand) is BSIDMemoryReferenceOperand:
+                        a = read_operand.address(self.emu)
+                        ar = (a, a + sz)
+                        if not self.emu._is_address_range_mapped(ar):
+                            # at least one byte in this range is not mapped
+                            # so dont add this read to the list
+                            continue
+                    read_operand_color = self._concrete_val_to_color(
+                        read_operand.concretize(self.emu), sz
+                    )
+                    # discard bad colors
+                    if read_operand_color == BAD_COLOR:
+                        continue
+                    #                    except UnicornEmulationMemoryReadError as e:
+                    #                        # ignore bc self.emu.step() will also raise
+                    #                        # same error, which will generate a hint
+                    #                        pass
+                    #                    except Exception as e:
+                    #                        import pdb
+                    #                        pdb.set_trace()
+                    #                        print(e)
                     tup = (read_operand, read_operand_color, sz)
                     reads.append(tup)
                 reads.sort(key=lambda e: e[0].__repr__())
@@ -168,39 +189,48 @@ class Colorizer(analysis.Analysis):
                 self._check_colors_instruction_reads(reads, sw_insn, i, j, hint_list)
 
                 try:
+                    # print(f"pc={pc:x} {sw_insn}")
+                    # import pdb
+                    # pdb.set_trace()
+
                     self.emu.step()
+
                 except EmulationBounds:
+                    # import pdb
+                    # pdb.set_trace()
                     logger.info(
                         "emulation complete. encountered exit point or went out of bounds"
                     )
                     break
                 except UnicornEmulationMemoryWriteError as e:
-                    #                    import pdb
-                    #                    pdb.set_trace()
+                    # import pdb
+                    # pdb.set_trace()
                     for write_operand, conc_val in e.details["writes"]:
-                        if conc_val is None:
-                            h = self._mem_unavailable_hint(
-                                write_operand, e.pc, i, j, False
-                            )
-                            hint_list.append(h)
-                            break
-                    h = self._mem_unavailable_hint(None, e.pc, i, j, False)
-                    continue
+                        if type(write_operand) is BSIDMemoryReferenceOperand:
+                            if conc_val is None:
+                                h = self._mem_unavailable_hint(
+                                    write_operand, e.pc, i, j, False
+                                )
+                                hint_list.append(h)
+                    break
+
                 except UnicornEmulationMemoryReadError as e:
-                    #                    import pdb
-                    #                    pdb.set_trace()
-                    for read_operand, conc_val in e.details["reads"]:
-                        if conc_val is None:
+                    # import pdb
+                    # pdb.set_trace()
+                    for read_operand in e.details["unmapped_reads"]:
+                        if type(read_operand) is BSIDMemoryReferenceOperand:
                             h = self._mem_unavailable_hint(
                                 read_operand, e.pc, i, j, True
                             )
                             hint_list.append(h)
-                    h = self._mem_unavailable_hint(None, e.pc, i, j, True)
-                    continue
+                    break
                 except Exception as e:
                     # emulating this instruction failed
                     #                    import pdb
                     #                    pdb.set_trace()
+                    import pdb
+
+                    pdb.set_trace()
                     exhint = hinting.EmulationException(
                         message=f"In analysis, single step raised an exception {e}",
                         pc=pc,
@@ -214,8 +244,20 @@ class Colorizer(analysis.Analysis):
                     break
 
                 writes: typing.List[typing.Tuple[Operand, str, int]] = []
+
+                #                print(sw_insn.writes)
+                #                import pdb
+                #                pdb.set_trace()
+
                 for write_operand in sw_insn.writes:
                     logger.debug(f"pc={pc:x} write_operand={write_operand}")
+
+                    if (
+                        type(write_operand) is RegisterOperand
+                        and write_operand.name == "rflags"
+                    ):
+                        continue
+
                     sz = self._operand_size(write_operand)
                     try:
                         write_operand_color = self._concrete_val_to_color(
@@ -402,15 +444,20 @@ class Colorizer(analysis.Analysis):
                 continue
             orig_val = self.emu.read_register(reg.name)
             logger.debug(f"_randomize_registers {reg.name} orig_val={orig_val:x}")
+            #            if reg.name == "rip" or reg.name == "rsp":
+            #                import pdb
+            #                pdb.set_trace()
             new_val = 0
             bc = 0
-            for i in range(reg.size):
+            for i in range(0, reg.size):
                 new_val = new_val << 8
                 if (
                     reg.name in self.emu.initialized_registers
                     and i in self.emu.initialized_registers[reg.name]
                 ):
-                    b = orig_val >> (i * 8) & 0xFF
+                    bs = 8 * (reg.size - i - 1)
+                    b = (orig_val >> bs) & 0xFF
+                    # b = (orig_val >> (i * 8)) & 0xFF
                     new_val |= b
                 else:
                     new_val |= random.randint(0, 255)
@@ -442,6 +489,7 @@ class Colorizer(analysis.Analysis):
         if operand:
             operand_size = operand.size
             operand_scale = operand.scale
+            operand_offset = operand.offset
             operand_address = operand.address(self.emu)
             if operand.base is not None:
                 base_val = self.emu.read_register(operand.base)

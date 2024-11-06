@@ -9,17 +9,25 @@ from .instructions import Instruction, MemoryReferenceOperand, Operand, Register
 class x86Instruction(Instruction):
     arch = "x86"
     mode = "32"
+    word_size = 4
     angr_arch = "X86"
     cs_arch = capstone.CS_ARCH_X86
     cs_mode = capstone.CS_MODE_32
+    sp = "esp"
 
-    def _memory_reference(self, operand) -> MemoryReferenceOperand:
+    def _memory_reference(self, base, index, scale, offset, size):
         return BSIDMemoryReferenceOperand(
-            base=self._instruction.reg_name(operand.value.mem.base),
-            index=self._instruction.reg_name(operand.value.mem.index),
-            scale=operand.value.mem.scale,
-            offset=operand.value.mem.disp,
-            size=operand.size,
+            base=base, index=index, scale=scale, offset=offset, size=size
+        )
+
+    # operand is a capstone operand
+    def _memory_reference_operand(self, operand) -> MemoryReferenceOperand:
+        return self._memory_reference(
+            self._instruction.reg_name(operand.value.mem.base),
+            self._instruction.reg_name(operand.value.mem.index),
+            operand.value.mem.scale,
+            operand.value.mem.disp,
+            operand.size,
         )
 
     @property
@@ -38,8 +46,10 @@ class x86Instruction(Instruction):
         for operand in self._instruction.operands:
             if operand.access & capstone.CS_AC_READ:
                 if operand.type == capstone.x86.X86_OP_MEM:
-                    if not (self._instruction.mnemonic == "lea"):
-                        the_reads.add(self._memory_reference(operand))
+                    if not self._instruction.mnemonic == "lea":
+                        # add the actual memory read
+                        the_reads.add(self._memory_reference_operand(operand))
+                    # add reads for parts of the operand
                     base_name = self._instruction.reg_name(operand.mem.base)
                     index_name = self._instruction.reg_name(operand.mem.index)
                     if base_name:
@@ -52,6 +62,9 @@ class x86Instruction(Instruction):
                 else:
                     # shouldn't happen
                     assert 1 == 0
+        if self._instruction.mnemonic == "pop":
+            the_reads.add(self._memory_reference(self.sp, None, 1, 0, self.word_size))
+
         return the_reads
 
     @property
@@ -69,13 +82,16 @@ class x86Instruction(Instruction):
                 # please dont change this to CS_OP_MEM bc that doesnt work?
                 if operand.type == capstone.x86.X86_OP_MEM:
                     assert not (self._instruction.mnemonic == "lea")
-                    the_writes.add(self._memory_reference(operand))
+                    the_writes.add(self._memory_reference_operand(operand))
                 elif operand.type == capstone.x86.X86_OP_REG:
                     # operands doesn't contain implicit registers.
                     # we get all registers from regs_write
                     pass
                 else:
                     assert 1 == 0
+        if self._instruction.mnemonic == "push":
+            the_writes.add(self._memory_reference(self.sp, None, 1, 0, self.word_size))
+
         return the_writes
 
 
@@ -83,3 +99,5 @@ class AMD64Instruction(x86Instruction):
     mode = "64"
     angr_arch = "AMD64"
     cs_mode = capstone.CS_MODE_64
+    sp = "rsp"
+    word_size = 8
