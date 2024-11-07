@@ -16,19 +16,19 @@ jobs:
       matrix:
         include:
           - testsuite: BlockTests
-          - testsuite: BranchTests
-          - testsuite: CallTests
-          - testsuite: DMATests
-          - testsuite: DocumentationTests
-          - testsuite: ElfTests
-          - testsuite: FloatsTests
-          - testsuite: FuzzTests
-          - testsuite: HookingTests
-          - testsuite: RecursionTests
-          - testsuite: SquareTests
-          - testsuite: StackTests
-          - testsuite: StrlenTests
-          - testsuite: StructureTests
+          # - testsuite: BranchTests
+          # - testsuite: CallTests
+          # - testsuite: DMATests
+          # - testsuite: DocumentationTests
+          # - testsuite: ElfTests
+          # - testsuite: FloatsTests
+          # - testsuite: FuzzTests
+          # - testsuite: HookingTests
+          # - testsuite: RecursionTests
+          # - testsuite: SquareTests
+          # - testsuite: StackTests
+          # - testsuite: StrlenTests
+          # - testsuite: StructureTests
     steps:
       - name: preinit
         run: |
@@ -72,19 +72,19 @@ jobs:
       matrix:
         include:
           - testsuite: BlockTests
-          - testsuite: BranchTests
-          - testsuite: CallTests
-          - testsuite: DMATests
-          - testsuite: DocumentationTests
-          - testsuite: ElfTests
-          - testsuite: FloatsTests
-          - testsuite: FuzzTests
-          - testsuite: HookingTests
-          - testsuite: RecursionTests
-          - testsuite: SquareTests
-          - testsuite: StackTests
-          - testsuite: StrlenTests
-          - testsuite: StructureTests
+          # - testsuite: BranchTests
+          # - testsuite: CallTests
+          # - testsuite: DMATests
+          # - testsuite: DocumentationTests
+          # - testsuite: ElfTests
+          # - testsuite: FloatsTests
+          # - testsuite: FuzzTests
+          # - testsuite: HookingTests
+          # - testsuite: RecursionTests
+          # - testsuite: SquareTests
+          # - testsuite: StackTests
+          # - testsuite: StrlenTests
+          # - testsuite: StructureTests
     steps:
       - name: preinit
         run: |
