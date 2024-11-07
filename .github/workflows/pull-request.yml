@@ -86,7 +86,6 @@ jobs:
           - testsuite: StrlenTests
           - testsuite: StructureTests
     steps:
-      - name: preinit
       - uses: actions/checkout@v3
         with:
           lfs: true
