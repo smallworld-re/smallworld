@@ -101,23 +101,27 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+      - name: Verify Python Version
+        run: |
+          python --version
+          python -c 'import pandare'
       - name: Dependencies
         run: |
           apt-get update
           apt-get install -y $(cat ./tests/dependencies/apt.txt)
           apt-get install -y ./tests/dependencies/*.deb
-          python -m pip install ./tests/dependencies/*.whl
+          python3.10 -m pip install ./tests/dependencies/*.whl
       - name: Install
         run: |
-          python -m pip install --upgrade pip
-          pip install -e .[development] -c constraints.txt
+          python3.10 -m pip install --upgrade pip
+          python3.10 -m install -e .[development] -c constraints.txt
       - name: Build
         run: |
           make -C tests
       - name: Test
         run: |
-          python tests/unit.py
-          python tests/integration.py ${{ matrix.testsuite }}
+          python3.10 tests/unit.py
+          python3.10 tests/integration.py ${{ matrix.testsuite }}
     
 
 
