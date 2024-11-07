@@ -180,6 +180,11 @@ class UtilsTests(unittest.TestCase):
         a = rc.contains((25, 27))
         self.assertEqual(a, False)
 
+    def panda_install(self):
+        import pandare
+
+        self.assertEqual(len(dir(pandare)) > 0, 1)
+
 
 if __name__ == "__main__":
     unittest.main()
