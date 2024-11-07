@@ -42,9 +42,15 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           bash .github/workflows/scripts/conventional.sh "$TITLE"
+      - name: Verify Python Version Before
+        run: |
+          python --version
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
+      - name: Verify Python Version After
+        run: |
+          python --version
       - name: Dependencies
         run: |
           apt-get update
@@ -98,13 +104,17 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
           bash .github/workflows/scripts/conventional.sh "$TITLE"
+      - name: Verify Python Version Before
+        run: |
+          python3 --version
+          python3 -c 'import pandare'
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-      - name: Verify Python Version
+      - name: Verify Python Version After
         run: |
-          python --version
-          python -c 'import pandare'
+          python3 --version
+          python3 -c 'import pandare'
       - name: Dependencies
         run: |
           apt-get update
