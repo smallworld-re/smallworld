@@ -34,6 +34,7 @@ jobs:
 
   Unit-Test:
     runs-on: smallworld-arc
+    needs: Build
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -48,6 +49,7 @@ jobs:
             
   Integration-Test:
     runs-on: smallworld-arc
+    needs: Build
     strategy:
       matrix:
         include:
@@ -78,7 +80,7 @@ jobs:
   
   Results:
     runs-on: smallworld-arc
-    needs: [ Build, Unit-Test, Integration-Test ]
+    needs: [Build,Unit-Test,Integration-Test]
     if: always()
     steps:
       - name: All tests OK
