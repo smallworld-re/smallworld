@@ -7,7 +7,7 @@ on:
 
 jobs:
   Build:
-    runs-on: smallworld-arc
+    runs-on: ubuntu-latest
     steps:
       - name: preinit
         run: |
@@ -33,7 +33,7 @@ jobs:
           path: image.tar
 
   Unit-Test:
-    runs-on: smallworld-arc
+    runs-on: ubuntu-latest
     needs: Build
     steps:
       - uses: actions/download-artifact@v3
@@ -48,7 +48,7 @@ jobs:
           docker run -it -w /opt/smallworld/tests smallworld:latest python3 unit.py
             
   Integration-Test:
-    runs-on: smallworld-arc
+    runs-on: ubuntu-latest
     needs: Build
     strategy:
       matrix:
@@ -79,7 +79,7 @@ jobs:
           docker run -it -w /opt/smallworld/tests smallworld:latest python3 integration.py ${{ matrix.testsuite }}
   
   Results:
-    runs-on: smallworld-arc
+    runs-on: ubuntu-latest
     needs: Build
     if: always()
     steps:
