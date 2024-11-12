@@ -80,7 +80,7 @@ jobs:
   
   Results:
     runs-on: smallworld-arc
-    needs: Build,Unit-Test,Integration-Test
+    needs: [Build,Unit-Test,Integration-Test]
     if: always()
     steps:
       - name: Show Results
