@@ -83,8 +83,6 @@ jobs:
     needs: [Build,Unit-Test,Integration-Test]
     if: always()
     steps:
-      - name: Show Results
-        run: echo ${{ toJson(needs.*.result) }}
       - name: All tests OK
         if: ${{ !(contains(needs.*.result, 'failure')) }}
         run: exit 0
