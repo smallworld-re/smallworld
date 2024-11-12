@@ -39,7 +39,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: smallworld-docker
-          path: image.tar
+          path: .
       - name: Import Container
         run: |
           docker load -i image.tar
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: smallworld-docker
-          path: image.tar
+          path: .
       - name: Import Container
         run: |
           docker load -i image.tar
@@ -80,9 +80,11 @@ jobs:
   
   Results:
     runs-on: smallworld-arc
-    needs: Build
+    needs: Build,Unit-Test,Integration-Test
     if: always()
     steps:
+      - name: Show Results
+        run: echo ${{ needs.*.results }}
       - name: All tests OK
         if: ${{ !(contains(needs.*.results, 'failure')) }}
         run: exit 0
