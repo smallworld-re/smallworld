@@ -84,10 +84,10 @@ jobs:
     if: always()
     steps:
       - name: Show Results
-        run: echo ${{ toJson(needs.*.results) }}
+        run: echo ${{ toJson(needs.*.result) }}
       - name: All tests OK
-        if: ${{ !(contains(needs.*.results, 'failure')) }}
+        if: ${{ !(contains(needs.*.result, 'failure')) }}
         run: exit 0
       - name: Tests Failed
-        if: ${{ contains(needs.*.results, 'failure') }}
+        if: ${{ contains(needs.*.result, 'failure') }}
         run: exit 1
