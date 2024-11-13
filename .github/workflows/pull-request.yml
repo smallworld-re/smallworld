@@ -29,6 +29,7 @@ jobs:
           - testsuite: StackTests
           - testsuite: StrlenTests
           - testsuite: StructureTests
+          - testsuite: SyscallTests
     steps:
       - name: preinit
         run: |
