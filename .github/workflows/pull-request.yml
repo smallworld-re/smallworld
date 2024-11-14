@@ -67,31 +67,24 @@ jobs:
       - name: Test
         run: |
           python tests/unit.py
-          python tests/integration.py ${{ matrix.testsuite }}
+          python tests/integration.py ${{ matrix.testsuite }}`
+
   PandaTest:
     runs-on: smallworld-arc
-    container:  
-      image: pandare/panda:latest
     env: 
       TZ: UTC
     strategy:
       matrix:
         include:
           - testsuite: BlockTests
-          # - testsuite: BranchTests
-          # - testsuite: CallTests
-          # - testsuite: DMATests
-          # - testsuite: DocumentationTests
-          # - testsuite: ElfTests
-          # - testsuite: FloatsTests
-          # - testsuite: FuzzTests
-          # - testsuite: HookingTests
-          # - testsuite: RecursionTests
-          # - testsuite: SquareTests
-          # - testsuite: StackTests
-          # - testsuite: StrlenTests
-          # - testsuite: StructureTests
     steps:
+      - name: Verify Network Connectivity to Docker Registry
+        run: |
+          ping -c 4 docker-registry.docker-registry.svc.cluster.local || true
+          curl -v http://docker-registry.docker-registry.svc.cluster.local:5000/v2/ || true
+      - name: Test Docker Registry Access
+        run: |
+          docker pull docker-registry.docker-registry.svc.cluster.local:5000/pandare/panda:latest
       - name: preinit
         run: |
           apt-get update
@@ -124,7 +117,7 @@ jobs:
       - name: Install
         run: |
           python3.10 -m pip install --upgrade pip
-          python3.10 -m install -e .[development] -c constraints.txt
+          python3.10 -m pip install -e .[development] -c constraints.txt
       - name: Build
         run: |
           make -C tests
@@ -132,8 +125,6 @@ jobs:
         run: |
           python3.10 tests/unit.py
           python3.10 tests/integration.py ${{ matrix.testsuite }}
-    
-
 
   Results:
     runs-on: smallworld-arc
@@ -141,8 +132,8 @@ jobs:
     if: always()
     steps:
       - name: All tests OK
-        if: ${{ !(contains(needs.*.results, 'failure')) }}
+        if: ${{ !(contains(needs.*.result, 'failure')) }}
         run: exit 0
       - name: Tests Failed
-        if: ${{ contains(needs.*.results, 'failure') }}
+        if: ${{ contains(needs.*.result, 'failure') }}
         run: exit 1
