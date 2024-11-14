@@ -1291,6 +1291,46 @@ class FloatsTests(ScriptIntegrationTest):
     # NOTE: mips be crazy
 
 
+class SyscallTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 syscall/syscall.{arch}.py")
+        self.assertLineContainsStrings("Executing syscall")
+        self.assertLineContainsStrings("Executing a write syscall")
+
+    def test_syscall_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_syscall_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_syscall_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_syscall_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_syscall_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_syscall_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_syscall_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_syscall_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_syscall_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_syscall_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_syscall_ppc64_angr(self):
+        self.run_test("ppc64.angr")
+
+
 class FuzzTests(ScriptIntegrationTest):
     def test_fuzz(self):
         stdout, _ = self.command("python3 fuzz/fuzz.amd64.py")

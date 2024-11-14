@@ -6,3 +6,4 @@ test_syscall:
 ; return:   (ssize_t)   # written, or -1 for error
 	mov     eax, 0x1
 	syscall
+    nop
