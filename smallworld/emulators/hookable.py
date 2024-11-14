@@ -18,13 +18,9 @@ def range_to_hex_str(r):
     return f"[{r.start:x}..{r.stop:x}]"
 
 
-"""
-These implementations of hookable mixins are used by Unicorn and Panda
-emulators, both of which are Qemu-based.
-"""
-
-
 class QInstructionHookable(InstructionHookable):
+    """Implementation of instruction hook data structure mgmt to be used by qemu-based emulators."""
+
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
@@ -64,6 +60,8 @@ class QInstructionHookable(InstructionHookable):
 
 
 class QFunctionHookable(FunctionHookable):
+    """Implementation of function hook data structure mgmt to be used by qemu-based emulators."""
+
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.function_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
@@ -92,6 +90,8 @@ class QFunctionHookable(FunctionHookable):
 
 
 class QMemoryReadHookable(MemoryReadHookable):
+    """Implementation of memory read hook data structure mgmt to be used by qemu-based emulators."""
+
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.memory_read_hooks: typing.Dict[
@@ -150,6 +150,8 @@ class QMemoryReadHookable(MemoryReadHookable):
 
 
 class QMemoryWriteHookable(MemoryWriteHookable):
+    """Implementation of memory write hook data structure mgmt to be used by qemu-based emulators."""
+
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.memory_write_hooks: typing.Dict[
@@ -207,6 +209,8 @@ class QMemoryWriteHookable(MemoryWriteHookable):
 
 
 class QInterruptHookable(InterruptHookable):
+    """Implementation of interrupt hook data structure mgmt to be used by qemu-based emulators."""
+
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.all_interrupts_hook: typing.Optional[
