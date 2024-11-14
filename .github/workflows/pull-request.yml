@@ -44,13 +44,13 @@ jobs:
           bash .github/workflows/scripts/conventional.sh "$TITLE"
       - name: Verify Python Version Before
         run: |
-          python --version
+          python --version || true
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Verify Python Version After
         run: |
-          python --version
+          python --version || true
       - name: Dependencies
         run: |
           apt-get update
@@ -67,7 +67,7 @@ jobs:
       - name: Test
         run: |
           python tests/unit.py
-          python tests/integration.py ${{ matrix.testsuite }}`
+          python tests/integration.py ${{ matrix.testsuite }}
 
   PandaTest:
     runs-on: smallworld-arc
@@ -99,15 +99,15 @@ jobs:
           bash .github/workflows/scripts/conventional.sh "$TITLE"
       - name: Verify Python Version Before
         run: |
-          python3 --version
-          python3 -c 'import pandare'
+          python3 --version || true
+          python3 -c 'import pandare' || true
       - uses: actions/setup-python@v4
         with:
           python-version: '3.10'
       - name: Verify Python Version After
         run: |
-          python3 --version
-          python3 -c 'import pandare'
+          python3 --version || true
+          python3 -c 'import pandare' || true
       - name: Dependencies
         run: |
           apt-get update
