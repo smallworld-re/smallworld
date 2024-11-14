@@ -37,6 +37,11 @@ jobs:
       - uses: actions/checkout@v3
         with:
           lfs: true
+      - name: Log in to Docker registry
+        run: |
+          docker login docker-registry.docker-registry.svc.cluster.local:5000 \
+            -u ${{ secrets.REGISTRY_USERNAME }} \
+            -p ${{ secrets.REGISTRY_PASSWORD }}
       - name: Check Commit Message
         env:
           TITLE: ${{ github.event.pull_request.title }}
