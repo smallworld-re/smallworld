@@ -515,18 +515,32 @@ class AngrEmulator(
             # The breakpoint action.
             addr = state.inspect.mem_read_address
             if not isinstance(addr, int):
-                addr = addr.concrete_value
+                if addr.symbolic:
+                    try:
+                        values = state.solver.eval_atmost(addr, 1)
+                        # Truly unbound address.
+                        # Assume it won't collapse to our hook address
+                        if len(values) < 1:
+                            return False
+                        addr = values[0]
+                    except angr.errors.SimUnsatError:
+                        return False
+                    except angr.errors.SimValueError:
+                        return False
+                else:
+                    addr = addr.concrete_value
             size = state.inspect.mem_read_length
 
-            res = claripy.BVV(function(ConcreteAngrEmulator(state, self), addr, size))
-
-            if self.platform.byteorder == platforms.Byteorder.LITTLE:
-                # Fix byte order if needed.
-                # I don't know _why_ this is needed,
-                # but encoding the result as little-endian on a little-endian
-                # system produces the incorrect value in the machine state.
-                res = claripy.Reverse(res)
-            state.inspect.mem_read_expr = res
+            ret = function(ConcreteAngrEmulator(state, self), addr, size)
+            if ret is not None:
+                res = claripy.BVV(ret)
+                if self.platform.byteorder == platforms.byteorder.LITTLE:
+                    # fix byte order if needed.
+                    # i don't know _why_ this is needed,
+                    # but encoding the result as little-endian on a little-endian
+                    # system produces the incorrect value in the machine state.
+                    res = claripy.Reverse(res)
+                state.inspect.mem_read_expr = res
 
         bp = self.state.inspect.b(
             "mem_read",
@@ -566,18 +580,32 @@ class AngrEmulator(
             # the breakpoint action.
             addr = state.inspect.mem_read_address
             if not isinstance(addr, int):
-                addr = addr.concrete_value
+                if addr.symbolic:
+                    try:
+                        values = state.solver.eval_atmost(addr, 1)
+                        # Truly unbound address.
+                        # Assume it won't collapse to our hook address
+                        if len(values) < 1:
+                            return False
+                        addr = values[0]
+                    except angr.errors.SimUnsatError:
+                        return False
+                    except angr.errors.SimValueError:
+                        return False
+                else:
+                    addr = addr.concrete_value
             size = state.inspect.mem_read_length
 
-            res = claripy.BVV(function(ConcreteAngrEmulator(state, self), addr, size))
-
-            if self.platform.byteorder == platforms.byteorder.LITTLE:
-                # fix byte order if needed.
-                # i don't know _why_ this is needed,
-                # but encoding the result as little-endian on a little-endian
-                # system produces the incorrect value in the machine state.
-                res = claripy.Reverse(res)
-            state.inspect.mem_read_expr = res
+            ret = function(ConcreteAngrEmulator(state, self), addr, size)
+            if ret is not None:
+                res = claripy.BVV(ret)
+                if self.platform.byteorder == platforms.byteorder.LITTLE:
+                    # fix byte order if needed.
+                    # i don't know _why_ this is needed,
+                    # but encoding the result as little-endian on a little-endian
+                    # system produces the incorrect value in the machine state.
+                    res = claripy.Reverse(res)
+                state.inspect.mem_read_expr = res
 
         bp = self.state.inspect.b(
             "mem_read",
@@ -640,7 +668,20 @@ class AngrEmulator(
         def write_callback(state):
             addr = state.inspect.mem_write_address
             if not isinstance(addr, int):
-                addr = addr.concrete_value
+                if addr.symbolic:
+                    try:
+                        values = state.solver.eval_atmost(addr, 1)
+                        # Truly unbound address.
+                        # Assume it won't collapse to our hook address
+                        if len(values) < 1:
+                            return False
+                        addr = values[0]
+                    except angr.errors.SimUnsatError:
+                        return False
+                    except angr.errors.SimValueError:
+                        return False
+                else:
+                    addr = addr.concrete_value
             size = state.inspect.mem_write_length
             expr = state.inspect.mem_write_expr
             if expr.symbolic:
@@ -654,9 +695,10 @@ class AngrEmulator(
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
-                    raise exceptions.AnalysisError(
-                        f"Unbound value for MMIO write to {hex(addr)}: {expr}"
-                    )
+                    value = b""
+                    # raise exceptions.AnalysisError(
+                    #     f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                    # )
             else:
                 value = expr.concrete_value.to_bytes(
                     size, byteorder=self.platform.byteorder.value
@@ -701,7 +743,20 @@ class AngrEmulator(
         def write_callback(state):
             addr = state.inspect.mem_write_address
             if not isinstance(addr, int):
-                addr = addr.concrete_value
+                if addr.symbolic:
+                    try:
+                        values = state.solver.eval_atmost(addr, 1)
+                        # Truly unbound address.
+                        # Assume it won't collapse to our hook address
+                        if len(values) < 1:
+                            return False
+                        addr = values[0]
+                    except angr.errors.SimUnsatError:
+                        return False
+                    except angr.errors.SimValueError:
+                        return False
+                else:
+                    addr = addr.concrete_value
             size = state.inspect.mem_write_length
             expr = state.inspect.mem_write_expr
             if expr.symbolic:
@@ -816,6 +871,7 @@ class AngrEmulator(
                 not self.state.scratch.bounds.is_empty()
                 and self.state.scratch.bounds.find_range(ip) is None
             ):
+                log.warn(f"State at {hex(ip)} is out of bounds")
                 return True
             if self.state.scratch.memory_map.find_range(ip) is None:
                 return True
