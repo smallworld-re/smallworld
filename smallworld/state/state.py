@@ -40,7 +40,7 @@ class Stateful(metaclass=abc.ABCMeta):
 
 
 class Value(metaclass=abc.ABCMeta):
-    """An abstract class whose subclasses all have a tuple of content, type, and label. Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object."""
+    """An abstract class whose subclasses all have a tuple of content, type, and label. Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
 
     def __init__(self: typing.Any) -> None:
         self._content: typing.Optional[typing.Any] = None
@@ -168,7 +168,7 @@ class Value(metaclass=abc.ABCMeta):
 
 
 class EmptyValue(Value):
-    """An unconstrained value
+    """An unconstrained value.
 
     This has a size, label, and type, but has no concrete value.
     This is particularly useful for symbolic analyses with angr.
@@ -196,7 +196,7 @@ class EmptyValue(Value):
 
 
 class IntegerValue(Value):
-    """An integer value
+    """An integer value.
 
     This is useful for using python integers, but passing them to emulators that care about things like width. The type is derived based on the size.
 
@@ -255,7 +255,7 @@ class IntegerValue(Value):
 
 
 class BytesValue(Value):
-    """A bytes value
+    """A bytes value.
 
     This is for representing a python bytes or bytearray as a value.
 
@@ -484,7 +484,14 @@ class Machine(StatefulSet):
     analysis), including CPU with register values, code, raw memory or
     even stack and heap memory.
 
-    Machines have exit points which are instruction addresses that when hit by an emulator will cause it to stop before any side effects of that instruction are applied. Similarly, machines have bounds which are address ranges. When an address outside of the range is hit by the emulator will cause it to stop before any side effects are applied. Not that the start of the range is included in the range, but the end is not.
+    Machines have exit points which are instruction addresses that
+    when hit by an emulator will cause it to stop before any side
+    effects of that instruction are applied. Similarly, machines have
+    bounds which are address ranges. When an address outside of the
+    range is hit by the emulator that will cause it to stop before any
+    side effects are applied. Note that the start of the range is
+    included in the range, but the end is not.
+
     """
 
     def __init__(self):

@@ -14,3 +14,6 @@ class HintSubclassFilter(logging.Filter):
 
     def filter(self, record):
         return isinstance(record.msg, self.hint)
+
+
+__all__ = ["HintSubclassFilter"]
