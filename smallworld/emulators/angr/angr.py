@@ -690,8 +690,10 @@ class AngrEmulator(
                     values = state.solver.eval_atmost(expr, 1)
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
-                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    value = values[0].to_bytes(
+                        size, byteorder=self.machdef.byteorder.value
+                    )
+                    log.warn(f"Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
