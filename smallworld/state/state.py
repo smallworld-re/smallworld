@@ -584,8 +584,8 @@ class Machine(StatefulSet):
     ) -> typing.Generator[Machine, None, None]:
         """This is a generator that single steps the machine each time it is called.
 
-        Returns:
-            A generator that will return a new machine that is the previous one single stepped forward.
+        Yields:
+            A new machine that is the previous one single stepped forward.
         """
         self.apply(emulator)
 

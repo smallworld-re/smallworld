@@ -65,7 +65,7 @@ class RegisterOperand(Operand):
 
 class MemoryReferenceOperand(Operand):
     """An operand from an instruction which reads or writes memory."""
-    
+
     def __init__(self, size: int = 4):
         self.size = size
 
@@ -93,14 +93,14 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class Instruction:
+class Instruction(metaclass=abc.ABCMeta):
     """An instruction storage and semantic metadata class.
 
-    Arguments:
+    Attributes:
         instruction: The raw bytes of an instruction.
         address: The address at which this instruction appeared.
-        arch: An architecture string.
-        mode: A mode string.
+        cs_arch: The capstone architecture string.
+        cs_mode: The capstone mode string.
     """
 
     def __init__(
