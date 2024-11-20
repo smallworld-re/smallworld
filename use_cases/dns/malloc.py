@@ -1,7 +1,7 @@
-import copy
 import logging
 
 import angr
+import claripy
 
 import smallworld
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
@@ -18,8 +18,18 @@ class MallocModel(smallworld.state.models.Model):
 
     def __init__(self, address: int, heap: smallworld.state.memory.heap.Heap):
         super().__init__(address)
-        self.heap = copy.deepcopy(heap)
         self.nonce = 0
+        if len(heap) > 0:
+            raise smallworld.exceptions.ConfigurationError(
+                "This only works with a blank heap"
+            )
+        end = smallworld.state.IntegerValue(heap.address + heap.get_capacity(), 8, None)
+        ptr = smallworld.state.IntegerValue(heap.address + 16, 8, None)
+
+        heap.allocate(end)
+        heap.allocate(ptr)
+
+        self.heap_addr = heap.address
 
     def model(self, emulator: smallworld.emulators.Emulator):
         if not isinstance(emulator, smallworld.emulators.AngrEmulator):
@@ -54,12 +64,25 @@ class MallocModel(smallworld.state.models.Model):
             length = vals[0]
         else:
             length = capacity.concrete_value
+        log.warning(f"Collapsed to {length}")
 
-        value = smallworld.state.EmptyValue(length, None, f"malloc_buf_{self.nonce}")
-        self.nonce += 1
-        self.heap.allocate(value)
+        heap_end = int.from_bytes(
+            emulator.read_memory_content(self.heap_addr, 8), "little"
+        )
+        heap_ptr = int.from_bytes(
+            emulator.read_memory_content(self.heap_addr + 8, 8), "little"
+        )
 
-        raise Exception("MALLOC!")
+        if heap_end - heap_ptr < length:
+            # Return NULL
+            res = 0
+        else:
+            log.warning(f"Assigned pointer {hex(heap_ptr)}")
+            res = heap_ptr
+            heap_ptr += length
+            emulator.state.memory.store(self.heap_addr + 8, claripy.BVV(heap_ptr, 64))
+
+        emulator.write_register_content("rax", res)
 
 
 class FreeModel(smallworld.state.models.Model):
@@ -69,9 +92,9 @@ class FreeModel(smallworld.state.models.Model):
     )
     abi = smallworld.platforms.ABI.SYSTEMV
 
-    def __init__(self, address: int, malloc: MallocModel):
+    def __init__(self, address: int):
         super().__init__(address)
-        self.heap = malloc.heap
 
     def model(self, emulator: smallworld.emulators.Emulator):
-        raise Exception("FREE!")
+        # Just free it.
+        return

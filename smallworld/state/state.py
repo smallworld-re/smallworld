@@ -197,7 +197,7 @@ class EmptyValue(Value):
 
 class IntegerValue(Value):
     def __init__(
-        self, integer: int, size: int, label: str, signed: bool = True
+        self, integer: int, size: int, label: typing.Optional[str], signed: bool = True
     ) -> None:
         super().__init__()
         if size == 8:

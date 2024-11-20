@@ -7,6 +7,18 @@ from field_analysis import FieldDetectionAnalysis
 import smallworld
 import smallworld.analyses.unstable.angr.visitor
 
+# Stage 0 DNS exploration: Raw buffers
+#
+# This gives a basic harness for the DNS example,
+# setting up opaque global memory regions
+# for the three arguments to parse_dns_message:
+#
+# - input buffer
+# - message struct
+# - offset
+#
+# This will immediately run into partial access errors
+
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 smallworld.hinting.setup_hinting(stream=True, verbose=True)
