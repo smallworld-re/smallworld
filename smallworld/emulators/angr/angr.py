@@ -920,6 +920,19 @@ class AngrEmulator(
         self._linear = True
         log.warn("Linear execution mode enabled")
 
+    def visit_states(
+        self,
+        function: typing.Callable[[emulator.Emulator], None],
+        stash: str = "active",
+    ) -> None:
+        """Visit every state in the selected frontier
+
+        This lets you work around the fact that most operations
+        only work at emulation start, or in linear mode.
+        """
+        for s in self.mgr.stashes[stash]:
+            function(ConcreteAngrEmulator(s, self))
+
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         if self._dirty and not self._linear:
             raise NotImplementedError(
