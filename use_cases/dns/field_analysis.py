@@ -12,13 +12,29 @@ from smallworld.emulators.angr.exceptions import PathTerminationSignal
 log = logging.getLogger(__name__)
 hinter = smallworld.hinting.get_hinter(__name__)
 
+# Tell angr to be quiet please
+logging.getLogger("angr").setLevel(logging.WARNING)
+
 
 class FDAScratchPlugin(
     GuardTrackingScratchMixin, smallworld.emulators.angr.scratch.ExpandedScratchPlugin
 ):
-    """angr cratch plugin that remembers path guards"""
+    """angr scratch plugin that remembers path guards, and analysis state"""
 
-    pass
+    def __init__(self, scratch=None):
+        super().__init__(scratch=scratch)
+        self.fda_labels = set()
+        self.fda_addr_to_label = dict()
+        self.fda_label_to_addr = dict()
+        self.fda_mem_ranges = set()
+        self.fda_bindings = dict()
+
+        if scratch is not None:
+            self.fda_labels |= scratch.fda_labels
+            self.fda_addr_to_label.update(scratch.fda_addr_to_label)
+            self.fda_label_to_addr.update(scratch.fda_label_to_addr)
+            self.fda_mem_ranges.update(scratch.fda_mem_ranges)
+            self.fda_bindings.update(scratch.fda_bindings)
 
 
 class ClaripySerializable(smallworld.hinting.hinting.Serializable):
@@ -80,7 +96,7 @@ class UnknownFieldHint(FieldHint):
     a simple slice of any known label.
     """
 
-    message: str = "Read from unknown field"  # Don't need to replace
+    message: str = "Accessed unknown field"  # Don't need to replace
     expr: str = ""
 
     def pp(self, out):
@@ -100,6 +116,22 @@ class PartialByteFieldAccessHint(FieldHint):
     def pp(self, out):
         super().pp(out)
         out(f"  field:      {self.label}[{self.start}:{self.end}]")
+
+
+@dataclasses.dataclass(frozen=True)
+class PartialByteFieldWriteHint(PartialByteFieldAccessHint):
+    """Hint representing a write to part of a known field.
+
+    Also includes the data I'm trying to write
+    """
+
+    message: str = "Partial write to known field"  # Don't need to replace
+    access: str = "write"  # Don't need to replace
+    expr: str = ""
+
+    def pp(self, out):
+        super().pp(out)
+        out(f"  expr:       {self.expr}")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -143,6 +175,249 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
 
     def __init__(self, platform: smallworld.platforms.Platform):
         self.platform = platform
+        self.extra_constraints: typing.List[typing.Tuple[int, str, str, int]] = list()
+
+    def set_extra_constraints(
+        self, cons: typing.List[typing.Tuple[int, str, str, int]]
+    ):
+        """Inject extra constraints into the initial angr state"""
+        self.extra_constraints = list()
+        for size, label, op, val in cons:
+            size = size * 8
+            sym = claripy.BVS(label, size, explicit_name=True)
+            val = claripy.BVV(val, size)
+            if op == "eq":
+                self.extra_constraints.append(sym == val)
+            elif op == "ne":
+                self.extra_constraints.append(sym != val)
+            elif op == "gt":
+                self.extra_constraints.append(sym > val)
+            elif op == "ge":
+                self.extra_constraints.append(sym >= val)
+            elif op == "lt":
+                self.extra_constraints.append(sym < val)
+            elif op == "le":
+                self.extra_constraints.append(sym <= val)
+            else:
+                raise smallworld.exceptions.ConfigurationError(
+                    f"Unknown constraint operator {op}"
+                )
+            log.warn(f"Added constraint {self.extra_constraints[-1]}")
+
+    def translate_global_addr(self, emu, addr):
+        # Convert address into a label
+        for r, label in emu.state.scratch.fda_addr_to_label.items():
+            if addr in r:
+                return label
+        return "UNKNOWN"
+
+    def mem_read_hook(self, emu, addr, size):
+        expr = emu.state.inspect.mem_read_expr
+        cheat = self.translate_global_addr(emu, addr)
+        log.info(
+            f"{hex(emu.state._ip.concrete_value)}: READING {hex(addr)} - {hex(addr + size)} ({cheat})"
+        )
+        log.info(f"  {expr}")
+
+        if expr.op == "Reverse":
+            # Bytes are reversed.
+            # angr's memory is big-endian,
+            # and the program interpreted it as a little-endian value.
+            expr = expr.args[0]
+
+        if expr.op == "BVV":
+            # This is a concrete value.  These are safe
+            return
+
+        if expr.op == "BVS":
+            # This is a symbol.  It's okay if it's a field.
+            label = expr.args[0].split("_")[0]
+            if label in emu.state.scratch.fda_labels:
+                return
+            hint = UnknownFieldHint(
+                pc=emu.state._ip.concrete_value,
+                guards=list(
+                    map(
+                        lambda x: (x[0], ClaripySerializable(x[1])),
+                        filter(lambda x: x[1].op != "BoolV", emu.state.scratch.guards),
+                    )
+                ),
+                address=addr,
+                size=size,
+                expr=str(expr),
+            )
+            raise PathTerminationSignal()
+
+        if expr.op == "Extract":
+            # This is a slice of another expression.
+            if expr.args[2].op == "BVS":
+                # This is a slice of a symbol, which means
+                # the program read part of a field we labeled.
+                # Dollars to ducats this means our labeling isn't precise enough.
+                var = expr.args[2]
+                label = var.args[0].split("_")[0]
+
+                if var.args[0] not in emu.state.scratch.fda_labels:
+                    # This is not a label we know
+                    hint = UnknownFieldHint(
+                        pc=emu.state._ip.concrete_value,
+                        guards=list(
+                            map(
+                                lambda x: (x[0], ClaripySerializable(x[1])),
+                                filter(
+                                    lambda x: x[1].op != "BoolV",
+                                    emu.state.scratch.guards,
+                                ),
+                            )
+                        ),
+                        address=addr,
+                        size=size,
+                        access="read",
+                        expr=str(var),
+                    )
+                else:
+                    # This is a partial read from a known field
+                    start = expr.args[0]
+                    end = expr.args[1]
+
+                    # Angr's bit numbering is annoying.
+                    r = emu.state.scratch.fda_label_to_addr[var.args[0]]
+                    size = r.stop - r.start
+                    start = size * 8 - start - 1
+                    end = size * 8 - end
+
+                    if start % 8 != 0 or end % 8 != 0:
+                        hint = PartialBitFieldAccessHint(
+                            pc=emu.state._ip.concrete_value,
+                            guards=list(
+                                map(
+                                    lambda x: (x[0], ClaripySerializable(x[1])),
+                                    filter(
+                                        lambda x: x[1].op != "BoolV",
+                                        emu.state.scratch.guards,
+                                    ),
+                                )
+                            ),
+                            address=addr,
+                            size=size,
+                            access="read",
+                            label=var.args[0],
+                            start=start,
+                            end=end,
+                        )
+                    else:
+                        hint = PartialByteFieldAccessHint(
+                            pc=emu.state._ip.concrete_value,
+                            guards=list(
+                                map(
+                                    lambda x: (x[0], ClaripySerializable(x[1])),
+                                    filter(
+                                        lambda x: x[1].op != "BoolV",
+                                        emu.state.scratch.guards,
+                                    ),
+                                )
+                            ),
+                            address=addr,
+                            size=size,
+                            access="read",
+                            label=var.args[0],
+                            start=start // 8,
+                            end=end // 8,
+                        )
+                hinter.info(hint)
+                raise PathTerminationSignal()
+
+        # This is a complex expression.
+        # We're accessing the results of a computation
+        hint = UnknownFieldHint(
+            pc=emu.state._ip.concrete_value,
+            guards=list(
+                map(
+                    lambda x: (x[0], ClaripySerializable(x[1])),
+                    filter(lambda x: x[1].op != "BoolV", emu.state.scratch.guards),
+                )
+            ),
+            address=addr,
+            size=size,
+            access="read",
+            expr=str(expr),
+        )
+        log.info("Constraints:")
+        for con in emu.state.solver.constraints:
+            log.info(f"  Constraint {con}")
+        hinter.info(hint)
+        raise PathTerminationSignal()
+
+    def mem_write_hook(self, emu, addr, size, data):
+        expr = emu.state.inspect.mem_write_expr
+        cheat = self.translate_global_addr(emu, addr)
+        log.info(
+            f"{hex(emu.state._ip.concrete_value)}: WRITING {hex(addr)} - {hex(addr + size)} ({cheat})"
+        )
+        log.info(f"  {expr}")
+
+        good = False
+        bad = False
+        for r, label in emu.state.scratch.fda_addr_to_label.items():
+            if addr in r:
+                # Write is within an existing field
+                if r.start == addr and r.stop == addr + size:
+                    # Write lines up with the existing field.
+                    # Create a new symbol for the new def of this field.
+                    log.info(f"  Write to entire field {cheat}")
+                    sym = claripy.BVS(label, size * 8)
+                    emu.state.solver.add(sym == expr)
+                    emu.state.inspect.mem_write_expr = sym
+                    emu.state.scratch.fda_bindings[sym.args[0]] = expr
+                    good = True
+                else:
+                    # Write does not line up with the existing field
+                    start = addr - r.start
+                    end = addr + size - r.start
+                    hint = PartialByteFieldWriteHint(
+                        pc=emu.state._ip.concrete_value,
+                        guards=list(
+                            map(
+                                lambda x: (x[0], ClaripySerializable(x[1])),
+                                filter(
+                                    lambda x: x[1].op != "BoolV",
+                                    emu.state.scratch.guards,
+                                ),
+                            )
+                        ),
+                        address=addr,
+                        size=size,
+                        label=label,
+                        start=start,
+                        end=end,
+                        expr=str(expr),
+                    )
+                    hinter.info(hint)
+                    bad = True
+        if bad and good:
+            log.error("Write was complete and partial; your labels overlap.")
+            raise smallworld.exceptions.ConfigurationError("Overlapping labels")
+        elif bad:
+            raise PathTerminationSignal()
+        elif good:
+            return
+        else:
+            # Write doesn't overlap any known fields
+            hint = UnknownFieldHint(
+                pc=emu.state._ip.concrete_value,
+                guards=list(
+                    map(
+                        lambda x: (x[0], ClaripySerializable(x[1])),
+                        filter(lambda x: x[1].op != "BoolV", emu.state.scratch.guards),
+                    )
+                ),
+                address=addr,
+                size=size,
+                access="write",
+                expr=str(expr),
+            )
+            hinter.info(hint)
+            raise PathTerminationSignal()
 
     def run(self, machine):
         # Set up the filter analysis
@@ -159,12 +434,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
             self.platform, preinit=angr_preinit
         )
         machine.apply(emulator)
-
-        labels = set()
-        addr_to_label = dict()
-        label_to_addr = dict()
-        mem_ranges = smallworld.utils.RangeCollection()
-        bindings = dict()
+        emulator.state.solver.add(*self.extra_constraints)
 
         # Capture the labeled memory ranges
         for s in machine:
@@ -182,7 +452,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                             f"  {hex(val_start)} - {hex(val_end)}: {val} := {label}"
                         )
 
-                        if label in labels:
+                        if label in emulator.state.scratch.fda_labels:
                             log.error(
                                 f"You reused label {label}; please give it a unique name"
                             )
@@ -191,231 +461,17 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                             )
 
                         r = range(val_start, val_end)
-                        labels.add(label)
-                        addr_to_label[r] = label
-                        label_to_addr[label] = r
-                        bindings[label] = claripy.BVS(
+                        emulator.state.scratch.fda_labels.add(label)
+                        emulator.state.scratch.fda_addr_to_label[r] = label
+                        emulator.state.scratch.fda_label_to_addr[label] = r
+                        emulator.state.scratch.fda_bindings[label] = claripy.BVS(
                             label, val.get_size() * 8, explicit_name=True
                         )
-                        mem_ranges.add_range((val_start, val_end))
+                        emulator.state.scratch.fda_mem_ranges.add((val_start, val_end))
 
-        # Helper for converting an address into a known field
-        def translate_global_addr(addr):
-            # Convert address into a label
-            for r, label in addr_to_label.items():
-                if addr in r:
-                    return label
-            return "UNKNOWN"
-
-        def mem_read_hook(emu, addr, size):
-            expr = emu.state.inspect.mem_read_expr
-            cheat = translate_global_addr(addr)
-            log.warning(f"READING {hex(addr)} - {hex(addr + size)} ({cheat})")
-            log.warning(f"  {expr}")
-
-            if expr.op == "Reverse":
-                # Bytes are reversed.
-                # angr's memory is big-endian,
-                # and the program interpreted it as a little-endian value.
-                expr = expr.args[0]
-
-            if expr.op == "BVV":
-                # This is a concrete value.  These are safe
-                return
-
-            if expr.op == "BVS":
-                # This is a symbol.  It's okay if it's a field.
-                label = expr.args[0].split("_")[0]
-                if label in labels:
-                    return
-                hint = UnknownFieldHint(
-                    pc=emu.state._ip.concrete_value,
-                    guards=list(
-                        map(
-                            lambda x: (x[0], ClaripySerializable(x[1])),
-                            filter(
-                                lambda x: x[1].op != "BoolV", emu.state.scratch.guards
-                            ),
-                        )
-                    ),
-                    address=addr,
-                    size=size,
-                    expr=str(expr),
-                )
-                hinter.info(hint)
-                raise PathTerminationSignal()
-
-            if expr.op == "Extract":
-                # This is a slice of another expression.
-                if expr.args[2].op == "BVS":
-                    # This is a slice of a symbol, which means
-                    # the program read part of a field we labeled.
-                    # Dollars to ducats this means our labeling isn't precise enough.
-                    var = expr.args[2]
-                    label = var.args[0].split("_")[0]
-
-                    if var.args[0] not in labels:
-                        # This is not a label we know
-                        hint = UnknownFieldHint(
-                            pc=emu.state._ip.concrete_value,
-                            guards=list(
-                                map(
-                                    lambda x: (x[0], ClaripySerializable(x[1])),
-                                    filter(
-                                        lambda x: x[1].op != "BoolV",
-                                        emu.state.scratch.guards,
-                                    ),
-                                )
-                            ),
-                            address=addr,
-                            size=size,
-                            access="read",
-                            expr=str(var),
-                        )
-                    else:
-                        # This is a partial read from a known field
-                        start = expr.args[0]
-                        end = expr.args[1]
-
-                        # Angr's bit numbering is annoying.
-                        r = label_to_addr[var.args[0]]
-                        size = r.stop - r.start
-                        start = size * 8 - start - 1
-                        end = size * 8 - end
-
-                        if start % 8 != 0 or end % 8 != 0:
-                            hint = PartialBitFieldAccessHint(
-                                pc=emu.state._ip.concrete_value,
-                                guards=list(
-                                    map(
-                                        lambda x: (x[0], ClaripySerializable(x[1])),
-                                        filter(
-                                            lambda x: x[1].op != "BoolV",
-                                            emu.state.scratch.guards,
-                                        ),
-                                    )
-                                ),
-                                address=addr,
-                                size=size,
-                                access="read",
-                                label=var.args[0],
-                                start=start,
-                                end=end,
-                            )
-                        else:
-                            hint = PartialByteFieldAccessHint(
-                                pc=emu.state._ip.concrete_value,
-                                guards=list(
-                                    map(
-                                        lambda x: (x[0], ClaripySerializable(x[1])),
-                                        filter(
-                                            lambda x: x[1].op != "BoolV",
-                                            emu.state.scratch.guards,
-                                        ),
-                                    )
-                                ),
-                                address=addr,
-                                size=size,
-                                access="read",
-                                label=var.args[0],
-                                start=start // 8,
-                                end=end // 8,
-                            )
-                    hinter.info(hint)
-                    raise PathTerminationSignal()
-
-            # This is a complex expression.
-            # We're accessing the results of a computation
-            hint = UnknownFieldHint(
-                pc=emu.state._ip.concrete_value,
-                guards=list(
-                    map(
-                        lambda x: (x[0], ClaripySerializable(x[1])),
-                        filter(lambda x: x[1].op != "BoolV", emu.state.scratch.guards),
-                    )
-                ),
-                address=addr,
-                size=size,
-                access="read",
-                expr=str(expr),
-            )
-            hinter.info(hint)
-            raise PathTerminationSignal()
-
-        def mem_write_hook(emu, addr, size, data):
-            expr = emu.state.inspect.mem_write_expr
-            cheat = translate_global_addr(addr)
-            log.warning(f"WRITING {hex(addr)} - {hex(addr + size)} ({cheat})")
-            log.warning(f"  {expr}")
-
-            good = False
-            bad = False
-            for r, label in addr_to_label.items():
-                if addr in r:
-                    # Write is within an existing field
-                    if r.start == addr and r.stop == addr + size:
-                        # Write lines up with the existing field.
-                        # Create a new symbol for the new def of this field.
-                        log.warn(f"Write to entire field {cheat}")
-                        sym = claripy.BVS(label, size * 8)
-                        emu.state.solver.add(sym == expr)
-                        emu.state.inspect.mem_write_expr = sym
-                        bindings[sym.args[0]] = expr
-                        good = True
-                    else:
-                        # Write does not line up with the existing field
-                        start = addr - r.start
-                        end = addr + size - r.start
-                        hint = PartialByteFieldAccessHint(
-                            pc=emu.state._ip.concrete_value,
-                            guards=list(
-                                map(
-                                    lambda x: (x[0], ClaripySerializable(x[1])),
-                                    filter(
-                                        lambda x: x[1].op != "BoolV",
-                                        emu.state.scratch.guards,
-                                    ),
-                                )
-                            ),
-                            address=addr,
-                            size=size,
-                            access="write",
-                            label=label,
-                            start=start,
-                            end=end,
-                        )
-                        hinter.info(hint)
-                        bad = True
-            if bad and good:
-                log.error("Write was complete and partial; your labels overlap.")
-                raise smallworld.exceptions.ConfigurationError("Overlapping labels")
-            elif bad:
-                raise PathTerminationSignal()
-            elif good:
-                return
-            else:
-                # Write doesn't overlap any known fields
-                hint = UnknownFieldHint(
-                    pc=emu.state._ip.concrete_value,
-                    guards=list(
-                        map(
-                            lambda x: (x[0], ClaripySerializable(x[1])),
-                            filter(
-                                lambda x: x[1].op != "BoolV", emu.state.scratch.guards
-                            ),
-                        )
-                    ),
-                    address=addr,
-                    size=size,
-                    access="write",
-                    expr=str(expr),
-                )
-                hinter.info(hint)
-                raise PathTerminationSignal()
-
-        for start, end in mem_ranges.ranges:
-            emulator.hook_memory_read(start, end, mem_read_hook)
-            emulator.hook_memory_write(start, end, mem_write_hook)
+        for start, end in emulator.state.scratch.fda_mem_ranges:
+            emulator.hook_memory_read(start, end, self.mem_read_hook)
+            emulator.hook_memory_write(start, end, self.mem_write_hook)
 
         try:
             while True:
@@ -431,31 +487,32 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
         def state_visitor(emu: smallworld.emulators.Emulator) -> None:
             if not isinstance(emu, smallworld.emulators.AngrEmulator):
                 raise TypeError(type(emu))
-            for start, end in mem_ranges.ranges:
+            for start, end in emu.state.scratch.fda_mem_ranges:
                 emu.unhook_memory_read(start, end)
                 emu.unhook_memory_write(start, end)
 
-            log.warning(f"State at {emu.state._ip}:")
-            log.warning("  Guards:")
+            log.info(f"State at {emu.state._ip}:")
+            log.info("  Guards:")
             for ip, guard in emu.state.scratch.guards:
                 if guard.op == "BoolV":
                     continue
-                log.warning(f"    {hex(ip)}: {guard}")
-            log.warning("  Fields:")
-            for r in addr_to_label:
+                log.info(f"    {hex(ip)}: {guard}")
+            log.info("  Fields:")
+            for r in emu.state.scratch.fda_addr_to_label:
                 val = emu.state.memory.load(r.start, r.stop - r.start)
                 if len(val.variables) == 1:
                     # val is extremely likely a bound symbol.
                     # Fetch the binding
                     (label,) = val.variables
-                    if label in bindings:
-                        val = bindings[label]
+                    if label in emu.state.scratch.fda_bindings:
+                        val = emu.state.scratch.fda_bindings[label]
                     else:
                         log.error(f"  Unknown variable {label}")
 
-                log.warning(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
+                log.info(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
 
         emulator.visit_states(state_visitor, stash="deadended")
+        filt.deactivate()
 
 
 class FieldDetectionFilter(smallworld.analyses.Filter):
@@ -471,6 +528,7 @@ class FieldDetectionFilter(smallworld.analyses.Filter):
 
     def __init__(self):
         super().__init__()
+        self.active = True
         self.partial_ranges = dict()
 
     def analyze(self, hint: smallworld.hinting.Hint):
@@ -492,6 +550,9 @@ class FieldDetectionFilter(smallworld.analyses.Filter):
 
     def deactivate(self):
         super().deactivate()
+        if not self.active:
+            return
+        self.active = False
         # Post-process results to detect trends we'd miss on single hints
         solver = claripy.solvers.Solver()
 

@@ -3,23 +3,29 @@ import pathlib
 
 import lief
 from field_analysis import FieldDetectionAnalysis
-from malloc import MallocModel
+from malloc import FreeModel, MallocModel
 
 import smallworld
 import smallworld.analyses.unstable.angr.visitor
 
-# Stage 1 DNS exploration: First Malloc
+# Stage 4 DNS exploration: Flesh out msg.a.item
 #
-# I've run through the process of parsing DNS headers
-# from the input buffer.
+# - We know that the first few fields of msg.a.item are one byte.
+# - By staring at guards, you can see that buf.msg.a.len is a run length
+# - The buffer contains more than one run-length encoded string in sequence.
+# - The sequence is terminated with a length-zero run length
+# - After successfully
+# - The total is compared to 0xff, so msg.a.item.a is a char[] of at least 255
+# - Every string is terminated with a '.' or a '\0', so that's a char[256]
 #
-# This will fail on the first call to malloc(),
-# since at least one of the header fields msg.hdr.c
-# is getting interpreted as a length.
+# I told you run-length encoding was annoying :p
+#
+# We're not done with this struct, but we're close.
+
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=True, verbose=True)
+smallworld.hinting.setup_hinting(stream=False, verbose=True)
 
 log = logging.getLogger("smallworld")
 
@@ -73,6 +79,18 @@ malloc = MallocModel(0x1090, heap, analysis.mem_read_hook, analysis.mem_write_ho
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
 
+# NOTE: The full definition would need msg.a.item.text.{i} for all i 0 - 255.
+# That makes the field listing unreasonably verbose.
+fields = [(1, f"text.{i}") for i in range(0, 3)]
+fields.append((253, "text"))
+fields.append((8, "ftr"))
+
+malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", fields)
+
+free = FreeModel(0x1030)
+machine.add(free)
+machine.add_bound(free._address, free._address + 16)
+
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
 machine.add(gdata)
@@ -81,7 +99,7 @@ machine.add(gdata)
 # I cheated a bit; I know it's a nested struct
 gdata[0] = smallworld.state.EmptyValue(2, None, "msg.hdr.a")
 gdata[2] = smallworld.state.EmptyValue(2, None, "msg.hdr.b")
-gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.c")
+gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.msg.a.len")
 gdata[6] = smallworld.state.EmptyValue(2, None, "msg.hdr.d")
 gdata[8] = smallworld.state.EmptyValue(2, None, "msg.hdr.e")
 gdata[10] = smallworld.state.EmptyValue(2, None, "msg.hdr.f")
@@ -91,13 +109,20 @@ gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
 gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
 gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
 # Input buffer
-gdata[48] = smallworld.state.EmptyValue(2, None, "buf.a")
-gdata[50] = smallworld.state.EmptyValue(2, None, "buf.b")
-gdata[52] = smallworld.state.EmptyValue(2, None, "buf.c")
-gdata[54] = smallworld.state.EmptyValue(2, None, "buf.d")
-gdata[56] = smallworld.state.EmptyValue(2, None, "buf.e")
-gdata[58] = smallworld.state.EmptyValue(2, None, "buf.f")
-gdata[60] = smallworld.state.EmptyValue(500, None, "buf")
+gdata[48] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.a")
+gdata[50] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.b")
+# NOTE: msg.a.len is interpreted as big-endian
+gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
+gdata[54] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.d")
+gdata[56] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.e")
+gdata[58] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.f")
+# This is a sequence of zero or more run-length-encoded strings.
+# Strings can be of length 0 - 63,
+# and the total number of characters can't exceed 25
+gdata[60] = smallworld.state.IntegerValue(1, 1, "buf.a.item0.len")
+gdata[61] = smallworld.state.EmptyValue(1, None, "buf.a.item0.0")
+gdata[62] = smallworld.state.IntegerValue(0, 1, "buf.a.item1.len")
+gdata[63] = smallworld.state.EmptyValue(497, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
 

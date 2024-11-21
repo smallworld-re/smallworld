@@ -127,7 +127,7 @@ int parse_dns_question(const uint8_t *buf, size_t cap, size_t *off,
     *off += 2;
 
     // Parse the question class
-    q->qtype = NTOHS(*(uint16_t *)(buf + *off));
+    q->qclass = NTOHS(*(uint16_t *)(buf + *off));
     *off += 2;
 
     return 0;
