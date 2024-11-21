@@ -95,12 +95,6 @@ class MemoryReferenceOperand(Operand):
 
 class Instruction(metaclass=abc.ABCMeta):
     """An instruction storage and semantic metadata class.
-
-    Attributes:
-        instruction: The raw bytes of an instruction.
-        address: The address at which this instruction appeared.
-        cs_arch: The capstone architecture string.
-        cs_mode: The capstone mode string.
     """
 
     def __init__(
