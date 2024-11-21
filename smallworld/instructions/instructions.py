@@ -94,8 +94,7 @@ class MemoryReferenceOperand(Operand):
 
 
 class Instruction(metaclass=abc.ABCMeta):
-    """An instruction storage and semantic metadata class.
-    """
+    """An instruction storage and semantic metadata class."""
 
     def __init__(
         self,
