@@ -1,7 +1,7 @@
 import typing
 from dataclasses import dataclass
 
-from . import hinting
+from .. import hinting
 
 
 @dataclass(frozen=True)
@@ -420,4 +420,7 @@ __all__ = [
     "DynamicRegisterValueProbHint",
     "DynamicMemoryValueProbHint",
     "MemoryUnavailableProbHint",
+    "EmulationException",
+    "CoverageHint",
+    "ReachableCodeHint",
 ]
