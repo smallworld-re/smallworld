@@ -23,10 +23,11 @@ jobs:
           bash .github/workflows/scripts/conventional.sh "$TITLE"
       - name: Build Container
         run: |
-          sudo docker build . -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          export DOCKER_CONFIG=$(mktmp -d)
+          docker build . -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
       - name: Save Container
         run: |
-          sudo docker push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} 
+          docker push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} 
 
   Unit-Test:
     runs-on: smallworld-arc
