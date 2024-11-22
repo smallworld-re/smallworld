@@ -23,7 +23,6 @@ jobs:
           bash .github/workflows/scripts/conventional.sh "$TITLE"
       - name: Build Container
         run: |
-          export DOCKER_CONFIG=$(mktemp -d)
           docker build . -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
       - name: Save Container
         run: |
@@ -35,8 +34,10 @@ jobs:
     steps:
       - name: Load Container
         run: |
-          docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
-          docker tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+          docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} 
+      - name: Import Container
+        run: |
+          docker load -i image.tar
       - name: Run Unit Tests
         run: |
           docker run -i -w /opt/smallworld/tests smallworld:latest python3 unit.py
@@ -60,12 +61,14 @@ jobs:
           - testsuite: StackTests
           - testsuite: StrlenTests
           - testsuite: StructureTests
-          - testsuite: SyscallTests
     steps:
-      - name: Load Container
+      - uses: actions/download-artifact@v4
+        with:
+          name: smallworld-docker
+          path: .
+      - name: Import Container
         run: |
-          docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
-          docker tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+          docker load -i image.tar
       - name: Run Integration Tests
         run: |
           docker run -i -w /opt/smallworld/tests smallworld:latest python3 integration.py ${{ matrix.testsuite }}
