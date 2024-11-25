@@ -609,6 +609,21 @@ class Machine(StatefulSet):
             raise exceptions.ConfigurationError("You have more than one platform")
         return platforms.pop()
 
+    def get_elf(self):
+        for m in machine:
+            if issubclass(type(m), state.memory.ElfExecutable):
+                return m
+
+    def read_memory(self, address, size):
+        for m in self:
+            if issubclass(type(m), state.memory.Memory):
+                for po,v in m.items():
+                    if m.address+po <= address <= m.address+po + v._size:
+                        c = m[po].get()
+                        o = address - (m.address+po)
+                        return c[o:o+size]
+        return None
+
 
 __all__ = [
     "Stateful",

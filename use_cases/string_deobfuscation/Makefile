@@ -1,24 +1,30 @@
 
-all: strobfus strdeobfus
+all: _strdeobfus strdeobfus strdeobfus2
 
-strobfus: strobfus.o
-	gcc -o strobfus strobfus.o
+_strdeobfus.o: _strdeobfus.c
+	gcc -c -o _strdeobfus.o _strdeobfus.c  -D DEOBFS 
 
-strobfus.o: strdeobfus.o
-	gcc -c -o strobfus.o strdeobfus.c
+_strdeobfus: _strdeobfus.o
+	gcc -o _strdeobfus _strdeobfus.o
 
-strdeobfus.o: strdeobfus.c
-	gcc -c -o strdeobfus.o strdeobfus.c -D DEOBFS 
+strdeobfus.o: _strdeobfus.c
+	gcc -c -o strdeobfus.o _strdeobfus.c # -D DEOBFS 
 
 strdeobfus: strdeobfus.o
 	gcc -o strdeobfus strdeobfus.o
 
 
 
+strdeobfus2: _strdeobfus
+	./_strdeobfus
+	python ./encrypt_strings.py
+
+
+
 
 
 clean: 
-	rm -f strobfus strdeobfus *.o
+	rm -f _strdeobfus strdeobfus strdeobfus2 *.o new_strings
 
 
 

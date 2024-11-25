@@ -50,7 +50,6 @@ int main (int argc, char **argv) {
     prs("string2", 1+string2);
 
 #if DEOBFS
-#else
 
     int l1 = strlen(string1);
     int l2 = strlen(string2);

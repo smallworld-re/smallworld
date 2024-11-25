@@ -95,6 +95,7 @@ class Memory(state.Stateful, dict):
             raise exceptions.EmulationError(
                 f"Failed reading {hex(self.address)}"
             ) from e
+        self.clear()
         self[0] = value
 
     def __hash__(self):
