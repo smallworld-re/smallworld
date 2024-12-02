@@ -10,6 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 class Operand(metaclass=abc.ABCMeta):
+    """An operand from an instruction."""
+
     @abc.abstractmethod
     def key(self, emulator: emulators.Emulator):
         """Provide a unique key for this reference.
@@ -27,7 +29,7 @@ class Operand(metaclass=abc.ABCMeta):
     def concretize(
         self, emulator: emulators.Emulator
     ) -> typing.Optional[typing.Union[int, bytes]]:
-        """Compute a concrete value for this operand.
+        """Compute a concrete value for this operand, using an emulator.
 
         Arguments:
             emulator: An emulator from which to fetch a value.
@@ -40,6 +42,8 @@ class Operand(metaclass=abc.ABCMeta):
 
 
 class RegisterOperand(Operand):
+    """An operand from an instruction that is simply a register."""
+
     def __init__(self, name: str):
         self.name = name
 
@@ -60,6 +64,8 @@ class RegisterOperand(Operand):
 
 
 class MemoryReferenceOperand(Operand):
+    """An operand from an instruction which reads or writes memory."""
+
     def __init__(self, size: int = 4):
         self.size = size
 
@@ -87,15 +93,8 @@ class MemoryReferenceOperand(Operand):
         return emulator.read_memory(self.address(emulator), self.size)
 
 
-class Instruction:
-    """An instruction storage and semantic metadata class.
-
-    Arguments:
-        instruction: The raw bytes of an instruction.
-        address: The address at which this instruction appeared.
-        arch: An architecture string.
-        mode: A mode string.
-    """
+class Instruction(metaclass=abc.ABCMeta):
+    """An instruction storage and semantic metadata class."""
 
     def __init__(
         self,
@@ -168,7 +167,7 @@ class Instruction:
 
     @classmethod
     def from_angr(cls, instruction, block, arch: str):
-        """Construct from an angr disassembler instruction
+        """Construct from an angr disassembler instruction.
 
         Arguments:
             instruction: An existing angr disassembler instruction
