@@ -38,7 +38,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-filepath = pathlib.Path(__file__).parent / "dns.bin"
+filepath = pathlib.Path(__file__).parent / "bin" / "dns.amd64.bin"
 with open(filepath, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, 0x40000)
     machine.add(code)

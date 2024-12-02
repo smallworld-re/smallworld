@@ -5,11 +5,17 @@ import lief
 
 from ...exceptions import ConfigurationError
 from ...hinting import Hint, get_hinter
+from ...platforms import Architecture, Byteorder, Platform
 from ..state import BytesValue
 from .code import Executable
 
 log = logging.getLogger(__name__)
 hinter = get_hinter(__name__)
+
+# ELF machine values
+# See /usr/include/elf.h for the complete list
+EM_X86_64 = 62  # AMD/Intel x86-64
+EM_
 
 # Program header types
 PT_NULL = 0  # Empty/unused program header
@@ -39,12 +45,14 @@ class ElfExecutable(Executable):
     def __init__(
         self,
         file: typing.BinaryIO,
+        platform: typing.Optional[Platform] = None,
         user_base: typing.Optional[int] = None,
         page_size: int = 0x1000,
     ):
         # Initialize with null address and size;
         # we will update these later.
         super().__init__(0, 0)
+        self.platform = platform
         self.bounds: typing.List[range] = []
         self._page_size = page_size
         self._user_base = user_base
@@ -69,7 +77,7 @@ class ElfExecutable(Executable):
         if ehdr is None:
             raise ConfigurationError("Failed extracting ELF header")
 
-        # TODO: Check machine compatibility
+        # Check machine compatibility
 
         # Figure out if this file is loadable.
         # If there are program headers, it's loadable.
@@ -175,6 +183,18 @@ class ElfExecutable(Executable):
         # Compute the final total capacity
         for offset, value in self.items():
             self.size = max(self.size, offset + value.get_size())
+
+    def _platform_for_ehdr(self, ehdr):
+        if ehdr.identity_data.value == 1:
+            # LSB byteorder
+            byteorder = Byteorder.LITTLE
+        elif ehdr.identity_data.value == 2:
+            # MSB byteorder
+            byteorder = Byteorder.BIG
+        else:
+            raise exceptions.ConfigurationError(
+                f"Unknown value of ei_data: {hex(ehdr.identity_data.value)}"
+            )
 
     def _determine_base(self):
         # Determine the base address of this image

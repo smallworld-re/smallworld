@@ -28,6 +28,7 @@ class FDAScratchPlugin(
         self.fda_label_to_addr = dict()
         self.fda_mem_ranges = set()
         self.fda_bindings = dict()
+        self.fda_byte_labels = set()
 
         if scratch is not None:
             self.fda_labels |= scratch.fda_labels

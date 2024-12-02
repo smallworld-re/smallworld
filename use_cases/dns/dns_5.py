@@ -37,7 +37,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-filepath = pathlib.Path(__file__).parent / "dns.bin"
+filepath = pathlib.Path(__file__).parent / "bin" / "dns.amd64.bin"
 with open(filepath, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, 0x40000)
     machine.add(code)
@@ -67,11 +67,11 @@ heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x10000)
 machine.add(heap)
 
 # Configure malloc and free models
-malloc = MallocModel(0x1090, heap, analysis.mem_read_hook, analysis.mem_write_hook)
+malloc = MallocModel(0x1076, heap, analysis.mem_read_hook, analysis.mem_write_hook)
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
 
-free = FreeModel(0x1030)
+free = FreeModel(0x1036)
 machine.add(free)
 machine.add_bound(free._address, free._address + 16)
 

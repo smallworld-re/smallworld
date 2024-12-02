@@ -17,15 +17,39 @@ class MallocModel(smallworld.state.models.Model):
     )
     abi = smallworld.platforms.ABI.SYSTEMV
 
+    _arg1_for_arch = {
+        smallworld.platforms.Architecture.AARCH64: "x0",
+        smallworld.platforms.Architecture.ARM_V5T: "r0",
+        smallworld.platforms.Architecture.ARM_V7A: "r0",
+        smallworld.platforms.Architecture.MIPS32: "a0",
+        smallworld.platforms.Architecture.MIPS64: "a0",
+        smallworld.platforms.Architecture.POWERPC32: "r3",
+        smallworld.platforms.Architecture.X86_64: "rdi",
+    }
+
+    _ret_for_arch = {
+        smallworld.platforms.Architecture.AARCH64: "x0",
+        smallworld.platforms.Architecture.ARM_V5T: "r0",
+        smallworld.platforms.Architecture.ARM_V7A: "r0",
+        smallworld.platforms.Architecture.MIPS32: "v0",
+        smallworld.platforms.Architecture.MIPS64: "v0",
+        smallworld.platforms.Architecture.POWERPC32: "r3",
+        smallworld.platforms.Architecture.X86_64: "rax",
+    }
+
     def __init__(
         self,
         address: int,
         heap: smallworld.state.memory.heap.Heap,
+        platform: smallworld.platforms.Platform,
         read_callback,
         write_callback,
     ):
         super().__init__(address)
-        self.nonce = 0
+
+        self.arg1_reg = self._arg1_for_arch[platform.architecture]
+        self.ret_reg = self._ret_for_arch[platform.architecture]
+
         if len(heap) > 0:
             raise smallworld.exceptions.ConfigurationError(
                 "This only works with a blank heap"
@@ -60,7 +84,9 @@ class MallocModel(smallworld.state.models.Model):
             raise smallworld.exceptions.ConfigurationError("Model only works with angr")
         # Read the capacity.
         # Bypass the smallworld API; I want to know if it's symbolic
-        capacity = emulator.state.regs.rdi
+        capacity = emulator.state.registers.load(
+            *emulator.proj.arch.registers[self.arg1_reg]
+        )
         length = 0
 
         if capacity.symbolic:
@@ -165,7 +191,7 @@ class MallocModel(smallworld.state.models.Model):
                     emulator.hook_memory_read(res, res + length, self.read_callback)
                     emulator.hook_memory_write(res, res + length, self.write_callback)
 
-        emulator.write_register_content("rax", res)
+        emulator.write_register_content(self.ret_reg, res)
 
 
 class FreeModel(smallworld.state.models.Model):
