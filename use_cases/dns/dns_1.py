@@ -23,29 +23,28 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 log = logging.getLogger("smallworld")
 
-# Define the platform
-platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
-)
-
-# Create the analysis; we'll need it later.
-analysis = FieldDetectionAnalysis(platform)
-
 # Create a machine
 machine = smallworld.state.Machine()
 
-# Create a CPU
-cpu = smallworld.state.cpus.CPU.for_platform(platform)
-machine.add(cpu)
-
-# Load and add code into the state
+# Load the code
 filepath = pathlib.Path(__file__).parent / "bin" / "dns.amd64.bin"
 with open(filepath, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, 0x40000)
     machine.add(code)
 
+# Apply the code's bounds to the machine
 for bound in code.bounds:
     machine.add_bound(bound.start, bound.stop)
+
+# Use the ELF's notion of the platform
+platform = code.platform
+
+# Create the analysis; we'll need it later.
+analysis = FieldDetectionAnalysis(platform)
+
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
 
 # Use lief to find the address of parse_dns_message
 elf = lief.parse(filepath)
