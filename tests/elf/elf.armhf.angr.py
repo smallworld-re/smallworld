@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -22,7 +22,7 @@ machine.add(cpu)
 # Load and add code into the state
 filename = __file__.replace(".py", ".elf").replace(".angr", "")
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f)
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set entrypoint from the ELF

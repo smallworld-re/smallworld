@@ -22,7 +22,7 @@ machine.add(cpu)
 # Load and add code into the state
 filename = __file__.replace(".py", ".elf").replace(".angr", "")
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f)
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set entrypoint from the ELF

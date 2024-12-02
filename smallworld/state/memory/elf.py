@@ -14,8 +14,18 @@ hinter = get_hinter(__name__)
 
 # ELF machine values
 # See /usr/include/elf.h for the complete list
+EM_386 = 3  # Intel 80386
+EM_MIPS = 8  # MIPS; all kinds
+EM_PPC = 20  # PowerPC 32-bit
+EM_PPC64 = 21  # PowerPC 64-bit
+EM_ARM = 40  # ARM 32-bit
 EM_X86_64 = 62  # AMD/Intel x86-64
-EM_
+EM_AARCH64 = 183  # ARM v9, or AARCH64
+
+# ARM flag values
+EF_ARM_VFP_FLOAT = 0x400
+EF_ARM_SOFT_FLOAT = 0x200
+EF_ARM_EABI_VER5 = 0x05000000
 
 # Program header types
 PT_NULL = 0  # Empty/unused program header
@@ -42,10 +52,25 @@ PF_R = 0x4  # Segment is readable
 
 
 class ElfExecutable(Executable):
+    """Executable loaded from an ELF
+
+    This loads a single ELF file into a SmallWorld memory object.
+    It performs no relocation or any other initialization,
+    just maps the file into memory as the kernel intended.
+
+    Arguments:
+        file: File-like object containing the image
+        platform: Optional platform; used for header verification
+        ignore_platform: Do not try to ID or verify platform from headers
+        user_base: Optional user-specified base address
+        paeg_size: System page size
+    """
+
     def __init__(
         self,
         file: typing.BinaryIO,
         platform: typing.Optional[Platform] = None,
+        ignore_platform: bool = False,
         user_base: typing.Optional[int] = None,
         page_size: int = 0x1000,
     ):
@@ -78,6 +103,16 @@ class ElfExecutable(Executable):
             raise ConfigurationError("Failed extracting ELF header")
 
         # Check machine compatibility
+        if not ignore_platform:
+            hdr_platform = self._platform_for_ehdr(ehdr)
+            if self.platform is not None:
+                if self.platform != hdr_platform:
+                    raise ConfigurationError(
+                        "Platform mismatch: "
+                        f"specified {self.platform}, but got {hdr_platform} from header"
+                    )
+            else:
+                self.platform = hdr_platform
 
         # Figure out if this file is loadable.
         # If there are program headers, it's loadable.
@@ -185,6 +220,7 @@ class ElfExecutable(Executable):
             self.size = max(self.size, offset + value.get_size())
 
     def _platform_for_ehdr(self, ehdr):
+        # Determine byteorder.  This bit's easy
         if ehdr.identity_data.value == 1:
             # LSB byteorder
             byteorder = Byteorder.LITTLE
@@ -192,9 +228,56 @@ class ElfExecutable(Executable):
             # MSB byteorder
             byteorder = Byteorder.BIG
         else:
-            raise exceptions.ConfigurationError(
+            raise ConfigurationError(
                 f"Unknown value of ei_data: {hex(ehdr.identity_data.value)}"
             )
+
+        # Determine arch/mode.  This bit's harder.
+        if ehdr.machine_type.value == EM_X86_64:
+            # amd64
+            architecture = Architecture.X86_64
+        elif ehdr.machine_type.value == EM_AARCH64:
+            # aarch64
+            architecture = Architecture.AARCH64
+        elif ehdr.machine_type.value == EM_386:
+            # i386
+            architecture = Architecture.X86_32
+        elif ehdr.machine_type.value == EM_ARM:
+            # Some kind of arm32
+            flags = set(map(lambda x: x.value, ehdr.arm_flags_list))
+
+            if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
+                # This is either ARMv5T or some kind of ARMv6.
+                # We're currently assuming v5T, but this isn't always correct.
+                architecture = Architecture.ARM_V5T
+            elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
+                # This is ARMv7a, as built by gcc.
+                architecture = Architecture.ARM_V7A
+            else:
+                raise ConfigurationError(f"Unknown ARM flags: {list(map(hex, flags))}")
+        elif ehdr.machine_type.value == EM_MIPS:
+            # Some kind of mips.
+            # TODO: There are more parameters than just word size
+            if ehdr.identity_class.value == 1:
+                # 32-bit ELF
+                architecture = Architecture.MIPS32
+            elif ehdr.identity_class.value == 2:
+                architecture = Architecture.MIPS64
+            else:
+                raise ConfigurationError(
+                    f"Unknown value of ei_class: {hex(ehdr.identity_class.value)}"
+                )
+        elif ehdr.machine_type.value == EM_PPC:
+            # PowerPC 32-bit
+            architecture = Architecture.POWERPC32
+        elif ehdr.machine_type.value == EM_PPC64:
+            # PowerPC 64-bit
+            architecture = Architecture.POWERPC64
+        else:
+            raise ConfigurationError(
+                f"Unknown value of e_machine: {hex(ehdr.machine_type.value)}"
+            )
+        return Platform(architecture, byteorder)
 
     def _determine_base(self):
         # Determine the base address of this image
