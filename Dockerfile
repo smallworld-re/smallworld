@@ -1,7 +1,7 @@
 # build: docker build . -t smallworld
 #   run: docker run -it smallworld
 
-FROM ubuntu:22.04
+FROM pandare/panda:latest
 
 RUN apt update
 RUN apt -y install git python3 python3-pip build-essential
@@ -17,4 +17,5 @@ RUN python3 -m pip install ./dependencies/*.whl
 RUN make
 
 WORKDIR /opt/smallworld
-RUN pip install -e .[development] -c constraints.txt
+RUN apt search python3
+RUN python3 -m pip install -e .[development] -c constraints.txt
