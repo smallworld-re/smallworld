@@ -1,7 +1,6 @@
 import logging
 import pathlib
 
-import lief
 from field_analysis import FieldDetectionAnalysis
 from malloc import MallocModel
 
@@ -47,9 +46,8 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Use lief to find the address of parse_dns_message
-elf = lief.parse(filepath)
-sym = elf.get_static_symbol("parse_dns_message")
-cpu.rip.set(code.address + sym.value)
+sym = code.get_symbol_value("parse_dns_message")
+cpu.rip.set(sym)
 
 # Add a blank stack
 stack = smallworld.state.memory.stack.Stack.for_platform(
@@ -69,10 +67,13 @@ machine.add(heap)
 
 # Configure malloc and free models
 malloc = MallocModel(
-    0x1090, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
+    0x10000, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
 )
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
+
+# Apply relocations to malloc
+code.update_symbol_value("malloc", malloc._address)
 
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)

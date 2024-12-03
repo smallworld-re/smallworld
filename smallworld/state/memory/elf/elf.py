@@ -3,11 +3,13 @@ import typing
 
 import lief
 
-from ...exceptions import ConfigurationError
-from ...hinting import Hint, get_hinter
-from ...platforms import Architecture, Byteorder, Platform
-from ..state import BytesValue
-from .code import Executable
+from ....exceptions import ConfigurationError
+from ....hinting import Hint, get_hinter
+from ....platforms import Architecture, Byteorder, Platform
+from ...state import BytesValue
+from ..code import Executable
+from .rela import ElfRelocator
+from .structs import ElfRela, ElfSymbol
 
 log = logging.getLogger(__name__)
 hinter = get_hinter(__name__)
@@ -22,7 +24,7 @@ EM_ARM = 40  # ARM 32-bit
 EM_X86_64 = 62  # AMD/Intel x86-64
 EM_AARCH64 = 183  # ARM v9, or AARCH64
 
-# ARM flag values
+# ARM-specific flag values
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
@@ -63,7 +65,7 @@ class ElfExecutable(Executable):
         platform: Optional platform; used for header verification
         ignore_platform: Do not try to ID or verify platform from headers
         user_base: Optional user-specified base address
-        paeg_size: System page size
+        page_size: System page size
     """
 
     def __init__(
@@ -83,6 +85,12 @@ class ElfExecutable(Executable):
         self._user_base = user_base
         self._file_base = 0
 
+        # Initialize symbol info
+        self._symbols: typing.List[ElfSymbol] = list()
+        self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
+        self._relas: typing.List[ElfRela] = list()
+        self._relocator: typing.Optional[ElfRelocator] = None
+
         # Read the entire image out of the file.
         image = file.read()
 
@@ -93,6 +101,8 @@ class ElfExecutable(Executable):
 
         # Use lief to parse the ELF.
         # NOTE: For some reason, this takes list(int), not bytes
+        # NOTE: lief objects aren't deep-copyable.
+        # I'd love to keep `elf` around for later use, but I can't.
         elf = lief.ELF.parse(list(image))
         if elf is None:
             raise ConfigurationError("Failed parsing ELF")
@@ -104,7 +114,7 @@ class ElfExecutable(Executable):
 
         # Check machine compatibility
         if not ignore_platform:
-            hdr_platform = self._platform_for_ehdr(ehdr)
+            hdr_platform = self._platform_for_ehdr(elf)
             if self.platform is not None:
                 if self.platform != hdr_platform:
                     raise ConfigurationError(
@@ -113,6 +123,10 @@ class ElfExecutable(Executable):
                     )
             else:
                 self.platform = hdr_platform
+
+        if self.platform is not None:
+            # If we have a platform, we can relocate
+            self._relocator = ElfRelocator.for_platform(self.platform)
 
         # Figure out if this file is loadable.
         # If there are program headers, it's loadable.
@@ -219,32 +233,35 @@ class ElfExecutable(Executable):
         for offset, value in self.items():
             self.size = max(self.size, offset + value.get_size())
 
-    def _platform_for_ehdr(self, ehdr):
+        # Organize symbols for later relocation
+        self._extract_symbols(elf)
+
+    def _platform_for_ehdr(self, elf):
         # Determine byteorder.  This bit's easy
-        if ehdr.identity_data.value == 1:
+        if elf.header.identity_data.value == 1:
             # LSB byteorder
             byteorder = Byteorder.LITTLE
-        elif ehdr.identity_data.value == 2:
+        elif elf.header.identity_data.value == 2:
             # MSB byteorder
             byteorder = Byteorder.BIG
         else:
             raise ConfigurationError(
-                f"Unknown value of ei_data: {hex(ehdr.identity_data.value)}"
+                f"Unknown value of ei_data: {hex(elf.header.identity_data.value)}"
             )
 
         # Determine arch/mode.  This bit's harder.
-        if ehdr.machine_type.value == EM_X86_64:
+        if elf.header.machine_type.value == EM_X86_64:
             # amd64
             architecture = Architecture.X86_64
-        elif ehdr.machine_type.value == EM_AARCH64:
+        elif elf.header.machine_type.value == EM_AARCH64:
             # aarch64
             architecture = Architecture.AARCH64
-        elif ehdr.machine_type.value == EM_386:
+        elif elf.header.machine_type.value == EM_386:
             # i386
             architecture = Architecture.X86_32
-        elif ehdr.machine_type.value == EM_ARM:
+        elif elf.header.machine_type.value == EM_ARM:
             # Some kind of arm32
-            flags = set(map(lambda x: x.value, ehdr.arm_flags_list))
+            flags = set(map(lambda x: x.value, elf.header.arm_flags_list))
 
             if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
                 # This is either ARMv5T or some kind of ARMv6.
@@ -255,27 +272,27 @@ class ElfExecutable(Executable):
                 architecture = Architecture.ARM_V7A
             else:
                 raise ConfigurationError(f"Unknown ARM flags: {list(map(hex, flags))}")
-        elif ehdr.machine_type.value == EM_MIPS:
+        elif elf.header.machine_type.value == EM_MIPS:
             # Some kind of mips.
             # TODO: There are more parameters than just word size
-            if ehdr.identity_class.value == 1:
+            if elf.header.identity_class.value == 1:
                 # 32-bit ELF
                 architecture = Architecture.MIPS32
-            elif ehdr.identity_class.value == 2:
+            elif elf.header.identity_class.value == 2:
                 architecture = Architecture.MIPS64
             else:
                 raise ConfigurationError(
-                    f"Unknown value of ei_class: {hex(ehdr.identity_class.value)}"
+                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
                 )
-        elif ehdr.machine_type.value == EM_PPC:
+        elif elf.header.machine_type.value == EM_PPC:
             # PowerPC 32-bit
             architecture = Architecture.POWERPC32
-        elif ehdr.machine_type.value == EM_PPC64:
+        elif elf.header.machine_type.value == EM_PPC64:
             # PowerPC 64-bit
             architecture = Architecture.POWERPC64
         else:
             raise ConfigurationError(
-                f"Unknown value of e_machine: {hex(ehdr.machine_type.value)}"
+                f"Unknown value of e_machine: {hex(elf.header.machine_type.value)}"
             )
         return Platform(architecture, byteorder)
 
@@ -355,6 +372,83 @@ class ElfExecutable(Executable):
         # Add the segment to the memory map
         seg_value = BytesValue(seg_data, None)
         self[seg_addr - self.address] = seg_value
+
+    def _extract_symbols(self, elf):
+        lief_to_elf = dict()
+
+        # Figure out the base address
+        # TODO: Currently, this only handles PIC or Non-PIC
+        # It will be wrong for .o and .ko
+        if self._file_base is not None and self._file_base != 0:
+            # This is a non-PIC binary.
+            # Dollars to ducats the symbol is absolute.
+            baseaddr = 0
+        else:
+            # This is a PIC binary
+            # Relative symbols will be relative to the load address
+            baseaddr = self.address
+
+        for s in elf.symbols:
+            # Build a symbol
+            sym = ElfSymbol(
+                name=s.name,
+                type=s.type.value,
+                bind=s.binding.value,
+                visibility=s.visibility.value,
+                shndx=s.shndx,
+                value=s.value,
+                size=s.size,
+                baseaddr=baseaddr,
+            )
+            # Save the sym, and temporarily tie it to its lief partner
+            self._symbols.append(sym)
+            self._syms_by_name.setdefault(sym.name, list()).append(sym)
+            lief_to_elf[s] = sym
+
+            # TODO: MIPS dynamic symbols have an implicit rela
+
+        for r in elf.relocations:
+            sym = lief_to_elf[r.symbol]
+            rela = ElfRela(
+                offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
+            )
+            sym.relas.append(rela)
+            self._relas.append(rela)
+
+    def get_symbol_value(self, name: str, rebase: bool = True) -> int:
+        if name not in self._syms_by_name:
+            raise ConfigurationError(f"No symbol named {name}")
+        syms = self._syms_by_name[name]
+        if len(syms) > 1:
+            raise ConfigurationError("Oh dear; too many syms")
+        val = syms[0].value
+        if rebase:
+            val += syms[0].baseaddr
+        return val
+
+    def update_symbol_value(self, name: str, value: int, rebase: bool = True) -> None:
+        if name not in self._syms_by_name:
+            raise ConfigurationError(f"No symbol named {name}")
+
+        syms = self._syms_by_name[name]
+        if len(syms) > 1:
+            raise ConfigurationError("Oh dear; too many syms")
+
+        sym = syms[0]
+
+        if rebase:
+            # Value provided is absolute; rebase it to the symbol's base address
+            value -= sym.baseaddr
+
+        # Update the value
+        sym.value = value
+
+        if self._relocator is not None:
+            for rela in sym.relas:
+                # Relocate!
+                self._relocator.relocate(self, rela)
+        else:
+            log.error(f"No platform defined; cannot relocate {name}!")
 
 
 __all__ = ["ElfExecutable"]

@@ -11,3 +11,15 @@ binutils-powerpc-linux-gnu
 binutils-powerpc64-linux-gnu
 binutils-riscv64-linux-gnu
 binutils-sparc64-linux-gnu
+gcc-aarch64-linux-gnu
+gcc-arm-linux-gnueabi
+gcc-arm-linux-gnueabihf
+gcc-i686-linux-gnu
+gcc-mips-linux-gnu
+gcc-mipsel-linux-gnu
+gcc-mips64-linux-gnuabi64
+gcc-mips64el-linux-gnuabi64
+gcc-powerpc-linux-gnu
+gcc-powerpc64-linux-gnu
+gcc-riscv64-linux-gnu
+gcc-sparc64-linux-gnu
