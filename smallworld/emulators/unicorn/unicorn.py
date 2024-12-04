@@ -91,15 +91,6 @@ class UnicornEmulator(
         # the label on that address in memory
         self.label: typing.Dict[str, typing.Dict[int, str]] = {}
 
-        # NB: instruction, function, memory read and write, and interrupt hook
-        # data (what to hook and function to run) are provided by
-        # `UnicornInstructionHookable` inheritance etc.
-        # this is used to be able to "return" from a function without running it
-        self.hook_return = None
-
-        # list of exit points which will end emulation
-        # self.exit_points = []
-
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
             # print(f"code callback addr={address:x}")
@@ -138,22 +129,48 @@ class UnicornEmulator(
                 # this is the model for the function
                 cb(self)
                 # self.engine.emu_stop()
-                if self.hook_return is None:
-                    raise RuntimeError("return point for function hook is unknown")
 
-                self.write_register("pc", self.hook_return)
-                # On i386 and amd64, `ret` has a second side-effect
-                # of popping the stack
+                # Mimic a platform-specific "return" instruction.
                 if self.platform.architecture == platforms.Architecture.X86_32:
+                    # i386: pop a 4-byte value off the stack
                     sp = self.read_register("esp")
+                    ret = int.from_bytes(
+                        self.read_memory(sp, 4), self.platform.byteorder.value
+                    )
                     self.write_register("esp", sp + 4)
                 elif self.platform.architecture == platforms.Architecture.X86_64:
+                    # amd64: pop an 8-byte value off the stack
                     sp = self.read_register("rsp")
+                    ret = int.from_bytes(
+                        self.read_memory(sp, 8), self.platform.byteorder.value
+                    )
                     self.write_register("rsp", sp + 8)
+                elif (
+                    self.platform.architecture == platforms.Architecture.AARCH64
+                    or self.platform.architecture == platforms.Architecture.ARM_V5T
+                    or self.platform.architecture == platforms.Architecture.ARM_V6M
+                    or self.platform.architecture
+                    == platforms.Architecture.ARM_V6M_THUMB
+                    or self.platform.architecture == platforms.Architecture.ARM_V7A
+                    or self.platform.architecture == platforms.Architecture.ARM_V7M
+                    or self.platform.architecture == platforms.Architecture.ARM_V7R
+                    or self.platform.architecture == platforms.Architecture.POWERPC32
+                    or self.platform.architecture == platforms.Architecture.POWERPC64
+                ):
+                    # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+                    ret = self.read_register("lr")
+                elif (
+                    self.platform.architecture == platforms.Architecture.MIPS32
+                    or self.platform.architecture == platforms.Architecture.MIPS64
+                ):
+                    # mips32 and mips64: branch to register 'ra'
+                    ret = self.read_register("ra")
+                else:
+                    raise exceptions.ConfigurationError(
+                        "Don't know how to return for {self.platform.architecture}"
+                    )
 
-            # this is always keeping track of *next* instruction which, would be
-            # return addr for a call.
-            self.hook_return = address + size
+                self.write_register("pc", ret)
 
         self.engine.hook_add(unicorn.UC_HOOK_CODE, code_callback)
 
