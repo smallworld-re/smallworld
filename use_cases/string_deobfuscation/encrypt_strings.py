@@ -1,12 +1,21 @@
+''' 
+
+This script encrypts the strings in the executable _strdeobfus created
+by the makefile, from source _strdeobfus.c. 
+
+'''
+
+import lief
 import os
 import struct
 
-import lief
+# The file `new_strings` is created by running _strdeobfus with no
+# args. Contents are 4-byte uint (length) followed by string of that
+# length.  These are the *encrypted* strings you'll want to stick back
+# into data section of _strdeobufs to create the version that has
+# encrypted strings that are decrypted by running the program.
 
-# this file `new_strings` is created by running strobfus (no args). it
-# consists of 4-byte int (length) followed by string of that length
-# these are the *encrypted* strings you want to stick back into data
-# section of _strdeobufs
+# read encrypted strings
 with open("new_strings", "rb") as s:
 
     def read_str(s):
@@ -23,6 +32,7 @@ with open("new_strings", "rb") as s:
 print(f"found enc_string1 = [{enc_string1}]")
 print(f"found enc_string2 = [{enc_string2}]")
 
+# read in the original elf
 raw_bin = lief.parse("_strdeobfus")
 if raw_bin is None:
     raise Exception("Failed parsing binary file")
@@ -38,8 +48,8 @@ c = data.content.tolist()
 # with $ and do not contain a $ internally.  Here we are ... kinda
 # assuming that those will be the only $ in the data section which
 # turns out to be true. This is how we figure out byte stretches
-# in data section that need to be replaced
-
+# in data section that need to be replaced.
+# None of this is resilient but it does work for this example.
 
 # assume that the only $ chars are start / end of strings
 def find_dollars(s):
@@ -49,7 +59,6 @@ def find_dollars(s):
         if s[i] == dollar:
             dollars.append(i)
     return dollars
-
 
 (s1, e1, s2, e2) = find_dollars(c)
 print(f"Found $-delimited strings in data section: {s1,e1,s2,e2}")
@@ -67,9 +76,10 @@ c = (
 # but it also accepts List[int].  No way to fix, just ignore.
 data.content = c  # type: ignore
 
-# write out new version of the binary that decrypts strings in order to print them out
-# meaning the strings don't exist in the original string
-bin.write("strdeobfus2")
-os.system("/usr/bin/chmod +x strdeobfus2")
+# write out new version of the binary that decrypts strings in order
+# to print them out meaning the strings don't exist in the program
+# unencrypted.
+bin.write("strdeobfus")
+os.system("/usr/bin/chmod +x strdeobfus")
 
-print("wrote strdeobfus2, which has encrypted strings in its data section")
+print("wrote strdeobfus, which has encrypted strings in its data section")
