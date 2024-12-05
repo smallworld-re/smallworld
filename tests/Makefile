@@ -42,7 +42,7 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	nasm $*.amd64.s -o $*.amd64.bin
 
 %.armel.elf: %.c
-	arm-linux-gnueabi-gcc $*.c -o $*.armel.elf
+	arm-linux-gnueabi-gcc -marm $*.c -o $*.armel.elf
 
 %.armel.elf: %.armel.elf.s
 	arm-linux-gnueabi-as $*.armel.elf.s -o $*.armel.elf.o
@@ -55,7 +55,7 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	rm $*.armel.o
 
 %.armhf.elf: %.c
-	arm-linux-gnueabihf-gcc $*.c -o $*.armhf.elf
+	arm-linux-gnueabihf-gcc -marm $*.c -o $*.armhf.elf
 
 %.armhf.elf: %.armhf.elf.s
 	arm-linux-gnueabihf-as $*.armhf.elf.s -o $*.armhf.elf.o

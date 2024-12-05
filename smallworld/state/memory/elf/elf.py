@@ -52,6 +52,17 @@ PF_X = 0x1  # Segment is executable
 PF_W = 0x2  # Segment is writable
 PF_R = 0x4  # Segment is readable
 
+# Universal dynamic tag values
+DT_PLTGOT = 0x3
+
+# MIPS-specific dynamic tag values
+DT_MIPS_LOCAL_GOTNO = 0x7000000A
+DT_MIPS_GOTSYM = 0x70000013
+
+# MIPS-specific relocation type
+R_MIPS_32 = 2
+R_MIPS_64 = 18
+
 
 class ElfExecutable(Executable):
     """Executable loaded from an ELF
@@ -226,7 +237,7 @@ class ElfExecutable(Executable):
                 hinter.warn(hint)
             else:
                 # Unknown program header outside the allowed custom ranges
-                hint = Hint(f"Invalid program header: {phdr.type:08x}")
+                hint = Hint(f"Invalid program header: {phdr.type.value:08x}")
                 hinter.warn(hint)
 
         # Compute the final total capacity
@@ -405,9 +416,60 @@ class ElfExecutable(Executable):
             self._syms_by_name.setdefault(sym.name, list()).append(sym)
             lief_to_elf[s] = sym
 
-            # TODO: MIPS dynamic symbols have an implicit rela
+        if (
+            self.platform.architecture == Architecture.MIPS32
+            or self.platform.architecture == Architecture.MIPS64
+        ):
+            # All MIPS dynamic symbols have an implicit rela.
+            # MIPS dynamic symbols always have a GOT entry;
+            # to save space, the ABI just assumes that the rela exists
+
+            # Find the GOT and the number of local entries
+            gotoff = None
+            gotsym = None
+            local_gotno = None
+            for dt in elf.dynamic_entries:
+                if dt.tag.value == DT_MIPS_GOTSYM:
+                    gotsym = dt.value
+                if dt.tag.value == DT_MIPS_LOCAL_GOTNO:
+                    local_gotno = dt.value
+                if dt.tag.value == DT_PLTGOT:
+                    gotoff = dt.value
+                if (
+                    local_gotno is not None
+                    and gotsym is not None
+                    and gotoff is not None
+                ):
+                    break
+
+            if local_gotno is None or gotoff is None or gotsym is None:
+                log.error("MIPS binary missing got information")
+            else:
+                # We found the GOT info; we're actually a dynamic binary
+                # Figure out the GOT entry size based on arch
+                if self.platform.architecture == Architecture.MIPS32:
+                    gotent = 4
+                    rela_type = R_MIPS_32
+                else:
+                    gotent = 8
+                    rela_type = R_MIPS_64
+
+                # Rebase the GOT offset relative to the image
+                gotoff = self._rebase_file(gotoff)
+
+                # Skip the first local_gotno entries
+                gotoff += gotent * local_gotno
+
+                for s in list(elf.dynamic_symbols)[gotsym:]:
+                    sym = lief_to_elf[s]
+                    rela = ElfRela(offset=gotoff, type=rela_type, symbol=sym, addend=0)
+                    sym.relas.append(rela)
+                    self._relas.append(rela)
+
+                    gotoff += gotent
 
         for r in elf.relocations:
+            # Build a rela, and tie it to its symbol
             sym = lief_to_elf[r.symbol]
             rela = ElfRela(
                 offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
@@ -420,7 +482,10 @@ class ElfExecutable(Executable):
             raise ConfigurationError(f"No symbol named {name}")
         syms = self._syms_by_name[name]
         if len(syms) > 1:
-            raise ConfigurationError("Oh dear; too many syms")
+            for sym in syms:
+                if sym.value != syms[0].value and sym.baseaddr != syms[0].baseaddr:
+                    raise ConfigurationError(f"Conflicting syms named {name}")
+
         val = syms[0].value
         if rebase:
             val += syms[0].baseaddr
@@ -432,7 +497,7 @@ class ElfExecutable(Executable):
 
         syms = self._syms_by_name[name]
         if len(syms) > 1:
-            raise ConfigurationError("Oh dear; too many syms")
+            raise ConfigurationError(f"Multiple syms named {name}")
 
         sym = syms[0]
 

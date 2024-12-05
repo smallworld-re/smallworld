@@ -7,6 +7,8 @@ from .arm import (
     Armv7MElfRelocator,
     Armv7RElfRelocator,
 )
+from .mips import MIPSELElfRelocator, MIPSElfRelocator
+from .ppc import PowerPCElfRelocator
 from .rela import ElfRelocator
 
 __all__ = [
@@ -17,5 +19,8 @@ __all__ = [
     "Armv7AElfRelocator",
     "Armv7MElfRelocator",
     "Armv7RElfRelocator",
+    "MIPSElfRelocator",
+    "MIPSELElfRelocator",
+    "PowerPCElfRelocator",
     "ElfRelocator",
 ]
