@@ -4,6 +4,7 @@ import abc
 import bisect
 import inspect
 import typing
+from collections.abc import Iterable
 
 
 class MetadataMixin(metaclass=abc.ABCMeta):
@@ -80,10 +81,11 @@ def find_subclass(
     raise ValueError(f"No instance of {cls} matching criteria")
 
 
-class RangeCollection:
+class RangeCollection(Iterable):
     """A class representing a collection of non-overlapping ranges."""
 
     def __init__(self):
+        self._idx = None
         self.ranges = []
 
     def is_empty(self):
@@ -284,3 +286,16 @@ class RangeCollection:
         self.ranges = new_ranges
 
         return
+
+    def __iter__(self):
+        if self._idx is not None:
+            raise RuntimeError("Concurrent access detected.  Please don't.")
+        self._idx = 0
+        return self
+
+    def __next__(self):
+        if self._idx == len(self.ranges):
+            raise StopIteration
+        x = self.ranges[self._idx]
+        self._idx += 1
+        return x

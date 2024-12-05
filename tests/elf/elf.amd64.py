@@ -64,9 +64,10 @@ emulator = smallworld.emulators.UnicornEmulator(platform)
 # Use code bounds from the ELF
 emulator.add_exit_point(0)
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
-    # I happen to know that the code _actually_ stops
-    # at .text + 0x2d
-    emulator.add_exit_point(bound.start + 0x2D)
+    machine.add_bound(bound[0], bound[1])
+
+# I happen to know that the code _actually_ stops
+# at .text + 0x2d
+emulator.add_exit_point(bound[0] + 0x2D)
 
 machine.emulate(emulator)

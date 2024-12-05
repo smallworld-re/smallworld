@@ -6,6 +6,7 @@ import lief
 from ....exceptions import ConfigurationError
 from ....hinting import Hint, get_hinter
 from ....platforms import Architecture, Byteorder, Platform
+from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
 from .rela import ElfRelocator
@@ -91,7 +92,7 @@ class ElfExecutable(Executable):
         # we will update these later.
         super().__init__(0, 0)
         self.platform = platform
-        self.bounds: typing.List[range] = []
+        self.bounds: RangeCollection = RangeCollection()
         self._page_size = page_size
         self._user_base = user_base
         self._file_base = 0
@@ -156,20 +157,6 @@ class ElfExecutable(Executable):
         # Determine the file base address.
         self._file_base = elf.imagebase
         self._determine_base()
-
-        # Determine if the file specifies an entrypoint
-        if elf.entrypoint is not None and elf.entrypoint != 0:
-            # Check if the entrypoint is valid (falls within the image)
-            entrypoint = elf.entrypoint - self._file_base
-            if entrypoint < 0 or entrypoint >= len(image):
-                raise ConfigurationError(
-                    f"Invalid entrypoint address {hex(entrypoint)}"
-                )
-            # Entrypoint is relative to the file base; rebase it to whatever base we picked.
-            self.entrypoint = entrypoint + self.address
-        else:
-            # No entrypoint specified
-            self.entrypoint = None
 
         for phdr in elf.segments:
             log.debug(f"{phdr}")
@@ -243,6 +230,31 @@ class ElfExecutable(Executable):
         # Compute the final total capacity
         for offset, value in self.items():
             self.size = max(self.size, offset + value.get_size())
+
+        # Determine if the file specifies an entrypoint
+        if elf.entrypoint is not None and elf.entrypoint != 0:
+            # Check if the entrypoint is valid (falls within the image)
+            entrypoint = self._rebase_file(elf.entrypoint)
+            if self.bounds.find_range(entrypoint) is None:
+                if (
+                    self.platform is not None
+                    and self.platform.architecture == Architecture.POWERPC64
+                ):
+                    # NOTE: PowerPC64's ABI is trippy.
+                    # It uses "function descriptor" structs instead of
+                    # simple function pointers.
+                    # Thus, the entrypoint points to something in the data section.
+                    log.warn("Entrypoint for PowerPC64 file is not a code address")
+                else:
+                    raise ConfigurationError(
+                        f"Invalid entrypoint address {hex(entrypoint)}"
+                    )
+            else:
+                self.entrypoint = entrypoint
+        else:
+            # No entrypoint specified,
+            # Or this is PowerPC64 and the entrypoint is gibberish
+            self.entrypoint = None
 
         # Organize symbols for later relocation
         self._extract_symbols(elf)
@@ -378,7 +390,7 @@ class ElfExecutable(Executable):
             )
         if (phdr.flags & PF_X) != 0:
             # This is a code segment; add it to program bounds
-            self.bounds.append(range(seg_addr, seg_addr + seg_size))
+            self.bounds.add_range((seg_addr, seg_addr + seg_size))
 
         # Add the segment to the memory map
         seg_value = BytesValue(seg_data, None)
