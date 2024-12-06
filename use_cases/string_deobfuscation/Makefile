@@ -12,12 +12,10 @@ strdeobfus.o: _strdeobfus.c
 
 
 strdeobfus: _strdeobfus
-	./_strdeobfus
 	python ./encrypt_strings.py
 
-
 clean: 
-	rm -f _strdeobfus strdeobfus strdeobfus2 *.o new_strings encrypted_data decrypted_data
+	rm -f _strdeobfus strdeobfus strdeobfus2 *.o encrypted_data decrypted_data
 
 
 
