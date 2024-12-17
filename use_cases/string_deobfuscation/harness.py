@@ -1,51 +1,46 @@
 import logging
+import os
 import sys
-
+import lief
 import smallworld
 
-# Set up logging and hinting
+# Set up logging
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(level=logging.INFO)
-
 
 # Define the platform
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
-code_offset = 0x1000
-
 # Load code as an elf
+binfile = "strdeobfus"
 code = smallworld.state.memory.code.Executable.from_elf(
-    open("strdeobfus2", "rb"), address=code_offset
+    open(binfile, "rb"), address=0
 )
 
-# set some code bounds: ok to execute this code
+# set some code bounds: ok to execute this instructions in these ranges
 # NB: addresses here come from objdump or radare or something
 fns = [
-    range(code_offset+0x129e, code_offset+0x12c6),
-    range(code_offset+0x1249, code_offset+0x129d)
+    range(0x11fe, 0x1226),  # kringle_things
+    range(0x11a9, 0x11fd)   # kringle_thing
 ]
 code.bounds = []
 for b in fns:
     code.bounds.append(b)
 
-exit_point = 0x12c6
-
-# isn't this something `code` should know?
-data = range(0x4000, 0x4000 + 0x465)
-
-# create a stack (we will be calling fns)
-stack = smallworld.state.memory.stack.Stack.for_platform(platform, code.address + code.size + code_offset, 0x5000)
+exit_point = 0x1226
 
 # create a CPU
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
-# setentry point for deobfus_strs
-cpu.rip.set(code_offset + 0x129e)
-# set stack ptr in cpu
 
+# create a stack (we will be calling fns)
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, code.address + code.size + 0x1000, 0x5000)
+
+# set stack ptr in cpu
 cpu.rsp.set(stack.get_pointer() - 128)
 
+# set entry point for emulation as start pc for kringle_things
+cpu.rip.set(0x11fe)
 
 # Create a machine
 machine = smallworld.state.Machine()
@@ -53,30 +48,24 @@ machine = smallworld.state.Machine()
 machine.add(cpu)
 machine.add(code)
 machine.add(stack)
-machine.add_exit_point(code_offset + exit_point)
+machine.add_exit_point(exit_point)
 
-encrypted_data = machine.read_memory(code_offset + data.start, len(data))
-with open("encrypted_data", "wb") as ed:
-    ed.write(encrypted_data)
-
-import pdb
-pdb.set_trace()
-
+# this should execute code to deobfuscate the data section 
+# and return a machine with that readable data in memory
 emu = smallworld.emulators.UnicornEmulator(platform)
-#for new_machine in machine.step(emu):
-#    print(f"pc={new_machine.get_cpu().pc.get():x}")
 
 new_machine = machine.emulate(emu)
 
+print("Done with deobf_strs.  Writing version of binary with decrypted data section for you")
 
+# use lief to be able to know where data section is in memory but
+# also to modify elf to have decrypted data section.
+elf = lief.ELF.parse(binfile)
+ds = elf.get_section(".data")
+decrypted_data = new_machine.read_memory(ds.virtual_address, ds.size)
+ds.content = list(decrypted_data)
+elf.write("strdeobfus2")
 
-#import pdb
-#pdb.set_trace()
-
-
-print("Done with deobf_strs.  Writing decrypted data section for you")
-decrypted_data = new_machine.read_memory(code_offset + data.start, len(data))
-with open("decrypted_data", "wb") as dd:
-    dd.write(decrypted_data)
-
+# make it executable
+os.chmod("strdeobfus2", 0o744)
 

@@ -55,7 +55,7 @@ for (start, end) in strings:
     # between '$' that is xor-ed with '$'
     strdata = content[start:end+1]
     estrdata = [x^k for x in strdata[1:-1]]
-    c = c[:start] + [k] + [x for x in estrdata] + [k] + c[end+1:]
+    c = c[:start] + [k] + (list(estrdata)) + [k] + c[end+1:]
 
 # NOTE: lief's section.content is a memoryview object,
 # but it also accepts List[int].  No way to fix, just ignore.

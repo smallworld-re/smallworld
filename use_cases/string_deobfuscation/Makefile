@@ -2,13 +2,13 @@
 all: _strdeobfus strdeobfus
 
 _strdeobfus.o: _strdeobfus.c
-	gcc -c -o _strdeobfus.o _strdeobfus.c  -D DEOBFS 
+	gcc -c -o _strdeobfus.o _strdeobfus.c  
 
 _strdeobfus: _strdeobfus.o
 	gcc -o _strdeobfus _strdeobfus.o
 
 strdeobfus.o: _strdeobfus.c
-	gcc -c -o strdeobfus.o _strdeobfus.c # -D DEOBFS 
+	gcc -c -o strdeobfus.o _strdeobfus.c 
 
 
 strdeobfus: _strdeobfus
