@@ -68,9 +68,9 @@ print(
 # use lief to be able to know where data section is in memory but
 # also to modify elf to have decrypted data section.
 elf = lief.ELF.parse(binfile)
-ds = elf.get_section(".data") # type: ignore
+ds = elf.get_section(".data")  # type: ignore
 decrypted_data = new_machine.read_memory(ds.virtual_address, ds.size)
-ds.content = list(decrypted_data) # type: ignore
+ds.content = list(decrypted_data)  # type: ignore
 elf.write("strdeobfus2")  # type: ignore
 
 # make it executable
