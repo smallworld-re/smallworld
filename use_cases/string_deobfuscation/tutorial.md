@@ -245,19 +245,20 @@ machine.add(stack)
 machine.add_exit_point(exit_point)
 ```
 
-With this setup, we can have the Unicorn emulator run the code with
+With this setup complete, we can use the Unicorn emulator to run the code.
 
 ```
 emu = smallworld.emulators.UnicornEmulator(platform)
 new_machine = machine.emulate(emu)
 ```
 
-This `new_machine` is the result of running `kringle_things`, so it
-will have the decrypted data section in memory. We can use `lief` to
-tell us where the data section is in memory. Thus. the following code
-reads the decrypted data section out of the memory of `new_machine`
-and injects it into the binary, which is written to disk as a new
-executable `strdeobfus2`.
+This `new_machine` is the result of running `kringle_things` to
+completion given all that initialization of the environment. A that
+point, it will have the decrypted data section in memory. We can use
+`lief` to tell us where the data section is in memory, then read that
+data out of `new_machine`, and finally, again use `lief` to patch that
+decrypted data section into the binary and write it out to disk as the
+binary `strdeobfus2`.
 
 ```
 elf = lief.ELF.parse(binfile)
@@ -269,8 +270,12 @@ os.chmod("strdeobfus2", 0o744)
 ```
 
 After all that, if we run strings on `strdeobfus2` we will see
-strings, and if we look at the function `main`, in a debugger, we see
-that the strings it references are decrypted.
+strings, and if we look at the function `main`, in a disassembler, we
+see that the strings it references are decrypted.  Note that, of
+course, this code no longer makes sense from an execution standpoint,
+as the strings are decrypted before even calling the decryption
+function, but reverse engineering will be easier for later code which
+refers to those strings.
 
 ```
 [0x000010c0]> pdf @ sym.main
