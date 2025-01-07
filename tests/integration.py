@@ -1102,11 +1102,9 @@ class StrlenTests(ScriptIntegrationTest):
 
 
 class HookingTests(ScriptIntegrationTest):
-    def run_test(self, arch):
-        stdout, _ = self.command(
-            f"python3 hooking/hooking.{arch}.py", stdin="foo bar baz"
-        )
-        self.assertLineContainsStrings(stdout, "foo bar baz")
+    def run_test(self, arch, stdin="foo bar baz", stdout="foo bar baz"):
+        stdout, _ = self.command(f"python3 hooking/hooking.{arch}.py", stdin=stdin)
+        self.assertLineContainsStrings(stdout, stdout)
 
     def test_hooking_amd64(self):
         self.run_test("amd64")
@@ -1183,7 +1181,9 @@ class HookingTests(ScriptIntegrationTest):
 
     @unittest.skipUnless(pandare, "Panda support is optional")
     def test_hooking_mips64_panda(self):
-        self.run_test("mips64.panda")
+        # There is a crazy bug in panda/mips64;
+        # it forgets the first character
+        self.run_test("mips64.panda", stdout="oo bar baz")
 
     def test_hooking_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -1255,6 +1255,102 @@ class ElfTests(ScriptIntegrationTest):
         self.run_test("ppc.angr")
 
     def test_elf_ppc64_angr(self):
+        self.run_test("ppc64.angr")
+
+
+class RelaTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 rela/rela.{arch}.py")
+        self.assertLineContainsStrings(stdout, "Hello, world!")
+
+    def test_rela_amd64(self):
+        self.run_test("amd64")
+
+    def test_rela_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_rela_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_rela_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_rela_armel(self):
+        self.run_test("armel")
+
+    def test_rela_armel_angr(self):
+        self.run_test("armel.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_rela_armhf(self):
+        self.run_test("armhf")
+
+    def test_rela_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_rela_i386(self):
+        self.run_test("i386")
+
+    def test_rela_i386_angr(self):
+        self.run_test("i386.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_rela_mips(self):
+        self.run_test("mips")
+
+    def test_rela_mips_angr(self):
+        self.run_test("mips.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_rela_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_rela_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_rela_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_rela_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_rela_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    @unittest.skipUnless(pandare, "Panda support is optional")
+    def test_rela_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    def test_rela_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
 

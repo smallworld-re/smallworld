@@ -7,7 +7,7 @@ smallworld.hinting.setup_hinting(verbose=True, stream=True, file=None)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # create a state object

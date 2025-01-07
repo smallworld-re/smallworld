@@ -154,22 +154,65 @@ class PandaEmulator(
 
                 if cb := self.manager.is_function_hooked(pc):
                     cb(self.manager)
-                    # The only way i can do this is to use capstone
-                    self.manager.write_register("pc", self.hook_return)
-                    # On i386 and amd64, `ret` has a second side-effect
-                    # of popping the stack
+                    # Mimic a platform-specific "return" instruction.
                     if (
                         self.manager.platform.architecture
                         == platforms.Architecture.X86_32
                     ):
+                        # i386: pop a 4-byte value off the stack
                         sp = self.manager.read_register("esp")
+                        ret = int.from_bytes(
+                            self.manager.read_memory(sp, 4),
+                            self.manager.platform.byteorder.value,
+                        )
                         self.manager.write_register("esp", sp + 4)
                     elif (
                         self.manager.platform.architecture
                         == platforms.Architecture.X86_64
                     ):
+                        # amd64: pop an 8-byte value off the stack
                         sp = self.manager.read_register("rsp")
+                        ret = int.from_bytes(
+                            self.manager.read_memory(sp, 8),
+                            self.manager.platform.byteorder.value,
+                        )
                         self.manager.write_register("rsp", sp + 8)
+                    elif (
+                        self.manager.platform.architecture
+                        == platforms.Architecture.AARCH64
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.ARM_V5T
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.ARM_V6M
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.ARM_V6M_THUMB
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.ARM_V7A
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.ARM_V7M
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.ARM_V7R
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.POWERPC32
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.POWERPC64
+                    ):
+                        # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+                        ret = self.manager.read_register("lr")
+                    elif (
+                        self.manager.platform.architecture
+                        == platforms.Architecture.MIPS32
+                        or self.manager.platform.architecture
+                        == platforms.Architecture.MIPS64
+                    ):
+                        # mips32 and mips64: branch to register 'ra'
+                        ret = self.manager.read_register("ra")
+                    else:
+                        raise exceptions.ConfigurationError(
+                            "Don't know how to return for {self.manager.platform.architecture}"
+                        )
+
+                    self.manager.write_register("pc", ret)
 
                 # Now, if we for some reason have a different pc
                 # then the one that is set for us, break out of this
@@ -238,7 +281,7 @@ class PandaEmulator(
             @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
                 print(
-                    "Panda for help: you are hitting an exception at {exception_index}."
+                    f"Panda for help: you are hitting an exception at {exception_index}."
                 )
 
             self.panda.run()
@@ -339,25 +382,32 @@ class PandaEmulator(
         return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
 
     def map_memory(self, address: int, size: int) -> None:
-        def page(address):
+        def page_down(address):
             return address // self.PAGE_SIZE
 
-        print(f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}")
+        def page_up(address):
+            return (address + self.PAGE_SIZE - 1) // self.PAGE_SIZE
+
+        logger.info(
+            f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}"
+        )
         # Translate an addressi + size to a page range
-        if page(address) == page(address + size):
-            region = (page(address), page(address + size) + 1)
+        if page_down(address) == page_down(address + size):
+            region = (page_down(address), page_up(address + size) + 1)
         else:
-            region = (page(address), page(address + size))
+            region = (page_down(address), page_up(address + size))
+
+        logger.info(f"map_memory: Page range: {region}")
 
         # Get the missing pages first. Those are the ones we want to map
         missing_range = self.mapped_pages.get_missing_ranges(region)
 
         # Map in those pages and change the memory mapping
         # Whatever you do map just map a page size or above
-        print(f"Mapping memory {missing_range} page(s).")
+        logger.info(f"Mapping memory {missing_range} page(s).")
         for start_page, end_page in missing_range:
             page_size = end_page - start_page
-            print(
+            logger.info(
                 f"Mapping at {hex(start_page * self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
             )
             self.panda_thread.panda.map_memory(
@@ -381,6 +431,18 @@ class PandaEmulator(
 
         if not len(content):
             raise ValueError("memory write cannot be empty")
+
+        # FIXME: MIPS64's physical memory space already has contents.
+        # The upper 2**32 bytes of a MIPS64 device is reserved for MMIO.
+        # attempting to store stuff there will almost certainly not do what you want.
+        # This would go away if we figured out how to emulate virtual memory.
+        if self.platform.architecture == platforms.Architecture.MIPS64:
+            if address >= 2**32 or (address + len(content)) >= 2**32:
+                logger.error(
+                    f"Attempting to write to {hex(address)} - {hex(address + len(content))} on MIPS64"
+                )
+                logger.error("This strays into reserved MMIO memory; please don't.")
+                raise exceptions.EmulationError("Write to MIPS64 MMIO space")
 
         self.panda_thread.panda.physical_memory_write(address, content)
 
@@ -427,7 +489,7 @@ class PandaEmulator(
 
     def run(self) -> None:
         self.check()
-        logger.info(f"starting emulation at 0x{self.pc}")
+        logger.info(f"starting emulation at {hex(self.pc)}")
         self.panda_thread.state = self.ThreadState.RUN
         self.signal_and_wait()
         logger.info("emulation complete")

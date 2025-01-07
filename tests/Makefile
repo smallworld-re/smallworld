@@ -17,6 +17,12 @@ NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
 PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu)
 
+# Custom start offset for MIPS64 and MIPS64EL
+# Panda currently runs binaries in the physical address space.
+# mips64 GCC uses a starting address that's inside
+# the mips64 MMIO regions.
+MIPS64_ELF_START=0x800000
+
 %.aarch64.elf: %.c
 	aarch64-linux-gnu-gcc $*.c -o $*.aarch64.elf
 
@@ -107,11 +113,11 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	rm $*.mipsel.o
 
 %.mips64.elf: %.c
-	mips64-linux-gnuabi64-gcc $*.c -o $*.mips64.elf
+	mips64-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64.elf
 
 %.mips64.elf: %.mips64.elf.s
 	mips64-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64.elf.o
-	mips64-linux-gnuabi64-ld $*.mips64.elf.o -o $*.mips64.elf
+	mips64-linux-gnuabi64-ld -Ttext-segment=$(MIPS64_ELF_START) $*.mips64.elf.o -o $*.mips64.elf
 	rm $*.mips64.elf.o
 
 %.mips64.bin: %.mips64.s
@@ -120,11 +126,11 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	rm $*.mips64.o
 
 %.mips64el.elf: %.c
-	mips64el-linux-gnuabi64-gcc $*.c -o $*.mips64el.elf
+	mips64el-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64el.elf
 
 %.mips64el.elf: %.mips64.elf.s
 	mips64el-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64el.elf.o
-	mips64el-linux-gnuabi64-ld $*.mips64el.elf.o -o $*.mips64el.elf
+	mips64el-linux-gnuabi64-ld -Ttext-segment=$(MIPS64_ELF_START) $*.mips64el.elf.o -o $*.mips64el.elf
 	rm $*.mips64el.elf.o
 
 %.mips64el.bin: %.mips64.s

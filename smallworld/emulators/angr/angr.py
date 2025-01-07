@@ -241,6 +241,7 @@ class AngrEmulator(
                 "Reading memory not supported once execution begins."
             )
         v = self.state.memory.load(address, size)
+
         if v.symbolic:
             log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
             raise exceptions.SymbolicValueError(f"Memory at {hex(address)} is symbolic")
@@ -534,7 +535,7 @@ class AngrEmulator(
             ret = function(ConcreteAngrEmulator(state, self), addr, size)
             if ret is not None:
                 res = claripy.BVV(ret)
-                if self.platform.byteorder == platforms.byteorder.LITTLE:
+                if self.platform.byteorder == platforms.Byteorder.LITTLE:
                     # fix byte order if needed.
                     # i don't know _why_ this is needed,
                     # but encoding the result as little-endian on a little-endian

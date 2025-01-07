@@ -42,18 +42,30 @@ class ARMMachineMixinM:
     def __init__(self):
         super().__init__()
         self._registers_m = {
-            # NOTE: PSR is aliased to CPSR
-            # This is an artifact of the fact that Unicorn
-            # seems to emulate a mash-up of M- and A-series arm.
-            "psr",
-            "primask",
-            "basepri",
-            "faultmask",
-            "control",
-            "msp",
-            "psp",
+            # NOTE: None of the expected privileged registers exist
+            # "psr",
+            # "primask",
+            # "basepri",
+            # "faultmask",
+            # "control",
+            # "msp",
+            # "psp",
         }
         self._registers = self._registers | {i: i for i in self._registers_m}
+
+
+class ARMMachineMixinA:
+    """Mixin for ARM A-series machine models"""
+
+    def __init__(self):
+        super().__init__()
+        # TODO: QEMU doesn't quite support what I expect.
+        # I expected to see cpsr and spsr.
+        # I either got the CPU model wrong, or something else is weird.
+        self._registers_a = {
+            "psr",
+        }
+        self._registers = self._registers | {i: i for i in self._registers_a}
 
 
 class ARMv5TMachineDef(ARMMachineDef):
@@ -62,7 +74,16 @@ class ARMv5TMachineDef(ARMMachineDef):
     cpu = "pxa255"
 
 
-class ARMv7MMachineDef(ARMMachineDef):
-    arch = Architecture.ARM_V7M
+# TODO: Something's very weird with Panda's Arm 7 models.
+# cortex-a9 should be an A-series, but it looks more like an M-series.
+# cortex-m4 looks like an M-series, but aborts; I suspect we're missing configuration.
+class ARMv7AMachineDef(ARMMachineMixinA, ARMMachineDef):
+    arch = Architecture.ARM_V7A
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"
+
+
+class ARMv7MMachineDef(ARMMachineMixinM, ARMMachineDef):
+    arch = Architecture.ARM_V7M
+    byteorder = Byteorder.LITTLE
+    cpu = "cortex-m4"

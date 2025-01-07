@@ -34,7 +34,8 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x400
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 2")
+stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 1")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
