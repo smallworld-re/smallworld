@@ -13,7 +13,7 @@ TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
-PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu)
+PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu xtensa-l106-elf)
 
 %.aarch64.elf: %.aarch64.elf.s
 	aarch64-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
@@ -132,6 +132,11 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	sparc64-linux-gnu-as $*.sparc64.s -o $*.sparc64.o
 	sparc64-linux-gnu-objcopy -O binary -j .text $*.sparc64.o $*.sparc64.bin
 	rm $*.sparc64.o
+
+%.xtensa.bin: %.xtensa.s
+	xtensa-lx106-elf-as $*.xtensa.s -o $*.xtensa.o
+	xtensa-lx106-elf-objcopy -O binary -j .text $*.xtensa.o $*.xtensa.bin
+	rm $*.xtensa.o    
 
 all: prereqs build
 
