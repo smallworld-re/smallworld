@@ -18,20 +18,10 @@ manual reversing.
 
 ## Setup and Motivation
 
-You should be able to compile  the (very simple, completely bogus, and
-entirely harmless *malware* program `strdeobfus` by running `make` in
-this directory.  
-
-```
-(smallworld) tleek@leet:~/git/smallworld/use_cases/string_deobfuscation$ make
-gcc -c -o _strdeobfus.o _strdeobfus.c  -D DEOBFS 
-gcc -o _strdeobfus _strdeobfus.o
-python ./encrypt_strings.py
-wrote strdeobfus, which has encrypted strings in its data section
-```
-
-At this point, you should have a program `strdeobfus` which has obfuscated strings in it. 
-Let's verify that in two ways.  First, with the `strings` command.
+The example program to harness is `./strdeobfus` and it should be in
+this directory waiting for your perusal. It contains obfuscated
+strings that the program deobfuscates whilst running.  Let's verify
+that in two ways.  First, with the `strings` command.
 
 ```
 (smallworld) tleek@leet:~/git/smallworld/use_cases/string_deobfuscation$ strings ./strdeobfus
