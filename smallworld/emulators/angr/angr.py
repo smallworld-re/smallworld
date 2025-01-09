@@ -61,12 +61,17 @@ class AngrEmulator(
     description = "an emulator using angr as its backend"
     version = "0.0"
 
-    def __init__(self, platform: platforms.Platform, preinit=None, init=None):
+    def __init__(
+        self, platform: platforms.Platform, preinit=None, init=None, successors=None
+    ):
         # Dirty bit; tells us if we've started emulation
         self._dirty: bool = False
 
         # Linear mode bit; tells us if we're running in forced linear execution
         self._linear: bool = False
+
+        # Successors function; allows manual-override of successor computation
+        self._successors = successors
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
@@ -786,7 +791,11 @@ class AngrEmulator(
             num_inst = 1
         else:
             num_inst = None
-        self.mgr.step(num_inst=num_inst, thumb=self.machdef.is_thumb)
+        self.mgr.step(
+            num_inst=num_inst,
+            successor_func=self._successors,
+            thumb=self.machdef.is_thumb,
+        )
 
         # Test for exceptional states
         if len(self.mgr.errored) > 0:
