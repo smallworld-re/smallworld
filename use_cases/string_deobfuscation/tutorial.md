@@ -25,53 +25,46 @@ that in two ways.  First, with the `strings` command.
 
 ```
 (smallworld) tleek@leet:~/git/smallworld/use_cases/string_deobfuscation$ strings ./strdeobfus
-/lib64/ld-linux-x86-64.so.2 
-)ET*#RH     
-GLIBC_2.2.5 
-GLIBC_2.3   
+/lib64/ld-linux-x86-64.so.2
+GLIBC_2.2.5
+GLIBC_2.3
 GLIBC_2.34
-GLIBC_2.4   
-_ITM_deregisterTMCloneTable 
-_ITM_registerTMCloneTable   
+_ITM_deregisterTMCloneTable
+_ITM_registerTMCloneTable
 __ctype_b_loc
 __cxa_finalize
 __gmon_start__
 __libc_start_main
-__stack_chk_fail
-fclose      
-fopen
-fwrite      
 libc.so.6
 printf
-putchar     
-puts        
-strlen      
-PTE1        
-u+UH        
-%s: [       
-thing1      
-thing2      
-new_strings 
-:*3$"       
-$wTEGA      
-NQWP    
-FAHMARA 
-REWPH]  
-LQCAH]  
-IMJ@    FKCCHMJCH]
-IAEJ   
-PLMJO  
-HKJC   
-@KSJ   
-VKE@   
+putchar
+puts
+PTE1
+u+UH
+%s: [
+thing1
+thing2
+:*3$"
+$wTEGA
+NQWP
+FAHMARA
+REWPH]
+LQCAH]
+IMJ@
+FKCCHMJCH]
+IAEJ
+PLMJO
+HKJC
+@KSJ
+VKE@
 GLAIMWP
-PLEP   
-NQWP   
-TAEJQPW     
-WTEGA       
-PKSAH       
-lMPGLLMOAV  
-cQM@A       
+PLEP
+NQWP
+TAEJQPW
+WTEGA
+PKSAH
+lMPGLLMOAV
+cQM@A
 cEHE\]y
 WE]W
 EFKQP
@@ -96,7 +89,8 @@ IKKJW
 nECHEJ
 fAPE
 FVMHHMEJP
-IEVFHA  WEJ@A@
+IEVFHA
+WEJ@A@
 FAEGLAW
 wEJPVECMJQW
 ...
@@ -127,8 +121,9 @@ occurence of the key. The function `kringle_things` calls
 live in the data section and `kringle_thing` overwrites a single
 string with a decrypted version. So, in this case, decrypting of
 strings transforms the data section. These strings are later printed
-out as `thing1` and `thing2` by the function `prs`. Here's what
-`kringle_things` looks like.
+out as `thing1` and `thing2` by the function `prs`. Here's what the
+disassembly for `kringle_things` looks like if we peer at it using
+[radare2](https://book.rada.re).
 
 ```
 [0x000010c0]> pdf @ sym.kringle_things
@@ -260,12 +255,12 @@ os.chmod("strdeobfus2", 0o744)
 ```
 
 After all that, if we run strings on `strdeobfus2` we will see
-strings, and if we look at the function `main`, in a disassembler, we
+the decrypted strings. And if we look at the function `main`, in a disassembler, we
 see that the strings it references are decrypted.  Note that, of
 course, this code no longer makes sense from an execution standpoint,
 as the strings are decrypted before even calling the decryption
 function, but reverse engineering will be easier for later code which
-refers to those strings.
+refers to those strings. Here is `main` as rendered by radare2.
 
 ```
 [0x000010c0]> pdf @ sym.main
