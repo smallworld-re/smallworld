@@ -7,6 +7,7 @@ from .mips64 import MIPS64BEStack, MIPS64ELStack
 from .ppc import PowerPC32Stack, PowerPC64Stack
 from .stack import *  # noqa: F401, F403
 from .stack import __all__ as __stack__
+from .xtensa import XTensaBEStack, XTensaELStack
 
 __all__ = __stack__ + [
     "AArch64Stack",
@@ -23,4 +24,6 @@ __all__ = __stack__ + [
     "MIPS64ELStack",
     "PowerPC32Stack",
     "PowerPC64Stack",
+    "XTensaBEStack",
+    "XTensaELStack",
 ]
