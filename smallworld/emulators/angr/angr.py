@@ -503,6 +503,7 @@ class AngrEmulator(
                         return False
                 else:
                     read_start = read_start.concrete_value
+                state.inspect.mem_read_address = read_start
             read_size = state.inspect.mem_read_length
 
             if read_size is None:
@@ -514,8 +515,6 @@ class AngrEmulator(
         def read_callback(state):
             # The breakpoint action.
             addr = state.inspect.mem_read_address
-            if not isinstance(addr, int):
-                addr = addr.concrete_value
             size = state.inspect.mem_read_length
 
             res = claripy.BVV(function(ConcreteAngrEmulator(state, self), addr, size))
@@ -629,18 +628,23 @@ class AngrEmulator(
                         return False
                 else:
                     write_start = write_start.concrete_value
+                # Populate concrete value back to the inspect struct
+                state.inspect.mem_write_address = write_start
+            log.info(f"Writing to {hex(write_start)}")
             write_size = state.inspect.mem_write_length
 
             if write_size is None:
-                return False
+                # Some ISAs don't populate mem_write_length.
+                # Infer length from value
+                write_size = len(state.inspect.mem_write_expr) // 8
+                # Populate concrete value back to the inspect struct
+                state.inspect.mem_write_length = write_size
             write_end = write_start + write_size
 
             return start <= write_start and end >= write_end
 
         def write_callback(state):
             addr = state.inspect.mem_write_address
-            if not isinstance(addr, int):
-                addr = addr.concrete_value
             size = state.inspect.mem_write_length
             expr = state.inspect.mem_write_expr
             if expr.symbolic:
@@ -661,6 +665,9 @@ class AngrEmulator(
                 value = expr.concrete_value.to_bytes(
                     size, byteorder=self.platform.byteorder.value
                 )
+
+            if size is None:
+                size = len(expr)
 
             function(ConcreteAngrEmulator(state, self), addr, size, value)
 

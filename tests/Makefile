@@ -134,7 +134,7 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	rm $*.sparc64.o
 
 %.xtensa.bin: %.xtensa.s
-	xtensa-lx106-elf-as --no-transform --target-align $*.xtensa.s -o $*.xtensa.o
+	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.s -o $*.xtensa.o
 	xtensa-lx106-elf-objcopy -O binary -j .text $*.xtensa.o $*.xtensa.bin
 	rm $*.xtensa.o    
 

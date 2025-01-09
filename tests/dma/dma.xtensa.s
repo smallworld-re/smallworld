@@ -12,6 +12,6 @@ divide:
     # XTensa's immediates are pitifully small,
     # so it loads long literals from memory
     l32r    $a4, .LC0
-    s32i    $a4, $a2, 0
-    s32i    $a4, $a3, 4
-    l32i    $a4, $a2, 8
+    s32i    $a2, $a4, 0
+    s32i    $a3, $a4, 4
+    l32i    $a2, $a4, 8
