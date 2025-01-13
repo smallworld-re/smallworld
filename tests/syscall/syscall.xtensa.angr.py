@@ -59,24 +59,24 @@ def write_hook(emu: smallworld.emulators.Emulator) -> None:
     print("Executing a write syscall")
 
 
-def successor_func(state, **kwargs):
-    if "irsb" in kwargs and kwargs["irsb"] is not None:
-        irsb = kwargs["irsb"]
-    else:
-        irsb = state.block().vex
-
-    for op in irsb._ops:
-        print(op.opcode)
-
-    kwargs["irsb"] = irsb
-    return state.project.factory.successors(state, **kwargs)
-
-
-emulator = smallworld.emulators.AngrEmulator(platform, successors=successor_func)
+emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.hook_syscalls(syscall_hook)
 emulator.hook_syscall(4, write_hook)
 
 # Emulate
 emulator.enable_linear()
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
-final_machine = machine.emulate(emulator)
+machine.apply(emulator)
+while True:
+    history = emulator.state.history
+    print(history)
+    if history is not None:
+        print(history.addr)
+        print(history.jumpkind)
+        print(history.recent_ins_addrs)
+        for action in history.actions:
+            try:
+                print(action.type)
+            except:
+                print("derp")
+    emulator.step_block()
