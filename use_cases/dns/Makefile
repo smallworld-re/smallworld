@@ -55,12 +55,12 @@ PPC_LINK = powerpc-linux-gnu-gcc
 define ARCH_TEMPLATE
 $(1)_EXT = $$(call lc,$(1))
 $(1)_OBJS = $$(patsubst src/%.c,%.$$($(1)_EXT).o,$$(SRCS))
-$(1)_BINS = $$(patsubst src/%.bin.c,bin/%.$$($(1)_EXT).bin,$$(wildcard src/*.bin.c))
+$(1)_ELFS = $$(patsubst src/%.elf.c,bin/%.$$($(1)_EXT).elf,$$(wildcard src/*.elf.c))
 
-$(1)_LIB_OBJS = $$(filter-out %.bin.$$($(1)_EXT).o,$$(filter-out %.fuzz.o,$$($(1)_OBJS)))
+$(1)_LIB_OBJS = $$(filter-out %.elf.$$($(1)_EXT).o,$$(filter-out %.fuzz.o,$$($(1)_OBJS)))
 $(1)_LIB = lib/libfakedns.$$($(1)_EXT).a
 
-bin/%.$$($(1)_EXT).bin : %.bin.$$($(1)_EXT).o $$($(1)_LIB) | bin
+bin/%.$$($(1)_EXT).elf : %.elf.$$($(1)_EXT).o $$($(1)_LIB) | bin
 	$$($(1)_LINK) $$(ALL_CFLAGS) $$< $$($(1)_LIB) -o $$@
 
 lib/%.$$($(1)_EXT).a : $$($(1)_LIB_OBJS) | lib
@@ -70,7 +70,7 @@ lib/%.$$($(1)_EXT).a : $$($(1)_LIB_OBJS) | lib
 	$$(CC) $$($(1)_TARGET) $$(ALL_CFLAGS) -c $$< -o $$@
 
 .PHONY : all.$(1)
-all.$(1) : $$($(1)_LIB) $$($(1)_BINS)
+all.$(1) : $$($(1)_LIB) $$($(1)_ELFS)
 
 endef 
 
@@ -79,7 +79,7 @@ $(foreach platform,$(PLATFORMS),$(eval $(call ARCH_TEMPLATE,$(platform))))
 
 # Define fuzzing targets
 ifdef FUZZ
-FUZZ_BINS = $(patsubst src/%.fuzz.c,%.fuzz,$(wildcard src/*.fuzz.c))
+FUZZ_ELFS = $(patsubst src/%.fuzz.c,%.fuzz,$(wildcard src/*.fuzz.c))
 
 %.fuzz : %.fuzz.amd64.o $(AMD64_LIB)
 	$(FUZZ_CC) $(ALL_CFLAGS) $(FUZZ_CFLAGS) $< $(AMD64_LIB) -o $@
@@ -96,7 +96,7 @@ lib :
 # Define global goal for fuzzing
 # needs to always be defined so "all" doesn't get mad.
 .PHONY : all.FUZZ
-all.FUZZ : $(FUZZ_BINS)
+all.FUZZ : $(FUZZ_ELFS)
 
 # Collect "all" targets for all platforms
 ARCH_ALLS = $(foreach platform,$(PLATFORMS),all.$(platform))
@@ -107,4 +107,4 @@ all : $(ARCH_ALLS) all.FUZZ
 
 .PHONY : clean
 clean :
-	rm -f *.o bin/*.bin bin/*.fuzz lib/*.a	
+	rm -f *.o bin/*.elf bin/*.fuzz lib/*.a	

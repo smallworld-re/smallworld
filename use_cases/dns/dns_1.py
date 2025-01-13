@@ -26,7 +26,7 @@ log = logging.getLogger("smallworld")
 machine = smallworld.state.Machine()
 
 # Load the code
-filepath = pathlib.Path(__file__).parent / "bin" / "dns.amd64.bin"
+filepath = pathlib.Path(__file__).parent / "bin" / "dns.amd64.elf"
 with open(filepath, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, 0x40000)
     machine.add(code)
