@@ -35,12 +35,6 @@ def handle_syscall(irsb, i):
     )
     irsb.jumpkind = "Ijk_Sys_syscall"
 
-    print(f"Syscall to {hex(next_addr)}")
-    for x in dir(irsb):
-        try:
-            print(f"{x}: {getattr(irsb, x)}")
-        except NotImplementedError:
-            print(f"{x}: N/A")
     return i
 
 
