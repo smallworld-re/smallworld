@@ -20,7 +20,7 @@ enum dns_type {
     DNS_TYPE_HINFO  = 13,   // Host Information
     DNS_TYPE_MINFO  = 14,   // Mailbox or Mail List Info
     DNS_TYPE_MX     = 15,   // Mail Exchange
-    DNS_TYPE_TXT    = 16,   // Text String  
+    DNS_TYPE_TXT    = 16,   // Text String
 };
 
 enum dns_class {

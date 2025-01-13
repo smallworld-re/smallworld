@@ -35,7 +35,7 @@ with open(filepath, "rb") as f:
 
 # Apply the code's bounds to the machine
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound[0], bound[1])
 
 # Use the ELF's notion of the platform
 platform = code.platform

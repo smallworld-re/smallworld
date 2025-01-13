@@ -7,7 +7,7 @@
 #include "debug.h"
 
 int read_file(const char *path, uint8_t **buf, size_t *cap) {
-    ssize_t nread = 0;
+    ssize_t nread = 0l;
     FILE *f = fopen(path, "r");
     
     if(f == NULL) {
@@ -17,7 +17,6 @@ int read_file(const char *path, uint8_t **buf, size_t *cap) {
     do {
         *buf = realloc(*buf, *cap + 1024);
         nread = fread(*buf + *cap, 1, 1024, f);
-        DEBUG_PRINTF("Read %ld bytes\n", nread);
         if(nread < 0) {
             DEBUG_PRINTF("Failed reading file %s\n", path);
             return 1;

@@ -5,8 +5,10 @@
 #include "ntoh.h"
 
 int parse_dns_name(const uint8_t *buf, size_t cap, size_t *off,
-                    char name[256]) {
+                    char *name, size_t name_size) {
+    int     ret         = 0;
     size_t  name_off    = 0;
+    size_t  ref_off     = 0;
     uint8_t label_size  = 0;
     char    letter      = '\0';
 
@@ -14,7 +16,7 @@ int parse_dns_name(const uint8_t *buf, size_t cap, size_t *off,
         // Recover the label size
         if(cap - *off < 1) {
             // Not enough bytes
-            DEBUG_PRINTF("%lu: Not enough bytes for label size at %lu\n", *off, name_off);
+            DEBUG_PRINTF("%zu: Not enough bytes for label size at %zu\n", *off, name_off);
             return 1;
         }
         label_size = buf[*off];
@@ -26,19 +28,22 @@ int parse_dns_name(const uint8_t *buf, size_t cap, size_t *off,
             break;
         } else if((label_size & 0xc0) == 0xc0) {
             // Label is a compressed reference.
-            DEBUG_PRINTF("%lu: Compressed references aren't implemented\n", *off);
-            return 1;
+            ref_off = ((((size_t)label_size) & 0x3fl) << 8) | buf[*off];
+            *off += 1;
+            DEBUG_PRINTF("Character at %zu: %02x\n", ref_off, buf[ref_off]);
+            ret = parse_dns_name(buf, cap, &ref_off, name + name_off, name_size - name_off);
+            return ret;
         } else if ((label_size & 0xc0) == 0x0) {
             // Label is a standard label
-            if(name_off + label_size > 255) {
+            if(name_off + label_size > name_size - 1) {
                 // Adding label makes name exceed 255 characters
-                DEBUG_PRINTF("%lu: Label of size %u at offset %lu exceeds max name size\n", 
+                DEBUG_PRINTF("%zu: Label of size %u at offset %zu exceeds max name size\n", 
                             *off, label_size, name_off);
                 return 1;
             }
             if(cap - *off < label_size) {
                 // Not enough bytes to read label
-                DEBUG_PRINTF("%lu: Not enough bytes for label of size %u at %lu\n",
+                DEBUG_PRINTF("%zu: Not enough bytes for label of size %u at %zu\n",
                             *off, label_size, name_off);
                 return 1;
             }
@@ -56,7 +61,7 @@ int parse_dns_name(const uint8_t *buf, size_t cap, size_t *off,
                     (letter == '-')) {
                     name[name_off + i] = letter;
                 } else {
-                    DEBUG_PRINTF("%lu: Invalid domain name character %c at %lu\n",
+                    DEBUG_PRINTF("%zu: Invalid domain name character %c at %zu\n",
                                 *off + i, letter, name_off);
                     return 1;
                 }
@@ -65,7 +70,7 @@ int parse_dns_name(const uint8_t *buf, size_t cap, size_t *off,
             name_off += label_size;
         } else {
             // Invalid token; the upper 2 bits are weird.
-            DEBUG_PRINTF("%lu: Invalid label prefix 0x%02x at %lu\n",
+            DEBUG_PRINTF("%zu: Invalid label prefix 0x%02x at %zu\n",
                         *off, label_size, name_off);
             return 1;
         }
@@ -79,7 +84,7 @@ int parse_dns_header(const uint8_t *buf, size_t cap, size_t *off,
                     struct dns_header *hdr) {
     // DNS headers are always 12 bytes
     if(cap - *off < 12) {
-        DEBUG_PRINTF("%lu: Not enough bytes for DNS header\n", *off);
+        DEBUG_PRINTF("%zu: Not enough bytes for DNS header\n", *off);
         return 1;
     }
     // Decode transaction ID
@@ -106,19 +111,24 @@ int parse_dns_header(const uint8_t *buf, size_t cap, size_t *off,
     hdr->n_xrrs = NTOHS(*(uint16_t *)(buf + *off));
     *off += 2;
 
+    DEBUG_PRINTF("Questions:    %hu\n", hdr->n_qs);
+    DEBUG_PRINTF("Answers:      %hu\n", hdr->n_as);
+    DEBUG_PRINTF("Auth Records: %hu\n", hdr->n_arrs);
+    DEBUG_PRINTF("Xtra Records: %hu\n", hdr->n_xrrs);
+
     return 0;
 }
 
 int parse_dns_question(const uint8_t *buf, size_t cap, size_t *off,
                     struct dns_question *q) {
     // Parse the name field
-    if(parse_dns_name(buf, cap, off, q->qname)) {
-        DEBUG_PRINTF("%lu: Failed parsing DNS name\n", *off);
+    if(parse_dns_name(buf, cap, off, q->qname, 256)) {
+        DEBUG_PRINTF("%zu: Failed parsing DNS name\n", *off);
         return 1;
     }
     // Questions need 4 bytes after the name
     if(cap - *off < 4) {
-        DEBUG_PRINTF("%lu: Not enough bytes for DNS question\n", *off);
+        DEBUG_PRINTF("%zu: Not enough bytes for DNS question\n", *off);
         return 1;
     }
     
@@ -136,14 +146,14 @@ int parse_dns_question(const uint8_t *buf, size_t cap, size_t *off,
 int parse_dns_record(const uint8_t *buf, size_t cap, size_t *off,
                     struct dns_record *r) {
     // Parse the name
-    if(parse_dns_name(buf, cap, off, r->name)) {
-        DEBUG_PRINTF("%lu: Failed parsing DNS name\n", *off);
+    if(parse_dns_name(buf, cap, off, r->name, 256)) {
+        DEBUG_PRINTF("%zu: Failed parsing DNS name\n", *off);
         return 1;
     }
     
-    // Records need at least 10 bytes after the name
+    // Records need at least 2 bytes for the type
     if(cap - *off < 10) {
-        DEBUG_PRINTF("%lu: Not enough bytes for DNS record\n", *off);
+        DEBUG_PRINTF("%zu: Not enough bytes for DNS record; only %zu\n", *off, cap - *off);
         return 1;
     }
     
@@ -165,14 +175,14 @@ int parse_dns_record(const uint8_t *buf, size_t cap, size_t *off,
 
     if(cap - *off < r->rdlen) {
         // Not enough bytes to parse rdata
-        DEBUG_PRINTF("%lu: Not enough bytes for RDATA of size %lu\n", *off, r->rdlen);
+        DEBUG_PRINTF("%zu: Not enough bytes for RDATA of size %hu\n", *off, r->rdlen);
         return 1;
     }
     // Parse rdata
     // You can figure out what's in it later.
     if((r->rdata = malloc(r->rdlen)) == NULL) {
         // Malloc died allocating rdata
-        DEBUG_PRINTF("%lu: failed to alloc RDATA of size %lu\n", *off, r->rdlen);
+        DEBUG_PRINTF("%zu: failed to alloc RDATA of size %hu\n", *off, r->rdlen);
         return 1;
     }
     for(size_t i = 0 ; i < r->rdlen; i++) {
@@ -193,7 +203,7 @@ int parse_dns_record_list(const uint8_t *buf, size_t cap, size_t *off,
     }
     for(size_t i = 0; i < n_rs; i++) {
         if((ret = parse_dns_record(buf, cap, off, rs + i))) {
-            DEBUG_PRINTF("%lu: Failed parsing DNS record %lu\n", *off, i);
+            DEBUG_PRINTF("%zu: Failed parsing DNS record %zu\n", *off, i);
             break;
         }
     }
@@ -212,21 +222,21 @@ int parse_dns_message(const uint8_t *buf, size_t cap, size_t *off,
 
     // Parse the header
     if(parse_dns_header(buf, cap, off, &(msg->hdr))) {
-        DEBUG_PRINTF("%lu: Failed parsing DNS header\n", *off);
+        DEBUG_PRINTF("%zu: Failed parsing DNS header\n", *off);
         return 1;
     }
 
     // Parse questions
     do {
         if((msg->qs = malloc(sizeof(struct dns_question) * msg->hdr.n_qs)) == NULL) {
-            DEBUG_PRINTF("%lu: Failed allocating %u questions\n",
+            DEBUG_PRINTF("%zu: Failed allocating %u questions\n",
                         *off, msg->hdr.n_qs);
             ret = 1;
             break;
         }
         for(size_t i = 0; i < msg->hdr.n_qs; i++) {
             if((ret = parse_dns_question(buf, cap, off, msg->qs + i))) {
-                DEBUG_PRINTF("%lu: Failed parsing DNS question %lu\n", *off, i);
+                DEBUG_PRINTF("%zu: Failed parsing DNS question %zu\n", *off, i);
                 break;
             }
         }
@@ -236,37 +246,37 @@ int parse_dns_message(const uint8_t *buf, size_t cap, size_t *off,
         // Parse answers
         do {
             if((msg->as = malloc(sizeof(struct dns_record) * msg->hdr.n_as)) == NULL) {
-                DEBUG_PRINTF("%lu: Failed allocating %u answer records\n",
+                DEBUG_PRINTF("%zu: Failed allocating %u answer records\n",
                             *off, msg->hdr.n_as);
                 ret = 1;
                 break;
             }
             if((ret = parse_dns_record_list(buf, cap, off, msg->as, msg->hdr.n_as))) {
-                DEBUG_PRINTF("%lu: Failed parsing DNS answers\n", *off);
+                DEBUG_PRINTF("%zu: Failed parsing DNS answers\n", *off);
                 break;
             }
             // Parse Authority records
             do {
                 if((msg->arrs = malloc(sizeof(struct dns_record) * msg->hdr.n_arrs)) == NULL) {
-                    DEBUG_PRINTF("%lu: Failed allocating %u authority records\n",
+                    DEBUG_PRINTF("%zu: Failed allocating %u authority records\n",
                                 *off, msg->hdr.n_arrs);
                     ret = 1;
                     break;
                 }
                 if((ret = parse_dns_record_list(buf, cap, off, msg->arrs, msg->hdr.n_arrs))) {
-                    DEBUG_PRINTF("%lu: Failed parsing DNS authority records\n", *off);
+                    DEBUG_PRINTF("%zu: Failed parsing DNS authority records\n", *off);
                     break;
                 } 
                 // Parse Extra Records
                 do {
                     if((msg->xrrs = malloc(sizeof(struct dns_record) * msg->hdr.n_xrrs)) == NULL) {
-                        DEBUG_PRINTF("%lu: Failed allocating %u extra records\n",
+                        DEBUG_PRINTF("%zu: Failed allocating %u extra records\n",
                                     *off, msg->hdr.n_xrrs);
                         ret = 1;
                         break;
                     }
                     if((ret = parse_dns_record_list(buf, cap, off, msg->xrrs, msg->hdr.n_xrrs))) {
-                        DEBUG_PRINTF("%lu: Failed parsing DNS extra records\n", *off);
+                        DEBUG_PRINTF("%zu: Failed parsing DNS extra records\n", *off);
                         break;
                     }
                 } while(0);

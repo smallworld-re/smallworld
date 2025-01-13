@@ -1,6 +1,6 @@
 import logging
 
-from angr.storage import MemoryMixin
+from angr.storage.memory_mixins.memory_mixin import MemoryMixin
 
 from ..utils import reg_name_from_offset
 
