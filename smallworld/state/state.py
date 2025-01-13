@@ -13,7 +13,7 @@ logger = lg.getLogger(__name__)
 
 
 class Stateful(metaclass=abc.ABCMeta):
-    """System state that can be applied to/loaded from an emulator."""
+    """An abstract class whose subclasses represent system state that can be applied to/loaded from an emulator."""
 
     @abc.abstractmethod
     def extract(self, emulator: emulators.Emulator) -> None:
@@ -40,7 +40,7 @@ class Stateful(metaclass=abc.ABCMeta):
 
 
 class Value(metaclass=abc.ABCMeta):
-    """An individual state value."""
+    """An abstract class whose subclasses all have a tuple of content, type, and label. Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
 
     def __init__(self: typing.Any) -> None:
         self._content: typing.Optional[typing.Any] = None
@@ -168,7 +168,7 @@ class Value(metaclass=abc.ABCMeta):
 
 
 class EmptyValue(Value):
-    """An unconstrained value
+    """An unconstrained value.
 
     This has a size, label, and type, but has no concrete value.
     This is particularly useful for symbolic analyses with angr.
@@ -196,6 +196,15 @@ class EmptyValue(Value):
 
 
 class IntegerValue(Value):
+    """An integer value.
+
+    This is useful for using python integers, but passing them to emulators that care about things like width. The type is derived based on the size.
+
+    Arguments:
+        size: The size of the integer. Must be 1, 2, 4, 8
+        label: An optional metadata label
+    """
+
     def __init__(
         self, integer: int, size: int, label: typing.Optional[str], signed: bool = True
     ) -> None:
@@ -246,6 +255,14 @@ class IntegerValue(Value):
 
 
 class BytesValue(Value):
+    """A bytes value.
+
+    This is for representing a python bytes or bytearray as a value.
+
+    Arguments:
+        label: An optional metadata label
+    """
+
     def __init__(
         self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> None:
@@ -425,6 +442,8 @@ class RegisterAlias(Register):
 
 
 class StatefulSet(Stateful, collections.abc.MutableSet):
+    """A set that holds stateful objects. Applying or extracting the set performs the action of every member of the set."""
+
     def __init__(self):
         super().__init__()
         self._contents = set()
@@ -464,6 +483,15 @@ class Machine(StatefulSet):
     """A container for all state needed to begin or resume emulation or
     analysis), including CPU with register values, code, raw memory or
     even stack and heap memory.
+
+    Machines have exit points which are instruction addresses that
+    when hit by an emulator will cause it to stop before any side
+    effects of that instruction are applied. Similarly, machines have
+    bounds which are address ranges. When an address outside of the
+    range is hit by the emulator that will cause it to stop before any
+    side effects are applied. Note that the start of the range is
+    included in the range, but the end is not.
+
     """
 
     def __init__(self):
@@ -472,15 +500,38 @@ class Machine(StatefulSet):
         self._exit_points = set()
 
     def add_exit_point(self, address: int):
+        """Add an exit point to the machine.
+
+        Arguments:
+            address: The address to exit on
+
+        """
         self._exit_points.add(address)
 
     def get_exit_points(self) -> typing.Set[int]:
+        """Gets the set of exit points for a machine.
+
+        Returns:
+            The set of exit point addresses.
+        """
         return self._exit_points
 
     def add_bound(self, start: int, end: int):
+        """Adds a bound to the machine
+
+        Arguments:
+            start: the start address of the bound (included in the bound)
+            end: the end address of the bound (excluded in the bound)
+        """
         self._bounds.add_range((start, end))
 
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
+        """Gets a list of bounds for the machine.
+
+
+        Returns:
+            The list of bounds.
+        """
         return list(self._bounds.ranges)
 
     def apply(self, emulator: emulators.Emulator) -> None:
@@ -531,6 +582,11 @@ class Machine(StatefulSet):
     def step(
         self, emulator: emulators.Emulator
     ) -> typing.Generator[Machine, None, None]:
+        """This is a generator that single steps the machine each time it is called.
+
+        Yields:
+            A new machine that is the previous one single stepped forward.
+        """
         self.apply(emulator)
 
         while True:
@@ -561,6 +617,17 @@ class Machine(StatefulSet):
         always_validate: bool = False,
         iterations: int = 1,
     ) -> None:
+        """Fuzz the machine using unicornafl.
+
+        Arguments:
+            emulator: Currently, must be the unicorn emulator
+            input_callback: A callback that applies an input to a machine
+            crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
+            always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
+            iterations: The number of iterations to run before forking a new child
+        Returns:
+            Bytes for this value with the given byteorder.
+        """
         try:
             import argparse
 
@@ -592,18 +659,45 @@ class Machine(StatefulSet):
         )
 
     def get_cpus(self):
+        """Gets a list of :class:`~smallworld.state.cpus.cpu.CPU` attached to this machine.
+
+        Returns:
+            A list of objects that subclass :class:`~smallworld.state.cpus.cpu.CPU` attached to this machin.
+        """
         return [i for i in self if issubclass(type(i), state.cpus.cpu.CPU)]
 
     def get_platforms(self):
+        """Gets a set of platforms for the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine.
+
+        Returns:
+            A set of platforms for the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machin.
+
+        """
         return set([i.get_platform() for i in self.get_cpus()])
 
     def get_cpu(self):
+        """Gets the :class:`~smallworld.state.cpus.cpu.CPU` attached to this machine. Throws an exception if the machine has more than one.
+
+        Raises:
+            ConfigurationError: if the machine has more than one :class:`~smallworld.state.cpus.cpu.CPU`
+
+        Returns:
+            The :class:`~smallworld.state.cpus.cpu.CPU` attached to this machine.
+        """
         cpus = self.get_cpus()
         if len(cpus) != 1:
             raise exceptions.ConfigurationError("You have more than one CPU")
         return cpus[0]
 
     def get_platform(self):
+        """Gets the platform of the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine. Throws an exception if the machine has more than one.
+
+        Raises:
+            ConfigurationError: if the machine has more than one platform
+
+        Returns:
+            The platform for the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine.
+        """
         platforms = self.get_platforms()
         if len(platforms) != 1:
             raise exceptions.ConfigurationError("You have more than one platform")

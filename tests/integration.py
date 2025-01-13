@@ -1102,9 +1102,17 @@ class StrlenTests(ScriptIntegrationTest):
 
 
 class HookingTests(ScriptIntegrationTest):
-    def run_test(self, arch, stdin="foo bar baz", stdout="foo bar baz"):
-        stdout, _ = self.command(f"python3 hooking/hooking.{arch}.py", stdin=stdin)
-        self.assertLineContainsStrings(stdout, stdout)
+    def run_test(self, arch, heckingMIPS64=False):
+        if heckingMIPS64:
+            # FIXME: Running hooking.mips64.panda.py IN THE INTEGRATION TESTS fails.
+            # It's fine run on its own.  No idea what's up
+            expected = "oo bar baz"
+        else:
+            expected = "foo bar baz"
+        stdout, _ = self.command(
+            f"python3 hooking/hooking.{arch}.py", stdin="foo bar baz"
+        )
+        self.assertLineContainsStrings(stdout, expected)
 
     def test_hooking_amd64(self):
         self.run_test("amd64")
@@ -1183,7 +1191,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_mips64_panda(self):
         # There is a crazy bug in panda/mips64;
         # it forgets the first character
-        self.run_test("mips64.panda", stdout="oo bar baz")
+        self.run_test("mips64.panda", heckingMIPS64=True)
 
     def test_hooking_mips64el_angr(self):
         self.run_test("mips64el.angr")
