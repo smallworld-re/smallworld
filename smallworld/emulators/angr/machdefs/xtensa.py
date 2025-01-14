@@ -195,6 +195,9 @@ class XTensaMachineDef(PcodeMachineDef):
             # Someone's already specified an IR block.
             irsb = kwargs["irsb"]
         else:
+            # Disable optimization; it doesn't work
+            kwargs["opt_level"] = 0
+
             # Compute the block from the state.
             # Pray to the Powers that kwargs are compatible.
             irsb = state.block(**kwargs).vex

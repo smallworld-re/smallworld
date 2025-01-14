@@ -4,13 +4,13 @@
 #
 #    pip-compile --extra=development --output-file=constraints.txt setup.py
 #
-ailment==9.2.136
+ailment==9.2.137
     # via angr
 alabaster==0.7.13
     # via sphinx
-angr==9.2.136
+angr==9.2.137
     # via smallworld (setup.py)
-archinfo==9.2.136
+archinfo==9.2.137
     # via
     #   angr
     #   pyvex
@@ -44,9 +44,9 @@ cfgv==3.4.0
     # via pre-commit
 charset-normalizer==3.3.2
     # via requests
-claripy==9.2.136
+claripy==9.2.137
     # via angr
-cle==9.2.136
+cle==9.2.137
     # via angr
 click==8.1.7
     # via
@@ -155,7 +155,7 @@ pyproject-hooks==1.0.0
     # via build
 pysmt==0.9.5
     # via claripy
-pyvex==9.2.136
+pyvex==9.2.137
     # via
     #   angr
     #   cle
