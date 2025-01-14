@@ -66,17 +66,4 @@ emulator.hook_syscall(4, write_hook)
 # Emulate
 emulator.enable_linear()
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
-machine.apply(emulator)
-while True:
-    history = emulator.state.history
-    print(history)
-    if history is not None:
-        print(history.addr)
-        print(history.jumpkind)
-        print(history.recent_ins_addrs)
-        for action in history.actions:
-            try:
-                print(action.type)
-            except:
-                print("derp")
-    emulator.step_block()
+machine.emulate(emulator)

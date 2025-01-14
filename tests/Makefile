@@ -138,6 +138,11 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	xtensa-lx106-elf-objcopy -O binary -j .text $*.xtensa.o $*.xtensa.bin
 	rm $*.xtensa.o    
 
+%.xtensa.elf: %.xtensa.elf.s
+	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.elf.s -o $*.xtensa.elf.o
+	xtensa-lx106-elf-ld $*.xtensa.elf.o -o $*.xtensa.elf
+	rm $*.xtensa.elf.o    
+
 all: prereqs build
 
 build: ${TARGETS}
