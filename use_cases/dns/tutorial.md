@@ -201,11 +201,74 @@ cpu.rcx.set(gdata.address)
 cpu.rcx.set_label("PTR msg")
 ```
 
-**Step 6:** Analyze!
+At long last, we're reading to actually run our analysis.
 
 ```
 machine.analyze(FieldDetectionAnalysis(platform))
 ```
 
+The code we just wrote can be found in `dns_0.py`
 
-# The 
+# First Results
+
+Running `dns_0.py` produces the following hint:
+
+```
+[*] Partial write to known field
+[*]   pc:         0x41e73
+[*]   address:    0x6010
+[*]   size:       8
+[*]   access:     write
+[*]   guards:
+[*]   field:      msg[16:24]
+[*]   expr:       <BV64 0x0>
+```
+
+The code at `0x41e73` tried to write zero to byte 16 of `msg`.
+Since we defined `msg` as 512 homogenous bytes, it didn't expect to see a field here.
+
+We can redefine msg as the following
+
+```
+gdata[0] = smallworld.state.EmptyValue(16, None, "msg.unk-0x0")
+gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
+gdata[24] = smallworld.state.EmptyValue(24, None, "msg.unk-0x18")
+```
+
+We're not sure what `msg.a` is, but we know it's very likely a field.
+We're on our way!
+
+Running our updated script gives a very similar hint to the first:
+
+```
+[*] Partial write to known field
+[*]   pc:         0x41e7f
+[*]   address:    0x6018
+[*]   size:       8
+[*]   access:     write
+[*]   guards:
+[*]   field:      msg.unk.0x18[0:8]
+[*]   expr:       <BV64 0x0>
+```
+
+In fact, four iterations tell us the same thing;
+the program writes zero to four 8-byte fields right next to each other:
+
+```
+gdata[0] = smallworld.state.EmptyValue(16, None, "msg.unk-0x0")
+gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
+gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
+gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
+gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
+```
+
+Some more iterations, and we start decoding both `buf` and `msg.unk-0x0`:
+
+```
+```
+
+You've now made it to the code contained in `dns_1.py`.
+
+# Adding malloc
+
+
