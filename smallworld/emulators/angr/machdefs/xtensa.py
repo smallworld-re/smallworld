@@ -11,22 +11,39 @@ from .machdef import PcodeMachineDef
 
 def handle_nop(irsb, i):
     # This op has no impact on user-facing machine state.
+    irsb._ops.pop(i)
     return i
 
 
 def handle_sigtrap(irsb, i):
     # This op should terminate this block with SIGTRAP
+    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    irsb._ops = irsb._ops[0:i]
+    irsb.next = next_addr
+    irsb._size = next_addr - irsb.addr
+    irsb._instruction_addresses = list(
+        filter(lambda x: x < next_addr, irsb._instruction_addresses)
+    )
+    irsb.jumpkind = "Ijk_SigTRAP"
     return i
 
 
 def handle_sigill(irsb, i):
     # This op should terminate this block with SIGILL
+    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    irsb._ops = irsb._ops[0:i]
+    irsb.next = next_addr
+    irsb._size = next_addr - irsb.addr
+    irsb._instruction_addresses = list(
+        filter(lambda x: x < next_addr, irsb._instruction_addresses)
+    )
+    irsb.jumpkind = "Ijk_SigILL"
     return i
 
 
 def handle_syscall(irsb, i):
     # This op should terminate this block with a syscall
-    next_addr = irsb._ops[i + 1].inputs[0].offset
+    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
     irsb._ops = irsb._ops[0:i]
     irsb.next = next_addr
     irsb._size = next_addr - irsb.addr
@@ -218,8 +235,8 @@ class XTensaMachineDef(PcodeMachineDef):
 
                 # Invoke the handler
                 i = userop.handler(irsb, i)
-
-            i += 1
+            else:
+                i += 1
 
         # Force the engine to use our IR block
         kwargs["irsb"] = irsb
