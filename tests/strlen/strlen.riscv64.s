@@ -1,13 +1,13 @@
     .text
 strlen:
-    li      a5,0
+    li      t0,0
 .L2:
-    li      a6,0
-    lb      a7,0(a0)
-    beq     a6,a7,.L3
-    addiw   a5,a5,1
+    li      t1,0
+    lb      t2,0(a0)
+    beq     t1,t2,.L3
+    addiw   t0,t0,1
     addi    a0,a0,1
     j       .L2
 .L3:
-    mv      a0,a5
+    mv      a0,t0
     jr      ra
