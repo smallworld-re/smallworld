@@ -356,4 +356,30 @@ to continue:
 gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.c")
 ```
 
+We now see the following output from the malloc:
+
+```
+[!] malloc: Alloc'd 264 bytes at 0x20010
+[+] Storing 8 bytes at 0x20008
+[!]   Length field msg.hdr.c not known
+[+] 0x41ee6: WRITING 0x6010 - 0x6018 (msg.a)
+[+]   <BV64 0x20010>
+```
+
+Let's take this one line at a time:
+
+`malloc: Alloc'd 264 bytes at 0x20010`:  We assigned 0x1 to the length, so we know the struct is 264 bytes (the `malloc()` model would warn us if the length computation was more complex than "variable * magnitude".
+
+`  Length field msg.hdr.c not known`: We haven't told the `malloc()` model that it should track structs allocated using `msg.hdr.c`, or what they should look like.
+
+`0x41ee6: WRITING 0x6010 - 0x6018 (msg.a)`: The pointer to our new heap array is stored in `msg.a`, making `msg.hdr.c` the length of `msg.a`.
+
+Let's update our harness:
+
+```
+gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.a.len")
+...
+gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.msg.a.len")
+```
+
 
