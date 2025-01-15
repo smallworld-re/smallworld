@@ -66,6 +66,32 @@ class AngrMachineDef:
             )
         return self.angr_arch.registers[name]
 
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        """Compute successor states for this architecture
+
+        This allows a particular machine definition
+        to compensate for cases where the default
+        successor computation produces inaccurate results.
+
+        For the overwhelming majority of machine models,
+        the default should be sufficient.
+
+        The biggest case to date is to handle
+        user-defined operations in pcode.
+        These are treated as illegal ops by angr,
+        and there is currently no way to intercept their processing.
+
+        Arguments:
+            state: The angr state for which to compute successors
+            kwargs: See AngrObjectFactory.successors()
+
+        Returns:
+            The successor states of `state`.
+        """
+        if state.project is None:
+            raise exceptions.ConfigurationError("Angr state had no project.")
+        return state.project.factory.successors(state, **kwargs)
+
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
         """Find the appropriate MachineDef for your architecture

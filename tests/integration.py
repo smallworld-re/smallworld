@@ -353,6 +353,9 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
+    def test_dma_xtensa_angr(self):
+        self.run_test("xtensa.angr")
+
 
 class SquareTests(ScriptIntegrationTest):
     def test_basic(self):
@@ -509,6 +512,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
+    def test_square_xtensa_angr(self):
+        self.run_test("xtensa.angr")
+
 
 class RecursionTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -602,15 +608,18 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_call_ppc_angr(self):
+    def test_recursion_ppc_angr(self):
         self.run_test("ppc.angr")
 
     @unittest.skipUnless(pandare, "Panda support is optional")
-    def test_call_ppc_panda(self):
+    def test_recursion_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_call_ppc64_angr(self):
+    def test_recursion_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_xtensa_angr(self):
+        self.run_test("xtensa.angr")
 
 
 class BlockTests(ScriptIntegrationTest):
@@ -829,6 +838,9 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_ppc64_angr(self):
         self.run_test("ppc64.angr", reg="r3", res="0xffff")
 
+    def test_stack_xtensa(self):
+        self.run_test("xtensa.angr", reg="a2", res="0xaaaaaaaa")
+
 
 class StructureTests(ScriptIntegrationTest):
     def test_basic(self):
@@ -1001,6 +1013,9 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
 
+    def test_branch_xtensa_angr(self):
+        self.run_branch("xtensa.angr", reg="a2")
+
 
 class StrlenTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -1099,6 +1114,9 @@ class StrlenTests(ScriptIntegrationTest):
 
     def test_strlen_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_strlen_xtensa_angr(self):
+        self.run_test("xtensa.angr")
 
 
 class HookingTests(ScriptIntegrationTest):
@@ -1204,6 +1222,9 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
+    def test_hooking_xtensa_angr(self):
+        self.run_test("xtensa.angr")
+
 
 class ElfTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -1262,6 +1283,9 @@ class ElfTests(ScriptIntegrationTest):
 
     def test_elf_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_elf_xtensa_angr(self):
+        self.run_test("xtensa.angr")
 
 
 class FloatsTests(ScriptIntegrationTest):
@@ -1335,6 +1359,9 @@ class SyscallTests(ScriptIntegrationTest):
 
     def test_syscall_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_syscall_xtensa_angr(self):
+        self.run_test("xtensa.angr")
 
 
 class FuzzTests(ScriptIntegrationTest):
