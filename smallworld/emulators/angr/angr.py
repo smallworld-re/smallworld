@@ -354,6 +354,11 @@ class AngrEmulator(
             emu = ConcreteAngrEmulator(state, self)
             function(emu)
 
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
+
         bp = self.state.inspect.b(
             "instruction", when=angr.BP_BEFORE, action=hook_handler, instruction=address
         )
@@ -389,6 +394,11 @@ class AngrEmulator(
         def hook_handler(state):
             emu = ConcreteAngrEmulator(state, self)
             function(emu)
+
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
 
         self.state.scratch.global_insn_bp = self.state.inspect.b(
             "instruction", when=angr.BP_BEFORE, action=hook_handler
@@ -527,6 +537,11 @@ class AngrEmulator(
                 res = claripy.Reverse(res)
             state.inspect.mem_read_expr = res
 
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
+
         bp = self.state.inspect.b(
             "mem_read",
             when=angr.BP_AFTER,
@@ -577,6 +592,11 @@ class AngrEmulator(
                 # system produces the incorrect value in the machine state.
                 res = claripy.Reverse(res)
             state.inspect.mem_read_expr = res
+
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
 
         bp = self.state.inspect.b(
             "mem_read",
@@ -671,6 +691,11 @@ class AngrEmulator(
 
             function(ConcreteAngrEmulator(state, self), addr, size, value)
 
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
+
         bp = self.state.inspect.b(
             "mem_write",
             when=angr.BP_BEFORE,
@@ -731,6 +756,11 @@ class AngrEmulator(
                 )
 
             function(ConcreteAngrEmulator(state, self), addr, size, value)
+
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
 
         bp = self.state.inspect.b(
             "mem_write",
