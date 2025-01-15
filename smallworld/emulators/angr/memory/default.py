@@ -3,7 +3,7 @@ import angr
 from .memtrack import TrackerMemoryMixin
 
 
-class DefaultMemoryPlugin(
+class DefaultMemoryPlugin(  # type: ignore[misc]
     TrackerMemoryMixin, angr.storage.DefaultMemory
-):  # type: ignore[misc]
+):
     pass
