@@ -12,7 +12,12 @@ class RISCV64(cpu.CPU):
     )
 
     def get_general_purpose_registers(self) -> typing.List[str]:
-        return []
+        # - x0 is wired to zero
+        # - x1 is the link register
+        # - x2 is the stack pointer
+        # - x3 is the global pointer
+        # - x4 is the thread pointer
+        return [f"x{i}" for i in range(5, 32)]
 
     def __init__(self):
         super().__init__()
@@ -28,8 +33,6 @@ class RISCV64(cpu.CPU):
         self.add(self.x1)
         self.ra = state.RegisterAlias("ra", self.x1, 8, 0)
         self.add(self.ra)
-        self.lr = state.RegisterAlias("lr", self.x1, 8, 0)
-        self.add(self.lr)
         # x2 acts as the stack pointer
         self.x2 = state.Register("x2", 8)
         self.add(self.x2)
@@ -43,7 +46,7 @@ class RISCV64(cpu.CPU):
         # x4 acts as the thread pointer
         self.x4 = state.Register("x4", 8)
         self.add(self.x4)
-        self.tp = state.Register("tp", self.x4, 8, 0)
+        self.tp = state.RegisterAlias("tp", self.x4, 8, 0)
         self.add(self.tp)
         # x5 is a temporary register
         self.x5 = state.Register("x5", 8)
@@ -172,13 +175,13 @@ class RISCV64(cpu.CPU):
         self.add(self.t4)
         # x30 is a temporary register
         self.x30 = state.Register("x30", 8)
-        self.add(self.x0)
+        self.add(self.x30)
         self.t5 = state.RegisterAlias("t5", self.x30, 8, 0)
         self.add(self.t5)
         # x31 is a temporary register
         self.x31 = state.Register("x31", 8)
-        self.add(self.x1)
-        self.t6 = state.RegisterAlias("t6", self.x61, 8, 0)
+        self.add(self.x31)
+        self.t6 = state.RegisterAlias("t6", self.x31, 8, 0)
         self.add(self.t6)
 
         # *** Program Counter ***
@@ -239,43 +242,43 @@ class RISCV64(cpu.CPU):
         # f10 is argument 0
         self.f10 = state.Register("f10", 8)
         self.add(self.f10)
-        self.a0 = state.RegisterAlias("a0", self.f10, 8, 0)
-        self.add(self.a0)
+        self.fa0 = state.RegisterAlias("fa0", self.f10, 8, 0)
+        self.add(self.fa0)
         # f11 is argument 1
         self.f11 = state.Register("f11", 8)
         self.add(self.f11)
-        self.a1 = state.RegisterAlias("a1", self.f11, 8, 0)
-        self.add(self.a1)
+        self.fa1 = state.RegisterAlias("fa1", self.f11, 8, 0)
+        self.add(self.fa1)
         # f12 is argument 2
         self.f12 = state.Register("f12", 8)
         self.add(self.f12)
-        self.a2 = state.RegisterAlias("a2", self.f12, 8, 0)
-        self.add(self.a2)
+        self.fa2 = state.RegisterAlias("fa2", self.f12, 8, 0)
+        self.add(self.fa2)
         # f13 is argument 3
         self.f13 = state.Register("f13", 8)
         self.add(self.f13)
-        self.a3 = state.RegisterAlias("a3", self.f13, 8, 0)
-        self.add(self.a3)
+        self.fa3 = state.RegisterAlias("fa3", self.f13, 8, 0)
+        self.add(self.fa3)
         # f14 is argument 4
         self.f14 = state.Register("f14", 8)
         self.add(self.f14)
-        self.a4 = state.RegisterAlias("a4", self.f14, 8, 0)
-        self.add(self.a4)
+        self.fa4 = state.RegisterAlias("fa4", self.f14, 8, 0)
+        self.add(self.fa4)
         # f15 is argument 5
         self.f15 = state.Register("f15", 8)
         self.add(self.f15)
-        self.a5 = state.RegisterAlias("a5", self.f15, 8, 0)
-        self.add(self.a5)
+        self.fa5 = state.RegisterAlias("fa5", self.f15, 8, 0)
+        self.add(self.fa5)
         # f16 is argument 6
         self.f16 = state.Register("f16", 8)
         self.add(self.f16)
-        self.a6 = state.RegisterAlias("a6", self.f16, 8, 0)
-        self.add(self.a6)
+        self.fa6 = state.RegisterAlias("fa6", self.f16, 8, 0)
+        self.add(self.fa6)
         # f7 is argument 7
         self.f17 = state.Register("f17", 8)
         self.add(self.f17)
-        self.a7 = state.RegisterAlias("a7", self.f17, 8, 0)
-        self.add(self.a7)
+        self.fa7 = state.RegisterAlias("fa7", self.f17, 8, 0)
+        self.add(self.fa7)
         # f18 is a callee-saved register
         self.f18 = state.Register("f18", 8)
         self.add(self.f18)
@@ -309,17 +312,46 @@ class RISCV64(cpu.CPU):
         # f24 is a callee-saved register
         self.f24 = state.Register("f24", 8)
         self.add(self.f24)
+        self.fs8 = state.RegisterAlias("fs8", self.f24, 8, 0)
+        self.add(self.fs8)
+        # f25 is a callee-saved register
         self.f25 = state.Register("f25", 8)
         self.add(self.f25)
+        self.fs9 = state.RegisterAlias("fs9", self.f25, 8, 0)
+        self.add(self.fs9)
+        # f26 is a callee-saved register
         self.f26 = state.Register("f26", 8)
         self.add(self.f26)
+        self.fs10 = state.RegisterAlias("fs10", self.f26, 8, 0)
+        self.add(self.fs10)
+        # f27 is a callee-saved register
         self.f27 = state.Register("f27", 8)
         self.add(self.f27)
+        self.fs11 = state.RegisterAlias("fs11", self.f27, 8, 0)
+        self.add(self.fs11)
+        # f28 is a temporary register
         self.f28 = state.Register("f28", 8)
         self.add(self.f28)
+        self.ft8 = state.RegisterAlias("ft8", self.f28, 8, 0)
+        self.add(self.ft8)
+        # f29 is a temporary register
         self.f29 = state.Register("f29", 8)
         self.add(self.f29)
+        self.ft9 = state.RegisterAlias("ft9", self.f29, 8, 0)
+        self.add(self.ft9)
+        # f30 is a temporary register
         self.f30 = state.Register("f30", 8)
         self.add(self.f30)
+        self.ft10 = state.RegisterAlias("ft10", self.f30, 8, 0)
+        self.add(self.ft10)
+        # f31 is a temporary register
         self.f31 = state.Register("f31", 8)
         self.add(self.f31)
+        self.ft11 = state.RegisterAlias("ft11", self.f31, 8, 0)
+        self.add(self.ft11)
+
+        # *** Vector Registers ***
+        # NOTE: These exist, but are not supported
+
+        # *** Control and Status Registers ***
+        # NOTE: These exist, but aren't supported.
