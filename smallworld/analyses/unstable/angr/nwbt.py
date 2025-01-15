@@ -10,7 +10,7 @@ from .model import ModelMemoryMixin
 from .typedefs import TypeDefPlugin
 
 
-class NWBTMemoryPlugin(  # typing: ignore[misc]
+class NWBTMemoryPlugin(  # type: ignore[misc]
     DivergenceMemoryMixin,
     TrackerMemoryMixin,
     ModelMemoryMixin,
