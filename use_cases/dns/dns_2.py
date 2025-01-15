@@ -2,27 +2,25 @@ import logging
 import pathlib
 
 from field_analysis import FieldDetectionAnalysis
-from malloc import FreeModel, MallocModel
+from malloc import MallocModel
 
 import smallworld
 import smallworld.analyses.unstable.angr.visitor
 
-# Stage 2 DNS exploration: Next control field
+# Stage 1 DNS exploration: First Malloc
 #
-# We've determined that buf[4:6] is the length of an array,
-# since it's used to determine the argument to a malloc.
+# I've run through the process of parsing DNS headers
+# from the input buffer.
 #
-# Moving forward, our state forks a couple times,
-# with two live branches identifying different fields.
-# Analysis tells us the choice is likely controlled
-# by buf.a, either as a length or as a type code.
+# This will fail on the first call to malloc(),
+# since at least one of the header fields msg.hdr.c
+# is getting interpreted as a length.
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 log = logging.getLogger("smallworld")
-
 
 # Create a machine
 machine = smallworld.state.Machine()
@@ -35,7 +33,7 @@ with open(filepath, "rb") as f:
 
 # Apply the code's bounds to the machine
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound[0], bound[1])
 
 # Use the ELF's notion of the platform
 platform = code.platform
@@ -69,14 +67,13 @@ machine.add(heap)
 
 # Configure malloc and free models
 malloc = MallocModel(
-    0x1076, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
+    0x10000, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
 )
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
 
-free = FreeModel(0x1036)
-machine.add(free)
-machine.add_bound(free._address, free._address + 16)
+# Apply relocations to malloc
+code.update_symbol_value("malloc", malloc._address)
 
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
@@ -86,7 +83,7 @@ machine.add(gdata)
 # I cheated a bit; I know it's a nested struct
 gdata[0] = smallworld.state.EmptyValue(2, None, "msg.hdr.a")
 gdata[2] = smallworld.state.EmptyValue(2, None, "msg.hdr.b")
-gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.msg.a.len")
+gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.c")
 gdata[6] = smallworld.state.EmptyValue(2, None, "msg.hdr.d")
 gdata[8] = smallworld.state.EmptyValue(2, None, "msg.hdr.e")
 gdata[10] = smallworld.state.EmptyValue(2, None, "msg.hdr.f")
@@ -96,15 +93,13 @@ gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
 gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
 gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
 # Input buffer
-gdata[48] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.a")
-gdata[50] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.b")
-# NOTE: msg.a.len is interpreted as big-endian
-gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
-gdata[54] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.d")
-gdata[56] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.e")
-gdata[58] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.f")
-gdata[60] = smallworld.state.EmptyValue(1, None, "buf.a")
-gdata[61] = smallworld.state.EmptyValue(499, None, "buf")
+gdata[48] = smallworld.state.EmptyValue(2, None, "buf.a")
+gdata[50] = smallworld.state.EmptyValue(2, None, "buf.b")
+gdata[52] = smallworld.state.EmptyValue(2, None, "buf.c")
+gdata[54] = smallworld.state.EmptyValue(2, None, "buf.d")
+gdata[56] = smallworld.state.EmptyValue(2, None, "buf.e")
+gdata[58] = smallworld.state.EmptyValue(2, None, "buf.f")
+gdata[60] = smallworld.state.EmptyValue(500, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
 

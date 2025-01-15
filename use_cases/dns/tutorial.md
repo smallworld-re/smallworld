@@ -65,7 +65,6 @@ and that we roughly know its arguments from `main()`:
 Our goal for this exercise is to figure out the structure of argument 1,
 which we'll call `buf`, and argument 4, which we'll call `msg`.
 
-
 First, we set up some smallworld boilerplate.
 This configures logging, as well as the hinter
 that will let us see the output from our analysis. 
@@ -262,13 +261,99 @@ gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
 gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
 ```
 
-Some more iterations, and we start decoding both `buf` and `msg.unk-0x0`:
+Some more iterations, and we start decoding both `buf` and `msg.unk-0x0`,
+which I've decided to call `msg.hdr`, since I suspect it's the
+part of the struct representing the DNS header:
 
 ```
+gdata[0] = smallworld.state.EmptyValue(2, None, "msg.hdr.a")
+gdata[2] = smallworld.state.EmptyValue(2, None, "msg.hdr.b")
+gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.c")
+gdata[6] = smallworld.state.EmptyValue(2, None, "msg.hdr.d")
+gdata[8] = smallworld.state.EmptyValue(2, None, "msg.hdr.e")
+gdata[10] = smallworld.state.EmptyValue(2, None, "msg.hdr.f")
+# NOTE: 4 bytes of padding here; never referenced
+gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
+gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
+gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
+gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
+# Input buffer
+gdata[48] = smallworld.state.EmptyValue(2, None, "buf.a")
+gdata[50] = smallworld.state.EmptyValue(2, None, "buf.b")
+gdata[52] = smallworld.state.EmptyValue(2, None, "buf.c")
+gdata[54] = smallworld.state.EmptyValue(2, None, "buf.d")
+gdata[56] = smallworld.state.EmptyValue(2, None, "buf.e")
+gdata[58] = smallworld.state.EmptyValue(2, None, "buf.f")
+gdata[60] = smallworld.state.EmptyValue(500, None, "buf")
 ```
 
 You've now made it to the code contained in `dns_1.py`.
 
 # Adding malloc
+
+If we run `dns_1.py`, it terminates with the following message:
+
+```
+[!] State at 0x1076 is out of bounds
+```
+
+We loaded our ELF at 0x40000; something's way off.
+The last successful read was at 0x41ed2; let's look at what's in the code near there:
+
+```
+$> objdump -d -R ./bin/dns.amd64.elf
+...
+    1ed2:       0f b7 40 04             movzwl 0x4(%rax),%eax
+    1ed6:       48 69 f8 08 01 00 00    imul   $0x108,%rax,%rdi
+    1edd:       e8 8e f1 ff ff          call   1070 <malloc@plt>
+...
+```
+
+Ah, an external call.  That would do it.
+
+Now, we could just stub out `malloc()` and be done with it,
+but I want to know what's inside the heap-allocated buffers, too.
+Luckily, `FieldDetectionAnalysis` comes with a malloc model.
+Let's update our harness:
+
+```
+# Configure malloc and free models
+malloc = MallocModel(
+    0x10000, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
+)
+machine.add(malloc)
+machine.add_bound(malloc._address, malloc._address + 16)
+```
+
+This will invoke a function hook mimicking `malloc()` if we call address 0x10000.
+If we were in a raw binary, we'd have to do some manual patching
+to tell it where we put `malloc()`, but this is an ELF.
+Let's use the relocation entries to our advantage:
+
+```
+# Apply relocations to malloc
+code.update_symbol_value("malloc", malloc._address)
+```
+
+This brings us to `dns_2.py`.
+
+Running our script now gives us this error:
+
+```
+[*] Capacity did not collapse to one value
+[*] The following fields are lengths:
+[*]    msg.hdr.c_27_16
+[*] Concretize them to continue analysis
+```
+
+The analysis figured out that `msg.hdr.c`, loaded from `buf.c`,
+is used to determine the numbe of items allocated in our buffer.
+Unfortunately, the underlying analysis can't reason over
+an array of undefined size; we'll need to assign a concrete value to `msg.hdr.c`
+to continue:
+
+```
+gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.c")
+```
 
 
