@@ -7,3 +7,4 @@ Using SmallWorld
     emulators
     hinting
     analyses
+    platforms

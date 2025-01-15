@@ -4,13 +4,13 @@
 #
 #    pip-compile --extra=development --output-file=constraints.txt setup.py
 #
-ailment==9.2.79
+ailment==9.2.137
     # via angr
 alabaster==0.7.13
     # via sphinx
-angr==9.2.79
+angr==9.2.137
     # via smallworld (setup.py)
-archinfo==9.2.79
+archinfo==9.2.137
     # via
     #   angr
     #   pyvex
@@ -30,7 +30,7 @@ cachetools==5.3.2
     # via
     #   angr
     #   claripy
-capstone==5.0.0.post1
+capstone==5.0.3
     # via
     #   angr
     #   smallworld (setup.py)
@@ -44,9 +44,9 @@ cfgv==3.4.0
     # via pre-commit
 charset-normalizer==3.3.2
     # via requests
-claripy==9.2.79
+claripy==9.2.137
     # via angr
-cle==9.2.79
+cle==9.2.137
     # via angr
 click==8.1.7
     # via
@@ -131,7 +131,7 @@ ply==3.11
     # via cppheaderparser
 pre-commit==3.5.0
     # via smallworld (setup.py)
-protobuf==4.25.1
+protobuf==5.28.2
     # via angr
 psutil==5.9.6
     # via angr
@@ -149,13 +149,13 @@ pygments==2.17.2
     # via
     #   rich
     #   sphinx
-pypcode==2.1.0
+pypcode==3.0
     # via smallworld (setup.py)
 pyproject-hooks==1.0.0
     # via build
 pysmt==0.9.5
     # via claripy
-pyvex==9.2.79
+pyvex==9.2.137
     # via
     #   angr
     #   cle
@@ -216,7 +216,7 @@ virtualenv==20.24.7
     # via pre-commit
 wheel==0.42.0
     # via pip-tools
-z3-solver==4.10.2.0
+z3-solver==4.13.0.0
     # via claripy
 
 # The following packages are considered to be unsafe in a requirements file:

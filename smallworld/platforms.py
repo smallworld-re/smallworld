@@ -38,6 +38,8 @@ class Architecture(enum.Enum):
 
     RISCV64 = "riscv-64"
 
+    XTENSA = "xtensa"
+
 
 class Byteorder(enum.Enum):
     """Endianness."""

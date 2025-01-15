@@ -2,7 +2,7 @@ import ctypes
 import logging
 
 import claripy
-from angr.storage import MemoryMixin
+from angr.storage.memory_mixins.memory_mixin import MemoryMixin
 
 from .... import hinting
 from ....emulators.angr import PathTerminationSignal
