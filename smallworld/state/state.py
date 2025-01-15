@@ -441,6 +441,49 @@ class RegisterAlias(Register):
         pass
 
 
+class FixedRegister(Register):
+    """A Register that holds a fixed value, and should not be set.
+
+    A number of ISAs have registers hard-wired to zero.
+    It would be nice for the harness author to not have
+    to remember to set it each time.
+
+    Arguments:
+        name:   Name of the register
+        size:   Size of the register in bytes
+        value:  Fixed value of the register
+    """
+
+    def __init__(self, name, size=4, value=0):
+        super().__init__(name, size=size)
+        super().set_content(value)
+
+    def set_content(self, value: typing.Optional[typing.Any]):
+        raise exceptions.ConfigurationError(
+            "Register {self.name} is fixed; it cannot be set"
+        )
+
+    def get_label(self) -> typing.Optional[str]:
+        # Fixed registers cannot have labels
+        return None
+
+    def set_label(self, label: typing.Optional[str]) -> None:
+        # Fixed registers cannot have labels
+        pass
+
+    def get_type(self) -> typing.Optional[typing.Any]:
+        # Fixed registers do not have types
+        return None
+
+    def set_type(self, type: typing.Optional[typing.Any]) -> None:
+        # Fixed registers do not have types
+        pass
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        # Don't bother extracting content
+        pass
+
+
 class StatefulSet(Stateful, collections.abc.MutableSet):
     """A set that holds stateful objects. Applying or extracting the set performs the action of every member of the set."""
 
@@ -712,5 +755,6 @@ __all__ = [
     "EmptyValue",
     "Register",
     "RegisterAlias",
+    "FixedRegister",
     "Machine",
 ]

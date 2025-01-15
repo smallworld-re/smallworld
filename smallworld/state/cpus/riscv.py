@@ -23,7 +23,7 @@ class RISCV64(cpu.CPU):
         super().__init__()
         # *** General-Purpose Registers ***
         # x0 is wired to 0, and aliased as "zero"
-        self.x0 = state.Register("x0", 8)
+        self.x0 = state.FixedRegister("x0", 8, 0)
         self.add(self.x0)
         self.zero = state.RegisterAlias("zero", self.x0, 8, 0)
         self.add(self.zero)
