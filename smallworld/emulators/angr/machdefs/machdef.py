@@ -88,6 +88,8 @@ class AngrMachineDef:
         Returns:
             The successor states of `state`.
         """
+        if state.project is None:
+            raise exceptions.ConfigurationError("Angr state had no project.")
         return state.project.factory.successors(state, **kwargs)
 
     @classmethod
