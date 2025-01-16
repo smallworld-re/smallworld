@@ -4,19 +4,8 @@ import angr
 class SyscallHookProcedure(angr.SimProcedure):
     def run(self):
         # Get the syscall number
-        if hasattr(self.state.arch, "syscall_num_offset"):
-            off = self.state.arch.syscall_num_offset
-        elif self.state.arch.name == "MIPS64":
-            # Of _COURSE_ mips64 is the exception.
-            # It's v0, like mips32, but angr doesn't code this correctly.
-            off = 32
-        else:
-            raise NotImplementedError(
-                f"Syscalls not supported for {self.state.arch.name}"
-            )
+        number = self.cc.syscall_num(self.state)
 
-        size = self.state.arch.bytes
-        number = self.state.registers.load(off, size)
         if number.symbolic:
             raise NotImplementedError(f"Symbolic syscall number {number}")
         number = number.concrete_value
@@ -37,9 +26,20 @@ class SyscallHookProcedure(angr.SimProcedure):
 
 class HookableSimOS(angr.simos.simos.SimOS):
     def syscall(self, state, allow_unsupported=True):
+        SYSCALL_CC = angr.calling_conventions.SYSCALL_CC
+        arch_name = state.arch.name
+        os_name = state.os_name
+        if arch_name in SYSCALL_CC:
+            if os_name in SYSCALL_CC[arch_name]:
+                cc = SYSCALL_CC[arch_name][os_name](state.arch)
+            else:
+                cc = SYSCALL_CC[arch_name]["default"](state.arch)
+        else:
+            cc = None
+
         out = SyscallHookProcedure(
             project=self.project,
-            cc=None,
+            cc=cc,
             prototype=None,
             returns=None,
             is_syscall=True,

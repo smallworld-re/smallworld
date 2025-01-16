@@ -36,6 +36,10 @@ class Architecture(enum.Enum):
     ARM_V7R = "arm-v7r"
     ARM_V7A = "arm-v7a"
 
+    RISCV64 = "riscv-64"
+
+    XTENSA = "xtensa"
+
 
 class Byteorder(enum.Enum):
     """Endianness."""

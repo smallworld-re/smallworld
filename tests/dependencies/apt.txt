@@ -11,6 +11,7 @@ binutils-powerpc-linux-gnu
 binutils-powerpc64-linux-gnu
 binutils-riscv64-linux-gnu
 binutils-sparc64-linux-gnu
+binutils-xtensa-lx106
 gcc-aarch64-linux-gnu
 gcc-arm-linux-gnueabi
 gcc-arm-linux-gnueabihf

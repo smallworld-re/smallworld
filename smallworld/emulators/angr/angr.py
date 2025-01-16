@@ -355,8 +355,9 @@ class AngrEmulator(
             emu = ConcreteAngrEmulator(state, self)
             function(emu)
 
-            # An update to angr meant that some operations on `state`
-            # will clobber this variable.
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
             state.inspect.action_attrs_set = True
 
         bp = self.state.inspect.b(
@@ -395,8 +396,9 @@ class AngrEmulator(
             emu = ConcreteAngrEmulator(state, self)
             function(emu)
 
-            # An update to angr meant that some operations on `state`
-            # will clobber this variable.
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
             state.inspect.action_attrs_set = True
 
         self.state.scratch.global_insn_bp = self.state.inspect.b(
@@ -512,6 +514,7 @@ class AngrEmulator(
                         return False
                 else:
                     read_start = read_start.concrete_value
+                state.inspect.mem_read_address = read_start
             read_size = state.inspect.mem_read_length
 
             if read_size is None:
@@ -523,21 +526,6 @@ class AngrEmulator(
         def read_callback(state):
             # The breakpoint action.
             addr = state.inspect.mem_read_address
-            if not isinstance(addr, int):
-                if addr.symbolic:
-                    try:
-                        values = state.solver.eval_atmost(addr, 1)
-                        # Truly unbound address.
-                        # Assume it won't collapse to our hook address
-                        if len(values) < 1:
-                            return False
-                        addr = values[0]
-                    except angr.errors.SimUnsatError:
-                        return False
-                    except angr.errors.SimValueError:
-                        return False
-                else:
-                    addr = addr.concrete_value
             size = state.inspect.mem_read_length
 
             ret = function(ConcreteAngrEmulator(state, self), addr, size)
@@ -553,6 +541,11 @@ class AngrEmulator(
 
             # An update to angr meant that some operations on `state`
             # will clobber this variable.
+            state.inspect.action_attrs_set = True
+
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
             state.inspect.action_attrs_set = True
 
         bp = self.state.inspect.b(
@@ -624,6 +617,11 @@ class AngrEmulator(
             # will clobber this variable.
             state.inspect.action_attrs_set = True
 
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
+            state.inspect.action_attrs_set = True
+
         bp = self.state.inspect.b(
             "mem_read",
             when=angr.BP_AFTER,
@@ -674,31 +672,23 @@ class AngrEmulator(
                         return False
                 else:
                     write_start = write_start.concrete_value
+                # Populate concrete value back to the inspect struct
+                state.inspect.mem_write_address = write_start
+            log.info(f"Writing to {hex(write_start)}")
             write_size = state.inspect.mem_write_length
 
             if write_size is None:
-                return False
+                # Some ISAs don't populate mem_write_length.
+                # Infer length from value
+                write_size = len(state.inspect.mem_write_expr) // 8
+                # Populate concrete value back to the inspect struct
+                state.inspect.mem_write_length = write_size
             write_end = write_start + write_size
 
             return start <= write_start and end >= write_end
 
         def write_callback(state):
             addr = state.inspect.mem_write_address
-            if not isinstance(addr, int):
-                if addr.symbolic:
-                    try:
-                        values = state.solver.eval_atmost(addr, 1)
-                        # Truly unbound address.
-                        # Assume it won't collapse to our hook address
-                        if len(values) < 1:
-                            return False
-                        addr = values[0]
-                    except angr.errors.SimUnsatError:
-                        return False
-                    except angr.errors.SimValueError:
-                        return False
-                else:
-                    addr = addr.concrete_value
             size = state.inspect.mem_write_length
             expr = state.inspect.mem_write_expr
             if expr.symbolic:
@@ -723,10 +713,14 @@ class AngrEmulator(
                     size, byteorder=self.platform.byteorder.value
                 )
 
+            if size is None:
+                size = len(expr)
+
             function(ConcreteAngrEmulator(state, self), addr, size, value)
 
-            # An update to angr meant that some operations on `state`
-            # will clobber this variable.
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
             state.inspect.action_attrs_set = True
 
         bp = self.state.inspect.b(
@@ -803,8 +797,9 @@ class AngrEmulator(
 
             function(ConcreteAngrEmulator(state, self), addr, size, value)
 
-            # An update to angr meant that some operations on `state`
-            # will clobber this variable.
+            # An update to angr means some operations on `state`
+            # will clobber this variable, which causes bad problems.
+            # Unclobber it, just in case
             state.inspect.action_attrs_set = True
 
         bp = self.state.inspect.b(
@@ -839,9 +834,9 @@ class AngrEmulator(
         self._dirty = True
         if self._linear:
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
-                insns = self.state.block().disassembly.insns
-                if len(insns) > 0:
-                    log.info(f"Stepping through {insns[0]}")
+                disas = self.state.block(opt_level=0).disassembly
+                if disas is not None and len(disas.insns) > 0:
+                    log.info(f"Stepping through {disas.insns[0]}")
                 else:
                     # Capstone only supports a subset of the instructions supported by LibVEX.
                     # I can only disassemble what I can disassemble.
@@ -861,7 +856,11 @@ class AngrEmulator(
             num_inst = 1
         else:
             num_inst = None
-        self.mgr.step(num_inst=num_inst, thumb=self.machdef.is_thumb)
+        self.mgr.step(
+            num_inst=num_inst,
+            successor_func=self.machdef.successors,
+            thumb=self.machdef.is_thumb,
+        )
 
         # Test for exceptional states
         if len(self.mgr.errored) > 0:

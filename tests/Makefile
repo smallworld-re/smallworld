@@ -15,7 +15,7 @@ TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
-PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu)
+PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu xtensa-lx106-elf)
 
 # Custom start offset for MIPS64 and MIPS64EL
 # Panda currently runs binaries in the physical address space.
@@ -164,6 +164,11 @@ MIPS64_ELF_START=0x800000
 	powerpc64-linux-gnu-objcopy -O binary -j .text $*.ppc64.o $*.ppc64.bin
 	rm $*.ppc64.o
 
+%.riscv64.elf: %.riscv64.elf.s
+	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o
+	riscv64-linux-gnu-ld $*.riscv64.elf.o -o $*.riscv64.elf
+	rm $*.riscv64.elf.o
+
 %.riscv64.bin: %.riscv64.s
 	riscv64-linux-gnu-as $*.riscv64.s -o $*.riscv64.o
 	riscv64-linux-gnu-objcopy -O binary -j .text $*.riscv64.o $*.riscv64.bin
@@ -173,6 +178,16 @@ MIPS64_ELF_START=0x800000
 	sparc64-linux-gnu-as $*.sparc64.s -o $*.sparc64.o
 	sparc64-linux-gnu-objcopy -O binary -j .text $*.sparc64.o $*.sparc64.bin
 	rm $*.sparc64.o
+
+%.xtensa.bin: %.xtensa.s
+	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.s -o $*.xtensa.o
+	xtensa-lx106-elf-objcopy -O binary -j .text $*.xtensa.o $*.xtensa.bin
+	rm $*.xtensa.o    
+
+%.xtensa.elf: %.xtensa.elf.s
+	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.elf.s -o $*.xtensa.elf.o
+	xtensa-lx106-elf-ld $*.xtensa.elf.o -o $*.xtensa.elf
+	rm $*.xtensa.elf.o    
 
 all: prereqs build
 
