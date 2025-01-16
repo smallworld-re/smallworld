@@ -184,7 +184,7 @@ class MIPS64(cpu.CPU):
         self.add(self._27)
         # *** Pointer Registers ***
         # Zero register
-        self.zero = state.Register("zero", size=8)
+        self.zero = state.FixedRegister("zero", size=8, value=0)
         self.add(self.zero)
         self._0 = state.RegisterAlias("0", self.zero, size=8, offset=0)
         self.add(self._0)

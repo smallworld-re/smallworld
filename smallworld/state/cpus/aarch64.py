@@ -164,7 +164,7 @@ class AArch64(cpu.CPU):
         self.lr = state.RegisterAlias("lr", self.x30, 8, 0)
         self.add(self.lr)
         # *** Zero Register ***
-        self.xzr = state.Register("xzr", 8)
+        self.xzr = state.FixedRegister("xzr", 8, 0)
         self.add(self.xzr)
         self.wzr = state.RegisterAlias("wzr", self.xzr, 4, 0)
         self.add(self.wzr)

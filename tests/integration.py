@@ -353,6 +353,9 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
+    def test_dma_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
     def test_dma_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
@@ -512,6 +515,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
+    def test_square_riscv64_angr(self):
+        self.run_test("riscv64.angr", signext=True)
+
     def test_square_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
@@ -617,6 +623,9 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_recursion_riscv64_angr(self):
+        self.run_test("riscv64.angr")
 
     def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
@@ -838,6 +847,9 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_ppc64_angr(self):
         self.run_test("ppc64.angr", reg="r3", res="0xffff")
 
+    def test_stack_riscv64_angr(self):
+        self.run_test("riscv64.angr", reg="a0", res="0xffffffff")
+
     def test_stack_xtensa(self):
         self.run_test("xtensa.angr", reg="a2", res="0xaaaaaaaa")
 
@@ -1013,6 +1025,9 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
 
+    def test_branch_riscv64_angr(self):
+        self.run_branch("riscv64.angr", reg="a0")
+
     def test_branch_xtensa_angr(self):
         self.run_branch("xtensa.angr", reg="a2")
 
@@ -1114,6 +1129,9 @@ class StrlenTests(ScriptIntegrationTest):
 
     def test_strlen_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_strlen_riscv64_angr(self):
+        self.run_test("riscv64.angr")
 
     def test_strlen_xtensa_angr(self):
         self.run_test("xtensa.angr")
@@ -1222,6 +1240,9 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
+    def test_hooking_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
     def test_hooking_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
@@ -1284,6 +1305,9 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
+    def test_elf_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
     def test_elf_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
@@ -1319,6 +1343,12 @@ class FloatsTests(ScriptIntegrationTest):
         self.run_test("i386.angr")
 
     # NOTE: mips be crazy
+
+    # NOTE: No idea about PPC
+
+    # NOTE: I can't get the assembler to build riscv64 FPU code
+
+    # NOTE: xtensa has no FPU, so no tests
 
 
 class SyscallTests(ScriptIntegrationTest):
@@ -1359,6 +1389,9 @@ class SyscallTests(ScriptIntegrationTest):
 
     def test_syscall_ppc64_angr(self):
         self.run_test("ppc64.angr")
+
+    def test_syscall_riscv64_angr(self):
+        self.run_test("riscv64.angr")
 
     def test_syscall_xtensa_angr(self):
         self.run_test("xtensa.angr")
