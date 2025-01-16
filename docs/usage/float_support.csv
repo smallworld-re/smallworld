@@ -17,4 +17,5 @@ mips32,                     No,         No,         No Support
 mips64,                     No,         No,         No Support
 powerpc32,                  No,         No,         No Support
 powerpc64,                  No,         No Support, No Support
+riscv64,                    Untested,   No Support, No Support
 xtensa,                     No,         No Support, No Support

@@ -13,4 +13,5 @@ mips64r2-be,    **Yes**,    **Yes**,    No Support
 mips64r2-el,    **Yes**,    No,         No Support
 powerpc32,      **Yes**,    **Yes**,    No Support
 powerpc64,      **Yes**,    No,         No Support
+riscv64,        **Yes**,    No Support, No Support
 xtensa,         **Yes**,    No Support, No Support

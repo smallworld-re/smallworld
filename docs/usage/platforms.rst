@@ -37,6 +37,12 @@ Support for privileged operations is unknown.
 In mips64, the upper half of the address space is reserved for MMIO devices.
 Attempting to load state into this region will raise an exception.
 
+**riscv64:** The RISCV64 ISA is made up of an incredibly small core feature set,
+and a large number of extensions.  I can't get the assembler to build
+for some of the extensions, so I haven't tested anywhere near all of them.
+Also, the standards for this ISA are still being developed,
+so some things like the syscall convention are something of a guess.
+
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
 Our emulation support depends on Ghidra's hardware model,
@@ -77,4 +83,5 @@ A few notes:
 
 - SmallWorld's State interface doesn't have special handling for floating-point registers.  Encoding and decoding the floating point format is currently up to the user. 
 - Panda can probably emulate many of these, but it needs to be modified to expose the FPU registers.
-- Unicorn looks like it supports the mips32 FPU.  It does not.
+- Unicorn looks like it supports the mips32 FPU.  No one I've found has gotten it to work.
+

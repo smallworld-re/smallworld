@@ -483,6 +483,13 @@ class FixedRegister(Register):
         # Don't bother extracting content
         pass
 
+    def apply(self, emulator: emulators.Emulator) -> None:
+        try:
+            super().apply(emulator)
+        except exceptions.UnsupportedRegisterError:
+            # If the register isn't supported, that's okay
+            pass
+
 
 class StatefulSet(Stateful, collections.abc.MutableSet):
     """A set that holds stateful objects. Applying or extracting the set performs the action of every member of the set."""

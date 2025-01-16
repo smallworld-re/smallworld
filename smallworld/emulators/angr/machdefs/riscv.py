@@ -1,7 +1,53 @@
+import typing
+
+import angr
 import archinfo
 
 from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
+
+# angr has no default calling convention for RISCV64
+# Let's fix that.
+
+
+class SimCCRISCV64(angr.calling_conventions.SimCC):
+    ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"]
+    FP_ARG_REGS = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 8)
+    ARCH = archinfo.ArchRISCV64
+
+
+angr.calling_conventions.register_default_cc("RISCV64", SimCCRISCV64)
+
+# angr ALSO has no default syscall calling convention for RISCV64
+# Let's fix that
+
+
+class SimCCRISCV64LinuxSyscall(angr.calling_conventions.SimCCSyscall):
+    # Since the RISCV peeps don't seem to have written their kernel ABI,
+    # I RE'd the syscall convention from glibc.
+    # It looks like they use the same arg and return regs,
+    # except that they repurpose a7 as the syscall number.
+    ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5", "a6"]
+    FP_ARG_REGS: typing.List[str] = []
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ip_at_syscall", 4)
+    ARCH = archinfo.ArchRISCV64
+
+    @classmethod
+    def _match(cls, arch, args, sp_data):
+        # Never match; only occurs durring syscalls
+        return False
+
+    @staticmethod
+    def syscall_num(state):
+        return state.regs.a7
+
+
+angr.calling_conventions.register_syscall_cc(
+    "RISCV64", "default", SimCCRISCV64LinuxSyscall
+)
 
 
 class RISCV64MachineDef(AngrMachineDef):

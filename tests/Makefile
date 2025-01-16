@@ -123,6 +123,11 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	powerpc64-linux-gnu-objcopy -O binary -j .text $*.ppc64.o $*.ppc64.bin
 	rm $*.ppc64.o
 
+%.riscv64.elf: %.riscv64.elf.s
+	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o
+	riscv64-linux-gnu-ld $*.riscv64.elf.o -o $*.riscv64.elf
+	rm $*.riscv64.elf.o
+
 %.riscv64.bin: %.riscv64.s
 	riscv64-linux-gnu-as $*.riscv64.s -o $*.riscv64.o
 	riscv64-linux-gnu-objcopy -O binary -j .text $*.riscv64.o $*.riscv64.bin
