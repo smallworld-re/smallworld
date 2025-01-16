@@ -15,7 +15,8 @@ class SimCCRISCV64(angr.calling_conventions.SimCC):
     FP_ARG_REGS = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
     RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
     RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 8)
-    ARCH = archinfo.ArchRISCV64
+    # angr doesn't type this field correctly
+    ARCH = archinfo.ArchRISCV64  # type: ignore[assignment]
 
 
 angr.calling_conventions.register_default_cc("RISCV64", SimCCRISCV64)
@@ -33,7 +34,8 @@ class SimCCRISCV64LinuxSyscall(angr.calling_conventions.SimCCSyscall):
     FP_ARG_REGS: typing.List[str] = []
     RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
     RETURN_ADDR = angr.calling_conventions.SimRegArg("ip_at_syscall", 4)
-    ARCH = archinfo.ArchRISCV64
+    # angr doesn't type this field correctly
+    ARCH = archinfo.ArchRISCV64  # type: ignore[assignment]
 
     @classmethod
     def _match(cls, arch, args, sp_data):
