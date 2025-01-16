@@ -24,8 +24,6 @@ vuln:
     movk    x2, 0x1234, lsl 16
     str     x1, [x2]  
 .L3:
-    mov     x0, xzr
+    mov     x0, -1
 .L4:
     nop
-    
- 

@@ -1398,28 +1398,113 @@ class SyscallTests(ScriptIntegrationTest):
 
 
 class FuzzTests(ScriptIntegrationTest):
-    def test_fuzz(self):
-        stdout, _ = self.command("python3 fuzz/fuzz.amd64.py")
-        self.assertLineContainsStrings(stdout, "eax", "0x0")
+    def run_fuzz(self, arch: str):
+        stdout, _ = self.command(f"python3 fuzz/fuzz.{arch}.py")
+        self.assertLineContainsStrings(stdout, "=0x0")
 
-        _, stderr = self.command("python3 fuzz/fuzz.amd64.py -c")
+        _, stderr = self.command(f"python3 fuzz/fuzz.{arch}.py -c")
         self.assertLineContainsStrings(stderr, "UC_ERR_WRITE_UNMAPPED")
 
         # TODO panda on bad input doesnt fail atm
 
-    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
-    def test_fuzzing(self):
+    def run_afl(self, arch: str, lines):
         stdout, _ = self.command(
-            "afl-showmap -t 10000 -U -m none -o /dev/stdout -- python3 fuzz/afl_fuzz.py fuzz/fuzz_inputs/good_input",
+            f"afl-showmap -t 10000 -U -m none -o /dev/stdout -- python3 fuzz/afl_fuzz.{arch}.py fuzz/fuzz_inputs/good_input",
             error=False,
         )
-        self.assertLineContainsStrings(stdout, "001445:1")
-        self.assertLineContainsStrings(stdout, "003349:1")
-        self.assertLineContainsStrings(stdout, "014723:1")
-        self.assertLineContainsStrings(stdout, "032232:1")
-        self.assertLineContainsStrings(stdout, "032233:1")
-        self.assertLineContainsStrings(stdout, "032234:1")
-        self.assertLineContainsStrings(stdout, "040896:1")
+        for line in lines:
+            self.assertLineContainsStrings(stdout, line)
+
+    def test_fuzz_amd64(self):
+        self.run_fuzz("amd64")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_afl_amd64(self):
+        self.run_afl(
+            "amd64",
+            [
+                "001445:1",
+                "003349:1",
+                "014723:1",
+                "032232:1",
+                "032233:1",
+                "032234:1",
+                "040896:1",
+            ],
+        )
+
+    def test_fuzz_aarch64(self):
+        self.run_fuzz("aarch64")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_afl_aarch64(self):
+        self.run_afl(
+            "aarch64",
+            [
+                "002975:1",
+                "022192:1",
+                "039638:1",
+                "050871:1",
+            ],
+        )
+
+    def test_fuzz_armel(self):
+        self.run_fuzz("armel")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_afl_armel(self):
+        self.run_afl(
+            "armel",
+            [
+                "002975:1",
+                "022192:1",
+                "050871:1",
+            ],
+        )
+
+    def test_fuzz_armhf(self):
+        self.run_fuzz("armhf")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_afl_armhf(self):
+        self.run_afl(
+            "armhf",
+            [
+                "002975:1",
+                "022192:1",
+                "050871:1",
+            ],
+        )
+
+    def test_fuzz_mips(self):
+        self.run_fuzz("mips")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_afl_mips(self):
+        self.run_afl(
+            "mips",
+            [
+                "013057:1",
+                "022192:1",
+                "036571:1",
+                "052670:1",
+            ],
+        )
+
+    def test_fuzz_mipsel(self):
+        self.run_fuzz("mipsel")
+
+    @unittest.skipUnless(unicornafl, "afl++ must be installed from source")
+    def test_afl_mipsel(self):
+        self.run_afl(
+            "mipsel",
+            [
+                "013057:1",
+                "022192:1",
+                "036571:1",
+                "052670:1",
+            ],
+        )
 
 
 class DocumentationTests(unittest.TestCase):

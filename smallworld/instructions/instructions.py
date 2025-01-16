@@ -199,18 +199,17 @@ class Instruction(metaclass=abc.ABCMeta):
         specifications (i.e., in the form `base + scale * index + offset`).
         """
 
-        registers, _ = self._instruction.regs_access()
-
-        read: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r)) for r in registers]
-        )
+        read: typing.Set[Operand] = set()
 
         for operand in self._instruction.operands:
-            if (
-                operand.type == capstone.CS_OP_MEM
-                and operand.access & capstone.CS_AC_READ
+            if operand.type == capstone.CS_OP_MEM and (
+                not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
             ):
                 read.add(self._memory_reference(operand))
+            elif operand.type == capstone.CS_OP_REG and (
+                not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
+            ):
+                read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
 
         return read
 
@@ -221,18 +220,17 @@ class Instruction(metaclass=abc.ABCMeta):
         Same format as `reads`.
         """
 
-        _, registers = self._instruction.regs_access()
-
-        write: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r)) for r in registers]
-        )
+        write: typing.Set[Operand] = set()
 
         for operand in self._instruction.operands:
-            if (
-                operand.type == capstone.CS_OP_MEM
-                and operand.access & capstone.CS_AC_WRITE
+            if operand.type == capstone.CS_OP_MEM and (
+                not hasattr(operand, "access") or operand.access & capstone.CS_AC_WRITE
             ):
                 write.add(self._memory_reference(operand))
+            elif operand.type == capstone.CS_OP_REG and (
+                not hasattr(operand, "access") or operand.access & capstone.CS_AC_WRITE
+            ):
+                write.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
 
         return write
 
