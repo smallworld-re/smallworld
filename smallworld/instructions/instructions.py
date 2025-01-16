@@ -116,18 +116,6 @@ class Instruction(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def arch(self) -> str:
-        """Printable architecture name"""
-        return ""
-
-    @property
-    @abc.abstractmethod
-    def mode(self) -> str:
-        """Printable mode name"""
-        return ""
-
-    @property
-    @abc.abstractmethod
     def angr_arch(self) -> str:
         """angr architecture ID"""
         return ""
@@ -269,4 +257,4 @@ class Instruction(metaclass=abc.ABCMeta):
     def __repr__(self) -> str:
         string = f"{self._instruction.mnemonic} {self._instruction.op_str}".strip()
 
-        return f"{self.__class__.__name__}(0x{self.address:x}: {string}; {self.arch}, {self.mode})"
+        return f"{self.__class__.__name__}(0x{self.address:x}: {string})"
