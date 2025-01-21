@@ -7,8 +7,6 @@ from .instructions import Instruction, MemoryReferenceOperand, Operand, Register
 
 
 class x86Instruction(Instruction):
-    arch = "x86"
-    mode = "32"
     word_size = 4
     angr_arch = "X86"
     cs_arch = capstone.CS_ARCH_X86
@@ -96,7 +94,6 @@ class x86Instruction(Instruction):
 
 
 class AMD64Instruction(x86Instruction):
-    mode = "64"
     angr_arch = "AMD64"
     cs_mode = capstone.CS_MODE_64
     sp = "rsp"
