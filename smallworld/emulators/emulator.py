@@ -282,6 +282,25 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         self.write_memory_content(address, content)
 
+    def write_code(self, address: int, content: bytes) -> None:
+        """Write executable memory at a specific address.
+
+        Implementations can take advantage of this
+        if they store code and memory differently.
+
+        Otherwise, it should be identical to `write_memory()`.
+
+        Note:
+            Written memory should already be mapped by some call to
+            `map_memory()`.
+
+        Arguments:
+            address: The address of the memory region.
+            content: The content to write.
+
+        """
+        self.write_memory_content(address, content)
+
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         """Get a list of all registered execution bounds.
 

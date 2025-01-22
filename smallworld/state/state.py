@@ -500,7 +500,6 @@ class StatefulSet(Stateful, collections.abc.MutableSet):
 
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            # logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
