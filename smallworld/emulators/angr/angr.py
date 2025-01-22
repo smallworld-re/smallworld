@@ -336,6 +336,10 @@ class AngrEmulator(
 
     def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
         if not self._initialized and content is not None:
+            if name == "pc":
+                name = self.machdef.pc_reg
+            # Test that the angr register exists
+            _, _ = self.machdef.angr_reg(name)
             self._register_contents[name] = content
         elif self._dirty and not self._linear:
             raise NotImplementedError(
@@ -365,6 +369,10 @@ class AngrEmulator(
         if label is None:
             return
         elif not self._initialized:
+            if name == "pc":
+                name = self.machdef.pc_reg
+            # Test that the angr register exists
+            _, _ = self.machdef.angr_reg(name)
             self._register_labels[name] = label
         elif self._dirty and not self._linear:
             raise NotImplementedError(
@@ -704,7 +712,7 @@ class AngrEmulator(
             def syscall_handler(state, number: int):
                 function(ConcreteAngrEmulator(state, self), number)
 
-        self.state.scratch.global_syscall_func = syscall_handler
+            self.state.scratch.global_syscall_func = syscall_handler
 
     def unhook_syscalls(self) -> None:
         if self._dirty and not self._linear:
