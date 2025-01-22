@@ -716,6 +716,9 @@ class Machine(StatefulSet):
         """
         return [i for i in self if issubclass(type(i), state.cpus.cpu.CPU)]
 
+    def get_elfs(self):
+        return [i for i in self if issubclass(type(i), state.memory.ElfExecutable)]
+
     def get_platforms(self):
         """Gets a set of platforms for the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine.
 
@@ -739,6 +742,12 @@ class Machine(StatefulSet):
             raise exceptions.ConfigurationError("You have more than one CPU")
         return cpus[0]
 
+    def get_elf(self):
+        elfs = self.get_elfs()
+        if len(elfs) != 1:
+            raise exceptions.ConfigurationError("You have more than one ELF")
+        return elfs[0]
+
     def get_platform(self):
         """Gets the platform of the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine. Throws an exception if the machine has more than one.
 
@@ -752,6 +761,25 @@ class Machine(StatefulSet):
         if len(platforms) != 1:
             raise exceptions.ConfigurationError("You have more than one platform")
         return platforms.pop()
+
+    def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
+        """Read bytes out of memory if available.
+
+        Arguments:
+            address: start address of read.
+            size: number of bytes to read.
+
+        Returns:
+            the bytes read, or None if unavailable.
+        """
+        for m in self:
+            if issubclass(type(m), state.memory.Memory):
+                for po, v in m.items():
+                    if m.address + po <= address <= m.address + po + v._size:
+                        c = m[po].get()
+                        o = address - (m.address + po)
+                        return c[o : o + size]
+        return None
 
 
 __all__ = [
