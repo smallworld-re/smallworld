@@ -66,12 +66,20 @@ class Memory(state.Stateful, dict):
         if (self.get_used() + value.get_size()) > self.get_capacity():
             raise ValueError("Stack is full")
 
+    def _write_content(
+        self, emulator: emulators.Emulator, address: int, content: bytes
+    ):
+        # Internal stub; makes it easy for Code to switch to write_code()
+        emulator.write_memory_content(address, content)
+
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.map_memory(self.address, self.get_capacity())
         for offset, value in self.items():
             if not isinstance(value, state.EmptyValue):
-                emulator.write_memory_content(
-                    self.address + offset, value.to_bytes(emulator.platform.byteorder)
+                self._write_content(
+                    emulator,
+                    self.address + offset,
+                    value.to_bytes(emulator.platform.byteorder),
                 )
             if value.get_type() is not None:
                 emulator.write_memory_type(
@@ -121,7 +129,9 @@ class RawMemory(Memory):
         return memory
 
     @classmethod
-    def from_file(cls, file: typing.BinaryIO, address: int, label: str = "memory"):
+    def from_file(
+        cls, file: typing.BinaryIO, address: int, label: typing.Optional[str] = None
+    ):
         """Load from an open file-like object.
 
         Arguments:

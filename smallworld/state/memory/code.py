@@ -1,5 +1,6 @@
 import typing
 
+from ... import emulators
 from . import memory
 
 
@@ -13,6 +14,11 @@ class Executable(memory.RawMemory):
         This is not used by Emulators - but is available for reference from
         file parsing, if supported.
     """
+
+    def _write_content(
+        self, emulator: emulators.Emulator, address: int, content: bytes
+    ):
+        emulator.write_code(address, content)
 
     @classmethod
     def from_elf(cls, file: typing.BinaryIO, address: typing.Optional[int] = None):
