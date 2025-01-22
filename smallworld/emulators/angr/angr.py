@@ -1197,7 +1197,7 @@ class AngrEmulator(
         self._linear = True
         log.warn("Linear execution mode enabled")
 
-    def get_code_bounds(self) -> typing.List[typing.Tuple[int, int]]:
+    def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         if not self._initialized:
             return list(self._code_bounds)
 
@@ -1266,7 +1266,10 @@ class AngrEmulator(
             self.state.scratch.exit_points.remove(address)
 
     def __repr__(self):
-        return f"Angr ({self.mgr})"
+        if self._initialized:
+            return f"Angr ({self.mgr})"
+        else:
+            return "Angr (Uninitialized)"
 
 
 class ConcreteAngrEmulator(AngrEmulator):
