@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import bisect
 import inspect
+import io
 import typing
 
 
@@ -262,9 +263,11 @@ class RangeCollection:
 
         # Handle the case where the range falls directly to the left of the idx
         if i > 0 and start <= self.ranges[i - 1][1]:
+            print(f"Derp: {arange} vs {self.ranges[i - 1]}")
             i -= 1
             start = min(start, self.ranges[i][0])
             end = max(end, self.ranges[i][1])
+            print(f"({start},{end})")
 
         # Now make the new range be everything up until where things changed
         new_ranges.extend(self.ranges[:i])
@@ -284,3 +287,143 @@ class RangeCollection:
         self.ranges = new_ranges
 
         return
+
+
+class SparseIO(io.BufferedIOBase):
+    """Sparse memory-backed IO stream object
+
+    BytesIO requires a contiguous bytes object.
+    If you have a large, sparse memory image,
+    it will gladly OOM your analysis.
+
+    This uses the same algorithms as RangeCollection
+    to maintain a non-contiguous set of byte arrays.
+    Any data outside those ranges is assumed to be zero.
+
+    This is used by AngrEmulator to load programs,
+    and makes it possible to load sparse memory images
+    covering large swaths of the address space into CLE.
+    """
+
+    def __init__(self):
+        self._ranges = list()
+        self._data = list()
+        self._pos = 0
+
+    def seekable(self):
+        return True
+
+    def readable(self):
+        return True
+
+    def writable(self):
+        return True
+
+    def seek(self, pos, whence=0):
+        if not isinstance(pos, int):
+            raise TypeError(f"pos must be an int; got a {type(pos)}")
+
+        if not isinstance(whence, int):
+            raise TypeError(f"whence must be an int; got a {type(whence)}")
+
+        if whence < 0 or whence > 2:
+            raise ValueError(f"Invalid whence {whence}")
+
+        if whence == 0:
+            # Relative to start of file
+            self._pos = pos
+        elif whence == 1:
+            self._pos += pos
+        else:
+            self._pos = self._ranges[-1][1] + pos
+
+    def read(self, size=-1):
+        if size < 0:
+            size = self._ranges[-1][1] - self._pos
+
+        start = self._pos
+        end = start + size
+
+        data = b""
+
+        for i, (ostart, oend) in enumerate(self._ranges):
+            odata = self._data[i]
+            if oend < start:
+                continue
+            if ostart > end:
+                break
+
+            if ostart > start:
+                data += b"\x00" * (ostart - start)
+                start = ostart
+            a = start - ostart
+            b = end - ostart
+
+            tmp = odata[a:b]
+            data += tmp
+            start += len(tmp)
+
+        if len(data) < size:
+            data += b"\x00" * (size - len(data))
+
+        self._pos += size
+        return data
+
+    def read1(self, size=-1):
+        return self.read(size=size)
+
+    def write(self, data):
+        # This should look very familiar.
+        start = self._pos
+        end = self._pos + len(data)
+        arange = (start, end)
+
+        i = bisect.bisect_left(self._ranges, arange)
+        new_ranges = []
+        new_data = []
+        # Handle the case where the range falls directly to the left of the idx
+        if i > 0 and start <= self._ranges[i - 1][1]:
+            i -= 1
+            odata = self._data[i]
+            ostart, oend = self._ranges[i]
+
+            if start <= ostart:
+                a = end - ostart
+                data = data + odata[a:]
+            else:
+                a = start - ostart
+                b = end - ostart
+                data = odata[:a] + data + odata[b:]
+
+            start = min(start, ostart)
+            end = max(end, oend)
+
+        new_ranges.extend(self._ranges[:i])
+        new_data.extend(self._data[:i])
+
+        while i < len(self._ranges) and self._ranges[i][0] <= end:
+            odata = self._data[i]
+            ostart, oend = self._ranges[i]
+
+            if start <= ostart:
+                a = end - ostart
+                data = data + odata[a:]
+            else:
+                a = start - ostart
+                b = end - ostart
+                data = odata[:a] + data + odata[b:]
+
+            start = min(start, ostart)
+            end = max(end, oend)
+            i += 1
+
+        new_ranges.append((start, end))
+        new_data.append(data)
+
+        new_ranges.extend(self._ranges[i:])
+        new_data.extend(self._data[i:])
+
+        self._ranges = new_ranges
+        self._data = new_data
+
+        self._pos = end
