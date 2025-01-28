@@ -1,9 +1,13 @@
+import logging
 import typing
 
 from ..emulators import AngrEmulator
+from ..exceptions import EmulationStop
 from ..platforms import Platform
 from ..state import Machine
 from .analysis import Analysis
+
+log = logging.getLogger(__name__)
 
 
 class ForcedExecution(Analysis):
@@ -19,11 +23,13 @@ class ForcedExecution(Analysis):
         emulator = AngrEmulator(self.platform)
         emulator.enable_linear()
         machine.apply(emulator)
-
-        for ip in self.trace:
-            emulator.write_register_content("pc", ip)
-            emulator.step()
-
-        # TODO: What do we want to do after
-        # TODO: Handle non-graceful exits
-        emulator.state.registers.pp(print)
+        emulator.initialize()
+        try:
+            for ip in self.trace:
+                emulator.write_register_content("eip", ip)
+                emulator.state.registers.pp(log.info)
+                emulator.step()
+        except EmulationStop:
+            for s in emulator.mgr.active:
+                log.info(s.solver.constraints)
+                emulator.state.registers.pp(log.info)

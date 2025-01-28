@@ -97,6 +97,8 @@ class I386(cpu.CPU):
         # *** Segment Registers ***
         self.cs = state.Register("cs", 2)
         self.add(self.cs)
+        self.ss = state.Register("ss", 2)
+        self.add(self.ss)
         self.ds = state.Register("ds", 2)
         self.add(self.ds)
         self.es = state.Register("es", 2)

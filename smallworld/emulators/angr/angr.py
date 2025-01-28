@@ -157,12 +157,10 @@ class AngrEmulator(
 
         # Create an angr project using a blank byte stream,
         # and registered as self-modifying so we can load more code later.
-        options = {
-            "arch": self.machdef.angr_arch,
-            "backend": "blob",
-            "segments": segments,
-        }
-        loader = cle.Loader(code, main_opts=options)
+        backend = cle.Blob(
+            None, code, is_main_bin=True, arch=self.machdef.angr_arch, segments=segments
+        )
+        loader = cle.Loader(backend)
         self.proj: angr.Project = angr.Project(
             loader,
             engine=self.machdef.angr_engine,

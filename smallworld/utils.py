@@ -263,11 +263,9 @@ class RangeCollection:
 
         # Handle the case where the range falls directly to the left of the idx
         if i > 0 and start <= self.ranges[i - 1][1]:
-            print(f"Derp: {arange} vs {self.ranges[i - 1]}")
             i -= 1
             start = min(start, self.ranges[i][0])
             end = max(end, self.ranges[i][1])
-            print(f"({start},{end})")
 
         # Now make the new range be everything up until where things changed
         new_ranges.extend(self.ranges[:i])
