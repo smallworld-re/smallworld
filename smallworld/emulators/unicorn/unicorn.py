@@ -407,13 +407,13 @@ class UnicornEmulator(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:
         super(UnicornEmulator, self).hook_instruction(address, function)
-        self.map_memory(self.PAGE_SIZE, address)
+        self.map_memory(address, self.PAGE_SIZE)
 
     def hook_function(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:
         super(UnicornEmulator, self).hook_function(address, function)
-        self.map_memory(self.PAGE_SIZE, address)
+        self.map_memory(address, self.PAGE_SIZE)
 
     def _disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
