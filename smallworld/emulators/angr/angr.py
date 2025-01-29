@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import io
 import logging
 import typing
 
@@ -8,7 +7,7 @@ import angr
 import claripy
 import cle
 
-from ... import exceptions, platforms
+from ... import exceptions, platforms, utils
 from .. import emulator
 from .default import configure_default_plugins, configure_default_strategy
 from .factory import PatchedObjectFactory
@@ -145,30 +144,23 @@ class AngrEmulator(
         # Build a single, coherent byte stream out of our code
         self._code.sort(key=lambda x: x[0])
 
-        code = b""
+        code = utils.SparseIO()
         segments = list()
 
         if len(self._code) > 0:
             base_address = self._code[0][0]
-            last_address = base_address
             for addr, data in self._code:
-                log.info("Code at {hex(addr)}")
-                if addr > last_address:
-                    code += b"\x00" * (addr - last_address)
                 size = len(data)
+                code.seek(addr - base_address)
+                code.write(data)
                 segments.append((addr - base_address, addr, size))
-                code += data
-                last_address = addr + size
 
         # Create an angr project using a blank byte stream,
         # and registered as self-modifying so we can load more code later.
-        options = {
-            "arch": self.machdef.angr_arch,
-            "backend": "blob",
-            "segments": segments,
-        }
-        stream = io.BytesIO(code)
-        loader = cle.Loader(stream, main_opts=options)
+        backend = cle.Blob(
+            None, code, is_main_bin=True, arch=self.machdef.angr_arch, segments=segments
+        )
+        loader = cle.Loader(backend)
         self.proj: angr.Project = angr.Project(
             loader,
             engine=self.machdef.angr_engine,

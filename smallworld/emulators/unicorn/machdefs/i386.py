@@ -54,6 +54,7 @@ class i386MachineDef(UnicornMachineDef):
         "ip": (unicorn.x86_const.UC_X86_REG_IP, "eip", 2, 0),
         # *** Segment Registers ***
         "cs": (unicorn.x86_const.UC_X86_REG_CS, "cs", 2, 0),
+        "ss": (unicorn.x86_const.UC_X86_REG_SS, "ss", 2, 0),
         "ds": (unicorn.x86_const.UC_X86_REG_DS, "ds", 2, 0),
         "es": (unicorn.x86_const.UC_X86_REG_ES, "es", 2, 0),
         "fs": (unicorn.x86_const.UC_X86_REG_FS, "fs", 2, 0),

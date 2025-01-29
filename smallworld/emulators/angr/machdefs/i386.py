@@ -70,9 +70,9 @@ class i386MachineDef(AngrMachineDef):
         "dr6": "",
         "dr7": "",
         # *** Descriptor Table Registers ***
-        "gdtr": "",
-        "idtr": "",
-        "ldtr": "",
+        "gdtr": "gdt",
+        "idtr": "idt",
+        "ldtr": "ldt",
         # *** Task Register ***
         "tr": "",
         # *** x87 Registers ***
