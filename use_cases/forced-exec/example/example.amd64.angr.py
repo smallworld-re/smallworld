@@ -1,6 +1,7 @@
 import logging
 
 import smallworld
+import smallworld.analyses.forced_exec
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -26,5 +27,5 @@ machine.add(code)
 
 
 ips = [0x1007, 0x101C, 0x100E]
-analysis = smallworld.analyses.ForcedExecution(platform, ips)
+analysis = smallworld.analyses.forced_exec.ForcedExecution(platform, ips)
 analysis.run(machine)
