@@ -254,6 +254,12 @@ class CallTests(ScriptIntegrationTest):
     def test_call_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
+    def test_call_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    def test_call_xtensa_angr(self):
+        self.run_test("xtensa.angr")
+
 
 class DMATests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):

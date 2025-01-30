@@ -3,6 +3,8 @@ from __future__ import annotations
 import abc
 import typing
 
+import claripy
+
 from .. import platforms, utils
 
 
@@ -29,9 +31,26 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         Returns:
             The register's content.
+
+        Raises:
+            SymbolicValueError: If the register contains a non-collapsible symbolic value
         """
 
         return 0
+
+    def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
+        """Read the content of a register, allowing symbolic output.
+
+        If the implementation of read_register_content()
+        raises SymbolicValueError, this must be implemented.
+
+        Arguments:
+            name: The name of the register
+
+        Returns:
+            The register's content as a z3 expression
+        """
+        raise NotImplementedError("This emulator does not support symbolic values")
 
     def read_register_type(self, name: str) -> typing.Optional[typing.Any]:
         """Read the type of a register.
@@ -78,12 +97,17 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.read_register_content(name)
 
     @abc.abstractmethod
-    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
+    def write_register_content(
+        self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
+    ) -> None:
         """Write some content to a register.
 
         Arguments:
             name: The name of the register to write.
             content: The content to write.
+
+        Raises:
+            SymbolicValueError: If content is a bitvector expression, and this emulator doesn't support them.
         """
 
         pass
@@ -122,12 +146,17 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         pass
 
-    def write_register(self, name: str, content: int) -> None:
+    def write_register(
+        self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
+    ) -> None:
         """A helper to write the content of a register.
 
         Arguments:
             name: The name of the register.
             content: The content to write.
+
+        Raises:
+            TypeError: If content is a BV, and this emulator cannot handle bitvector expressions
         """
 
         return self.write_register_content(name, content)
@@ -142,9 +171,27 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         Returns:
             `size` bytes read from `address`
+
+        Raises:
+            SymbolicValueError:  If the memory range contains a non-collapsible symbolic value
         """
 
         return b""
+
+    def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
+        """Read memory content from a specific address as a symbolic expression.
+
+        If the implementation of read_register_content()
+        raises SymbolicValueError, this must be implemented.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
+
+        Returns:
+            A z3 expression of `size * 8` bits read from `address`
+        """
+        raise NotImplementedError("This emulator does not support symbolic values")
 
     def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
         """Read memory type from a specific address.
@@ -189,6 +236,9 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         Returns:
             `size` bytes read from `address`.
+
+        Raises:
+            SymbolicValueError:  If the memory range contains a non-collapsible symbolic value
         """
 
         return self.read_memory_content(address, size)
@@ -218,7 +268,9 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return []
 
     @abc.abstractmethod
-    def write_memory_content(self, address: int, content: bytes) -> None:
+    def write_memory_content(
+        self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
+    ) -> None:
         """Write content to memory at a specific address.
 
         Note:
@@ -228,6 +280,9 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         Arguments:
             address: The address of the memory region.
             content: The content to write.
+
+        Raises:
+            TypeError: If content is a BV, and this emulator can't handle them
         """
 
         pass
@@ -268,7 +323,9 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         pass
 
-    def write_memory(self, address: int, content: bytes) -> None:
+    def write_memory(
+        self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
+    ) -> None:
         """A helper to write content to memory at a specific address.
 
         Note:
@@ -278,6 +335,9 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         Arguments:
             address: The address of the memory region.
             content: The content to write.
+
+        Raises:
+            SymbolicValueError: If `content` is a bitvector expression, and this emulator doesn't support them.
         """
 
         self.write_memory_content(address, content)
@@ -536,9 +596,9 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
         self,
         start: int,
         end: int,
-        function: typing.Callable[[Emulator, int, int], bytes],
+        function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
-        """Hook memory reads within a given range.
+        """Hook memory reads within a given range, handling concrete values
 
         Arguments:
             start: The start address of the memory range to hook.
@@ -548,11 +608,54 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
         Example:
             The hook function looks like::
 
-                def hook(emulator: Emulator, address: int, size: int) -> None:
+                def hook(
+                    emulator: Emulator,
+                    address: int,
+                    size: int,
+                    content: bytes
+                ) -> bytes:
+                    # "content" represents the information the emulator would have fetched.
+                    # The return value is what should be reported to the emulator.
+                    # If return is "None", the original value of "content" will be reported.
                     ...
+
         """
 
         pass
+
+    def hook_memory_read_symbolic(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[
+            [Emulator, int, int, claripy.ast.bv.BV], typing.Optional[claripy.ast.bv.BV]
+        ],
+    ) -> None:
+        """Hook memory reads within a given range, handling symbolic values
+
+        Arguments:
+            start: The start address of the memory range to hook.
+            end: The end address of the memory range to hook.
+            function: The function to execute when the memory region is read.
+
+        Raises:
+            NotImplementedError: If this emulator doesn't support symbolic operations
+
+        Example:
+            The hook function looks like::
+
+                def hook(
+                    emulator: Emulator,
+                    address: int,
+                    size: int,
+                    content: claripy.ast.bv.BV
+                ) -> typing.Optional[claripy.ast.bv.BV]:
+                    # "content" represents the information the emulator would have fetched.
+                    # The return value is what should be reported to the emulator.
+                    # If return is "None", the original value of "content" will be reported.
+                    ...
+        """
+        raise NotImplementedError("This emulator doesn't support symbolic operations")
 
     @abc.abstractmethod
     def unhook_memory_read(self, start: int, end: int) -> None:
@@ -567,13 +670,59 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def hook_memory_reads(
-        self, function: typing.Callable[[Emulator, int, int], bytes]
+        self,
+        function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
+        """Hook all memory reads, handling concrete values
+
+        Arguments:
+            function: The function to execute when the memory region is read.
+
+        Example:
+            The hook function looks like::
+
+                def hook(
+                    emulator: Emulator,
+                    address: int,
+                    size: int,
+                    data: bytes
+                ) -> typing.Optional[bytes]:
+                    # "data" represents the information the emulator would have fetched.
+                    # The return value is what should be reported to the emulator.
+                    # If return is "None", the original value of "content" will be reported.
+                    ...
+        """
         pass
+
+    def hook_memory_reads_symbolic(
+        self,
+        function: typing.Callable[
+            [Emulator, int, int, claripy.ast.bv.BV], typing.Optional[claripy.ast.bv.BV]
+        ],
+    ) -> None:
+        """Hook all memory reads, handling concrete values
+
+        Arguments:
+            function: The function to execute when the memory region is read.
+
+        Example:
+            The hook function looks like::
+
+                def hook(
+                    emulator: Emulator,
+                    address: int,
+                    size: int,
+                    content: claripy.ast.bv.BV
+                ) -> typing.Optional[claripy.ast.bv.BV]:
+                    # "data" represents the data fetched by the emulator
+                    # The return value is what should be reported to the guest
+                    ...
+        """
+        raise NotImplementedError("This emulator doesn't support symbolic operations")
 
     @abc.abstractmethod
     def unhook_memory_reads(self) -> None:
-        """Unhook all system interrupts."""
+        """Unhook any 'all reads' handlers"""
 
         pass
 
@@ -588,7 +737,7 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
         end: int,
         function: typing.Callable[[Emulator, int, int, bytes], None],
     ) -> None:
-        """Hook memory writes within a given range.
+        """Hook memory writes within a given range, handling concrete values.
 
         Arguments:
             start: The start address of the memory range to hook.
@@ -599,10 +748,38 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
             The hook function looks like::
 
                 def hook(emulator: Emulator, address: int, size: int, content: bytes) -> None:
+                    # "content" is the value written by the guest.
+                    # Hooks are responsible for completing the write to the emulator's state
                     ...
         """
 
         pass
+
+    def hook_memory_write_symbolic(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
+    ) -> None:
+        """Hook memory writes within a given range, handling symbolic values
+
+        Arguments:
+            start: The start address of the memory range to hook.
+            end: The end address of the memory range to hook.
+            function: The function to execute when the memory region is written.
+
+        Raises:
+            NotImplementedError: If this emulator doesn't support symbolic operations
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator, address: int, size: int, content: claripy.ast.bv.BV) -> None:
+                    # "content" is the value written by the guest.
+                    # Hooks are responsible for completing the write to the emulator's state
+                    ...
+        """
+        raise NotImplementedError("This emulator doesn't support symbolic operations")
 
     @abc.abstractmethod
     def unhook_memory_write(self, start: int, end: int) -> None:
@@ -619,11 +796,49 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
     def hook_memory_writes(
         self, function: typing.Callable[[Emulator, int, int, bytes], None]
     ) -> None:
+        """Hook all memory writes, handling concrete values.
+
+        Arguments:
+            function: The function to execute when the memory region is written.
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator, address: int, size: int, content: bytes) -> None:
+                    # "content" is the value written by the guest.
+                    # Hooks are responsible for completing the write to the emulator's state
+                    ...
+        """
+
         pass
+
+    def hook_memory_writes_symbolic(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
+    ) -> None:
+        """Hook all memory writes, handling symbolic values
+
+        Arguments:
+            function: The function to execute when the memory region is written.
+
+        Raises:
+            NotImplementedError: If this emulator doesn't support symbolic operations
+
+        Example:
+            The hook function looks like::
+
+                def hook(emulator: Emulator, address: int, size: int, content: claripy.ast.bv.BV) -> None:
+                    # "content" is the value written by the guest.
+                    # Hooks are responsible for completing the write to the emulator's state
+                    ...
+        """
+        raise NotImplementedError("This emulator doesn't support symbolic operations")
 
     @abc.abstractmethod
     def unhook_memory_writes(self) -> None:
-        """Unhook all system interrupts."""
+        """Unhook any global memory write hook."""
 
         pass
 

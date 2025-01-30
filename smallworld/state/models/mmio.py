@@ -33,7 +33,9 @@ class MemoryMappedModel(state.Stateful):
         self.size = size
 
     @abc.abstractmethod
-    def on_read(self, emu: emulators.Emulator, addr: int, size: int) -> bytes:
+    def on_read(
+        self, emu: emulators.Emulator, addr: int, size: int, unused: bytes
+    ) -> bytes:
         """Callback handling reads from an MMIO register
 
         NOTE: Results must be encoded in the emulator's byte order.

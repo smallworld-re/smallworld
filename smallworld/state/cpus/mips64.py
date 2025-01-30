@@ -274,15 +274,15 @@ class MIPS64(cpu.CPU):
         # *** Floating Point Control Registers ***
         # NOTE: These are taken from Sleigh, and the MIPS docs.
         # Unicorn doesn't use these names, and has a different number of registers.
-        self.fir = state.Register("fir", size=8)
+        self.fir = state.Register("fir", size=4)
         self.add(self.fir)
-        self.fcsr = state.Register("fcsr", size=8)
+        self.fcsr = state.Register("fcsr", size=4)
         self.add(self.fcsr)
-        self.fexr = state.Register("fexr", size=8)
+        self.fexr = state.Register("fexr", size=4)
         self.add(self.fexr)
-        self.fenr = state.Register("fenr", size=8)
+        self.fenr = state.Register("fenr", size=4)
         self.add(self.fenr)
-        self.fccr = state.Register("fccr", size=8)
+        self.fccr = state.Register("fccr", size=4)
         self.add(self.fccr)
 
 

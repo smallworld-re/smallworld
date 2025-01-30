@@ -213,15 +213,17 @@ class AMD64(cpu.CPU):
         self.add(self.flags)
 
         # *** Segment Registers ***
-        self.cs = state.Register("cs", 2)
+        # NOTE: These are actually 16 bits
+        # However, their representation in different emulators gets weird.
+        self.cs = state.Register("cs", 8)
         self.add(self.cs)
-        self.ds = state.Register("ds", 2)
+        self.ds = state.Register("ds", 8)
         self.add(self.ds)
-        self.es = state.Register("es", 2)
+        self.es = state.Register("es", 8)
         self.add(self.es)
-        self.fs = state.Register("fs", 2)
+        self.fs = state.Register("fs", 8)
         self.add(self.fs)
-        self.gs = state.Register("gs", 2)
+        self.gs = state.Register("gs", 8)
         self.add(self.gs)
 
         # *** Control Registers ***

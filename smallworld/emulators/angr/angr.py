@@ -84,10 +84,14 @@ class AngrEmulator(
         # Cached state modifications,
         # to be applied during initialization
         self._code: typing.List[typing.Tuple[int, bytes]] = list()
-        self._register_contents: typing.Dict[str, int] = dict()
+        self._register_contents: typing.Dict[
+            str, typing.Union[int, claripy.ast.bv.BV]
+        ] = dict()
         self._register_labels: typing.Dict[str, str] = dict()
         self._memory_maps: typing.List[typing.Tuple[int, int]] = list()
-        self._memory_contents: typing.List[typing.Tuple[int, bytes]] = list()
+        self._memory_contents: typing.List[
+            typing.Tuple[int, typing.Union[bytes, claripy.ast.bv.BV]]
+        ] = list()
         self._memory_labels: typing.List[typing.Tuple[int, int, str]] = list()
         self._instr_hooks: typing.List[
             typing.Tuple[int, typing.Callable[[emulator.Emulator], None]]
@@ -106,11 +110,17 @@ class AngrEmulator(
         ] = None
         self._read_hooks: typing.List[
             typing.Tuple[
-                int, int, typing.Callable[[emulator.Emulator, int, int], bytes]
+                int,
+                int,
+                typing.Callable[
+                    [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+                ],
             ]
         ] = list()
         self._gb_read_hook: typing.Optional[
-            typing.Callable[[emulator.Emulator, int, int], bytes]
+            typing.Callable[
+                [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+            ]
         ] = None
         self._write_hooks: typing.List[
             typing.Tuple[
@@ -264,7 +274,7 @@ class AngrEmulator(
         for addr in self._exit_points:
             self.add_exit_point(addr)
 
-    def read_register_content(self, name: str) -> int:
+    def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if not self._initialized:
             raise exceptions.ConfigurationError(
                 "Cannot read registers before initialization"
@@ -279,10 +289,11 @@ class AngrEmulator(
             name = self.machdef.pc_reg
 
         (off, size) = self.machdef.angr_reg(name)
-        out = self.state.registers.load(off, size)
+        return self.state.registers.load(off, size)
 
+    def read_register_content(self, name: str) -> int:
+        out = self.read_register_symbolic(name)
         if out.symbolic:
-            log.warn(f"Register {name} is symbolic: {out}")
             raise exceptions.SymbolicValueError(f"Register {name} is symbolic")
         else:
             return out.concrete_value
@@ -326,29 +337,40 @@ class AngrEmulator(
             # TODO: Handle invalid registers more gracefully
             return None
 
-    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
+    def write_register_content(
+        self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
+    ) -> None:
         if not self._initialized and content is not None:
             if name == "pc":
                 name = self.machdef.pc_reg
             # Test that the angr register exists
             _, _ = self.machdef.angr_reg(name)
             self._register_contents[name] = content
+            return
         elif self._dirty and not self._linear:
             raise NotImplementedError(
                 "Writing registers not supported once execution begins."
             )
-        else:
-            # This will replace any value - symbolic or otherwise - currently in the emulator.
-            # Since labels are treated as symbolic values, it must be called before
-            # write_register_label().
-            if name == "pc":
-                name = self.machdef.pc_reg
-            (off, size) = self.machdef.angr_reg(name)
+        # This will replace any value - symbolic or otherwise - currently in the emulator.
+        # Since labels are treated as symbolic values, it must be called before
+        # write_register_label().
+
+        if name == "pc":
+            name = self.machdef.pc_reg
+        (off, size) = self.machdef.angr_reg(name)
+
+        if isinstance(content, int):
             if content is None:
                 v = claripy.BVS("UNINITIALIZED", size * 8)
             else:
                 v = claripy.BVV(content, size * 8)
-            self.state.registers.store(off, v)
+
+        if v.size() != size * 8:
+            raise exceptions.ConfigurationError(
+                f"Register {name} has size {size}, but content has size {v.size() // 8}"
+            )
+
+        self.state.registers.store(off, v)
 
     def write_register_type(
         self, name: str, type: typing.Optional[typing.Any] = None
@@ -413,6 +435,18 @@ class AngrEmulator(
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
+    def read_memory_symbolic(self, address: int, size: int) -> bytes:
+        if not self._initialized:
+            raise exceptions.ConfigurationError(
+                "Cannot read memory before initialization"
+            )
+
+        if self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Reading memory not supported once execution begins."
+            )
+        return self.state.memory.load(address, size)
+
     def read_memory_type(self, address: int, size: int) -> typing.Optional[typing.Any]:
         return None
 
@@ -467,7 +501,9 @@ class AngrEmulator(
             )
         return list(self.state.scratch.memory_map.ranges)
 
-    def write_memory_content(self, address: int, content: bytes) -> None:
+    def write_memory_content(
+        self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
+    ) -> None:
         if not self._initialized:
             self._memory_contents.append((address, content))
         elif self._dirty and not self._linear:
@@ -476,8 +512,9 @@ class AngrEmulator(
             )
         else:
             log.info(f"Storing {len(content)} bytes at {hex(address)}")
-            v = claripy.BVV(content)
-            self.state.memory.store(address, v)
+            if isinstance(content, bytes):
+                content = claripy.BVV(content)
+            self.state.memory.store(address, content)
 
     def write_memory_type(
         self, address: int, size: int, type: typing.Optional[typing.Any] = None
@@ -718,7 +755,9 @@ class AngrEmulator(
         self,
         start: int,
         end: int,
-        function: typing.Callable[[emulator.Emulator, int, int], bytes],
+        function: typing.Callable[
+            [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+        ],
     ) -> None:
         if not self._initialized:
             self._read_hooks.append((start, end, function))
@@ -768,9 +807,29 @@ class AngrEmulator(
                 # The breakpoint action.
                 addr = state.inspect.mem_read_address
                 size = state.inspect.mem_read_length
-
+                expr = state.inspect.mem_read_expr
+                if expr.symbolic:
+                    # Have the solver handle binding resolution for us.
+                    try:
+                        values = state.solver.eval_atmost(expr, 1)
+                        if len(values) < 1:
+                            raise exceptions.AnalysisError(
+                                f"No possible values fpr {expr}"
+                            )
+                        value = values[0].to_bytes(
+                            size, byteorder=self.machdef.byteorder
+                        )
+                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    except angr.errors.SimUnsatError:
+                        raise exceptions.AnalysisError(f"No possible values for {expr}")
+                    except angr.errors.SimValueError:
+                        value = b"\x00" * size
+                else:
+                    value = expr.concrete_value.to_bytes(
+                        size, byteorder=self.platform.byteorder.value
+                    )
                 res = claripy.BVV(
-                    function(ConcreteAngrEmulator(state, self), addr, size)
+                    function(ConcreteAngrEmulator(state, self), addr, size, value)
                 )
 
                 if self.platform.byteorder == platforms.Byteorder.LITTLE:
@@ -815,7 +874,10 @@ class AngrEmulator(
             self.state.inspect.remove_breakpoint("mem_read", bp=bp)
 
     def hook_memory_reads(
-        self, function: typing.Callable[[emulator.Emulator, int, int], bytes]
+        self,
+        function: typing.Callable[
+            [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+        ],
     ) -> None:
         if not self._initialized:
             self._gb_read_hook = function
@@ -838,9 +900,32 @@ class AngrEmulator(
                 if not isinstance(addr, int):
                     addr = addr.concrete_value
                 size = state.inspect.mem_read_length
+                expr = state.inspect.mem_read_expr
+                if expr.symbolic:
+                    # Have the solver handle binding resolution for us.
+                    try:
+                        values = state.solver.eval_atmost(expr, 1)
+                        if len(values) < 1:
+                            raise exceptions.AnalysisError(
+                                f"No possible values fpr {expr}"
+                            )
+                        value = values[0].to_bytes(
+                            size, byteorder=self.machdef.byteorder
+                        )
+                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    except angr.errors.SimUnsatError:
+                        raise exceptions.AnalysisError(f"No possible values for {expr}")
+                    except angr.errors.SimValueError:
+                        raise exceptions.AnalysisError(
+                            f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                        )
+                else:
+                    value = expr.concrete_value.to_bytes(
+                        size, byteorder=self.platform.byteorder.value
+                    )
 
                 res = claripy.BVV(
-                    function(ConcreteAngrEmulator(state, self), addr, size)
+                    function(ConcreteAngrEmulator(state, self), addr, size, value)
                 )
 
                 if self.platform.byteorder == platforms.byteorder.LITTLE:
