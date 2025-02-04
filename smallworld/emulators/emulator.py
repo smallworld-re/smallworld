@@ -814,8 +814,6 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
 
     def hook_memory_writes_symbolic(
         self,
-        start: int,
-        end: int,
         function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
     ) -> None:
         """Hook all memory writes, handling symbolic values
@@ -897,6 +895,113 @@ class InterruptHookable(metaclass=abc.ABCMeta):
         pass
 
 
+class ConstrainedEmulator:
+    """Emulator that supports constraints
+
+    It must also support some means of evaluating constraints,
+    probably an SMT solver or similar.
+    """
+
+    @abc.abstractmethod
+    def add_constraint(self, expr: claripy.ast.bool.Bool) -> None:
+        """Add a constraint to the emulator
+
+        A constraint is an expression that
+        this emulator will use to limit the possible values
+        of unbound variables.
+        It will only consider execution states
+        where all constraints can evaluate to True.
+
+        Constraints must be Boolean expressions;
+        the easiest form is the equality or inequality
+        of two bitvector expressions.
+
+        Arguments:
+            expr: The constraint expression to add
+        """
+        pass
+
+    @abc.abstractmethod
+    def get_constraints(self) -> typing.List[claripy.ast.bool.Bool]:
+        """Retrieve all constraints applied to this emulator.
+
+        Returns:
+            A list of constraint expressions
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def satisfiable(
+        self,
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
+    ) -> bool:
+        """Check if the current set of constraints is satisfiable
+
+        This checks if there's a way to assign variables
+        such that all constraint expressions evaluate to "True".
+        If not, the state can't exist as described.
+
+        The emulator tracks its own set of constraints,
+        added by the harness or built up durring execution.
+        The caller can provide additional constraints
+        for testing. These are not permanently added to the emulator.
+
+        Arguments:
+            extra_constraints:  A list of additional constraints to consider.
+
+        Returns:
+            True if the constraint system is satisfiable.  False otherwise.
+        """
+        return False
+
+    @abc.abstractmethod
+    def eval_atmost(self, expr: claripy.ast.bv.BV, most: int) -> typing.List[int]:
+        """Find a maximum number of solutions to a bitvector expression
+
+        This attempts to find concrete solutions to `expr`
+        given the constraints on the emulator.
+
+        It will return between 1 and `most` solutions, inclusive.
+        It will raise exceptions if there are no solutions,
+        or more than requested.
+
+        Arguments:
+            expr: The expression to evaluate
+            most: The inclusive upper limit on solutions
+
+        Returns:
+            A list of integer solutions to `expr`
+
+        Raises:
+            UnsatError: If there are no solutions for `expr` given constraints
+            SymbolicValueError: If there are more than `most` solutions for `expr` given constraints
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def eval_atleast(self, expr: claripy.ast.bv.BV, least: int) -> typing.List[int]:
+        """Find a minimum number of solutions to a bitvector expression
+
+        This attempts to find concrete solutions to `expr`
+        given the constraints on the emulator.
+
+        It will return `least` solutions.
+        It will raise an exception if there are fewer than `least` solutions possible.
+
+        Arguments:
+            expr: The expression to evaluate
+            least: The number of solutions to retrieve
+
+        Returns:
+            A list of integer solutions to `expr`
+
+        Raises:
+            UnsatError: If there are no solutions for `expr` given constraints
+            SymbolicValueError: If there are fewer than `least` solutions for `expr` given constraints
+        """
+        raise NotImplementedError("Abstract method")
+
+
 __all__ = [
     "Emulator",
     "InstructionHookable",
@@ -904,4 +1009,5 @@ __all__ = [
     "MemoryReadHookable",
     "MemoryWriteHookable",
     "InterruptHookable",
+    "ConstrainedEmulator",
 ]

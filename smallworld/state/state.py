@@ -669,6 +669,7 @@ class Machine(StatefulSet):
         super().__init__()
         self._bounds = utils.RangeCollection()
         self._exit_points = set()
+        self._constraints = list()
 
     def add_exit_point(self, address: int):
         """Add an exit point to the machine.
@@ -705,17 +706,61 @@ class Machine(StatefulSet):
         """
         return list(self._bounds.ranges)
 
+    def add_constraint(self, expr: claripy.ast.bool.Bool) -> None:
+        """Add a constraint to the environment
+
+        A constraint is an expression that
+        some emulators can use to limit the possible values
+        of unbound variables.
+        They will only consider execution states
+        where all constraints can evaluate to True.
+
+        Constraints must be Boolean expressions;
+        the easiest form is the equality or inequality
+        of two bitvector expressions.
+
+        You can get the variable representing
+        a labeled Value via its `to_symbolic()` method.
+        Note that Values with both a label and content
+        already have a constraint binding the label's
+        variable to the content.
+
+        Arguments:
+            expr: The constraint expression to add
+        """
+        if not isinstance(expr, claripy.ast.bool.Bool):
+            raise TypeError(f"expr is a {type(expr)}, not a Boolean expression")
+
+        self._constraints.append(expr)
+
+    def get_constraints(self) -> typing.List[claripy.ast.bool.Bool]:
+        """Retrieve all constraints applied to this machine.
+
+        Returns:
+            A list of constraint expressions
+        """
+        return list(self._constraints)
+
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exit_points:
             emulator.add_exit_point(address)
         for start, end in self.get_bounds():
             emulator.add_bound(start, end)
+
+        if isinstance(emulator, emulators.ConstrainedEmulator):
+            for expr in self._constraints:
+                emulator.add_constraint(expr)
+
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exit_points = emulator.get_exit_points()
         for start, end in emulator.get_bounds():
             self.add_bound(start, end)
+
+        if isinstance(emulator, emulators.ConstrainedEmulator):
+            self._constraints = emulator.get_constraints()
+
         return super().extract(emulator)
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:

@@ -36,6 +36,7 @@ class AngrEmulator(
     emulator.SyscallHookable,
     emulator.MemoryReadHookable,
     emulator.MemoryWriteHookable,
+    emulator.ConstrainedEmulator,
 ):
     """
     Angr symbolic execution emulator
@@ -132,6 +133,7 @@ class AngrEmulator(
         ] = None
         self._code_bounds: typing.List[typing.Tuple[int, int]] = list()
         self._exit_points: typing.Set[int] = set()
+        self._constraints: typing.List[claripy.ast.bool.Bool] = list()
 
     def initialize(self):
         """Initialize the emulator
@@ -273,6 +275,9 @@ class AngrEmulator(
 
         for addr in self._exit_points:
             self.add_exit_point(addr)
+
+        for expr in self._constraints:
+            self.add_constraint(expr)
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if not self._initialized:
@@ -435,7 +440,7 @@ class AngrEmulator(
         # Annoyingly, there isn't an easy way to convert BVV to bytes.
         return bytes([v.get_byte(i).concrete_value for i in range(0, size)])
 
-    def read_memory_symbolic(self, address: int, size: int) -> bytes:
+    def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
         if not self._initialized:
             raise exceptions.ConfigurationError(
                 "Cannot read memory before initialization"
@@ -751,12 +756,13 @@ class AngrEmulator(
             raise exceptions.ConfigurationError("No global syscall hook registered")
         self.state.scratch.global_syscall_func = None
 
-    def hook_memory_read(
+    def hook_memory_read_symbolic(
         self,
         start: int,
         end: int,
         function: typing.Callable[
-            [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+            [emulator.Emulator, int, int, claripy.ast.bv.BV],
+            typing.Optional[claripy.ast.bv.BV],
         ],
     ) -> None:
         if not self._initialized:
@@ -808,29 +814,7 @@ class AngrEmulator(
                 addr = state.inspect.mem_read_address
                 size = state.inspect.mem_read_length
                 expr = state.inspect.mem_read_expr
-                if expr.symbolic:
-                    # Have the solver handle binding resolution for us.
-                    try:
-                        values = state.solver.eval_atmost(expr, 1)
-                        if len(values) < 1:
-                            raise exceptions.AnalysisError(
-                                f"No possible values fpr {expr}"
-                            )
-                        value = values[0].to_bytes(
-                            size, byteorder=self.machdef.byteorder
-                        )
-                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
-                    except angr.errors.SimUnsatError:
-                        raise exceptions.AnalysisError(f"No possible values for {expr}")
-                    except angr.errors.SimValueError:
-                        value = b"\x00" * size
-                else:
-                    value = expr.concrete_value.to_bytes(
-                        size, byteorder=self.platform.byteorder.value
-                    )
-                res = claripy.BVV(
-                    function(ConcreteAngrEmulator(state, self), addr, size, value)
-                )
+                res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
                 if self.platform.byteorder == platforms.Byteorder.LITTLE:
                     # Fix byte order if needed.
@@ -853,6 +837,44 @@ class AngrEmulator(
             )
             self.state.scratch.mem_read_bps[(start, end)] = bp
 
+    def hook_memory_read(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[
+            [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+        ],
+    ):
+        # Most of the machinery is handled in hook_memory_read_symbolic
+        # We just need to concretize the inputs and claripy the outputs
+        def sym_callback(
+            emu: emulator.Emulator, addr: int, size: int, expr: claripy.ast.bv.BV
+        ) -> typing.Optional[claripy.ast.bv.BV]:
+            if not isinstance(emu, ConcreteAngrEmulator):
+                raise TypeError("Where'd you get your emu?")
+            if expr.symbolic:
+                # Have the solver handle binding resolution for us.
+                try:
+                    values = emu.state.solver.eval_atmost(expr, 1)
+                    if len(values) < 1:
+                        raise exceptions.AnalysisError(f"No possible values fpr {expr}")
+                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                except angr.errors.SimUnsatError:
+                    raise exceptions.AnalysisError(f"No possible values for {expr}")
+                except angr.errors.SimValueError:
+                    value = b"\x00" * size
+            else:
+                value = expr.concrete_value.to_bytes(
+                    size, byteorder=self.platform.byteorder.value
+                )
+            res = function(emu, addr, size, value)
+            if res is not None:
+                return claripy.BVV(value)
+            return res
+
+        self.hook_memory_read_symbolic(start, end, sym_callback)
+
     def unhook_memory_read(self, start: int, end: int):
         if not self._initialized:
             self._read_hooks = list(
@@ -873,7 +895,7 @@ class AngrEmulator(
             del self.state.scratch.mem_read_bps[(start, end)]
             self.state.inspect.remove_breakpoint("mem_read", bp=bp)
 
-    def hook_memory_reads(
+    def hook_memory_reads_symbolic(
         self,
         function: typing.Callable[
             [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
@@ -901,32 +923,8 @@ class AngrEmulator(
                     addr = addr.concrete_value
                 size = state.inspect.mem_read_length
                 expr = state.inspect.mem_read_expr
-                if expr.symbolic:
-                    # Have the solver handle binding resolution for us.
-                    try:
-                        values = state.solver.eval_atmost(expr, 1)
-                        if len(values) < 1:
-                            raise exceptions.AnalysisError(
-                                f"No possible values fpr {expr}"
-                            )
-                        value = values[0].to_bytes(
-                            size, byteorder=self.machdef.byteorder
-                        )
-                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
-                    except angr.errors.SimUnsatError:
-                        raise exceptions.AnalysisError(f"No possible values for {expr}")
-                    except angr.errors.SimValueError:
-                        raise exceptions.AnalysisError(
-                            f"Unbound value for MMIO write to {hex(addr)}: {expr}"
-                        )
-                else:
-                    value = expr.concrete_value.to_bytes(
-                        size, byteorder=self.platform.byteorder.value
-                    )
 
-                res = claripy.BVV(
-                    function(ConcreteAngrEmulator(state, self), addr, size, value)
-                )
+                res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
                 if self.platform.byteorder == platforms.byteorder.LITTLE:
                     # fix byte order if needed.
@@ -948,6 +946,44 @@ class AngrEmulator(
             )
             self.state.scratch.global_read_bp = bp
 
+    def hook_memory_reads(
+        self,
+        function: typing.Callable[
+            [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+        ],
+    ):
+        # Symbolic version does most of the lifting;
+        # we just need to translate the values
+        def sym_callback(
+            emu: emulator.Emulator, addr: int, size: int, expr: claripy.ast.bv.BV
+        ) -> typing.Optional[claripy.ast.bv.BV]:
+            if not isinstance(emu, ConcreteAngrEmulator):
+                raise TypeError("Where'd you get your emu?")
+            if expr.symbolic:
+                # Have the solver handle binding resolution for us.
+                try:
+                    values = emu.state.solver.eval_atmost(expr, 1)
+                    if len(values) < 1:
+                        raise exceptions.AnalysisError(f"No possible values fpr {expr}")
+                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                except angr.errors.SimUnsatError:
+                    raise exceptions.AnalysisError(f"No possible values for {expr}")
+                except angr.errors.SimValueError:
+                    raise exceptions.AnalysisError(
+                        f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                    )
+            else:
+                value = expr.concrete_value.to_bytes(
+                    size, byteorder=self.platform.byteorder.value
+                )
+            res = function(emu, addr, size, value)
+            if res is not None:
+                return claripy.BVV(res)
+            return res
+
+        self.hook_memory_reads_symbolic(sym_callback)
+
     def unhook_memory_reads(self) -> None:
         if not self._initialized:
             self._gb_read_hook = None
@@ -965,7 +1001,7 @@ class AngrEmulator(
             self.state.scratch.global_read_bp = None
             self.state.inspect.remove_breakpoint("mem_read", bp)
 
-    def hook_memory_write(
+    def hook_memory_write_symbolic(
         self,
         start: int,
         end: int,
@@ -1021,33 +1057,11 @@ class AngrEmulator(
                 addr = state.inspect.mem_write_address
                 size = state.inspect.mem_write_length
                 expr = state.inspect.mem_write_expr
-                if expr.symbolic:
-                    # Have the solver handle binding resolution for us.
-                    try:
-                        values = state.solver.eval_atmost(expr, 1)
-                        if len(values) < 1:
-                            raise exceptions.AnalysisError(
-                                f"No possible values fpr {expr}"
-                            )
-                        value = values[0].to_bytes(
-                            size, byteorder=self.machdef.byteorder
-                        )
-                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
-                    except angr.errors.SimUnsatError:
-                        raise exceptions.AnalysisError(f"No possible values for {expr}")
-                    except angr.errors.SimValueError:
-                        raise exceptions.AnalysisError(
-                            f"Unbound value for MMIO write to {hex(addr)}: {expr}"
-                        )
-                else:
-                    value = expr.concrete_value.to_bytes(
-                        size, byteorder=self.platform.byteorder.value
-                    )
 
                 if size is None:
                     size = len(expr)
 
-                function(ConcreteAngrEmulator(state, self), addr, size, value)
+                function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
                 # An update to angr means some operations on `state`
                 # will clobber this variable, which causes bad problems.
@@ -1061,6 +1075,39 @@ class AngrEmulator(
                 action=write_callback,
             )
             self.state.scratch.mem_write_bps[(start, end)] = bp
+
+    def hook_memory_write(
+        self,
+        start: int,
+        end: int,
+        function: typing.Callable[[emulator.Emulator, int, int, bytes], None],
+    ) -> None:
+        def sym_callback(
+            emu: emulator.Emulator, addr: int, size: int, expr: claripy.ast.bv.BV
+        ) -> None:
+            if not isinstance(emu, ConcreteAngrEmulator):
+                raise TypeError("Where'd you get your emu?")
+            if expr.symbolic:
+                # Have the solver handle binding resolution for us.
+                try:
+                    values = emu.state.solver.eval_atmost(expr, 1)
+                    if len(values) < 1:
+                        raise exceptions.AnalysisError(f"No possible values fpr {expr}")
+                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                except angr.errors.SimUnsatError:
+                    raise exceptions.AnalysisError(f"No possible values for {expr}")
+                except angr.errors.SimValueError:
+                    raise exceptions.AnalysisError(
+                        f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                    )
+            else:
+                value = expr.concrete_value.to_bytes(
+                    size, byteorder=self.platform.byteorder.value
+                )
+            function(emu, addr, size, value)
+
+        self.hook_memory_write_symbolic(start, end, sym_callback)
 
     def unhook_memory_write(self, start: int, end: int) -> None:
         if not self._initialized:
@@ -1083,8 +1130,11 @@ class AngrEmulator(
             del self.state.scratch.mem_write_bps[(start, end)]
             self.state.inspect.remove_breakpoint("mem_write", bp=bp)
 
-    def hook_memory_writes(
-        self, function: typing.Callable[[emulator.Emulator, int, int, bytes], None]
+    def hook_memory_writes_symbolic(
+        self,
+        function: typing.Callable[
+            [emulator.Emulator, int, int, claripy.ast.bv.BV], None
+        ],
     ) -> None:
         if not self._initialized:
             self._gb_write_hook = function
@@ -1107,30 +1157,7 @@ class AngrEmulator(
                     addr = addr.concrete_value
                 size = state.inspect.mem_write_length
                 expr = state.inspect.mem_write_expr
-                if expr.symbolic:
-                    # Have the solver handle binding resolution for us.
-                    try:
-                        values = state.solver.eval_atmost(expr, 1)
-                        if len(values) < 1:
-                            raise exceptions.AnalysisError(
-                                f"No possible values fpr {expr}"
-                            )
-                        value = values[0].to_bytes(
-                            size, byteorder=self.machdef.byteorder
-                        )
-                        log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
-                    except angr.errors.SimUnsatError:
-                        raise exceptions.AnalysisError(f"No possible values for {expr}")
-                    except angr.errors.SimValueError:
-                        raise exceptions.AnalysisError(
-                            f"Unbound value for MMIO write to {hex(addr)}: {expr}"
-                        )
-                else:
-                    value = expr.concrete_value.to_bytes(
-                        size, byteorder=self.platform.byteorder.value
-                    )
-
-                function(ConcreteAngrEmulator(state, self), addr, size, value)
+                function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
                 # An update to angr means some operations on `state`
                 # will clobber this variable, which causes bad problems.
@@ -1144,6 +1171,36 @@ class AngrEmulator(
             )
 
             self.state.scratch.global_write_bp = bp
+
+    def hook_memory_writes(
+        self, function: typing.Callable[[emulator.Emulator, int, int, bytes], None]
+    ) -> None:
+        def sym_callback(
+            emu: emulator.Emulator, addr: int, size: int, expr: claripy.ast.bv.BV
+        ) -> None:
+            if not isinstance(emu, ConcreteAngrEmulator):
+                raise TypeError("Where'd you get your emu?")
+            if expr.symbolic:
+                # Have the solver handle binding resolution for us.
+                try:
+                    values = emu.state.solver.eval_atmost(expr, 1)
+                    if len(values) < 1:
+                        raise exceptions.AnalysisError(f"No possible values fpr {expr}")
+                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                except angr.errors.SimUnsatError:
+                    raise exceptions.AnalysisError(f"No possible values for {expr}")
+                except angr.errors.SimValueError:
+                    raise exceptions.AnalysisError(
+                        f"Unbound value for MMIO write to {hex(addr)}: {expr}"
+                    )
+            else:
+                value = expr.concrete_value.to_bytes(
+                    size, byteorder=self.platform.byteorder.value
+                )
+            function(emu, addr, size, value)
+
+        self.hook_memory_writes_symbolic(sym_callback)
 
     def unhook_memory_writes(self) -> None:
         if self._dirty and not self._linear:
@@ -1350,6 +1407,72 @@ class AngrEmulator(
         else:
             self.state.scratch.exit_points.remove(address)
 
+    def add_constraint(self, expr: claripy.ast.bool.Bool) -> None:
+        if not self._initialized:
+            self._constraints.append(expr)
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing constraints not supported once execution begins"
+            )
+        else:
+            self.state.solver.add(expr)
+
+    def get_constraints(self) -> typing.List[claripy.ast.bool.Bool]:
+        if not self._initialized:
+            return list(self._constraints)
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing constraints not supported once execution begins"
+            )
+        else:
+            return list(self.state.solver.constraints)
+
+    def satisfiable(
+        self,
+        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
+    ) -> bool:
+        if not self._initialized:
+            raise exceptions.ConfigurationError(
+                "Solver not available before initialization"
+            )
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing solver not supported once execution begins"
+            )
+        return self.state.solver.satisfiable(extra_constraints=extra_constraints)
+
+    def eval_atmost(self, expr: claripy.ast.bv.BV, most: int) -> typing.List[int]:
+        if not self._initialized:
+            raise exceptions.ConfigurationError(
+                "Solver not available before initialization"
+            )
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing solver not supported once execution begins"
+            )
+        try:
+            return self.state.solver.eval_atmost(expr, most)
+        except angr.errors.SimUnsatError:
+            raise exceptions.UnsatError("No solutions")
+        except angr.errors.SimValueError:
+            raise exceptions.SymbolicValueError("Too many solutions")
+
+    def eval_atleast(self, expr: claripy.ast.bv.BV, least: int) -> typing.List[int]:
+        if not self._initialized:
+            raise exceptions.ConfigurationError(
+                "Solver not available before initialization"
+            )
+        elif self._dirty and not self._linear:
+            raise NotImplementedError(
+                "Accessing solver not supported once execution begins"
+            )
+        try:
+            return self.state.solver.eval_atleast(expr, least)
+        except angr.errors.SimUnsatError:
+            raise exceptions.UnsatError("No solutions")
+        except angr.errors.SimValueError:
+            raise exceptions.SymbolicValueError("Not enough solutions")
+
     def __repr__(self):
         if self._initialized:
             return f"Angr ({self.mgr})"
@@ -1386,6 +1509,7 @@ class ConcreteAngrEmulator(AngrEmulator):
         self._dirty: bool = False
         self._linear: bool = False
 
+        # Force-initialize relevant state from the parent
         self.platform: platforms.Platform = parent.platform
         self.proj: angr.Project = parent.proj
         self.state: angr.SimState = state
