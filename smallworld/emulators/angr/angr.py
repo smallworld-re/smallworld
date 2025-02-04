@@ -856,16 +856,14 @@ class AngrEmulator(
                     values = emu.state.solver.eval_atmost(expr, 1)
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
-                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    value = values[0].to_bytes(size, byteorder=self.byteorder)
                     log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
                     value = b"\x00" * size
             else:
-                value = expr.concrete_value.to_bytes(
-                    size, byteorder=self.platform.byteorder.value
-                )
+                value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             res = function(emu, addr, size, value)
             if res is not None:
                 res_expr = claripy.BVV(res)
@@ -903,7 +901,8 @@ class AngrEmulator(
     def hook_memory_reads_symbolic(
         self,
         function: typing.Callable[
-            [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+            [emulator.Emulator, int, int, claripy.ast.bv.BV],
+            typing.Optional[claripy.ast.bv.BV],
         ],
     ) -> None:
         if not self._initialized:
@@ -970,7 +969,7 @@ class AngrEmulator(
                     values = emu.state.solver.eval_atmost(expr, 1)
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
-                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    value = values[0].to_bytes(size, byteorder=self.byteorder)
                     log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
@@ -979,9 +978,7 @@ class AngrEmulator(
                         f"Unbound value for MMIO write to {hex(addr)}: {expr}"
                     )
             else:
-                value = expr.concrete_value.to_bytes(
-                    size, byteorder=self.platform.byteorder.value
-                )
+                value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             res = function(emu, addr, size, value)
             if res is not None:
                 return claripy.BVV(res)
@@ -1010,7 +1007,9 @@ class AngrEmulator(
         self,
         start: int,
         end: int,
-        function: typing.Callable[[emulator.Emulator, int, int, bytes], None],
+        function: typing.Callable[
+            [emulator.Emulator, int, int, claripy.ast.bv.BV], None
+        ],
     ) -> None:
         if not self._initialized:
             self._write_hooks.append((start, end, function))
@@ -1098,7 +1097,7 @@ class AngrEmulator(
                     values = emu.state.solver.eval_atmost(expr, 1)
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
-                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    value = values[0].to_bytes(size, byteorder=self.byteorder)
                     log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
@@ -1107,9 +1106,7 @@ class AngrEmulator(
                         f"Unbound value for MMIO write to {hex(addr)}: {expr}"
                     )
             else:
-                value = expr.concrete_value.to_bytes(
-                    size, byteorder=self.platform.byteorder.value
-                )
+                value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             function(emu, addr, size, value)
 
         self.hook_memory_write_symbolic(start, end, sym_callback)
@@ -1191,7 +1188,7 @@ class AngrEmulator(
                     values = emu.state.solver.eval_atmost(expr, 1)
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
-                    value = values[0].to_bytes(size, byteorder=self.machdef.byteorder)
+                    value = values[0].to_bytes(size, byteorder=self.byteorder)
                     log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
@@ -1200,9 +1197,7 @@ class AngrEmulator(
                         f"Unbound value for MMIO write to {hex(addr)}: {expr}"
                     )
             else:
-                value = expr.concrete_value.to_bytes(
-                    size, byteorder=self.platform.byteorder.value
-                )
+                value = expr.concrete_value.to_bytes(size, byteorder=self.byteorder)
             function(emu, addr, size, value)
 
         self.hook_memory_writes_symbolic(sym_callback)
@@ -1477,6 +1472,20 @@ class AngrEmulator(
             raise exceptions.UnsatError("No solutions")
         except angr.errors.SimValueError:
             raise exceptions.SymbolicValueError("Not enough solutions")
+
+    @property
+    def byteorder(self) -> typing.Literal["big", "little"]:
+        """Get the byteorder string for this platform
+
+        Returns:
+            'big' or 'little', appropriately-typed as literals.
+        """
+        if self.platform.byteorder == platforms.Byteorder.BIG:
+            return "big"
+        elif self.platform.byteorder == platforms.Byteorder.LITTLE:
+            return "little"
+        else:
+            raise ValueError("Unsupported byteorder!")
 
     def __repr__(self):
         if self._initialized:

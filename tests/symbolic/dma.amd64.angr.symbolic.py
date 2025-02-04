@@ -68,8 +68,8 @@ class HDivModel(smallworld.state.models.mmio.SymbolicMemoryMappedModel):
         content: claripy.ast.bv.BV,
     ) -> typing.Optional[claripy.ast.bv.BV]:
         if addr >= self.quo_addr and addr < self.rem_addr:
-            self.numerator = 0
-            self.denominator = 0
+            self.numerator = claripy.BVV(0, self.reg_size * 8)
+            self.denominator = claripy.BVV(0, self.reg_size * 8)
             start = (addr - self.quo_addr) * 8
             end = start + (size * 8) - 1
 
