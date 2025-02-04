@@ -254,6 +254,12 @@ class CallTests(ScriptIntegrationTest):
     def test_call_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
+    def test_call_riscv64_angr(self):
+        self.run_test("riscv64.angr", signext=True)
+
+    def test_call_xtensa_angr(self):
+        self.run_test("xtensa.angr")
+
 
 class DMATests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):
@@ -1505,6 +1511,23 @@ class FuzzTests(ScriptIntegrationTest):
                 "052670:1",
             ],
         )
+
+
+class SymbolicTests(ScriptIntegrationTest):
+    # NOTE: I made symbolic tests self-contained; they'll error on failure
+    def test_branch_symbolic(self):
+        self.command("python3 symbolic/branch.amd64.angr.symbolic.py")
+
+    def test_dma_symbolic(self):
+        self.command("python3 symbolic/dma.amd64.angr.symbolic.py 10 2")
+
+    def test_hooking_symbolic(self):
+        self.command(
+            "python3 symbolic/hooking.amd64.angr.symbolic.py", stdin="foo bar baz"
+        )
+
+    def test_square_symbolic(self):
+        self.command("python3 symbolic/square.amd64.angr.symbolic.py")
 
 
 class DocumentationTests(unittest.TestCase):

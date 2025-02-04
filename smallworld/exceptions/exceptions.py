@@ -44,6 +44,12 @@ class SymbolicValueError(EmulationError):
     pass
 
 
+class UnsatError(EmulationError):
+    """Raised if a symbolic expression is unsatisfiable given constraints"""
+
+    pass
+
+
 class EmulationException(EmulationError):
     """Raised when the underlying emulator fails.
 
@@ -73,6 +79,7 @@ __all__ = [
     "EmulationExitpoint",
     "EmulationException",
     "SymbolicValueError",
+    "UnsatError",
     "UnsupportedRegisterError",
     "AnalysisError",
 ]
