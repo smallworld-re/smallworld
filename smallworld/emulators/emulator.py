@@ -933,7 +933,7 @@ class ConstrainedEmulator:
     @abc.abstractmethod
     def satisfiable(
         self,
-        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
+        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
     ) -> bool:
         """Check if the current set of constraints is satisfiable
 

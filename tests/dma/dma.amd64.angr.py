@@ -105,4 +105,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.eax.get()))
+print(cpu.eax)

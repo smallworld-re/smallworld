@@ -150,15 +150,16 @@ class Value(metaclass=abc.ABCMeta):
 
         size = self.get_size()
 
-        if self._label is not None:
+        if self.get_label() is not None:
             # This has a label; assume we use it.
-            if not isinstance(self._label, str):
+            label = self.get_label()
+            if not isinstance(label, str):
                 raise exceptions.ConfigurationError(
                     f"Cannot create a symbol from label of type {type(self._label)}; must be str"
                 )
 
             # Bit vectors are bit vectors; multiply size in bytes by 8
-            return claripy.BVS(self._label, size * 8, explicit_name=True)
+            return claripy.BVS(label, size * 8, explicit_name=True)
 
         elif self._content is not None:
             content = self._content

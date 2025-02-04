@@ -114,22 +114,26 @@ class AngrEmulator(
                 int,
                 int,
                 typing.Callable[
-                    [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+                    [emulator.Emulator, int, int, claripy.ast.bv.BV],
+                    typing.Optional[claripy.ast.bv.BV],
                 ],
             ]
         ] = list()
         self._gb_read_hook: typing.Optional[
             typing.Callable[
-                [emulator.Emulator, int, int, bytes], typing.Optional[bytes]
+                [emulator.Emulator, int, int, claripy.ast.bv.BV],
+                typing.Optional[claripy.ast.bv.BV],
             ]
         ] = None
         self._write_hooks: typing.List[
             typing.Tuple[
-                int, int, typing.Callable[[emulator.Emulator, int, int, bytes], None]
+                int,
+                int,
+                typing.Callable[[emulator.Emulator, int, int, claripy.ast.bv.BV], None],
             ]
         ] = list()
         self._gb_write_hook: typing.Optional[
-            typing.Callable[[emulator.Emulator, int, int, bytes], None]
+            typing.Callable[[emulator.Emulator, int, int, claripy.ast.bv.BV], None]
         ] = None
         self._code_bounds: typing.List[typing.Tuple[int, int]] = list()
         self._exit_points: typing.Set[int] = set()
@@ -259,16 +263,16 @@ class AngrEmulator(
             self.hook_syscalls(self._gb_syscall_hook)
 
         for start, end, func in self._read_hooks:
-            self.hook_memory_read(start, end, func)
+            self.hook_memory_read_symbolic(start, end, func)
 
         if self._gb_read_hook is not None:
-            self.hook_memory_reads(self._gb_read_hook)
+            self.hook_memory_reads_symbolic(self._gb_read_hook)
 
         for start, end, func in self._write_hooks:
-            self.hook_memory_write(start, end, func)
+            self.hook_memory_write_symbolic(start, end, func)
 
         if self._gb_write_hook is not None:
-            self.hook_memory_writes(self._gb_write_hook)
+            self.hook_memory_writes_symbolic(self._gb_write_hook)
 
         for start, end in self._code_bounds:
             self.add_bound(start, end)
@@ -816,12 +820,6 @@ class AngrEmulator(
                 expr = state.inspect.mem_read_expr
                 res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
-                if self.platform.byteorder == platforms.Byteorder.LITTLE:
-                    # Fix byte order if needed.
-                    # I don't know _why_ this is needed,
-                    # but encoding the result as little-endian on a little-endian
-                    # system produces the incorrect value in the machine state.
-                    res = claripy.Reverse(res)
                 state.inspect.mem_read_expr = res
 
                 # An update to angr means some operations on `state`
@@ -870,7 +868,14 @@ class AngrEmulator(
                 )
             res = function(emu, addr, size, value)
             if res is not None:
-                return claripy.BVV(value)
+                res_expr = claripy.BVV(res)
+                if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                    # Fix byte order if needed.
+                    # I don't know _why_ this is needed,
+                    # but encoding the result as little-endian on a little-endian
+                    # system produces the incorrect value in the machine state.
+                    res_expr = claripy.Reverse(res_expr)
+                return res_expr
             return res
 
         self.hook_memory_read_symbolic(start, end, sym_callback)
@@ -1429,7 +1434,7 @@ class AngrEmulator(
 
     def satisfiable(
         self,
-        extra_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = None,
+        extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
     ) -> bool:
         if not self._initialized:
             raise exceptions.ConfigurationError(

@@ -61,6 +61,7 @@ jobs:
           - testsuite: StrlenTests
           - testsuite: StructureTests
           - testsuite: SyscallTests
+          - testsuite: SymbolicTests
     steps:
       - name: Load Container
         run: |
