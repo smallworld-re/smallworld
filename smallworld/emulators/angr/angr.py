@@ -138,6 +138,7 @@ class AngrEmulator(
         self._code_bounds: typing.List[typing.Tuple[int, int]] = list()
         self._exit_points: typing.Set[int] = set()
         self._constraints: typing.List[claripy.ast.bool.Bool] = list()
+        self._extensions: typing.Dict[str, typing.Any] = dict()
 
     def initialize(self):
         """Initialize the emulator
@@ -282,6 +283,8 @@ class AngrEmulator(
 
         for expr in self._constraints:
             self.add_constraint(expr)
+
+        self.state.scratch.extensions |= self._extensions
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if not self._initialized:
@@ -1472,6 +1475,59 @@ class AngrEmulator(
             raise exceptions.UnsatError("No solutions")
         except angr.errors.SimValueError:
             raise exceptions.SymbolicValueError("Not enough solutions")
+
+    def add_extension(self, name: str, ext: typing.Any) -> None:
+        """Add extra data to the machine state.
+
+        This allows users to tie data structures
+        to the emulator's execution states,
+        allowing path-specific data tracking.
+
+        Only one extension with a given name can be tied
+        to a given state.  Usually, extensions are assigned
+        before emulation starts, but it's perfectly
+        possible to assign them later, either in linear mode,
+        or through the emulator stub provided to a hook.
+
+        All extensions must be compatible with `copy.deepcopy()`.
+
+        Arguments:
+            name: ID string used to retrieve the extension
+            ext: The extension
+
+        Raises:
+            KeyError: `name` is already taken
+        """
+
+        if not self._initialized:
+            if name in self._extensions:
+                raise KeyError(f"Extension with name {name} exists")
+            self._extensions[name] = ext
+        elif self._dirty and not self._linear:
+            raise NotImplementedError("Cannot extend state once execution has begun")
+        else:
+            if name in self.state.scratch.extensions:
+                raise KeyError(f"Extension with name {name} exists")
+            self.state.scratch.extensions[name] = ext
+
+    def get_extension(self, name: str) -> typing.Any:
+        """Fetch extra data from the machine state
+
+        Arguments:
+            name: ID string used to retrieve the extension
+
+        Returns:
+            Whatever was assigned to `name` using `add_extension`
+
+        Raises:
+            KeyError: If no extension exists tied to `name`
+        """
+        if not self._initialized:
+            return self._extensions[name]
+        elif self._dirty and not self._linear:
+            raise NotImplementedError("Cannot extend state once execution has begun")
+        else:
+            return self.state.scratch.extensions[name]
 
     @property
     def byteorder(self) -> typing.Literal["big", "little"]:

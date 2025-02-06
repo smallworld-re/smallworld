@@ -1,3 +1,5 @@
+import copy
+
 import angr
 
 from ...utils import RangeCollection
@@ -18,6 +20,7 @@ class ExpandedScratchPlugin(angr.state_plugins.SimStateScratch):
         self.syscall_funcs = dict()
         self.mem_read_bps = dict()
         self.mem_write_bps = dict()
+        self.extensions = dict()
 
         if scratch is not None:
             self.exit_points |= scratch.exit_points
@@ -32,6 +35,8 @@ class ExpandedScratchPlugin(angr.state_plugins.SimStateScratch):
             self.syscall_funcs.update(scratch.syscall_funcs)
             self.mem_read_bps.update(scratch.mem_read_bps)
             self.mem_write_bps.update(scratch.mem_write_bps)
+            for name, ext in scratch.extensions.items():
+                self.extensions[name] = copy.deepcopy(ext)
 
     @angr.SimStatePlugin.memo
     def copy(self, memo):
