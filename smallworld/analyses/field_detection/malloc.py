@@ -146,6 +146,8 @@ class MallocModel(state.models.Model):
                 struct_labels = self.struct_fields[fields[0]]
 
                 sym = list(filter(lambda x: x.op == "BVS", capacity.leaf_asts()))[0]
+                if not isinstance(sym, claripy.ast.bv.BV):
+                    raise TypeError("BVS isn't a bitvector: {sym}")
                 n = emulator.eval_atmost(sym, 1)[0]
 
                 if length // n != struct_length:

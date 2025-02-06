@@ -1,4 +1,3 @@
-import dataclasses
 import logging
 import typing
 
@@ -7,7 +6,16 @@ import claripy
 
 from ... import analyses, emulators, exceptions, hinting, platforms, state
 from ...emulators.angr.exceptions import PathTerminationSignal
+from .. import forced_exec, underlays
 from .guards import GuardTrackingScratchPlugin
+from .hints import (
+    ClaripySerializable,
+    FieldHint,
+    PartialBitFieldAccessHint,
+    PartialByteFieldAccessHint,
+    PartialByteFieldWriteHint,
+    UnknownFieldHint,
+)
 
 log = logging.getLogger(__name__)
 hinter = hinting.get_hinter(__name__)
@@ -26,118 +34,7 @@ class FDAState:
         self.fda_byte_labels = set()
 
 
-class ClaripySerializable(hinting.Serializable):
-    """Serializable wrapper that allows serializing claripy expressions in hints."""
-
-    @classmethod
-    def claripy_to_dict(cls, expr):
-        if (
-            expr is None
-            or isinstance(expr, int)
-            or isinstance(expr, str)
-            or isinstance(expr, bool)
-        ):
-            return expr
-        else:
-            return {"op": expr.op, "args": list(map(cls.claripy_to_dict, expr.args))}
-
-    def __init__(self, expr):
-        self.expr = expr
-
-    def to_dict(self):
-        return self.claripy_to_dict(self.expr)
-
-    @classmethod
-    def from_dict(cls, dict):
-        raise NotImplementedError(
-            "Rebuilding clairpy is a lot harder than tearing it apart"
-        )
-
-
-@dataclasses.dataclass(frozen=True)
-class FieldHint(hinting.Hint):
-    """Hint representing a detected, unhandled field"""
-
-    pc: int = 0
-    guards: typing.List[typing.Tuple[int, ClaripySerializable]] = dataclasses.field(
-        default_factory=list
-    )
-    address: int = 0
-    size: int = 0
-    access: str = ""
-
-    def pp(self, out):
-        out(self.message)
-        out(f"  pc:         {hex(self.pc)}")
-        out(f"  address:    {hex(self.address)}")
-        out(f"  size:       {self.size}")
-        out(f"  access:     {self.access}")
-        out("  guards:")
-        for pc, guard in self.guards:
-            out(f"    {hex(pc)}: {guard.expr}")
-
-
-@dataclasses.dataclass(frozen=True)
-class UnknownFieldHint(FieldHint):
-    """Hint representing an access of an unknown field.
-
-    The expression loaded from memory is not
-    a simple slice of any known label.
-    """
-
-    message: str = "Accessed unknown field"  # Don't need to replace
-    expr: str = ""
-
-    def pp(self, out):
-        super().pp(out)
-        out(f"  expr:       {self.expr}")
-
-
-@dataclasses.dataclass(frozen=True)
-class PartialByteFieldAccessHint(FieldHint):
-    """Hint representing an access to part of a known field."""
-
-    message: str = "Partial access to known field"  # Don't need to replace
-    label: str = ""
-    start: int = 0
-    end: int = 0
-
-    def pp(self, out):
-        super().pp(out)
-        out(f"  field:      {self.label}[{self.start}:{self.end}]")
-
-
-@dataclasses.dataclass(frozen=True)
-class PartialByteFieldWriteHint(PartialByteFieldAccessHint):
-    """Hint representing a write to part of a known field.
-
-    Also includes the data I'm trying to write
-    """
-
-    message: str = "Partial write to known field"  # Don't need to replace
-    access: str = "write"  # Don't need to replace
-    expr: str = ""
-
-    def pp(self, out):
-        super().pp(out)
-        out(f"  expr:       {self.expr}")
-
-
-@dataclasses.dataclass(frozen=True)
-class PartialBitFieldAccessHint(FieldHint):
-    """Hint representing an access to a bit field within a known field."""
-
-    message: str = "Bit field access in known field"  # Don't need to replace
-    label: str = ""
-    start: int = 0
-    end: int = 0
-
-    def pp(self, out):
-        super().pp(out)
-        out(f"  field:      {self.label}[{self.start}:{self.end}]")
-
-
-class FieldDetectionAnalysis(analyses.Analysis):
+class FieldDetectionMixin(underlays.AnalysisUnderlay):
     """Analysis comparing state labels to field accesses.
 
     This assumes that memory labels correspond to fields
@@ -161,9 +58,6 @@ class FieldDetectionAnalysis(analyses.Analysis):
     name = "Field Detection Analysis"
     version = "0.0"
     description = "Detects discrepancies between labels and field accesses"
-
-    def __init__(self, platform: platforms.Platform):
-        self.platform = platform
 
     def translate_global_addr(self, fda, addr):
         # Convert address into a label
@@ -380,6 +274,11 @@ class FieldDetectionAnalysis(analyses.Analysis):
             hinter.info(hint)
             raise PathTerminationSignal()
 
+    def angr_preinit(self, emu):
+        preset = angr.SimState._presets["default"].copy()
+        preset.add_default_plugin("scratch", GuardTrackingScratchPlugin)
+        emu._plugin_preset = preset
+
     def run(self, machine):
         # Set up the filter analysis
         fda = FDAState()
@@ -387,14 +286,9 @@ class FieldDetectionAnalysis(analyses.Analysis):
         filt.activate()
 
         # Set up the emulator
-        def angr_preinit(emu):
-            preset = angr.SimState._presets["default"].copy()
-            preset.add_default_plugin("scratch", GuardTrackingScratchPlugin)
-            emu._plugin_preset = preset
 
-        emulator = emulators.AngrEmulator(self.platform, preinit=angr_preinit)
-        machine.apply(emulator)
-        emulator.add_extension("fda", fda)
+        machine.apply(self.emulator)
+        self.emulator.add_extension("fda", fda)
 
         # Capture the labeled memory ranges
         for s in machine:
@@ -428,17 +322,13 @@ class FieldDetectionAnalysis(analyses.Analysis):
                         fda.fda_mem_ranges.add((val_start, val_end))
 
         for start, end in fda.fda_mem_ranges:
-            emulator.hook_memory_read_symbolic(start, end, self.mem_read_hook)
-            emulator.hook_memory_write_symbolic(start, end, self.mem_write_hook)
+            self.emulator.hook_memory_read_symbolic(start, end, self.mem_read_hook)
+            self.emulator.hook_memory_write_symbolic(start, end, self.mem_write_hook)
 
-        try:
-            while True:
-                emulator.step()
-        except exceptions.EmulationStop:
-            pass
+        self.execute()
 
-        log.warning(emulator.mgr)
-        log.warning(emulator.mgr.errored)
+        log.warning(self.emulator.mgr)
+        log.warning(self.emulator.mgr.errored)
 
         def state_visitor(emu: emulators.Emulator) -> None:
             if not isinstance(emu, emulators.AngrEmulator):
@@ -468,7 +358,7 @@ class FieldDetectionAnalysis(analyses.Analysis):
 
                 log.info(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
 
-        emulator.visit_states(state_visitor, stash="deadended")
+        self.emulator.visit_states(state_visitor, stash="deadended")
         filt.deactivate()
 
 
@@ -556,3 +446,30 @@ class FieldDetectionFilter(analyses.Filter):
                         log.error("  either as a flag, type code or length:")
                         for var in control_vars:
                             log.error(f"    {var}")
+
+
+class FieldDetectionAnalysis(FieldDetectionMixin, underlays.BasicAnalysisUnderlay):
+    """Detect fields on full path exploration"""
+
+    name = "Field Detection Analysis"
+    version = "0.0"
+    description = "Detects discrepancies between labels and field accesses"
+
+    def __init__(self, platform: platforms.Platform):
+        self.platform = platform
+        self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
+
+
+class ForcedFieldDetectionAnalysis(
+    FieldDetectionMixin, forced_exec.ForcedExecutionUnderlay
+):
+    name = "Field Detection Analysis - Forced"
+    version = "0.0"
+    description = "Detects discrepancies between labels and field accesses"
+
+    def __init__(
+        self, platform: platforms.Platform, trace: typing.List[typing.Dict[str, int]]
+    ):
+        self.platform = platform
+        self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
+        super().__init__(trace)
