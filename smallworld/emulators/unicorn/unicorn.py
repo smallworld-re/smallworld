@@ -6,6 +6,7 @@ import typing
 from enum import Enum
 
 import capstone
+import claripy
 import unicorn
 import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
@@ -179,12 +180,19 @@ class UnicornEmulator(
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
+            orig_data = (value.to_bytes(size, self.platform.byteorder.value),)
             if self.all_reads_hook:
-                data = self.all_reads_hook(self, address, size)
+                data = self.all_reads_hook(self, address, size, orig_data)
+                if data:
+                    if len(data) != size:
+                        raise exceptions.EmulationError(
+                            f"Read hook at {hex(address)} returned {len(data)} bytes; need {size} bytes"
+                        )
+                    uc.mem_write(address, data)
+                    orig_data = data
 
             if cb := self.is_memory_read_hooked(address):
-                data = cb(self, address, size)
-                print(data)
+                data = cb(self, address, size, orig_data)
 
                 # Execute registered callback
                 # data = cb(self, address, size)
@@ -302,10 +310,18 @@ class UnicornEmulator(
     def read_register(self, name: str) -> int:
         return self.read_register_content(name)
 
-    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
+    def write_register_content(
+        self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
+    ) -> None:
         if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
+
+        if isinstance(content, claripy.ast.bv.BV):
+            raise exceptions.SymbolicValueError(
+                "This emulator cannot handle bitvector expressions"
+            )
+
         (reg, base_reg, size, start_offset) = self._register(name)
         self.engine.reg_write(reg, content)
         # keep track of which bytes in this register have been initialized
@@ -326,7 +342,9 @@ class UnicornEmulator(
         for i in range(offset, offset + size):
             self.label[base_reg][i] = label
 
-    def write_register(self, name: str, content: int) -> None:
+    def write_register(
+        self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
+    ) -> None:
         self.write_register_content(name, content)
 
     def read_memory_content(self, address: int, size: int) -> bytes:
@@ -388,9 +406,16 @@ class UnicornEmulator(
                 return False
         return True
 
-    def write_memory_content(self, address: int, content: bytes) -> None:
+    def write_memory_content(
+        self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
+    ) -> None:
         if content is None:
             raise ValueError(f"{self.__class__.__name__} requires concrete state")
+
+        if isinstance(content, claripy.ast.bv.BV):
+            raise exceptions.SymbolicValueError(
+                "This emulator cannot handle bitvector expressions"
+            )
 
         if len(content) > sys.maxsize:
             raise ValueError(f"{len(content)} is too large (max: {sys.maxsize})")
@@ -417,20 +442,22 @@ class UnicornEmulator(
         for a in range(address, address + size):
             self.label["mem"][a] = label
 
-    def write_memory(self, address: int, content: bytes) -> None:
+    def write_memory(
+        self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
+    ) -> None:
         self.write_memory_content(address, content)
 
     def hook_instruction(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:
         super(UnicornEmulator, self).hook_instruction(address, function)
-        self.map_memory(self.PAGE_SIZE, address)
+        self.map_memory(address, self.PAGE_SIZE)
 
     def hook_function(
         self, address: int, function: typing.Callable[[emulator.Emulator], None]
     ) -> None:
         super(UnicornEmulator, self).hook_function(address, function)
-        self.map_memory(self.PAGE_SIZE, address)
+        self.map_memory(address, self.PAGE_SIZE)
 
     def _disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None

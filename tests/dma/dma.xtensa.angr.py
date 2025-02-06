@@ -49,7 +49,7 @@ class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
         self.remainder = 0
 
     def on_read(
-        self, emu: smallworld.emulators.Emulator, addr: int, size: int
+        self, emu: smallworld.emulators.Emulator, addr: int, size: int, content: bytes
     ) -> bytes:
         print(f"Reading from {hex(addr)}")
         if addr >= self.quo_addr and addr < self.rem_addr:

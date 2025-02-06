@@ -49,7 +49,7 @@ class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
         self.remainder = 0
 
     def on_read(
-        self, emu: smallworld.emulators.Emulator, addr: int, size: int
+        self, emu: smallworld.emulators.Emulator, addr: int, size: int, content: bytes
     ) -> bytes:
         if addr >= self.quo_addr and addr < self.rem_addr:
             self.numerator = 0
@@ -105,4 +105,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.eax.get()))
+print(cpu.eax)

@@ -64,7 +64,7 @@ class XTensa(cpu.CPU):
 
         # *** Shift Amount Register ***
         # This thing is actually 6 bits.
-        self.sar = state.Register("sar", 1)
+        self.sar = state.Register("sar", 4)
         self.add(self.sar)
 
 

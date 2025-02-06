@@ -1,6 +1,10 @@
 import typing
 
+import claripy
+
+from ... import emulators
 from ...platforms import Platform
+from ..state import Value
 from . import memory
 
 
@@ -14,6 +18,13 @@ class Executable(memory.RawMemory):
         This is not used by Emulators - but is available for reference from
         file parsing, if supported.
     """
+
+    def _write_content(self, emulator: emulators.Emulator, address: int, value: Value):
+        if isinstance(value.get_content(), claripy.ast.bv.BV):
+            raise NotImplementedError(
+                "Absolutely not.  Get your symbolic code out of here."
+            )
+        emulator.write_code(address, value.to_bytes(emulator.platform.byteorder))
 
     @classmethod
     def from_elf(

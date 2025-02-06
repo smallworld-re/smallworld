@@ -7,6 +7,8 @@ import ctypes
 import logging as lg
 import typing
 
+import claripy
+
 from .. import analyses, emulators, exceptions, logging, platforms, state, utils
 
 logger = lg.getLogger(__name__)
@@ -43,7 +45,7 @@ class Value(metaclass=abc.ABCMeta):
     """An abstract class whose subclasses all have a tuple of content, type, and label. Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
 
     def __init__(self: typing.Any) -> None:
-        self._content: typing.Optional[typing.Any] = None
+        self._content: typing.Union[None, int, bytes, claripy.ast.bv.BV] = None
         self._type: typing.Optional[typing.Any] = None
         self._label: typing.Optional[str] = None
 
@@ -57,7 +59,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return 0
 
-    def get_content(self) -> typing.Optional[typing.Any]:
+    def get_content(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
         """Get the content of this value.
 
         Returns:
@@ -66,7 +68,9 @@ class Value(metaclass=abc.ABCMeta):
 
         return self._content
 
-    def set_content(self, content: typing.Optional[typing.Any]) -> None:
+    def set_content(
+        self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]
+    ) -> None:
         """Set the content of this value.
 
         Arguments:
@@ -111,7 +115,7 @@ class Value(metaclass=abc.ABCMeta):
 
         self._label = label
 
-    def get(self) -> typing.Optional[typing.Any]:
+    def get(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
         """A helper to get the content of this value.
 
         Returns:
@@ -120,7 +124,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return self.get_content()
 
-    def set(self, content: typing.Optional[typing.Any]) -> None:
+    def set(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]) -> None:
         """A helper to set the content of this value.
 
         Arguments:
@@ -128,6 +132,70 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         self.set_content(content)
+
+    def to_symbolic(
+        self, byteorder: platforms.Byteorder
+    ) -> typing.Optional[claripy.ast.bv.BV]:
+        """Convert this value into a symbolic expression
+
+        For an unlabeled value, this will be a bit vector symbol containing the label.
+        Otherwise, it will be a bit vector value containing the contents.
+
+        Arguments:
+            byteorder: The byte order to use in the conversion.
+
+        Returns:
+            Symbolic expression object, or None if both content and label are None
+        """
+
+        size = self.get_size()
+
+        if self.get_label() is not None:
+            # This has a label; assume we use it.
+            label = self.get_label()
+            if not isinstance(label, str):
+                raise exceptions.ConfigurationError(
+                    f"Cannot create a symbol from label of type {type(self._label)}; must be str"
+                )
+
+            # Bit vectors are bit vectors; multiply size in bytes by 8
+            return claripy.BVS(label, size * 8, explicit_name=True)
+
+        elif self._content is not None:
+            content = self._content
+
+            if isinstance(content, claripy.ast.bv.BV):
+                # The content is already a symbolic expression
+                return content
+
+            if isinstance(content, int):
+                # The content is an int; convert to bytes for universal handling
+                if byteorder == platforms.Byteorder.BIG:
+                    content = content.to_bytes(size, "big")
+                else:
+                    content = content.to_bytes(size, "little")
+
+            if not isinstance(content, bytes) and not isinstance(content, bytearray):
+                # The content is not something I know how to handle.
+                raise exceptions.ConfigurationError(
+                    f"Cannot create a symbol from content of type {type(self._content)}; "
+                    "must be a claripy expression, int, bytes, or bytearray"
+                )
+
+            if size == 0:
+                raise exceptions.ConfigurationError(
+                    "Cannot create a bitvector of size zero"
+                )
+
+            if len(content) != size:
+                raise exceptions.ConfigurationError(
+                    f"Expected size {size}, but content has size {len(content)}"
+                )
+
+            return claripy.BVV(content)
+
+        else:
+            return None
 
     @abc.abstractmethod
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
@@ -167,23 +235,29 @@ class Value(metaclass=abc.ABCMeta):
         return CTypeValue()
 
 
-class EmptyValue(Value):
-    """An unconstrained value.
+class SymbolicValue(Value):
+    """A symbolic value
 
-    This has a size, label, and type, but has no concrete value.
-    This is particularly useful for symbolic analyses with angr.
-    If used with Unicorn, it will resolve to a string of zeroes.
+    This value is expressed as a bitvector expression,
+    compatible with angr's internal state representation.
+    If used with a concrete emulator, it defaults to zeroes.
 
     Arguments:
         size: The size of the region
+        bv: Optional bitvector value
         type: Optional typedef information
         label: An optional metadata label
     """
 
     def __init__(
-        self, size: int, type: typing.Optional[typing.Any], label: typing.Optional[str]
+        self,
+        size: int,
+        bv: typing.Optional[claripy.ast.bv.BV],
+        type: typing.Optional[typing.Any],
+        label: typing.Optional[str],
     ):
         super().__init__()
+        self._content = bv
         self._size = size
         self._type = type
         self._label = label
@@ -241,6 +315,8 @@ class IntegerValue(Value):
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         if self._content is None:
             raise ValueError("IntegerValue must have an integer value")
+        if not isinstance(self._content, int):
+            raise TypeError("IntegerValue is not an integer")
         value = self._content
         if value < 0:
             # Convert signed python into unsigned int containing 2s-compliment value.
@@ -276,7 +352,7 @@ class BytesValue(Value):
         return self._size
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
-        if self._content is None:
+        if self._content is None or not isinstance(self._content, bytes):
             raise ValueError("BytesValue must have a bytes value")
         return self._content
 
@@ -303,33 +379,45 @@ class Register(Value, Stateful):
         x = self.get_content()
         if x is None:
             s = s + "=None"
-        else:
+        elif isinstance(x, int):
             s = s + f"0x{x:x}"
+        else:
+            s = s + str(x)
         return s
 
-    def set_content(self, content: typing.Optional[typing.Any]):
+    def set_content(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]):
         if content is not None:
-            if not isinstance(content, int):
+            if not isinstance(content, int) and not isinstance(
+                content, claripy.ast.bv.BV
+            ):
                 raise TypeError(
-                    f"Expected None or int as content for Register {self.name}, got {type(content)}"
+                    f"Expected None, int, or claripy expression as content for Register {self.name}, got {type(content)}"
                 )
-            if content < 0:
+            if isinstance(content, int) and content < 0:
                 logger.warn(
                     "Converting content {hex(content)} of {self.name} to unsigned."
                 )
                 content = content + (2 ** (self.size * 8))
+            if isinstance(content, claripy.ast.bv.BV):
+                if content.size() != self.size * 8:
+                    raise ValueError(
+                        f"Claripy content had size {content.size()} bits, but expected {self.size * 8} bits"
+                    )
         super().set_content(content)
 
     def get_size(self) -> int:
         return self.size
 
     def extract(self, emulator: emulators.Emulator) -> None:
+        content: typing.Union[int, claripy.ast.bv.BV] = 0
         try:
             content = emulator.read_register_content(self.name)
             if content is not None:
                 self.set_content(content)
         except exceptions.SymbolicValueError:
-            pass
+            content = emulator.read_register_symbolic(self.name)
+            if content is not None:
+                self.set_content(content)
         except exceptions.UnsupportedRegisterError:
             return
 
@@ -345,8 +433,11 @@ class Register(Value, Stateful):
             pass
 
     def apply(self, emulator: emulators.Emulator) -> None:
-        if self.get_content() is not None:
-            emulator.write_register_content(self.name, self.get_content())
+        content = self.get_content()
+        if isinstance(content, bytes):
+            raise TypeError("Register content cannot be bytes")
+        if content is not None:
+            emulator.write_register_content(self.name, content)
         if self.get_type() is not None:
             emulator.write_register_type(self.name, self.get_type())
         if self.get_label() is not None:
@@ -358,6 +449,13 @@ class Register(Value, Stateful):
         if value is None:
             # Default to zeros if no value present.
             return b"\0" * self.size
+        elif isinstance(value, claripy.ast.bv.BV):
+            raise exceptions.SymbolicValueError(
+                "Cannot convert a symbolic expression to bytes"
+            )
+        elif isinstance(value, bytes):
+            # This never happens, but let's keep mypy happy
+            return value
         elif byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self.size, byteorder="little")
         elif byteorder == platforms.Byteorder.BIG:
@@ -394,32 +492,57 @@ class RegisterAlias(Register):
 
         return mask
 
-    def get_content(self) -> typing.Optional[typing.Any]:
+    def get_content(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
         r = self.reference.get_content()
         if r is None:
             return r
         value = self.reference.get_content()
         if value is not None:
-            value = value & self.mask
-            value >>= self.offset * 8
+            if isinstance(value, int):
+                value = value & self.mask
+                value >>= self.offset * 8
+            elif isinstance(value, claripy.ast.bv.BV):
+                lo = self.offset * 8
+                hi = lo + self.size * 8 - 1
+                value = claripy.simplify(value[hi:lo])
+            else:
+                raise TypeError(f"Unexpected register content {type(value)}")
         return value
 
-    def set_content(self, content: typing.Optional[typing.Any]) -> None:
+    def set_content(
+        self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]
+    ) -> None:
         if content is not None:
-            if not isinstance(content, int):
+            if isinstance(content, int):
+                if content < 0:
+                    logger.warn(
+                        f"Converting content {hex(content)} of {self.name} to unsigned."
+                    )
+                    content = content + (2 ** (self.size * 8))
+
+            elif isinstance(content, claripy.ast.bv.BV):
+                # Bitvectors can only interoperate with bitvectors of the same size.
+                content = claripy.ZeroExt(
+                    self.reference.size * 8 - self.size * 8, content
+                )
+
+            else:
                 raise TypeError(
-                    f"Expected None or int as content for RegisterAlias {self.name}, got {type(content)}"
+                    f"Can only accept None, int, or BV, not {type(content)}"
                 )
-            if content < 0:
-                logger.warn(
-                    f"Converting content {hex(content)} of {self.name} to unsigned."
-                )
-                content = content + (2 ** (self.size * 8))
 
             value = self.reference.get_content()
             if value is None:
                 value = 0
+            if isinstance(value, bytes):
+                raise TypeError("Value should not be bytes")
+
+            # mypy completely loses the plot trying to determine type for content
+            content = content << (self.offset * 8)  # type: ignore[operator]
             value = (value & ~self.mask) | content
+            if isinstance(value, claripy.ast.bv.BV):
+                value = claripy.simplify(value)
+
             self.reference.set_content(value)
 
     def get_type(self) -> typing.Optional[typing.Any]:
@@ -500,7 +623,6 @@ class StatefulSet(Stateful, collections.abc.MutableSet):
 
     def extract(self, emulator: emulators.Emulator) -> None:
         for stateful in self:
-            # logger.debug(f"extracting state {stateful} of type {type(stateful)} from {emulator}")
             stateful.extract(emulator)
 
     def apply(self, emulator: emulators.Emulator) -> None:
@@ -548,6 +670,7 @@ class Machine(StatefulSet):
         super().__init__()
         self._bounds = utils.RangeCollection()
         self._exit_points = set()
+        self._constraints = list()
 
     def add_exit_point(self, address: int):
         """Add an exit point to the machine.
@@ -584,17 +707,61 @@ class Machine(StatefulSet):
         """
         return list(self._bounds.ranges)
 
+    def add_constraint(self, expr: claripy.ast.bool.Bool) -> None:
+        """Add a constraint to the environment
+
+        A constraint is an expression that
+        some emulators can use to limit the possible values
+        of unbound variables.
+        They will only consider execution states
+        where all constraints can evaluate to True.
+
+        Constraints must be Boolean expressions;
+        the easiest form is the equality or inequality
+        of two bitvector expressions.
+
+        You can get the variable representing
+        a labeled Value via its `to_symbolic()` method.
+        Note that Values with both a label and content
+        already have a constraint binding the label's
+        variable to the content.
+
+        Arguments:
+            expr: The constraint expression to add
+        """
+        if not isinstance(expr, claripy.ast.bool.Bool):
+            raise TypeError(f"expr is a {type(expr)}, not a Boolean expression")
+
+        self._constraints.append(expr)
+
+    def get_constraints(self) -> typing.List[claripy.ast.bool.Bool]:
+        """Retrieve all constraints applied to this machine.
+
+        Returns:
+            A list of constraint expressions
+        """
+        return list(self._constraints)
+
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exit_points:
             emulator.add_exit_point(address)
         for start, end in self.get_bounds():
             emulator.add_bound(start, end)
+
+        if isinstance(emulator, emulators.ConstrainedEmulator):
+            for expr in self._constraints:
+                emulator.add_constraint(expr)
+
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exit_points = emulator.get_exit_points()
         for start, end in emulator.get_bounds():
             self.add_bound(start, end)
+
+        if isinstance(emulator, emulators.ConstrainedEmulator):
+            self._constraints = emulator.get_constraints()
+
         return super().extract(emulator)
 
     def emulate(self, emulator: emulators.Emulator) -> Machine:
@@ -716,6 +883,9 @@ class Machine(StatefulSet):
         """
         return [i for i in self if issubclass(type(i), state.cpus.cpu.CPU)]
 
+    def get_elfs(self):
+        return [i for i in self if issubclass(type(i), state.memory.ElfExecutable)]
+
     def get_platforms(self):
         """Gets a set of platforms for the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine.
 
@@ -739,6 +909,12 @@ class Machine(StatefulSet):
             raise exceptions.ConfigurationError("You have more than one CPU")
         return cpus[0]
 
+    def get_elf(self):
+        elfs = self.get_elfs()
+        if len(elfs) != 1:
+            raise exceptions.ConfigurationError("You have more than one ELF")
+        return elfs[0]
+
     def get_platform(self):
         """Gets the platform of the :class:`~smallworld.state.cpus.cpu.CPU` (s) attached to this machine. Throws an exception if the machine has more than one.
 
@@ -753,13 +929,32 @@ class Machine(StatefulSet):
             raise exceptions.ConfigurationError("You have more than one platform")
         return platforms.pop()
 
+    def read_memory(self, address: int, size: int) -> typing.Optional[bytes]:
+        """Read bytes out of memory if available.
+
+        Arguments:
+            address: start address of read.
+            size: number of bytes to read.
+
+        Returns:
+            the bytes read, or None if unavailable.
+        """
+        for m in self:
+            if issubclass(type(m), state.memory.Memory):
+                for po, v in m.items():
+                    if m.address + po <= address <= m.address + po + v._size:
+                        c = m[po].get()
+                        o = address - (m.address + po)
+                        return c[o : o + size]
+        return None
+
 
 __all__ = [
     "Stateful",
     "Value",
     "IntegerValue",
     "BytesValue",
-    "EmptyValue",
+    "SymbolicValue",
     "Register",
     "RegisterAlias",
     "FixedRegister",

@@ -1,4 +1,8 @@
+import typing
+
+import angr
 import archinfo
+import pyvex
 
 from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
@@ -70,9 +74,9 @@ class i386MachineDef(AngrMachineDef):
         "dr6": "",
         "dr7": "",
         # *** Descriptor Table Registers ***
-        "gdtr": "",
-        "idtr": "",
-        "ldtr": "",
+        "gdtr": "gdt",
+        "idtr": "idt",
+        "ldtr": "ldt",
         # *** Task Register ***
         "tr": "",
         # *** x87 Registers ***
@@ -112,3 +116,106 @@ class i386MachineDef(AngrMachineDef):
         "xmm6": "xmm6",
         "xmm7": "xmm7",
     }
+
+    def rebuild_irsb(self, addr, good_bytes):
+        # Lift good_bytes to an IRSB
+        return pyvex.lift(good_bytes, addr, self.angr_arch)
+
+    def build_sysexit_irsb(self, insn, good_bytes):
+        # Build a new IRSB just containing sysexit:
+        # 0: IMARK (addr, 2, 0)
+        # 1: t0 = GET:I32(ecx)
+        # 2: t1 = GET:I32(edx)
+        # 3: PUT(esp) = t0
+        # NEXT: PUT(eip) = t1; Iji_Sys_sysexit
+
+        # Get the offsetfs of ecd and edx
+        ecx_off, _ = self.angr_arch.registers["ecx"]
+        edx_off, _ = self.angr_arch.registers["edx"]
+        esp_off, _ = self.angr_arch.registers["esp"]
+
+        # Type environment; we need two variables of type int32
+        irsb_tyenv = pyvex.IRTypeEnv(self.angr_arch, ["Ity_I32", "Ity_I32"])
+
+        # Statements
+        irsb_stmts = [
+            # Statement 0: Instruction mark
+            pyvex.stmt.IMark(insn.address, 2, 0),
+            # Statement 1: Load ecx into t0
+            pyvex.stmt.WrTmp(
+                0,  # Load into t0
+                pyvex.expr.Get(  # Get a register
+                    ecx_off,
+                    "Ity_I32",
+                ),
+            ),
+            # Statement 2: Load edx into t1
+            pyvex.stmt.WrTmp(
+                1,  # Load into t1
+                pyvex.expr.Get(  # Get a register
+                    edx_off,
+                    "Ity_I32",
+                ),
+            ),
+            # Statement 3: Load t0 into esp
+            pyvex.stmt.Put(pyvex.expr.RdTmp.get_instance(0), esp_off),
+        ]
+
+        # "next" expression; Value of t1
+        irsb_next = pyvex.expr.RdTmp.get_instance(1)
+        # Jump kind
+        irsb_jumpkind = "Ijk_Boring"
+
+        irsb = pyvex.IRSB.from_py(
+            irsb_tyenv,
+            irsb_stmts,
+            irsb_next,
+            irsb_jumpkind,
+            insn.address,
+            self.angr_arch,
+        )
+        if len(good_bytes) > 0:
+            prefix = self.rebuild_irsb(insn.address - len(good_bytes), good_bytes)
+            # Fuse the two together
+            irsb = prefix.extend(irsb)
+
+        return irsb
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        # VEX doesn't correctly model SYSENTER and SYSEXIT
+
+        # Fetch or compute the IR block for our state
+        if "irsb" in kwargs and kwargs["irsb"] is not None:
+            # Someone's already specified an IR block.
+            irsb = kwargs["irsb"]
+        else:
+            # Disable optimization; it doesn't work
+
+            # Compute the block from the state
+            # Pray to the Powers that kwargs are compatible.
+            irsb = state.block(**kwargs).vex
+
+        if irsb.jumpkind == "Ijk_NoDecode":
+            # VEX is stumped regarding this instruction.
+            # Unfortunately, this also means basic block detection failed.
+            irsb = None
+            disas = state.block(**kwargs).disassembly
+            good_bytes = b""
+            for insn in disas.insns:
+                if insn.mnemonic == "sysexit":
+                    irsb = self.build_sysexit_irsb(insn, good_bytes)
+                    break
+                else:
+                    good_bytes += insn.insn.bytes
+            if irsb is None:
+                irsb = self.rebuild_irsb(disas.insns[0].address, good_bytes)
+
+        # Force the engine to use our IR block
+        kwargs["irsb"] = irsb
+
+        # Turn the crank on the engine
+        try:
+            return super().successors(state, **kwargs)
+        except angr.errors.SimIRSBNoDecodeError as e:
+            print(f"Bad IRSB:\n{irsb}")
+            raise e

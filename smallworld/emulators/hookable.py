@@ -95,14 +95,15 @@ class QMemoryReadHookable(MemoryReadHookable):
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.memory_read_hooks: typing.Dict[
-            range, typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
+            range, typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]]
         ] = {}
         self.all_reads_hook: typing.Optional[
-            typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
+            typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]]
         ] = None
 
     def hook_memory_reads(
-        self, function: typing.Callable[[Emulator, int, int], typing.Optional[bytes]]
+        self,
+        function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
         self.all_reads_hook = function
 
@@ -113,7 +114,7 @@ class QMemoryReadHookable(MemoryReadHookable):
         self,
         start: int,
         end: int,
-        function: typing.Callable[[Emulator, int, int], typing.Optional[bytes]],
+        function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
         new_range = range(start, end)
         for r in self.memory_read_hooks:
@@ -142,7 +143,9 @@ class QMemoryReadHookable(MemoryReadHookable):
 
     def is_memory_read_hooked(
         self, address: int
-    ) -> typing.Optional[typing.Callable[[Emulator, int, int], typing.Optional[bytes]]]:
+    ) -> typing.Optional[
+        typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]]
+    ]:
         for rng in self.memory_read_hooks:
             if address in rng:
                 return self.memory_read_hooks[rng]

@@ -7,6 +7,7 @@ import typing
 from enum import Enum
 
 import capstone
+import claripy
 import pandare
 
 from ... import exceptions, platforms, utils
@@ -247,12 +248,16 @@ class PandaEmulator(
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
                 print(f"\ton_read: {addr}")
+                orig_data = self.panda.virtual_memory_read(self.manager.cpu, addr, size)
                 if self.manager.all_reads_hook:
-                    val = self.manager.all_reads_hook(self.manager, addr, size)
+                    val = self.manager.all_reads_hook(
+                        self.manager, addr, size, orig_data
+                    )
                     if val:
                         self.manager.write_memory(addr, val)
+                        orig_data = val
                 if cb := self.manager.is_memory_read_hooked(addr):
-                    val = cb(self.manager, addr, size)
+                    val = cb(self.manager, addr, size, orig_data)
                     if val:
                         self.manager.write_memory(addr, val)
 
@@ -351,10 +356,17 @@ class PandaEmulator(
         except:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {name})")
 
-    def write_register_content(self, name: str, content: typing.Optional[int]) -> None:
+    def write_register_content(
+        self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
+    ) -> None:
         if content is None:
             logger.debug(f"ignoring register write to {name} - no value")
             return
+
+        if isinstance(content, claripy.ast.bv.BV):
+            raise exceptions.SymbolicValueError(
+                "This emulator cannot handle bitvector expressions"
+            )
 
         if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
             # This is my internal pc
@@ -421,10 +433,17 @@ class PandaEmulator(
     def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
         return list(self.mapped_pages.ranges)
 
-    def write_memory_content(self, address: int, content: bytes) -> None:
+    def write_memory_content(
+        self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
+    ) -> None:
         # Should we type check, if content isnt bytes mad?
         if content is None:
             raise ValueError(f"{self.__class__.__name__} requires concrete state")
+
+        if isinstance(content, claripy.ast.bv.BV):
+            raise exceptions.SymbolicValueError(
+                "This emulator cannot handle bitvector expressions"
+            )
 
         if len(content) > sys.maxsize:
             raise ValueError(f"{len(content)} is too large (max: {sys.maxsize})")

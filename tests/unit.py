@@ -2,7 +2,13 @@ import signal
 import typing
 import unittest
 
-from smallworld import utils
+import claripy
+
+from smallworld import emulators, platforms, state, utils
+
+
+class MockConcreteEmulator(emulators.Emulator):
+    pass
 
 
 class assertTimeout:
@@ -35,6 +41,93 @@ class assertTimeout:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         signal.alarm(0)
+
+
+class StateTests(unittest.TestCase):
+    def assertClaripyEqual(self, actual, expected, msg=None):
+        if not isinstance(actual, claripy.ast.bv.BV):
+            self.fail(msg=f"Actual value {actual} is not a bitvector expression")
+
+        if not isinstance(expected, claripy.ast.bv.BV):
+            self.fail(msg=f"Expected value {expected} is not a bitvector expression")
+        if msg is None:
+            msg = f"Expected {expected}, but got {actual}"
+        return self.assertTrue(expected.structurally_match(actual), msg=msg)
+
+    def test_register_assignment(self):
+        foo = state.Register("foo", 4)
+        foo_c = 0xAAAAAAAA
+        foo_v = claripy.BVV(foo_c, 32)
+        foo_s = claripy.BVS("foo", 32, explicit_name=True)
+        bad_s = claripy.BVS("bad", 1)
+
+        # Integer without label
+        foo.set(foo_c)
+        foo.set_label(None)
+        self.assertEqual(foo.get(), foo_c)
+        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_v)
+
+        # Integer with label
+        foo.set(foo_c)
+        foo.set_label("foo")
+        self.assertEqual(foo.get(), foo_c)
+        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_s)
+
+        # Symbolic without label
+        foo.set(foo_v)
+        foo.set_label(None)
+        self.assertClaripyEqual(foo.get(), foo_v)
+        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_v)
+
+        # Sybolic with label
+        foo.set(foo_v)
+        foo.set_label("foo")
+        self.assertClaripyEqual(foo.get(), foo_v)
+        self.assertClaripyEqual(foo.to_symbolic(platforms.Byteorder.BIG), foo_s)
+
+        # Invalid symbolic value
+        with self.assertRaises(ValueError):
+            foo.set(bad_s)
+
+    def test_register_aliasing(self):
+        foo = state.Register("foo", 4)
+        bar = state.RegisterAlias("bar", foo, 2, 2)
+        foo_c = 0xAAAAAAAA
+        bar_c = 0xBBBB
+        foo_v = claripy.BVV(foo_c, 32)
+        bar_v = claripy.BVV(bar_c, 16)
+        foo_s = claripy.BVS("foo", 32)
+        bar_s = claripy.BVS("bar", 16)
+
+        # Test integer/integer
+        foo.set(foo_c)
+        bar.set(bar_c)
+        self.assertEqual(foo.get(), (foo_c & 0xFFFF) | (bar_c << 16))
+        self.assertEqual(bar.get(), bar_c)
+
+        # Test symbol/integer
+        foo.set(foo_s)
+        bar.set(bar_c)
+        res_s = claripy.Concat(bar_v, foo_s[15:0])
+
+        self.assertClaripyEqual(res_s, foo.get())
+        self.assertClaripyEqual(bar_v, bar.get())
+
+        # Test integer/symbol
+        foo.set(foo_c)
+        bar.set(bar_s)
+        res_s = claripy.Concat(bar_s, foo_v[15:0])
+
+        self.assertClaripyEqual(res_s, foo.get())
+        self.assertClaripyEqual(bar_s, bar.get())
+
+        # Test symbol/symbol
+        foo.set(foo_s)
+        bar.set(bar_s)
+        res_s = claripy.Concat(bar_s, foo_s[15:0])
+
+        self.assertClaripyEqual(res_s, foo.get())
+        self.assertClaripyEqual(bar_s, bar.get())
 
 
 class UtilsTests(unittest.TestCase):
