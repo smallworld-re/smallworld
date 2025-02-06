@@ -1,10 +1,10 @@
 import logging
 import pathlib
 
-from field_analysis import FieldDetectionAnalysis
-
 import smallworld
+import smallworld.analyses.field_detection
 import smallworld.analyses.unstable.angr.visitor
+from smallworld.analyses.field_detection import FieldDetectionAnalysis
 
 # Stage 0 DNS exploration: Raw buffers
 #
@@ -65,9 +65,9 @@ gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
 machine.add(gdata)
 # DNS message struct
 # Sort of cheating that I know how big it is.
-gdata[0] = smallworld.state.EmptyValue(48, None, "msg")
+gdata[0] = smallworld.state.SymbolicValue(48, None, None, "msg")
 # Input buffer
-gdata[48] = smallworld.state.EmptyValue(512, None, "buf")
+gdata[48] = smallworld.state.SymbolicValue(512, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
 

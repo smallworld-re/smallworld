@@ -4,25 +4,20 @@ import typing
 
 import angr
 import claripy
-from guards import GuardTrackingScratchMixin
 
-import smallworld
-from smallworld.emulators.angr.exceptions import PathTerminationSignal
+from ... import analyses, emulators, exceptions, hinting, platforms, state
+from ...emulators.angr.exceptions import PathTerminationSignal
+from .guards import GuardTrackingScratchPlugin
 
 log = logging.getLogger(__name__)
-hinter = smallworld.hinting.get_hinter(__name__)
+hinter = hinting.get_hinter(__name__)
 
 # Tell angr to be quiet please
 logging.getLogger("angr").setLevel(logging.WARNING)
 
 
-class FDAScratchPlugin(
-    GuardTrackingScratchMixin, smallworld.emulators.angr.scratch.ExpandedScratchPlugin
-):
-    """angr scratch plugin that remembers path guards, and analysis state"""
-
-    def __init__(self, scratch=None):
-        super().__init__(scratch=scratch)
+class FDAState:
+    def __init__(self):
         self.fda_labels = set()
         self.fda_addr_to_label = dict()
         self.fda_label_to_addr = dict()
@@ -30,15 +25,8 @@ class FDAScratchPlugin(
         self.fda_bindings = dict()
         self.fda_byte_labels = set()
 
-        if scratch is not None:
-            self.fda_labels |= scratch.fda_labels
-            self.fda_addr_to_label.update(scratch.fda_addr_to_label)
-            self.fda_label_to_addr.update(scratch.fda_label_to_addr)
-            self.fda_mem_ranges.update(scratch.fda_mem_ranges)
-            self.fda_bindings.update(scratch.fda_bindings)
 
-
-class ClaripySerializable(smallworld.hinting.hinting.Serializable):
+class ClaripySerializable(hinting.Serializable):
     """Serializable wrapper that allows serializing claripy expressions in hints."""
 
     @classmethod
@@ -67,7 +55,7 @@ class ClaripySerializable(smallworld.hinting.hinting.Serializable):
 
 
 @dataclasses.dataclass(frozen=True)
-class FieldHint(smallworld.hinting.Hint):
+class FieldHint(hinting.Hint):
     """Hint representing a detected, unhandled field"""
 
     pc: int = 0
@@ -149,7 +137,7 @@ class PartialBitFieldAccessHint(FieldHint):
         out(f"  field:      {self.label}[{self.start}:{self.end}]")
 
 
-class FieldDetectionAnalysis(smallworld.analyses.Analysis):
+class FieldDetectionAnalysis(analyses.Analysis):
     """Analysis comparing state labels to field accesses.
 
     This assumes that memory labels correspond to fields
@@ -174,47 +162,19 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
     version = "0.0"
     description = "Detects discrepancies between labels and field accesses"
 
-    def __init__(self, platform: smallworld.platforms.Platform):
+    def __init__(self, platform: platforms.Platform):
         self.platform = platform
-        self.extra_constraints: typing.List[typing.Tuple[int, str, str, int]] = list()
 
-    def set_extra_constraints(
-        self, cons: typing.List[typing.Tuple[int, str, str, int]]
-    ):
-        """Inject extra constraints into the initial angr state"""
-        self.extra_constraints = list()
-        for size, label, op, val in cons:
-            size = size * 8
-            sym = claripy.BVS(label, size, explicit_name=True)
-            val = claripy.BVV(val, size)
-            if op == "eq":
-                self.extra_constraints.append(sym == val)
-            elif op == "ne":
-                self.extra_constraints.append(sym != val)
-            elif op == "gt":
-                self.extra_constraints.append(sym > val)
-            elif op == "ge":
-                self.extra_constraints.append(sym >= val)
-            elif op == "lt":
-                self.extra_constraints.append(sym < val)
-            elif op == "le":
-                self.extra_constraints.append(sym <= val)
-            else:
-                raise smallworld.exceptions.ConfigurationError(
-                    f"Unknown constraint operator {op}"
-                )
-            log.warn(f"Added constraint {self.extra_constraints[-1]}")
-
-    def translate_global_addr(self, emu, addr):
+    def translate_global_addr(self, fda, addr):
         # Convert address into a label
-        for r, label in emu.state.scratch.fda_addr_to_label.items():
+        for r, label in fda.fda_addr_to_label.items():
             if addr in r:
                 return label
         return "UNKNOWN"
 
-    def mem_read_hook(self, emu, addr, size):
-        expr = emu.state.inspect.mem_read_expr
-        cheat = self.translate_global_addr(emu, addr)
+    def mem_read_hook(self, emu, addr, size, expr):
+        fda = emu.get_extension("fda")
+        cheat = self.translate_global_addr(fda, addr)
         log.info(
             f"{hex(emu.state._ip.concrete_value)}: READING {hex(addr)} - {hex(addr + size)} ({cheat})"
         )
@@ -233,10 +193,10 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
         if expr.op == "BVS":
             # This is a symbol.  It's okay if it's a field.
             label = expr.args[0].split("_")[0]
-            if label in emu.state.scratch.fda_labels:
+            if label in fda.fda_labels:
                 return
             hint = UnknownFieldHint(
-                pc=emu.state._ip.concrete_value,
+                pc=emu.read_register("pc"),
                 guards=list(
                     map(
                         lambda x: (x[0], ClaripySerializable(x[1])),
@@ -258,10 +218,10 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                 var = expr.args[2]
                 label = var.args[0].split("_")[0]
 
-                if var.args[0] not in emu.state.scratch.fda_labels:
+                if var.args[0] not in fda.fda_labels:
                     # This is not a label we know
                     hint = UnknownFieldHint(
-                        pc=emu.state._ip.concrete_value,
+                        pc=emu.read_register("pc"),
                         guards=list(
                             map(
                                 lambda x: (x[0], ClaripySerializable(x[1])),
@@ -282,14 +242,14 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                     end = expr.args[1]
 
                     # Angr's bit numbering is annoying.
-                    r = emu.state.scratch.fda_label_to_addr[var.args[0]]
+                    r = fda.fda_label_to_addr[var.args[0]]
                     size = r.stop - r.start
                     start = size * 8 - start - 1
                     end = size * 8 - end
 
                     if start % 8 != 0 or end % 8 != 0:
                         hint = PartialBitFieldAccessHint(
-                            pc=emu.state._ip.concrete_value,
+                            pc=emu.read_register("pc"),
                             guards=list(
                                 map(
                                     lambda x: (x[0], ClaripySerializable(x[1])),
@@ -308,7 +268,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                         )
                     else:
                         hint = PartialByteFieldAccessHint(
-                            pc=emu.state._ip.concrete_value,
+                            pc=emu.read_register("pc"),
                             guards=list(
                                 map(
                                     lambda x: (x[0], ClaripySerializable(x[1])),
@@ -331,7 +291,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
         # This is a complex expression.
         # We're accessing the results of a computation
         hint = UnknownFieldHint(
-            pc=emu.state._ip.concrete_value,
+            pc=emu.read_register("pc"),
             guards=list(
                 map(
                     lambda x: (x[0], ClaripySerializable(x[1])),
@@ -344,14 +304,14 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
             expr=str(expr),
         )
         log.info("Constraints:")
-        for con in emu.state.solver.constraints:
+        for con in emu.get_constraints():
             log.info(f"  Constraint {con}")
         hinter.info(hint)
         raise PathTerminationSignal()
 
-    def mem_write_hook(self, emu, addr, size, data):
-        expr = emu.state.inspect.mem_write_expr
-        cheat = self.translate_global_addr(emu, addr)
+    def mem_write_hook(self, emu, addr, size, expr):
+        fda = emu.get_extension("fda")
+        cheat = self.translate_global_addr(fda, addr)
         log.info(
             f"{hex(emu.state._ip.concrete_value)}: WRITING {hex(addr)} - {hex(addr + size)} ({cheat})"
         )
@@ -359,7 +319,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
 
         good = False
         bad = False
-        for r, label in emu.state.scratch.fda_addr_to_label.items():
+        for r, label in fda.fda_addr_to_label.items():
             if addr in r:
                 # Write is within an existing field
                 if r.start == addr and r.stop == addr + size:
@@ -367,16 +327,16 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                     # Create a new symbol for the new def of this field.
                     log.info(f"  Write to entire field {cheat}")
                     sym = claripy.BVS(label, size * 8)
-                    emu.state.solver.add(sym == expr)
+                    emu.add_constraint(sym == expr)
                     emu.state.inspect.mem_write_expr = sym
-                    emu.state.scratch.fda_bindings[sym.args[0]] = expr
+                    fda.fda_bindings[sym.args[0]] = expr
                     good = True
                 else:
                     # Write does not line up with the existing field
                     start = addr - r.start
                     end = addr + size - r.start
                     hint = PartialByteFieldWriteHint(
-                        pc=emu.state._ip.concrete_value,
+                        pc=emu.read_register("pc"),
                         guards=list(
                             map(
                                 lambda x: (x[0], ClaripySerializable(x[1])),
@@ -397,7 +357,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                     bad = True
         if bad and good:
             log.error("Write was complete and partial; your labels overlap.")
-            raise smallworld.exceptions.ConfigurationError("Overlapping labels")
+            raise exceptions.ConfigurationError("Overlapping labels")
         elif bad:
             raise PathTerminationSignal()
         elif good:
@@ -405,7 +365,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
         else:
             # Write doesn't overlap any known fields
             hint = UnknownFieldHint(
-                pc=emu.state._ip.concrete_value,
+                pc=emu.read_register("pc"),
                 guards=list(
                     map(
                         lambda x: (x[0], ClaripySerializable(x[1])),
@@ -422,24 +382,23 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
 
     def run(self, machine):
         # Set up the filter analysis
+        fda = FDAState()
         filt = FieldDetectionFilter()
         filt.activate()
 
         # Set up the emulator
         def angr_preinit(emu):
             preset = angr.SimState._presets["default"].copy()
-            preset.add_default_plugin("scratch", FDAScratchPlugin)
+            preset.add_default_plugin("scratch", GuardTrackingScratchPlugin)
             emu._plugin_preset = preset
 
-        emulator = smallworld.emulators.AngrEmulator(
-            self.platform, preinit=angr_preinit
-        )
+        emulator = emulators.AngrEmulator(self.platform, preinit=angr_preinit)
         machine.apply(emulator)
-        emulator.state.solver.add(*self.extra_constraints)
+        emulator.add_extension("fda", fda)
 
         # Capture the labeled memory ranges
         for s in machine:
-            if isinstance(s, smallworld.state.memory.Memory):
+            if isinstance(s, state.memory.Memory):
                 start = s.address
                 end = start + s.get_capacity()
                 log.info(f"{hex(start)} - {hex(end)}")
@@ -453,42 +412,39 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                             f"  {hex(val_start)} - {hex(val_end)}: {val} := {label}"
                         )
 
-                        if label in emulator.state.scratch.fda_labels:
+                        if label in fda.fda_labels:
                             log.error(
                                 f"You reused label {label}; please give it a unique name"
                             )
-                            raise smallworld.exceptions.ConfigurationError(
-                                "Duplicate field name"
-                            )
+                            raise exceptions.ConfigurationError("Duplicate field name")
 
                         r = range(val_start, val_end)
-                        emulator.state.scratch.fda_labels.add(label)
-                        emulator.state.scratch.fda_addr_to_label[r] = label
-                        emulator.state.scratch.fda_label_to_addr[label] = r
-                        emulator.state.scratch.fda_bindings[label] = claripy.BVS(
+                        fda.fda_labels.add(label)
+                        fda.fda_addr_to_label[r] = label
+                        fda.fda_label_to_addr[label] = r
+                        fda.fda_bindings[label] = claripy.BVS(
                             label, val.get_size() * 8, explicit_name=True
                         )
-                        emulator.state.scratch.fda_mem_ranges.add((val_start, val_end))
+                        fda.fda_mem_ranges.add((val_start, val_end))
 
-        for start, end in emulator.state.scratch.fda_mem_ranges:
-            emulator.hook_memory_read(start, end, self.mem_read_hook)
-            emulator.hook_memory_write(start, end, self.mem_write_hook)
+        for start, end in fda.fda_mem_ranges:
+            emulator.hook_memory_read_symbolic(start, end, self.mem_read_hook)
+            emulator.hook_memory_write_symbolic(start, end, self.mem_write_hook)
 
         try:
             while True:
                 emulator.step()
-        except smallworld.exceptions.EmulationStop:
+        except exceptions.EmulationStop:
             pass
-        except Exception:
-            log.exception("Got exception")
 
         log.warning(emulator.mgr)
         log.warning(emulator.mgr.errored)
 
-        def state_visitor(emu: smallworld.emulators.Emulator) -> None:
-            if not isinstance(emu, smallworld.emulators.AngrEmulator):
+        def state_visitor(emu: emulators.Emulator) -> None:
+            if not isinstance(emu, emulators.AngrEmulator):
                 raise TypeError(type(emu))
-            for start, end in emu.state.scratch.fda_mem_ranges:
+            fda = emu.get_extension("fda")
+            for start, end in fda.fda_mem_ranges:
                 emu.unhook_memory_read(start, end)
                 emu.unhook_memory_write(start, end)
 
@@ -499,14 +455,14 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
                     continue
                 log.info(f"    {hex(ip)}: {guard}")
             log.info("  Fields:")
-            for r in emu.state.scratch.fda_addr_to_label:
+            for r in fda.fda_addr_to_label:
                 val = emu.state.memory.load(r.start, r.stop - r.start)
                 if len(val.variables) == 1:
                     # val is extremely likely a bound symbol.
                     # Fetch the binding
                     (label,) = val.variables
-                    if label in emu.state.scratch.fda_bindings:
-                        val = emu.state.scratch.fda_bindings[label]
+                    if label in fda.fda_bindings:
+                        val = fda.fda_bindings[label]
                     else:
                         log.error(f"  Unknown variable {label}")
 
@@ -516,7 +472,7 @@ class FieldDetectionAnalysis(smallworld.analyses.Analysis):
         filt.deactivate()
 
 
-class FieldDetectionFilter(smallworld.analyses.Filter):
+class FieldDetectionFilter(analyses.Filter):
     """Secondary field definition analysis.
 
     This picks up patterns that aren't noticeable from any
@@ -532,7 +488,7 @@ class FieldDetectionFilter(smallworld.analyses.Filter):
         self.active = True
         self.partial_ranges = dict()
 
-    def analyze(self, hint: smallworld.hinting.Hint):
+    def analyze(self, hint: hinting.Hint):
         # Step 0: Print hints in a sane format.
         # The raw hint logging is unreadable.
         if not isinstance(hint, FieldHint):

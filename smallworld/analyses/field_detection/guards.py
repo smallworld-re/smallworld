@@ -1,7 +1,7 @@
-import angr
+from ...emulators.angr.scratch import ExpandedScratchPlugin
 
 
-class GuardTrackingScratchMixin(angr.SimStatePlugin):
+class GuardTrackingScratchPlugin(ExpandedScratchPlugin):
     def __init__(self, scratch=None):
         self._guard = None
         self.guards = []

@@ -8,7 +8,7 @@ HDRS = $(wildcard include/*.h)
 SRCS = $(wildcard src/*.c)
 
 # C compiler; we're using clang
-CC = clang
+CC = clang-14
 
 # Universal cflags 
 INCLUDES = -I ./include

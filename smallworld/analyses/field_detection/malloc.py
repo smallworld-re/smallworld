@@ -1,47 +1,46 @@
 import logging
 import typing
 
-import angr
 import claripy
 
-import smallworld
-from smallworld.emulators.angr.exceptions import PathTerminationSignal
+from ... import emulators, exceptions, platforms, state
+from ...emulators.angr.exceptions import PathTerminationSignal
 
 log = logging.getLogger(__name__)
 
 
-class MallocModel(smallworld.state.models.Model):
+class MallocModel(state.models.Model):
     name = "malloc"
-    platform = smallworld.platforms.Platform(
-        smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
-    abi = smallworld.platforms.ABI.SYSTEMV
+    abi = platforms.ABI.SYSTEMV
 
     _arg1_for_arch = {
-        smallworld.platforms.Architecture.AARCH64: "x0",
-        smallworld.platforms.Architecture.ARM_V5T: "r0",
-        smallworld.platforms.Architecture.ARM_V7A: "r0",
-        smallworld.platforms.Architecture.MIPS32: "a0",
-        smallworld.platforms.Architecture.MIPS64: "a0",
-        smallworld.platforms.Architecture.POWERPC32: "r3",
-        smallworld.platforms.Architecture.X86_64: "rdi",
+        platforms.Architecture.AARCH64: "x0",
+        platforms.Architecture.ARM_V5T: "r0",
+        platforms.Architecture.ARM_V7A: "r0",
+        platforms.Architecture.MIPS32: "a0",
+        platforms.Architecture.MIPS64: "a0",
+        platforms.Architecture.POWERPC32: "r3",
+        platforms.Architecture.X86_64: "rdi",
     }
 
     _ret_for_arch = {
-        smallworld.platforms.Architecture.AARCH64: "x0",
-        smallworld.platforms.Architecture.ARM_V5T: "r0",
-        smallworld.platforms.Architecture.ARM_V7A: "r0",
-        smallworld.platforms.Architecture.MIPS32: "v0",
-        smallworld.platforms.Architecture.MIPS64: "v0",
-        smallworld.platforms.Architecture.POWERPC32: "r3",
-        smallworld.platforms.Architecture.X86_64: "rax",
+        platforms.Architecture.AARCH64: "x0",
+        platforms.Architecture.ARM_V5T: "r0",
+        platforms.Architecture.ARM_V7A: "r0",
+        platforms.Architecture.MIPS32: "v0",
+        platforms.Architecture.MIPS64: "v0",
+        platforms.Architecture.POWERPC32: "r3",
+        platforms.Architecture.X86_64: "rax",
     }
 
     def __init__(
         self,
         address: int,
-        heap: smallworld.state.memory.heap.Heap,
-        platform: smallworld.platforms.Platform,
+        heap: state.memory.heap.Heap,
+        platform: platforms.Platform,
         read_callback,
         write_callback,
     ):
@@ -51,11 +50,9 @@ class MallocModel(smallworld.state.models.Model):
         self.ret_reg = self._ret_for_arch[platform.architecture]
 
         if len(heap) > 0:
-            raise smallworld.exceptions.ConfigurationError(
-                "This only works with a blank heap"
-            )
-        end = smallworld.state.IntegerValue(heap.address + heap.get_capacity(), 8, None)
-        ptr = smallworld.state.IntegerValue(heap.address + 16, 8, None)
+            raise exceptions.ConfigurationError("This only works with a blank heap")
+        end = state.IntegerValue(heap.address + heap.get_capacity(), 8, None)
+        ptr = state.IntegerValue(heap.address + 16, 8, None)
 
         heap.allocate(end)
         heap.allocate(ptr)
@@ -79,14 +76,13 @@ class MallocModel(smallworld.state.models.Model):
             self.struct_lengths[field] += size
         self.struct_fields[field] = labels
 
-    def model(self, emulator: smallworld.emulators.Emulator):
-        if not isinstance(emulator, smallworld.emulators.AngrEmulator):
-            raise smallworld.exceptions.ConfigurationError("Model only works with angr")
+    def model(self, emulator: emulators.Emulator):
+        if not isinstance(emulator, emulators.AngrEmulator):
+            raise exceptions.ConfigurationError("Model only works with angr")
         # Read the capacity.
         # Bypass the smallworld API; I want to know if it's symbolic
-        capacity = emulator.state.registers.load(
-            *emulator.proj.arch.registers[self.arg1_reg]
-        )
+        fda = emulator.get_extension("fda")
+        capacity = emulator.read_register_symbolic(self.arg1_reg)
         length = 0
 
         if capacity.symbolic:
@@ -94,11 +90,11 @@ class MallocModel(smallworld.state.models.Model):
             # Check if it's collapsible
             good = True
             try:
-                vals = emulator.state.solver.eval_atmost(capacity, 1)
-            except angr.errors.SimUnsatError:
+                vals = emulator.eval_atmost(capacity, 1)
+            except exceptions.UnsatError:
                 log.error("Capacity is unsat")
                 good = False
-            except angr.errors.SimValueError:
+            except exceptions.SymbolicValueError:
                 log.error("Capacity did not collapse to one value")
                 good = False
 
@@ -150,7 +146,7 @@ class MallocModel(smallworld.state.models.Model):
                 struct_labels = self.struct_fields[fields[0]]
 
                 sym = list(filter(lambda x: x.op == "BVS", capacity.leaf_asts()))[0]
-                n = emulator.state.solver.eval_atmost(sym, 1)[0]
+                n = emulator.eval_atmost(sym, 1)[0]
 
                 if length // n != struct_length:
                     # Don't track; not an obvious "n * sizeof(struct foo)"
@@ -173,37 +169,41 @@ class MallocModel(smallworld.state.models.Model):
 
                             # Track the new field
                             r = range(addr + off, addr + off + flen)
-                            emulator.state.scratch.fda_labels.add(flabel)
-                            emulator.state.scratch.fda_addr_to_label[r] = flabel
-                            emulator.state.scratch.fda_label_to_addr[flabel] = r
-                            emulator.state.scratch.fda_bindings[flabel] = expr
+                            fda.fda_labels.add(flabel)
+                            fda.fda_addr_to_label[r] = flabel
+                            fda.fda_label_to_addr[flabel] = r
+                            fda.fda_bindings[flabel] = expr
 
                             off += flen
 
                         # Insert the whole struct into memory
                         expr = claripy.Concat(*struct_fields)
-                        emulator.state.memory.store(addr, expr, inspect=False)
+                        emulator.write_memory(addr, expr)
 
                         addr += struct_length
 
                     # Hook the entire array
-                    emulator.state.scratch.fda_mem_ranges.add((res, res + length))
-                    emulator.hook_memory_read(res, res + length, self.read_callback)
-                    emulator.hook_memory_write(res, res + length, self.write_callback)
+                    fda.fda_mem_ranges.add((res, res + length))
+                    emulator.hook_memory_read_symbolic(
+                        res, res + length, self.read_callback
+                    )
+                    emulator.hook_memory_write_symbolic(
+                        res, res + length, self.write_callback
+                    )
 
         emulator.write_register_content(self.ret_reg, res)
 
 
-class FreeModel(smallworld.state.models.Model):
+class FreeModel(state.models.Model):
     name = "free"
-    platform = smallworld.platforms.Platform(
-        smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
-    abi = smallworld.platforms.ABI.SYSTEMV
+    abi = platforms.ABI.SYSTEMV
 
     def __init__(self, address: int):
         super().__init__(address)
 
-    def model(self, emulator: smallworld.emulators.Emulator):
+    def model(self, emulator: emulators.Emulator):
         # Just free it.
         return

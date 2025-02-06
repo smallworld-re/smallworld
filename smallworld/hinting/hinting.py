@@ -208,4 +208,4 @@ def setup_hinting(
         formatter = JSONFormatter("%(message)s", keys=keys)
 
 
-__all__ = ["Hint", "root", "get_hinter", "setup_hinting"]
+__all__ = ["Hint", "Serializable", "root", "get_hinter", "setup_hinting"]

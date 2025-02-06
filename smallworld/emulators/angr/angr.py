@@ -526,7 +526,7 @@ class AngrEmulator(
             log.info(f"Storing {len(content)} bytes at {hex(address)}")
             if isinstance(content, bytes):
                 content = claripy.BVV(content)
-            self.state.memory.store(address, content)
+            self.state.memory.store(address, content, inspect=False)
 
     def write_memory_type(
         self, address: int, size: int, type: typing.Optional[typing.Any] = None
@@ -565,7 +565,7 @@ class AngrEmulator(
 
             # Passing the last check doesn't mean you're safe.
             # There may be over-constraints.  Please be careful.
-            self.state.memory.store(address, s)
+            self.state.memory.store(address, s, inspect=False)
             self.state.solver.add(v == s)
 
     def write_code(self, address: int, content: bytes):
@@ -823,6 +823,8 @@ class AngrEmulator(
                 expr = state.inspect.mem_read_expr
                 res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
+                if res is None:
+                    res = expr
                 state.inspect.mem_read_expr = res
 
                 # An update to angr means some operations on `state`
@@ -1047,7 +1049,6 @@ class AngrEmulator(
                         write_start = write_start.concrete_value
                     # Populate concrete value back to the inspect struct
                     state.inspect.mem_write_address = write_start
-                log.info(f"Writing to {hex(write_start)}")
                 write_size = state.inspect.mem_write_length
 
                 if write_size is None:
@@ -1328,6 +1329,21 @@ class AngrEmulator(
                 self._step(False)
         except exceptions.EmulationStop:
             return
+
+    def visit_states(
+        self,
+        function: typing.Callable[[emulator.Emulator], None],
+        stash: str = "active",
+    ) -> None:
+        """Visit every state in the selected frontier
+
+        This lets you work around the fact that most operations
+        only work at emulation start, or in linear mode.
+        """
+        if not self._initialized:
+            raise NotImplementedError("Cannot visit states before initialization")
+        for s in self.mgr.stashes[stash]:
+            function(ConcreteAngrEmulator(s, self))
 
     def enable_linear(self):
         """Enable linear execution

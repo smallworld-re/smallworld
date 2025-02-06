@@ -1,11 +1,14 @@
 import logging
 import pathlib
 
-from field_analysis import FieldDetectionAnalysis
-from malloc import FreeModel, MallocModel
-
 import smallworld
+import smallworld.analyses.field_detection
 import smallworld.analyses.unstable.angr.visitor
+from smallworld.analyses.field_detection import (
+    FieldDetectionAnalysis,
+    FreeModel,
+    MallocModel,
+)
 
 # Stage 6 DNS exploration: Complete msg.b.item
 #
@@ -29,7 +32,7 @@ with open(filepath, "rb") as f:
 
 # Apply the code's bounds to the machine
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound[0], bound[1])
 
 # Use the ELF's notion of the platform
 platform = code.platform
@@ -105,20 +108,20 @@ machine.add(gdata)
 
 # DNS message struct
 # I cheated a bit; I know it's a nested struct
-gdata[0] = smallworld.state.EmptyValue(2, None, "msg.hdr.a")
-gdata[2] = smallworld.state.EmptyValue(2, None, "msg.hdr.b")
-gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.msg.a.len")
-gdata[6] = smallworld.state.EmptyValue(2, None, "msg.hdr.msg.b.len")
-gdata[8] = smallworld.state.EmptyValue(2, None, "msg.hdr.e")
-gdata[10] = smallworld.state.EmptyValue(2, None, "msg.hdr.f")
+gdata[0] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.a")
+gdata[2] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.b")
+gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.msg.a.len")
+gdata[6] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.msg.b.len")
+gdata[8] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.e")
+gdata[10] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.f")
 # NOTE: 4 bytes of padding here; never referenced
-gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
-gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
-gdata[32] = smallworld.state.EmptyValue(8, None, "msg.c")
-gdata[40] = smallworld.state.EmptyValue(8, None, "msg.d")
+gdata[16] = smallworld.state.SymbolicValue(8, None, None, "msg.a")
+gdata[24] = smallworld.state.SymbolicValue(8, None, None, "msg.b")
+gdata[32] = smallworld.state.SymbolicValue(8, None, None, "msg.c")
+gdata[40] = smallworld.state.SymbolicValue(8, None, None, "msg.d")
 # Input buffer
-gdata[48] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.a")
-gdata[50] = smallworld.state.EmptyValue(2, None, "buf.msg.hdr.b")
+gdata[48] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.a")
+gdata[50] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.b")
 gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
 gdata[54] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.b.len")
 gdata[56] = smallworld.state.BytesValue(b"\x00\x00", "buf.msg.hdr.e")
@@ -132,25 +135,25 @@ gdata[60] = smallworld.state.IntegerValue(2, 1, "buf.a.item.0.text.0.len")
 gdata[61] = smallworld.state.BytesValue(b"a", "buf.a.item.0.text.0.0")
 gdata[62] = smallworld.state.BytesValue(b"b", "buf.a.item.0.text.0.1")
 gdata[63] = smallworld.state.IntegerValue(0, 1, "buf.a.item.0.text.1.len")
-gdata[64] = smallworld.state.EmptyValue(2, None, "buf.a.item.0.a")
-gdata[66] = smallworld.state.EmptyValue(2, None, "buf.a.item.0.b")
+gdata[64] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.a")
+gdata[66] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.b")
 gdata[68] = smallworld.state.IntegerValue(2, 1, "buf.b.item.0.text.0.len")
 gdata[69] = smallworld.state.BytesValue(b"c", "buf.b.item.0.text.0.0")
 gdata[70] = smallworld.state.BytesValue(b"d", "buf.b.item.0.text.0.1")
 gdata[71] = smallworld.state.IntegerValue(0, 1, "buf.b.item.0.text.1.len")
-gdata[72] = smallworld.state.EmptyValue(2, None, "buf.b.item.0.a")
-gdata[74] = smallworld.state.EmptyValue(2, None, "buf.b.item.0.b")
-gdata[76] = smallworld.state.EmptyValue(4, None, "buf.b.item.0.c")
+gdata[72] = smallworld.state.SymbolicValue(2, None, None, "buf.b.item.0.a")
+gdata[74] = smallworld.state.SymbolicValue(2, None, None, "buf.b.item.0.b")
+gdata[76] = smallworld.state.SymbolicValue(4, None, None, "buf.b.item.0.c")
 gdata[80] = smallworld.state.BytesValue(b"\x00\x08", "buf.b.item.0.d")
-gdata[82] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.0")
-gdata[83] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.1")
-gdata[84] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.2")
-gdata[85] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.3")
-gdata[86] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.4")
-gdata[87] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.5")
-gdata[88] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.6")
-gdata[89] = smallworld.state.EmptyValue(1, None, "buf.b.item.0.buffer.7")
-gdata[90] = smallworld.state.EmptyValue(470, None, "buf")
+gdata[82] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.0")
+gdata[83] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.1")
+gdata[84] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.2")
+gdata[85] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.3")
+gdata[86] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.4")
+gdata[87] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.5")
+gdata[88] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.6")
+gdata[89] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.7")
+gdata[90] = smallworld.state.SymbolicValue(470, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
 
