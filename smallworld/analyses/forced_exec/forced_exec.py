@@ -31,8 +31,8 @@ class ForcedExecution(Analysis):
     description = "Forced execution using angr"
     version = "0.0.1"
 
-    def __init__(self, platform: Platform, trace: typing.List[int]):
-        self.trace: typing.List[int] = trace
+    def __init__(self, platform: Platform, trace: typing.List[typing.Dict[str, int]]):
+        self.trace: typing.List[typing.Dict[str, int]] = trace
         self.platform: Platform = platform
 
     def run(self, machine: Machine):
@@ -41,9 +41,9 @@ class ForcedExecution(Analysis):
         machine.apply(emulator)
         emulator.initialize()
         try:
-            for ip in self.trace:
-                emulator.write_register_content("pc", ip)
-                emulator.state.registers.pp(log.info)
+            for regs in self.trace:
+                for reg, val in regs.items():
+                    emulator.write_register_content(reg, val)
                 emulator.step()
         except EmulationStop:
             for s in emulator.mgr.active:

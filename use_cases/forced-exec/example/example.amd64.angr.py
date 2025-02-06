@@ -26,6 +26,6 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 machine.add(code)
 
 
-ips = [0x1007, 0x101C, 0x100E]
+ips = list(map(lambda x: {"pc": x}, [0x1007, 0x101C, 0x100E]))
 analysis = smallworld.analyses.forced_exec.ForcedExecution(platform, ips)
 analysis.run(machine)
