@@ -52,7 +52,9 @@ class FieldHint(hinting.Hint):
         out(f"  access:     {self.access}")
         out("  guards:")
         for pc, guard in self.guards:
-            out(f"    {hex(pc)}: {guard.expr}")
+            out(
+                f"    {hex(pc)}: {guard.expr.shallow_repr()} [{list(filter(lambda x: x.op != 'BVV', guard.expr.leaf_asts()))}]"
+            )
 
 
 @dataclasses.dataclass(frozen=True)

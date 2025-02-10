@@ -32,6 +32,7 @@ class FDAState:
         self.fda_mem_ranges = set()
         self.fda_bindings = dict()
         self.fda_byte_labels = set()
+        self.fda_addr_to_unk_label = dict()
 
 
 class FieldDetectionMixin(underlays.AnalysisUnderlay):
@@ -59,6 +60,8 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
     version = "0.0"
     description = "Detects discrepancies between labels and field accesses"
 
+    halt_on_hint = True
+
     def translate_global_addr(self, fda, addr):
         # Convert address into a label
         for r, label in fda.fda_addr_to_label.items():
@@ -66,13 +69,28 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 return label
         return "UNKNOWN"
 
+    def add_unk_label(self, emu, fda, addr, expr):
+        size = len(expr) // 8
+        r = range(addr, addr + size)
+        label = f"UNK.{hex(addr)}"
+        sym = claripy.BVS(f"UNK.{hex(addr)}", size * 8)
+        emu.add_constraint(sym == expr)
+
+        fda.fda_addr_to_unk_label[r] = label
+        return sym
+
     def mem_read_hook(self, emu, addr, size, expr):
         fda = emu.get_extension("fda")
         cheat = self.translate_global_addr(fda, addr)
-        log.info(
+        log.warning(
             f"{hex(emu.state._ip.concrete_value)}: READING {hex(addr)} - {hex(addr + size)} ({cheat})"
         )
-        log.info(f"  {expr}")
+        log.warning(f"  {expr}")
+
+        r = range(addr, addr + size)
+        if r in fda.fda_addr_to_unk_label:
+            log.warning("  Read from already-hinted field")
+            return None
 
         if expr.op == "Reverse":
             # Bytes are reversed.
@@ -82,13 +100,14 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
 
         if expr.op == "BVV":
             # This is a concrete value.  These are safe
-            return
+            return None
 
         if expr.op == "BVS":
-            # This is a symbol.  It's okay if it's a field.
+            # This is a symbol.  It's okay if it's a field, or an UNK field
             label = expr.args[0].split("_")[0]
-            if label in fda.fda_labels:
+            if label in fda.fda_labels or label.startswith("UNK."):
                 return
+
             hint = UnknownFieldHint(
                 pc=emu.read_register("pc"),
                 guards=list(
@@ -101,7 +120,12 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 size=size,
                 expr=str(expr),
             )
-            raise PathTerminationSignal()
+            hinter.info(hint)
+            if self.halt_on_hint:
+                raise PathTerminationSignal()
+            else:
+                self.add_unk_label(emu, fda, addr, expr)
+                return None
 
         if expr.op == "Extract":
             # This is a slice of another expression.
@@ -180,7 +204,11 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                             end=end // 8,
                         )
                 hinter.info(hint)
-                raise PathTerminationSignal()
+                if self.halt_on_hint:
+                    raise PathTerminationSignal()
+                else:
+                    self.add_unk_label(emu, fda, addr, expr)
+                    return None
 
         # This is a complex expression.
         # We're accessing the results of a computation
@@ -197,29 +225,41 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             access="read",
             expr=str(expr),
         )
-        log.info("Constraints:")
-        for con in emu.get_constraints():
-            log.info(f"  Constraint {con}")
         hinter.info(hint)
-        raise PathTerminationSignal()
+        if self.halt_on_hint:
+            raise PathTerminationSignal()
+        else:
+            self.add_unk_label(emu, fda, addr, expr)
+            return None
 
     def mem_write_hook(self, emu, addr, size, expr):
         fda = emu.get_extension("fda")
         cheat = self.translate_global_addr(fda, addr)
-        log.info(
+        log.warning(
             f"{hex(emu.state._ip.concrete_value)}: WRITING {hex(addr)} - {hex(addr + size)} ({cheat})"
         )
-        log.info(f"  {expr}")
+        log.warning(f"  {expr}")
 
         good = False
         bad = False
+
+        r = range(addr, addr + size)
+        if r in fda.fda_addr_to_unk_label:
+            label = fda.fda_addr_to_unk_label[r]
+            log.warning(f"  Write to already-hinted field {label}")
+            sym = claripy.BVS(label, size * 8)
+            emu.add_constraint(sym == expr)
+            emu.state.inspect.mem_write_expr = sym
+
+            return
+
         for r, label in fda.fda_addr_to_label.items():
             if addr in r:
                 # Write is within an existing field
                 if r.start == addr and r.stop == addr + size:
                     # Write lines up with the existing field.
                     # Create a new symbol for the new def of this field.
-                    log.info(f"  Write to entire field {cheat}")
+                    log.warning(f"  Write to entire field {cheat}")
                     sym = claripy.BVS(label, size * 8)
                     emu.add_constraint(sym == expr)
                     emu.state.inspect.mem_write_expr = sym
@@ -253,7 +293,12 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             log.error("Write was complete and partial; your labels overlap.")
             raise exceptions.ConfigurationError("Overlapping labels")
         elif bad:
-            raise PathTerminationSignal()
+            if self.halt_on_hint:
+                raise PathTerminationSignal()
+            else:
+                sym = self.add_unk_label(emu, fda, addr, expr)
+                emu.state.inspect.mem_write_expr = sym
+                return
         elif good:
             return
         else:
@@ -272,7 +317,12 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 expr=str(expr),
             )
             hinter.info(hint)
-            raise PathTerminationSignal()
+            if self.halt_on_hint:
+                raise PathTerminationSignal()
+            else:
+                sym = self.add_unk_label(emu, fda, addr, expr)
+                emu.state.inspect.mem_write_expr = sym
+                return
 
     def angr_preinit(self, emu):
         preset = angr.SimState._presets["default"].copy()
@@ -295,14 +345,14 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             if isinstance(s, state.memory.Memory):
                 start = s.address
                 end = start + s.get_capacity()
-                log.info(f"{hex(start)} - {hex(end)}")
+                log.warning(f"{hex(start)} - {hex(end)}")
                 for off, val in s.items():
                     label = val.get_label()
                     if label is not None:
                         # This is a labeled value.  It represents a field we want to track.
                         val_start = start + off
                         val_end = val_start + val.get_size()
-                        log.info(
+                        log.warning(
                             f"  {hex(val_start)} - {hex(val_end)}: {val} := {label}"
                         )
 
@@ -338,13 +388,13 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 emu.unhook_memory_read(start, end)
                 emu.unhook_memory_write(start, end)
 
-            log.info(f"State at {emu.state._ip}:")
-            log.info("  Guards:")
+            log.warning(f"State at {emu.state._ip}:")
+            log.warning("  Guards:")
             for ip, guard in emu.state.scratch.guards:
                 if guard.op == "BoolV":
                     continue
-                log.info(f"    {hex(ip)}: {guard}")
-            log.info("  Fields:")
+                log.warning(f"    {hex(ip)}: {guard}")
+            log.warning("  Fields:")
             for r in fda.fda_addr_to_label:
                 val = emu.state.memory.load(r.start, r.stop - r.start)
                 if len(val.variables) == 1:
@@ -356,7 +406,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                     else:
                         log.error(f"  Unknown variable {label}")
 
-                log.info(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
+                log.warning(f"    {hex(r.start)} - {hex(r.stop)}: {label} = {val}")
 
         self.emulator.visit_states(state_visitor, stash="deadended")
         filt.deactivate()
@@ -467,9 +517,12 @@ class ForcedFieldDetectionAnalysis(
     version = "0.0"
     description = "Detects discrepancies between labels and field accesses"
 
+    halt_on_hint = False
+
     def __init__(
         self, platform: platforms.Platform, trace: typing.List[typing.Dict[str, int]]
     ):
         self.platform = platform
         self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
+        self.emulator.enable_linear()
         super().__init__(trace)

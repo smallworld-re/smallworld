@@ -206,6 +206,9 @@ def setup_hinting(
 
     if file:
         formatter = JSONFormatter("%(message)s", keys=keys)
+        handler = logging.FileHandler(file)
+        handler.setFormatter(formatter)
+        root.addHandler(handler)
 
 
 __all__ = ["Hint", "Serializable", "root", "get_hinter", "setup_hinting"]

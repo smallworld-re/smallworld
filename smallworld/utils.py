@@ -390,6 +390,7 @@ class SparseIO(io.BufferedIOBase):
         start = self._pos
         end = self._pos + len(data)
         arange = (start, end)
+        data = bytearray(data)
 
         i = bisect.bisect_left(self._ranges, arange)
         new_ranges = []
@@ -402,14 +403,20 @@ class SparseIO(io.BufferedIOBase):
 
             if start <= ostart:
                 a = end - ostart
-                data = data + odata[a:]
+                odata[0:a] = data
+                data = odata
             else:
                 a = start - ostart
                 b = end - ostart
-                data = odata[:a] + data + odata[b:]
+                odata[a:b] = data
+                data = odata
 
-            start = min(start, ostart)
-            end = max(end, oend)
+            if start > ostart:
+                start = ostart
+            if end < oend:
+                end = oend
+
+            i += 1
 
         new_ranges.extend(self._ranges[:i])
         new_data.extend(self._data[:i])
@@ -420,14 +427,18 @@ class SparseIO(io.BufferedIOBase):
 
             if start <= ostart:
                 a = end - ostart
-                data = data + odata[a:]
+                odata[0:a] = data
+                data = odata
             else:
                 a = start - ostart
                 b = end - ostart
-                data = odata[:a] + data + odata[b:]
+                odata[a:b] = data
+                data = odata
 
-            start = min(start, ostart)
-            end = max(end, oend)
+            if start > ostart:
+                start = ostart
+            if end < oend:
+                end = oend
             i += 1
 
         new_ranges.append((start, end))
