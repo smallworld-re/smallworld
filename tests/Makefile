@@ -5,7 +5,7 @@ SOURCES := $(wildcard */*.s)
 CSOURCES := $(wildcard */*.c)
 BINS := $(patsubst %.s,%.bin,$(filter-out %.elf.s,$(SOURCES)))
 ELFS := $(patsubst %.elf.s,%.elf,$(filter %.elf.s, $(SOURCES)))
-CELFS := $(patsubst %.c,%.aarch64.elf,$(CSOURCES)) $(patsubst %.c,%.amd64.elf,$(CSOURCES)) $(patsubst %.c,%.armel.elf,$(CSOURCES)) $(patsubst %.c,%.armhf.elf,$(CSOURCES)) $(patsubst %.c,%.i386.elf,$(CSOURCES)) $(patsubst %.c,%.mips.elf,$(CSOURCES)) $(patsubst %.c,%.mipsel.elf,$(CSOURCES)) $(patsubst %.c,%.mips64.elf,$(CSOURCES)) $(patsubst %.c,%.mips64el.elf,$(CSOURCES)) $(patsubst %.c,%.ppc.elf,$(CSOURCES)) $(patsubst %.c,%.ppc64.elf,$(CSOURCES))
+CELFS := $(patsubst %.c,%.aarch64.elf,$(CSOURCES)) $(patsubst %.c,%.amd64.elf,$(CSOURCES)) $(patsubst %.c,%.armel.elf,$(CSOURCES)) $(patsubst %.c,%.armhf.elf,$(CSOURCES)) $(patsubst %.c,%.i386.elf,$(CSOURCES)) $(patsubst %.c,%.mips.elf,$(CSOURCES)) $(patsubst %.c,%.mipsel.elf,$(CSOURCES)) $(patsubst %.c,%.mips64.elf,$(CSOURCES)) $(patsubst %.c,%.mips64el.elf,$(CSOURCES)) $(patsubst %.c,%.ppc.elf,$(CSOURCES)) $(patsubst %.c,%.ppc64.elf,$(CSOURCES)) $(patsubst %.c,%.riscv64.elf,$(CSOURCES))
 MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
 MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
 MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
@@ -163,6 +163,9 @@ MIPS64_ELF_START=0x800000
 	powerpc64-linux-gnu-as $*.ppc64.s -o $*.ppc64.o
 	powerpc64-linux-gnu-objcopy -O binary -j .text $*.ppc64.o $*.ppc64.bin
 	rm $*.ppc64.o
+
+%.riscv64.elf: %.c
+	riscv64-linux-gnu-gcc $*.c -o $*.riscv64.elf
 
 %.riscv64.elf: %.riscv64.elf.s
 	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o

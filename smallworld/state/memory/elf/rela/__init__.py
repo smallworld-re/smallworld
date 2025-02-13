@@ -11,6 +11,8 @@ from .i386 import I386ElfRelocator
 from .mips import MIPSELElfRelocator, MIPSElfRelocator
 from .ppc import PowerPCElfRelocator
 from .rela import ElfRelocator
+from .riscv64 import RISCV64ElfRelocator
+from .xtensa import XtensaElfRelocator
 
 __all__ = [
     "AArch64ElfRelocator",
@@ -24,5 +26,7 @@ __all__ = [
     "MIPSElfRelocator",
     "MIPSELElfRelocator",
     "PowerPCElfRelocator",
+    "RISCV64ElfRelocator",
+    "XtensaElfRelocator",
     "ElfRelocator",
 ]

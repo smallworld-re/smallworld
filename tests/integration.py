@@ -1415,6 +1415,11 @@ class RelaTests(ScriptIntegrationTest):
     def test_rela_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
+    def test_rela_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
+
 
 class FloatsTests(ScriptIntegrationTest):
     def run_test(self, arch):

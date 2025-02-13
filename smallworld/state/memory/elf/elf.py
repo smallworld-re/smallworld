@@ -23,7 +23,9 @@ EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
 EM_ARM = 40  # ARM 32-bit
 EM_X86_64 = 62  # AMD/Intel x86-64
+EM_XTENSA = 94  # Xtensa
 EM_AARCH64 = 183  # ARM v9, or AARCH64
+EM_RISCV = 243  # RISC-V
 
 # ARM-specific flag values
 EF_ARM_VFP_FLOAT = 0x400
@@ -313,6 +315,18 @@ class ElfExecutable(Executable):
         elif elf.header.machine_type.value == EM_PPC64:
             # PowerPC 64-bit
             architecture = Architecture.POWERPC64
+        elif elf.header.machine_type.value == EM_RISCV:
+            # RISC-V
+            if elf.header.identity_class.value == 1:
+                raise ConfigurationError("RISC-V 32-bit isn't supported")
+            elif elf.header.identity_class.value == 2:
+                architecture = Architecture.RISCV64
+            else:
+                raise ConfigurationError(
+                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
+                )
+        elif elf.header.machine_type.value == EM_XTENSA:
+            architecture = Architecture.XTENSA
         else:
             raise ConfigurationError(
                 f"Unknown value of e_machine: {hex(elf.header.machine_type.value)}"
