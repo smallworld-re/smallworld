@@ -215,15 +215,6 @@ class UtilsTests(unittest.TestCase):
             rc.add_range(i)
         self.assertEqual(rc.ranges, [(2, 4), (19, 25), (35, 41), (56, 70)])
 
-        a = rc.find_range(3)
-        self.assertEqual(a, 0)
-        a = rc.find_range(8)
-        self.assertEqual(a, None)
-        a = rc.find_range(19)
-        self.assertEqual(a, 1)
-        a = rc.find_range(25)
-        self.assertEqual(a, None)
-
         a, b = rc.find_closest_range(3)
         self.assertEqual(a, (2, 4))
         self.assertEqual(b, True)
@@ -237,7 +228,7 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(a, (19, 25))
         self.assertEqual(b, False)
         a, b = rc.find_closest_range(1)
-        self.assertEqual(a, (56, 70))
+        self.assertEqual(a, (2, 4))
         self.assertEqual(b, False)
 
     def test_range_collection_update(self):

@@ -79,10 +79,6 @@ class TrackerMemoryMixin(MemoryMixin):
             if self.id == "reg":
                 name = reg_name_from_offset(self.state.arch, addr, size)
             else:
-                for b in self.state.scratch.bounds:
-                    if addr in b:
-                        code = True
-                        break
                 name = f"0x{addr:x}"
             if code:
                 log(f"\t{name}: <code [{hex(size)} bytes]>")

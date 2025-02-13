@@ -22,7 +22,7 @@ machine.add(cpu)
 # Load and add code into the state
 filename = __file__.replace(".py", ".elf").replace(".angr", "")
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f)
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set entrypoint from the ELF
@@ -64,9 +64,10 @@ emulator = smallworld.emulators.UnicornEmulator(platform)
 # Use code bounds from the ELF
 emulator.add_exit_point(0)
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
-    # I happen to know that the code _actually_ stops
-    # at .text + 0x2d
-    emulator.add_exit_point(bound.start + 0x2D)
+    machine.add_bound(bound[0], bound[1])
+
+# I happen to know that the code _actually_ stops
+# at .text + 0x2d
+emulator.add_exit_point(bound[0] + 0x2D)
 
 machine.emulate(emulator)

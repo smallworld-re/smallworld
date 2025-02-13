@@ -9,6 +9,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
+# NOTE: angr doesn't support the v7a floating point model.
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
 )

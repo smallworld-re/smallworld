@@ -2,18 +2,29 @@
 .DEFAULT_GOAL=all
 
 SOURCES := $(wildcard */*.s)
-BINS := $(patsubst %.s,%.bin,$(filter-out %.elf.s, $(SOURCES)))
+CSOURCES := $(wildcard */*.c)
+BINS := $(patsubst %.s,%.bin,$(filter-out %.elf.s,$(SOURCES)))
 ELFS := $(patsubst %.elf.s,%.elf,$(filter %.elf.s, $(SOURCES)))
+CELFS := $(patsubst %.c,%.aarch64.elf,$(CSOURCES)) $(patsubst %.c,%.amd64.elf,$(CSOURCES)) $(patsubst %.c,%.armel.elf,$(CSOURCES)) $(patsubst %.c,%.armhf.elf,$(CSOURCES)) $(patsubst %.c,%.i386.elf,$(CSOURCES)) $(patsubst %.c,%.mips.elf,$(CSOURCES)) $(patsubst %.c,%.mipsel.elf,$(CSOURCES)) $(patsubst %.c,%.mips64.elf,$(CSOURCES)) $(patsubst %.c,%.mips64el.elf,$(CSOURCES)) $(patsubst %.c,%.ppc.elf,$(CSOURCES)) $(patsubst %.c,%.ppc64.elf,$(CSOURCES)) $(patsubst %.c,%.riscv64.elf,$(CSOURCES))
 MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
 MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
 MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
-TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS)
+TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS)
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
 PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu xtensa-lx106-elf)
+
+# Custom start offset for MIPS64 and MIPS64EL
+# Panda currently runs binaries in the physical address space.
+# mips64 GCC uses a starting address that's inside
+# the mips64 MMIO regions.
+MIPS64_ELF_START=0x800000
+
+%.aarch64.elf: %.c
+	aarch64-linux-gnu-gcc $*.c -o $*.aarch64.elf
 
 %.aarch64.elf: %.aarch64.elf.s
 	aarch64-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
@@ -25,6 +36,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	aarch64-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
 	rm $*.aarch64.o
 
+%.amd64.elf: %.c
+	gcc $*.c -o $*.amd64.elf
+
 %.amd64.elf: %.amd64.elf.s
 	as $*.amd64.elf.s -o $*.amd64.elf.o
 	ld $*.amd64.elf.o -o $*.amd64.elf
@@ -32,6 +46,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 
 %.amd64.bin: %.amd64.s
 	nasm $*.amd64.s -o $*.amd64.bin
+
+%.armel.elf: %.c
+	arm-linux-gnueabi-gcc -marm $*.c -o $*.armel.elf
 
 %.armel.elf: %.armel.elf.s
 	arm-linux-gnueabi-as $*.armel.elf.s -o $*.armel.elf.o
@@ -43,6 +60,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	arm-linux-gnueabi-objcopy -O binary -j .text $*.armel.o $*.armel.bin
 	rm $*.armel.o
 
+%.armhf.elf: %.c
+	arm-linux-gnueabihf-gcc -marm $*.c -o $*.armhf.elf
+
 %.armhf.elf: %.armhf.elf.s
 	arm-linux-gnueabihf-as $*.armhf.elf.s -o $*.armhf.elf.o
 	arm-linux-gnueabihf-ld $*.armhf.elf.o -o $*.armhf.elf
@@ -52,6 +72,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	arm-linux-gnueabihf-as $*.armhf.s -o $*.armhf.o
 	arm-linux-gnueabihf-objcopy -O binary -j .text $*.armhf.o $*.armhf.bin
 	rm $*.armhf.o
+
+%.i386.elf: %.c
+	i686-linux-gnu-gcc $*.c -o $*.i386.elf
 
 %.i386.elf: %.i386.elf.s
 	i686-linux-gnu-as $*.i386.elf.s -o $*.i386.elf.o
@@ -63,6 +86,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	i686-linux-gnu-objcopy -O binary -j .text $*.i386.o $*.i386.bin
 	rm $*.i386.o
 
+%.mips.elf: %.c
+	mips-linux-gnu-gcc $*.c -o $*.mips.elf
+
 %.mips.elf: %.mips.elf.s
 	mips-linux-gnu-as $*.mips.elf.s -o $*.mips.elf.o
 	mips-linux-gnu-ld $*.mips.elf.o -o $*.mips.elf
@@ -72,6 +98,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	mips-linux-gnu-as $*.mips.s -o $*.mips.o
 	mips-linux-gnu-objcopy -O binary -j .text $*.mips.o $*.mips.bin
 	rm $*.mips.o
+
+%.mipsel.elf: %.c
+	mipsel-linux-gnu-gcc $*.c -o $*.mipsel.elf
 
 %.mipsel.elf: %.mips.elf.s
 	mipsel-linux-gnu-as $*.mips.elf.s -o $*.mipsel.elf.o
@@ -83,9 +112,12 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	mipsel-linux-gnu-objcopy -O binary -j .text $*.mipsel.o $*.mipsel.bin
 	rm $*.mipsel.o
 
+%.mips64.elf: %.c
+	mips64-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64.elf
+
 %.mips64.elf: %.mips64.elf.s
 	mips64-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64.elf.o
-	mips64-linux-gnuabi64-ld $*.mips64.elf.o -o $*.mips64.elf
+	mips64-linux-gnuabi64-ld -Ttext-segment=$(MIPS64_ELF_START) $*.mips64.elf.o -o $*.mips64.elf
 	rm $*.mips64.elf.o
 
 %.mips64.bin: %.mips64.s
@@ -93,15 +125,21 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	mips64-linux-gnuabi64-objcopy -O binary -j .text $*.mips64.o $*.mips64.bin
 	rm $*.mips64.o
 
+%.mips64el.elf: %.c
+	mips64el-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64el.elf
+
 %.mips64el.elf: %.mips64.elf.s
 	mips64el-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64el.elf.o
-	mips64el-linux-gnuabi64-ld $*.mips64el.elf.o -o $*.mips64el.elf
+	mips64el-linux-gnuabi64-ld -Ttext-segment=$(MIPS64_ELF_START) $*.mips64el.elf.o -o $*.mips64el.elf
 	rm $*.mips64el.elf.o
 
 %.mips64el.bin: %.mips64.s
 	mips64el-linux-gnuabi64-as $*.mips64.s -o $*.mips64el.o
 	mips64el-linux-gnuabi64-objcopy -O binary -j .text $*.mips64el.o $*.mips64el.bin
 	rm $*.mips64el.o
+
+%.ppc.elf: %.c
+	powerpc-linux-gnu-gcc $*.c -o $*.ppc.elf
 
 %.ppc.elf: %.ppc.elf.s
 	powerpc-linux-gnu-as $*.ppc.elf.s -o $*.ppc.elf.o
@@ -113,6 +151,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	powerpc-linux-gnu-objcopy -O binary -j .text $*.ppc.o $*.ppc.bin
 	rm $*.ppc.o
 
+%.ppc64.elf: %.c
+	powerpc64-linux-gnu-gcc $*.c -o $*.ppc64.elf
+
 %.ppc64.elf: %.ppc64.elf.s
 	powerpc64-linux-gnu-as $*.ppc64.elf.s -o $*.ppc64.elf.o
 	powerpc64-linux-gnu-ld $*.ppc64.elf.o -o $*.ppc64.elf
@@ -122,6 +163,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	powerpc64-linux-gnu-as $*.ppc64.s -o $*.ppc64.o
 	powerpc64-linux-gnu-objcopy -O binary -j .text $*.ppc64.o $*.ppc64.bin
 	rm $*.ppc64.o
+
+%.riscv64.elf: %.c
+	riscv64-linux-gnu-gcc $*.c -o $*.riscv64.elf
 
 %.riscv64.elf: %.riscv64.elf.s
 	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o
@@ -160,6 +204,7 @@ clean:
 nasm: $(NASM_TARGETS)
 
 %.prereq:
+	@which $*-gcc > /dev/null || (echo 'missing $*-gcc; on Ubuntu, install with `apt-get install gcc-$*`' || false)
 	@which $*-as > /dev/null || (echo 'missing $*-as; on Ubuntu, install with `apt-get install binutils-$*`' || false)
 	@which $*-objcopy > /dev/null || (echo 'missing $*-objcopy; on Ubuntu, install with `apt-get install binutils-$*`' || false)
 

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import abc
-import bisect
 import inspect
 import io
 import typing
+from collections.abc import Iterable
 
 
 class MetadataMixin(metaclass=abc.ABCMeta):
@@ -81,210 +81,705 @@ def find_subclass(
     raise ValueError(f"No instance of {cls} matching criteria")
 
 
-class RangeCollection:
-    """A class representing a collection of non-overlapping ranges."""
+class RBNode:
+    def __init__(self, key, value, nil):
+        self.key = key
+        self.value = value
+        self.is_black = False
+        self.parent = None
+        self.child = [nil, nil]
 
-    def __init__(self):
-        self.ranges = []
 
-    def is_empty(self):
-        """Returns true iff there are no ranges in this collection."""
-        return 0 == len(self.ranges)
+class RBTree(Iterable):
+    """A self-balancing binary search tree
 
-    def find_range(self, value: int) -> typing.Optional[int]:
-        """Returns a single range containing this value, or None if no range contains it."""
+    This implements a canonical red-black tree.
+    Values can be whatever you want, as long as all items
+    in the tree can use the same key function.
 
-        for i, (start, end) in enumerate(self.ranges):
-            if start <= value < end:
-                return i
-        return None
+    You can mutate values outside the tree,
+    as long as you don't change their keys.
 
-    def contains(self, arange: typing.Tuple[int, int]) -> bool:  # new function
-        """Returns True iff this range `arange` overlaps with one or more ranges in the collection."""
-        self._check_range(arange)
-        start, end = arange
-        start_index, start_found = self._find_closest_range(start)
-        end_index, end_found = self._find_closest_range(end - 1)
+    Arguments:
+        key: Function for converting values into integers for comparison
+    """
 
-        if start_index == end_index and not start_found and not end_found:
-            return False
+    def __init__(self, key: typing.Callable[[typing.Any], int] = lambda x: x):
+        self._key = key
+        self._nil: RBNode = RBNode(0, None, None)
+        self._nil.is_black = True
+        self._root: RBNode = self._nil
+
+    def _rotate(self, P, branch):
+        G = P.parent
+        S = P.child[1 - branch]
+
+        if S is self._nil:
+            raise ValueError("Can't rotate; S is nil!")
+
+        C = S.child[branch]
+
+        P.child[1 - branch] = C
+        if C is not self._nil:
+            C.parent = P
+
+        S.child[branch] = P
+        P.parent = S
+
+        S.parent = G
+
+        if G is not None:
+            branch = 1 if P is G.child[1] else 0
+            G.child[branch] = S
         else:
-            return True
+            self._root = S
 
-    def update(self, other: RangeCollection) -> None:
-        """Add all ranges in this collection to this other collection."""
-        for rng in other.ranges:
-            self.add_range(rng)
+        return S
 
-    def add_value(self, value: int) -> None:
-        """Add a single value to this collection."""
-        self.add_range((value, value + 1))
+    def insert(self, value: typing.Any) -> None:
+        """Insert a value into the tree
 
-    def get_missing_ranges(
-        self, arange: typing.Tuple[int, int]
-    ) -> typing.List[typing.Tuple[int, int]]:
-        """Return list of ranges missing in this collection.
+        Arguments:
+            value: The value to insert
 
-        Say min_r is the *first* range in the collection, i.e., the one with the lowest start value.
-        And say that max_r is the *last* range in the collection, i.e., the one wiht the largest end value.
-
-        Then this method will return the list of ranges that, if added
-        to this collection, would turn it into a single range, starting with
-        min_r.start, and ending with max_r.end.
+        Raises:
+            ValueError: If there's a key collision between value and something in the tree
         """
+        N = RBNode(self._key(value), value, self._nil)
 
-        new_start, new_end = arange
-        missing_ranges = []
-        self._check_range(arange)
+        # Case 0: This is the first node ever
+        if self._root is self._nil:
+            self._root = N
+            return
 
-        if not len(self.ranges):
-            return [arange]
+        # Insert into tree normally
+        P = self._root
+        while True:
+            if P.key > N.key:
+                branch = 0
+            elif P.key < N.key:
+                branch = 1
+            else:
+                raise ValueError(f"Key collision on {value}")
+            if P.child[branch] is self._nil:
+                break
+            P = P.child[branch]
+        N.parent = P
+        P.child[branch] = N
 
-        for start, end in self.ranges:
-            # our range is completely before the first range
-            if new_end < start:
-                missing_ranges.append((new_start, new_end))
-                return missing_ranges
-
-            # New range starts after this range ends
-            elif new_start > end:
-                continue
-
-            # We have found our start i.e. new_start >= prev end
-
-            # Gap before current start, it falls overlapping ranges
-            if new_start < start:
-                missing_ranges.append((new_start, min(new_end, start)))
-
-            # Adjust new start to end of current range
-            new_start = max(new_start, end)
-
-            # If the new range ends before the current range, done
-            if new_start >= new_end:
+        # Rebalance the tree iteratively
+        while P is not None:
+            if P.is_black:
+                # Case 1: P is black; we're all fine.
                 break
 
-        if new_start < new_end:
-            missing_ranges.append((new_start, new_end))
+            G = P.parent
+            if G is None:
+                # Case 4: P is the root and red
+                # Since N is red, make P black
+                P.is_black = True
+                break
 
-        return missing_ranges
+            # Find our uncle
+            branch = 0 if G.child[0] is P else 1
+            U = G.child[1 - branch]
 
-    # Returns either the range or the range BEFORE you
-    # -1 if its lower than first range
-    def _find_closest_range(self, value: int) -> typing.Tuple[int, bool]:
-        """Attempt to find this value in some range in the collection and report result.
+            if U.is_black:
+                if N is P.child[1 - branch]:
+                    # Case 5: P is red, U is black, and N is an inner grandchild of G.
+                    # Rotate the tree so it's an outer grandchild
+                    self._rotate(P, branch)
+                    N = P
+                    P = G.child[branch]
+                # Case 6: P is red, U is black, N is an outer grandchild of G
+                # Rotate the tree to fix things
+                self._rotate(G, 1 - branch)
+                P.is_black = True
+                G.is_black = False
+                break
 
-        Result return value is the pair (index, found), where
-        `index` is list index of the closest range to the left of
-           this value
-        `found` is a boolean indicating if this value is actually
-        in the range at `index`.
+            # Case 2: P and U are red
+            # Make P and U black, and G red
+            P.is_black = True
+            U.is_black = True
+            G.is_black = False
 
-        Return -1 if this value is strictly *before* every range in the collection.
+            # Iterate one black level (2 tree levels) higher.
+            N = G
+            P = N.parent
 
+        # Case 3: N is now the root and red
+        # self._verify_rb(self._root)
+        return
+
+    def _get_node(self, value):
+        # Helper for fetching a node,
+        # or raising an error if we can't find it.
+        k = self._key(value)
+        N = self._root
+        while N is not self._nil:
+            if k == N.key:
+                if value == N.value:
+                    return N
+                else:
+                    raise ValueError(f"Key {k} had unexpected value {N.value}")
+                break
+            elif k < N.key:
+                N = N.child[0]
+            elif N.key < k:
+                N = N.child[1]
+        raise ValueError(f"Value {value} is not in the tree")
+
+    def _verify_rb(self, N, c=0):
+        # Verify the following properties:
+        #
+        # - Doubly-Linked Tree:
+        #   - N.parent is None iff self._root is N
+        #   - N in N.parent.child
+        #
+        # - Binary Search Tree:
+        #   - N.child[0].key < N.key < N.child[1].key
+        #
+        # - Red-Black Tree:
+        #   - Red nodes cannot have red children
+        #   - All paths between root and nil contain the same number of black nodes
+        if N is self._nil:
+            return c + 1
+        if N.parent is None and N is not self._root:
+            raise Exception(f"DLT violation at {hex(N.key)}: Non-root has empty parent")
+        if N is self._root and N.parent is not None:
+            raise Exception(f"DLT violation at {hex(N.key)}: Root has non-empty parent")
+        L = N.child[0]
+        R = N.child[1]
+        if L is not self._nil:
+            if N.key <= L.key:
+                raise Exception(f"BST violation at {hex(N.key)}: Left is {hex(L.key)}")
+            if L.parent is not N:
+                raise Exception(
+                    f"DLT violation at {hex(N.key)}: Left child {hex(L.key)} parent broken"
+                )
+            if not N.is_black and not L.is_black:
+                raise Exception(
+                    f"RBT violation at {hex(N.key)}: N and left child {hex(L.key)} are red"
+                )
+        if R is not self._nil:
+            if N.key >= R.key:
+                raise Exception(f"BST violation at {hex(N.key)}: Right is {hex(R.key)}")
+            if R.parent is not N:
+                raise Exception(
+                    f"DLT violation at {hex(N.key)}: Left child {R.key} parent broken"
+                )
+            if not N.is_black and not R.is_black:
+                raise Exception(
+                    f"RBT violation at {hex(N.key)}: N and right child {hex(R.key)} are red"
+                )
+        c += 1 if N.is_black else 0
+        left_c = self._verify_rb(L, c)
+        right_c = self._verify_rb(R, c)
+        if left_c != right_c:
+            raise Exception(f"RBT violation at {hex(N.key)}: {left_c} vs {right_c}")
+        return left_c
+
+    def _remove_node(self, N):
+        if N.child[0] is not self._nil and N.child[1] is not self._nil:
+            # Case 1: N has 2 children
+            # Find in-order successor
+            S = N.child[1]
+            while S.child[0] is not self._nil:
+                S = S.child[0]
+            # Swap values
+            k = N.key
+            v = N.value
+            N.key = S.key
+            N.value = S.value
+            S.key = k
+            S.value = v
+            # Remove the successor
+            self._remove_node(S)
+
+        elif N.child[0] is not self._nil or N.child[1] is not self._nil:
+            # Case 2: N has 1 child
+            C = N.child[0] if N.child[0] is not self._nil else N.child[1]
+            # Make C black
+            C.is_black = True
+
+            if N.parent is None:
+                # Case 2a: N is the root; no parent
+                # C is now the root.
+                self._root = C
+                C.parent = None
+            else:
+                # Case 2b: N is not the root; parent
+                P = N.parent
+                branch = 0 if N is P.child[0] else 1
+                # Prune N from the tree
+                C.parent = P
+                P.child[branch] = C
+
+        elif N.parent is None:
+            # Case 3: N has no children and N is the root
+            # Make the root nil; we're empty
+            self._root = self._nil
+
+        elif not N.is_black:
+            # Case 4: N has no children and N is red
+            # Prune N out of the tree
+            P = N.parent
+            branch = 0 if P.child[0] is N else 1
+            P.child[branch] = self._nil
+
+        else:
+            # Case 5: N has no children and N is black
+            # Can't just delete the node; need to rebalance
+            P = N.parent
+            branch = 0 if P.child[0] is N else 1
+            P.child[branch] = self._nil
+
+            while P is not None:
+                # Find our sibling, distant nephew, and close nephew
+                S = P.child[1 - branch]
+                D = S.child[1 - branch]
+                C = S.child[branch]
+
+                if not S.is_black:
+                    # Case 5.3: S is red; P, C, D must be black
+                    self._rotate(P, branch)
+
+                    P.is_black = False
+                    S.is_black = True
+
+                    S = C
+                    D = S.child[1 - branch]
+                    C = S.child[branch]
+                    # S is now black; handle according to 5.4, 5.5 or 5.6
+
+                if D is not self._nil and not D.is_black:
+                    # Case 5.6: S is black, D is red
+                    self._rotate(P, branch)
+                    S.is_black = P.is_black
+                    P.is_black = True
+                    D.is_black = True
+                    break
+
+                if C is not self._nil and not C.is_black:
+                    # Case 5.5: S is black, C is red
+                    self._rotate(S, 1 - branch)
+                    S.is_black = False
+                    C.is_black = True
+                    D = S
+                    S = C
+
+                    # Now S is red and D is black
+                    # We match case 5.6
+                    self._rotate(P, branch)
+                    S.is_black = P.is_black
+                    P.is_black = True
+                    D.is_black = True
+                    break
+
+                if not P.is_black:
+                    # Case 5.4: P is red, S, C, and D are black
+                    # Correct colors and we're done
+                    S.is_black = False
+                    P.is_black = True
+                    break
+
+                S.is_black = False
+                N = P
+                P = N.parent
+                branch = 0 if P.child[0] is N else 1
+
+            # Case 5.1: N is the new root; we're done.
+        # self._verify_rb(self._root, 0)
+        return
+
+    def remove(self, value: typing.Any) -> None:
+        """Remove a value from the tree
+
+        Arguments:
+            value: The value to remove
+
+        Raises:
+            ValueError: If `value` is not in the tree
+        """
+        N = self._get_node(value)
+        self._remove_node(N)
+
+    def extend(self, iterable: Iterable) -> None:
+        """Add all values from an iterable to this tree
+
+        Arguments:
+            iterable: Iterable containing the values you want to add
+        """
+        for x in iterable:
+            self.insert(x)
+
+    def is_empty(self) -> bool:
+        """Check if the tree is empty
+
+        Returns:
+            True if the tree is empty, else false.
+        """
+        return self._root is self._nil
+
+    def contains(self, value: typing.Any) -> bool:
+        """Check if the tree contains a value
+
+        Arguments:
+            value: The value to locate
+
+        Returns:
+            True if `value` is in the tree, else False
+        """
+        try:
+            self._get_node(value)
+            return True
+        except:
+            return False
+
+    def bisect_left(self, value: typing.Any) -> typing.Optional[typing.Any]:
+        """Find the value or its in-order predecessor
+
+        Arguments:
+            value: The value to search for
+        Returns:
+            - `value` if `value` is in the tree
+            - The value with the highest key less than that of `value`
+            - `None`, if there are no values with a key less than that of `value`
+        """
+        k = self._key(value)
+        N = self._root
+        # Traverse the tree to find our match
+        while N is not self._nil:
+            if k == N.key:
+                return N.value
+            elif k < N.key:
+                if N.child[0] is self._nil:
+                    break
+                N = N.child[0]
+            elif N.key < k:
+                if N.child[1] is self._nil:
+                    break
+                N = N.child[1]
+
+        if k < N.key:
+            # Our match is to our right.
+            # We need its in-order predecessor
+            # This is the first ancestor for which our subtree is greater
+            P = N.parent
+            while P is not None:
+                branch = 0 if N is P.child[0] else 1
+                N = P
+                P = N.parent
+                if branch == 1:
+                    break
+            if k < N.key:
+                # We are already the left-most value
+                return None
+
+        return N.value
+
+    def bisect_right(self, value: typing.Any) -> typing.Optional[typing.Any]:
+        """Find the value or its in-order successor
+
+        Arguments:
+            value: The value to search for
+        Returns:
+            - `value` if `value` is in the tree
+            - The value with the lowest key greater than that of `value`
+            - `None`, if there are no values with a key greater than that of `value`
+        """
+        k = self._key(value)
+        N = self._root
+        # Traverse the tree to find our match
+        while N is not self._nil:
+            if k == N.key:
+                return N.value
+            elif k < N.key:
+                if N.child[0] is self._nil:
+                    break
+                N = N.child[0]
+            elif k > N.key:
+                if N.child[1] is self._nil:
+                    break
+                N = N.child[1]
+
+        if k > N.key:
+            # Our match is to our left.
+            # We need its in-order successor
+            # This is the first ancestor for which our subtree is less
+            P = N.parent
+            while P is not None:
+                branch = 0 if N is P.child[0] else 1
+                N = P
+                P = N.parent
+                if branch == 0:
+                    break
+            if k > N.key:
+                # We are already the right-most value
+                return None
+        return N.value
+
+    def _values(self, N):
+        if N is not self._nil:
+            for v in self._values(N.child[0]):
+                yield v
+            yield N.value
+            for v in self._values(N.child[1]):
+                yield v
+
+    def values(self) -> typing.Any:
+        """Generate values in the tree in in-order order
+
+        Yields:
+            Each value in the tree in in-order order
+        """
+        for v in self._values(self._root):
+            yield v
+
+    def __iter__(self):
+        return iter(self.values())
+
+
+class RangeCollection(Iterable):
+    """A collection of non-overlapping ranges"""
+
+    def __init__(self):
+        # Back with an RBTree keyed off the start of the range
+        self._ranges = RBTree(key=lambda x: x[0])
+
+    def is_empty(self) -> bool:
+        """Check if this collection is empty
+
+        Returns:
+            True iff there are no ranges in this collection
+        """
+        return self._ranges.is_empty()
+
+    def contains(self, arange: typing.Tuple[int, int]) -> bool:
+        """Check if a specific range overlaps any range in this collection
+
+        Arguments:
+            arange: The range to test for overlaps
+
+        Returns:
+            True iff at least one range in the collection covers at least one value in `arange`
         """
 
-        for i, (start, end) in enumerate(self.ranges):
-            if start <= value < end:
-                return i, True
-            elif value < start:
-                return i - 1, False
-        return 0, False
+        start, end = arange
+        lo = self._ranges.bisect_left(arange)
+        if lo is not None:
+            # There is something before start
+            lo_start, lo_end = lo
+            # lo_start is going to be less than or equal to start.
+            # If range overlaps, start must be in lo
+            if start < lo_end:
+                return True
+
+        hi = self._ranges.bisect_right(arange)
+        if hi is not None:
+            # There is something after start
+            hi_start, hi_end = hi
+            # hi_start is going to be greater than or equal to start
+            # If range overlaps, hi_start must be in arange.
+            if hi_start < end:
+                return True
+
+        return False
+
+    def contains_value(self, value: int) -> bool:
+        """Check if any range in this collection contains a value
+
+        Arguments:
+            value: The value to locate
+
+        Returns:
+            True iff there is a range in the collection which contains `value`
+        """
+        arange = (value, value + 1)
+
+        # Only need to test left bisect
+        # Value must equal start or be to the right
+        lo = self._ranges.bisect_left(arange)
+        if lo is not None:
+            lo_start, lo_end = lo
+            if value >= lo_start and value < lo_end:
+                return True
+
+        return False
 
     def find_closest_range(
         self, value: int
     ) -> typing.Tuple[typing.Optional[typing.Tuple[int, int]], bool]:
-        """Attempt to find this value in some range in the collection and report result.
+        """Find the range closest to a value
 
-        Result return value is the pair (range, found), where
-        `range` is closest range to the left of this value
-        `found` is a boolean indicating if this value is actually
-        in the range.
+        Arguments:
+            value: The value to locate
 
-        Return None for `range` if this value is strictly *before* every range in the collection.
-
+        Returns:
+            - The closest range, or None if the collection is empty
+            - True iff `value` is in that range
         """
-        (index, found) = self._find_closest_range(value)
-        arange = None
-        if arange != -1:
-            arange = self.ranges[index]
-        return (arange, found)
-
-    def remove_range(self, arange: typing.Tuple[int, int]) -> None:
-        """Remove this range from the collection.
-
-        Note that this doesn't look for this specific range and remove
-        it. Rather, it compares this range to every range in the collection
-        and, for each, removes the intersection with the input `arange`.
-
-        """
-
-        start, end = arange
-        self._check_range(arange)
-
-        i1, _ = self._find_closest_range(start)
-        range1 = self.ranges[i1]
-        i2, _ = self._find_closest_range(end)
-        range2 = self.ranges[i2]
-
-        # Keep everything up to our first find
-        new_ranges = self.ranges[:i1]
-
-        # If we fall in our range, change it
-        # If we fall outside, then we dont need it
-        if range1[0] <= start < range1[1]:
-            new_ranges.append((range1[0], start))
-
-        # If we fall in our range, change it
-        # If we fall outside of it we need to add it
-        if range2[0] <= end < range2[1]:
-            new_ranges.append((end, range2[1]))
-        else:
-            new_ranges.append(range2)
-
-        if i2 + 1 < len(self.ranges):
-            new_ranges.extend(self.ranges[i2 + 1 :])
-
-        self.ranges = new_ranges
-        return
-
-    def _check_range(self, arange: typing.Tuple[int, int]) -> None:
-        start, end = arange
-        if start > end or start == end:
-            raise ValueError(f"Start value must be less than end in {arange}")
+        out = self._ranges.bisect_left((value, value + 1))
+        if out is None:
+            out = self._ranges.bisect_right((value, value + 1))
+        return (out, out is not None and out[0] <= value < out[1])
 
     def add_range(self, arange: typing.Tuple[int, int]) -> None:
-        """Add this range to the collection."""
+        """Add a range to the collection
 
-        self._check_range(arange)
+        Arguments:
+            arange: The range to insert
+        """
+        start, end = arange
+        if start >= end:
+            raise ValueError(f"Invalid range {arange}")
+
+        lo = self._ranges.bisect_left(arange)
+
+        if lo is not None:
+            # We are not the lowest range
+            lo_start, lo_end = lo
+            if lo_start == start and lo_end == end:
+                # We are already in the collection.  Happy happy joy joy.
+                return
+            # There's at least one range below us.
+            # Since the tree keys off the start of ranges,
+            # we can only collide with this one element
+            if start >= lo_start and start <= lo_end:
+                # We collide with lo.
+                # Remove it from the tree, and absorb it into ourself.
+                self._ranges.remove(lo)
+                if lo_start < start:
+                    start = lo_start
+                if lo_end > end:
+                    end = lo_end
+
+        hi = self._ranges.bisect_right(arange)
+        while hi is not None:
+            hi_start, hi_end = hi
+            if hi_start > end:
+                # We don't overlap with hi.
+                # We can stop slurping things up.
+                break
+            if hi_start < start:
+                start = hi_start
+            if hi_end > end:
+                end = hi_end
+            self._ranges.remove(hi)
+            hi = self._ranges.bisect_right(arange)
+
+        self._ranges.insert((start, end))
+
+    def update(self, other: RangeCollection) -> None:
+        """Add all ranges from another collection to this collection
+
+        Arguments:
+            other: The collection containing ranges to add
+        """
+        for rng in other:
+            self.add_range(rng)
+
+    def add_value(self, value: int) -> None:
+        """Add a singleton range to the collection
+
+        Arguments:
+            value: The value for which to add a singleton
+        """
+        self.add_range((value, value + 1))
+
+    def remove_range(self, arange: typing.Tuple[int, int]) -> None:
+        """Remove any overlaps between a specific range and this collection.
+
+        This doesn't remove a specific range;
+        rather, it removes any intersections between items
+        of this collection and `arange`.
+
+        Arguments:
+            arange: The range to remove
+        """
+        start, end = arange
+        if start >= end:
+            raise ValueError(f"Invalid range {arange}")
+        lo = self._ranges.bisect_left(arange)
+        if lo is not None:
+            # We are not the lowest range
+            lo_start, lo_end = lo
+            if lo_start == start and lo_end == lo:
+                # We exactly match an existing range
+                self._ranges.remove(arange)
+                return
+            if start >= lo_start and end <= lo_end:
+                # We collide with lo.
+                # Remove lo and add the remainder back
+                self._ranges.remove(lo)
+                if start > lo_start:
+                    # There's a bit at the beginning we need to replace
+                    self._ranges.insert((lo_start, start))
+                if end < lo_end:
+                    # There's a bit at the end we need to replace
+                    self._ranges.insert((end, lo_end))
+                    # We don't need to keep going; everything will be higher.
+                    return
+
+        hi = self._ranges.bisect_right(arange)
+        while hi is not None:
+            hi_start, hi_end = hi
+            if hi_start >= end:
+                # We don't overlap with hi; we're out of ranges
+                break
+            self._ranges.remove(hi)
+            if end < hi_end:
+                # There's a bit left over at the end
+                self._ranges.insert((end, hi_end))
+                # We don't need to keep going; everything else will be higher.
+                return
+            hi = self._ranges.bisect_right(arange)
+
+    def get_missing_ranges(
+        self, arange: typing.Tuple[int, int]
+    ) -> typing.List[typing.Tuple[int, int]]:
+        """Find the subset of a given range not covered by this collection"""
+        out = list()
         start, end = arange
 
-        i = bisect.bisect_left(self.ranges, arange)
-        new_ranges = []
+        lo = self._ranges.bisect_left((start, end))
+        if lo is not None:
+            # There is an item below us
+            lo_start, lo_end = lo
+            # lo_start will be less than or equal to start,
+            # so there can't be a missing range before lo.
+            # We do care if there's an overlap
+            if lo_end > start:
+                # arange and lo overlap.  Remove the overlap
+                start = lo_end
 
-        # Handle the case where the range falls directly to the left of the idx
-        if i > 0 and start <= self.ranges[i - 1][1]:
-            i -= 1
-            start = min(start, self.ranges[i][0])
-            end = max(end, self.ranges[i][1])
+        hi = self._ranges.bisect_right((start, end))
+        while hi is not None:
+            # There is an item above us
+            hi_start, hi_end = hi
+            if hi_start >= end:
+                # The item is so far above that it can't intersect
+                # Anything else will be higher, so we're done.
+                break
+            if hi_start > start:
+                # hi doesn't cover the start of arange
+                # We found a missing range
+                out.append((start, hi_start))
+            start = hi_end
+            hi = self._ranges.bisect_right((start, end))
+        if start < end:
+            # There's still a bit left
+            out.append((start, end))
+        return out
 
-        # Now make the new range be everything up until where things changed
-        new_ranges.extend(self.ranges[:i])
+    @property
+    def ranges(self) -> typing.List[typing.Tuple[int, int]]:
+        """The list of ranges in order by start"""
+        return list(self._ranges.values())
 
-        # Now merge will all right bounds until we are the min right bound
-        while i < len(self.ranges) and self.ranges[i][0] <= end:
-            start = min(start, self.ranges[i][0])
-            end = max(end, self.ranges[i][1])
-            i += 1
-
-        # Add the merged bound
-        new_ranges.append((start, end))
-
-        # Add the remaining non-overlapping bounds
-        new_ranges.extend(self.ranges[i:])
-
-        self.ranges = new_ranges
-
-        return
+    def __iter__(self):
+        return iter(self._ranges.values())
 
 
 class SparseIO(io.BufferedIOBase):
@@ -294,8 +789,9 @@ class SparseIO(io.BufferedIOBase):
     If you have a large, sparse memory image,
     it will gladly OOM your analysis.
 
-    This uses the same algorithms as RangeCollection
-    to maintain a non-contiguous set of byte arrays.
+    This uses an RBTree in the same manner as
+    RangeCollection to maintain a non-contiguous
+    sequence of bytes.
     Any data outside those ranges is assumed to be zero.
 
     This is used by AngrEmulator to load programs,
@@ -304,20 +800,20 @@ class SparseIO(io.BufferedIOBase):
     """
 
     def __init__(self):
-        self._ranges = list()
-        self._data = list()
+        self._ranges = RBTree(key=lambda x: x[0])
         self._pos = 0
+        self.size = 0
 
-    def seekable(self):
+    def seekable(self) -> bool:
         return True
 
-    def readable(self):
+    def readable(self) -> bool:
         return True
 
-    def writable(self):
+    def writable(self) -> bool:
         return True
 
-    def seek(self, pos, whence=0):
+    def seek(self, pos: int, whence: int = 0) -> int:
         if not isinstance(pos, int):
             raise TypeError(f"pos must be an int; got a {type(pos)}")
 
@@ -331,97 +827,109 @@ class SparseIO(io.BufferedIOBase):
             # Relative to start of file
             self._pos = pos
         elif whence == 1:
+            # Relative to current file
             self._pos += pos
         else:
-            self._pos = self._ranges[-1][1] + pos
+            # Relative to end of file
+            self._pos = self.size + pos
 
-    def read(self, size=-1):
-        if size < 0:
-            size = self._ranges[-1][1] - self._pos
+        return self._pos
 
+    def read(self, size: typing.Optional[int] = -1) -> bytes:
+        if size is None or size == -1:
+            size = self.size
         start = self._pos
         end = start + size
+        data = bytearray()
 
-        data = b""
+        lo = self._ranges.bisect_left((start, end, None))
+        if lo is not None:
+            # We are not below the lowest segment
+            lo_start, lo_end, lo_data = lo
+            if lo_end > start:
+                # We overlap lo
+                # lo_start is guaranteed to be less than or equal to start
+                a = start - lo_start
+                data += lo_data[a:]
+                start = lo_end
 
-        for i, (ostart, oend) in enumerate(self._ranges):
-            odata = self._data[i]
-            if oend < start:
-                continue
-            if ostart > end:
+        hi = self._ranges.bisect_right((start, end, None))
+        while hi is not None:
+            # We are not the right-most
+            hi_start, hi_end, hi_data = hi
+            if hi_start >= end:
                 break
+            if hi_start > start:
+                data += b"\x00" * (hi_start - start)
+                start = hi_start
+            a = min(hi_end, end) - hi_start
+            data += hi_data[:a]
+            start = a + hi_start
+            hi = self._ranges.bisect_right((start, end, None))
 
-            if ostart > start:
-                data += b"\x00" * (ostart - start)
-                start = ostart
-            a = start - ostart
-            b = end - ostart
-
-            tmp = odata[a:b]
-            data += tmp
-            start += len(tmp)
-
-        if len(data) < size:
-            data += b"\x00" * (size - len(data))
-
-        self._pos += size
-        return data
-
-    def read1(self, size=-1):
-        return self.read(size=size)
-
-    def write(self, data):
-        # This should look very familiar.
-        start = self._pos
-        end = self._pos + len(data)
-        arange = (start, end)
-
-        i = bisect.bisect_left(self._ranges, arange)
-        new_ranges = []
-        new_data = []
-        # Handle the case where the range falls directly to the left of the idx
-        if i > 0 and start <= self._ranges[i - 1][1]:
-            i -= 1
-            odata = self._data[i]
-            ostart, oend = self._ranges[i]
-
-            if start <= ostart:
-                a = end - ostart
-                data = data + odata[a:]
-            else:
-                a = start - ostart
-                b = end - ostart
-                data = odata[:a] + data + odata[b:]
-
-            start = min(start, ostart)
-            end = max(end, oend)
-
-        new_ranges.extend(self._ranges[:i])
-        new_data.extend(self._data[:i])
-
-        while i < len(self._ranges) and self._ranges[i][0] <= end:
-            odata = self._data[i]
-            ostart, oend = self._ranges[i]
-
-            if start <= ostart:
-                a = end - ostart
-                data = data + odata[a:]
-            else:
-                a = start - ostart
-                b = end - ostart
-                data = odata[:a] + data + odata[b:]
-
-            start = min(start, ostart)
-            end = max(end, oend)
-            i += 1
-
-        new_ranges.append((start, end))
-        new_data.append(data)
-
-        new_ranges.extend(self._ranges[i:])
-        new_data.extend(self._data[i:])
-
-        self._ranges = new_ranges
-        self._data = new_data
+        if start < end:
+            data += b"\x00" * (end - start)
 
         self._pos = end
+        return bytes(data)
+
+    def read1(self, size: int = -1) -> bytes:
+        return self.read(size=size)
+
+    def write(self, data) -> int:
+        # NOTE: `data` is a bytes-like.
+        # Python doesn't add a way to annotate bytes-like types
+        # until 3.12
+        data = bytearray(data)
+        start = self._pos
+        end = start + len(data)
+        o_start = start
+        o_end = end
+
+        lo = self._ranges.bisect_left((start, end))
+        if lo is not None:
+            # We are not the lowest segment
+            lo_start, lo_end, lo_data = lo
+            if lo_end > start:
+                # We overlap lo
+                # Because of how bisect works here,
+                # lo_start must be less or equal to start
+                self._ranges.remove(lo)
+
+                a = start - lo_start
+                b = end - lo_start
+
+                lo_data[a:b] = data
+                data = lo_data
+
+                start = lo_start
+                if lo_end > end:
+                    end = lo_end
+
+        hi = self._ranges.bisect_right((start, end))
+        while hi is not None:
+            hi_start, hi_end, hi_data = hi
+            # We are not the highest segment
+            if hi_start >= end:
+                # We do not overlap hi
+                break
+
+            # We overlap hi
+            # Because of how bisect works here,
+            # hi_start must be greater or equal to start
+            self._ranges.remove(hi)
+            if hi_end > end:
+                a = end - hi_start
+                data += hi_data[a:]
+                end = hi_end
+            hi = self._ranges.bisect_right((start, end))
+
+        if len(data) != end - start:
+            raise Exception(
+                f"Buffer contains {len(data)} bytes, but have ({hex(start)}, {hex(end)}), starting with ({hex(o_start)}, {hex(o_end)})"
+            )
+        if end > self.size:
+            self.size = end
+        self._pos = end
+        self._ranges.insert((start, end, data))
+        return len(data)

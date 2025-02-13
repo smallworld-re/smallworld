@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine

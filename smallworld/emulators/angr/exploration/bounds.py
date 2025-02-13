@@ -11,16 +11,16 @@ class BoundedExplorationMixin:
     def step_state(self, simgr, state, **kwargs):
         if not state._ip.symbolic:
             ip = state._ip.concrete_value
-            i = state.scratch.memory_map.find_range(ip)
-            if i is None:
+            (r, found) = state.scratch.memory_map.find_closest_range(ip)
+            if not found:
                 return dict()
-            (_, stop) = state.scratch.memory_map.ranges[i]
+            (_, stop) = r
             size = stop - ip
             if not state.scratch.bounds.is_empty():
-                i = state.scratch.bounds.find_range(ip)
-                if i is None:
+                (r, found) = state.scratch.bounds.find_closest_range(ip)
+                if not found:
                     return dict()
-                (_, stop) = state.scratch.bounds.ranges[i]
+                (_, stop) = r
                 size = min(size, stop - ip)
 
             kwargs["size"] = size

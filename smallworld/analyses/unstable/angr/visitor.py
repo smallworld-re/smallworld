@@ -20,6 +20,12 @@ class ClaripyVisitor:
     def visit_add(self, v, **kwargs):
         raise NotImplementedError(f"{type(self)} missing Add")
 
+    def visit_mul(self, v, **kwargs):
+        raise NotImplementedError(f"{type(self)} missing Mul")
+
+    def visit_bwor(self, v, **kwargs):
+        raise NotImplementedError(f"{type(self)} missing BWOr")
+
     def visit_concat(self, v, **kwargs):
         raise NotImplementedError(f"{type(self)} missing Concat")
 
@@ -31,6 +37,15 @@ class ClaripyVisitor:
 
     def visit_reverse(self, v, **kwargs):
         raise NotImplementedError(f"{type(self)} missing Reverse")
+
+    def visit_lshift(self, v, **kwargs):
+        raise NotImplementedError(f"{type(self)} missing LShift")
+
+    def visit_rshift(self, v, **kwargs):
+        raise NotImplementedError(f"{type(self)} missing RShift")
+
+    def visit_zeroext(self, v, **kwargs):
+        raise NotImplementedError(f"{type(self)} missing ZeroExt")
 
     def visit(self, v, **kwargs):
         """Perform the visitor pattern on a claripy expression."""
@@ -54,6 +69,9 @@ class ClaripyVisitor:
         elif v.op == "__mul__":
             # v = prod(*X), for two or more expressions x in X.
             return self.visit_mul(v, **kwargs)
+        elif v.op == "__or__":
+            # v = BWOr(*X) for two or more expressions x in X.
+            return self.visit_bwor(v, **kwargs)
         elif v.op == "Concat":
             # v = Concat(*X), for two or more expressions x in X.
             return self.visit_concat(v, **kwargs)
@@ -66,6 +84,15 @@ class ClaripyVisitor:
         elif v.op == "Extract":
             # v is x[a:b], for expression x and ints a and b.
             return self.visit_extract(v, **kwargs)
+        elif v.op == "__lshift__":
+            # v is x << y, for expressions x and y
+            return self.visit_lshift(v, **kwargs)
+        elif v.op == "LShR":
+            # v is x >>> y, for expressions x and y
+            return self.visit_rshift(v, **kwargs)
+        elif v.op == "ZeroExt":
+            # v is ZeroExt(v, a) for expression x and int a
+            return self.visit_zeroext(v, **kwargs)
         else:
             # v is something I haven't thought of yet.
             raise NotImplementedError(f"Unknown op {v.op}")
@@ -206,3 +233,83 @@ class EvalVisitor(ClaripyVisitor):
         # Reverse is a simple unary; reverse the result from the arg.
         res = claripy.Reverse(self.visit(v.args[0], bindings=bindings))
         return res
+
+
+class PPrintVisitor(ClaripyVisitor):
+    def visit_int(self, v, **kwargs):
+        raise NotImplementedError("Why?")
+
+    def visit_bvv(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + str(v))
+
+    def visit_bvs(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + str(v))
+
+    def visit_add(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "Add:")
+        for arg in v.args:
+            self.visit(arg, indent=indent + 1, out=out)
+
+    def visit_bwor(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "BWOr:")
+        for arg in v.args:
+            self.visit(arg, indent=indent + 1, out=out)
+
+    def visit_concat(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "Concat:")
+        for arg in v.args:
+            self.visit(arg, indent=indent + 1, out=out)
+
+    def visit_extract(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + f"Extract [{v.args[0]}:{v.args[1]}]:")
+        self.visit(v.args[2], indent=indent + 1, out=out)
+
+    def visit_if(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "If:")
+        self.visit(v.args[0], indent=indent + 1, out=out)
+        out("  " * indent + "Then:")
+        self.visit(v.args[1], indent=indent + 1, out=out)
+        out("  " * indent + "Else:")
+        self.visit(v.args[2], indent=indent + 1, out=out)
+
+    def visit_reverse(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "Reverse:")
+        self.visit(v.args[0], indent=indent + 1, out=out)
+
+    def visit_lshift(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "LShift:")
+        self.visit(v.args[0], indent=indent + 1, out=out)
+        out("  " * indent + "By:")
+        self.visit(v.args[1], indent=indent + 1, out=out)
+
+    def visit_rshift(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + "RShift (Logical):")
+        self.visit(v.args[0], indent=indent + 1, out=out)
+        out("  " * indent + "By:")
+        self.visit(v.args[1], indent=indent + 1, out=out)
+
+    def visit_zeroext(self, v, **kwargs):
+        indent = kwargs.get("indent", 0)
+        out = kwargs.get("out", print)
+        out("  " * indent + f"ZeroExt[{v.args[0]}]:")
+        self.visit(v.args[1], indent=indent + 1, out=out)

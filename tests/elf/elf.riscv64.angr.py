@@ -64,7 +64,7 @@ emulator.enable_linear()
 
 # Use code bounds from the ELF
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound[0], bound[1])
 
 final_machine = machine.emulate(emulator)
 print(final_machine.get_cpu().a0)

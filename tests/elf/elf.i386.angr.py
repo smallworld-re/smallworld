@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -22,7 +22,7 @@ machine.add(cpu)
 # Load and add code into the state
 filename = __file__.replace(".py", ".elf").replace(".angr", "")
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f)
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set entrypoint from the ELF
@@ -64,6 +64,6 @@ emulator.enable_linear()
 
 # Use code bounds from the ELF
 for bound in code.bounds:
-    machine.add_bound(bound.start, bound.stop)
+    machine.add_bound(bound[0], bound[1])
 
 machine.emulate(emulator)

@@ -165,12 +165,16 @@ class AngrEmulator(
         segments = list()
 
         if len(self._code) > 0:
+            code_ranges = utils.RangeCollection()
             base_address = self._code[0][0]
             for addr, data in self._code:
                 size = len(data)
                 code.seek(addr - base_address)
                 code.write(data)
-                segments.append((addr - base_address, addr, size))
+                code_ranges.add_range((addr, addr + size))
+            segments = list(
+                map(lambda x: (x[0] - base_address, x[0], x[1] - x[0]), code_ranges)
+            )
 
         # Create an angr project using a blank byte stream,
         # and registered as self-modifying so we can load more code later.
@@ -245,8 +249,7 @@ class AngrEmulator(
         for addr, content in self._memory_contents:
             self.write_memory_content(addr, content)
 
-        for addr, size, label in self._memory_labels:
-            self.write_memory_label(addr, size, label)
+        self._write_memory_label_bulk(self._memory_labels)
 
         for addr, func in self._instr_hooks:
             self.hook_instruction(addr, func)
@@ -526,7 +529,7 @@ class AngrEmulator(
             log.info(f"Storing {len(content)} bytes at {hex(address)}")
             if isinstance(content, bytes):
                 content = claripy.BVV(content)
-            self.state.memory.store(address, content)
+            self.state.memory.store(address, content, inspect=False)
 
     def write_memory_type(
         self, address: int, size: int, type: typing.Optional[typing.Any] = None
@@ -565,8 +568,26 @@ class AngrEmulator(
 
             # Passing the last check doesn't mean you're safe.
             # There may be over-constraints.  Please be careful.
-            self.state.memory.store(address, s)
+            self.state.memory.store(address, s, inspect=False)
             self.state.solver.add(v == s)
+
+    def _write_memory_label_bulk(
+        self, labels: typing.List[typing.Tuple[int, int, typing.Optional[str]]]
+    ) -> None:
+        # Variant of write_memory_label that applies multiple labels in one go.
+        # This addresses a performance bottleneck during initialization;
+        # it's not really intended for public use,
+        # as it lacks some of the safety checks.
+        cs = list()
+        for addr, size, label in labels:
+            if label is None:
+                continue
+            s = claripy.BVS(label, size * 8, explicit_name=True)
+            v = self.state.memory.load(addr, size)
+            self.state.memory.store(addr, s)
+            cs.append(s == v)
+        c = claripy.And(*cs)
+        self.state.solver.add(c)
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:
@@ -823,6 +844,8 @@ class AngrEmulator(
                 expr = state.inspect.mem_read_expr
                 res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
+                if res is None:
+                    res = expr
                 state.inspect.mem_read_expr = res
 
                 # An update to angr means some operations on `state`
@@ -1047,7 +1070,6 @@ class AngrEmulator(
                         write_start = write_start.concrete_value
                     # Populate concrete value back to the inspect struct
                     state.inspect.mem_write_address = write_start
-                log.info(f"Writing to {hex(write_start)}")
                 write_size = state.inspect.mem_write_length
 
                 if write_size is None:
@@ -1294,10 +1316,10 @@ class AngrEmulator(
             ip = state._ip.concrete_value
             if (
                 not self.state.scratch.bounds.is_empty()
-                and self.state.scratch.bounds.find_range(ip) is None
+                and not self.state.scratch.bounds.contains_value(ip)
             ):
                 return True
-            if self.state.scratch.memory_map.find_range(ip) is None:
+            if not self.state.scratch.memory_map.contains_value(ip):
                 return True
             if ip in self.state.scratch.exit_points:
                 return True
@@ -1328,6 +1350,21 @@ class AngrEmulator(
                 self._step(False)
         except exceptions.EmulationStop:
             return
+
+    def visit_states(
+        self,
+        function: typing.Callable[[emulator.Emulator], None],
+        stash: str = "active",
+    ) -> None:
+        """Visit every state in the selected frontier
+
+        This lets you work around the fact that most operations
+        only work at emulation start, or in linear mode.
+        """
+        if not self._initialized:
+            raise NotImplementedError("Cannot visit states before initialization")
+        for s in self.mgr.stashes[stash]:
+            function(ConcreteAngrEmulator(s, self))
 
     def enable_linear(self):
         """Enable linear execution
