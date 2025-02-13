@@ -34,21 +34,37 @@ class ClaripySerializable(hinting.Serializable):
 
 @dataclasses.dataclass(frozen=True)
 class FieldHint(hinting.Hint):
+    address: int = 0
+    size: int = 0
+
+    def pp(self, out):
+        out(self.message)
+        out(f"  address:    {hex(self.address)}")
+        out(f"  size:       {self.size}")
+
+
+@dataclasses.dataclass(frozen=True)
+class TrackedFieldHint(FieldHint):
+    label: str = ""
+
+    def pp(self, out):
+        super().pp(out)
+        out(f"  label:      {self.label}")
+
+
+@dataclasses.dataclass(frozen=True)
+class FieldEventHint(FieldHint):
     """Hint representing a detected, unhandled field"""
 
     pc: int = 0
     guards: typing.List[typing.Tuple[int, ClaripySerializable]] = dataclasses.field(
         default_factory=list
     )
-    address: int = 0
-    size: int = 0
     access: str = ""
 
     def pp(self, out):
-        out(self.message)
+        super().pp(out)
         out(f"  pc:         {hex(self.pc)}")
-        out(f"  address:    {hex(self.address)}")
-        out(f"  size:       {self.size}")
         out(f"  access:     {self.access}")
         out("  guards:")
         for pc, guard in self.guards:
@@ -58,7 +74,7 @@ class FieldHint(hinting.Hint):
 
 
 @dataclasses.dataclass(frozen=True)
-class UnknownFieldHint(FieldHint):
+class UnknownFieldHint(FieldEventHint):
     """Hint representing an access of an unknown field.
 
     The expression loaded from memory is not
@@ -74,7 +90,7 @@ class UnknownFieldHint(FieldHint):
 
 
 @dataclasses.dataclass(frozen=True)
-class PartialByteFieldAccessHint(FieldHint):
+class PartialByteFieldAccessHint(FieldEventHint):
     """Hint representing an access to part of a known field."""
 
     message: str = "Partial access to known field"  # Don't need to replace
@@ -104,7 +120,7 @@ class PartialByteFieldWriteHint(PartialByteFieldAccessHint):
 
 
 @dataclasses.dataclass(frozen=True)
-class PartialBitFieldAccessHint(FieldHint):
+class PartialBitFieldAccessHint(FieldEventHint):
     """Hint representing an access to a bit field within a known field."""
 
     message: str = "Bit field access in known field"  # Don't need to replace

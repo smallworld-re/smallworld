@@ -10,10 +10,11 @@ from .. import forced_exec, underlays
 from .guards import GuardTrackingScratchPlugin
 from .hints import (
     ClaripySerializable,
-    FieldHint,
+    FieldEventHint,
     PartialBitFieldAccessHint,
     PartialByteFieldAccessHint,
     PartialByteFieldWriteHint,
+    TrackedFieldHint,
     UnknownFieldHint,
 )
 
@@ -161,9 +162,9 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
 
                     # Angr's bit numbering is annoying.
                     r = fda.fda_label_to_addr[var.args[0]]
-                    size = r.stop - r.start
-                    start = size * 8 - start - 1
-                    end = size * 8 - end
+                    field_size = r.stop - r.start
+                    start = field_size * 8 - start - 1
+                    end = field_size * 8 - end
 
                     if start % 8 != 0 or end % 8 != 0:
                         hint = PartialBitFieldAccessHint(
@@ -355,6 +356,13 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                         log.warning(
                             f"  {hex(val_start)} - {hex(val_end)}: {val} := {label}"
                         )
+                        hint = TrackedFieldHint(
+                            message="Tracking new field",
+                            address=val_start,
+                            size=val.get_size(),
+                            label=label,
+                        )
+                        hinter.info(hint)
 
                         if label in fda.fda_labels:
                             log.error(
@@ -431,7 +439,7 @@ class FieldDetectionFilter(analyses.Filter):
     def analyze(self, hint: hinting.Hint):
         # Step 0: Print hints in a sane format.
         # The raw hint logging is unreadable.
-        if not isinstance(hint, FieldHint):
+        if not isinstance(hint, FieldEventHint):
             return
         hint.pp(log.error)
 
@@ -443,7 +451,7 @@ class FieldDetectionFilter(analyses.Filter):
             ).append(hint)
 
     def activate(self):
-        self.listen(FieldHint, self.analyze)
+        self.listen(FieldEventHint, self.analyze)
 
     def deactivate(self):
         super().deactivate()
