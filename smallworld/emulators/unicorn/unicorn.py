@@ -101,7 +101,7 @@ class UnicornEmulator(
             if self.state == EmulatorState.START_STEP:
                 self.state = EmulatorState.STEP
 
-            if not self._bounds.is_empty() and self._bounds.find_range(address) is None:
+            if not self._bounds.is_empty() and not self._bounds.contains_value(address):
                 self.engine.emu_stop()
                 raise exceptions.EmulationBounds
 
@@ -260,7 +260,7 @@ class UnicornEmulator(
         """Check if this pc is ok to emulate, i.e. in bounds and not an exit
         point."""
 
-        if not self._bounds.is_empty() and self._bounds.find_range(pc) is None:
+        if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
             # There are bounds, and we are not in them
             return False
 
@@ -323,7 +323,10 @@ class UnicornEmulator(
             )
 
         (reg, base_reg, size, start_offset) = self._register(name)
-        self.engine.reg_write(reg, content)
+        try:
+            self.engine.reg_write(reg, content)
+        except Exception as e:
+            raise exceptions.AnalysisError(f"Failed writing {name} (id: {reg})") from e
         # keep track of which bytes in this register have been initialized
         if base_reg not in self.initialized_registers:
             self.initialized_registers[base_reg] = set([])

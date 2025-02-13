@@ -140,7 +140,7 @@ class PandaEmulator(
                 # Check if our pc is in bounds; if not stop
                 if (
                     not self.manager._bounds.is_empty()
-                    and self.manager._bounds.find_range(pc) is None
+                    and not self.manager._bounds.contains_value(pc)
                 ):
                     print(f"Panda: {pc} out of bounds")
                     self.state = PandaEmulator.ThreadState.EXIT

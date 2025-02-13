@@ -26,25 +26,25 @@ class PatchedObjectFactory(AngrObjectFactory):
             ip = state._ip.concrete_value
 
             # Check if the ip is mapped
-            i = state.scratch.memory_map.find_range(ip)
-            if i is None:
+            (r, found) = state.scratch.memory_map.find_closest_range(ip)
+            if not found:
                 # Nope.  No code here.
                 log.warn(f"No block mapped at {state._ip}")
                 max_size = 0
             else:
                 # Yep.  We have an upper bound on our block
-                (start, stop) = state.scratch.memory_map.ranges[i]
+                (start, stop) = r
                 max_size = stop - ip
                 if not state.scratch.bounds.is_empty():
                     # We also have bounds.  Test if we're in those
-                    i = state.scratch.bounds.find_range(ip)
-                    if i is None:
+                    (r, found) = state.scratch.bounds.find_closest_range(ip)
+                    if not found:
                         # Nope.  Out of bounds.
                         log.warn(f"{state._ip} is out of bounds")
                         max_size = 0
                     else:
                         # Yep.  Allow anything in bounds and in memory
-                        (start, stop) = state.scratch.bounds.ranges[i]
+                        (start, stop) = r
                         max_size = min(max_size, stop - ip)
 
             if max_size == 0:

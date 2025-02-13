@@ -165,12 +165,16 @@ class AngrEmulator(
         segments = list()
 
         if len(self._code) > 0:
+            code_ranges = utils.RangeCollection()
             base_address = self._code[0][0]
             for addr, data in self._code:
                 size = len(data)
                 code.seek(addr - base_address)
                 code.write(data)
-                segments.append((addr - base_address, addr, size))
+                code_ranges.add_range((addr, addr + size))
+            segments = list(
+                map(lambda x: (x[0] - base_address, x[0], x[1] - x[0]), code_ranges)
+            )
 
         # Create an angr project using a blank byte stream,
         # and registered as self-modifying so we can load more code later.
@@ -245,8 +249,7 @@ class AngrEmulator(
         for addr, content in self._memory_contents:
             self.write_memory_content(addr, content)
 
-        for addr, size, label in self._memory_labels:
-            self.write_memory_label(addr, size, label)
+        self._write_memory_label_bulk(self._memory_labels)
 
         for addr, func in self._instr_hooks:
             self.hook_instruction(addr, func)
@@ -567,6 +570,24 @@ class AngrEmulator(
             # There may be over-constraints.  Please be careful.
             self.state.memory.store(address, s, inspect=False)
             self.state.solver.add(v == s)
+
+    def _write_memory_label_bulk(
+        self, labels: typing.List[typing.Tuple[int, int, typing.Optional[str]]]
+    ) -> None:
+        # Variant of write_memory_label that applies multiple labels in one go.
+        # This addresses a performance bottleneck during initialization;
+        # it's not really intended for public use,
+        # as it lacks some of the safety checks.
+        cs = list()
+        for addr, size, label in labels:
+            if label is None:
+                continue
+            s = claripy.BVS(label, size * 8, explicit_name=True)
+            v = self.state.memory.load(addr, size)
+            self.state.memory.store(addr, s)
+            cs.append(s == v)
+        c = claripy.And(*cs)
+        self.state.solver.add(c)
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:
@@ -1295,10 +1316,10 @@ class AngrEmulator(
             ip = state._ip.concrete_value
             if (
                 not self.state.scratch.bounds.is_empty()
-                and self.state.scratch.bounds.find_range(ip) is None
+                and not self.state.scratch.bounds.contains_value(ip)
             ):
                 return True
-            if self.state.scratch.memory_map.find_range(ip) is None:
+            if not self.state.scratch.memory_map.contains_value(ip):
                 return True
             if ip in self.state.scratch.exit_points:
                 return True

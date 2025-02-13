@@ -235,7 +235,7 @@ class ElfExecutable(Executable):
         if elf.entrypoint is not None and elf.entrypoint != 0:
             # Check if the entrypoint is valid (falls within the image)
             entrypoint = self._rebase_file(elf.entrypoint)
-            if self.bounds.find_range(entrypoint) is None:
+            if not self.bounds.contains_value(entrypoint):
                 if (
                     self.platform is not None
                     and self.platform.architecture == Architecture.POWERPC64
