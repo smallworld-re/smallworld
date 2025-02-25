@@ -423,4 +423,7 @@ __all__ = [
     "EmulationException",
     "CoverageHint",
     "ReachableCodeHint",
+    "UnderSpecifiedMemoryHint",
+    "UnderSpecifiedRegisterHint",
+    "UnderSpecifiedAddressHint",
 ]
