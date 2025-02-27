@@ -387,7 +387,7 @@ class RBTree(Iterable):
                 S.is_black = False
                 N = P
                 P = N.parent
-                branch = 0 if P.child[0] is N else 1
+                branch = 0 if P is None or P.child[0] is N else 1
 
             # Case 5.1: N is the new root; we're done.
         # self._verify_rb(self._root, 0)
