@@ -1,9 +1,10 @@
 import angr
 
+from .fixups import FixupMemoryMixin
 from .memtrack import TrackerMemoryMixin
 
 
 class DefaultMemoryPlugin(  # type: ignore[misc]
-    TrackerMemoryMixin, angr.storage.DefaultMemory
+    TrackerMemoryMixin, FixupMemoryMixin, angr.storage.DefaultMemory
 ):
     pass

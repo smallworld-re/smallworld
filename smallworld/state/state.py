@@ -382,7 +382,7 @@ class Register(Value, Stateful):
         elif isinstance(x, int):
             s = s + f"0x{x:x}"
         else:
-            s = s + str(x)
+            s = s + str(type(x))
         return s
 
     def set_content(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]):

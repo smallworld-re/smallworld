@@ -341,7 +341,7 @@ class AngrEmulator(
                     return out.args[0]
                 else:
                     # This is a mixed expression; we can't return it
-                    log.warn(f"Register {name} contains a symbolic expression: {out}")
+                    log.warn(f"Register {name} contains a symbolic expression")
                     raise exceptions.SymbolicValueError(
                         f"Register {name} contains a symbolic expression"
                     )
@@ -374,11 +374,16 @@ class AngrEmulator(
             name = self.machdef.pc_reg
         (off, size) = self.machdef.angr_reg(name)
 
-        if isinstance(content, int):
-            if content is None:
-                v = claripy.BVS("UNINITIALIZED", size * 8)
-            else:
-                v = claripy.BVV(content, size * 8)
+        if content is None:
+            v = claripy.BVS("UNINITIALIZED", size * 8)
+        elif isinstance(content, int):
+            v = claripy.BVV(content, size * 8)
+        elif isinstance(content, claripy.ast.bv.BV):
+            v = content
+        else:
+            raise TypeError(
+                f"Content for register {name} was {type(content)}; expected (None | int | claripy.ast.bv.BV)"
+            )
 
         if v.size() != size * 8:
             raise exceptions.ConfigurationError(
@@ -444,7 +449,7 @@ class AngrEmulator(
             )
         v = self.state.memory.load(address, size)
         if v.symbolic:
-            log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic: {v}")
+            log.warn(f"Memory at {hex(address)} ({size} bytes) is symbolic")
             raise exceptions.SymbolicValueError(f"Memory at {hex(address)} is symbolic")
 
         # Annoyingly, there isn't an easy way to convert BVV to bytes.

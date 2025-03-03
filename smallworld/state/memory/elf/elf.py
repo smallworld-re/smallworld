@@ -503,10 +503,23 @@ class ElfExecutable(Executable):
             sym.relas.append(rela)
             self._relas.append(rela)
 
-    def get_symbol_value(self, name: str, rebase: bool = True) -> int:
-        if name not in self._syms_by_name:
-            raise ConfigurationError(f"No symbol named {name}")
-        syms = self._syms_by_name[name]
+    def _get_symbols(self, name: typing.Union[str, int]) -> typing.List[ElfSymbol]:
+        if isinstance(name, str):
+            # Caller wants to look up a symbol by name
+            if name not in self._syms_by_name:
+                raise ConfigurationError(f"No symbol named {name}")
+
+            syms = self._syms_by_name[name]
+            return list(syms)
+        elif isinstance(name, int):
+            return [self._symbols[name]]
+        else:
+            raise TypeError("Symbols must be specified by str names or int indexes")
+
+    def get_symbol_value(
+        self, name: typing.Union[str, int], rebase: bool = True
+    ) -> int:
+        syms = self._get_symbols(name)
         if len(syms) > 1:
             for sym in syms:
                 if sym.value != syms[0].value and sym.baseaddr != syms[0].baseaddr:
@@ -517,14 +530,12 @@ class ElfExecutable(Executable):
             val += syms[0].baseaddr
         return val
 
-    def update_symbol_value(self, name: str, value: int, rebase: bool = True) -> None:
-        if name not in self._syms_by_name:
-            raise ConfigurationError(f"No symbol named {name}")
-
-        syms = self._syms_by_name[name]
+    def update_symbol_value(
+        self, name: typing.Union[str, int], value: int, rebase: bool = True
+    ) -> None:
+        syms = self._get_symbols(name)
         if len(syms) > 1:
             raise ConfigurationError(f"Multiple syms named {name}")
-
         sym = syms[0]
 
         if rebase:
