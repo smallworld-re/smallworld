@@ -10,30 +10,31 @@ from . import analyses, emulators, exceptions, state
 T = typing.TypeVar("T", bound=state.Machine)
 
 
-def analyze(machine: state.Machine) -> None:
-    """Run all available analyses on some code.
-
-    All analyses are run with default parameters.
+def analyze(
+    machine: state.Machine,
+    asys: typing.List[typing.Union[analyses.Analysis, analyses.Filter]],
+) -> None:
+    """Run requested analyses on some code
 
     Arguments:
         machine: A state class from which emulation should begin.
+        asys: List of analyses and filters to run
     """
 
-    filters = []
-    for name in analyses.__all__:
-        module: typing.Type = getattr(analyses, name)
-        if issubclass(module, analyses.Filter) and module is not analyses.Filter:
-            filters.append(module())
+    filters: typing.List[analyses.Filter] = []
+    runners: typing.List[analyses.Analysis] = []
+    for analysis in asys:
+        if isinstance(analysis, analyses.Filter):
+            filters.append(analysis)
             filters[-1].activate()
+        elif isinstance(analysis, analyses.Analysis):
+            runners.append(analysis)
 
     try:
-        for name in analyses.__all__:
-            module = getattr(analyses, name)
-            if (
-                issubclass(module, analyses.Analysis)
-                and module is not analyses.Analysis
-            ):
-                module().run(machine)
+        for analysis in runners:
+            analysis.run(machine)
+    except:
+        logger.exception("Error durring analysis")
     finally:
         for filter in filters:
             filter.deactivate()
