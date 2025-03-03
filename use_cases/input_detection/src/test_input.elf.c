@@ -1,9 +1,10 @@
-int foobar = 0;
+int foo = 0;
 
-int bazgorp() {
-    return foobar;
+int bazgorp(int *bar) {
+    return foo + *bar;
 }
 
 int main() {
-    (void) bazgorp();
+    int bar = 0;
+    (void) bazgorp(&bar);
 }

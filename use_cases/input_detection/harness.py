@@ -25,8 +25,9 @@ machine.add(cpu)
 pc = code.get_symbol_value("bazgorp")
 cpu.rip.set(pc)
 
+# Set up input detection analysis
 analyses: typing.List[
     typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
 ] = [smallworld.analyses.InputDetection()]
 
-smallworld.analyze(machine)
+smallworld.analyze(machine, analyses)
