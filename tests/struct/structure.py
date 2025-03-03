@@ -1,6 +1,7 @@
 # let's get all of it
 import ctypes
 import logging
+import typing
 
 import smallworld
 
@@ -90,7 +91,11 @@ cpu.rdi.set_label("arg1")
 print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 
-smallworld.helpers.analyze(machine)
+analyses: typing.List[
+    typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
+] = [smallworld.analyses.Colorizer(), smallworld.analyses.ColorizerSummary()]
+
+smallworld.helpers.analyze(machine, analyses)
 
 # now we can do a single micro-execution without error
 # final_state = smallworld.emulate(code, cpu)
