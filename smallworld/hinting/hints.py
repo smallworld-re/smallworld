@@ -427,4 +427,5 @@ __all__ = [
     "UnderSpecifiedMemoryHint",
     "UnderSpecifiedRegisterHint",
     "UnderSpecifiedAddressHint",
+    "UnderSpecifiedMemoryBranchHint",
 ]

@@ -1,5 +1,6 @@
 from angr.storage.memory_mixins.memory_mixin import MemoryMixin
 
+from ...emulators.angr.exceptions import PathTerminationSignal
 from ...emulators.angr.utils import reg_name_from_offset
 from ...hinting import (
     UnderSpecifiedAddressHint,
@@ -12,6 +13,10 @@ hinter = get_hinter(__name__)
 
 
 class InputDetectionMemoryMixin(MemoryMixin):
+    # Configuration for when to halt for hints
+    # I don't have control over the constructor for this class, so...
+    halt_at_first_hint = False
+
     def _concretize_addr(self, supercall, addr, strategies=None, condition=None):
         res = supercall(addr, strategies=strategies, condition=condition)
         hint = UnderSpecifiedAddressHint(
@@ -52,4 +57,6 @@ class InputDetectionMemoryMixin(MemoryMixin):
                 instruction=self.state._ip.concrete_value,
             )
         hinter.info(hint)
+        if self.halt_at_first_hint:
+            raise PathTerminationSignal()
         return res

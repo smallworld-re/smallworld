@@ -6,17 +6,22 @@ from ...emulators.angr.exploration import (
     TerminationExplorationMixin,
 )
 from ...emulators.angr.memory import TrackerMemoryMixin
+from .condmem import ConcretizationExplorationMixin, ConcretizationMemoryMixin
 from .detector import InputDetectionMemoryMixin
 
 
 class InputDetectionMemoryPlugin(  # type: ignore[misc]
-    TrackerMemoryMixin, InputDetectionMemoryMixin, angr.storage.DefaultMemory
+    TrackerMemoryMixin,
+    InputDetectionMemoryMixin,
+    ConcretizationMemoryMixin,
+    angr.storage.DefaultMemory,
 ):
     pass
 
 
 class InputDetectionExplorationTechnique(
     TerminationExplorationMixin,
+    ConcretizationExplorationMixin,
     BoundedExplorationMixin,
     angr.exploration_techniques.suggestions.Suggestions,
 ):

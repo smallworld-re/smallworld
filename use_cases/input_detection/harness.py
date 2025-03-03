@@ -1,4 +1,5 @@
 import logging
+import sys
 import typing
 
 import smallworld
@@ -13,7 +14,7 @@ machine = smallworld.state.Machine()
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_elf(
-    open("bin/test_input.amd64.elf", "rb"), address=0x10000000
+    open(sys.argv[1], "rb"), address=0x10000000
 )
 machine.add(code)
 
