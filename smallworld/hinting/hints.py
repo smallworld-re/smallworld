@@ -422,5 +422,6 @@ __all__ = [
     "MemoryUnavailableProbHint",
     "EmulationException",
     "CoverageHint",
+    "ControlFlowHint",
     "ReachableCodeHint",
 ]
