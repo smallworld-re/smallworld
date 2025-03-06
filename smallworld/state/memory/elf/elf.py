@@ -530,6 +530,14 @@ class ElfExecutable(Executable):
             val += syms[0].baseaddr
         return val
 
+    def get_symbol_size(self, name: typing.Union[str, int]):
+        syms = self._get_symbols(name)
+        if len(syms) > 1:
+            for sym in syms:
+                if sym.size != syms[0].size:
+                    raise ConfigurationError(f"Conflicting syms named {name}")
+        return syms[0].size
+
     def update_symbol_value(
         self, name: typing.Union[str, int], value: int, rebase: bool = True
     ) -> None:
