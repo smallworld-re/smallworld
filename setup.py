@@ -4,8 +4,8 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="smallworld",
-    version="0.1.0.dev0",
+    name="smallworld-re",
+    version="1.0.0",
     author="MIT Lincoln Laboratory",
     author_email="smallworld@ll.mit.edu",
     url="https://github.com/smallworld-re/smallworld",
