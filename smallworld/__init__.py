@@ -1,6 +1,6 @@
 from importlib import metadata as __metadata
 
-metadata = __metadata.metadata("smallworld")
+metadata = __metadata.metadata("smallworld-re")
 
 __title__ = metadata["name"]
 __description__ = metadata["Summary"]
