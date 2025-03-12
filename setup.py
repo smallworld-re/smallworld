@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 setup(
     name="smallworld-re",
-    version="1.0.0",
+    version="1.0.1",
     author="MIT Lincoln Laboratory",
     author_email="smallworld@ll.mit.edu",
     url="https://github.com/smallworld-re/smallworld",
