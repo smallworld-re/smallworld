@@ -1518,7 +1518,7 @@ class FuzzTests(ScriptIntegrationTest):
 
     def run_afl(self, arch: str, lines):
         stdout, _ = self.command(
-            f"afl-showmap -t 10000 -U -m none -o /dev/stdout -- python3 fuzz/afl_fuzz.{arch}.py fuzz/fuzz_inputs/good_input",
+            f"afl-showmap -C -t 10000 -U -m none -i fuzz/fuzz_inputs -o /dev/stdout -- python3 fuzz/afl_fuzz.{arch}.py @@",
             error=False,
         )
         for line in lines:
