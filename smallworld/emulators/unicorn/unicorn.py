@@ -614,7 +614,8 @@ class UnicornEmulator(
                 if type(rw) is instructions.BSIDMemoryReferenceOperand:
                     a = rw.address(self)
                     if not (self._is_address_mapped(a)):
-                        out.append(rw)
+                        p = (rw, a)
+                        out.append(p)
             return out
 
         details: typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]] = {}

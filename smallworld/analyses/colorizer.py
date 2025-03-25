@@ -68,7 +68,6 @@ class Colorizer(analysis.Analysis):
         num_insns: int = 200,
         seed: typing.Optional[int] = 99,
         **kwargs
-        #        self, *args, num_micro_executions: int = 1, num_insns: int = 10, **kwargs
     ):
         super().__init__(*args, **kwargs)
         # Create our own random so we can avoid contention.
@@ -215,8 +214,6 @@ class Colorizer(analysis.Analysis):
                     break
 
                 except UnicornEmulationMemoryReadError as e:
-                    # import pdb
-                    # pdb.set_trace()
                     for read_operand in e.details["unmapped_reads"]:
                         if type(read_operand) is BSIDMemoryReferenceOperand:
                             h = self._mem_unavailable_hint(
@@ -226,15 +223,9 @@ class Colorizer(analysis.Analysis):
                     break
                 except Exception as e:
                     # emulating this instruction failed
-                    #                    import pdb
-                    #                    pdb.set_trace()
-                    import pdb
-
-                    pdb.set_trace()
                     exhint = hinting.EmulationException(
                         message=f"In analysis, single step raised an exception {e}",
                         pc=pc,
-                        #                        instruction=sw_insn,
                         instruction_num=j,
                         exception=str(e),
                     )
@@ -244,10 +235,6 @@ class Colorizer(analysis.Analysis):
                     break
 
                 writes: typing.List[typing.Tuple[Operand, str, int]] = []
-
-                #                print(sw_insn.writes)
-                #                import pdb
-                #                pdb.set_trace()
 
                 for write_operand in sw_insn.writes:
                     logger.debug(f"pc={pc:x} write_operand={write_operand}")
@@ -282,135 +269,6 @@ class Colorizer(analysis.Analysis):
 
         logger.info("-------------------------")
 
-        # if two hints map to the same key then they are in same equivalence class
-        def hint_key(hint):
-            if type(hint) is hinting.DynamicRegisterValueHint:
-                return (
-                    "dynamic_register_value",
-                    hint.pc,
-                    not hint.use,
-                    hint.color,
-                    hint.new,
-                    hint.message,
-                    hint.reg_name,
-                )
-            if type(hint) is hinting.DynamicMemoryValueHint:
-                return (
-                    "dynamic_memory_value",
-                    hint.pc,
-                    not hint.use,
-                    hint.color,
-                    hint.new,
-                    hint.message,
-                    hint.base,
-                    hint.index,
-                    hint.scale,
-                    hint.offset,
-                )
-            if type(hint) is hinting.MemoryUnavailableHint:
-                return (
-                    "memory_unavailable",
-                    hint.pc,
-                    hint.size,
-                    hint.message,
-                    hint.base_reg_name,
-                    hint.index_reg_name,
-                    hint.offset,
-                    hint.scale,
-                )
-            if type(hint) is hinting.EmulationException:
-                return (
-                    "emulation_exception",
-                    hint.pc,
-                    hint.instruction_num,
-                    hint.exception,
-                )
-
-        all_hint_keys = set([])
-        hk_exemplar = {}
-        for hint_list in hint_list_list:
-            for hint in hint_list:
-                hk = hint_key(hint)
-                all_hint_keys.add(hk)
-                # keep one exemplar
-                if hk not in hk_exemplar:
-                    hk_exemplar[hk] = hint
-
-        #        import pdb
-        #        pdb.set_trace()
-        hint_keys_sorted = sorted(list(all_hint_keys))
-
-        # given the equivalence classes established by `hint_key`, determine
-        # which of those were observed in each micro-execution
-        hk_observed: typing.Dict[
-            int, typing.Set[typing.Tuple[int, bool, str, bool, str, str, str, int, int]]
-        ] = {}
-        for me in range(self.num_micro_executions):
-            hk_observed[me] = set([])
-            for hint in hint_list_list[me]:
-                # this hint key was observed in micro execution me
-                hk_observed[me].add(hint_key(hint))
-
-        # estimate "probability" of observing a hint in an equiv class as
-        # fraction of micro executions in which it was observed at least once
-        hk_c = {}
-        for hk in hint_keys_sorted:
-            hk_c[hk] = 0
-            for me in range(self.num_micro_executions):
-                for hk2 in hk_observed[me]:
-                    if hk == hk2:
-                        hk_c[hk] += 1
-
-        for hk in hint_keys_sorted:
-            prob = (float(hk_c[hk])) / self.num_micro_executions
-            assert prob <= 1.0
-            hint = hk_exemplar[hk]
-
-            if type(hint) is hinting.DynamicRegisterValueHint:
-                hinter.info(
-                    hinting.DynamicRegisterValueProbHint(
-                        #                        instruction=hint.instruction,
-                        pc=hint.pc,
-                        reg_name=hint.reg_name,
-                        color=hint.color,
-                        size=hint.size,
-                        use=hint.use,
-                        new=hint.new,
-                        prob=prob,
-                        message=hint.message + "-prob",
-                    )
-                )
-            if type(hint) is hinting.DynamicMemoryValueHint:
-                hinter.info(
-                    hinting.DynamicMemoryValueProbHint(
-                        #                        instruction=hint.instruction,
-                        pc=hint.pc,
-                        size=hint.size,
-                        base=hint.base,
-                        index=hint.index,
-                        scale=hint.scale,
-                        offset=hint.offset,
-                        color=hint.color,
-                        use=hint.use,
-                        new=hint.new,
-                        prob=prob,
-                        message=hint.message + "-prob",
-                    )
-                )
-            if type(hint) is hinting.MemoryUnavailableHint:
-                hinter.info(
-                    hinting.MemoryUnavailableProbHint(
-                        is_read=hint.is_read,
-                        size=hint.size,
-                        base_reg_name=hint.base_reg_name,
-                        index_reg_name=hint.index_reg_name,
-                        offset=hint.offset,
-                        scale=hint.scale,
-                        pc=hint.pc,
-                        prob=prob,
-                        message=hint.message + "-prob",
-                    )
-                )
 
     def _concrete_val_to_color(
         self, concrete_value: typing.Union[int, bytes, bytearray], size: int

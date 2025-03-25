@@ -1,3 +1,4 @@
+import networkx as nx
 import typing
 from dataclasses import dataclass
 
@@ -305,7 +306,7 @@ class MemoryUnavailableHint(hinting.Hint):
 
 
 @dataclass(frozen=True)
-class MemoryUnavailableProbHint(hinting.Hint):
+class MemoryUnavailableSummaryHint(hinting.Hint):
     is_read: bool
     size: int
     base_reg_name: str
@@ -313,7 +314,8 @@ class MemoryUnavailableProbHint(hinting.Hint):
     offset: int
     scale: int
     pc: int
-    prob: float
+    count: int
+    num_micro_executions: int
 
 
 @dataclass(frozen=True)
@@ -390,18 +392,19 @@ class DynamicMemoryValueHint(DynamicValueHint):
 
 
 @dataclass(frozen=True)
-class DynamicValueProbHint(hinting.Hint):
+class DynamicValueSummaryHint(hinting.Hint):
     # instruction: typing.Any
     pc: int
     color: int
     size: int
     use: bool
     new: bool
-    prob: float
+    count: int
+    num_micro_executions: int
 
 
 @dataclass(frozen=True)
-class DynamicMemoryValueProbHint(DynamicValueProbHint):
+class DynamicMemoryValueSummaryHint(DynamicValueSummaryHint):
     base: str
     index: str
     scale: int
@@ -409,19 +412,25 @@ class DynamicMemoryValueProbHint(DynamicValueProbHint):
 
 
 @dataclass(frozen=True)
-class DynamicRegisterValueProbHint(DynamicValueProbHint):
+class DynamicRegisterValueSummaryHint(DynamicValueSummaryHint):
     reg_name: str
+
+@dataclass(frozen=True)
+class DefUseGraphHint(hinting.Hint):
+    graph: nx.MultiDiGraph
 
 
 __all__ = [
     "DynamicRegisterValueHint",
     "DynamicMemoryValueHint",
     "MemoryUnavailableHint",
-    "DynamicRegisterValueProbHint",
-    "DynamicMemoryValueProbHint",
-    "MemoryUnavailableProbHint",
+    "DynamicRegisterValueSummaryHint",
+    "DynamicMemoryValueSummaryHint",
+    "MemoryUnavailableSummaryHint",
     "EmulationException",
     "CoverageHint",
     "ControlFlowHint",
     "ReachableCodeHint",
+    "DefUseGraphHint"
 ]
+
