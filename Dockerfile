@@ -32,7 +32,8 @@ WORKDIR /opt/panda
 RUN git clone https://github.com/panda-re/panda.git
 WORKDIR /opt/panda/panda
 RUN git checkout 48bf566b9fad2590f574c559513b022ae71b3666
-#RUN bash panda/scripts/install_ubuntu.sh
+RUN bash panda/scripts/install_ubuntu.sh
+RUN python3 -c "import pandare"
 
 # Fix bug in Panda; it needs this file for mips64 to work
 #RUN touch /usr/local/lib/python3.8/dist-packages/pandare/data/pc-bios/mips_bios.bin
