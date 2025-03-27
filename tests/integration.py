@@ -5,8 +5,6 @@ import subprocess
 import typing
 import unittest
 
-import pandare
-import unicornafl
 from sphinx import application, errors
 
 
