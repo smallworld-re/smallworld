@@ -1,14 +1,13 @@
 import io
 import os
-import pandare
 import re
 import subprocess
 import typing
-import unicornafl
 import unittest
 
+import pandare
+import unicornafl
 from sphinx import application, errors
-
 
 
 class DetailedCalledProcessError(Exception):
