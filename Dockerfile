@@ -35,12 +35,12 @@ RUN git checkout 48bf566b9fad2590f574c559513b022ae71b3666
 #RUN bash panda/scripts/install_ubuntu.sh
 
 # Fix bug in Panda; it needs this file for mips64 to work
-#RUN touch /usr/local/lib/python3.8/dist-packages/pandare/data/pc-bios/mips_bios.bin
+RUN touch /usr/local/lib/python3.8/dist-packages/pandare/data/pc-bios/mips_bios.bin
 
 # Install smallworld
 COPY ./ /opt/smallworld/
 
-#WORKDIR /opt/smallworld/tests
+WORKDIR /opt/smallworld/tests
 RUN apt -y install $(cat ./dependencies/apt.txt)
 
 RUN make
