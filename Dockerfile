@@ -36,7 +36,7 @@ RUN bash panda/scripts/install_ubuntu.sh
 RUN python3 -c "import pandare"
 
 # Fix bug in Panda; it needs this file for mips64 to work
-#RUN touch /usr/local/lib/python3.8/dist-packages/pandare/data/pc-bios/mips_bios.bin
+RUN touch /opt/venv/lib/python3.10//dist-packages/pandare/data/pc-bios/mips_bios.bin
 
 # Install smallworld
 COPY ./ /opt/smallworld/
