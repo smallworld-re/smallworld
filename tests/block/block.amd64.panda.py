@@ -34,7 +34,7 @@ cpu.rdi.set(int(sys.argv[1]))
 cpu.rsi.set(int(sys.argv[2]))
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.PandaEmulator(platform)
 emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
 print(f"Exit point at {hex(cpu.rip.get() + code.get_capacity())}")
 machine.apply(emulator)
