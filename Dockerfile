@@ -29,14 +29,16 @@ RUN python3 setup.py install
 RUN python3 -c "import unicornafl"
 
 WORKDIR /opt/panda
-RUN git clone https://github.com/panda-re/panda.git
-WORKDIR /opt/panda/panda
-RUN git checkout 48bf566b9fad2590f574c559513b022ae71b3666
-RUN bash panda/scripts/install_ubuntu.sh
+RUN apt -y install wget
+RUN wget 'https://github.com/panda-re/panda/releases/download/v1.8.57/pandare_22.04.deb'
+RUN wget 'https://github.com/panda-re/panda/releases/download/v1.8.57/pandare-1.8.57-py3-none-any.whl'
+RUN apt -y install ./pandare_22.04.deb
+RUN python3 -m pip install pandare-1.8.57-py3-none-any.whl
 RUN python3 -c "import pandare"
 
 # Fix bug in Panda; it needs this file for mips64 to work
-RUN touch /opt/panda/panda/build/pc-bios/mips_bios.bin
+RUN bash -c 'ls -R /usr/local/share/panda; sleep 10'
+RUN touch /usr/local/share/panda/mips_bios.bin
 
 # Install smallworld
 COPY ./ /opt/smallworld/
