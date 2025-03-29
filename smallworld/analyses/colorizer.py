@@ -1,7 +1,9 @@
 import base64
 import copy
 import logging
+import networkx as nx
 import random
+import struct
 import typing
 
 import capstone
@@ -31,21 +33,24 @@ Colors = typing.Dict[str, typing.Tuple[Operand, int, int, Instruction, int]]
 
 
 class Colorizer(analysis.Analysis):
-    """A simple kind of data flow analysis via tracking distinct values (colors)
-    and employing instruction use/def analysis
+    """A simple kind of data flow analysis via tracking distinct values
+    (colors) and employing instruction use/def analysis
 
-    We run multiple micro-executions of the code starting from same entry. At
-    the start of each, we randomize register values that have not already been
-    initialized. We maintain a "colors" map from values to when we first
-    observed them. This map is initially empty. Before emulating an instruction,
-    we examine the values (registers and memory) it will read. If any are NOT in
-    the colors map, that is the initial sighting of that value and we emit a
-    hint to that effect. If any color IS already in the map, then that is a flow
-    from the time at which that value was first observed to this
-    instruction. Similarly, after emulating an instruction, we examine every
-    value (register and memory) written. If a value is not in the colors map, it
-    is a new, computed result and we hint about its creation. If it is in the
-    colors map, we do nothing since it just a copy.
+    We run multiple micro-executions of the code starting from same
+    entry. At the start of each, we randomize register values that
+    have not already been initialized. We maintain a "colors" map from
+    dynamic values to when/where we first observed them. This map is
+    initially empty. Before emulating an instruction, we examine the
+    values (registers and memory) it will read. If any are not in the
+    colors map, that is the initial sighting of that value and we emit
+    a hint to that effect and add a color to the map. If any color is
+    already in the map, then that is a def-use flow from the
+    time/place at which that value was first observed to this
+    instruction. Similarly, after emulating an instruction, we examine
+    every value written to a register or memory. If a value is not in
+    the colors map, it is a new, computed result and we hint about its
+    creation and add it to the map. If it is in the colors map, we do
+    nothing since it just a copy.
 
     Whilst looking at reads and writes for instructions, we hint if any
     correspond to unavailable memory.
@@ -73,6 +78,7 @@ class Colorizer(analysis.Analysis):
         # Create our own random so we can avoid contention.
         self.random = random.Random()
         self.seed = seed
+        
         self.num_micro_executions = num_micro_executions
         self.num_insns = num_insns
 
@@ -105,12 +111,14 @@ class Colorizer(analysis.Analysis):
         self.orig_cpu = self.orig_machine.get_cpu()
         self.platform = self.orig_cpu.platform
 
-        for i in range(self.num_micro_executions):
+        edges = {}
+        #cfg = nx.MultiDiGraph()        
+        if self.seed is not None:
+            self.random.seed(a=self.seed)
+
+        for i in range(1, 1+self.num_micro_executions):
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
-
-            if self.seed is not None:
-                self.random.seed(a=self.seed)
 
             self.machine = copy.deepcopy(self.orig_machine)
             self.cpu = self.machine.get_cpu()
@@ -124,10 +132,20 @@ class Colorizer(analysis.Analysis):
             self.colors: Colors = {}
 
             hint_list: typing.List[hinting.Hint] = []
+            last_pc = None
             for j in range(self.num_insns):
                 logger.info(f"instr_count = {j}")
                 # obtain instr about to be emulated
                 pc = self.emu.read_register("pc")
+                if last_pc is not None:
+                    if last_pc not in edges:
+                        edges[last_pc] = {}
+                    if pc not in edges[last_pc]:
+                        edges[last_pc][pc] = 1
+                    else:
+                        edges[last_pc][pc] += 1
+                    #cfg.add_edge(f"{last_pc:x}", f"{pc:x}")
+                #cfg.add_node(f"{pc:x}")
                 if pc in self.emu.get_exit_points():
                     break
                 cs_insn = self._get_instr_at_pc(pc)
@@ -139,15 +157,6 @@ class Colorizer(analysis.Analysis):
                 m = copy.deepcopy(self.machine)
                 m.extract(self.emu)
                 self.cpu = m.get_cpu()
-                #                self.cpu = copy.deepcopy(self.machine).extract(self.emu).get_cpu()
-                # curr_machine = copy.deepcopy(self.machine)
-                # curr_machine.extract(self.emu)
-                # curr_machine = self.eself.cpu.load(self.emu)
-                # self.cpu = curr_machien.get_cpu()
-
-                # print(f"pc={pc:x} {sw_insn}")
-                # import pdb
-                # pdb.set_trace()
 
                 reads: typing.List[typing.Tuple[Operand, str, int]] = []
                 for read_operand in sw_insn.reads:
@@ -173,14 +182,6 @@ class Colorizer(analysis.Analysis):
                     # discard bad colors
                     if read_operand_color == BAD_COLOR:
                         continue
-                    #                    except UnicornEmulationMemoryReadError as e:
-                    #                        # ignore bc self.emu.step() will also raise
-                    #                        # same error, which will generate a hint
-                    #                        pass
-                    #                    except Exception as e:
-                    #                        import pdb
-                    #                        pdb.set_trace()
-                    #                        print(e)
                     tup = (read_operand, read_operand_color, sz)
                     reads.append(tup)
                 reads.sort(key=lambda e: e[0].__repr__())
@@ -195,31 +196,23 @@ class Colorizer(analysis.Analysis):
                     self.emu.step()
 
                 except EmulationBounds:
-                    # import pdb
-                    # pdb.set_trace()
                     logger.info(
                         "emulation complete. encountered exit point or went out of bounds"
                     )
                     break
                 except UnicornEmulationMemoryWriteError as e:
-                    # import pdb
-                    # pdb.set_trace()
-                    for write_operand, conc_val in e.details["writes"]:
-                        if type(write_operand) is BSIDMemoryReferenceOperand:
-                            if conc_val is None:
-                                h = self._mem_unavailable_hint(
-                                    write_operand, e.pc, i, j, False
-                                )
-                                hint_list.append(h)
+                    for (write_operand,addr) in e.details["unmapped_writes"]:
+                        h = self._mem_unavailable_hint(
+                            write_operand, addr, e.pc, i, j, False
+                        )
+                        hint_list.append(h)
                     break
-
                 except UnicornEmulationMemoryReadError as e:
-                    for read_operand in e.details["unmapped_reads"]:
-                        if type(read_operand) is BSIDMemoryReferenceOperand:
-                            h = self._mem_unavailable_hint(
-                                read_operand, e.pc, i, j, True
-                            )
-                            hint_list.append(h)
+                    for (read_operand,addr) in e.details["unmapped_reads"]:
+                        h = self._mem_unavailable_hint(
+                            read_operand, addr, e.pc, i, j, True
+                        )
+                        hint_list.append(h)
                     break
                 except Exception as e:
                     # emulating this instruction failed
@@ -264,15 +257,46 @@ class Colorizer(analysis.Analysis):
                 # import pdb
                 # pdb.set_trace()
                 self._check_colors_instruction_writes(writes, sw_insn, i, j, hint_list)
+                last_pc = pc
+
 
             hint_list_list.append(hint_list)
+
+        pcn = {}
+        for pc1 in edges.keys():
+            if pc1 not in pcn:
+                pcn[pc1] = len(pcn) + 1
+            for pc2 in edges[pc1]:
+                if pc2 not in pcn:
+                    pcn[pc2] = len(pcn) + 1
+
+        pcs = list(pcn.keys())
+
+        cfg = nx.MultiDiGraph()
+        pos = {}
+        with open("cfg.dot", "w") as d:
+            d.write("digraph{\n")
+
+            for pc in pcs:
+                pos[pc] = (30, 100 * pcn[pc])
+                d.write(f' {pcn[pc]} [label="0x{pc:x}"]\n')
+
+            for pc1 in edges.keys():
+                lpc1 = f"{pc1:x}"
+                cfg.add_node(lpc1)
+                for pc2 in edges[pc1]:
+                    lpc2 = f"{pc2:x}"
+                    cfg.add_node(lpc2)
+                    cfg.add_edge(lpc1, lpc2, label=f"c={edges[pc1][pc2]}")
+                    d.write(f' {pcn[pc1]} -> {pcn[pc2]} [label="{edges[pc1][pc2]}"];\n')
+            d.write("}\n")
 
         logger.info("-------------------------")
 
 
     def _concrete_val_to_color(
         self, concrete_value: typing.Union[int, bytes, bytearray], size: int
-    ) -> str:
+    ) -> int:
         # this concrete value can be an int (if it came from a register)
         # or bytes (if it came from memory read)
         # we want these in a common format so that we can see them as colors
@@ -291,7 +315,12 @@ class Colorizer(analysis.Analysis):
             the_bytes = concrete_value
         else:
             assert 1 == 0
-        return base64.b64encode(the_bytes).decode()
+        #return base64.b64encode(the_bytes).decode()
+        # let's make color a number
+        l = len(the_bytes)
+        if l < 8:
+            the_bytes = (8-l) * b'\0' + the_bytes
+        return (struct.unpack("<Q", the_bytes)[0])
 
     def _randomize_registers(self) -> None:
         for reg in self.orig_cpu:
@@ -318,7 +347,7 @@ class Colorizer(analysis.Analysis):
                     # b = (orig_val >> (i * 8)) & 0xFF
                     new_val |= b
                 else:
-                    new_val |= random.randint(0, 255)
+                    new_val |= self.random.randint(0, 255)
                     bc += 1
             if bc == 0:
                 logger.debug(
@@ -336,6 +365,7 @@ class Colorizer(analysis.Analysis):
     def _mem_unavailable_hint(
         self,
         operand: typing.Optional[BSIDMemoryReferenceOperand],
+        addr: int,        
         pc: int,
         exec_num: int,
         insn_num: int,
@@ -373,13 +403,9 @@ class Colorizer(analysis.Analysis):
         hinter.debug(hint)
         return hint
 
-    def _get_color_num(self, color: str) -> int:
-        (_, _, _, _, color_num) = self.colors[color]
-        return color_num
-
     def _add_color(
         self,
-        color: str,
+        color: int,
         operand: Operand,
         insn: Instruction,
         exec_num: int,
@@ -395,8 +421,6 @@ class Colorizer(analysis.Analysis):
         insn_num: int,
         hint_list: typing.List[hinting.Hint],
     ):
-        #        import pdb
-        #        pdb.set_trace()
         for operand, color, operand_size in reads:
             if color in self.colors.keys():
                 # read-flow: use of a previously recorded color value
@@ -418,9 +442,6 @@ class Colorizer(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
-                # logger.info(
-                #    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
-                # )
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
@@ -467,9 +488,6 @@ class Colorizer(analysis.Analysis):
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
-                # logger.info(
-                #    f"new color {color} color_num {self._get_color_num(color)} instruction [{insn}] operand {operand}"
-                # )
                 hint = self._dynamic_value_hint(
                     operand,
                     operand_size,
@@ -488,7 +506,7 @@ class Colorizer(analysis.Analysis):
         self,
         operand: Operand,
         size: int,
-        color: str,
+        color: int,
         insn: Instruction,
         is_use: bool,
         is_new: bool,
@@ -497,12 +515,11 @@ class Colorizer(analysis.Analysis):
         message: str,
     ):
         pc = insn.address
-        color_num = self._get_color_num(color)
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
                 reg_name=operand.name,
                 size=size,
-                color=color_num,
+                color=color,
                 dynamic_value=color,
                 use=is_use,
                 new=is_new,
@@ -525,7 +542,7 @@ class Colorizer(analysis.Analysis):
                 index=index_name,
                 scale=operand.scale,
                 offset=operand.offset,
-                color=color_num,
+                color=color,
                 dynamic_value=color,
                 size=operand.size,
                 use=is_use,

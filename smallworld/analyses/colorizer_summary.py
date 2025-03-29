@@ -1,9 +1,62 @@
 # mypy: ignore-errors
 
+import sys
 from .. import hinting
 from . import analysis
 
 hinter = hinting.get_hinter(__name__)
+
+# goal here is to summarize across multiple micro execution if two
+# hints map to the same key then they are in same equivalence class so
+# we elide away things that will be specific to a run like micro exec
+# number, color (actual dyn value), ptr addresses, etc.
+
+def compute_dv_key(hint):
+    if type(hint) is hinting.DynamicRegisterValueHint:
+        return (
+            ("type", "reg"),
+            ("pc", hint.pc),
+            ("size", hint.size),
+            ("use", hint.use),
+            ("new", hint.new),
+            ("reg_name", hint.reg_name)
+        )
+    elif type(hint) is hinting.DynamicMemoryValueHint:
+        return (
+            ("type", "mem"),
+            ("pc", hint.pc),
+            ("size", hint.size),
+            ("use", hint.use),
+            ("new", hint.new),
+            ("base", hint.base),
+            ("index", hint.index),
+            ("scale", hint.scale),
+            ("offset", hint.offset)
+        )
+    elif type(hint) is hinting.MemoryUnavailableHint:
+        return (
+            ("type", "mem_unavail"),
+            ("pc", hint.pc),
+            ("size", hint.size),
+            ("is_read", hint.is_read),
+            ("base", hint.base_reg_name),
+            ("index", hint.index_reg_name),
+            ("scale", hint.scale),
+            ("offset", hint.offset)
+        )
+    elif type(hint) is hinting.EmulationException:
+        return (
+            ("type", "emu_fail"),
+            ("pc", hint.pc),
+            ("exception", hint.exception)
+        )
+
+    else:
+        # should never happen
+        assert ((type(hint) is hinting.DynamicRegisterValueHint)  
+                or (type(hint) is hinting.DynamicMemoryValueHint)  
+                or (type(hint) is hinting.MemoryUnavailableHint) 
+                or (type(hint) is hinting.EmulationException))
             
             
 class ColorizerSummary(analysis.Filter):
@@ -11,10 +64,12 @@ class ColorizerSummary(analysis.Filter):
     description = "collect and summarize colorizer output across micro executions"
     version = "0.0.1"
 
+
     def __init__(self):
         super().__init__()
         self.hint_list = []
         self.num_micro_executions = 0
+
         
     def collect_hints(self, hint):
         self.hint_list.append(hint)
@@ -22,71 +77,66 @@ class ColorizerSummary(analysis.Filter):
             self.num_micro_executions = hint.micro_exec_num
                 
     def activate(self):
-        # pdb.set_trace()
         print("activating colorizer_summary")
         self.listen(hinting.DynamicRegisterValueHint, self.collect_hints)
         self.listen(hinting.DynamicMemoryValueHint, self.collect_hints)
         self.listen(hinting.MemoryUnavailableHint, self.collect_hints)
         self.listen(hinting.EmulationException, self.collect_hints)
+
         
     def deactivate(self):
-
-        # if two hints map to the same key then they are in same equivalence class
-        def hint_key(hint):
-            if type(hint) is hinting.DynamicRegisterValueHint:
-                return (
-                    "dynamic_register_value",
-                    hint.pc,
-                    not hint.use,
-                    hint.color,
-                    hint.new,
-                    hint.message,
-                    hint.reg_name,
-                )
-            if type(hint) is hinting.DynamicMemoryValueHint:
-                return (
-                    "dynamic_memory_value",
-                    hint.pc,
-                    not hint.use,
-                    hint.color,
-                    hint.new,
-                    hint.message,
-                    hint.base,
-                    hint.index,
-                    hint.scale,
-                    hint.offset,
-                )
-            if type(hint) is hinting.MemoryUnavailableHint:
-                return (
-                    "memory_unavailable",
-                    hint.pc,
-                    hint.size,
-                    hint.message,
-                    hint.base_reg_name,
-                    hint.index_reg_name,
-                    hint.offset,
-                    hint.scale,
-                )
-            if type(hint) is hinting.EmulationException:
-                return (
-                    "emulation_exception",
-                    hint.pc,
-                    hint.instruction_num,
-                    hint.exception,
-                )
             
+        # Establish true colors 1, 2, 3, ...
+        #
+        # The colors we have in hints are random initial reg or memory
+        # values or values computed from those. This means they don't
+        # correspond across micro-executions. We need them to do so if
+        # we are to summarize.
+        #
+        truecolors = set([])
+        dvh2truecolor = {}
+        color2truecolor = {}
+        for hint in self.hint_list:
+            if hasattr(hint, 'color'):
+                #print(f"\ndvkey={compute_dv_key(hint)}")
+                if hint.new:
+                    #print("-- new=true")
+                    # This is a hint with a "new" color meaning the
+                    # hint time is when the color was first
+                    # observed. If we are trying to match up such new
+                    # colors across micro executions, we do so by
+                    # matching up the dv keys for them at this
+                    # time of first observation.
+                    dvk = compute_dv_key(hint)
+                    dvh = hash(dvk) % ((sys.maxsize + 1) * 2)
+                    #print(f"-- hash(dvkey) = {dvh}")
+                    if not dvh in dvh2truecolor:
+                        # we need to establish a color for this dvh
+                        next_color = 1+len(truecolors)    
+                        truecolors.add(next_color)
+                        dvh2truecolor[dvh] = next_color
+                    # make sure to map every hint color to its true color
+                    color2truecolor[hint.color] = dvh2truecolor[dvh]
+                    #print(f"-- color={hint.color} true_color={color2truecolor[hint.color]}")
+                else:
+                    #print("-- new=false")
+                    assert (hint.color in color2truecolor)
+  
+        # use compute_dv_key to put keys into equiv classes 
+        # which works for both new and not-new hints
+        # start off by collecting set of all such classes
         all_hint_keys = set([])
         hk_exemplar = {}
         for hint in self.hint_list:
-            hk = hint_key(hint)
+            hk = compute_dv_key(hint)
             all_hint_keys.add(hk)
-            # keep one exemplar
+            # keep one exemplar for each equivalence class
             if hk not in hk_exemplar:
                 hk_exemplar[hk] = hint
 
         hint_keys_sorted = sorted(list(all_hint_keys))
 
-        # given the equivalence classes established by `hint_key`, determine
+        # given the equivalence classes established by `compute_dv_key`, determine
         # which of those were observed in each micro-execution
         hk_observed: typing.Dict[
             int, typing.Set[typing.Tuple[int, bool, str, bool, str, str, str, int, int]]
@@ -95,28 +145,26 @@ class ColorizerSummary(analysis.Filter):
             if hint.micro_exec_num not in hk_observed:
                 hk_observed[hint.micro_exec_num] = set([])
                 # this hint key was observed in micro execution me                
-            hk_observed[hint.micro_exec_num].add(hint_key(hint))
+            hk_observed[hint.micro_exec_num].add(compute_dv_key(hint))
             
         # estimate "probability" of observing a hint in an equiv class as
         # fraction of micro executions in which it was observed at least once
         hk_c = {}
         for hk in hint_keys_sorted:
             hk_c[hk] = 0
-            for me in range(self.num_micro_executions):
+            for me in range(1,1+self.num_micro_executions):
                 for hk2 in hk_observed[me]:
                     if hk == hk2:
                         hk_c[hk] += 1
 
         for hk in hint_keys_sorted:
             hint = hk_exemplar[hk]
-            #import pdb
-            #pdb.set_trace()
             if type(hint) is hinting.DynamicRegisterValueHint:
                 hinter.info(
                     hinting.DynamicRegisterValueSummaryHint(
                         pc=hint.pc,
                         reg_name=hint.reg_name,
-                        color=hint.color,
+                        color=color2truecolor[hint.color],
                         size=hint.size,
                         use=hint.use,
                         new=hint.new,
@@ -134,7 +182,7 @@ class ColorizerSummary(analysis.Filter):
                         index=hint.index,
                         scale=hint.scale,
                         offset=hint.offset,
-                        color=hint.color,
+                        color=color2truecolor[hint.color],
                         use=hint.use,
                         new=hint.new,
                         message=hint.message + "-prob",
