@@ -1,12 +1,11 @@
-import base64
 import copy
 import logging
-import networkx as nx
 import random
 import struct
 import typing
 
 import capstone
+import networkx as nx
 
 from .. import hinting, state
 from ..emulators import (
@@ -26,10 +25,10 @@ from . import analysis
 logger = logging.getLogger(__name__)
 hinter = hinting.get_hinter(__name__)
 
-MIN_ACCEPTABLE_COLOR_INT = 20
-BAD_COLOR = "BAD_COLOR"
+MIN_ACCEPTABLE_COLOR_INT = 0x20
+BAD_COLOR = (2**64) - 1
 
-Colors = typing.Dict[str, typing.Tuple[Operand, int, int, Instruction, int]]
+Colors = typing.Dict[int, typing.Tuple[Operand, int, int, Instruction, int]]
 
 
 class Colorizer(analysis.Analysis):
@@ -72,13 +71,13 @@ class Colorizer(analysis.Analysis):
         num_micro_executions: int = 5,
         num_insns: int = 200,
         seed: typing.Optional[int] = 99,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(*args, **kwargs)
         # Create our own random so we can avoid contention.
         self.random = random.Random()
         self.seed = seed
-        
+
         self.num_micro_executions = num_micro_executions
         self.num_insns = num_insns
 
@@ -111,12 +110,11 @@ class Colorizer(analysis.Analysis):
         self.orig_cpu = self.orig_machine.get_cpu()
         self.platform = self.orig_cpu.platform
 
-        edges = {}
-        #cfg = nx.MultiDiGraph()        
+        edges: typing.Dict[int, typing.Dict[int, int]] = {}
         if self.seed is not None:
             self.random.seed(a=self.seed)
 
-        for i in range(1, 1+self.num_micro_executions):
+        for i in range(1, 1 + self.num_micro_executions):
             logger.info("-------------------------")
             logger.info(f"micro exec #{i}")
 
@@ -144,8 +142,8 @@ class Colorizer(analysis.Analysis):
                         edges[last_pc][pc] = 1
                     else:
                         edges[last_pc][pc] += 1
-                    #cfg.add_edge(f"{last_pc:x}", f"{pc:x}")
-                #cfg.add_node(f"{pc:x}")
+                    # cfg.add_edge(f"{last_pc:x}", f"{pc:x}")
+                # cfg.add_node(f"{pc:x}")
                 if pc in self.emu.get_exit_points():
                     break
                 cs_insn = self._get_instr_at_pc(pc)
@@ -158,7 +156,7 @@ class Colorizer(analysis.Analysis):
                 m.extract(self.emu)
                 self.cpu = m.get_cpu()
 
-                reads: typing.List[typing.Tuple[Operand, str, int]] = []
+                reads: typing.List[typing.Tuple[Operand, int, int]] = []
                 for read_operand in sw_insn.reads:
                     logger.debug(f"pc={pc:x} read_operand={read_operand}")
 
@@ -201,14 +199,14 @@ class Colorizer(analysis.Analysis):
                     )
                     break
                 except UnicornEmulationMemoryWriteError as e:
-                    for (write_operand,addr) in e.details["unmapped_writes"]:
+                    for write_operand, addr in e.details["unmapped_writes"]:
                         h = self._mem_unavailable_hint(
                             write_operand, addr, e.pc, i, j, False
                         )
                         hint_list.append(h)
                     break
                 except UnicornEmulationMemoryReadError as e:
-                    for (read_operand,addr) in e.details["unmapped_reads"]:
+                    for read_operand, addr in e.details["unmapped_reads"]:
                         h = self._mem_unavailable_hint(
                             read_operand, addr, e.pc, i, j, True
                         )
@@ -227,7 +225,7 @@ class Colorizer(analysis.Analysis):
                     logger.info(e)
                     break
 
-                writes: typing.List[typing.Tuple[Operand, str, int]] = []
+                writes: typing.List[typing.Tuple[Operand, int, int]] = []
 
                 for write_operand in sw_insn.writes:
                     logger.debug(f"pc={pc:x} write_operand={write_operand}")
@@ -248,7 +246,14 @@ class Colorizer(analysis.Analysis):
                             continue
                     except Exception as e:
                         print(e)
-                        h = self._mem_unavailable_hint(write_operand, pc, i, j, False)
+                        h = self._mem_unavailable_hint(
+                            write_operand,
+                            write_operand.address(self.emu),
+                            pc,
+                            i,
+                            j,
+                            False,
+                        )
                         hint_list.append(h)
                         continue
                     tup = (write_operand, write_operand_color, sz)
@@ -259,10 +264,9 @@ class Colorizer(analysis.Analysis):
                 self._check_colors_instruction_writes(writes, sw_insn, i, j, hint_list)
                 last_pc = pc
 
-
             hint_list_list.append(hint_list)
 
-        pcn = {}
+        pcn: typing.Dict[int, int] = {}
         for pc1 in edges.keys():
             if pc1 not in pcn:
                 pcn[pc1] = len(pcn) + 1
@@ -293,7 +297,6 @@ class Colorizer(analysis.Analysis):
 
         logger.info("-------------------------")
 
-
     def _concrete_val_to_color(
         self, concrete_value: typing.Union[int, bytes, bytearray], size: int
     ) -> int:
@@ -315,12 +318,11 @@ class Colorizer(analysis.Analysis):
             the_bytes = concrete_value
         else:
             assert 1 == 0
-        #return base64.b64encode(the_bytes).decode()
         # let's make color a number
-        l = len(the_bytes)
-        if l < 8:
-            the_bytes = (8-l) * b'\0' + the_bytes
-        return (struct.unpack("<Q", the_bytes)[0])
+        num_bytes = len(the_bytes)
+        if num_bytes < 8:
+            the_bytes = (8 - num_bytes) * b"\0" + the_bytes
+        return struct.unpack("<Q", the_bytes)[0]
 
     def _randomize_registers(self) -> None:
         for reg in self.orig_cpu:
@@ -362,7 +364,7 @@ class Colorizer(analysis.Analysis):
     def _mem_unavailable_hint(
         self,
         operand: typing.Optional[BSIDMemoryReferenceOperand],
-        addr: int,        
+        addr: int,
         pc: int,
         exec_num: int,
         insn_num: int,
@@ -412,7 +414,7 @@ class Colorizer(analysis.Analysis):
 
     def _check_colors_instruction_reads(
         self,
-        reads: typing.List[typing.Tuple[Operand, str, int]],
+        reads: typing.List[typing.Tuple[Operand, int, int]],
         insn: Instruction,
         exec_num: int,
         insn_num: int,
@@ -455,7 +457,7 @@ class Colorizer(analysis.Analysis):
 
     def _check_colors_instruction_writes(
         self,
-        writes: typing.List[typing.Tuple[Operand, str, int]],
+        writes: typing.List[typing.Tuple[Operand, int, int]],
         insn: Instruction,
         exec_num: int,
         insn_num: int,
