@@ -98,9 +98,7 @@ class ColorizerSummary(analysis.Filter):
         color2truecolor = {}
         for hint in self.hint_list:
             if hasattr(hint, 'color'):
-                #print(f"\ndvkey={compute_dv_key(hint)}")
                 if hint.new:
-                    #print("-- new=true")
                     # This is a hint with a "new" color meaning the
                     # hint time is when the color was first
                     # observed. If we are trying to match up such new
@@ -109,7 +107,6 @@ class ColorizerSummary(analysis.Filter):
                     # time of first observation.
                     dvk = compute_dv_key(hint)
                     dvh = hash(dvk) % ((sys.maxsize + 1) * 2)
-                    #print(f"-- hash(dvkey) = {dvh}")
                     if not dvh in dvh2truecolor:
                         # we need to establish a color for this dvh
                         next_color = 1+len(truecolors)    
@@ -117,9 +114,7 @@ class ColorizerSummary(analysis.Filter):
                         dvh2truecolor[dvh] = next_color
                     # make sure to map every hint color to its true color
                     color2truecolor[hint.color] = dvh2truecolor[dvh]
-                    #print(f"-- color={hint.color} true_color={color2truecolor[hint.color]}")
                 else:
-                    #print("-- new=false")
                     assert (hint.color in color2truecolor)
   
         # use compute_dv_key to put keys into equiv classes 

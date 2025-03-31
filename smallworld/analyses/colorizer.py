@@ -331,9 +331,6 @@ class Colorizer(analysis.Analysis):
                 continue
             orig_val = self.emu.read_register(reg.name)
             logger.debug(f"_randomize_registers {reg.name} orig_val={orig_val:x}")
-            #            if reg.name == "rip" or reg.name == "rsp":
-            #                import pdb
-            #                pdb.set_trace()
             new_val = 0
             bc = 0
             for i in range(0, reg.size):
