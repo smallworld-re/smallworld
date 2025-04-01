@@ -141,9 +141,8 @@ class ColorizerSummary(analysis.Filter):
                 hk_observed[hint.micro_exec_num] = set([])
                 # this hint key was observed in micro execution me                
             hk_observed[hint.micro_exec_num].add(compute_dv_key(hint))
-            
-        # estimate "probability" of observing a hint in an equiv class as
-        # fraction of micro executions in which it was observed at least once
+
+        # get counts for hint across micro executions
         hk_c = {}
         for hk in hint_keys_sorted:
             hk_c[hk] = 0
@@ -165,7 +164,7 @@ class ColorizerSummary(analysis.Filter):
                         new=hint.new,
                         count = hk_c[hk],
                         num_micro_executions = self.num_micro_executions,
-                        message=hint.message + "-prob",
+                        message=hint.message + "-summary",
                     )
                 )
             if type(hint) is hinting.DynamicMemoryValueHint:
@@ -180,7 +179,7 @@ class ColorizerSummary(analysis.Filter):
                         color=color2truecolor[hint.color],
                         use=hint.use,
                         new=hint.new,
-                        message=hint.message + "-prob",
+                        message=hint.message + "-summary",
                         count = hk_c[hk],
                         num_micro_executions = self.num_micro_executions,
                     )
@@ -197,6 +196,6 @@ class ColorizerSummary(analysis.Filter):
                         pc=hint.pc,
                         count = hk_c[hk],
                         num_micro_executions = self.num_micro_executions,
-                        message=hint.message + "-prob",
+                        message=hint.message + "-summary",
                     )
                 )
