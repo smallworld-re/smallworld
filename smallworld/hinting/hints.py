@@ -1,6 +1,7 @@
-import networkx as nx
 import typing
 from dataclasses import dataclass
+
+import networkx as nx
 
 from .. import hinting
 
@@ -328,7 +329,7 @@ class DynamicValueHint(hinting.Hint):
       pc: program counter of that instruction
       micro_exec_num: micro-execution run number
       instruction_num: for micro-execution the instr count
-      dynamic_value: this is the actual value as bytes
+      dynamic_value: this is the actual value
       size: the size of the value in bytes
       use: True if its a "use" of this value, else its a "def"
       new: True if its a new value, first sighting
@@ -338,7 +339,7 @@ class DynamicValueHint(hinting.Hint):
     pc: int
     micro_exec_num: int
     instruction_num: int
-    dynamic_value: str
+    dynamic_value: int
     color: int
     size: int
     use: bool
@@ -415,6 +416,7 @@ class DynamicMemoryValueSummaryHint(DynamicValueSummaryHint):
 class DynamicRegisterValueSummaryHint(DynamicValueSummaryHint):
     reg_name: str
 
+
 @dataclass(frozen=True)
 class DefUseGraphHint(hinting.Hint):
     graph: nx.MultiDiGraph
@@ -431,6 +433,5 @@ __all__ = [
     "CoverageHint",
     "ControlFlowHint",
     "ReachableCodeHint",
-    "DefUseGraphHint"
+    "DefUseGraphHint",
 ]
-
