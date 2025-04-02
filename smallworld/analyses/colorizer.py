@@ -68,7 +68,7 @@ class Colorizer(analysis.Analysis):
     def __init__(
         self,
         *args,
-        num_micro_executions: int = 5,
+        num_micro_executions: int = 10,
         num_insns: int = 200,
         seed: typing.Optional[int] = 99,
         **kwargs,
