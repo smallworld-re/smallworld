@@ -159,8 +159,8 @@ class ColorizerSummary(analysis.Filter):
                         size=hint.size,
                         use=hint.use,
                         new=hint.new,
-                        count = hk_c[hk],
-                        num_micro_executions = self.num_micro_executions,
+                        count=hk_c[hk],
+                        num_micro_executions=self.num_micro_executions,
                         message=hint.message + "-summary",
                     )
                 )
@@ -177,8 +177,8 @@ class ColorizerSummary(analysis.Filter):
                         use=hint.use,
                         new=hint.new,
                         message=hint.message + "-summary",
-                        count = hk_c[hk],
-                        num_micro_executions = self.num_micro_executions,
+                        count=hk_c[hk],
+                        num_micro_executions=self.num_micro_executions,
                     )
                 )
             if type(hint) is hinting.MemoryUnavailableHint:
@@ -191,9 +191,8 @@ class ColorizerSummary(analysis.Filter):
                         offset=hint.offset,
                         scale=hint.scale,
                         pc=hint.pc,
-                        count = hk_c[hk],
-                        num_micro_executions = self.num_micro_executions,
+                        count=hk_c[hk],
+                        num_micro_executions=self.num_micro_executions,
                         message=hint.message + "-summary",
-
                     )
                 )
