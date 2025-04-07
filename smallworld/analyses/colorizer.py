@@ -43,13 +43,13 @@ class Colorizer(analysis.Analysis):
     values (registers and memory) it will read. If any are not in the
     colors map, that is the initial sighting of that value and we emit
     a hint to that effect and add a color to the map. If any color is
-    already in the map, then that is a def-use flow from the
-    time/place at which that value was first observed to this
-    instruction. Similarly, after emulating an instruction, we examine
-    every value written to a register or memory. If a value is not in
-    the colors map, it is a new, computed result and we hint about its
-    creation and add it to the map. If it is in the colors map, we do
-    nothing since it just a copy.
+    already in the map, then that is a def-use flow from the time or
+    place at which that value was first observed to this instruction.
+    Similarly, after emulating an instruction, we examine every value
+    written to a register or memory. If a value is not in the colors
+    map, it is a new, computed result and we hint about its creation
+    and add it to the map. If it is in the colors map, we do nothing
+    since it just a copy.
 
     Whilst looking at reads and writes for instructions, we hint if any
     correspond to unavailable memory.
