@@ -63,9 +63,9 @@ class MallocModel(state.models.Model):
 
         self.struct_lengths: typing.Dict[str, int] = dict()
         self.struct_prefixes: typing.Dict[str, str] = dict()
-        self.struct_fields: typing.Dict[str, typing.List[typing.Tuple[int, str]]] = (
-            dict()
-        )
+        self.struct_fields: typing.Dict[
+            str, typing.List[typing.Tuple[int, str]]
+        ] = dict()
 
     def bind_length_to_struct(
         self, field: str, prefix: str, labels: typing.List[typing.Tuple[int, str]]

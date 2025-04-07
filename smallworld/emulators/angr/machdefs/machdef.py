@@ -130,9 +130,9 @@ class PcodeMachineDef(AngrMachineDef):
     def angr_arch(self) -> archinfo.arch.Arch:
         return self._angr_arch
 
-    angr_engine: typing.Optional[typing.Type[angr.engines.UberEnginePcode]] = (
-        angr.engines.UberEnginePcode
-    )
+    angr_engine: typing.Optional[
+        typing.Type[angr.engines.UberEnginePcode]
+    ] = angr.engines.UberEnginePcode
 
     def __init__(self):
         self._angr_arch = archinfo.ArchPcode(self.pcode_language)
