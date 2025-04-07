@@ -6,7 +6,7 @@ import smallworld
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(level=logging.INFO)
+smallworld.hinting.setup_hinting(level=logging.DEBUG)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(

@@ -80,9 +80,5 @@ class Filter(utils.MetadataMixin):
         for handler in self.listeners:
             hinting.root.removeHandler(handler)
 
-    def __del__(self):
-        self.deactivate()
-        # super().__del__()
-
 
 __all__ = ["Analysis", "Filter"]
