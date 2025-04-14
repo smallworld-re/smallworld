@@ -402,8 +402,8 @@ class ElfExecutable(Executable):
         if len(seg_data) < seg_size:
             # Segment is shorter than is available from the file;
             # this will get zero-padded.
-            pad_size = seg_size - (seg_end - seg_start)
-            log.debug("Padding segment by {pad_size} bytes")
+            pad_size = seg_size - len(seg_data)
+            log.debug(f"Padding segment by {pad_size} bytes")
             seg_data += b"\0" * pad_size
         if len(seg_data) != seg_size:
             raise ConfigurationError(
