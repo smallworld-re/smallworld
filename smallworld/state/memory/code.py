@@ -33,6 +33,7 @@ class Executable(memory.RawMemory):
         address: typing.Optional[int] = None,
         platform: typing.Optional[Platform] = None,
         ignore_platform: bool = False,
+        page_size: int = 0x1000,
     ):
         """Load an ELF executable from an open file-like object.
 
@@ -41,6 +42,7 @@ class Executable(memory.RawMemory):
             address: The address where this executable should be loaded.
             platform: Optional platform for header verification
             ignore_platform: Skip platform ID and verification
+            page_size: Page size in bytes
 
         Returns:
             An Executable parsed from the given ELF file-like object.
@@ -50,7 +52,11 @@ class Executable(memory.RawMemory):
         from .elf import ElfExecutable
 
         return ElfExecutable(
-            file, user_base=address, platform=platform, ignore_platform=ignore_platform
+            file,
+            user_base=address,
+            platform=platform,
+            ignore_platform=ignore_platform,
+            page_size=page_size,
         )
 
     @classmethod
