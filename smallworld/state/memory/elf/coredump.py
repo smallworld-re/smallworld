@@ -1,14 +1,16 @@
 import logging
 import typing
+
 import lief
 
-from .elf import ElfExecutable
 from ....exceptions import ConfigurationError
 from ....platforms import Platform
-from .register_state import RegisterState
 from ....state.cpus import CPU
+from .elf import ElfExecutable
+from .register_state import RegisterState
 
 log = logging.getLogger(__name__)
+
 
 class ElfCoreFile(ElfExecutable):
     """
@@ -49,7 +51,6 @@ class ElfCoreFile(ElfExecutable):
 
                 cpu = CPU.for_platform(platform)
                 reg_names = cpu.get_general_purpose_registers()
-
 
                 named_regs = {
                     name: val
