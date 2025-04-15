@@ -35,19 +35,24 @@ class ElfCoreFile(ElfExecutable):
 
         file.seek(0)
         raw_data = file.read()
-        parsed_elf = lief.ELF.parse(bytearray(raw_data))
-        if parsed_elf.header.file_type != lief.ELF.E_TYPE.CORE:
+        parsed_elf = lief.ELF.parse(list(raw_data))
+
+        if parsed_elf is None or parsed_elf.header.file_type != lief.ELF.E_TYPE.CORE:
             raise ConfigurationError("This file is not an ELF core dump (ET_CORE).")
 
-        self.register_states = None
+        self.register_states: typing.Optional[RegisterState] = None
 
         for note in parsed_elf.notes:
             if isinstance(note, lief.ELF.CorePrStatus):
                 arch_enum = note.architecture
                 reg_values = note.register_values
-                pc_val = note.pc
-                sp_val = note.sp
-                status = note.status
+                pc_val = note.pc or 0
+                sp_val = note.sp or 0
+
+                status = getattr(note.status, "si_status", 0)
+
+                if platform is None:
+                    raise ConfigurationError("Platform must be provided for core dumps")
 
                 cpu = CPU.for_platform(platform)
                 reg_names = cpu.get_general_purpose_registers()
