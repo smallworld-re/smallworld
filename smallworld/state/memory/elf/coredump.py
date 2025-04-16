@@ -71,3 +71,15 @@ class ElfCoreFile(ElfExecutable):
                     arch=str(arch_enum),
                 )
                 break
+    def load_core_registers_into_cpu(reg_state, cpu):
+        """
+        Given a RegisterState (with .pc, .sp, .r0, etc.) and a smallworld CPU,
+        set each register on the CPU if it exists.
+        """
+        cpu.pc.set(reg_state.pc)
+        cpu.sp.set(reg_state.sp)
+
+        for reg_name, reg_val in reg_state._registers.items():
+            reg_name_lower = reg_name.lower()
+            if hasattr(cpu, reg_name_lower):
+                getattr(cpu, reg_name_lower).set(reg_val)
