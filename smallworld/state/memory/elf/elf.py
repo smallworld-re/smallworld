@@ -296,7 +296,13 @@ class ElfExecutable(Executable):
                 # This is ARMv7a, as built by gcc.
                 architecture = Architecture.ARM_V7A
             else:
-                raise ConfigurationError(f"Unknown ARM flags: {list(map(hex, flags))}")
+                # The file might be a core dump or some uncommon flavor of ARM.
+                # Fallback to a default if flags are missing.
+                log.warning(
+                    f"No recognized ARM flags found. flags={list(map(hex, flags))}, "
+                    "defaulting to ARM_V7A."
+                )
+                architecture = Architecture.ARM_V7A
         elif elf.header.machine_type.value == EM_MIPS:
             # Some kind of mips.
             # TODO: There are more parameters than just word size
