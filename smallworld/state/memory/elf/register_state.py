@@ -15,10 +15,10 @@ class RegisterState:
         raise AttributeError(f"No register named '{name}' in this core dump.")
 
     def __setattr__(self, name: str, value):
-        if name.startswith('_') or name in ('arch', 'pc', 'sp', 'status'):
+        if name.startswith("_") or name in ("arch", "pc", "sp", "status"):
             super().__setattr__(name, value)
         else:
-            if hasattr(self, '_registers') and (name in self._registers):
+            if hasattr(self, "_registers") and (name in self._registers):
                 self._registers[name] = value
             else:
                 super().__setattr__(name, value)

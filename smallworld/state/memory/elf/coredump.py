@@ -71,6 +71,7 @@ class ElfCoreFile(ElfExecutable):
                     arch=str(arch_enum),
                 )
                 break
+
     def load_core_registers_into_cpu(reg_state, cpu):
         """
         Given a RegisterState (with .pc, .sp, .r0, etc.) and a smallworld CPU,
