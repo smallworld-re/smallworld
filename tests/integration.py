@@ -843,7 +843,6 @@ class StructureTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "arg2 = 42")
 
 
-
 class BranchTests(ScriptIntegrationTest):
     def test_basic(self):
         _, stderr = self.command(
