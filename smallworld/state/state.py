@@ -222,17 +222,18 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         class CTypeValue(Value):
-            _type = ctype.__class__
-            _label = label
-            _content = ctype
+            def __init__(self, ctype: typing.Any, label: str):
+                self._content = ctype
+                self._label = label
+                self._type = ctype.__class__
 
             def get_size(self) -> int:
-                return ctypes.sizeof(self._content)
+                return ctypes.sizeof(self._content)  # type: ignore
 
             def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
-                return bytes(self._content)
+                return bytes(self._content)  # type: ignore
 
-        return CTypeValue()
+        return CTypeValue(ctype, label)
 
 
 class SymbolicValue(Value):
