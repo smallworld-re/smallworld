@@ -834,13 +834,14 @@ class StructureTests(ScriptIntegrationTest):
             '"scale": 1',
         )
 
-        # self.assertLineContainsStrings(
-        #    stderr, "from_instruction", "6w8=", "4096", "to_instruction", "i0cY", "4113"
-        # )
-        # self.assertLineContainsStrings(stderr, '{"4096": 1, "4113": 1}', "coverage")
-        # self.assertLineContainsStrings(stderr, "address", "4113", "code_reachable")
-        # self.assertLineContainsStrings(stderr, "address", "4098", "code_reachable")
-        # self.assertLineContainsStrings(stderr, "address", "4120", "code_reachable")
+    def test_unicorn(self):
+        stdout, _ = self.command("python3 struct/struct.amd64.py")
+        self.assertLineContainsStrings(stdout, "arg2 = 42")
+
+    def test_panda(self):
+        stdout, _ = self.command("python3 struct/struct.amd64.panda.py")
+        self.assertLineContainsStrings(stdout, "arg2 = 42")
+
 
 
 class BranchTests(ScriptIntegrationTest):
