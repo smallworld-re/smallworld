@@ -227,6 +227,14 @@ class Value(metaclass=abc.ABCMeta):
                 self._label = label
                 self._type = ctype.__class__
 
+            def __getstate__(self):
+                state = self.__dict__.copy()
+                del state['_content']
+                return state
+
+            #def __setstate__(self, state):
+
+
             def get_size(self) -> int:
                 return ctypes.sizeof(self._content)  # type: ignore
 
@@ -813,6 +821,7 @@ class Machine(StatefulSet):
                 machine_copy = copy.deepcopy(self)
                 machine_copy.extract(emulator)
                 yield machine_copy
+                
             except exceptions.EmulationBounds:
                 # import pdb
                 # pdb.set_trace()
