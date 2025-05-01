@@ -60,6 +60,32 @@ class Executable(memory.RawMemory):
         )
 
     @classmethod
+    def from_elf_core(
+        cls,
+        file: typing.BinaryIO,
+        address: typing.Optional[int] = None,
+        platform: typing.Optional[Platform] = None,
+        ignore_platform: bool = False,
+    ):
+        """
+        Load an ELF core dump (ET_CORE) from an open file-like object.
+
+        Arguments:
+            file: The open file-like object from which to read.
+            address: The address where this core dump should be loaded.
+            platform: Optional platform for header verification
+            ignore_platform: Skip platform ID and verification
+
+        Returns:
+            An Executable (specifically ElfCoreFile) parsed from the given core dump.
+        """
+        from .elf import ElfCoreFile
+
+        return ElfCoreFile(
+            file, user_base=address, platform=platform, ignore_platform=ignore_platform
+        )
+
+    @classmethod
     def from_pe(cls, file: typing.BinaryIO):
         """Load an PE executable from an open file-like object.
 
