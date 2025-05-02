@@ -354,7 +354,7 @@ class UnicornEmulator(
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
         try:
-            return self.engine.mem_read(address, size)
+            return bytes(self.engine.mem_read(address, size))
         except unicorn.UcError as e:
             logger.warn(f"Unicorn raised an exception on memory read {e}")
             self._error(e, "mem")
