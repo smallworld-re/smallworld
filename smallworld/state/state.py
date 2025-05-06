@@ -858,6 +858,7 @@ class Machine(StatefulSet):
         """
         try:
             import argparse
+
             import unicornafl
         except ImportError:
             raise RuntimeError(
