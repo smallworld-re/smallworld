@@ -839,6 +839,7 @@ class Machine(StatefulSet):
         self,
         emulator: emulators.Emulator,
         input_callback: typing.Callable,
+        input_file_path: typing.Optional[str] = None,
         crash_callback: typing.Optional[typing.Callable] = None,
         always_validate: bool = False,
         iterations: int = 1,
@@ -848,6 +849,7 @@ class Machine(StatefulSet):
         Arguments:
             emulator: Currently, must be the unicorn emulator
             input_callback: A callback that applies an input to a machine
+            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
             crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
             always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
             iterations: The number of iterations to run before forking a new child
@@ -856,18 +858,20 @@ class Machine(StatefulSet):
         """
         try:
             import argparse
-
             import unicornafl
         except ImportError:
             raise RuntimeError(
                 "missing `unicornafl` - afl++ must be installed manually from source"
             )
 
-        arg_parser = argparse.ArgumentParser(description="AFL Harness")
-        arg_parser.add_argument(
-            "input_file", type=str, help="File path AFL will mutate"
-        )
-        args = arg_parser.parse_args()
+        path = input_file_path
+        if not path:
+            arg_parser = argparse.ArgumentParser(description="AFL Harness")
+            arg_parser.add_argument(
+                "input_file", type=str, help="File path AFL will mutate"
+            )
+            args = arg_parser.parse_args()
+            path = args.input_file
 
         if not isinstance(emulator, emulators.UnicornEmulator):
             raise RuntimeError("you must use a unicorn emulator to fuzz")
@@ -876,7 +880,7 @@ class Machine(StatefulSet):
 
         unicornafl.uc_afl_fuzz(
             uc=emulator.engine,
-            input_file=args.input_file,
+            input_file=path,
             place_input_callback=input_callback,
             exits=emulator.get_exit_points(),
             validate_crash_callback=crash_callback,
