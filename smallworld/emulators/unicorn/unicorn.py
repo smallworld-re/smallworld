@@ -614,10 +614,29 @@ class UnicornEmulator(
                 if type(rw) is instructions.BSIDMemoryReferenceOperand:
                     a = rw.address(self)
                     if not (self._is_address_mapped(a)):
-                        out.append(rw)
+                        out.append((rw, a))
             return out
 
         details: typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]] = {}
+
+        def details_str(details):
+            for k, v in details.items():
+                if k == "pc":
+                    return f" pc=0x{pc:x}"
+                if "_reads" in k or "_writes" in k:
+                    s = ""
+                    for rw, a in v:
+                        rws = str(rw)
+                        import re
+
+                        foo = re.search(r"\((.*)\)$", rws)
+                        rw = foo.groups()[0]
+                        x = f"address=0x{a:x} i.e. [{rw}]"
+                        if s == "":
+                            s = x
+                        else:
+                            s = s + ", " + x
+                    return s
 
         if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
             msg = f"{prefix} due to read of unmapped memory"
@@ -670,7 +689,7 @@ class UnicornEmulator(
         else:
             msg = f"{prefix} due to unknown Unicorn error {error.errno}"
 
-        raise exc(error, pc, msg, details)
+        raise exc(error, pc, msg + " " + details_str(details), details)
 
     def __repr__(self) -> str:
         return f"UnicornEmulator(platform={self.platform})"

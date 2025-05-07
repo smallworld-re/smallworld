@@ -106,7 +106,7 @@ mypy-extensions==1.0.0
     #   mypy
 nampa==0.1.1
     # via angr
-networkx==3.1
+networkx==3.4
     # via angr
 nodeenv==1.8.0
     # via pre-commit
