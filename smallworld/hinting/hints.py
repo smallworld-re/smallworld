@@ -1,6 +1,8 @@
 import typing
 from dataclasses import dataclass
 
+import networkx as nx
+
 from .. import hinting
 
 
@@ -305,7 +307,7 @@ class MemoryUnavailableHint(hinting.Hint):
 
 
 @dataclass(frozen=True)
-class MemoryUnavailableProbHint(hinting.Hint):
+class MemoryUnavailableSummaryHint(hinting.Hint):
     is_read: bool
     size: int
     base_reg_name: str
@@ -313,7 +315,8 @@ class MemoryUnavailableProbHint(hinting.Hint):
     offset: int
     scale: int
     pc: int
-    prob: float
+    count: int
+    num_micro_executions: int
 
 
 @dataclass(frozen=True)
@@ -326,7 +329,7 @@ class DynamicValueHint(hinting.Hint):
       pc: program counter of that instruction
       micro_exec_num: micro-execution run number
       instruction_num: for micro-execution the instr count
-      dynamic_value: this is the actual value as bytes
+      dynamic_value: this is the actual value
       size: the size of the value in bytes
       use: True if its a "use" of this value, else its a "def"
       new: True if its a new value, first sighting
@@ -336,7 +339,7 @@ class DynamicValueHint(hinting.Hint):
     pc: int
     micro_exec_num: int
     instruction_num: int
-    dynamic_value: str
+    dynamic_value: int
     color: int
     size: int
     use: bool
@@ -390,18 +393,19 @@ class DynamicMemoryValueHint(DynamicValueHint):
 
 
 @dataclass(frozen=True)
-class DynamicValueProbHint(hinting.Hint):
+class DynamicValueSummaryHint(hinting.Hint):
     # instruction: typing.Any
     pc: int
     color: int
     size: int
     use: bool
     new: bool
-    prob: float
+    count: int
+    num_micro_executions: int
 
 
 @dataclass(frozen=True)
-class DynamicMemoryValueProbHint(DynamicValueProbHint):
+class DynamicMemoryValueSummaryHint(DynamicValueSummaryHint):
     base: str
     index: str
     scale: int
@@ -409,19 +413,25 @@ class DynamicMemoryValueProbHint(DynamicValueProbHint):
 
 
 @dataclass(frozen=True)
-class DynamicRegisterValueProbHint(DynamicValueProbHint):
+class DynamicRegisterValueSummaryHint(DynamicValueSummaryHint):
     reg_name: str
+
+
+@dataclass(frozen=True)
+class DefUseGraphHint(hinting.Hint):
+    graph: nx.MultiDiGraph
 
 
 __all__ = [
     "DynamicRegisterValueHint",
     "DynamicMemoryValueHint",
     "MemoryUnavailableHint",
-    "DynamicRegisterValueProbHint",
-    "DynamicMemoryValueProbHint",
-    "MemoryUnavailableProbHint",
+    "DynamicRegisterValueSummaryHint",
+    "DynamicMemoryValueSummaryHint",
+    "MemoryUnavailableSummaryHint",
     "EmulationException",
     "CoverageHint",
     "ControlFlowHint",
     "ReachableCodeHint",
+    "DefUseGraphHint",
 ]

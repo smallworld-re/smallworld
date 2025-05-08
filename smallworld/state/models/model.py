@@ -40,7 +40,6 @@ class Hook(state.Stateful):
 
 
 class Breakpoint(Hook):
-
     """An interactive breakpoint.
 
     Stops execution at the specified address and opens an interactive

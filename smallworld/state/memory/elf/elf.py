@@ -296,7 +296,13 @@ class ElfExecutable(Executable):
                 # This is ARMv7a, as built by gcc.
                 architecture = Architecture.ARM_V7A
             else:
-                raise ConfigurationError(f"Unknown ARM flags: {list(map(hex, flags))}")
+                # The file might be a core dump or some uncommon flavor of ARM.
+                # Fallback to a default if flags are missing.
+                log.warning(
+                    f"No recognized ARM flags found. flags={list(map(hex, flags))}, "
+                    "defaulting to ARM_V7A."
+                )
+                architecture = Architecture.ARM_V7A
         elif elf.header.machine_type.value == EM_MIPS:
             # Some kind of mips.
             # TODO: There are more parameters than just word size
@@ -368,6 +374,7 @@ class ElfExecutable(Executable):
                 # File base is defined.
                 # We (probably) cannot move the image without problems.
                 raise ConfigurationError("Base address defined for fixed-position ELF")
+        log.info(f"Address: {self.address:x}")
 
     def _rebase_file(self, val: int):
         # Rebase an offset from file-relative to image-relative
@@ -389,16 +396,22 @@ class ElfExecutable(Executable):
         seg_size = self._page_align(phdr.virtual_size + (phdr.file_offset - seg_start))
 
         log.debug("Mapping: ")
-        log.debug(f"    f: [ {seg_start:012x} -> {seg_end:012x} ]")
-        log.debug(f"    m: [ {seg_addr:012x} -> {seg_addr + seg_size:012x} ]")
+        log.debug(
+            f"    f: [ {seg_start:012x} -> {seg_end:012x} ] ( {seg_end - seg_start:x} bytes )"
+        )
+        log.debug(
+            f"    m: [ {seg_addr:012x} -> {seg_addr + seg_size:012x} ] ( {seg_size:x} bytes )"
+        )
 
         # Extract segment data
         seg_data = image[seg_start:seg_end]
         if len(seg_data) < seg_size:
             # Segment is shorter than is available from the file;
             # this will get zero-padded.
-            seg_data += b"\0" * (seg_size - (seg_start - seg_end))
-        elif len(seg_data) != seg_size:
+            pad_size = seg_size - len(seg_data)
+            log.debug(f"Padding segment by {pad_size} bytes")
+            seg_data += b"\0" * pad_size
+        if len(seg_data) != seg_size:
             raise ConfigurationError(
                 f"Expected segment of size {seg_size}, but got {len(seg_data)}"
             )
@@ -408,6 +421,9 @@ class ElfExecutable(Executable):
 
         # Add the segment to the memory map
         seg_value = BytesValue(seg_data, None)
+        assert (
+            seg_value._size == seg_size
+        ), f"Expected {seg_size:x} bytes, got {seg_value._size:x}"
         self[seg_addr - self.address] = seg_value
 
     def _extract_symbols(self, elf):

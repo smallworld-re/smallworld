@@ -346,46 +346,46 @@ class SquareTests(ScriptIntegrationTest):
 
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4096',
             '"color": 1',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "edi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "write-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "write-def-summary",
             '"pc": 4096',
             '"color": 2',
             '"use": false',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "edi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-flow-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-flow-summary",
             '"pc": 4099',
             '"color": 2',
             '"use": true',
             '"new": false',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "edi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "write-copy-prob",
+            "DynamicRegisterValueSummaryHint",
+            "write-copy-summary",
             '"pc": 4099',
             '"color": 2',
             '"use": false',
             '"new": false',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "eax"',
         )
 
@@ -619,90 +619,90 @@ class StackTests(ScriptIntegrationTest):
 
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4096',
             '"color": 1',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rdi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4096',
             '"color": 2',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rdx"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "write-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "write-def-summary",
             '"pc": 4096',
             '"color": 3',
             '"use": false',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rdi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-flow-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-flow-summary",
             '"pc": 4099',
             '"color": 3',
             '"use": true',
             '"new": false',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rdi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4099',
             '"color": 4',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "r8"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "write-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "write-def-summary",
             '"pc": 4099',
             '"color": 5',
             '"use": false',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rax"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-flow-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-flow-summary",
             '"pc": 4103',
             '"color": 5',
             '"use": true',
             '"new": false',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rax"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4103',
             '"color": 6',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rsp"',
         )
 
@@ -812,21 +812,21 @@ class StructureTests(ScriptIntegrationTest):
 
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4113',
             '"color": 1',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rdi"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "MemoryUnavailableProbHint",
-            "mem_unavailable-prob",
+            "MemoryUnavailableSummaryHint",
+            "mem_unavailable-summary",
             '"pc": 4113',
-            '"prob": 1.0',
+            '"count": 10',
             '"is_read": true',
             '"base_reg_name": "rdi"',
             '"index_reg_name": "None"',
@@ -834,13 +834,13 @@ class StructureTests(ScriptIntegrationTest):
             '"scale": 1',
         )
 
-        # self.assertLineContainsStrings(
-        #    stderr, "from_instruction", "6w8=", "4096", "to_instruction", "i0cY", "4113"
-        # )
-        # self.assertLineContainsStrings(stderr, '{"4096": 1, "4113": 1}', "coverage")
-        # self.assertLineContainsStrings(stderr, "address", "4113", "code_reachable")
-        # self.assertLineContainsStrings(stderr, "address", "4098", "code_reachable")
-        # self.assertLineContainsStrings(stderr, "address", "4120", "code_reachable")
+    def test_unicorn(self):
+        stdout, _ = self.command("python3 struct/struct.amd64.py")
+        self.assertLineContainsStrings(stdout, "arg2 = 42")
+
+    def test_panda(self):
+        stdout, _ = self.command("python3 struct/struct.amd64.panda.py")
+        self.assertLineContainsStrings(stdout, "arg2 = 42")
 
 
 class BranchTests(ScriptIntegrationTest):
@@ -851,24 +851,24 @@ class BranchTests(ScriptIntegrationTest):
 
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4096',
             '"color": 1',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "eax"',
         )
         self.assertLineContainsStrings(
             stderr,
-            "DynamicRegisterValueProbHint",
-            "read-def-prob",
+            "DynamicRegisterValueSummaryHint",
+            "read-def-summary",
             '"pc": 4098',
             '"color": 2',
             '"use": true',
             '"new": true',
-            '"prob": 1.0',
+            '"count": 10',
             '"reg_name": "rdi"',
         )
         # self.assertLineContainsStrings(

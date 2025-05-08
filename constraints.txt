@@ -131,7 +131,7 @@ ply==3.11
     # via cppheaderparser
 pre-commit==3.5.0
     # via smallworld (setup.py)
-protobuf==5.28.2
+protobuf==6.30.2
     # via angr
 psutil==5.9.6
     # via angr
