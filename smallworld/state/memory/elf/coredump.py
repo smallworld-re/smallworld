@@ -61,14 +61,16 @@ class ElfCoreFile(ElfExecutable):
                     assert (1==0)
 
                 named_regs = {}
-                for rn in cpu.get_general_purpose_registers():                                        
+                for rn in cpu.get_general_purpose_registers():    
+                    rn = rn.lower()                                    
                     if rn not in ("sp", "pc", "lr"):
                         #named_regs[rn] = reg_values[getattr(thelief,rn.upper())]
                         val = reg_values[getattr(thelief,rn.upper())]
                         print(f"reg {rn} = {val}")
-                        setattr(cpu,rn,val)
-                        if rn == "r11":
-                            setattr(cpu,"fp",val)
+                        #setattr(cpu,rn,val)
+                        getattr(cpu, rn).set(val)
+                        #if rn == "r11":
+                        #    setattr(cpu,"fp",val)
 
                 cpu.pc.set(pc_val)
                 cpu.sp.set(sp_val)
