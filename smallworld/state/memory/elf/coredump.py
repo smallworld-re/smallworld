@@ -4,8 +4,8 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Platform
-from ....state.cpus import CPU
+from ....platforms import Platform,Architecture
+#from ....state.cpus import CPU
 from .elf import ElfExecutable
 from .register_state import RegisterState
 
@@ -19,8 +19,9 @@ class ElfCoreFile(ElfExecutable):
 
     def __init__(
         self,
+        cpu,
         file: typing.BinaryIO,
-        platform: typing.Optional[Platform] = None,
+        platform: typing.Optional[Platform],
         ignore_platform: bool = False,
         user_base: typing.Optional[int] = None,
         page_size: int = 0x1000,
@@ -40,7 +41,7 @@ class ElfCoreFile(ElfExecutable):
         if parsed_elf is None or parsed_elf.header.file_type != lief.ELF.E_TYPE.CORE:
             raise ConfigurationError("This file is not an ELF core dump (ET_CORE).")
 
-        self.register_states: typing.Optional[RegisterState] = None
+        #self.register_states: typing.Optional[RegisterState] = None
 
         for note in parsed_elf.notes:
             if isinstance(note, lief.ELF.CorePrStatus):
@@ -53,24 +54,39 @@ class ElfCoreFile(ElfExecutable):
 
                 if platform is None:
                     raise ConfigurationError("Platform must be provided for core dumps")
+                
+                if platform.architecture == Architecture.ARM_V7A:
+                    thelief = lief.ELF.CorePrStatus.Registers.ARM
+                else:
+                    assert (1==0)
 
-                cpu = CPU.for_platform(platform)
-                reg_names = cpu.get_general_purpose_registers()
+                named_regs = {}
+                for rn in cpu.get_general_purpose_registers():                                        
+                    if rn not in ("sp", "pc", "lr"):
+                        #named_regs[rn] = reg_values[getattr(thelief,rn.upper())]
+                        val = reg_values[getattr(thelief,rn.upper())]
+                        print(f"reg {rn} = {val}")
+                        setattr(cpu,rn,val)
+                        if rn == "r11":
+                            setattr(cpu,"fp",val)
 
-                named_regs = {
-                    name: val
-                    for name, val in zip(reg_names, reg_values)
-                    if name not in ("sp", "pc", "lr")
-                }
+                cpu.pc.set(pc_val)
+                cpu.sp.set(sp_val)
+    
+                #named_regs = {
+                #    name: val
+                #    for name, val in zip(reg_names, reg_values)
+                #     if name not in ("sp", "pc", "lr")
+                #}
 
-                self.register_states = RegisterState(
-                    registers=named_regs,
-                    pc=pc_val,
-                    sp=sp_val,
-                    status=status,
-                    arch=str(arch_enum),
-                )
-                break
+                #self.register_states = RegisterState(
+                #    registers=named_regs,
+                #    pc=pc_val,
+                #    sp=sp_val,
+                #    status=status,
+                #    arch=str(arch_enum),
+                #)
+                #break
 
     def load_core_registers_into_cpu(reg_state, cpu):
         """

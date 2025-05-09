@@ -62,6 +62,7 @@ class Executable(memory.RawMemory):
     @classmethod
     def from_elf_core(
         cls,
+        cpu,
         file: typing.BinaryIO,
         address: typing.Optional[int] = None,
         platform: typing.Optional[Platform] = None,
@@ -82,7 +83,7 @@ class Executable(memory.RawMemory):
         from .elf import ElfCoreFile
 
         return ElfCoreFile(
-            file, user_base=address, platform=platform, ignore_platform=ignore_platform
+            cpu, file, user_base=address, platform=platform, ignore_platform=ignore_platform
         )
 
     @classmethod
