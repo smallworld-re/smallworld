@@ -54,15 +54,17 @@ class ElfCoreFile(ElfExecutable):
 
                 if platform is None:
                     raise ConfigurationError("Platform must be provided for core dumps")
-                
+
                 if platform.architecture == Architecture.ARM_V7A:
                     thelief = lief.ELF.CorePrStatus.Registers.ARM
+                elif platform.architecture == Architecture.AARCH64:
+                    thelief = lief.ELF.CorePrStatus.Registers.AARCH64
                 else:
                     assert (1==0)
 
                 named_regs = {}
-                for rn in cpu.get_general_purpose_registers():    
-                    rn = rn.lower()                                    
+                for rn in cpu.get_general_purpose_registers():
+                    rn = rn.lower()
                     if rn not in ("sp", "pc", "lr"):
                         #named_regs[rn] = reg_values[getattr(thelief,rn.upper())]
                         val = reg_values[getattr(thelief,rn.upper())]
@@ -74,7 +76,7 @@ class ElfCoreFile(ElfExecutable):
 
                 cpu.pc.set(pc_val)
                 cpu.sp.set(sp_val)
-    
+
                 #named_regs = {
                 #    name: val
                 #    for name, val in zip(reg_names, reg_values)
