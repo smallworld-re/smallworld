@@ -7,6 +7,7 @@ on:
 
 jobs:
   Build:
+    needs: Formatting
     runs-on: smallworld-arc
     steps:
       - name: preinit
@@ -31,6 +32,7 @@ jobs:
           docker push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
 
   Unit-Test:
+    needs: Formatting
     runs-on: smallworld-arc
     needs: Build
     steps:

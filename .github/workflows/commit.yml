@@ -3,7 +3,7 @@ name: Commit
 on: [push]
 
 jobs:
-  formatting:
+  Formatting:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -23,7 +23,7 @@ jobs:
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
   Lint:
-    needs: formatting
+    needs: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
