@@ -1,11 +1,11 @@
 from __future__ import annotations
-import ctypes
-import logging as lg
-import typing
+
 import abc
 import collections
 import copy
-
+import ctypes
+import logging as lg
+import typing
 
 import claripy
 
@@ -857,16 +857,29 @@ class Machine(StatefulSet):
         """
         import argparse
 
-
-
         arg_parser = argparse.ArgumentParser(description="AFL Harness")
         arg_parser.add_argument(
             "input_file", type=str, help="File path AFL will mutate"
         )
         args = arg_parser.parse_args()
-        self.fuzz_with_file(emulator, input_callback, args.input_file, crash_callback, always_validate, iterations)
+        self.fuzz_with_file(
+            emulator,
+            input_callback,
+            args.input_file,
+            crash_callback,
+            always_validate,
+            iterations,
+        )
 
-    def fuzz_with_file(self, emulator: emulators.Emulator, input_callback: typing.Callable, input_file_path: str, crash_callback: typing.Optional[typing.Callable] = None, always_validate: bool = False, iterations: int = 1) -> None:
+    def fuzz_with_file(
+        self,
+        emulator: emulators.Emulator,
+        input_callback: typing.Callable,
+        input_file_path: str,
+        crash_callback: typing.Optional[typing.Callable] = None,
+        always_validate: bool = False,
+        iterations: int = 1,
+    ) -> None:
         """Fuzz the machine using unicornafl.
 
         Arguments:
@@ -885,7 +898,6 @@ class Machine(StatefulSet):
             raise RuntimeError(
                 "missing `unicornafl` - afl++ must be installed manually from source"
             )
-
 
         if not isinstance(emulator, emulators.UnicornEmulator):
             raise RuntimeError("you must use a unicorn emulator to fuzz")
