@@ -37,6 +37,7 @@ jobs:
           pip install -e .[development] -c constraints.txt
       - name: Lint
         run: |
+          isort .
           isort -v --check ./
           black --check ./
           flake8 ./
