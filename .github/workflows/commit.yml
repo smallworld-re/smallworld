@@ -3,13 +3,31 @@ name: Commit
 on: [push]
 
 jobs:
+  isort:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[development] -c constraints.txt
+      - name: isort
+        run: |
+          isort .
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: isort"
+          commit_author: GitHub Actions <actions@github.com>
   Lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: "3.x"
       - name: Install
         run: |
           python -m pip install --upgrade pip
