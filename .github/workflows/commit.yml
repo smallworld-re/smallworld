@@ -17,6 +17,7 @@ jobs:
       - name: isort
         run: |
           isort .
+          isort /home/runner/work/smallworld/smallworld/smallworld/state/state.py
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "style: isort"
