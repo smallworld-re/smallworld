@@ -22,6 +22,7 @@ jobs:
           commit_message: "style: isort"
           commit_author: GitHub Actions <actions@github.com>
   Lint:
+    needs: isort
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
