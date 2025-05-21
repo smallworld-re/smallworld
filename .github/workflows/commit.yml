@@ -36,7 +36,7 @@ jobs:
       - name: Lint
         run: |
           git pull
-          isort --check ./
+          isort -v --check ./
           black --check ./
           flake8 ./
           mypy --ignore-missing-imports ./
