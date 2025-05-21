@@ -1,4 +1,4 @@
-# SmallWorld
+![image](https://github.com/user-attachments/assets/d93fa216-7daf-477e-ac60-a899f62aa78b)# SmallWorld
 
 [![commit-style-image]][conventional]
 [![code-style-image]][black]
@@ -19,19 +19,19 @@ There are two fundamental tenets behind SmallWorld
 
 The first of these tenets we hope to support with good software APIs. As a very
 simple example, consider the harnessing script
-[stack.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.py),
+[square.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.amd64.py),
 composed using SmallWorld, in which registers are initialized and a stack is
 arranged for running the code in
-[stack.s](https://github.com/smallworld-re/smallworld/blob/main/tests/stack.s).
+[square.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/square.amd64.s).
 For a more sophisticated example of SmallWorld's harnessing facitilites,
 consider the code snippet
-[struct.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.s),
+[struct.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.amd64.s),
 which assumes a stack and input pointers to a linked list with very specific
 format. The harnessing script in this case is more complicated, including
 specifying type information for the linked list element structures as well as
 use of a simple allocator abstraction provided by SmallWorld to instantiate
 nodes and link them together appropriately:
-[struct.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
+[struct.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
 
 The second tenet we address with purpose-built analyses which leverage a
 (possibly incomplete) harness script and that use techniques such as [Micro
@@ -47,19 +47,13 @@ SmallWorld directly supports yet.
 
 ## Installation
 
-To install SmallWorld from this repo, run:
+To install SmallWorld from this repo, [optionally set up a venv](https://docs.python.org/3/library/venv.html) and then run:
 
 ```bash
 pip install .
 ```
 
-## Usage
-
-Print basic usage and help:
-
-```bash
-smallworld --help
-```
+The result will be a library that can be used for harnessing and analyzing.  See the examples for a walkthrough.
 
 ## Contributing
 
@@ -85,17 +79,6 @@ installing development dependencies), run:
 ```bash
 pre-commit install
 ```
-
-### Documentation
-
-To build the full SmallWorld documentation, after installing SmallWorld with
-`development` extras enabled, from the `docs/` directory, run:
-
-```bash
-make html
-```
-
-Or other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/usage/builders/index.html).
 
 ### Testing
 
@@ -123,6 +106,23 @@ run unit and integration tests:
 python3 tests/unit.py
 python3 tests/integration.py
 ```
+
+### Documentation
+
+To build the full SmallWorld documentation
+* verify [Sphinx](https://www.sphinx-doc.org/) has been installed
+* install SmallWorld with `development` extras enabled
+* make sure you have built the tests since the documentation generation requires output from those tests
+* from the `docs/` directory, run:
+
+```bash
+make html
+```
+
+The resulting documentation will be in docs/build/html
+
+Other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/usage/builders/index.html) can also be generated.
+
 
 ## Distribution
 
