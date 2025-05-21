@@ -16,7 +16,7 @@ jobs:
           pip install -e .[development] -c constraints.txt
       - name: isort
         run: |
-          isort .
+          isort . --profile black
       - uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "style: isort"
@@ -37,7 +37,7 @@ jobs:
           pip install -e .[development] -c constraints.txt
       - name: Lint
         run: |
-          isort .
+          isort . --profile black
           isort -v --check ./
           black --check ./
           flake8 ./
