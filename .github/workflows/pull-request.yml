@@ -6,16 +6,33 @@ on:
     types: [opened, synchronize, reopen, edited]
 
 jobs:
-  Build:
-    runs-on: smallworld-arc
+  FormatLintBuild:
+    runs-on: ubuntu-latest
     steps:
-      - name: preinit
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git-lfs
       - uses: actions/checkout@v3
         with:
           lfs: true
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[development] -c constraints.txt
+      - name: format
+        run: |
+          isort . --profile black
+          black ./
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: isort and black"
+          commit_author: GitHub Actions <actions@github.com>
+      - name: Lint
+        run: |
+          isort --check --profile black .
+          black --check ./
+          flake8 ./
+          mypy --ignore-missing-imports ./
       - name: Check Title
         env:
           TITLE: ${{ github.event.pull_request.title }}
@@ -31,7 +48,7 @@ jobs:
 
   Unit-Test:
     runs-on: smallworld-arc
-    needs: Build
+    needs: FormatLintBuild
     steps:
       - name: Load Container
         run: |
@@ -43,7 +60,7 @@ jobs:
 
   Integration-Test:
     runs-on: smallworld-arc
-    needs: Build
+    needs: FormatLintBuild
     strategy:
       matrix:
         include:
@@ -73,7 +90,7 @@ jobs:
 
   Results:
     runs-on: smallworld-arc
-    needs: [Build, Unit-Test, Integration-Test]
+    needs: [FormatLintBuild, Unit-Test, Integration-Test]
     if: always()
     steps:
       - name: All tests OK
