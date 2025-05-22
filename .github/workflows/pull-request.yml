@@ -30,6 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
       - uses: actions/setup-python@v4
         with:
           python-version: "3.x"
@@ -39,7 +41,6 @@ jobs:
           pip install -e .[development] -c constraints.txt
       - name: Lint
         run: |
-          git pull
           isort --check --profile black .
           black --check ./
           flake8 ./
@@ -55,12 +56,12 @@ jobs:
           sudo apt-get install -y git-lfs
       - uses: actions/checkout@v3
         with:
+          ref: refs/pull/${{ github.event.pull_request.number }}/merge
           lfs: true
       - name: Check Title
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          git pull
           bash .github/workflows/scripts/conventional.sh "$TITLE"
       - name: Build Container
         run: |
