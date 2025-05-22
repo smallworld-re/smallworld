@@ -8,6 +8,8 @@ on:
 jobs:
   Formatting:
     runs-on: ubuntu-latest
+    outputs:
+      format_sha: ${{ steps.sha.outputs.hash }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
@@ -25,13 +27,16 @@ jobs:
         with:
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
+      - name: Save Hash
+        id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
   Lint:
     needs: Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          ref: ${{needs.Formatting.outputs.format_sha}}
       - uses: actions/setup-python@v4
         with:
           python-version: "3.x"
@@ -56,7 +61,7 @@ jobs:
           sudo apt-get install -y git-lfs
       - uses: actions/checkout@v3
         with:
-          ref: refs/pull/${{ github.event.pull_request.number }}/merge
+          ref: ${{needs.Formatting.outputs.format_sha}}
           lfs: true
       - name: Check Title
         env:
