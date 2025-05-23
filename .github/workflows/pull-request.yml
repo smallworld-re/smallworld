@@ -6,7 +6,7 @@ on:
     types: [opened, synchronize, reopen, edited]
 
 jobs:
-  FormatLintBuild:
+  Lint:
     runs-on: smallworld-arc
     steps:
       - name: preinit
@@ -53,7 +53,7 @@ jobs:
 
   Unit-Test:
     runs-on: smallworld-arc
-    needs: FormatLintBuild
+    needs: Lint
     steps:
       - name: Load Container
         run: |
@@ -65,7 +65,7 @@ jobs:
 
   Integration-Test:
     runs-on: smallworld-arc
-    needs: FormatLintBuild
+    needs: Lint
     strategy:
       matrix:
         include:
@@ -95,7 +95,7 @@ jobs:
 
   Results:
     runs-on: smallworld-arc
-    needs: [FormatLintBuild, Unit-Test, Integration-Test]
+    needs: [Lint, Unit-Test, Integration-Test]
     if: always()
     steps:
       - name: All tests OK
