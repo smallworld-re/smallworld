@@ -7,7 +7,7 @@ on:
 
 jobs:
   FormatLintBuild:
-    runs-on: ubuntu-latest
+    runs-on: smallworld-arc
     steps:
       - uses: actions/checkout@v3
         with:
