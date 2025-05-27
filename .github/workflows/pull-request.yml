@@ -9,7 +9,7 @@ jobs:
   Lint:
     runs-on: smallworld-arc
     steps:
-      - name: preinit
+      - name: Preinit
         run: |
           sudo apt-get update
           sudo apt-get install -y git-lfs build-essential cmake clang
