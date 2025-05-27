@@ -8,6 +8,8 @@ on:
 jobs:
   Lint:
     runs-on: smallworld-arc
+    permissions:
+      contents: write
     steps:
       - name: Preinit
         run: |
