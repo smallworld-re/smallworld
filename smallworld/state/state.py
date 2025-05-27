@@ -848,44 +848,6 @@ class Machine(StatefulSet):
         Arguments:
             emulator: Currently, must be the unicorn emulator
             input_callback: A callback that applies an input to a machine
-            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
-            crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
-            always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
-            iterations: The number of iterations to run before forking a new child
-        Returns:
-            Bytes for this value with the given byteorder.
-        """
-        import argparse
-
-        arg_parser = argparse.ArgumentParser(description="AFL Harness")
-        arg_parser.add_argument(
-            "input_file", type=str, help="File path AFL will mutate"
-        )
-        args = arg_parser.parse_args()
-        self.fuzz_with_file(
-            emulator,
-            input_callback,
-            args.input_file,
-            crash_callback,
-            always_validate,
-            iterations,
-        )
-
-    def fuzz_with_file(
-        self,
-        emulator: emulators.Emulator,
-        input_callback: typing.Callable,
-        input_file_path: str,
-        crash_callback: typing.Optional[typing.Callable] = None,
-        always_validate: bool = False,
-        iterations: int = 1,
-    ) -> None:
-        """Fuzz the machine using unicornafl.
-
-        Arguments:
-            emulator: Currently, must be the unicorn emulator
-            input_callback: A callback that applies an input to a machine
-            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
             crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
             always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
             iterations: The number of iterations to run before forking a new child
@@ -893,11 +855,19 @@ class Machine(StatefulSet):
             Bytes for this value with the given byteorder.
         """
         try:
+            import argparse
+
             import unicornafl
         except ImportError:
             raise RuntimeError(
                 "missing `unicornafl` - afl++ must be installed manually from source"
             )
+
+        arg_parser = argparse.ArgumentParser(description="AFL Harness")
+        arg_parser.add_argument(
+            "input_file", type=str, help="File path AFL will mutate"
+        )
+        args = arg_parser.parse_args()
 
         if not isinstance(emulator, emulators.UnicornEmulator):
             raise RuntimeError("you must use a unicorn emulator to fuzz")
@@ -906,7 +876,7 @@ class Machine(StatefulSet):
 
         unicornafl.uc_afl_fuzz(
             uc=emulator.engine,
-            input_file=input_file_path,
+            input_file=args.input_file,
             place_input_callback=input_callback,
             exits=emulator.get_exit_points(),
             validate_crash_callback=crash_callback,
