@@ -20,7 +20,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update
-          sudo apt-get install -y git-lfs
+          sudo apt-get install -y git-lfs build-essential cmake clang
 
       - uses: actions/checkout@v3
         with:
