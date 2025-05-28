@@ -62,6 +62,6 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
                 string = f"{string}+{self.index}"
 
         if self.offset:
-            string = f"{string}+{self.offset}"
+            string = f"{string}+{self.offset:x}"
 
         return f"{self.__class__.__name__}({string})"
