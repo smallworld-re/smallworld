@@ -1,5 +1,6 @@
-import logging
 import sys
+import logging
+
 
 
 class CharacterLevelFilter(logging.Filter):
