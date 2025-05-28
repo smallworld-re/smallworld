@@ -12,10 +12,10 @@ concurrency:
 jobs:
   format:
     runs-on: smallworld-arc
-
     permissions:
       contents: write
-
+    outputs:
+      changes: ${{ steps.autocommit.outputs.changes_detected }}
     steps:
       - name: Preinit
         run: |
@@ -26,7 +26,6 @@ jobs:
         with:
           lfs: true
           ref: ${{ github.event.pull_request.head.ref }}
-          persist-credentials: false
 
       - uses: actions/setup-python@v4
         with:
@@ -37,7 +36,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e .[development] -c constraints.txt
 
-      - name: Run formatters
+      - name: Run formatters (isort & black)
         run: |
           isort . --profile black
           black ./
@@ -45,10 +44,9 @@ jobs:
       - id: autocommit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          token: ${{ secrets.BOT_PAT }}
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
 
-      - name: Report
-        if: steps.autocommit.outputs.changes_detected == 'false'
-        run: echo "No formatting changes necessary."
+      - name: Summary
+        run: |
+          echo "changes_detected=${{ steps.autocommit.outputs.changes_detected }}"
