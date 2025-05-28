@@ -1,55 +1,57 @@
-name: Pull Request
+name: CI
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopen, edited]
+    types: [opened, synchronize, reopen]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   Lint:
     runs-on: smallworld-arc
-    permissions:
-      contents: write
     steps:
       - name: Preinit
         run: |
           sudo apt-get update
           sudo apt-get install -y git-lfs build-essential cmake clang
+
       - uses: actions/checkout@v3
         with:
           lfs: true
-          token: ${{ secrets.BOT_TOKEN }}
+
       - uses: actions/setup-python@v4
         with:
           python-version: "3.x"
-      - name: Install
+
+      - name: Install dev dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .[development] -c constraints.txt
-      - name: Format
-        run: |
-          isort . --profile black
-          black ./
-      - uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "style: isort and black"
-          commit_author: GitHub Actions <actions@github.com>
-      - name: Lint
+
+      - name: Lint (fail on issues)
         run: |
           isort --check --profile black .
           black --check ./
           flake8 ./
           mypy --ignore-missing-imports ./
+
       - name: Check Title
         env:
           TITLE: ${{ github.event.pull_request.title }}
-        run: |
-          bash .github/workflows/scripts/conventional.sh "$TITLE"
+        if: github.event_name == 'pull_request'
+        run: bash .github/workflows/scripts/conventional.sh "$TITLE"
+
       - name: Build Container
         run: |
           export DOCKER_CONFIG=$(mktemp -d)
           docker build . -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
-      - name: Save Container
+
+      - name: Push Container
         run: |
           docker push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
 
@@ -57,10 +59,11 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
-      - name: Load Container
+      - name: Pull image
         run: |
           docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
           docker tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+
       - name: Run Unit Tests
         run: |
           docker run -i -w /opt/smallworld/tests smallworld:latest python3 unit.py
@@ -87,21 +90,22 @@ jobs:
           - testsuite: SyscallTests
           - testsuite: SymbolicTests
     steps:
-      - name: Load Container
+      - name: Pull image
         run: |
           docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
           docker tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+
       - name: Run Integration Tests
         run: |
           docker run -i -w /opt/smallworld/tests smallworld:latest python3 integration.py -v ${{ matrix.testsuite }}
 
   Results:
     runs-on: smallworld-arc
-    needs: [Lint, Unit-Test, Integration-Test]
     if: always()
+    needs: [Lint, Unit-Test, Integration-Test]
     steps:
       - name: All tests OK
-        if: ${{ !(contains(needs.*.result, 'failure')) }}
+        if: ${{ !contains(needs.*.result, 'failure') }}
         run: exit 0
       - name: Tests Failed
         if: ${{ contains(needs.*.result, 'failure') }}

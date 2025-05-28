@@ -1,0 +1,54 @@
+name: Auto Format
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopen, edited]
+
+concurrency:
+  group: format-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    runs-on: smallworld-arc
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Preinit
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-lfs
+
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+          ref: ${{ github.event.pull_request.head.ref }}
+          persist-credentials: false
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[development] -c constraints.txt
+
+      - name: Run formatters
+        run: |
+          isort . --profile black
+          black ./
+
+      - id: autocommit
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          commit_message: "style: isort and black"
+          commit_author: GitHub Actions <actions@github.com>
+
+      - name: Report
+        if: steps.autocommit.outputs.changes_detected == 'false'
+        run: echo "No formatting changes necessary."
