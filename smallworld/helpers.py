@@ -1,6 +1,6 @@
-import typing
 import argparse
 import logging
+import typing
 
 logger = logging.getLogger(__name__)
 
