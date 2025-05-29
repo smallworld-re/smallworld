@@ -45,7 +45,6 @@ jobs:
         with:
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
-          github_token: ${{ secrets.BOT_TOKEN }}   # ← PAT, not GITHUB_TOKEN!
 
       - name: Lint
         if: steps.ac.outputs.changes_detected == 'false'
