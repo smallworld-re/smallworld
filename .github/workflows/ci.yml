@@ -4,6 +4,7 @@ on:
   workflow_run:
     workflows: ["Auto Format"]
     types: [completed]
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.event.workflow_run.head_sha }}
