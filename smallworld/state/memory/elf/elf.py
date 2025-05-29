@@ -576,5 +576,18 @@ class ElfExecutable(Executable):
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 
+    def link_elf(self, elf: "ElfExecutable") -> None:
+        for rela in self._relas:
+            my_sym = rela.symbol
+            o_syms = elf._get_symbols(my_sym.name)
+            if len(o_syms) > 1:
+                log.warning(f"Multiple symbols for {my_sym.name}")
+                continue
+            elif len(o_syms) < 1:
+                log.warning(f"No symbol for {my_sym.name}")
+                continue
+
+            log.info(f"Match: {my_sym.name}: {o_syms}")
+
 
 __all__ = ["ElfExecutable"]
