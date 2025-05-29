@@ -20,7 +20,7 @@ ENV DEBUG=1
 ENV NO_NYX=1
 ENV INTROSPECTION=1
 ENV NO_CORESIGHT=1
-RUN make binary-only
+RUN make -j$(nproc) binary-only
 RUN make install
 
 # We need to reinstall in our venv
@@ -44,7 +44,7 @@ COPY ./ /opt/smallworld/
 WORKDIR /opt/smallworld/tests
 RUN apt -y install $(cat ./dependencies/apt.txt)
 
-RUN make
+RUN make -j$(nproc)
 
 WORKDIR /opt/smallworld
 RUN python3 -m pip install -e .[development] -c constraints.txt
