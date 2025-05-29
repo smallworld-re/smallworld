@@ -10,10 +10,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-test:
-    if: >-
-      ${{ github.event.workflow_run.conclusion == 'success' &&
-          github.event.workflow_run.outputs.changes == 'false' }}
+  Lint-Build:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: smallworld-arc
     steps:
       - name: Checkout code
@@ -58,18 +56,60 @@ jobs:
         run: |
           docker push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.event.workflow_run.head_sha }}
 
-      - name: Pull image locally
+  Unit-Test:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: smallworld-arc
+    needs: Lint-Build
+    steps:
+      - name: Pull image
         run: |
           docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.event.workflow_run.head_sha }}
           docker tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.event.workflow_run.head_sha }} smallworld:latest
 
-      - name: Unit tests
+      - name: Run Unit Tests
         run: |
           docker run -i -w /opt/smallworld/tests smallworld:latest python3 unit.py
 
-      - name: Integration tests (matrix‑style)
+  Integration-Test:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: smallworld-arc
+    needs: Lint-Build
+    strategy:
+      matrix:
+        include:
+          - testsuite: BlockTests
+          - testsuite: BranchTests
+          - testsuite: CallTests
+          - testsuite: DMATests
+          - testsuite: DocumentationTests
+          - testsuite: ElfTests
+          - testsuite: FloatsTests
+          - testsuite: FuzzTests
+          - testsuite: HookingTests
+          - testsuite: SquareTests
+          - testsuite: StackTests
+          - testsuite: StrlenTests
+          - testsuite: StructureTests
+          - testsuite: SyscallTests
+          - testsuite: SymbolicTests
+    steps:
+      - name: Pull image
         run: |
-          for t in BlockTests BranchTests CallTests DMATests DocumentationTests ElfTests FloatsTests FuzzTests HookingTests SquareTests StackTests StrlenTests StructureTests SyscallTests SymbolicTests; do
-            echo "Running $t";
-            docker run -i -w /opt/smallworld/tests smallworld:latest python3 integration.py -v $t;
-          done
+          docker pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.event.workflow_run.head_sha }}
+          docker tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.event.workflow_run.head_sha }} smallworld:latest
+
+      - name: Run Integration Tests
+        run: |
+          docker run -i -w /opt/smallworld/tests smallworld:latest python3 integration.py -v ${{ matrix.testsuite }}
+
+  Results:
+    runs-on: smallworld-arc
+    if: always()
+    needs: [Lint-Build, Unit-Test, Integration-Test]
+    steps:
+      - name: All tests OK
+        if: ${{ !contains(needs.*.result, 'failure') }}
+        run: exit 0
+      - name: Tests Failed
+        if: ${{ contains(needs.*.result, 'failure') }}
+        run: exit 1
