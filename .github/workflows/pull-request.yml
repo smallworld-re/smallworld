@@ -63,7 +63,6 @@ jobs:
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          export DOCKER_CONFIG=$(mktemp -d)
           podman build . \
             -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
 
