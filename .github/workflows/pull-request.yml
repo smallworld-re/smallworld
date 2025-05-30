@@ -19,7 +19,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update
-          sudo apt-get install -y git-lfs build-essential cmake clang podman
+          sudo apt-get install -y git-lfs build-essential cmake clang podman uidmap fuse-overlayfs slirp4netns
 
       - uses: actions/checkout@v3
         with:
@@ -63,7 +63,6 @@ jobs:
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          sudo mount --make-rshared /
           podman build . \
             -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
 
