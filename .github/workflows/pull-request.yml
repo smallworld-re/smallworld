@@ -20,6 +20,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git-lfs build-essential cmake clang podman uidmap fuse-overlayfs slirp4netns
+          export XDG_RUNTIME_DIR=/tmp/xdg-$(id -u)
+          mkdir -p "$XDG_RUNTIME_DIR"
 
       - uses: actions/checkout@v3
         with:
@@ -63,8 +65,8 @@ jobs:
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          podman build . \
-            -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          podman build --network host -t "$IMAGE" .
 
       - name: Save Container
         if: steps.ac.outputs.changes_detected == 'false'
