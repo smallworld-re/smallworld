@@ -27,6 +27,7 @@ jobs:
           "
           export XDG_RUNTIME_DIR=/tmp/xdg-$(id -u)
           mkdir -p "$XDG_RUNTIME_DIR"
+          sleep 1000
 
       - uses: actions/checkout@v3
         with:
