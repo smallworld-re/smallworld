@@ -20,6 +20,11 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git-lfs build-essential cmake clang podman uidmap fuse-overlayfs slirp4netns
+          sudo sh -c "
+            grep -q \"$(whoami):100000:\" /etc/subuid || echo \"$(whoami):100000:65536\" >> /etc/subuid
+            grep -q \"$(whoami):100000:\" /etc/subgid || echo \"$(whoami):100000:65536\" >> /etc/subgid
+            chmod u+s $(command -v newuidmap) $(command -v newgidmap)
+          "
           export XDG_RUNTIME_DIR=/tmp/xdg-$(id -u)
           mkdir -p "$XDG_RUNTIME_DIR"
 
