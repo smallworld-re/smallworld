@@ -10,7 +10,10 @@ jobs:
     # container:
     #   image: quay.io/podman/stable:v5
     steps:
-      - name: build
+      - name: install podman
         run: |
-          sleep 10000000
+          sudo apt update -y
+          sudo apt install -y podman
+      - name: run something
+        run: |
           podman run --rm -it docker.io/hello-world:latest
