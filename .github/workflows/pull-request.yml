@@ -7,8 +7,8 @@ on:
 jobs:
   podman-build:
     runs-on: smallworld-arc
-    container: 
-      image: quay.io/podman/stable:v5
+    # container:
+    #   image: quay.io/podman/stable:v5
     steps:
       - name: build
         run: |
