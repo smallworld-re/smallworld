@@ -20,7 +20,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y git-lfs build-essential cmake clang podman
+          sudo apt-get install -y podman
 
       - name: Allow HTTP for the in-cluster registry
         run: |
@@ -33,17 +33,19 @@ jobs:
 
       - uses: actions/checkout@v3
         with:
-          lfs: true
           token: ${{ secrets.BOT_TOKEN }}
 
       - uses: actions/setup-python@v4
         with:
           python-version: "3.x"
 
-      - name: Install
+      - name: Install Lint Tools
         run: |
           python -m pip install --upgrade pip
-          pip install -e .[development] -c constraints.txt
+          pip install $(grep isort= constraints.txt)
+          pip install $(grep black= constraints.txt)
+          pip install $(grep flake8= constraints.txt)
+          pip install $(grep mypy= constraints.txt)
 
       - name: Format
         run: |
@@ -97,7 +99,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y git-lfs build-essential cmake clang podman
+          sudo apt-get install -y podman
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
@@ -149,7 +151,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y git-lfs build-essential cmake clang podman
+          sudo apt-get install -y podman
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
@@ -183,7 +185,7 @@ jobs:
     steps:
       - name: Formatter committed – new run will verify
         if: needs.Lint.outputs.changes_detected == 'true'
-        run: echo "Formatting fixes pushed with PAT. CI will re-run on the new commit."
+        run: exit 1
 
       - name: All tests OK
         if: needs.Lint.outputs.changes_detected == 'false' && !contains(needs.*.result, 'failure')
