@@ -20,7 +20,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y build-essential podman
+          sudo apt-get install -y git-lfs build-essential cmake clang podman
 
       - name: Allow HTTP for the in-cluster registry
         run: |
@@ -33,6 +33,7 @@ jobs:
 
       - uses: actions/checkout@v3
         with:
+          lfs: true
           token: ${{ secrets.BOT_TOKEN }}
 
       - uses: actions/setup-python@v4
@@ -96,7 +97,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y podman
+          sudo apt-get install -y git-lfs build-essential cmake clang podman
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
@@ -148,7 +149,7 @@ jobs:
       - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y podman
+          sudo apt-get install -y git-lfs build-essential cmake clang podman
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
@@ -182,7 +183,7 @@ jobs:
     steps:
       - name: Formatter committed – new run will verify
         if: needs.Lint.outputs.changes_detected == 'true'
-        run: exit 1
+        run: echo "Formatting fixes pushed with PAT. CI will re-run on the new commit."
 
       - name: All tests OK
         if: needs.Lint.outputs.changes_detected == 'false' && !contains(needs.*.result, 'failure')
