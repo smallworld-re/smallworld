@@ -7,6 +7,7 @@ on:
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
+
 jobs:
   Lint:
     runs-on: smallworld-arc
@@ -20,6 +21,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y git-lfs build-essential cmake clang podman
+
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
@@ -28,6 +30,7 @@ jobs:
           location = "docker-registry.docker-registry.svc.cluster.local:5000"
           insecure = true
           EOF
+
       - uses: actions/checkout@v3
         with:
           lfs: true
@@ -73,6 +76,14 @@ jobs:
           IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
           podman build --network host -t "$IMAGE" .
 
+      - name: Login to registry
+        if: steps.ac.outputs.changes_detected == 'false'
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+
       - name: Save Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
@@ -83,6 +94,22 @@ jobs:
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     steps:
+      - name: Allow HTTP for the in-cluster registry
+        run: |
+          sudo mkdir -p /etc/containers/registries.conf.d
+          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          [[registry]]
+          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          insecure = true
+          EOF
+
+      - name: Login to registry
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+
       - name: Load Container
         run: |
           podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
@@ -113,6 +140,22 @@ jobs:
           - testsuite: StructureTests
           - testsuite: SyscallTests
     steps:
+      - name: Allow HTTP for the in-cluster registry
+        run: |
+          sudo mkdir -p /etc/containers/registries.conf.d
+          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          [[registry]]
+          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          insecure = true
+          EOF
+
+      - name: Login to registry
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+
       - name: Load Container
         run: |
           podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
