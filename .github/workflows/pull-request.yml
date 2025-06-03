@@ -107,10 +107,6 @@ jobs:
           insecure = true
           EOF
 
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-
       - name: Login to registry
         env:
           REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
@@ -126,8 +122,7 @@ jobs:
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -v "$GITHUB_WORKSPACE/tests":/opt/smallworld/tests:ro \
-            -w /opt/smallworld/tests smallworld:latest python3 unit.py
+          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 unit.py
 
   Integration-Test:
     runs-on: smallworld-arc
@@ -164,10 +159,6 @@ jobs:
           insecure = true
           EOF
 
-      - uses: actions/checkout@v3
-        with:
-          lfs: true
-
       - name: Login to registry
         env:
           REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
@@ -183,9 +174,7 @@ jobs:
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -v "$GITHUB_WORKSPACE/tests":/opt/smallworld/tests:ro \
-            -w /opt/smallworld/tests smallworld:latest \
-            python3 integration.py -v ${{ matrix.testsuite }}
+          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 integration.py -v ${{ matrix.testsuite }}
 
   Results:
     runs-on: smallworld-arc
