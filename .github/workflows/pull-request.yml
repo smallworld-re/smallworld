@@ -17,7 +17,7 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - name: Preinit
+      - name: Install podman
         run: |
           sudo apt-get update -y
           sudo apt-get install -y podman

@@ -1,0 +1,35 @@
+name: Cron Jobs
+on:
+  schedule:
+    - cron: "00 3 * * *"
+
+jobs:
+  Build-Container:
+    runs-on: smallworld-arc
+    steps:
+      - name: Install podman
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y podman
+
+      - uses: actions/checkout@v3
+
+      - name: Build Container
+        run: |
+          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }}
+          podman build -f Dockerfile.deps --network host -t "$IMAGE" .
+
+      - name: Login to registry
+        env:
+          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+        run: |
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+
+      - name: Save Container
+        run: |
+          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+
+      - name: Tag Container
+        run: |
+          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld_deps:latest
