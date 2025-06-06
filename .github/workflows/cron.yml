@@ -13,6 +13,15 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y podman
 
+      - name: Allow HTTP for the in-cluster registry
+        run: |
+          sudo mkdir -p /etc/containers/registries.conf.d
+          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          [[registry]]
+          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          insecure = true
+          EOF
+
       - uses: actions/checkout@v3
 
       - name: Build Container
