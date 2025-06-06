@@ -42,4 +42,5 @@ jobs:
 
       - name: Save Container
         run: |
-          podman push --all-tags docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }}
+          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }}
+          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
