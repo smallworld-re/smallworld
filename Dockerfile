@@ -1,4 +1,4 @@
-FROM smallworld_deps:latest
+FROM docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
 
 # Install smallworld
 COPY ./ /opt/smallworld/
