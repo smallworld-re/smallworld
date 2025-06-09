@@ -4,4 +4,4 @@ FROM docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworl
 COPY ./ /opt/smallworld/
 
 WORKDIR /opt/smallworld/tests
-RUN apt -y install $(cat ./dependencies/apt.txt)
+RUN apt-get -y --no-install-recommends install $(cat ./dependencies/apt.txt) && apt-get clean
