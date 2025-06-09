@@ -1,11 +1,9 @@
-FROM docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
+FROM docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
 
 # Install smallworld
 COPY ./ /opt/smallworld/
 
 WORKDIR /opt/smallworld/tests
-RUN apt -y install $(cat ./dependencies/apt.txt)
-
 RUN make -j$(nproc)
 
 WORKDIR /opt/smallworld
