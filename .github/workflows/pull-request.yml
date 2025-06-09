@@ -72,12 +72,6 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
-      - name: Build Container
-        if: steps.ac.outputs.changes_detected == 'false'
-        run: |
-          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
-          podman build --network host -t "$IMAGE" .
-
       - name: Login to registry
         if: steps.ac.outputs.changes_detected == 'false'
         env:
@@ -85,6 +79,12 @@ jobs:
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
           podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+
+      - name: Build Container
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          podman build --network host -t "$IMAGE" .
 
       - name: Save Container
         if: steps.ac.outputs.changes_detected == 'false'
