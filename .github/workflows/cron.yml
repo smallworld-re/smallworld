@@ -33,8 +33,8 @@ jobs:
 
       - name: Build Containers
         run: |
-          podman build -f Dockerfile.deps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} .
-          podman build -f Dockerfile.testdeps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.deps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.testdeps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} .
 
       - name: Tag Containers
         run: |
