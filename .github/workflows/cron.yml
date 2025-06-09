@@ -24,11 +24,6 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - name: Build Container
-        run: |
-          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }}
-          podman build -f Dockerfile.deps --network host -t "$IMAGE" .
-
       - name: Login to registry
         env:
           REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
@@ -36,11 +31,19 @@ jobs:
         run: |
           podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
 
-      - name: Tag Container
+      - name: Build Containers
+        run: |
+          podman build -f Dockerfile.deps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} .
+          podman build -f Dockerfile.testdeps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} .
+
+      - name: Tag Containers
         run: |
           podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
+          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
 
-      - name: Save Container
+      - name: Save Containers
         run: |
           podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }}
           podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
+          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }}
+          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
