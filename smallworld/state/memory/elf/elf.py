@@ -103,9 +103,11 @@ class ElfExecutable(Executable):
         self._dtags: typing.Dict[int, int] = dict()
 
         # Initialize symbol info
-        self._symbols: typing.List[ElfSymbol] = list()
+        self._dynamic_symbols: typing.List[ElfSymbol] = list()
+        self._static_symbols: typing.List[ElfSymbol] = list()
+        self._dynamic_relas: typing.List[ElfRela] = list()
+        self._static_relas: typing.List[ElfRela] = list()
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
-        self._relas: typing.List[ElfRela] = list()
         self._relocator: typing.Optional[ElfRelocator] = None
 
         # Read the entire image out of the file.
@@ -476,7 +478,11 @@ class ElfExecutable(Executable):
                 baseaddr=baseaddr,
             )
             # Save the sym, and temporarily tie it to its lief partner
-            self._symbols.append(sym)
+            if dynamic:
+                self._dynamic_symbols.append(sym)
+            else:
+                self._static_symbols.append(sym)
+
             self._syms_by_name.setdefault(sym.name, list()).append(sym)
             lief_to_elf[s] = sym
 
@@ -518,11 +524,11 @@ class ElfExecutable(Executable):
                     sym = lief_to_elf[s]
                     rela = ElfRela(offset=gotoff, type=rela_type, symbol=sym, addend=0)
                     sym.relas.append(rela)
-                    self._relas.append(rela)
+                    self._dynamic_relas.append(rela)
 
                     gotoff += gotent
 
-        for r in elf.relocations:
+        for r in list(elf.dynamic_relocations) + list(elf.pltgot_relocations):
             # Build a rela, and tie it to its symbol
             # TODO: some relas have no symbols.  Live with it.
             if r.symbol is None:
@@ -532,9 +538,21 @@ class ElfExecutable(Executable):
                 offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
             )
             sym.relas.append(rela)
-            self._relas.append(rela)
+            self._dynamic_relas.append(rela)
 
-    def _get_symbols(self, name: typing.Union[str, int]) -> typing.List[ElfSymbol]:
+        for r in elf.object_relocations:
+            if r.symbol is None:
+                continue
+            sym = lief_to_elf[r.symbol]
+            rela = ElfRela(
+                offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
+            )
+            sym.relas.append(rela)
+            self._static_relas.append(rela)
+
+    def _get_symbols(
+        self, name: typing.Union[str, int], dynamic: bool
+    ) -> typing.List[ElfSymbol]:
         if isinstance(name, str):
             # Caller wants to look up a symbol by name
             if name not in self._syms_by_name:
@@ -543,14 +561,30 @@ class ElfExecutable(Executable):
             syms = self._syms_by_name[name]
             return list(syms)
         elif isinstance(name, int):
-            return [self._symbols[name]]
+            if dynamic:
+                return [self._dynamic_symbols[name]]
+            else:
+                return [self._static_symbols[name]]
         else:
             raise TypeError("Symbols must be specified by str names or int indexes")
 
     def get_symbol_value(
-        self, name: typing.Union[str, int], rebase: bool = True
+        self, name: typing.Union[str, int], dynamic: bool = False, rebase: bool = True
     ) -> int:
-        syms = self._get_symbols(name)
+        """Get the value for a symbol
+
+        The value of a symbol is usually an address or offset,
+        although the precise meaning can vary a little.
+
+        Arguments:
+            name: The name of the symbol, or its index into the symbol table
+            dynamic: If specified by index, whether to look in the static or dynamic symbol table
+            rebase: Whether the recorded value is relative to the base address of this ELF.
+
+        Returns:
+            The integer value of this symbol
+        """
+        syms = self._get_symbols(name, dynamic)
         if len(syms) > 1:
             for sym in syms:
                 if sym.value != syms[0].value and sym.baseaddr != syms[0].baseaddr:
@@ -561,8 +595,21 @@ class ElfExecutable(Executable):
             val += syms[0].baseaddr
         return val
 
-    def get_symbol_size(self, name: typing.Union[str, int]):
-        syms = self._get_symbols(name)
+    def get_symbol_size(self, name: typing.Union[str, int], dynamic: bool = False):
+        """Get the size for a symbol
+
+        If a symbol references a function or a data structure,
+        this will hold its size in bytes
+
+        Arguments:
+            name: The name of the symbol, or its index into the symbol table
+            dynamic: If specified by index, whether to look in the static or dynamic symbol table
+            rebase: Whether the recorded value is relative to the base address of this ELF.
+
+        Returns:
+            The size of this symbol
+        """
+        syms = self._get_symbols(name, dynamic)
         if len(syms) > 1:
             for sym in syms:
                 if sym.size != syms[0].size:
@@ -570,12 +617,28 @@ class ElfExecutable(Executable):
         return syms[0].size
 
     def update_symbol_value(
-        self, name: typing.Union[str, int, ElfSymbol], value: int, rebase: bool = True
+        self,
+        name: typing.Union[str, int, ElfSymbol],
+        value: int,
+        dynamic: bool = False,
+        rebase: bool = True,
     ) -> None:
+        """Update the value of a symbol
+
+        This will alter the value of the symbol,
+        and also propagate that updated value according to any associated relocations.
+
+        Arguments:
+            name: The name of the symbol, its index into the symbol table, or a specific symbol object
+            value: The new value for the symbol
+            dynamic: If specified by index, whether to look in the static or dynamic symbol table
+            rebase: Whether the recorded value is relative to the base address of this ELF.
+        """
+
         if isinstance(name, ElfSymbol):
             sym = name
         else:
-            syms = self._get_symbols(name)
+            syms = self._get_symbols(name, dynamic)
             if len(syms) > 1:
                 raise ConfigurationError(f"Multiple syms named {name}")
             sym = syms[0]
@@ -594,17 +657,39 @@ class ElfExecutable(Executable):
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 
-    def link_elf(self, elf: "ElfExecutable") -> None:
-        # Process the normal rela table
-        for rela in self._relas:
+    def link_elf(self, elf: "ElfExecutable", dynamic: bool = True) -> None:
+        """Link one ELF against another
+
+        This roughly mimics the ELF linker;
+        it looks for undefined symbols in the current file,
+        and tries to populate their values from matching defined symbols
+        from another file.
+
+        Arguments:
+            elf: The ELF from which to draw symbol values
+            dynamic: Whether to link static or dynamic symbols
+
+        """
+        if dynamic:
+            # Relocate rela.dyn and rela.plt
+            relas = self._dynamic_relas
+        else:
+            # relocate static relocations
+            relas = self._static_relas
+
+        for rela in relas:
             my_sym = rela.symbol
             if my_sym.name == "":
                 # This isn't a real symbol
                 continue
+            if my_sym.shndx != 0:
+                # This is a defined symbol
+                continue
 
             try:
-                o_syms = elf._get_symbols(my_sym.name)
+                o_syms = elf._get_symbols(my_sym.name, dynamic)
             except ConfigurationError:
+                # TODO: Better analysis of which symbols are resolved
                 log.warning(f"No symbol for {my_sym.name}")
                 continue
 
@@ -616,8 +701,6 @@ class ElfExecutable(Executable):
 
             o_sym = o_syms[0]
             self.update_symbol_value(my_sym, o_sym.value + o_sym.baseaddr, rebase=True)
-
-        # Process MIPS implicit relas.
 
 
 __all__ = ["ElfExecutable"]
