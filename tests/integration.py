@@ -1329,6 +1329,91 @@ class RelaTests(ScriptIntegrationTest):
     # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
 
 
+class LinkElfTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 link_elf/link_elf.{arch}.py 42")
+        self.assertLineContainsStrings("0x2a")
+
+    def test_link_elf_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_link_elf_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_link_elf_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_link_elf_amd64(self):
+        self.run_test("amd64")
+
+    def test_link_elf_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_link_elf_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_link_elf_armel(self):
+        self.run_test("armel")
+
+    def test_link_elf_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_link_elf_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_link_elf_armhf(self):
+        self.run_test("armhf")
+
+    def test_link_elf_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_link_elf_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_link_elf_i386(self):
+        self.run_test("i386")
+
+    def test_link_elf_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_link_elf_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_link_elf_mips(self):
+        self.run_test("mips")
+
+    def test_link_elf_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_link_elf_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_link_elf_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_link_elf_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_link_elf_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_link_elf_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_link_elf_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_link_elf_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_link_elf_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    # NOTE: ppc64's GOT entries are weird; we don't support them.
+
+    # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
+
+
 class FloatsTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 floats/floats.{arch}.py 2.2 1.1")

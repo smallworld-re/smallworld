@@ -31,7 +31,7 @@ class PowerPCElfRelocator(ElfRelocator):
 R_PPC64_ADDR64 = 38  # Adjust by program base, I think...
 
 
-class PowerPC64ElfRelocator(ElfRelocator):
+class PowerPC64ElfRelocator(PowerPCElfRelocator):
     arch = platforms.Architecture.POWERPC64
     byteorder = platforms.Byteorder.BIG
     addrsz = 8
@@ -54,3 +54,5 @@ class PowerPC64ElfRelocator(ElfRelocator):
             # This requires a reference to the containing binary,
             # which I have no idea how to pass.
             raise NotImplementedError("R_PPC64_JUMP_SLOT not implemented")
+        else:
+            return super()._compute_value(rela)
