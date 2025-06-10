@@ -7,7 +7,6 @@ on:
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
-
 jobs:
   Lint:
     runs-on: smallworld-arc
@@ -17,35 +16,23 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - name: Install podman
+      - name: Preinit
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y podman
-
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
-          insecure = true
-          EOF
-
+          sudo apt-get install -y git-lfs build-essential cmake clang podman
       - uses: actions/checkout@v3
         with:
+          lfs: true
           token: ${{ secrets.BOT_TOKEN }}
 
       - uses: actions/setup-python@v4
         with:
           python-version: "3.x"
 
-      - name: Install Lint Tools
+      - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install $(grep isort= constraints.txt)
-          pip install $(grep black= constraints.txt)
-          pip install $(grep flake8= constraints.txt)
-          pip install $(grep mypy= constraints.txt)
+          pip install -e .[development] -c constraints.txt
 
       - name: Format
         run: |
@@ -72,14 +59,6 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
-      - name: Login to registry
-        if: steps.ac.outputs.changes_detected == 'false'
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
@@ -96,35 +75,13 @@ jobs:
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     steps:
-      - name: Preinit
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
-          insecure = true
-          EOF
-
-      - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
       - name: Load Container
         run: |
           podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
           podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
       - name: Run Unit Tests
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 unit.py
+          podman run -i -w /opt/smallworld/tests smallworld:latest python3 unit.py
 
   Integration-Test:
     runs-on: smallworld-arc
@@ -148,35 +105,14 @@ jobs:
           - testsuite: StructureTests
           - testsuite: SyscallTests
     steps:
-      - name: Preinit
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
-          insecure = true
-          EOF
-
-      - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
-        run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
       - name: Load Container
         run: |
           podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
           podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
       - name: Run Integration Tests
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 integration.py -v ${{ matrix.testsuite }}
+          podman run -i -w /opt/smallworld/tests smallworld:latest \
+            python3 integration.py -v ${{ matrix.testsuite }}
 
   Results:
     runs-on: smallworld-arc
@@ -185,7 +121,7 @@ jobs:
     steps:
       - name: Formatter committed – new run will verify
         if: needs.Lint.outputs.changes_detected == 'true'
-        run: exit 1
+        run: echo "Formatting fixes pushed with PAT. CI will re-run on the new commit."
 
       - name: All tests OK
         if: needs.Lint.outputs.changes_detected == 'false' && !contains(needs.*.result, 'failure')
