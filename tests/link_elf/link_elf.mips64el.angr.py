@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -22,15 +22,13 @@ machine.add(cpu)
 # Load and add code into the state
 filename = __file__.replace(".py", ".elf").replace(".angr", "")
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 libname = __file__.replace(".py", ".so").replace(".angr", "")
 with open(libname, "rb") as f:
     lib = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x800000
+        f, platform=platform, address=0x400000
     )
     machine.add(lib)
 
@@ -41,7 +39,7 @@ code.link_elf(lib)
 
 # Set entrypoint from the ELF
 entrypoint = code.get_symbol_value("main")
-cpu.rip.set(entrypoint)
+cpu.pc.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
@@ -70,14 +68,31 @@ stack.push_integer(2, 8, None)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.rsp.set(sp)
+cpu.sp.set(sp)
 
 # Set argument registers
-cpu.rdi.set(2)
-cpu.rsi.set(argv)
+cpu.a0.set(2)
+cpu.a1.set(argv)
+
+# UTTER AND TOTAL MADNESS
+# MIPS relies on a "Global Pointer" register
+# to find its place in a position-independent binary.
+# In MIPS64, this is computed by relying on
+# the fact that dynamic function calls use
+# the t9 register to store the address of the target function.
+#
+# The function prologue sets gp to t9 plus a constant,
+# creating an address that's... not in the ELF image...?
+# Position-independent references then subtract
+# larger-than-strictly-necessary offsets
+# from gp to compute the desired address.
+#
+# TL;DR: To call main(), t9 must equal main.
+cpu.t9.set(entrypoint)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 
 # Use code bounds from the ELF
 emulator.add_exit_point(0)
@@ -86,10 +101,11 @@ for bound in code.bounds:
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
 
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x34)
+# I happen to know that the code _actually_ stops
+# at main + 0x34
+emulator.add_exit_point(entrypoint + 0x84)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()
 
-print(final_cpu.rax)
+print(final_cpu.v0)

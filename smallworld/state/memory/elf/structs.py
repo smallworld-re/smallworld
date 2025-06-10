@@ -24,6 +24,8 @@ class ElfSymbol:
     without a separate dict.
     """
 
+    idx: int  # Symbol table index
+    dynamic: bool  # Is this in the static or dynamic symbol table?
     name: str  # Symbol name
     type: int  # Symbol type
     bind: int  # Symbol binding

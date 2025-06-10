@@ -7,9 +7,16 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
+# TODO: Support PowerPC64 relocation
+# PPC64 uses an insane function pointer struct
+# which breaks how I architected the ELF relocator;
+# one specific kind of relocation needs
+# a second value beyond just the symbol value.
+raise NotImplementedError("This test case doesn't work.")
+
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.POWERPC64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -22,15 +29,13 @@ machine.add(cpu)
 # Load and add code into the state
 filename = __file__.replace(".py", ".elf").replace(".angr", "")
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 libname = __file__.replace(".py", ".so").replace(".angr", "")
 with open(libname, "rb") as f:
     lib = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x800000
+        f, platform=platform, address=0x400000
     )
     machine.add(lib)
 
@@ -41,7 +46,7 @@ code.link_elf(lib)
 
 # Set entrypoint from the ELF
 entrypoint = code.get_symbol_value("main")
-cpu.rip.set(entrypoint)
+cpu.pc.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
@@ -70,14 +75,15 @@ stack.push_integer(2, 8, None)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.rsp.set(sp)
+cpu.r1.set(sp)
 
 # Set argument registers
-cpu.rdi.set(2)
-cpu.rsi.set(argv)
+cpu.r3.set(2)
+cpu.r4.set(argv)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 
 # Use code bounds from the ELF
 emulator.add_exit_point(0)
@@ -86,10 +92,11 @@ for bound in code.bounds:
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
 
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x34)
+# I happen to know that the code _actually_ stops
+# at main + 0x34
+emulator.add_exit_point(entrypoint + 0x84)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()
 
-print(final_cpu.rax)
+print(final_cpu.r3)

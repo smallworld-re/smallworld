@@ -99,6 +99,9 @@ class ElfExecutable(Executable):
         self._user_base = user_base
         self._file_base = 0
 
+        # Initialize dynamic tag info
+        self._dtags: typing.Dict[int, int] = dict()
+
         # Initialize symbol info
         self._symbols: typing.List[ElfSymbol] = list()
         self._syms_by_name: typing.Dict[str, typing.List[ElfSymbol]] = dict()
@@ -257,6 +260,9 @@ class ElfExecutable(Executable):
             # No entrypoint specified,
             # Or this is PowerPC64 and the entrypoint is gibberish
             self.entrypoint = None
+
+        # Organize dynamic tags
+        self._extract_dtags(elf)
 
         # Organize symbols for later relocation
         self._extract_symbols(elf)
@@ -426,6 +432,10 @@ class ElfExecutable(Executable):
         ), f"Expected {seg_size:x} bytes, got {seg_value._size:x}"
         self[seg_addr - self.address] = seg_value
 
+    def _extract_dtags(self, elf):
+        for dt in elf.dynamic_entries:
+            self._dtags[dt.tag.value] = dt.value
+
     def _extract_symbols(self, elf):
         lief_to_elf = dict()
 
@@ -441,9 +451,21 @@ class ElfExecutable(Executable):
             # Relative symbols will be relative to the load address
             baseaddr = self.address
 
+        dynsyms = set(elf.dynamic_symbols)
+        idx = 0
+        dynamic = True
         for s in elf.symbols:
+            # Lief lets you access dynamic symbols separately,
+            # but you need to access static symbols through
+            # the list of all symbols
+            if dynamic and s not in dynsyms:
+                idx = 0
+                dynamic = False
+
             # Build a symbol
             sym = ElfSymbol(
+                idx=idx,
+                dynamic=dynamic,
                 name=s.name,
                 type=s.type.value,
                 bind=s.binding.value,
@@ -465,30 +487,20 @@ class ElfExecutable(Executable):
             # All MIPS dynamic symbols have an implicit rela.
             # MIPS dynamic symbols always have a GOT entry;
             # to save space, the ABI just assumes that the rela exists
-
-            # Find the GOT and the number of local entries
-            gotoff = None
-            gotsym = None
-            local_gotno = None
-            for dt in elf.dynamic_entries:
-                if dt.tag.value == DT_MIPS_GOTSYM:
-                    gotsym = dt.value
-                if dt.tag.value == DT_MIPS_LOCAL_GOTNO:
-                    local_gotno = dt.value
-                if dt.tag.value == DT_PLTGOT:
-                    gotoff = dt.value
-                if (
-                    local_gotno is not None
-                    and gotsym is not None
-                    and gotoff is not None
-                ):
-                    break
-
-            if local_gotno is None or gotoff is None or gotsym is None:
-                log.error("MIPS binary missing got information")
+            if (
+                DT_MIPS_GOTSYM not in self._dtags
+                or DT_MIPS_LOCAL_GOTNO not in self._dtags
+                or DT_PLTGOT not in self._dtags
+            ):
+                # GOT is missing... not sure what's up.
+                log.error("MIPS binary missing GOT information")
             else:
                 # We found the GOT info; we're actually a dynamic binary
                 # Figure out the GOT entry size based on arch
+                gotsym = self._dtags[DT_MIPS_GOTSYM]
+                local_gotno = self._dtags[DT_MIPS_LOCAL_GOTNO]
+                gotoff = self._dtags[DT_PLTGOT]
+
                 if self.platform.architecture == Architecture.MIPS32:
                     gotent = 4
                     rela_type = R_MIPS_32
@@ -512,6 +524,9 @@ class ElfExecutable(Executable):
 
         for r in elf.relocations:
             # Build a rela, and tie it to its symbol
+            # TODO: some relas have no symbols.  Live with it.
+            if r.symbol is None:
+                continue
             sym = lief_to_elf[r.symbol]
             rela = ElfRela(
                 offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
@@ -555,12 +570,15 @@ class ElfExecutable(Executable):
         return syms[0].size
 
     def update_symbol_value(
-        self, name: typing.Union[str, int], value: int, rebase: bool = True
+        self, name: typing.Union[str, int, ElfSymbol], value: int, rebase: bool = True
     ) -> None:
-        syms = self._get_symbols(name)
-        if len(syms) > 1:
-            raise ConfigurationError(f"Multiple syms named {name}")
-        sym = syms[0]
+        if isinstance(name, ElfSymbol):
+            sym = name
+        else:
+            syms = self._get_symbols(name)
+            if len(syms) > 1:
+                raise ConfigurationError(f"Multiple syms named {name}")
+            sym = syms[0]
 
         if rebase:
             # Value provided is absolute; rebase it to the symbol's base address
@@ -577,17 +595,29 @@ class ElfExecutable(Executable):
             log.error(f"No platform defined; cannot relocate {name}!")
 
     def link_elf(self, elf: "ElfExecutable") -> None:
+        # Process the normal rela table
         for rela in self._relas:
             my_sym = rela.symbol
-            o_syms = elf._get_symbols(my_sym.name)
-            if len(o_syms) > 1:
-                log.warning(f"Multiple symbols for {my_sym.name}")
+            if my_sym.name == "":
+                # This isn't a real symbol
                 continue
-            elif len(o_syms) < 1:
+
+            try:
+                o_syms = elf._get_symbols(my_sym.name)
+            except ConfigurationError:
                 log.warning(f"No symbol for {my_sym.name}")
                 continue
 
-            log.info(f"Match: {my_sym.name}: {o_syms}")
+            if len(set(map(lambda x: x.value, o_syms))) > 1:
+                # Catch multiple symbols
+                # If they all have the same value, we don't care.
+                log.warning(f"Multiple symbols for {my_sym.name}")
+                continue
+
+            o_sym = o_syms[0]
+            self.update_symbol_value(my_sym, o_sym.value + o_sym.baseaddr, rebase=True)
+
+        # Process MIPS implicit relas.
 
 
 __all__ = ["ElfExecutable"]

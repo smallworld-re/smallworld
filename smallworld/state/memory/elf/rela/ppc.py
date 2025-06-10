@@ -24,22 +24,33 @@ class PowerPCElfRelocator(ElfRelocator):
             return val.to_bytes(self.addrsz, "big")
         else:
             raise ConfigurationError(
-                "Invalid relocation type for {rela.symbol.name}: {rela.type}"
+                f"Invalid relocation type for {rela.symbol.name}: {rela.type}"
             )
 
 
-class PowerPC64ElfRelocator(PowerPCElfRelocator):
+R_PPC64_ADDR64 = 38  # Adjust by program base, I think...
+
+
+class PowerPC64ElfRelocator(ElfRelocator):
     arch = platforms.Architecture.POWERPC64
+    byteorder = platforms.Byteorder.BIG
     addrsz = 8
-    # TODO: This is only the beginning
-    #
-    # The PowerPC64 JUMP_SLOT relocation is much more complicated,
-    # possibly the most complicated I've ever seen.
-    # It actually fills in three 64-bit values:
-    #
-    # 1. The actual function address
-    # 2. The TOC base address; serves a similar purpose to the Global Pointer in MIPS.
-    # 3. An "environment" pointer, not used by C.
-    #
-    # We're currently correctly filling in 1.
-    # Entry 2. is the address of the GOT section of the containing binary + 0x8000.
+
+    def _compute_value(self, rela: ElfRela):
+        if rela.type == R_PPC64_ADDR64:
+            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            return val.to_bytes(self.addrsz, "big")
+        elif rela.type == R_PPC_JUMP_SLOT:
+            # The PowerPC64 JUMP_SLOT relocation is much more complicated.
+            # It actually fills in three 64-bit values:
+            #
+            # 1. The actual function address
+            # 2. The TOC base address; serves a similar purpose to the Global Pointer in MIPS.
+            # 3. An "environment" pointer, not used by C.
+            #
+            # We're currently correctly filling in 1.
+            # Entry 2. is the address of the GOT section of the containing binary + 0x8000.
+            #
+            # This requires a reference to the containing binary,
+            # which I have no idea how to pass.
+            raise NotImplementedError("R_PPC64_JUMP_SLOT not implemented")
