@@ -6,89 +6,92 @@
 #
 ailment==9.2.137
     # via angr
-alabaster==0.7.13
+alabaster==1.0.0
     # via sphinx
 angr==9.2.137
-    # via smallworld (setup.py)
+    # via smallworld-re (setup.py)
 archinfo==9.2.137
     # via
     #   angr
-    #   pyvex
-babel==2.14.0
+    #   cle
+babel==2.17.0
     # via sphinx
-backports-strenum==1.2.8
+backports-strenum==1.3.1
     # via archinfo
-bitarray==2.8.3
+bitarray==3.4.2
     # via bitstring
-bitstring==4.1.4
+bitstring==4.3.1
     # via pyvex
-black==23.11.0
-    # via smallworld (setup.py)
-build==1.0.3
+black==25.1.0
+    # via smallworld-re (setup.py)
+build==1.2.2.post1
     # via pip-tools
-cachetools==5.3.2
+cachetools==6.0.0
     # via
     #   angr
     #   claripy
 capstone==5.0.3
     # via
     #   angr
-    #   smallworld (setup.py)
-certifi==2024.2.2
+    #   smallworld-re (setup.py)
+cart==1.2.3
+    # via cle
+certifi==2025.4.26
     # via requests
-cffi==1.16.0
+cffi==1.17.1
     # via
     #   angr
+    #   pandare
     #   pyvex
 cfgv==3.4.0
     # via pre-commit
-charset-normalizer==3.3.2
+charset-normalizer==3.4.2
     # via requests
 claripy==9.2.137
     # via angr
 cle==9.2.137
     # via angr
-click==8.1.7
+click==8.2.1
     # via
     #   black
     #   pip-tools
+colorama==0.4.6
+    # via pandare
 cppheaderparser==2.7.4
     # via angr
-decorator==5.1.1
-    # via claripy
-distlib==0.3.7
+distlib==0.3.9
     # via virtualenv
-docutils==0.20.1
+docutils==0.21.2
     # via sphinx
-dpkt==1.9.8
-    # via angr
-filelock==3.13.1
+filelock==3.18.0
     # via virtualenv
-flake8==6.1.0
-    # via smallworld (setup.py)
-future==0.18.3
+flake8==7.2.0
+    # via smallworld-re (setup.py)
+future==1.0.0
     # via nampa
-gitdb==4.0.11
+gitdb==4.0.12
     # via gitpython
-gitpython==3.1.40
+gitpython==3.1.44
     # via angr
-identify==2.5.32
+identify==2.6.12
     # via pre-commit
-idna==3.6
+idna==3.10
     # via requests
 imagesize==1.4.1
     # via sphinx
-isort==5.13.2
-    # via smallworld (setup.py)
+isort==6.0.1
+    # via smallworld-re (setup.py)
 itanium-demangler==1.1
     # via angr
-jinja2==3.1.3
+jinja2==3.1.6
     # via sphinx
+jpype1==1.5.2
+    # via pyhidra
 lief==0.14.1
-    # via smallworld (setup.py)
+    # via smallworld-re (setup.py)
 markdown-it-py==3.0.0
     # via rich
-markupsafe==2.1.5
+markupsafe==3.0.2
     # via jinja2
 mccabe==0.7.0
     # via flake8
@@ -98,123 +101,146 @@ mpmath==1.3.0
     # via sympy
 mulpyplexer==0.9
     # via angr
-mypy==1.7.1
-    # via smallworld (setup.py)
-mypy-extensions==1.0.0
+mypy==1.16.0
+    # via smallworld-re (setup.py)
+mypy-extensions==1.1.0
     # via
     #   black
     #   mypy
 nampa==0.1.1
     # via angr
-networkx==3.4
-    # via angr
-nodeenv==1.8.0
+networkx==3.4.2
+    # via
+    #   angr
+    #   pyformlang
+nodeenv==1.9.1
     # via pre-commit
-packaging==23.2
+numpy==2.2.6
+    # via pyformlang
+packaging==25.0
     # via
     #   black
     #   build
+    #   jpype1
+    #   pyhidra
     #   sphinx
-pathspec==0.11.2
-    # via black
-pefile==2023.2.7
+pandare==1.8.58
+    # via smallworld-re (setup.py)
+pathspec==0.12.1
+    # via
+    #   black
+    #   mypy
+pefile==2024.8.26
     # via cle
-pip-tools==7.3.0
-    # via smallworld (setup.py)
-platformdirs==4.0.0
+pip-tools==7.4.1
+    # via smallworld-re (setup.py)
+platformdirs==4.3.8
     # via
     #   black
     #   virtualenv
-plumbum==1.8.2
-    # via rpyc
 ply==3.11
     # via cppheaderparser
-pre-commit==3.5.0
-    # via smallworld (setup.py)
-protobuf==6.30.2
+pre-commit==4.2.0
+    # via smallworld-re (setup.py)
+protobuf==6.31.1
+    # via
+    #   angr
+    #   pandare
+psutil==7.0.0
     # via angr
-psutil==5.9.6
-    # via angr
-pycodestyle==2.11.1
+pycodestyle==2.13.0
     # via flake8
-pycparser==2.21
+pycparser==2.22
     # via
     #   angr
     #   cffi
-pyelftools==0.30
+pycryptodome==3.23.0
+    # via cart
+pydot==4.0.0
+    # via pyformlang
+pyelftools==0.32
     # via cle
-pyflakes==3.1.0
+pyflakes==3.3.2
     # via flake8
-pygments==2.17.2
+pyformlang==1.0.11
+    # via angr
+pygments==2.19.1
     # via
     #   rich
     #   sphinx
-pypcode==3.0
-    # via smallworld (setup.py)
-pyproject-hooks==1.0.0
-    # via build
-pysmt==0.9.5
-    # via claripy
+pyhidra==1.3.0
+    # via smallworld-re (setup.py)
+pyparsing==3.2.3
+    # via pydot
+pypcode==3.0.0
+    # via smallworld-re (setup.py)
+pyproject-hooks==1.2.0
+    # via
+    #   build
+    #   pip-tools
 pyvex==9.2.137
     # via
     #   angr
     #   cle
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via pre-commit
-requests==2.31.0
+requests==2.32.4
     # via sphinx
-rich==13.7.0
+rich==14.0.0
     # via angr
-rpyc==5.3.1
-    # via angr
-smmap==5.0.1
+smmap==5.0.2
     # via gitdb
-snowballstemmer==2.2.0
+snowballstemmer==3.0.1
     # via sphinx
 sortedcontainers==2.4.0
     # via
     #   angr
     #   cle
-sphinx==7.1.2
+sphinx==8.1.3
     # via
-    #   smallworld (setup.py)
+    #   smallworld-re (setup.py)
     #   sphinxcontrib-programoutput
-sphinxcontrib-applehelp==1.0.4
+sphinxcontrib-applehelp==2.0.0
     # via sphinx
-sphinxcontrib-devhelp==1.0.2
+sphinxcontrib-devhelp==2.0.0
     # via sphinx
-sphinxcontrib-htmlhelp==2.0.1
+sphinxcontrib-htmlhelp==2.1.0
     # via sphinx
 sphinxcontrib-jsmath==1.0.1
     # via sphinx
-sphinxcontrib-programoutput==0.17
-    # via smallworld (setup.py)
-sphinxcontrib-qthelp==1.0.3
+sphinxcontrib-programoutput==0.18
+    # via smallworld-re (setup.py)
+sphinxcontrib-qthelp==2.0.0
     # via sphinx
-sphinxcontrib-serializinghtml==1.1.5
+sphinxcontrib-serializinghtml==2.0.0
     # via sphinx
-sympy==1.12
+sympy==1.14.0
     # via angr
-tomli==2.0.1
+tomli==2.2.1
     # via
     #   black
     #   build
     #   mypy
     #   pip-tools
-    #   pyproject-hooks
-typing-extensions==4.8.0
+    #   sphinx
+typing-extensions==4.14.0
     # via
+    #   ailment
     #   black
+    #   claripy
     #   mypy
+    #   rich
 unicorn==2.0.1.post1
     # via
     #   angr
-    #   smallworld (setup.py)
-urllib3==2.2.0
+    #   smallworld-re (setup.py)
+unique-log-filter==0.1.0
+    # via angr
+urllib3==2.4.0
     # via requests
-virtualenv==20.24.7
+virtualenv==20.31.2
     # via pre-commit
-wheel==0.42.0
+wheel==0.45.1
     # via pip-tools
 z3-solver==4.13.0.0
     # via claripy
