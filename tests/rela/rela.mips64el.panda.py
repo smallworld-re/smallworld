@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -19,7 +19,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-filename = __file__.replace(".py", ".elf").replace(".angr", "")
+filename = __file__.replace(".py", ".elf").replace(".panda", "")
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
@@ -33,10 +33,8 @@ cpu.pc.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push argument save slots onto the stack
-# MIPS saves its args above the base pointer.
-stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 2")
-stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 1")
+# Push a return address onto the stack
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -79,7 +77,23 @@ machine.add(puts)
 # Relocate puts
 code.update_symbol_value("puts", puts._address)
 
+# UTTER AND TOTAL MADNESS
+# MIPS relies on a "Global Pointer" register
+# to find its place in a position-independent binary.
+# In MIPS64, this is computed by relying on
+# the fact that dynamic function calls use
+# the t9 register to store the address of the target function.
+#
+# The function prologue sets gp to t9 plus a constant,
+# creating an address that's... not in the ELF image...?
+# Position-independent references then subtract
+# larger-than-strictly-necessary offsets
+# from gp to compute the desired address.
+#
+# TL;DR: To call main(), t9 must equal main.
+cpu.t9.set(entrypoint)
+
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 88)
+emulator = smallworld.emulators.PandaEmulator(platform)
+emulator.add_exit_point(entrypoint + 100)
 machine.emulate(emulator)

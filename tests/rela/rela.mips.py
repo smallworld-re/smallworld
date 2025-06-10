@@ -33,7 +33,8 @@ cpu.pc.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a return address onto the stack
+# Push argument save slots onto the stack
+# MIPS saves its args above the base pointer.
 stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 2")
 stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 1")
 

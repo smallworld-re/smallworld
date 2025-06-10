@@ -9,7 +9,6 @@ class MIPS64MachineDef(PandaMachineDef):
     cs_arch = capstone.CS_ARCH_MIPS
 
     # We don't need this
-    panda_arch = "mips64"
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
@@ -86,6 +85,15 @@ class MIPS64MachineDef(PandaMachineDef):
 
 class MIPS64BEMachineDef(MIPS64MachineDef):
     byteorder = Byteorder.BIG
+    panda_arch = "mips64"
     machine = "malta"
     cpu = "MIPS64R2-generic"
     cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
+
+
+class MIPS64ELMachineDef(MIPS64MachineDef):
+    byteorder = Byteorder.LITTLE
+    panda_arch = "mips64el"
+    machine = "malta"
+    cpu = "MIPS64R2-generic"
+    cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_LITTLE_ENDIAN
