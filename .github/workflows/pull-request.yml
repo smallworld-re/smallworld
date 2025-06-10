@@ -141,7 +141,9 @@ jobs:
           - testsuite: ElfTests
           - testsuite: FloatsTests
           - testsuite: FuzzTests
+          - testsuite: LinkElfTests
           - testsuite: HookingTests
+          - testsuite: RelaTests
           - testsuite: SquareTests
           - testsuite: StackTests
           - testsuite: StrlenTests
