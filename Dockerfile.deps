@@ -35,3 +35,5 @@ RUN python3 -c "import pandare"
 
 # Fix bug in Panda; it needs this file for mips64 to work
 RUN touch /usr/local/share/panda/mips_bios.bin
+# ...and this one for mips64el to work
+RUN touch /usr/local/share/panda/mipsel_bios.bin
