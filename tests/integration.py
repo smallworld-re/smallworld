@@ -1208,11 +1208,17 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
+    def test_elf_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
     def test_elf_amd64(self):
         self.run_test("amd64")
 
     def test_elf_amd64_angr(self):
         self.run_test("amd64.angr")
+
+    def test_elf_amd64_panda(self):
+        self.run_test("amd64.panda")
 
     def test_elf_armel(self):
         self.run_test("armel")
@@ -1220,11 +1226,17 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_armel_angr(self):
         self.run_test("armel.angr")
 
+    def test_elf_armel_panda(self):
+        self.run_test("armel.panda")
+
     def test_elf_armhf(self):
         self.run_test("armhf")
 
     def test_elf_armhf_angr(self):
         self.run_test("armhf.angr")
+
+    def test_elf_armhf_panda(self):
+        self.run_test("armhf.panda")
 
     def test_elf_i386(self):
         self.run_test("i386")
@@ -1232,11 +1244,17 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_i386_angr(self):
         self.run_test("i386.angr")
 
+    def test_elf_i386_panda(self):
+        self.run_test("i386.panda")
+
     def test_elf_mips(self):
         self.run_test("mips")
 
     def test_elf_mips_angr(self):
         self.run_test("mips.angr")
+
+    def test_elf_mips_panda(self):
+        self.run_test("mips.panda")
 
     def test_elf_mipsel(self):
         self.run_test("mipsel")
@@ -1244,8 +1262,14 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    def test_elf_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
     def test_elf_mips64_angr(self):
         self.run_test("mips64.angr")
+
+    def test_elf_mips64_panda(self):
+        self.run_test("mips64.panda")
 
     def test_elf_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -1255,6 +1279,9 @@ class ElfTests(ScriptIntegrationTest):
 
     def test_elf_ppc_angr(self):
         self.run_test("ppc.angr")
+
+    def test_elf_ppc_panda(self):
+        self.run_test("ppc.panda")
 
     def test_elf_ppc64_angr(self):
         self.run_test("ppc64.angr")

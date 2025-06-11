@@ -20,7 +20,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-filename = __file__.replace(".py", ".elf").replace(".angr", "")
+filename = __file__.replace(".py", ".elf").replace(".angr", "").replace(".panda", "")
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)

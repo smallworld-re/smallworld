@@ -19,7 +19,8 @@ machine.add(cpu)
 
 # load and map code into the state and set ip
 code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", "").replace(".panda", ""),
+    address=0x1000,
 )
 machine.add(code)
 cpu.eip.set(code.address)
