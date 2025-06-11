@@ -19,7 +19,8 @@ platform = smallworld.platforms.Platform(
 )
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin").replace(".angr", ""), address=0x1000
+    __file__.replace(".py", ".bin").replace(".angr", "").replace(".panda", ""),
+    address=0x1000,
 )
 heap = smallworld.state.memory.heap.BumpAllocator(0x2000, 0x1000)
 

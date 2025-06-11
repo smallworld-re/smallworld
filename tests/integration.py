@@ -226,6 +226,9 @@ class CallTests(ScriptIntegrationTest):
     def test_call_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
 
+    def test_call_mips64el_panda(self):
+        self.run_test("mips64el.panda", signext=True)
+
     def test_call_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -321,6 +324,9 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
+
+    def test_dma_mips64el_panda(self):
+        self.run_test("mips64el.panda", signext=True)
 
     def test_dma_ppc_angr(self):
         self.run_test("ppc.angr")
@@ -475,6 +481,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips64el_angr(self):
         self.run_test(arch="mips64el.angr", signext=True)
 
+    def test_square_mips64el_panda(self):
+        self.run_test(arch="mips64el.panda", signext=True)
+
     def test_square_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -574,6 +583,9 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_mips64el_angr(self):
         self.run_test("mips64el.angr")
+
+    def test_recursion_mips64el_panda(self):
+        self.run_test("mips64el.panda")
 
     def test_recursion_ppc_angr(self):
         self.run_test("ppc.angr")
@@ -788,6 +800,9 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mips64el_angr(self):
         self.run_test("mips64el.angr", reg="v0", res="0xffff")
 
+    def test_stack_mips64el_panda(self):
+        self.run_test("mips64el.panda", reg="v0", res="0xffff")
+
     def test_stack_ppc_angr(self):
         self.run_test("ppc.angr", reg="r3", res="0xffff")
 
@@ -957,6 +972,9 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_mips64el_angr(self):
         self.run_branch("mips64el.angr", reg="v0")
 
+    def test_branch_mips64el_panda(self):
+        self.run_branch("mips64el.panda", reg="v0")
+
     def test_branch_ppc_angr(self):
         self.run_branch("ppc.angr", reg="r3")
 
@@ -1053,6 +1071,9 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
+    def test_strlen_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
     def test_strlen_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -1072,7 +1093,7 @@ class StrlenTests(ScriptIntegrationTest):
 class HookingTests(ScriptIntegrationTest):
     def run_test(self, arch, heckingMIPS64=False):
         if heckingMIPS64:
-            # FIXME: Running hooking.mips64.panda.py IN THE INTEGRATION TESTS fails.
+            # FIXME: Running hooking.mips64(el).panda.py IN THE INTEGRATION TESTS fails.
             # It's fine run on its own.  No idea what's up
             expected = "oo bar baz"
         else:
@@ -1156,6 +1177,11 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
+    def test_hooking_mips64el_panda(self):
+        # There is a crazy bug in panda/mips64;
+        # it forgets the first character
+        self.run_test("mips64el.panda", heckingMIPS64=True)
+
     def test_hooking_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -1182,11 +1208,17 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
+    def test_elf_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
     def test_elf_amd64(self):
         self.run_test("amd64")
 
     def test_elf_amd64_angr(self):
         self.run_test("amd64.angr")
+
+    def test_elf_amd64_panda(self):
+        self.run_test("amd64.panda")
 
     def test_elf_armel(self):
         self.run_test("armel")
@@ -1194,11 +1226,17 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_armel_angr(self):
         self.run_test("armel.angr")
 
+    def test_elf_armel_panda(self):
+        self.run_test("armel.panda")
+
     def test_elf_armhf(self):
         self.run_test("armhf")
 
     def test_elf_armhf_angr(self):
         self.run_test("armhf.angr")
+
+    def test_elf_armhf_panda(self):
+        self.run_test("armhf.panda")
 
     def test_elf_i386(self):
         self.run_test("i386")
@@ -1206,11 +1244,17 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_i386_angr(self):
         self.run_test("i386.angr")
 
+    def test_elf_i386_panda(self):
+        self.run_test("i386.panda")
+
     def test_elf_mips(self):
         self.run_test("mips")
 
     def test_elf_mips_angr(self):
         self.run_test("mips.angr")
+
+    def test_elf_mips_panda(self):
+        self.run_test("mips.panda")
 
     def test_elf_mipsel(self):
         self.run_test("mipsel")
@@ -1218,14 +1262,26 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
+    def test_elf_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
     def test_elf_mips64_angr(self):
         self.run_test("mips64.angr")
+
+    def test_elf_mips64_panda(self):
+        self.run_test("mips64.panda")
 
     def test_elf_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
+    def test_elf_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
     def test_elf_ppc_angr(self):
         self.run_test("ppc.angr")
+
+    def test_elf_ppc_panda(self):
+        self.run_test("ppc.panda")
 
     def test_elf_ppc64_angr(self):
         self.run_test("ppc64.angr")
@@ -1314,16 +1370,112 @@ class RelaTests(ScriptIntegrationTest):
     def test_rela_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
+    def test_rela_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
     def test_rela_ppc_angr(self):
         self.run_test("ppc.angr")
 
     def test_rela_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_rela_ppc64_angr(self):
-        self.run_test("ppc64.angr")
+    # NOTE: PowerPC64 relocations are not currently supported
 
     def test_rela_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
+
+
+class LinkElfTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 link_elf/link_elf.{arch}.py 42")
+        self.assertLineContainsStrings("0x2a")
+
+    def test_link_elf_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_link_elf_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_link_elf_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_link_elf_amd64(self):
+        self.run_test("amd64")
+
+    def test_link_elf_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_link_elf_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_link_elf_armel(self):
+        self.run_test("armel")
+
+    def test_link_elf_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_link_elf_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_link_elf_armhf(self):
+        self.run_test("armhf")
+
+    def test_link_elf_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_link_elf_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_link_elf_i386(self):
+        self.run_test("i386")
+
+    def test_link_elf_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_link_elf_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_link_elf_mips(self):
+        self.run_test("mips")
+
+    def test_link_elf_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_link_elf_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_link_elf_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_link_elf_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_link_elf_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_link_elf_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_link_elf_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_link_elf_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_link_elf_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
+    def test_link_elf_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_link_elf_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    # NOTE: ppc64's GOT entries are weird; we don't support them.
+
+    def test_link_elf_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
     # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
