@@ -31,7 +31,7 @@ if len(install_requires) != len(immediate_dependencies):
 
 setup(
     name="smallworld-re",
-    version="1.0.3",
+    version="1.0.4",
     author="MIT Lincoln Laboratory",
     author_email="smallworld@ll.mit.edu",
     url="https://github.com/smallworld-re/smallworld",
