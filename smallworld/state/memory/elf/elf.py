@@ -476,6 +476,7 @@ class ElfExecutable(Executable):
                 value=s.value,
                 size=s.size,
                 baseaddr=baseaddr,
+                defined=(s.shndx != 0),
             )
             # Save the sym, and temporarily tie it to its lief partner
             if dynamic:
@@ -650,6 +651,9 @@ class ElfExecutable(Executable):
         # Update the value
         sym.value = value
 
+        # Mark this symbol as defined
+        sym.defined = True
+
         if self._relocator is not None:
             for rela in sym.relas:
                 # Relocate!
@@ -668,7 +672,6 @@ class ElfExecutable(Executable):
         Arguments:
             elf: The ELF from which to draw symbol values
             dynamic: Whether to link static or dynamic symbols
-
         """
         if dynamic:
             # Relocate rela.dyn and rela.plt
@@ -682,15 +685,17 @@ class ElfExecutable(Executable):
             if my_sym.name == "":
                 # This isn't a real symbol
                 continue
-            if my_sym.shndx != 0:
+            if my_sym.defined:
                 # This is a defined symbol
                 continue
 
             try:
                 o_syms = elf._get_symbols(my_sym.name, dynamic)
             except ConfigurationError:
-                # TODO: Better analysis of which symbols are resolved
-                log.warning(f"No symbol for {my_sym.name}")
+                continue
+
+            o_syms = list(filter(lambda x: x.defined, o_syms))
+            if len(o_syms) == 0:
                 continue
 
             if len(set(map(lambda x: x.value, o_syms))) > 1:

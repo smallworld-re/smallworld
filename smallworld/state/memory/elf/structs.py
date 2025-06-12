@@ -31,6 +31,7 @@ class ElfSymbol:
     bind: int  # Symbol binding
     visibility: int  # Symbol visibility
     shndx: int  # Symbol section index, or reserved flags
+    defined: bool  # Is this symbol defined?
     value: int  # Symbol value
     size: int  # Symbol size
     baseaddr: int  # Base address for relative symbol values
