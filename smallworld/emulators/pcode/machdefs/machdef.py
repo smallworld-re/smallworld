@@ -40,6 +40,9 @@ class PcodeMachineDef:
     # Program counter register
     pc_reg: str
 
+    # Address size
+    address_size: int
+
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):

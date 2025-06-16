@@ -74,19 +74,32 @@ class GhidraEmulator(Emulator):
 
         state = self.thread.getState()
 
-        val = value.to_bytes(reg.getMinimumByteSize(), "little")
+        if self.platform.byteorder is platforms.Byteorder.BIG:
+            val = value.to_bytes(reg.getMinimumByteSize(), "big")
+        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
+            val = value.to_bytes(reg.getMinimumByteSize(), "little")
+        else:
+            raise Exception("Unable to encode byteorder {self.platform.byteorder}")
+
         state.setVar(reg, self.bytes_py_to_java(val))
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         # Get the thread's memory state
         shared = self.emu.getSharedState()
 
+        if self.platform.byteorder is platforms.Byteorder.BIG:
+            addr_bytes = address.to_bytes(self.machdef.address_size, "big")
+        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
+            addr_bytes = address.to_bytes(self.machdef.address_size, "little")
+        else:
+            raise Exception("Unable to encode byteorder {self.platform.byteorder}")
+
         # Get the data out of the default address space
         # NOTE: Ghidra can support machines with multiple address spaces.
         # SmallWorld does not.
         val = shared.getVar(
             self.machdef.language.getDefaultSpace(),
-            self.bytes_py_to_java(address.to_bytes(8, "little")),
+            self.bytes_py_to_java(addr_bytes),
             size,
             False,
             shared.Reason.INSPECT,
@@ -106,17 +119,25 @@ class GhidraEmulator(Emulator):
         if isinstance(content, claripy.ast.bv.BV):
             raise TypeError("Pcode emulator can't handle symbolic expressions")
 
+        print(f"Writing {hex(len(content))} bytes at {hex(address)}")
+
         # Get the thread's memory state
         shared = self.emu.getSharedState()
 
         val = self.bytes_py_to_java(content)
+        if self.platform.byteorder is platforms.Byteorder.BIG:
+            addr_bytes = address.to_bytes(self.machdef.address_size, "big")
+        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
+            addr_bytes = address.to_bytes(self.machdef.address_size, "little")
+        else:
+            raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
         # Get the data out of the default address space
         # NOTE: Ghidra can support machines with multiple address spaces.
         # SmallWorld does not.
         shared.setVar(
             self.machdef.language.getDefaultSpace(),
-            self.bytes_py_to_java(address.to_bytes(8, "little")),
+            self.bytes_py_to_java(addr_bytes),
             len(content),
             False,
             val,
@@ -129,9 +150,9 @@ class GhidraEmulator(Emulator):
             )
 
         # Step!
-        pc_addr = self.machdef.language.getDefaultSpace().getAddress(
-            self.read_register_content(self.machdef.pc_reg)
-        )
+        pc = self.read_register_content(self.machdef.pc_reg)
+        pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
+        print(f"Stepping through {hex(pc)}")
         self.thread.overrideCounter(pc_addr)
 
         self.thread.stepInstruction()
