@@ -5,7 +5,7 @@ import jpype
 from ghidra.pcode.emu import PcodeEmulator, PcodeThread
 from ghidra.pcode.exec import PcodeExecutorStatePiece
 
-from ... import exceptions, platforms
+from ... import exceptions, platforms, utils
 from ..emulator import Emulator
 from .machdefs import PcodeMachineDef
 
@@ -33,6 +33,8 @@ class GhidraEmulator(Emulator):
         self.machdef: PcodeMachineDef = PcodeMachineDef.for_platform(platform)
 
         self.emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
+
+        self.memory_map = utils.RangeCollection()
 
     @property
     def thread(self) -> PcodeThread:
@@ -92,10 +94,11 @@ class GhidraEmulator(Emulator):
         return self.bytes_java_to_py(val)
 
     def map_memory(self, address: int, size: int) -> None:
-        pass
+        region = (address, address + size)
+        self.memory_map.add_range(region)
 
     def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
-        return list()
+        return list(self.memory_map.ranges)
 
     def write_memory_content(
         self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]

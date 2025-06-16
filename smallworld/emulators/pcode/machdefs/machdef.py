@@ -47,6 +47,7 @@ class PcodeMachineDef:
         slp = SleighLanguageProvider.getSleighLanguageProvider()
         langID = LanguageID(self.language_id)
         self.language: Language = slp.getLanguage(langID)
+        assert self.language is not None
 
     def pcode_reg(self, name: str) -> Register:
         if name not in self._registers:
@@ -55,7 +56,9 @@ class PcodeMachineDef:
             raise exceptions.UnsupportedRegisterError(
                 f"Register {name} not recognized by pcode for {self.arch}:{self.byteorder}"
             )
-        return self.language.getRegister(self._registers[name])
+        reg = self.language.getRegister(self._registers[name])
+        assert reg is not None, name
+        return reg
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

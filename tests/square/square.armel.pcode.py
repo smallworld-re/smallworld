@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -33,13 +33,13 @@ machine.add(code)
 cpu.pc.set(code.address)
 
 # Initialize argument registers
-cpu.a0.set(int(sys.argv[1]))
+cpu.r0.set(int(sys.argv[1]))
 
 # Emulate
-emulator = smallworld.emulators.PandaEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+print(hex(cpu.r0.get()))
