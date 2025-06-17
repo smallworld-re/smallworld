@@ -418,6 +418,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_amd64_panda(self):
         self.run_test(arch="amd64.panda")
 
+    def test_square_amd64_pcode(self):
+        self.run_test(arch="amd64.pcode")
+
     def test_square_aarch64(self):
         self.run_test(arch="aarch64")
 
@@ -426,6 +429,9 @@ class SquareTests(ScriptIntegrationTest):
 
     def test_square_aarch64_panda(self):
         self.run_test(arch="aarch64.panda")
+
+    def test_square_aarch64_pcode(self):
+        self.run_test(arch="aarch64.pcode")
 
     def test_square_armel(self):
         self.run_test(arch="armel")
@@ -436,6 +442,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_armel_panda(self):
         self.run_test(arch="armel.panda")
 
+    def test_square_armel_pcode(self):
+        self.run_test(arch="armel.pcode")
+
     def test_square_armhf(self):
         self.run_test(arch="armhf")
 
@@ -444,6 +453,9 @@ class SquareTests(ScriptIntegrationTest):
 
     def test_square_armhf_panda(self):
         self.run_test(arch="armhf.panda")
+
+    def test_square_armhf_pcode(self):
+        self.run_test(arch="armhf.pcode")
 
     def test_square_i386(self):
         self.run_test(arch="i386")
@@ -454,6 +466,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_i386_panda(self):
         self.run_test(arch="i386.panda")
 
+    def test_square_i386_pcode(self):
+        self.run_test(arch="i386.pcode")
+
     def test_square_mips(self):
         self.run_test(arch="mips")
 
@@ -462,6 +477,9 @@ class SquareTests(ScriptIntegrationTest):
 
     def test_square_mips_panda(self):
         self.run_test(arch="mips.panda")
+
+    def test_square_mips_pcode(self):
+        self.run_test(arch="mips.pcode")
 
     def test_square_mipsel(self):
         self.run_test(arch="mipsel")
@@ -472,11 +490,17 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mipsel_panda(self):
         self.run_test(arch="mipsel.panda")
 
+    def test_square_mipsel_pcode(self):
+        self.run_test(arch="mipsel.pcode")
+
     def test_square_mips64_angr(self):
         self.run_test(arch="mips64.angr", signext=True)
 
     def test_square_mips64_panda(self):
         self.run_test(arch="mips64.panda", signext=True)
+
+    def test_square_mips64_pcode(self):
+        self.run_test(arch="mips64.pcode", signext=True)
 
     def test_square_mips64el_angr(self):
         self.run_test(arch="mips64el.angr", signext=True)
@@ -484,20 +508,35 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips64el_panda(self):
         self.run_test(arch="mips64el.panda", signext=True)
 
+    def test_square_mips64el_pcode(self):
+        self.run_test(arch="mips64el.pcode", signext=True)
+
     def test_square_ppc_angr(self):
         self.run_test("ppc.angr")
 
     def test_square_ppc_panda(self):
         self.run_test("ppc.panda")
 
+    def test_square_ppc_pcode(self):
+        self.run_test("ppc.pcode")
+
     def test_square_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
+
+    def test_square_ppc64_pcode(self):
+        self.run_test("ppc64.pcode", signext=True)
 
     def test_square_riscv64_angr(self):
         self.run_test("riscv64.angr", signext=True)
 
+    def test_square_riscv64_pcode(self):
+        self.run_test("riscv64.pcode", signext=True)
+
     def test_square_xtensa_angr(self):
         self.run_test("xtensa.angr")
+
+    def test_square_xtensa_pcode(self):
+        self.run_test("xtensa.pcode")
 
 
 class RecursionTests(ScriptIntegrationTest):

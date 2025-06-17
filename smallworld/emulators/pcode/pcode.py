@@ -33,6 +33,10 @@ class GhidraEmulator(Emulator):
         self.machdef: PcodeMachineDef = PcodeMachineDef.for_platform(platform)
 
         self.emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
+        # Set up the context configuration.
+        # This includes execution mode information,
+        # and isn't automatically propagated to the thread.
+        self.thread.overrideContextWithDefault()
 
         self.memory_map = utils.RangeCollection()
 
