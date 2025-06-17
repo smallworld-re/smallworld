@@ -11,11 +11,10 @@ immediate_dependencies = {
     "lief",
     "pyhidra",
     "pypcode",
-    "pandare",
     "unicorn",
 }
 # For some reason, pyhidra doesn't show up on pip-compile
-install_requires = []
+install_requires = ["pyhidra==1.3.0"]
 with open("constraints.txt", "r") as f:
     constraints = f.read().split("\n")
     for c in filter(
