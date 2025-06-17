@@ -21,7 +21,10 @@ machine.add(cpu)
 
 # Load and add code into the state
 code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin").replace(".angr", "").replace(".panda", ""),
+    __file__.replace(".py", ".bin")
+    .replace(".angr", "")
+    .replace(".panda", "")
+    .replace(".pcode", ""),
     address=0x1000,
 )
 machine.add(code)
