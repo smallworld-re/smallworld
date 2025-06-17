@@ -5,6 +5,7 @@ from .i386 import i386MachineDef
 from .machdef import PcodeMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
+from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
 from .riscv import RISCV64MachineDef
 from .xtensa import XTensaMachineDef
 
@@ -21,6 +22,8 @@ __all__ = [
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
     "PcodeMachineDef",
+    "PowerPC32MachineDef",
+    "PowerPC64MachineDef",
     "RISCV64MachineDef",
     "XTensaMachineDef",
 ]
