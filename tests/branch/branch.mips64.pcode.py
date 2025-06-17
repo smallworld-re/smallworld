@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -33,14 +33,13 @@ machine.add(code)
 cpu.pc.set(code.address)
 
 # Initialize argument registers
-cpu.r3.set(int(sys.argv[1]))
+cpu.a0.set(int(sys.argv[1]))
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(cpu.r3)
+print(cpu.v0)

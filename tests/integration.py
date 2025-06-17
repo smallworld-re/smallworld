@@ -948,6 +948,9 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_amd64_panda(self):
         self.run_branch("amd64.panda")
 
+    def test_branch_amd64_pcode(self):
+        self.run_branch("amd64.pcode")
+
     def test_branch_aarch64(self):
         self.run_branch("aarch64", reg="w0")
 
@@ -956,6 +959,9 @@ class BranchTests(ScriptIntegrationTest):
 
     def test_branch_aarch64_panda(self):
         self.run_branch("aarch64.panda", reg="w0")
+
+    def test_branch_aarch64_pcode(self):
+        self.run_branch("aarch64.pcode", reg="w0")
 
     def test_branch_armel(self):
         self.run_branch("armel", reg="r0")
@@ -966,6 +972,9 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_armel_panda(self):
         self.run_branch("armel.panda", reg="r0")
 
+    def test_branch_armel_pcode(self):
+        self.run_branch("armel.pcode", reg="r0")
+
     def test_branch_armhf(self):
         self.run_branch("armhf", reg="r0")
 
@@ -974,6 +983,9 @@ class BranchTests(ScriptIntegrationTest):
 
     def test_branch_armhf_panda(self):
         self.run_branch("armhf.panda", reg="r0")
+
+    def test_branch_armhf_pcode(self):
+        self.run_branch("armhf.pcode", reg="r0")
 
     def test_branch_i386(self):
         self.run_branch("i386")
@@ -984,6 +996,9 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_i386_panda(self):
         self.run_branch("i386.panda")
 
+    def test_branch_i386_pcode(self):
+        self.run_branch("i386.pcode")
+
     def test_branch_mips(self):
         self.run_branch("mips", reg="v0")
 
@@ -992,6 +1007,9 @@ class BranchTests(ScriptIntegrationTest):
 
     def test_branch_mips_panda(self):
         self.run_branch("mips.panda", reg="v0")
+
+    def test_branch_mips_pcode(self):
+        self.run_branch("mips.pcode", reg="v0")
 
     def test_branch_mipsel(self):
         self.run_branch("mipsel", reg="v0")
@@ -1002,11 +1020,17 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_mipsel_panda(self):
         self.run_branch("mipsel.panda", reg="v0")
 
+    def test_branch_mipsel_pcode(self):
+        self.run_branch("mipsel.pcode", reg="v0")
+
     def test_branch_mips64_angr(self):
         self.run_branch("mips64.angr", reg="v0")
 
     def test_branch_mips64_panda(self):
         self.run_branch("mips64.panda", reg="v0")
+
+    def test_branch_mips64_pcode(self):
+        self.run_branch("mips64.pcode", reg="v0")
 
     def test_branch_mips64el_angr(self):
         self.run_branch("mips64el.angr", reg="v0")
@@ -1014,20 +1038,35 @@ class BranchTests(ScriptIntegrationTest):
     def test_branch_mips64el_panda(self):
         self.run_branch("mips64el.panda", reg="v0")
 
+    def test_branch_mips64el_pcode(self):
+        self.run_branch("mips64el.pcode", reg="v0")
+
     def test_branch_ppc_angr(self):
         self.run_branch("ppc.angr", reg="r3")
 
     def test_branch_ppc_panda(self):
         self.run_branch("ppc.panda", reg="r3")
 
+    def test_branch_ppc_pcode(self):
+        self.run_branch("ppc.pcode", reg="r3")
+
     def test_branch_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
+
+    def test_branch_ppc64_pcode(self):
+        self.run_branch("ppc64.pcode", reg="r3")
 
     def test_branch_riscv64_angr(self):
         self.run_branch("riscv64.angr", reg="a0")
 
+    def test_branch_riscv64_pcode(self):
+        self.run_branch("riscv64.pcode", reg="a0")
+
     def test_branch_xtensa_angr(self):
         self.run_branch("xtensa.angr", reg="a2")
+
+    def test_branch_xtensa_pcode(self):
+        self.run_branch("xtensa.pcode", reg="a2")
 
 
 class StrlenTests(ScriptIntegrationTest):
