@@ -98,7 +98,6 @@ class AngrMachineDef:
 
         Arguments:
             arch: The architecture ID you want
-            mode: The mode ID you want
             byteorder: The byteorderness you want
 
         Returns:

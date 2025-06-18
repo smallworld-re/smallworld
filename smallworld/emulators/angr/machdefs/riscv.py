@@ -194,28 +194,28 @@ class RISCV64MachineDef(AngrMachineDef):
         "fs1": "fs1",
         # f10 is argument 0
         "f10": "f10",
-        "a0": "a0",
+        "fa0": "fa0",
         # f11 is argument 1
         "f11": "f11",
-        "a1": "a1",
+        "fa1": "fa1",
         # f12 is argument 2
         "f12": "f12",
-        "a2": "a2",
+        "fa2": "fa2",
         # f13 is argument 3
         "f13": "f13",
-        "a3": "a3",
+        "fa3": "fa3",
         # f14 is argument 4
         "f14": "f14",
-        "a4": "a4",
+        "fa4": "fa4",
         # f15 is argument 5
         "f15": "f15",
-        "a5": "a5",
+        "fa5": "fa5",
         # f16 is argument 6
         "f16": "f16",
-        "a6": "a6",
+        "fa6": "fa6",
         # f7 is argument 7
         "f17": "f17",
-        "a7": "a7",
+        "fa7": "fa7",
         # f18 is a callee-saved register
         "f18": "f18",
         "fs2": "fs2",
