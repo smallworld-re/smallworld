@@ -25,7 +25,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
     @staticmethod
     def bytes_java_to_py(val: jpype.JByte[:]):
         # Convert a JPype byte[] into a bytes object
-        # bytes and bytearray are considered variants of String by JPype
         bytelist = list(
             map(lambda x: x.numerator if x.numerator >= 0 else 256 + x.numerator, val)
         )
