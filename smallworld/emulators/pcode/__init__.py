@@ -1,8 +1,8 @@
 from ... import platforms
-from ..emulator import Emulator
+from .typing import AbstractGhidraEmulator
 
 
-def GhidraEmulator(platform: platforms.Platform) -> Emulator:
+def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
     """Factory for creating a GhidraEmulator
 
     Importing any of the pyghidra packages requires

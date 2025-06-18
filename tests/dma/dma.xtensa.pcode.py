@@ -105,7 +105,8 @@ machine.add(hdiv)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+# There are extra bytes in the file that don't decode to "nop"
+emulator.add_exit_point(cpu.pc.get() + 0xC)
 final_machine = machine.emulate(emulator)
 
 # read out the final state
