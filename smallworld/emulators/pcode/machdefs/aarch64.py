@@ -76,8 +76,8 @@ class AArch64MachineDef(PcodeMachineDef):
         "w30": "w30",
         "pc": "pc",
         "sp": "sp",
-        "fp": "fp",
-        "lr": "lr",
+        "fp": "x29",
+        "lr": "x30",
         "xzr": "xzr",
         "wzr": "wzr",
         # *** System Control Registers ***

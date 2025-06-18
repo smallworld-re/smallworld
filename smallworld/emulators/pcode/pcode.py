@@ -2,13 +2,13 @@ import typing
 
 import claripy
 import jpype
-from ghidra.pcode._emu import PcodeEmulator, PcodeThread
+from ghidra.pcode.emu import PcodeEmulator, PcodeThread
 from ghidra.pcode.exec import InterruptPcodeExecutionException, PcodeExecutorStatePiece
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.pcode import Varnode
 
 from ... import exceptions, platforms, utils
-from .._emulator import Emulator
+from ..emulator import Emulator
 from .machdefs import PcodeMachineDef
 from .typing import AbstractGhidraEmulator
 
