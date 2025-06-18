@@ -31,14 +31,20 @@ jobs:
         run: |
           podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
 
-      - name: Build Containers
+      - name: Build Deps
         run: |
           podman build --squash-all -f Dockerfile.deps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} .
-          podman build --squash-all -f Dockerfile.testdeps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} .
 
-      - name: Tag Containers
+      - name: Tag Deps
         run: |
           podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
+      
+      - name: Build Testdeps
+        run: |
+          podman build --squash-all -f Dockerfile.testdeps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} .
+      
+      - name: Tag Testdeps
+        run: |
           podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
 
       - name: Save Containers
