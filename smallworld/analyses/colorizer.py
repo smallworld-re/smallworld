@@ -150,6 +150,7 @@ class Colorizer(analysis.Analysis):
                 sw_insn = Instruction.from_capstone(cs_insn)
 
                 logger.debug(sw_insn)
+                #                print(f"j={j} {sw_insn}")
 
                 # pull state back out of the emulator for inspection
                 m = copy.deepcopy(self.machine)
@@ -188,6 +189,7 @@ class Colorizer(analysis.Analysis):
 
                 try:
                     # print(f"pc={pc:x} {sw_insn}")
+                    # breakpoint()
                     # import pdb
                     # pdb.set_trace()
 
@@ -221,7 +223,7 @@ class Colorizer(analysis.Analysis):
                         exception=str(e),
                     )
                     hint_list.append(exhint)
-                    hinter.debug(exhint)
+                    hinter.info(exhint)
                     logger.info(e)
                     break
 
@@ -325,23 +327,29 @@ class Colorizer(analysis.Analysis):
         return struct.unpack("<Q", the_bytes)[0]
 
     def _randomize_registers(self) -> None:
-        for reg in self.orig_cpu:
-            # only colorize the "regular" registers
-            if (type(reg) is not state.Register) or (
-                reg.name not in self.orig_cpu.get_general_purpose_registers()
-            ):
-                continue
-            orig_val = self.emu.read_register(reg.name)
-            logger.debug(f"_randomize_registers {reg.name} orig_val={orig_val:x}")
+        cpu = self.machine.get_cpu()
+        # have to get list regs sorted by name so that random values
+        # will be assigned to regs in same order for same seed
+        # OTHERWISE not repro
+        regs = []
+        for reg in cpu:
+            if (
+                type(reg) is state.Register
+            ) and reg.name in cpu.get_general_purpose_registers():
+                regs.append((reg.name, reg.size))
+        regs.sort(key=lambda x: x[0])
+        for name, size in regs:
+            orig_val = self.emu.read_register(name)
+            logger.debug(f"_randomize_registers {name} orig_val={orig_val:x}")
             new_val = 0
             bc = 0
-            for i in range(0, reg.size):
+            for i in range(0, size):
                 new_val = new_val << 8
                 if (
-                    reg.name in self.emu.initialized_registers
-                    and i in self.emu.initialized_registers[reg.name]
+                    name in self.emu.initialized_registers
+                    and i in self.emu.initialized_registers[name]
                 ):
-                    bs = 8 * (reg.size - i - 1)
+                    bs = 8 * (size - i - 1)
                     b = (orig_val >> bs) & 0xFF
                     # b = (orig_val >> (i * 8)) & 0xFF
                     new_val |= b
@@ -350,14 +358,15 @@ class Colorizer(analysis.Analysis):
                     bc += 1
             if bc == 0:
                 logger.debug(
-                    f"Not colorizing register {reg.name} since it is already fully initialized with {orig_val:x}"
+                    f"Not colorizing register {name} since it is already fully initialized with {orig_val:x}"
                 )
             else:
                 # make sure to update cpu as well as emu not sure why
-                self.emu.write_register(reg.name, new_val)
-                setattr(self.cpu, reg.name, new_val)
+                self.emu.write_register(name, new_val)
+                setattr(self.cpu, name, new_val)
+                # print(f"reg {name} updated with {bc} random bytes to {new_val:x}")
                 logger.debug(
-                    f"Colorized {bc} bytes in register {reg.name}, old value was {orig_val:x} new is {new_val:x}"
+                    f"Colorized {bc} bytes in register {name}, old value was {orig_val:x} new is {new_val:x}"
                 )
 
     # helper for read/write unavailable hint
@@ -399,7 +408,7 @@ class Colorizer(analysis.Analysis):
             instruction_num=insn_num,
             message="mem_unavailable",
         )
-        hinter.debug(hint)
+        hinter.info(hint)
         return hint
 
     def _add_color(
@@ -434,7 +443,7 @@ class Colorizer(analysis.Analysis):
                     insn_num,
                     "read-flow",
                 )
-                hinter.debug(hint)
+                hinter.info(hint)
                 hint_list.append(hint)
             else:
                 # red-def: use of a NOT previously recorded color value. As
@@ -452,7 +461,7 @@ class Colorizer(analysis.Analysis):
                     insn_num,
                     "read-def",
                 )
-                hinter.debug(hint)
+                hinter.info(hint)
                 hint_list.append(hint)
 
     def _check_colors_instruction_writes(
@@ -479,7 +488,7 @@ class Colorizer(analysis.Analysis):
                     insn_num,
                     "write-copy",
                 )
-                hinter.debug(hint)
+                hinter.info(hint)
                 hint_list.append(hint)
                 pass
             else:
@@ -498,7 +507,7 @@ class Colorizer(analysis.Analysis):
                     insn_num,
                     "write-def",
                 )
-                hinter.debug(hint)
+                hinter.info(hint)
                 hint_list.append(hint)
 
     def _dynamic_value_hint(

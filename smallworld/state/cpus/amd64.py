@@ -168,7 +168,7 @@ class AMD64(cpu.CPU):
 
         self.rsi = state.Register("rsi", 8)
         self.add(self.rsi)
-        self.esi = state.RegisterAlias("rsi", self.rsi, 4, 0)
+        self.esi = state.RegisterAlias("esi", self.rsi, 4, 0)
         self.add(self.esi)
         self.si = state.RegisterAlias("si", self.rsi, 2, 0)
         self.add(self.si)
@@ -177,7 +177,7 @@ class AMD64(cpu.CPU):
 
         self.rsp = state.Register("rsp", 8)
         self.add(self.rsp)
-        self.esp = state.RegisterAlias("rsp", self.rsp, 4, 0)
+        self.esp = state.RegisterAlias("esp", self.rsp, 4, 0)
         self.add(self.esp)
         self.sp = state.RegisterAlias("sp", self.rsp, 2, 0)
         self.add(self.sp)
@@ -186,7 +186,7 @@ class AMD64(cpu.CPU):
 
         self.rbp = state.Register("rbp", 8)
         self.add(self.rbp)
-        self.ebp = state.RegisterAlias("rbp", self.rbp, 4, 0)
+        self.ebp = state.RegisterAlias("ebp", self.rbp, 4, 0)
         self.add(self.ebp)
         self.bp = state.RegisterAlias("bp", self.rbp, 2, 0)
         self.add(self.bp)
@@ -196,7 +196,7 @@ class AMD64(cpu.CPU):
         # *** Instruction Pointer ***
         self.rip = state.Register("rip", 8)
         self.add(self.rip)
-        self.eip = state.RegisterAlias("rip", self.rip, 4, 0)
+        self.eip = state.RegisterAlias("eip", self.rip, 4, 0)
         self.add(self.eip)
         self.ip = state.RegisterAlias("ip", self.rip, 2, 0)
         self.add(self.ip)
