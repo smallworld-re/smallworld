@@ -304,10 +304,10 @@ class MIPSEL(MIPS):
         # from 32-bit multiplication, amongst others.
         self.ac0 = state.Register("ac0", size=8)
         self.add(self.ac0)
-        self.lo = state.RegisterAlias("lo0", self.ac0, size=4, offset=0)
-        self.add(self.lo)
-        self.hi = state.RegisterAlias("hi0", self.ac0, size=4, offset=4)
-        self.add(self.hi)
+        self.lo0 = state.RegisterAlias("lo0", self.ac0, size=4, offset=0)
+        self.add(self.lo0)
+        self.hi0 = state.RegisterAlias("hi0", self.ac0, size=4, offset=4)
+        self.add(self.hi0)
         self.ac1 = state.Register("ac1", size=8)
         self.add(self.ac1)
         self.lo1 = state.RegisterAlias("lo1", self.ac1, size=4, offset=0)
@@ -346,8 +346,6 @@ class MIPSBE(MIPS):
         # from 32-bit multiplication, amongst others.
         self.ac0 = state.Register("ac0", size=8)
         self.add(self.ac0)
-        # NOTE: Be careful: there is also a 'hi' and 'lo' register;
-        # they do different things.
         self.hi0 = state.RegisterAlias("hi0", self.ac0, size=4, offset=0)
         self.add(self.hi0)
         self.lo0 = state.RegisterAlias("lo0", self.ac0, size=4, offset=4)
@@ -370,5 +368,3 @@ class MIPSBE(MIPS):
         self.add(self.hi3)
         self.lo3 = state.RegisterAlias("lo3", self.ac3, size=4, offset=4)
         self.add(self.lo3)
-        # TODO: MIPS has a boatload of extensions with their own registers.
-        # There isn't a clean join between Sleigh, Unicorn, and MIPS docs.

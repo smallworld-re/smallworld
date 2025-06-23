@@ -199,8 +199,8 @@ class PowerPC(cpu.CPU):
         self.add(self.xer)
 
         # Floating Point Status and Control Register
-        self.fpsrc = state.Register("fpscr", size=4)
-        self.add(self.fpsrc)
+        self.fpscr = state.Register("fpscr", size=4)
+        self.add(self.fpscr)
 
         # TODO: This only focuses on the user-facing registrers.
         # ppc has a huge number of privileged registers.
