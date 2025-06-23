@@ -14,8 +14,6 @@ class i386MachineDef(AngrMachineDef):
 
     angr_arch = archinfo.arch_x86.ArchX86()
 
-    pc_reg = "eip"
-
     _registers = {
         # *** General Purpose Registers ***
         "eax": "eax",

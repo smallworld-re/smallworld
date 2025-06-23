@@ -202,7 +202,6 @@ angr.calling_conventions.register_syscall_cc(
 class XTensaMachineDef(PcodeMachineDef):
     arch = Architecture.XTENSA
     _registers = {f"a{i}": f"a{i}" for i in range(0, 16)} | {"pc": "pc", "sar": "sar"}
-    pc_reg = "pc"
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         # xtensa includes a _LOT_ of custom pcode operations.

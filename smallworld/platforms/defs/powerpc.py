@@ -21,6 +21,8 @@ class PowerPCPlatformDef(PlatformDef):
 
     capstone_arch = capstone.CS_ARCH_PPC
 
+    pc_register = "pc"
+
     # Special registers
     # - r0 and r2 are reserved for the assembler.
     # - r1 is the stack pointer

@@ -7,8 +7,6 @@ from .machdef import AngrMachineDef
 class PowerPCMachineDef(AngrMachineDef):
     byteorder = Byteorder.BIG
 
-    pc_reg = "pc"
-
     _registers = {
         "r0": "r0",
         "r1": "r1",

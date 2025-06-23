@@ -51,6 +51,12 @@ class PlatformDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def pc_register(self) -> str:
+        """Program Counter register name"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
     def general_purpose_registers(self) -> typing.List[str]:
         """List of general-purpose register names"""
         raise NotImplementedError()

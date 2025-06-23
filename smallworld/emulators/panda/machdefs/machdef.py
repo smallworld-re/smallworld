@@ -25,18 +25,6 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         """The panda architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    @property
-    @abc.abstractmethod
-    def cs_arch(self) -> int:
-        """The capstone architecture to use"""
-        raise NotImplementedError("This is an abstract method.")
-
-    @property
-    @abc.abstractmethod
-    def cs_mode(self) -> int:
-        """The capstone mode to use"""
-        raise NotImplementedError("This is an abstract method.")
-
     _registers: typing.Dict[str, str] = {}
 
     def panda_reg(self, name: str) -> str:

@@ -28,12 +28,6 @@ class AngrMachineDef:
         """The angr architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    @property
-    @abc.abstractmethod
-    def pc_reg(self) -> str:
-        """The program counter register name"""
-        return ""
-
     # Is this thumb?
     # Almost always no, but angr needs to ask.
     is_thumb: bool = False

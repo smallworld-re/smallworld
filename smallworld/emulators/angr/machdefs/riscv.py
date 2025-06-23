@@ -58,8 +58,6 @@ class RISCV64MachineDef(AngrMachineDef):
 
     angr_arch = archinfo.ArchRISCV64()
 
-    pc_reg = "pc"
-
     _registers = {
         # *** General-Purpose Registers ***
         # x0 is wired to 0, and aliased as "zero"
