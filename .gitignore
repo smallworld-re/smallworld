@@ -3,6 +3,7 @@
 *.jsonl
 *.json
 *.elf
+*.so
 
 *.egg-info/
 dist/

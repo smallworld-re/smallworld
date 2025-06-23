@@ -18,7 +18,7 @@ file ``square.amd64.bin``.
 
 A reasonable first step in harnessing is to run SmallWorld's basic harness
 script which assumes nothing about the code: ``basic_harness.py`` (which also
-lives in the ``tests`` directory). That script is fairly simple, so let's have
+lives in the ``examples`` directory). That script is fairly simple, so let's have
 a look at it.
 
 .. literalinclude:: ../../examples/basic_harness.py

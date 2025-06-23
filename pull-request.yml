@@ -1,0 +1,132 @@
+name: Pull Request
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopen, edited]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  Lint:
+    runs-on: smallworld-arc
+    permissions:
+      contents: write
+    outputs:
+      changes_detected: ${{ steps.ac.outputs.changes_detected }}
+
+    steps:
+      - name: Preinit
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y git-lfs build-essential cmake clang podman
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+          token: ${{ secrets.BOT_TOKEN }}
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[development] -c constraints.txt
+
+      - name: Format
+        run: |
+          isort . --profile black
+          black ./
+
+      - id: ac
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: isort and black"
+          commit_author: GitHub Actions <actions@github.com>
+
+      - name: Lint
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          isort --check --profile black .
+          black --check ./
+          flake8 ./
+          mypy --ignore-missing-imports ./
+
+      - name: Check Title
+        if: steps.ac.outputs.changes_detected == 'false'
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: bash .github/workflows/scripts/conventional.sh "$TITLE"
+
+      - name: Build Container
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          podman build --network host -t "$IMAGE" .
+
+      - name: Save Container
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+
+  Unit-Test:
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    steps:
+      - name: Load Container
+        run: |
+          podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+      - name: Run Unit Tests
+        run: |
+          podman run -i -w /opt/smallworld/tests smallworld:latest python3 unit.py
+
+  Integration-Test:
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    strategy:
+      matrix:
+        include:
+          - testsuite: BlockTests
+          - testsuite: BranchTests
+          - testsuite: CallTests
+          - testsuite: DMATests
+          - testsuite: DocumentationTests
+          - testsuite: ElfTests
+          - testsuite: FloatsTests
+          - testsuite: FuzzTests
+          - testsuite: HookingTests
+          - testsuite: SquareTests
+          - testsuite: StackTests
+          - testsuite: StrlenTests
+          - testsuite: StructureTests
+          - testsuite: SyscallTests
+    steps:
+      - name: Load Container
+        run: |
+          podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+      - name: Run Integration Tests
+        run: |
+          podman run -i -w /opt/smallworld/tests smallworld:latest \
+            python3 integration.py -v ${{ matrix.testsuite }}
+
+  Results:
+    runs-on: smallworld-arc
+    needs: [Lint, Unit-Test, Integration-Test]
+    if: always()
+    steps:
+      - name: Formatter committed – new run will verify
+        if: needs.Lint.outputs.changes_detected == 'true'
+        run: echo "Formatting fixes pushed with PAT. CI will re-run on the new commit."
+
+      - name: All tests OK
+        if: needs.Lint.outputs.changes_detected == 'false' && !contains(needs.*.result, 'failure')
+        run: exit 0
+
+      - name: Tests Failed
+        if: needs.Lint.outputs.changes_detected == 'false' && contains(needs.*.result, 'failure')
+        run: exit 1

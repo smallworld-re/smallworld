@@ -2,15 +2,24 @@
 .DEFAULT_GOAL=all
 
 SOURCES := $(wildcard */*.s)
+BINSOURCES := $(filter-out %.elf.s,$(SOURCES))
+ELFSOURCES := $(filter %.elf.s,$(SOURCES))
+
 CSOURCES := $(wildcard */*.c)
-BINS := $(patsubst %.s,%.bin,$(filter-out %.elf.s,$(SOURCES)))
-ELFS := $(patsubst %.elf.s,%.elf,$(filter %.elf.s, $(SOURCES)))
-CELFS := $(patsubst %.c,%.aarch64.elf,$(CSOURCES)) $(patsubst %.c,%.amd64.elf,$(CSOURCES)) $(patsubst %.c,%.armel.elf,$(CSOURCES)) $(patsubst %.c,%.armhf.elf,$(CSOURCES)) $(patsubst %.c,%.i386.elf,$(CSOURCES)) $(patsubst %.c,%.mips.elf,$(CSOURCES)) $(patsubst %.c,%.mipsel.elf,$(CSOURCES)) $(patsubst %.c,%.mips64.elf,$(CSOURCES)) $(patsubst %.c,%.mips64el.elf,$(CSOURCES)) $(patsubst %.c,%.ppc.elf,$(CSOURCES)) $(patsubst %.c,%.ppc64.elf,$(CSOURCES)) $(patsubst %.c,%.riscv64.elf,$(CSOURCES))
+CELFSOURCES := $(filter-out %.so.c,$(CSOURCES))
+CSOSOURCES := $(filter %.so.c,$(CSOURCES))
+
+BINS := $(patsubst %.s,%.bin,$(BINSOURCES))
+ELFS := $(patsubst %.s,%,$(ELFSOURCES))
+
+CELFS := $(patsubst %.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.c,%.riscv64.elf,$(CELFSOURCES))
+CSOS := $(patsubst %.so.c,%.aarch64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.amd64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armhf.so,$(CSOSOURCES)) $(patsubst %.so.c,%.i386.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mipsel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64el.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.riscv64.so,$(CSOSOURCES))
+
 MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
 MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
 MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
-TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS)
+TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS)
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
@@ -22,6 +31,9 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 # mips64 GCC uses a starting address that's inside
 # the mips64 MMIO regions.
 MIPS64_ELF_START=0x800000
+
+%.aarch64.so: %.so.c
+	aarch64-linux-gnu-gcc $*.so.c -shared -o $*.aarch64.so
 
 %.aarch64.elf: %.c
 	aarch64-linux-gnu-gcc $*.c -o $*.aarch64.elf
@@ -36,6 +48,9 @@ MIPS64_ELF_START=0x800000
 	aarch64-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
 	rm $*.aarch64.o
 
+%.amd64.so: %.so.c
+	gcc $*.so.c -shared -o $*.amd64.so
+
 %.amd64.elf: %.c
 	gcc $*.c -o $*.amd64.elf
 
@@ -46,6 +61,9 @@ MIPS64_ELF_START=0x800000
 
 %.amd64.bin: %.amd64.s
 	nasm $*.amd64.s -o $*.amd64.bin
+
+%.armel.so: %.so.c
+	arm-linux-gnueabi-gcc -marm $*.so.c -shared -o $*.armel.so
 
 %.armel.elf: %.c
 	arm-linux-gnueabi-gcc -marm $*.c -o $*.armel.elf
@@ -60,6 +78,9 @@ MIPS64_ELF_START=0x800000
 	arm-linux-gnueabi-objcopy -O binary -j .text $*.armel.o $*.armel.bin
 	rm $*.armel.o
 
+%.armhf.so: %.so.c
+	arm-linux-gnueabihf-gcc -marm $*.so.c -shared -o $*.armhf.so
+
 %.armhf.elf: %.c
 	arm-linux-gnueabihf-gcc -marm $*.c -o $*.armhf.elf
 
@@ -72,6 +93,9 @@ MIPS64_ELF_START=0x800000
 	arm-linux-gnueabihf-as $*.armhf.s -o $*.armhf.o
 	arm-linux-gnueabihf-objcopy -O binary -j .text $*.armhf.o $*.armhf.bin
 	rm $*.armhf.o
+
+%.i386.so: %.so.c
+	i686-linux-gnu-gcc $*.so.c -shared -o $*.i386.so
 
 %.i386.elf: %.c
 	i686-linux-gnu-gcc $*.c -o $*.i386.elf
@@ -86,6 +110,9 @@ MIPS64_ELF_START=0x800000
 	i686-linux-gnu-objcopy -O binary -j .text $*.i386.o $*.i386.bin
 	rm $*.i386.o
 
+%.mips.so: %.so.c
+	mips-linux-gnu-gcc $*.so.c -shared -o $*.mips.so
+
 %.mips.elf: %.c
 	mips-linux-gnu-gcc $*.c -o $*.mips.elf
 
@@ -98,6 +125,9 @@ MIPS64_ELF_START=0x800000
 	mips-linux-gnu-as $*.mips.s -o $*.mips.o
 	mips-linux-gnu-objcopy -O binary -j .text $*.mips.o $*.mips.bin
 	rm $*.mips.o
+
+%.mipsel.so: %.so.c
+	mipsel-linux-gnu-gcc $*.so.c -shared -o $*.mipsel.so
 
 %.mipsel.elf: %.c
 	mipsel-linux-gnu-gcc $*.c -o $*.mipsel.elf
@@ -112,6 +142,9 @@ MIPS64_ELF_START=0x800000
 	mipsel-linux-gnu-objcopy -O binary -j .text $*.mipsel.o $*.mipsel.bin
 	rm $*.mipsel.o
 
+%.mips64.so: %.so.c
+	mips64-linux-gnuabi64-gcc $*.so.c -shared -o $*.mips64.so
+
 %.mips64.elf: %.c
 	mips64-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64.elf
 
@@ -124,6 +157,9 @@ MIPS64_ELF_START=0x800000
 	mips64-linux-gnuabi64-as $*.mips64.s -o $*.mips64.o
 	mips64-linux-gnuabi64-objcopy -O binary -j .text $*.mips64.o $*.mips64.bin
 	rm $*.mips64.o
+
+%.mips64el.so: %.so.c
+	mips64el-linux-gnuabi64-gcc $*.so.c -shared -o $*.mips64el.so
 
 %.mips64el.elf: %.c
 	mips64el-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64el.elf
@@ -138,6 +174,9 @@ MIPS64_ELF_START=0x800000
 	mips64el-linux-gnuabi64-objcopy -O binary -j .text $*.mips64el.o $*.mips64el.bin
 	rm $*.mips64el.o
 
+%.ppc.so: %.so.c
+	powerpc-linux-gnu-gcc $*.so.c -shared -o $*.ppc.so
+
 %.ppc.elf: %.c
 	powerpc-linux-gnu-gcc $*.c -o $*.ppc.elf
 
@@ -151,6 +190,9 @@ MIPS64_ELF_START=0x800000
 	powerpc-linux-gnu-objcopy -O binary -j .text $*.ppc.o $*.ppc.bin
 	rm $*.ppc.o
 
+%.ppc64.so: %.so.c
+	powerpc64-linux-gnu-gcc $*.so.c -shared -o $*.ppc64.so
+
 %.ppc64.elf: %.c
 	powerpc64-linux-gnu-gcc $*.c -o $*.ppc64.elf
 
@@ -163,6 +205,9 @@ MIPS64_ELF_START=0x800000
 	powerpc64-linux-gnu-as $*.ppc64.s -o $*.ppc64.o
 	powerpc64-linux-gnu-objcopy -O binary -j .text $*.ppc64.o $*.ppc64.bin
 	rm $*.ppc64.o
+
+%.riscv64.so: %.so.c
+	riscv64-linux-gnu-gcc $*.so.c -shared -o $*.riscv64.so
 
 %.riscv64.elf: %.c
 	riscv64-linux-gnu-gcc $*.c -o $*.riscv64.elf
@@ -200,6 +245,7 @@ clean:
 	find . -name '*.bin' -type f -delete
 	find . -name '*.elf' -type f -delete
 	find . -name '*.o' -type f -delete
+	find . -name '*.so' -type f -delete
 
 nasm: $(NASM_TARGETS)
 

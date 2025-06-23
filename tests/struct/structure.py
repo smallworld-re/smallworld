@@ -18,7 +18,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin").replace(".angr", ""), 0x1000
+    __file__.replace(".py", ".bin").replace(".angr", "").replace(".panda", ""), 0x1000
 )
 machine.add(code)
 
