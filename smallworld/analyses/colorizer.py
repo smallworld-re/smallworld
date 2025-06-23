@@ -101,8 +101,6 @@ class Colorizer(analysis.Analysis):
         return 0
 
     def run(self, machine: state.Machine) -> None:
-        # note that start pc is in start_cpustate
-
         # collect hints for each microexecution, in a list of lists
         hint_list_list: typing.List[typing.List[hinting.Hint]] = []
 
@@ -142,15 +140,11 @@ class Colorizer(analysis.Analysis):
                         edges[last_pc][pc] = 1
                     else:
                         edges[last_pc][pc] += 1
-                    # cfg.add_edge(f"{last_pc:x}", f"{pc:x}")
-                # cfg.add_node(f"{pc:x}")
                 if pc in self.emu.get_exit_points():
                     break
                 cs_insn = self._get_instr_at_pc(pc)
                 sw_insn = Instruction.from_capstone(cs_insn)
-
                 logger.debug(sw_insn)
-                #                print(f"j={j} {sw_insn}")
 
                 # pull state back out of the emulator for inspection
                 m = copy.deepcopy(self.machine)
@@ -188,11 +182,6 @@ class Colorizer(analysis.Analysis):
                 self._check_colors_instruction_reads(reads, sw_insn, i, j, hint_list)
 
                 try:
-                    # print(f"pc={pc:x} {sw_insn}")
-                    # breakpoint()
-                    # import pdb
-                    # pdb.set_trace()
-
                     self.emu.step()
 
                 except EmulationBounds:
@@ -261,8 +250,6 @@ class Colorizer(analysis.Analysis):
                     tup = (write_operand, write_operand_color, sz)
                     writes.append(tup)
                 writes.sort(key=lambda e: e[0].__repr__())
-                # import pdb
-                # pdb.set_trace()
                 self._check_colors_instruction_writes(writes, sw_insn, i, j, hint_list)
                 last_pc = pc
 
@@ -364,7 +351,6 @@ class Colorizer(analysis.Analysis):
                 # make sure to update cpu as well as emu not sure why
                 self.emu.write_register(name, new_val)
                 setattr(self.cpu, name, new_val)
-                # print(f"reg {name} updated with {bc} random bytes to {new_val:x}")
                 logger.debug(
                     f"Colorized {bc} bytes in register {name}, old value was {orig_val:x} new is {new_val:x}"
                 )
@@ -446,7 +432,7 @@ class Colorizer(analysis.Analysis):
                 hinter.info(hint)
                 hint_list.append(hint)
             else:
-                # red-def: use of a NOT previously recorded color value. As
+                # read-def: use of a NOT previously recorded color value. As
                 # long as the value is something reasonable, we'll record it as
                 # a new color
                 self._add_color(color, operand, insn, exec_num, insn_num)
@@ -531,7 +517,6 @@ class Colorizer(analysis.Analysis):
                 dynamic_value=color,
                 use=is_use,
                 new=is_new,
-                # instruction=insn,
                 pc=pc,
                 micro_exec_num=exec_num,
                 instruction_num=insn_num,
@@ -555,7 +540,6 @@ class Colorizer(analysis.Analysis):
                 size=operand.size,
                 use=is_use,
                 new=is_new,
-                # instruction=insn,
                 pc=pc,
                 micro_exec_num=exec_num,
                 instruction_num=insn_num,
