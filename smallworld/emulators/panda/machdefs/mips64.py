@@ -1,12 +1,9 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class MIPS64MachineDef(PandaMachineDef):
     arch = Architecture.MIPS64
-    cs_arch = capstone.CS_ARCH_MIPS
 
     # We don't need this
 
@@ -88,7 +85,6 @@ class MIPS64BEMachineDef(MIPS64MachineDef):
     panda_arch = "mips64"
     machine = "malta"
     cpu = "MIPS64R2-generic"
-    cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
 
 
 class MIPS64ELMachineDef(MIPS64MachineDef):
@@ -96,4 +92,3 @@ class MIPS64ELMachineDef(MIPS64MachineDef):
     panda_arch = "mips64el"
     machine = "malta"
     cpu = "MIPS64R2-generic"
-    cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_LITTLE_ENDIAN

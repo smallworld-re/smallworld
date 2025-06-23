@@ -1,5 +1,3 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
@@ -7,9 +5,6 @@ from .machdef import PandaMachineDef
 class AArch64MachineDef(PandaMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
-
-    cs_arch = capstone.CS_ARCH_ARM64
-    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_LITTLE_ENDIAN
 
     panda_arch = "aarch64"
 

@@ -1,14 +1,9 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class PowerPCMachineDef(PandaMachineDef):
     byteorder = Byteorder.BIG
-
-    cs_arch = capstone.CS_ARCH_PPC
-    cs_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
 
     panda_arch = "ppc"
 
@@ -68,12 +63,10 @@ class PowerPCMachineDef(PandaMachineDef):
 
 class PowerPC32MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC32
-    cs_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
     cpu = "ppc32"
 
 
 # TODO: Do we have a panda PPC 64 bit cpu?
 class PowerPC64MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC64
-    cs_mode = capstone.CS_MODE_64 | capstone.CS_MODE_BIG_ENDIAN
     # cpu = "970"

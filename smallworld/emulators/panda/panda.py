@@ -68,6 +68,7 @@ class PandaEmulator(
         def __init__(self, manager, thread_state):
             super().__init__(daemon=True)
             self.manager = manager
+            self.platdef = platforms.PlatformDef.for_platform(self.manager.platform)
             self.machdef = PandaMachineDef.for_platform(self.manager.platform)
             self.state = thread_state
             self.panda = None
@@ -329,7 +330,8 @@ class PandaEmulator(
         self.panda_thread.start()
 
         self.disassembler = capstone.Cs(
-            self.panda_thread.machdef.cs_arch, self.panda_thread.machdef.cs_mode
+            self.panda_thread.platdef.capstone_arch,
+            self.panda_thread.platdef.capstone_mode,
         )
         self.disassembler.detail = True
 

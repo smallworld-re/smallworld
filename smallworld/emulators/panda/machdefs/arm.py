@@ -1,13 +1,8 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class ARMMachineDef(PandaMachineDef):
-    cs_arch = capstone.CS_ARCH_ARM
-    cs_mode = capstone.CS_MODE_ARM | capstone.CS_MODE_LITTLE_ENDIAN
-
     panda_arch = "arm"
 
     # I'm going to define all the ones we are making possible as of now

@@ -1,5 +1,3 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
@@ -9,9 +7,6 @@ class i386MachineDef(PandaMachineDef):
     byteorder = Byteorder.LITTLE
 
     panda_arch = "i386"
-
-    cs_arch = capstone.CS_ARCH_X86
-    cs_mode = capstone.CS_MODE_32
 
     # I'm going to define all the ones we are making possible as of now
     # I need to submit a PR to change to X86 32 bit and to includ eflags
