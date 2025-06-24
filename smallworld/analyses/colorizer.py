@@ -323,7 +323,7 @@ class Colorizer(analysis.Analysis):
         for reg in cpu:
             if (
                 type(reg) is state.Register
-            ) and reg.name in self.platdef.general_purpose_registers():
+            ) and reg.name in self.platdef.general_purpose_registers:
                 regs.append((reg.name, reg.size))
         regs.sort(key=lambda x: x[0])
         for name, size in regs:
