@@ -9,7 +9,7 @@ from ghidra.program.model.pcode import Varnode
 
 from ... import exceptions, platforms, utils
 from ..emulator import Emulator
-from .machdefs import PcodeMachineDef
+from .machdefs import GhidraMachineDef
 from .typing import AbstractGhidraEmulator
 
 
@@ -36,7 +36,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self.platdef: platforms.PlatformDef = platforms.PlatformDef.for_platform(
             platform
         )
-        self.machdef: PcodeMachineDef = PcodeMachineDef.for_platform(platform)
+        self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
 
         self._emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
         # Set up the context configuration.

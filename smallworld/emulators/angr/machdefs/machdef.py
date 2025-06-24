@@ -110,7 +110,7 @@ class AngrMachineDef:
             raise ValueError(f"No machine model for {platform}")
 
 
-class PcodeMachineDef(AngrMachineDef):
+class GhidraMachineDef(AngrMachineDef):
     """Container class for pcode-dependent angr architecture-specific definitions"""
 
     @property

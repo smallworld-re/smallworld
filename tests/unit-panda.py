@@ -2,6 +2,13 @@ import sys
 
 from smallworld import emulators, exceptions, platforms
 
+# Test script for ensuring Panda can read its registers.
+#
+# This is an extension of PandaMachineDefTests in unit.py;
+# all the other emulators do this computation in that script,
+# but instantiating multiple PandaEmulators in one script
+# leads to errors.
+
 architecture = None
 for arch in platforms.Architecture:
     if arch.name == sys.argv[1]:

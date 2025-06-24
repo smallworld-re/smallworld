@@ -1,8 +1,8 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class ARMMachineDef(PcodeMachineDef):
+class ARMMachineDef(GhidraMachineDef):
     def __init__(self):
         super().__init__()
         self._registers = {
@@ -18,16 +18,16 @@ class ARMMachineDef(PcodeMachineDef):
             "r8": "r8",
             # r9 doubles as the Static base pointer
             "r9": "r9",
-            "sb": "sb",
+            "sb": "r9",
             # r10 doubles as the Stack Limit pointer
             "r10": "r10",
-            "sl": "sl",
+            "sl": "r10",
             # r11 doubles as the Frame Pointer, if desired.
             "r11": "r11",
-            "fp": "fp",
+            "fp": "r10",
             # r12 doubles as the Intra-call scratch register
             "r12": "r12",
-            "ip": "ip",
+            "ip": "r12",
             "sp": "sp",
             "lr": "lr",
             "pc": "pc",
@@ -352,7 +352,7 @@ class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     language_id = "ARM:LE:32:v5t"
 
 
-class ARMv6MMachineDef(ARMMachineMixinM, ARMMachineDef):
+class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V6M
     byteorder = Byteorder.LITTLE
     language_id = "ARM:LE:32:v6"

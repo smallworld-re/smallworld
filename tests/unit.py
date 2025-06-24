@@ -484,8 +484,20 @@ class UnicornMachdefTests(unittest.TestCase):
         )
 
         emu = emulators.UnicornEmulator(platform)
+
+        bad_regs = set()
         for reg in platdef.registers.keys():
-            emu.read_register_content(reg)
+            try:
+                emu.read_register(reg)
+            except exceptions.UnsupportedRegisterError:
+                continue
+            except:
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
+        )
 
     def test_unicorn_aarch64(self):
         platform = platforms.Platform(
@@ -630,13 +642,19 @@ class AngrMachdefTests(unittest.TestCase):
         emu = emulators.AngrEmulator(platform)
         emu.write_code(0x1000, 0x1000 * b"\x00")
         emu.initialize()
+        bad_regs = set()
         for reg in platdef.registers.keys():
             try:
                 emu.read_register_symbolic(reg)
             except exceptions.UnsupportedRegisterError:
                 continue
             except:
-                self.fail(f"Register {reg} of {platform} not handled correctly by angr")
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Angr did not handle the following registers for {platform}: {bad_regs}",
+        )
 
     def test_angr_aarch64(self):
         platform = platforms.Platform(
@@ -906,6 +924,160 @@ class PandaMachdefTests(unittest.TestCase):
         )
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
+
+
+class GhidraMachdefTests(unittest.TestCase):
+    def run_test(self, platform):
+        platdef = platforms.PlatformDef.for_platform(platform)
+        emu = emulators.ghidra.GhidraEmulator(platform)
+
+        # Due to import issues, you can't access GhidraMachineDef directly
+        machdef = emu.machdef
+
+        regs_needed = set(platdef.registers.keys())
+        regs_needed -= machdef._registers.keys()
+        if platdef.pc_register != "pc":
+            regs_needed -= set(["pc"])
+
+        self.assertEqual(
+            len(regs_needed),
+            0,
+            msg=f"Ghidra machine def for {platform} is missing registers {regs_needed}",
+        )
+
+        extra_regs = set(machdef._registers.keys())
+        extra_regs -= platdef.registers.keys()
+
+        self.assertEqual(
+            len(extra_regs),
+            0,
+            msg=f"Ghidra machine def for {platform} has extra registers {extra_regs}",
+        )
+
+        bad_regs = set()
+        for reg in platdef.registers.keys():
+            try:
+                emu.read_register(reg)
+            except exceptions.UnsupportedRegisterError:
+                continue
+            except:
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
+        )
+
+    def test_ghidra_aarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_amd64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_amd64_avx512(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        # Not supported by ghidra
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_armv5t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv6m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv6m_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        )
+        # Not supported by ghidra
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_armv7m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+        )
+        # Not supported by ghidra
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_i386(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mips(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mipsel(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mips64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mips64el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_ppc(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_ppc64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_riscv64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_xtensa(self):
+        platform = platforms.Platform(
+            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
 
 
 if __name__ == "__main__":

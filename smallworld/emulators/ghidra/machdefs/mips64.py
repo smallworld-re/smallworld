@@ -1,8 +1,8 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class MIPS64MachineDef(PcodeMachineDef):
+class MIPS64MachineDef(GhidraMachineDef):
     arch = Architecture.MIPS64
 
     # NOTE: MIPS registers have a name and a number
@@ -142,18 +142,18 @@ class MIPS64MachineDef(PcodeMachineDef):
         # *** Accumulator Registers ***
         # MIPS uses these to implement 64-bit results
         # from 32-bit multiplication, amongst others.
-        "ac0": "ac0",
-        "hi0": "hi0",
-        "lo0": "lo0",
-        "ac1": "ac1",
-        "hi1": "hi1",
-        "lo1": "lo1",
-        "ac2": "ac2",
-        "hi2": "hi2",
-        "lo2": "lo2",
-        "ac3": "ac3",
-        "hi3": "hi3",
-        "lo3": "lo3",
+        "ac0": None,
+        "hi0": None,
+        "lo0": None,
+        "ac1": None,
+        "hi1": None,
+        "lo1": None,
+        "ac2": None,
+        "hi2": None,
+        "lo2": None,
+        "ac3": None,
+        "hi3": None,
+        "lo3": None,
     }
 
     _delay_slot_opcodes = {

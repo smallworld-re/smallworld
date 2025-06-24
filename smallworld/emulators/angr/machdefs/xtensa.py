@@ -6,7 +6,7 @@ import pypcode
 
 from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
 def handle_nop(irsb, i):
@@ -199,7 +199,7 @@ angr.calling_conventions.register_syscall_cc(
 )
 
 
-class XTensaMachineDef(PcodeMachineDef):
+class XTensaMachineDef(GhidraMachineDef):
     arch = Architecture.XTENSA
     _registers = {f"a{i}": f"a{i}" for i in range(0, 16)} | {
         "pc": "pc",

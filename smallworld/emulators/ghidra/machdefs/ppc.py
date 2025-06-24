@@ -1,14 +1,14 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class PowerPCMachineDef(PcodeMachineDef):
+class PowerPCMachineDef(GhidraMachineDef):
     byteorder = Byteorder.BIG
 
     _registers = {
         "r0": "r0",
         "r1": "r1",
-        "sp": "sp",
+        "sp": "r1",
         "r2": "r2",
         "r3": "r3",
         "r4": "r4",
@@ -39,6 +39,7 @@ class PowerPCMachineDef(PcodeMachineDef):
         "r29": "r29",
         "r30": "r30",
         "r31": "r31",
+        "bp": "r31",
         "pc": "pc",
         "lr": "lr",
         "ctr": "ctr",

@@ -1,8 +1,8 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class MIPSMachineDef(PcodeMachineDef):
+class MIPSMachineDef(GhidraMachineDef):
     arch = Architecture.MIPS32
 
     # NOTE: MIPS registers have a name and a number
@@ -17,7 +17,7 @@ class MIPSMachineDef(PcodeMachineDef):
         "v0": "v0",
         "2": "v0",
         "v1": "v1",
-        "3": "v3",
+        "3": "v1",
         # Argument Registers
         "a0": "a0",
         "4": "a0",
@@ -72,8 +72,8 @@ class MIPSMachineDef(PcodeMachineDef):
         # Unicorn and Sleigh prefer to use the alias s8,
         # so it should be the base register.
         "s8": "s8",
-        "fp": "fp",
-        "30": "fp",
+        "fp": "s8",
+        "30": "s8",
         # Kernel-reserved Registers
         "k0": "k0",
         "26": "k0",
@@ -136,18 +136,18 @@ class MIPSMachineDef(PcodeMachineDef):
         # *** Accumulator Registers ***
         # MIPS uses these to implement 64-bit results
         # from 32-bit multiplication, amongst others.
-        "ac0": "ac0",
-        "hi0": "hi0",
-        "lo0": "lo0",
-        "ac1": "ac1",
-        "hi1": "hi1",
-        "lo1": "lo1",
-        "ac2": "ac2",
-        "hi2": "hi2",
-        "lo2": "lo2",
-        "ac3": "ac3",
-        "hi3": "hi3",
-        "lo3": "lo3",
+        "ac0": None,
+        "hi0": None,
+        "lo0": None,
+        "ac1": None,
+        "hi1": None,
+        "lo1": None,
+        "ac2": None,
+        "hi2": None,
+        "lo2": None,
+        "ac3": None,
+        "hi3": None,
+        "lo3": None,
     }
 
     supports_single_step = True

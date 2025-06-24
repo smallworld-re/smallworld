@@ -7,7 +7,7 @@ from ghidra.program.model.lang import Language, LanguageID, Register
 from .... import exceptions, platforms, utils
 
 
-class PcodeMachineDef:
+class GhidraMachineDef:
     """Container class for ghdra architecture-specific definitions"""
 
     @property
