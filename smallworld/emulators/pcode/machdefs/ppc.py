@@ -5,8 +5,6 @@ from .machdef import PcodeMachineDef
 class PowerPCMachineDef(PcodeMachineDef):
     byteorder = Byteorder.BIG
 
-    pc_reg = "pc"
-
     _registers = {
         "r0": "r0",
         "r1": "r1",
@@ -93,11 +91,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC32
     language_id = "PowerPC:BE:32:default"
 
-    address_size = 4
-
 
 class PowerPC64MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC64
     language_id = "PowerPC:BE:64:default"
-
-    address_size = 8

@@ -9,9 +9,6 @@ class AMD64MachineDef(PcodeMachineDef):
     byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE
     language_id: str = "x86:LE:64:default"
 
-    pc_reg: str = "rip"
-    address_size: int = 8
-
     _registers: typing.Dict[str, typing.Optional[str]] = {
         # *** General Purpose Registers ***
         "rax": "rax",

@@ -7,9 +7,6 @@ class AArch64MachineDef(PcodeMachineDef):
     byteorder = Byteorder.LITTLE
     language_id = "AARCH64:LE:64:v8A"
 
-    pc_reg = "pc"
-    address_size = 8
-
     _registers = {
         # *** General Purpose Registers ***
         "x0": "x0",

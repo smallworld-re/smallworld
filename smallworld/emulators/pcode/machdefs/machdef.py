@@ -37,12 +37,6 @@ class PcodeMachineDef:
     # and is not safe to step in this manner
     supports_single_step: bool = True
 
-    # Program counter register
-    pc_reg: str
-
-    # Address size
-    address_size: int
-
     _registers: typing.Dict[str, typing.Optional[str]]
 
     def __init__(self):

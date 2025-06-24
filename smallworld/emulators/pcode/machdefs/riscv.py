@@ -7,9 +7,6 @@ class RISCV64MachineDef(PcodeMachineDef):
     byteorder = Byteorder.LITTLE
     language_id = "RISCV:LE:64:default"
 
-    pc_reg = "pc"
-    address_size = 8
-
     _registers = {
         # *** General-Purpose Registers ***
         # x0 is wired to 0, and aliased as "zero"

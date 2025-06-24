@@ -3,9 +3,6 @@ from .machdef import PcodeMachineDef
 
 
 class ARMMachineDef(PcodeMachineDef):
-    pc_reg = "pc"
-    address_size = 4
-
     def __init__(self):
         super().__init__()
         self._registers = {

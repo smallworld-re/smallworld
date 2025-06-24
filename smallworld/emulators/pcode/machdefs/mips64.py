@@ -5,9 +5,6 @@ from .machdef import PcodeMachineDef
 class MIPS64MachineDef(PcodeMachineDef):
     arch = Architecture.MIPS64
 
-    pc_reg = "pc"
-    address_size = 8
-
     # NOTE: MIPS registers have a name and a number
     # angr's machine state doesn't use the number,
     # so... name.

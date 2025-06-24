@@ -7,9 +7,6 @@ class i386MachineDef(PcodeMachineDef):
     byteorder = Byteorder.LITTLE
     language_id = "x86:LE:32:default"
 
-    pc_reg = "eip"
-    address_size = 4
-
     _registers = {
         # *** General Purpose Registers ***
         "eax": "eax",
