@@ -541,12 +541,17 @@ class RBTree(Iterable):
         return iter(self.values())
 
 
+def _range_collection_key(x):
+    # Used to be a lambda, but can't pickle lambdas
+    return x[0]
+
+
 class RangeCollection(Iterable):
     """A collection of non-overlapping ranges"""
 
     def __init__(self):
         # Back with an RBTree keyed off the start of the range
-        self._ranges = RBTree(key=lambda x: x[0])
+        self._ranges = RBTree(key=_range_collection_key)
 
     def is_empty(self) -> bool:
         """Check if this collection is empty
