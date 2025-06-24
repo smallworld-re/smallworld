@@ -123,8 +123,9 @@ class ARMMachineMixinA:
         # TODO: QEMU doesn't quite support what I expect.
         # I expected to see cpsr and spsr.
         # I either got the CPU model wrong, or something else is weird.
+        # (I strongly suspect Panda exposes the bitmasked aliases of cpsr)
         self._registers_a = {
-            "cpsr": "cpsr",
+            "cpsr": None,
             "spsr": None,
             "sp_usr": None,
             "lr_usr": None,

@@ -66,11 +66,28 @@ class AMD64MachineDef(PandaMachineDef):
         "r14w",
         "r15w",
     }
-    _registers_byte = {"al", "bl", "cl", "dl", "dil", "sil", "ah", "bh", "ch", "dh"}
+    _registers_byte = {
+        "al",
+        "bl",
+        "cl",
+        "dl",
+        "r8b",
+        "r9b",
+        "r10b",
+        "r11b",
+        "r12b",
+        "r13b",
+        "r14b",
+        "r15b",
+        "ah",
+        "bh",
+        "ch",
+        "dh",
+    }
     _registers_flags = {"rflags", "eflags", "flags"}
     _registers_seg = {"es", "cs", "ss", "ds", "fs", "gs"}
     _registers_control = {"cr0", "cr1", "cr2", "cr3", "cr4"}
-    _registers_debug = {f"dr{i}" for i in range(0, 16)}
+    _registers_debug = {f"dr{i}" for i in range(0, 16)} - {"dr4", "dr5"}
     _registers_mmr = {"gdtr": "gdt", "idtr": "idt", "tr": "tr", "ldtr": "ldt"}
     _registers_x87 = {
         "fpr0",
@@ -125,8 +142,8 @@ class AMD64MachineDef(PandaMachineDef):
         "ymm14",
         "ymm15",
     }
-    _registers_pc = {"pc": "rip", "eip": "eip", "ip": "ip"}
-    _registers_absent = {"cr8"}
+    _registers_pc = {"pc": "rip", "eip": "eip", "ip": None}
+    _registers_absent = {"dil", "sil", "spl", "bpl", "cr8"}
 
     _registers = {}
     _registers = _registers | {i: i for i in _registers_64}

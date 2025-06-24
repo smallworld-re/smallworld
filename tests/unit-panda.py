@@ -32,9 +32,9 @@ for reg in platdef.registers.keys():
         emu.read_register(reg)
     except exceptions.UnsupportedRegisterError:
         continue
-    except:
+    except Exception as e:
         print(
-            f"Register {reg} of {platform} not handled correctly by Panda",
+            f"Register {reg} of {platform} not handled correctly by Panda: {e}",
             file=sys.stderr,
         )
         bad = True

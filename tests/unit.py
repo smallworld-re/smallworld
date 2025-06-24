@@ -1,3 +1,4 @@
+import logging
 import os
 import signal
 import subprocess
@@ -7,6 +8,10 @@ import unittest
 import claripy
 
 from smallworld import emulators, exceptions, platforms, state, utils
+
+logging.getLogger("angr").setLevel(logging.ERROR)
+logging.getLogger("claripy").setLevel(logging.ERROR)
+logging.getLogger("cle").setLevel(logging.ERROR)
 
 
 class MockConcreteEmulator(emulators.Emulator):
