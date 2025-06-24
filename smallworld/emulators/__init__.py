@@ -2,8 +2,8 @@ from .angr import *  # noqa: F401, F403
 from .angr import __all__ as __angr__
 from .emulator import *  # noqa: F401, F403
 from .emulator import __all__ as __emulator__
-from .pcode import *  # noqa: F401, F403
-from .pcode import __all__ as __pcode__
+from .ghidra import *  # noqa: F401, F403
+from .ghidra import __all__ as __pcode__
 from .unicorn import *  # noqa: F401, F403
 from .unicorn import __all__ as __unicorn__
 
