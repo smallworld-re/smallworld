@@ -57,7 +57,7 @@ class RISCV64(cpu.CPU):
         self.x8 = state.Register("x8", 8)
         self.add(self.x8)
         self.s0 = state.RegisterAlias("s0", self.x8, 8, 0)
-        self.add(self.x8)
+        self.add(self.s0)
         # x9 is a callee-saved register
         self.x9 = state.Register("x9", 8)
         self.add(self.x9)

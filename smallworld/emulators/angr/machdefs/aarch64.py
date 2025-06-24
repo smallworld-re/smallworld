@@ -76,6 +76,7 @@ class AArch64MachineDef(AngrMachineDef):
         "w30": "w30",
         "pc": "pc",
         "sp": "sp",
+        "wsp": "wsp",
         "fp": "fp",
         "lr": "lr",
         "xzr": "xzr",

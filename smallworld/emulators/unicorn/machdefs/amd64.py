@@ -97,6 +97,7 @@ class AMD64MachineDef(UnicornMachineDef):
             "es": unicorn.x86_const.UC_X86_REG_ES,
             "fs": unicorn.x86_const.UC_X86_REG_FS,
             "gs": unicorn.x86_const.UC_X86_REG_GS,
+            "ss": unicorn.x86_const.UC_X86_REG_SS,
             # *** Control Registers ***
             "cr0": unicorn.x86_const.UC_X86_REG_CR0,
             "cr1": unicorn.x86_const.UC_X86_REG_CR1,

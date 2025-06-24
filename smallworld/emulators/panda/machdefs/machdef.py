@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from .... import platforms, utils
+from .... import exceptions, platforms, utils
 
 
 class PandaMachineDef(metaclass=abc.ABCMeta):
@@ -25,11 +25,16 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         """The panda architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    _registers: typing.Dict[str, str] = {}
+    _registers: typing.Dict[str, typing.Optional[str]] = {}
 
     def panda_reg(self, name: str) -> str:
         if name in self._registers:
-            return self._registers[name]
+            res = self._registers[name]
+            if res is None:
+                raise exceptions.UnsupportedRegisterError(
+                    f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
+                )
+            return res
         else:
             raise ValueError(
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
@@ -42,7 +47,7 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
         for this arch/mode/byteorder, or return 0,
         which always indicates an invalid register
         """
-        if name in self._registers:
+        if name in self._registers and self._registers[name] is not None:
             return True
         else:
             return False

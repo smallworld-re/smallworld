@@ -185,6 +185,4 @@ class AMD64MachineDef(AngrMachineDef):
         "xmm14": "xmm14",
         "ymm15": "ymm15",
         "xmm15": "xmm15",
-        "ymm16": "ymm16",
-        "xmm16": "xmm16",
     }

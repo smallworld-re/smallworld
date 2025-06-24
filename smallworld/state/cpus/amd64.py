@@ -201,6 +201,8 @@ class AMD64(cpu.CPU):
         self.add(self.fs)
         self.gs = state.Register("gs", 8)
         self.add(self.gs)
+        self.ss = state.Register("ss", 8)
+        self.add(self.ss)
 
         # *** Control Registers ***
         self.cr0 = state.Register("cr0", 8)

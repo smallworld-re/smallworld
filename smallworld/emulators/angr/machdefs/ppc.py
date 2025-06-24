@@ -41,6 +41,7 @@ class PowerPCMachineDef(AngrMachineDef):
         "r29": "r29",
         "r30": "r30",
         "r31": "r31",
+        "bp": "r31",
         "pc": "pc",
         "lr": "lr",
         "ctr": "ctr",

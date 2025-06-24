@@ -123,6 +123,7 @@ class AMD64BasePlatformDef(PlatformDef):
         "es": RegisterDef(name="es", size=8),
         "fs": RegisterDef(name="fs", size=8),
         "gs": RegisterDef(name="gs", size=8),
+        "ss": RegisterDef(name="ss", size=8),
         # *** Control Registers ***
         "cr0": RegisterDef(name="cr0", size=8),
         "cr1": RegisterDef(name="cr1", size=8),
