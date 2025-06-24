@@ -23,6 +23,9 @@ class DefUseGraph(nx.MultiDiGraph):
         )
 
 
+debug = False
+
+
 class ColorizerDefUse(analysis.Filter):
     name = "colorizer_def_use_graph"
     description = "assemble a def use graph from colorizer summary hints"
@@ -40,7 +43,6 @@ class ColorizerDefUse(analysis.Filter):
             self.not_new_hints.append(hint)
 
     def activate(self):
-        print("activating colorizer_def_use_graph")
         self.listen(hinting.DynamicRegisterValueSummaryHint, self.collect_hints)
         self.listen(hinting.DynamicMemoryValueSummaryHint, self.collect_hints)
 
@@ -126,76 +128,77 @@ class ColorizerDefUse(analysis.Filter):
         # hint out the def-use graph
         hinter.info(
             hinting.DefUseGraphHint(
-                graph=str(nx.node_link_data(du_graph, edges="links")),
+                graph=nx.node_link_data(du_graph, edges="links"),
                 message="concrete-summary-def-use-graph",
             )
         )
 
-        nodes = []
-        for node in du_graph.nodes:
-            nodes.append(node)
+        if debug:
+            nodes = []
+            for node in du_graph.nodes:
+                nodes.append(node)
 
-        def cmp_n(n1, n2):
-            if isinstance(n1, type(n2)):
-                if n1 < n2:
+            def cmp_n(n1, n2):
+                if isinstance(n1, type(n2)):
+                    if n1 < n2:
+                        return -1
+                    if n1 == n2:
+                        return 0
+                    return +1
+                if type(n1) is str:
                     return -1
-                if n1 == n2:
-                    return 0
-                return +1
-            if type(n1) is str:
-                return -1
-            else:
-                return +1
+                else:
+                    return +1
 
-        # sorted: strings like "input-color-.." come first, then
-        # numbers which are program counters in order
-        snodes = sorted(nodes, key=functools.cmp_to_key(cmp_n))
+            # sorted: strings like "input-color-.." come first, then
+            # numbers which are program counters in order
+            snodes = sorted(nodes, key=functools.cmp_to_key(cmp_n))
 
-        def_info = nx.get_edge_attributes(du_graph, "def_info")
-        use_info = nx.get_edge_attributes(du_graph, "use_info")
+            def_info = nx.get_edge_attributes(du_graph, "def_info")
+            use_info = nx.get_edge_attributes(du_graph, "use_info")
 
-        def node_str(node):
-            if type(node) is str:
-                return node
-            else:
-                return f"0x{node:x}"
+            def node_str(node):
+                if type(node) is str:
+                    return node
+                else:
+                    return f"0x{node:x}"
 
-        def simple_info(info):
-            if info is None:
-                return "none"
-            if type(info) is str:
-                return info
-            if info["type"] == "reg":
-                return f"is_read={info['is_read']} new={info['new']} color={info['color']} Reg({info['reg_name']})"
-            bsid = ""
-            if info["base"] != "None":
-                bsid += f"{info['base']}"
-            if info["index"] != "None":
-                bsid += f"+ {info['scale']}*{info['index']}"
-            if info["offset"] != 0:
-                bsid += f"+ {info['offset']:x}"
-            return f"is_read={info['is_read']} new={info['new']} color={info['color']} Mem({bsid})"
+            def simple_info(info):
+                if info is None:
+                    return "none"
+                if type(info) is str:
+                    return info
+                if info["type"] == "reg":
+                    return f"is_read={info['is_read']} new={info['new']} color={info['color']} Reg({info['reg_name']})"
+                bsid = ""
+                if info["base"] != "None":
+                    bsid += f"{info['base']}"
+                if info["index"] != "None":
+                    bsid += f"+ {info['scale']}*{info['index']}"
+                if info["offset"] != 0:
+                    bsid += f"+ {info['offset']:x}"
+                return f"is_read={info['is_read']} new={info['new']} color={info['color']} Mem({bsid})"
 
-        def simple_node(n):
-            if n is None:
-                return ""
-            if type(n) is str:
-                return n
-            return f"0x{n:x}"
+            def simple_node(n):
+                if n is None:
+                    return ""
+                if type(n) is str:
+                    return n
+                return f"0x{n:x}"
 
-        for node in snodes:
-            print(f"\nNODE: {node_str(node)}")
-            for src, dst in du_graph.in_edges(node):
-                if (src, dst, 0) in use_info:
-                    ssrc = simple_node(src)
-                    sdst = simple_node(dst)
-                    di = simple_info(def_info[(src, dst, 0)])
-                    ui = simple_info(use_info[(src, dst, 0)])
-                    print(f"in-edge src=({ssrc},{di}) dst=({sdst},{ui})")
-            for src, dst in du_graph.out_edges(node):
-                if (src, dst, 0) in def_info:
-                    ssrc = simple_node(src)
-                    sdst = simple_node(dst)
-                    di = simple_info(def_info[(src, dst, 0)])
-                    ui = simple_info(use_info[(src, dst, 0)])
-                    print(f"out-edge src=({ssrc},{di}) dst=({sdst},{ui})")
+            for node in snodes:
+                print(f"\nNODE: {node_str(node)}")
+                for src, dst in du_graph.in_edges(node):
+                    if (src, dst, 0) in use_info:
+                        ssrc = simple_node(src)
+                        sdst = simple_node(dst)
+                        di = simple_info(def_info[(src, dst, 0)])
+                        ui = simple_info(use_info[(src, dst, 0)])
+                        print(f"in-edge src=({ssrc},{di}) dst=({sdst},{ui})")
+                for src, dst in du_graph.out_edges(node):
+                    if (src, dst, 0) in def_info:
+                        ssrc = simple_node(src)
+                        sdst = simple_node(dst)
+                        di = simple_info(def_info[(src, dst, 0)])
+                        ui = simple_info(use_info[(src, dst, 0)])
+                        print(f"out-edge src=({ssrc},{di}) dst=({sdst},{ui})")
