@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms
 from .. import state
 from . import cpu
@@ -7,44 +5,6 @@ from . import cpu
 
 class MIPS64(cpu.CPU):
     """Abstract CPU state object for all MIPS64 targets"""
-
-    # Excluded registers:
-    # - zero: Hard-wired to zero
-    # - at: Reserved for assembler
-    # - kX: Reserved for kernel; used as general in some ABIs
-    # - fX: Floating-point registers
-    # - acX: Accumulator registers
-    _GENERAL_PURPOSE_REGS = [
-        "v0",
-        "v1",
-        "a0",
-        "a1",
-        "a2",
-        "a3",
-        "a4",
-        "a5",
-        "a6",
-        "a7",
-        "t0",
-        "t1",
-        "t2",
-        "t3",
-        "t4",
-        "t8",
-        "t9",
-        "s0",
-        "s1",
-        "s2",
-        "s3",
-        "s4",
-        "s5",
-        "s6",
-        "s7",
-        "s8",
-    ]
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
         super().__init__()

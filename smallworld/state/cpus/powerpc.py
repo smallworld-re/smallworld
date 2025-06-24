@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms
 from .. import state
 from . import cpu
@@ -7,11 +5,6 @@ from . import cpu
 
 class PowerPC(cpu.CPU):
     """CPU state for 32-bit PowerPC."""
-
-    _GENERAL_PURPOSE_REGS = [f"r{i}" for i in range(0, 32)]
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
 
     def __init__(self, wordsize):
         super().__init__()

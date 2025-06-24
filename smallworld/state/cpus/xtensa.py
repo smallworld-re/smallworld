@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms, state
 from . import cpu
 
@@ -14,9 +12,6 @@ class XTensa(cpu.CPU):
     One noteable option is that xtensa uses register windows.
     I'm not putting up with that shit for now.
     """
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return [f"a{i}" for i in range(0, 16)]
 
     def __init__(self):
         super().__init__()

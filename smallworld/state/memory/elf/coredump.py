@@ -4,8 +4,7 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Platform
-from ....state.cpus import CPU
+from ....platforms import Platform, PlatformDef
 from .elf import ElfExecutable
 from .register_state import RegisterState
 
@@ -54,8 +53,8 @@ class ElfCoreFile(ElfExecutable):
                 if platform is None:
                     raise ConfigurationError("Platform must be provided for core dumps")
 
-                cpu = CPU.for_platform(platform)
-                reg_names = cpu.get_general_purpose_registers()
+                platdef = PlatformDef.for_platform(platform)
+                reg_names = platdef.general_purpose_registers
 
                 named_regs = {
                     name: val
