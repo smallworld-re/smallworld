@@ -14,7 +14,7 @@ class AMD64BasePlatformDef(PlatformDef):
     address_size = 8
 
     capstone_arch = capstone.CS_ARCH_X86
-    capstone_mode = capstone.CS_MODE_32
+    capstone_mode = capstone.CS_MODE_64
 
     pc_register = "rip"
 
