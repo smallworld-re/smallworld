@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms
 from .. import state
 from ..x86_registers import X86MMRRegister
@@ -15,28 +13,6 @@ class AMD64(cpu.CPU):
     Since the AVX extensions keep adding registers under
     the old ones, we need new platforms.
     """
-
-    _GENERAL_PURPOSE_REGS = [
-        "rax",
-        "rbx",
-        "rcx",
-        "rdx",
-        "rdi",
-        "rsi",
-        "rbp",
-        "rsp",
-        "r8",
-        "r9",
-        "r10",
-        "r11",
-        "r12",
-        "r13",
-        "r14",
-        "r15",
-    ]
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
         super().__init__()
@@ -225,6 +201,8 @@ class AMD64(cpu.CPU):
         self.add(self.fs)
         self.gs = state.Register("gs", 8)
         self.add(self.gs)
+        self.ss = state.Register("ss", 8)
+        self.add(self.ss)
 
         # *** Control Registers ***
         self.cr0 = state.Register("cr0", 8)

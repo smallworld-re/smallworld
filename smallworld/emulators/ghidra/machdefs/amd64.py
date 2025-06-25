@@ -1,16 +1,13 @@
 import typing
 
 from .... import platforms
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class AMD64MachineDef(PcodeMachineDef):
+class AMD64MachineDef(GhidraMachineDef):
     arch: platforms.Architecture = platforms.Architecture.X86_64
     byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE
     language_id: str = "x86:LE:64:default"
-
-    pc_reg: str = "rip"
-    address_size: int = 8
 
     _registers: typing.Dict[str, typing.Optional[str]] = {
         # *** General Purpose Registers ***
@@ -153,55 +150,36 @@ class AMD64MachineDef(PcodeMachineDef):
         "mm6": None,
         "mm7": None,
         # SSE/AVX registers
-        "zmm0": "zmm0",
         "ymm0": "ymm0",
         "xmm0": "xmm0",
-        "zmm1": "zmm1",
         "ymm1": "ymm1",
         "xmm1": "xmm1",
-        "zmm2": "zmm2",
         "ymm2": "ymm2",
         "xmm2": "xmm2",
-        "zmm3": "zmm3",
         "ymm3": "ymm3",
         "xmm3": "xmm3",
-        "zmm4": "zmm4",
         "ymm4": "ymm4",
         "xmm4": "xmm4",
-        "zmm5": "zmm5",
         "ymm5": "ymm5",
         "xmm5": "xmm5",
-        "zmm6": "zmm6",
         "ymm6": "ymm6",
         "xmm6": "xmm6",
-        "zmm7": "zmm7",
         "ymm7": "ymm7",
         "xmm7": "xmm7",
-        "zmm8": "zmm8",
         "ymm8": "ymm8",
         "xmm8": "xmm8",
-        "zmm9": "zmm9",
         "ymm9": "ymm9",
         "xmm9": "xmm9",
-        "zmm10": "zmm10",
         "ymm10": "ymm10",
         "xmm10": "xmm10",
-        "zmm11": "zmm11",
         "ymm11": "ymm11",
         "xmm11": "xmm11",
-        "zmm12": "zmm12",
         "ymm12": "ymm12",
         "xmm12": "xmm12",
-        "zmm13": "zmm13",
         "ymm13": "ymm13",
         "xmm13": "xmm13",
-        "zmm14": "zmm14",
         "ymm14": "ymm14",
         "xmm14": "xmm14",
-        "zmm15": "zmm15",
         "ymm15": "ymm15",
         "xmm15": "xmm15",
-        "zmm16": "zmm16",
-        "ymm16": "ymm16",
-        "xmm16": "xmm16",
     }

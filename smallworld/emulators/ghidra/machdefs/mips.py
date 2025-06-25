@@ -1,24 +1,15 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class MIPS64MachineDef(PcodeMachineDef):
-    arch = Architecture.MIPS64
-
-    pc_reg = "pc"
-    address_size = 8
+class MIPSMachineDef(GhidraMachineDef):
+    arch = Architecture.MIPS32
 
     # NOTE: MIPS registers have a name and a number
     # angr's machine state doesn't use the number,
     # so... name.
-    # NOTE: angr's register names are wrong.
-    # It follows Wikipedia's definition of the 64-bit ABI,
-    # which has a4 - a7 and t0 - t3 overlapping.
     _registers = {
         # *** General-Purpose Registers ***
-        # NOTE: Ghidra uses the O64 ABI (rather, it reuses the O32 names for both)
-        # SmallWorld uses the N64 ABI for mips64,
-        # so the argument and temporary registers will appear wrong
         # Assembler-Temporary Register
         "at": "at",
         "1": "at",
@@ -36,22 +27,22 @@ class MIPS64MachineDef(PcodeMachineDef):
         "6": "a2",
         "a3": "a3",
         "7": "a3",
-        "a4": "t0",
-        "8": "t0",
-        "a5": "t1",
-        "9": "t1",
-        "a6": "t2",
-        "10": "t2",
-        "a7": "t3",
-        "11": "t3",
         # Temporary Registers
-        "t0": "t4",
+        "t0": "t0",
+        "8": "t0",
+        "t1": "t1",
+        "9": "t1",
+        "t2": "t2",
+        "10": "t2",
+        "t3": "t3",
+        "11": "t3",
+        "t4": "t4",
         "12": "t4",
-        "t1": "t5",
+        "t5": "t5",
         "13": "t5",
-        "t2": "t6",
+        "t6": "t6",
         "14": "t6",
-        "t3": "t7",
+        "t7": "t7",
         "15": "t7",
         # NOTE: These numbers aren't out of order.
         # t8 and t9 are later in the register file than t0 - t7.
@@ -145,45 +136,28 @@ class MIPS64MachineDef(PcodeMachineDef):
         # *** Accumulator Registers ***
         # MIPS uses these to implement 64-bit results
         # from 32-bit multiplication, amongst others.
-        "ac0": "ac0",
-        "hi0": "hi0",
-        "lo0": "lo0",
-        "ac1": "ac1",
-        "hi1": "hi1",
-        "lo1": "lo1",
-        "ac2": "ac2",
-        "hi2": "hi2",
-        "lo2": "lo2",
-        "ac3": "ac3",
-        "hi3": "hi3",
-        "lo3": "lo3",
-    }
-
-    _delay_slot_opcodes = {
-        "j",
-        "jal",
-        "jalx",
-        "jalr",
-        "jr",
-        "beq",
-        "beqz",
-        "bne" "bnez",
-        "bgez",
-        "bgezal",
-        "bgtz",
-        "blez",
-        "bltz",
-        "bltzal",
+        "ac0": None,
+        "hi0": None,
+        "lo0": None,
+        "ac1": None,
+        "hi1": None,
+        "lo1": None,
+        "ac2": None,
+        "hi2": None,
+        "lo2": None,
+        "ac3": None,
+        "hi3": None,
+        "lo3": None,
     }
 
     supports_single_step = True
 
 
-class MIPS64ELMachineDef(MIPS64MachineDef):
+class MIPSELMachineDef(MIPSMachineDef):
     byteorder = Byteorder.LITTLE
-    language_id = "MIPS:LE:64:default"
+    language_id = "MIPS:LE:32:default"
 
 
-class MIPS64BEMachineDef(MIPS64MachineDef):
+class MIPSBEMachineDef(MIPSMachineDef):
     byteorder = Byteorder.BIG
-    language_id = "MIPS:BE:64:default"
+    language_id = "MIPS:BE:32:default"

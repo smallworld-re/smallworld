@@ -29,7 +29,7 @@ def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
     if not pyghidra.started():
         pyghidra.start()
 
-    from .pcode import GhidraEmulator as Emu
+    from .ghidra import GhidraEmulator as Emu
 
     return Emu(platform)
 

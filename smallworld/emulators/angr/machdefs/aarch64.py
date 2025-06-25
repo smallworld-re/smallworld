@@ -9,7 +9,6 @@ class AArch64MachineDef(AngrMachineDef):
     byteorder = Byteorder.LITTLE
 
     angr_arch = archinfo.arch_aarch64.ArchAArch64()
-    pc_reg = "pc"
 
     _registers = {
         # *** General Purpose Registers ***
@@ -77,6 +76,7 @@ class AArch64MachineDef(AngrMachineDef):
         "w30": "w30",
         "pc": "pc",
         "sp": "sp",
+        "wsp": "wsp",
         "fp": "fp",
         "lr": "lr",
         "xzr": "xzr",

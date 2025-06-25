@@ -1,12 +1,9 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class MIPS64MachineDef(PandaMachineDef):
     arch = Architecture.MIPS64
-    cs_arch = capstone.CS_ARCH_MIPS
 
     # We don't need this
 
@@ -80,6 +77,55 @@ class MIPS64MachineDef(PandaMachineDef):
             "ra": "ra",
             "31": "ra",
             "pc": "pc",
+            "f0": None,
+            "f1": None,
+            "f2": None,
+            "f3": None,
+            "f4": None,
+            "f5": None,
+            "f6": None,
+            "f7": None,
+            "f8": None,
+            "f9": None,
+            "f10": None,
+            "f11": None,
+            "f12": None,
+            "f13": None,
+            "f14": None,
+            "f15": None,
+            "f16": None,
+            "f17": None,
+            "f18": None,
+            "f19": None,
+            "f20": None,
+            "f21": None,
+            "f22": None,
+            "f23": None,
+            "f24": None,
+            "f25": None,
+            "f26": None,
+            "f27": None,
+            "f28": None,
+            "f29": None,
+            "f30": None,
+            "f31": None,
+            "fir": None,
+            "fcsr": None,
+            "fexr": None,
+            "fenr": None,
+            "fccr": None,
+            "ac0": None,
+            "lo0": None,
+            "hi0": None,
+            "ac1": None,
+            "lo1": None,
+            "hi1": None,
+            "ac2": None,
+            "lo2": None,
+            "hi2": None,
+            "ac3": None,
+            "lo3": None,
+            "hi3": None,
         }
 
 
@@ -88,7 +134,6 @@ class MIPS64BEMachineDef(MIPS64MachineDef):
     panda_arch = "mips64"
     machine = "malta"
     cpu = "MIPS64R2-generic"
-    cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
 
 
 class MIPS64ELMachineDef(MIPS64MachineDef):
@@ -96,4 +141,3 @@ class MIPS64ELMachineDef(MIPS64MachineDef):
     panda_arch = "mips64el"
     machine = "malta"
     cpu = "MIPS64R2-generic"
-    cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_LITTLE_ENDIAN

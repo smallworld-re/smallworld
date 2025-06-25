@@ -7,7 +7,7 @@ import typing
 import capstone
 import networkx as nx
 
-from .. import hinting, state
+from .. import hinting, platforms, state
 from ..emulators import (
     UnicornEmulationMemoryReadError,
     UnicornEmulationMemoryWriteError,
@@ -107,6 +107,7 @@ class Colorizer(analysis.Analysis):
         self.orig_machine = copy.deepcopy(machine)
         self.orig_cpu = self.orig_machine.get_cpu()
         self.platform = self.orig_cpu.platform
+        self.platdef = platforms.PlatformDef.for_platform(self.platform)
 
         edges: typing.Dict[int, typing.Dict[int, int]] = {}
         if self.seed is not None:
@@ -322,7 +323,7 @@ class Colorizer(analysis.Analysis):
         for reg in cpu:
             if (
                 type(reg) is state.Register
-            ) and reg.name in cpu.get_general_purpose_registers():
+            ) and reg.name in self.platdef.general_purpose_registers:
                 regs.append((reg.name, reg.size))
         regs.sort(key=lambda x: x[0])
         for name, size in regs:

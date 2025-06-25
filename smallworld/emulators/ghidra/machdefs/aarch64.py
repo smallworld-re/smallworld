@@ -1,14 +1,11 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class AArch64MachineDef(PcodeMachineDef):
+class AArch64MachineDef(GhidraMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
     language_id = "AARCH64:LE:64:v8A"
-
-    pc_reg = "pc"
-    address_size = 8
 
     _registers = {
         # *** General Purpose Registers ***
@@ -76,6 +73,7 @@ class AArch64MachineDef(PcodeMachineDef):
         "w30": "w30",
         "pc": "pc",
         "sp": "sp",
+        "wsp": "wsp",
         "fp": "x29",
         "lr": "x30",
         "xzr": "xzr",

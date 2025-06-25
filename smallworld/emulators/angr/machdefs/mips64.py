@@ -7,8 +7,6 @@ from .machdef import AngrMachineDef
 class MIPS64MachineDef(AngrMachineDef):
     arch = Architecture.MIPS64
 
-    pc_reg = "pc"
-
     # NOTE: MIPS registers have a name and a number
     # angr's machine state doesn't use the number,
     # so... name.

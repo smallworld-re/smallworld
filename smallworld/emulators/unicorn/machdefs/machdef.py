@@ -37,30 +37,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """
         return 0
 
-    @property
-    @abc.abstractmethod
-    def cs_arch(self) -> int:
-        """The capstone arch ID"""
-        return 0
+    _registers: typing.Dict[str, int] = {}
 
-    @property
-    @abc.abstractmethod
-    def cs_mode(self) -> int:
-        """The capstone mode ID
-
-        This must include an byteorder flag
-        """
-        return 0
-
-    @property
-    @abc.abstractmethod
-    def pc_reg(self) -> str:
-        """The name of the Program Counter register for this machine"""
-        return ""
-
-    _registers: typing.Dict[str, typing.Tuple[typing.Any, str, int, int]] = {}
-
-    def uc_reg(self, name: str) -> typing.Tuple[typing.Any, str, int, int]:
+    def uc_reg(self, name: str) -> int:
         """Convert a register name to unicorn constant
 
         This must cover all names defined in the CPU state model

@@ -7,7 +7,7 @@ from ghidra.program.model.lang import Language, LanguageID, Register
 from .... import exceptions, platforms, utils
 
 
-class PcodeMachineDef:
+class GhidraMachineDef:
     """Container class for ghdra architecture-specific definitions"""
 
     @property
@@ -36,12 +36,6 @@ class PcodeMachineDef:
     # This flag indicates that this machine uses such instructions,
     # and is not safe to step in this manner
     supports_single_step: bool = True
-
-    # Program counter register
-    pc_reg: str
-
-    # Address size
-    address_size: int
 
     _registers: typing.Dict[str, typing.Optional[str]]
 

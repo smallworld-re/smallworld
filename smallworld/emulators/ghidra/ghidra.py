@@ -9,7 +9,7 @@ from ghidra.program.model.pcode import Varnode
 
 from ... import exceptions, platforms, utils
 from ..emulator import Emulator
-from .machdefs import PcodeMachineDef
+from .machdefs import GhidraMachineDef
 from .typing import AbstractGhidraEmulator
 
 
@@ -33,7 +33,10 @@ class GhidraEmulator(AbstractGhidraEmulator):
     def __init__(self, platform: platforms.Platform):
         super().__init__(platform)
         self.platform: platforms.Platform = platform
-        self.machdef: PcodeMachineDef = PcodeMachineDef.for_platform(platform)
+        self.platdef: platforms.PlatformDef = platforms.PlatformDef.for_platform(
+            platform
+        )
+        self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
 
         self._emu: PcodeEmulator = PcodeEmulator(self.machdef.language)
         # Set up the context configuration.
@@ -78,7 +81,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
     def read_register_content(self, name: str) -> int:
         # Determine address and size of register
         if name == "pc":
-            name = self.machdef.pc_reg
+            name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
 
         # Get the thread's register state
@@ -99,7 +102,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
     ) -> None:
         # Determine address and size of register
         if name == "pc":
-            name = self.machdef.pc_reg
+            name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
 
         if value is None:
@@ -123,9 +126,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
         shared = self._emu.getSharedState()
 
         if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr_bytes = address.to_bytes(self.machdef.address_size, "big")
+            addr_bytes = address.to_bytes(self.platdef.address_size, "big")
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr_bytes = address.to_bytes(self.machdef.address_size, "little")
+            addr_bytes = address.to_bytes(self.platdef.address_size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
@@ -161,9 +164,9 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         val = self.bytes_py_to_java(content)
         if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr_bytes = address.to_bytes(self.machdef.address_size, "big")
+            addr_bytes = address.to_bytes(self.platdef.address_size, "big")
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr_bytes = address.to_bytes(self.machdef.address_size, "little")
+            addr_bytes = address.to_bytes(self.platdef.address_size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
@@ -411,7 +414,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
             )
 
         # Step!
-        pc = self.read_register_content(self.machdef.pc_reg)
+        pc = self.read_register_content(self.platdef.pc_register)
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
 
@@ -470,7 +473,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     frame = e.getFrame()
 
         # Check exit points and bounds
-        pc = self.read_register_content(self.machdef.pc_reg)
+        pc = self.read_register_content(self.platdef.pc_register)
 
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint()

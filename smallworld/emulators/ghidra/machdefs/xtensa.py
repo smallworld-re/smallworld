@@ -1,16 +1,14 @@
 import typing
 
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class XTensaMachineDef(PcodeMachineDef):
+class XTensaMachineDef(GhidraMachineDef):
     arch = Architecture.XTENSA
     _registers: typing.Dict[str, typing.Optional[str]] = {}
     _registers |= {f"a{i}": f"a{i}" for i in range(0, 16)}
-    _registers |= {"pc": "pc", "sar": "sar"}
-    pc_reg = "pc"
-    address_size = 4
+    _registers |= {"pc": "pc", "sar": "sar", "sp": "a1"}
 
 
 class XTensaELMachineDef(XTensaMachineDef):

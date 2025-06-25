@@ -1,14 +1,11 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class RISCV64MachineDef(PcodeMachineDef):
+class RISCV64MachineDef(GhidraMachineDef):
     arch = Architecture.RISCV64
     byteorder = Byteorder.LITTLE
     language_id = "RISCV:LE:64:default"
-
-    pc_reg = "pc"
-    address_size = 8
 
     _registers = {
         # *** General-Purpose Registers ***

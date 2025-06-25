@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms
 from .. import state
 from . import cpu
@@ -7,44 +5,6 @@ from . import cpu
 
 class MIPS64(cpu.CPU):
     """Abstract CPU state object for all MIPS64 targets"""
-
-    # Excluded registers:
-    # - zero: Hard-wired to zero
-    # - at: Reserved for assembler
-    # - kX: Reserved for kernel; used as general in some ABIs
-    # - fX: Floating-point registers
-    # - acX: Accumulator registers
-    _GENERAL_PURPOSE_REGS = [
-        "v0",
-        "v1",
-        "a0",
-        "a1",
-        "a2",
-        "a3",
-        "a4",
-        "a5",
-        "a6",
-        "a7",
-        "t0",
-        "t1",
-        "t2",
-        "t3",
-        "t4",
-        "t8",
-        "t9",
-        "s0",
-        "s1",
-        "s2",
-        "s3",
-        "s4",
-        "s5",
-        "s6",
-        "s7",
-        "s8",
-    ]
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
         super().__init__()
@@ -304,27 +264,27 @@ class MIPS64EL(MIPS64):
         # from 64-bit multiplication, amongst others.
         self.ac0 = state.Register("ac0", size=16)
         self.add(self.ac0)
-        self.lo = state.RegisterAlias("lo0", self.ac0, size=8, offset=0)
-        self.add(self.lo)
-        self.hi = state.RegisterAlias("hi0", self.ac0, size=8, offset=4)
-        self.add(self.hi)
+        self.lo0 = state.RegisterAlias("lo0", self.ac0, size=8, offset=0)
+        self.add(self.lo0)
+        self.hi0 = state.RegisterAlias("hi0", self.ac0, size=8, offset=8)
+        self.add(self.hi0)
         self.ac1 = state.Register("ac1", size=16)
         self.add(self.ac1)
         self.lo1 = state.RegisterAlias("lo1", self.ac1, size=8, offset=0)
         self.add(self.lo1)
-        self.hi1 = state.RegisterAlias("hi1", self.ac1, size=8, offset=4)
+        self.hi1 = state.RegisterAlias("hi1", self.ac1, size=8, offset=8)
         self.add(self.hi1)
         self.ac2 = state.Register("ac2", size=16)
         self.add(self.ac2)
         self.lo2 = state.RegisterAlias("lo2", self.ac2, size=8, offset=0)
         self.add(self.lo2)
-        self.hi2 = state.RegisterAlias("hi2", self.ac2, size=8, offset=4)
+        self.hi2 = state.RegisterAlias("hi2", self.ac2, size=8, offset=8)
         self.add(self.hi2)
         self.ac3 = state.Register("ac3", size=16)
         self.add(self.ac3)
         self.lo3 = state.RegisterAlias("lo3", self.ac3, size=8, offset=0)
         self.add(self.lo3)
-        self.hi3 = state.RegisterAlias("hi3", self.ac3, size=8, offset=4)
+        self.hi3 = state.RegisterAlias("hi3", self.ac3, size=8, offset=8)
         self.add(self.hi3)
         # TODO: MIPS has a boatload of extensions with their own registers.
         # There isn't a clean join between Sleigh, Unicorn, and MIPS docs.
@@ -346,27 +306,27 @@ class MIPS64BE(MIPS64):
         # *** Accumulator Registers ***
         # MIPS uses these to implement 64-bit results
         # from 32-bit multiplication, amongst others.
-        self.ac0 = state.Register("ac0", size=8)
+        self.ac0 = state.Register("ac0", size=16)
         self.add(self.ac0)
-        self.hi = state.RegisterAlias("hi0", self.ac0, size=8, offset=0)
-        self.add(self.hi)
-        self.lo = state.RegisterAlias("lo0", self.ac0, size=8, offset=4)
-        self.add(self.lo)
-        self.ac1 = state.Register("ac1", size=8)
+        self.hi0 = state.RegisterAlias("hi0", self.ac0, size=8, offset=0)
+        self.add(self.hi0)
+        self.lo0 = state.RegisterAlias("lo0", self.ac0, size=8, offset=8)
+        self.add(self.lo0)
+        self.ac1 = state.Register("ac1", size=16)
         self.add(self.ac1)
         self.hi1 = state.RegisterAlias("hi1", self.ac1, size=8, offset=0)
         self.add(self.hi1)
-        self.lo1 = state.RegisterAlias("lo1", self.ac1, size=8, offset=4)
+        self.lo1 = state.RegisterAlias("lo1", self.ac1, size=8, offset=8)
         self.add(self.lo1)
-        self.ac2 = state.Register("ac2", size=8)
+        self.ac2 = state.Register("ac2", size=16)
         self.add(self.ac2)
         self.hi2 = state.RegisterAlias("hi2", self.ac2, size=8, offset=0)
         self.add(self.hi2)
-        self.lo2 = state.RegisterAlias("lo2", self.ac2, size=8, offset=4)
+        self.lo2 = state.RegisterAlias("lo2", self.ac2, size=8, offset=8)
         self.add(self.lo2)
-        self.ac3 = state.Register("ac3", size=8)
+        self.ac3 = state.Register("ac3", size=16)
         self.add(self.ac3)
         self.hi3 = state.RegisterAlias("hi3", self.ac3, size=8, offset=0)
         self.add(self.hi3)
-        self.lo3 = state.RegisterAlias("lo3", self.ac3, size=8, offset=4)
+        self.lo3 = state.RegisterAlias("lo3", self.ac3, size=8, offset=8)
         self.add(self.lo3)

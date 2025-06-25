@@ -1,14 +1,11 @@
 from ....platforms import Architecture, Byteorder
-from .machdef import PcodeMachineDef
+from .machdef import GhidraMachineDef
 
 
-class i386MachineDef(PcodeMachineDef):
+class i386MachineDef(GhidraMachineDef):
     arch = Architecture.X86_32
     byteorder = Byteorder.LITTLE
     language_id = "x86:LE:32:default"
-
-    pc_reg = "eip"
-    address_size = 4
 
     _registers = {
         # *** General Purpose Registers ***
@@ -30,16 +27,16 @@ class i386MachineDef(PcodeMachineDef):
         "dh": "dh",
         "esi": "esi",
         "si": "si",
-        "sil": "sil",
+        "sil": None,
         "edi": "edi",
         "di": "di",
-        "dil": "dil",
+        "dil": None,
         "ebp": "ebp",
         "bp": "bp",
-        "bpl": "bpl",
+        "bpl": None,
         "esp": "esp",
         "sp": "sp",
-        "spl": "spl",
+        "spl": None,
         # *** Instruction Pointer ***
         "eip": "eip",
         "ip": "ip",
