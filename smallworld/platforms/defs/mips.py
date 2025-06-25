@@ -5,7 +5,20 @@ import capstone
 from ..platforms import Architecture, Byteorder
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
-# MIPS registers don't really have canonical uses, or canonical names.
+# NOTE: mips32 has two major ISA variants.
+#
+# The Debian standard is built around mips32r2.
+#
+# There's a newer specification mips32r6 that adds and deprecates
+# a number of instructions, amongst other changes.
+#
+# There are older ISA variants that are still in use
+# because no one updates their hardware.
+#
+# This definition will focus on mips32r2
+# If you need support for r6, please submit a ticket.
+
+# NOTE: MIPS registers don't really have canonical uses, or canonical names.
 # Their names are assigned based on the purpose they serve
 # in a specific ABI.
 #
@@ -25,6 +38,61 @@ class MIPSO32PlatformDef(PlatformDef):
 
     capstone_arch = capstone.CS_ARCH_MIPS
     capstone_mode = capstone.CS_MODE_MIPS32
+
+    conditional_branch_mnemonics = {
+        # Conditional branch
+        "beq",
+        "bne",
+        "bgez",
+        "bgtz",
+        "blez",
+        "bltz",
+        # Conditional branch-and-link
+        "bgezal",
+        "bltzal"
+        # Likely conditional branch
+        # Skip the delay slot if they are not taken.
+        "beql",
+        "bnel",
+        "bgezl",
+        "bgtzl",
+        "blezl",
+        "bltzl",
+        # Likely conditional branch-and-link
+        # Skip the delay slot if they are not taken
+        "bgezall",
+        "bltzall",
+    }
+
+    compare_mnemonics = {
+        # MIPS doesn't really have integer comparison instructions
+        # All of the conditional branches include a comparsion
+        # relative to zero; the compiler needs to reduce
+        # all conditional tests to comparisons against zero.
+        # Floating-point comparison
+        # Save to FCC
+        # NOTE: Unlike branches, compares only support eq, lt, and le
+        "c.eq.s",
+        "c.eq.d",
+        "c.eq.ps",
+        "c.lt.s",
+        "c.lt.d",
+        "c.lt.ps",
+        "c.le.s",
+        "c.le.d",
+        "c.le.ps",
+        # Floating-point comparison
+        # Save to FPR
+        "cmp.eq.s",
+        "cmp.eq.d",
+        "cmp.eq.ps",
+        "cmp.lt.s",
+        "cmp.lt.d",
+        "cmp.lt.ps",
+        "cmp.le.s",
+        "cmp.le.d",
+        "cmp.le.ps",
+    }
 
     pc_register = "pc"
 

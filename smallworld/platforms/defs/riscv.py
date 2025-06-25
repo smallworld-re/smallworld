@@ -3,6 +3,13 @@ import capstone
 from ..platforms import Architecture, Byteorder
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
+# NOTE: RiscV is designed to be an extensible language.
+# The core ISA is incredibly simple,
+# with a large number of optional extensions available
+# to chip manufacturers
+#
+# Support for any specific extension depends on the emulator.
+
 
 class RiscV64(PlatformDef):
     architecture = Architecture.RISCV64
@@ -12,6 +19,27 @@ class RiscV64(PlatformDef):
 
     capstone_arch = capstone.CS_ARCH_RISCV
     capstone_mode = capstone.CS_MODE_RISCV64
+
+    conditional_branch_mnemonics = {
+        # Core conditional branch instructions
+        "beq",
+        "bne",
+        "blt",
+        "bltu",
+        "ble",
+        "bleu",
+        "bgt",
+        "bgtu",
+        "bge",
+        "bgeu",
+    }
+
+    # RiscV core has no dedicated compare instructions
+    # (they're rather smug about this fact).
+    #
+    # - The "Zicond" extension adds conditional move instructions.
+    # - The "Zacas" extension adds compare-exchange instructions
+    compare_mnemonics = set()
 
     pc_register = "pc"
 

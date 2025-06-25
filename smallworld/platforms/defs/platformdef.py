@@ -51,6 +51,18 @@ class PlatformDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def conditional_branch_mnemonics(self) -> typing.Set[str]:
+        """Set of conditional branch mnemonics"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def compare_mnemonics(self) -> typing.Set[str]:
+        """Set of comparison mnemonics"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
     def pc_register(self) -> str:
         """Program Counter register name"""
         raise NotImplementedError()

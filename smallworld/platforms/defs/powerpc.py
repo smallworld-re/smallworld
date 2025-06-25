@@ -21,6 +21,105 @@ class PowerPCPlatformDef(PlatformDef):
 
     capstone_arch = capstone.CS_ARCH_PPC
 
+    # PowerPC conditional branches are an abject pain.
+    # There are 172 possible ways to conditionally branch to an address,
+    # and a similar number of ways to branch to LR or CTR.
+    # Not all of these have mnemonics, but the ISA doesn't actually specify which.
+
+    # Branch to a label
+    _branch_to_label = {
+        # Conditional branch
+        "bc",
+        "beq",
+        "bne",
+        "blt",
+        "ble",
+        "bgt",
+        "bge",
+        "bso",
+        "bns",
+        # Decrement ctr and branch if non-zero
+        # NOTE: This can also include a conditional test
+        "bdnz",
+        # Decrement ctr and branch if zero
+        # NOTE: This can also include a conditional test
+        "bdz",
+    }
+    # Handle "branch-and-link" and "absolute address" variants
+    _branch_and_link_to_label = set(map(lambda x: f"{x}l", _branch_to_label))
+    _branch_absolute_to_label = set(map(lambda x: f"{x}a", _branch_to_label))
+    _branch_and_link_absolute_to_label = set(
+        map(lambda x: f"{x}a", _branch_and_link_to_label)
+    )
+
+    # Handle branch predictor suggestions
+    _branch_to_label_neutral = (
+        _branch_to_label
+        | _branch_and_link_to_label
+        | _branch_absolute_to_label
+        | _branch_and_link_absolute_to_label
+    )
+    _branch_to_label_likely = set(map(lambda x: f"{x}+", _branch_to_label_neutral))
+    _branch_to_label_unlikely = set(map(lambda x: f"{x}-", _branch_to_label_neutral))
+
+    # Collect branch to label
+    _branch_to_label_all = (
+        _branch_to_label_neutral | _branch_to_label_likely | _branch_to_label_unlikely
+    )
+
+    # Branch to LR looks the same as branch to label, but with an "lr" suffix after the condition code
+    _branch_to_lr = set(map(lambda x: f"{x}lr", _branch_to_label))
+    _branch_and_link_to_lr = set(map(lambda x: f"{x}l", _branch_to_lr))
+
+    # Handle branch predictor suggestions
+    _branch_to_lr_neutral = _branch_to_lr | _branch_and_link_to_lr
+    _branch_to_lr_likely = set(map(lambda x: f"{x}+", _branch_to_lr_neutral))
+    _branch_to_lr_unlikely = set(map(lambda x: f"{x}-", _branch_to_lr_neutral))
+
+    # Collect branch to LR
+    _branch_to_lr_all = (
+        _branch_to_lr_neutral | _branch_to_lr_likely | _branch_to_lr_unlikely
+    )
+
+    # Branch to CTR looks the same as branch to label, but with a "ctr" suffix after the condition code.
+    _branch_to_ctr = set(map(lambda x: f"{x}ctr", _branch_to_label))
+    # There are no mnemonics for using ctr as a counter and branch target at once.
+    _branch_to_ctr -= {"bdnzctr", "bdzctr"}
+    _branch_and_link_to_ctr = set(map(lambda x: f"{x}l", _branch_to_ctr))
+
+    # Handle branch predictor suggestions
+    _branch_to_ctr_neutral = _branch_to_ctr | _branch_and_link_to_ctr
+    _branch_to_ctr_likely = set(map(lambda x: f"{x}+", _branch_to_ctr_neutral))
+    _branch_to_ctr_unlikely = set(map(lambda x: f"{x}-", _branch_to_ctr_neutral))
+
+    # Collect branch to CTR
+    _branch_to_ctr_all = (
+        _branch_to_ctr_neutral | _branch_to_ctr_likely | _branch_to_lr_unlikely
+    )
+
+    # Finally, collect all conditional branch mnemonics
+    conditional_branch_mnemonics = (
+        _branch_to_label_all | _branch_to_lr_all | _branch_to_ctr_all
+    )
+
+    compare_mnemonics = {
+        # Compare registers
+        "cmpd",
+        "cmpw",
+        # Compare immediate
+        "cmpi",
+        "cmpdi",
+        "cmpwi",
+        # Compare logical immediate
+        "cmpli",
+        "cmpldi",
+        "cmplwi",
+        # Compare
+        "cmpl",
+        "cmpld",
+        "cmplw",
+    }
+
     pc_register = "pc"
 
     # Special registers

@@ -16,6 +16,129 @@ class AMD64BasePlatformDef(PlatformDef):
     capstone_arch = capstone.CS_ARCH_X86
     capstone_mode = capstone.CS_MODE_64
 
+    conditional_branch_mnemonics = {
+        # All 57 varieties of Jcc opcode
+        "jo",
+        "jno",
+        "jb",
+        "jnae",
+        "jc",
+        "jnb",
+        "jae",
+        "jnc",
+        "jz",
+        "je",
+        "jnz",
+        "jne",
+        "jbe",
+        "jna",
+        "jnbe",
+        "ja",
+        "js",
+        "jns",
+        "jp",
+        "jpe",
+        "jnp",
+        "jpo",
+        "jl",
+        "jnge",
+        "jnl",
+        "jge",
+        "jle",
+        "jng",
+        "jnle",
+        "jg",
+        # Jump if (re)?cx is zero
+        # Oddly I can't find this in the opcode tables;
+        # it's mentioned tangentially in the docs for Jcc
+        # (and it's accepted by the assembler.)
+        "jrcxz",
+        "jecxz",
+        "jcxz",
+    }
+    # TODO: Should arithmetic operations that impact flags be compares?
+    compare_mnemonics = {
+        # Basic integer comparisons.
+        "cmp",
+        "test",
+        # SIMD float comparisons
+        # 'pd' and 'ps' variants work on packed double and packed single floats.
+        # TODO I'm not sure how this extends for AVX2 registers
+        # NOTE: There's another, less-descriptive way to decode these
+        # what does capstone use?
+        "cmpeqpd",
+        "cmpeqps",
+        "cmpltpd",
+        "cmpltps",
+        "cmplepd",
+        "cmpleps",
+        "cmpunordpd",
+        "cmpunordps",
+        "cmpneqpd",
+        "cmpneqps",
+        "cmpnltpd",
+        "cmpnltps",
+        "cmpnlepd",
+        "cmpnleps",
+        "cmpordpd",
+        "cmpordps",
+        # Compare string operands
+        "cmps",
+        "cmpsw",
+        "cmpsd",
+        "cmpsq",
+        # Single float comparisons
+        # 'sd' and 'ss' variants work on double and single-precision floats.
+        # TODO: I'm not sure how this extends for AVX2 registers
+        "cmpeqsd",
+        "cmpeqss",
+        "cmpltsd",
+        "cmpltss",
+        "cmplesd",
+        "cmpless",
+        "cmpunordsd",
+        "cmpunordss",
+        "cmpneqsd",
+        "cmpneqss",
+        "cmpnltsd",
+        "cmpnltss",
+        "cmpnlesd",
+        "cmpnless",
+        "cmpordsd",
+        "cmpordss",
+        # TODO: Do cmpxchg, cmpxchg8b, cmpxchg16b count?
+        # Generic float comparison
+        # Unlike previous lists, sets multiple flags depending.
+        "comisd",
+        "comiss",
+        # x87 float comparison
+        # Sets FPU condition flags
+        "fcom",
+        "fcomp",
+        "fcompp",
+        # x87 float comparison
+        # Sets eflags
+        "fcomi",
+        "fcomip",
+        "fcomipp",
+        # x87 integer comparison
+        "ficom",
+        "ficomp",
+        # x87 test (comparison against zero)
+        # Sets FPU condition flags
+        "ftst",
+        # x87 float comparison
+        # Sets FPU condition flags
+        # Behaves differently with NaNs
+        "fucom",
+        "fucomp",
+        "fucompp",
+        # x87 examine float
+        # Sets FPU flags according to which type of float this is (normal, zero, NaN, infty...)
+        "fxam",
+        # TODO: There may be more of these... waiting...
+    }
+
     pc_register = "rip"
 
     # NOTE: rbp and rsp are not considered general.

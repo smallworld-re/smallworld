@@ -1,12 +1,58 @@
 from ..platforms import Architecture, Byteorder
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
+# NOTE: Xtensa is designed to be an extensible language
+# There are options for Xtensa chips to implement almost any
+# ISA feature you can bally well think of,
+# some of which are closed-source and closed-spec.
+#
+# Support for any specific extension depends on the emulator.
+
 
 class Xtensa(PlatformDef):
     architecture = Architecture.XTENSA
     byteorder = Byteorder.LITTLE
 
     address_size = 4
+
+    conditional_branch_mnemonics = {
+        # Compare to zero and branch
+        "beqz",
+        "bnez",
+        "bgez",
+        "bltz",
+        # Compare to immediate and branch
+        "beqi",
+        "bnei",
+        "bgei",
+        "blti",
+        # Compare to unsigned immediate and branch
+        "bgeui",
+        "bltui",
+        # Compare to register and branch
+        "beq",
+        "bne",
+        "bge",
+        "blt",
+        # Compare to unsigned register and branch
+        "bgeu",
+        "bltu",
+        # Bit test versus immediate and branch
+        "bbci",
+        "bbsi",
+        # Bit test versus register and branch
+        "bbc",
+        "bbs",
+        # Test against bitmask and branch
+        "bany",
+        "bnone",
+        "ball",
+        "bnall",
+    }
+
+    # Xtensa core has no comparison operations;
+    # they're built into the branch instructions.
+    compare_mnemonics = set()
 
     # NOTE: Capstone does not yet support xtensa
     # It looks like it's either planned, or present in a newer version than we use.

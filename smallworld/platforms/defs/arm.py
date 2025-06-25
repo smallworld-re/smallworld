@@ -21,6 +21,29 @@ class ARMPlatformDef(PlatformDef):
     capstone_arch = capstone.CS_ARCH_ARM
     capstone_mode = capstone.CS_MODE_ARM
 
+    conditional_branch_mnemonics = {
+        # Conditional branch
+        "beq",
+        "bne",
+        "bcs",
+        "bhs",
+        "bcc",
+        "blo",
+        "bmi",
+        "bpl",
+        "bvs",
+        "bvc",
+        "bhi",
+        "bls",
+        "bge",
+        "blt",
+        "bgt",
+        "ble",
+        # Compare and branch on zero/non-zero
+        "cbz",
+        "cbnz",
+    }
+
     pc_register = "pc"
 
     # NOTE: r9, r10, r11, and r12 technically have special purposes,
@@ -31,8 +54,67 @@ class ARMPlatformDef(PlatformDef):
     def registers(self) -> typing.Dict[str, RegisterDef]:
         return self._registers
 
+    @property
+    def compare_mnemonics(self) -> typing.Set[str]:
+        return self._compare_mnemonics
+
     def __init__(self):
         super().__init__()
+        self._compare_mnemonics = {
+            # Integer comparison
+            "cmp",
+            "cmn",
+            "tst",
+            # Conditional integer comparison
+            "cmpeq",
+            "cmpne",
+            "cmpcs",
+            "cmphs",
+            "cmpcc",
+            "cmplo",
+            "cmpmi",
+            "cmppl",
+            "cmpvs",
+            "cmpvc",
+            "cmphi",
+            "cmpls",
+            "cmpge",
+            "cmplt",
+            "cmpgt",
+            "cmple",
+            "cmneq",
+            "cmnne",
+            "cmncs",
+            "cmnhs",
+            "cmncc",
+            "cmnlo",
+            "cmnmi",
+            "cmnpl",
+            "cmnvs",
+            "cmnvc",
+            "cmnhi",
+            "cmnls",
+            "cmnge",
+            "cmnlt",
+            "cmngt",
+            "cmnle",
+            "tsteq",
+            "tstne",
+            "tstcs",
+            "tsths",
+            "tstcc",
+            "tstlo",
+            "tstmi",
+            "tstpl",
+            "tstvs",
+            "tstvc",
+            "tsthi",
+            "tstls",
+            "tstge",
+            "tstlt",
+            "tstgt",
+            "tstle",
+        }
         self._registers = {
             # *** General-purpose registers ***
             "r0": RegisterDef(name="r0", size=4),
@@ -216,6 +298,8 @@ class ARMPlatformMixinFPEL:
 
     def __init__(self):
         super().__init__()
+        # TODO: What do the FP floating-point instructions look like?
+        # I only have docs for VFP.
         self._registers |= {
             # *** Floating point control registers ***
             # Floating-point Status and Control Register
@@ -293,6 +377,7 @@ class ARMPlatformMixinVFPEL:
 
     def __init__(self):
         super().__init__()
+        # TODO: Add the floating-point conditionals
         self._registers |= {
             # *** Floating-point Control Registers ***
             # Floating-point Status and Control Register

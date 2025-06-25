@@ -14,6 +14,145 @@ class AArch64(PlatformDef):
 
     pc_register = "pc"
 
+    # NOTE: aarch64 has unconditional conditions.
+    # "al" is always true, and "nv" is never true.
+    conditional_branch_mnemonics = {
+        # Conditional branches
+        "b.eq",
+        "b.ne",
+        "b.cs",
+        "b.cc",
+        "b.mi",
+        "b.pl",
+        "b.vs",
+        "b.vc",
+        "b.hi",
+        "b.ls",
+        "b.ge",
+        "b.lt",
+        "b.gt",
+        "b.le",
+        # Consistent (unlikely?) conditional branches
+        "bc.eq",
+        "bc.ne",
+        "bc.cs",
+        "bc.cc",
+        "bc.mi",
+        "bc.pl",
+        "bc.vs",
+        "bc.vc",
+        "bc.hi",
+        "bc.ls",
+        "bc.ge",
+        "bc.lt",
+        "bc.gt",
+        "bc.le",
+        # Compare and conditional branch
+        # TODO: How to handle this?
+        "cb.eq",
+        "cb.ne",
+        "cb.cs",
+        "cb.cc",
+        "cb.mi",
+        "cb.pl",
+        "cb.vs",
+        "cb.vc",
+        "cb.hi",
+        "cb.ls",
+        "cb.ge",
+        "cb.lt",
+        "cb.gt",
+        "cb.le",
+        # Extra mnemonics for cb opcodes
+        "cbge",
+        "cbhs",
+        "cble",
+        "cblo",
+        "cbls",
+        "cblt",
+        "cbnz",
+        "cbz",
+        # Compare bytes and conditional branch
+        "cbb.eq",
+        "cbb.ne",
+        "cbb.cs",
+        "cbb.cc",
+        "cbb.mi",
+        "cbb.pl",
+        "cbb.vs",
+        "cbb.vc",
+        "cbb.hi",
+        "cbb.ls",
+        "cbb.ge",
+        "cbb.lt",
+        "cbb.gt",
+        "cbb.le",
+        # Extra mnemonics for cbb opcodes
+        "cbble",
+        "cbblo",
+        "cbbls",
+        "cbblt",
+        # Compare half-words and conditional branch
+        "cbh.eq",
+        "cbh.ne",
+        "cbh.cs",
+        "cbh.cc",
+        "cbh.mi",
+        "cbh.pl",
+        "cbh.vs",
+        "cbh.vc",
+        "cbh.hi",
+        "cbh.ls",
+        "cbh.ge",
+        "cbh.lt",
+        "cbh.gt",
+        "cbh.le",
+        # Extra mnemonics for cbh opcodes
+        "cbhle",
+        "cbhlo",
+        "cbhls",
+        "cbhlt",
+    }
+
+    # TODO: Should arithmetic operations that impact flags be compares?
+    compare_mnemonics = {
+        # Integer comparison
+        # AArch64 supports positive and negative variants of comparisons
+        "cmn",
+        "cmp",
+        "tst",
+        # Conditional comparison
+        # This performs a comparison if the condition flags pass the desired test,
+        # otherwise it sets the flags to an immediate.
+        # NOTE: This takes a condition type, but it's encoded as an operand.
+        "ccmn",
+        "ccmp",
+        # Compare with tag
+        # Performs 56-bit comparison, likely to support tagged pointers
+        "cmpp",
+        # Vector comparisons
+        "cmeq",
+        "cmge",
+        "cmgt",
+        "cmhi",
+        "cmhs",
+        "cmle",
+        "cmlt",
+        "cmtst",
+        # Floating-point comparisons
+        "fcmeq",
+        "fcmge",
+        "fcmgt",
+        "fcmle",
+        "fcmlt",
+        "fcmp",
+        "fcmpe",
+        # Floating-point conditional comparisons
+        # NOTE: This takes a condition type, but it's encoded as an operand
+        "fccmp",
+        "fccmpe",
+    }
+
     # Special registers:
     # x29: frame pointer
     # x30: link register
