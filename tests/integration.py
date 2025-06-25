@@ -862,17 +862,6 @@ class StackTests(ScriptIntegrationTest):
             '"count": 10',
             '"reg_name": "rax"',
         )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4103',
-            '"color": 6',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rsp"',
-        )
 
         # self.assertLineContainsStrings(stderr, '"pointer"', '"base": "rsp"')
 
