@@ -24,3 +24,5 @@ gcc-powerpc-linux-gnu
 gcc-powerpc64-linux-gnu
 gcc-riscv64-linux-gnu
 gcc-sparc64-linux-gnu
+qemu-user
+gdb-multiarch
