@@ -23,6 +23,7 @@ Specific Emulator Notes
 =======================
 
 - angr is strictly a user-space emulator.  It models very few, if any, privileged features of a processor.
+- Ghidra's language models are written more for static analysis than execution, so the fidelity of the various ISA models varies drastically.  Usually, they are user-space only, and may only implement approximations of certain complex instructions.
 - Unicorn is a user-space emulator running on top of a full-system emulator (QEMU).  Privileged options may have unexpected effects or even crash the emulator.  Advanced users familiar with unicorn can unlock the full-system emulation features, but this is not supported directly by SmallWorld.
 
 Specific ISA Notes
@@ -55,7 +56,7 @@ save and restore call frames by changing how the general purpose registers alias
 Compare this to how most other architectures push and pop registers from the stack.  
 Windowed architectures are impossible to emulate in a userspace-only emulator, 
 since they use interrupts to "spill" registers onto the stack if there are more call frames 
-than they have windows.  Currently, only angr supports the relevant ISAs;
+than they have windows.  Currently, only angr and ghidra support the relevant ISAs;
 until that changes, SmallWorld cannot support windowed ISAs.
 
 Floating Point and Vector Support
