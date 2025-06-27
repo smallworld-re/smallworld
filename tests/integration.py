@@ -1887,6 +1887,46 @@ class LinkElfTests(ScriptIntegrationTest):
     # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
 
 
+class ElfCoreTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        self.command(f"python3 elf_core/elf_core.{arch}.py")
+
+    def test_elf_core_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_elf_core_amd64(self):
+        self.run_test("amd64")
+
+    def test_elf_core_armel(self):
+        self.run_test("armel")
+
+    def test_elf_core_armhf(self):
+        self.run_test("armhf")
+
+    def test_elf_core_i386(self):
+        self.run_test("i386")
+
+    def test_elf_core_mips(self):
+        self.run_test("mips")
+
+    def test_elf_core_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_elf_core_mips64(self):
+        self.run_test("mips64")
+
+    def test_elf_core_mips64el(self):
+        self.run_test("mips64el")
+
+    def test_elf_core_ppc(self):
+        self.run_test("ppc")
+
+    def test_elf_core_ppc64(self):
+        self.run_test("ppc64")
+
+    # NOTE: RiscV doesn't produce a core file when asked.
+
+
 class FloatsTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 floats/floats.{arch}.py 2.2 1.1")
