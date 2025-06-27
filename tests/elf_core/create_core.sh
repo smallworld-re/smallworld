@@ -41,6 +41,6 @@ if [ -f "$1.core" ]; then
     rm -f "$1.registers"
     gdb-multiarch -batch-silent -ex "set logging file $1.registers" -ex "set logging enabled on" -ex "info registers" "$1" "$1.core"
 else
-    echo "ERROR: Core file not created"
+    echo "ERROR: Core file not created for $1"
     exit 1 
 fi
