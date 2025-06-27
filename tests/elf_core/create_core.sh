@@ -1,5 +1,11 @@
 #!/bin/sh
 
+core_limit=`ulimit -c`
+if [ "$corre_limit" = 0 ]; then
+    echo "ERROR: Core file creation disabled; please use 'ulimit -c' or similar to override"
+    exit 1
+fi
+
 platform=`echo "$1" | cut -d. -f2-2`
 
 qemu_bin="qemu-$platform"
@@ -34,4 +40,7 @@ find . -name "qemu_$1*.core" | xargs -I @ mv @ "$1.core"
 if [ -f "$1.core" ]; then
     rm -f "$1.registers"
     gdb-multiarch -batch-silent -ex "set logging file $1.registers" -ex "set logging enabled on" -ex "info registers" "$1" "$1.core"
+else
+    echo "ERROR: Core file not created"
+    exit 1 
 fi
