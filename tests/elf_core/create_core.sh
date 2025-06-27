@@ -32,6 +32,6 @@ find . -name 'core.*' | xargs -I @ rm @
 find . -name "qemu_$1*.core" | xargs -I @ mv @ "$1.core"
 
 if [ -f "$1.core" ]; then
-    rm "$1.registers"
+    rm -f "$1.registers"
     gdb-multiarch -batch-silent -ex "set logging file $1.registers" -ex "set logging enabled on" -ex "info registers" "$1" "$1.core"
 fi
