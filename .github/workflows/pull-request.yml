@@ -144,6 +144,7 @@ jobs:
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
           - testsuite: HookingTests
+          - testsuite: PETests
           - testsuite: RelaTests
           - testsuite: SquareTests
           - testsuite: StackTests

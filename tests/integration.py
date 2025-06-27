@@ -1763,7 +1763,7 @@ class RelaTests(ScriptIntegrationTest):
 class LinkElfTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 link_elf/link_elf.{arch}.py 42")
-        self.assertLineContainsStrings("0x2a")
+        self.assertLineContainsStrings(stdout, "0x2a")
 
     def test_link_elf_aarch64(self):
         self.run_test("aarch64")
@@ -1926,11 +1926,43 @@ class ElfCoreTests(ScriptIntegrationTest):
 
     # NOTE: RiscV doesn't produce a core file when asked.
 
+    # NOTE: Xtensa is missing libc
+
+
+class PETests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 pe/pe.{arch}.py")
+        self.assertLineContainsStrings(stdout, "Hello, world!")
+
+    def test_pe_amd64(self):
+        self.run_test("amd64")
+
+    def test_pe_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_pe_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_pe_amd64_pcode(self):
+        self.run_test("amd64.pcode")
+
+    def test_pe_i386(self):
+        self.run_test("i386")
+
+    def test_pe_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_pe_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_pe_i386_pcode(self):
+        self.run_test("i386.pcode")
+
 
 class FloatsTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 floats/floats.{arch}.py 2.2 1.1")
-        self.assertLineContainsStrings("3.3")
+        self.assertLineContainsStrings(stdout, "3.3")
 
     def test_floats_aarch64(self):
         self.run_test("aarch64")
@@ -1981,8 +2013,8 @@ class FloatsTests(ScriptIntegrationTest):
 class SyscallTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 syscall/syscall.{arch}.py")
-        self.assertLineContainsStrings("Executing syscall")
-        self.assertLineContainsStrings("Executing a write syscall")
+        self.assertLineContainsStrings(stdout, "Executing syscall")
+        self.assertLineContainsStrings(stdout, "Executing a write syscall")
 
     def test_syscall_aarch64_angr(self):
         self.run_test("aarch64.angr")
