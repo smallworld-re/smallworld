@@ -1,17 +1,17 @@
-,               angr,       panda,      unicorn
-aarch64,        **Yes**,    **Yes**,    **Yes**
-amd64,          **Yes**,    **Yes**,    **Yes**
-arm-v5t,        **Yes**,    **Yes**,    **Yes**
-arm-v6m,        **Yes**,    No,         **Yes**
-arm-v7a,        **Yes**,    **Yes**,    **Yes**
-arm-v7m,        **Yes**,    No,         **Yes**
-arm-v7r,        No,         No,         **Yes**
-i386,           **Yes**,    **Yes**,    **Yes**
-mips32r2-be,    **Yes**,    **Yes**,    **Yes**
-mips32r2-el,    **Yes**,    **Yes**,    **Yes**
-mips64r2-be,    **Yes**,    **Yes**,    No Support
-mips64r2-el,    **Yes**,    No,         No Support
-powerpc32,      **Yes**,    **Yes**,    No Support
-powerpc64,      **Yes**,    No,         No Support
-riscv64,        **Yes**,    No Support, No Support
-xtensa,         **Yes**,    No Support, No Support
+,               angr,       ghidra,     panda,      unicorn
+aarch64,        **Yes**,    **Yes**,    **Yes**,    **Yes**
+amd64,          **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v5t,        **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v6m,        **Yes**,    **Yes**,    No,         **Yes**
+arm-v7a,        **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7m,        **Yes**,    **Yes**,    No,         **Yes**
+arm-v7r,        No,         No,         No,         **Yes**
+i386,           **Yes**,    **Yes**,    **Yes**,    **Yes**
+mips32r2-be,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+mips32r2-el,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+mips64r2-be,    **Yes**,    **Yes**,    **Yes**,    No Support
+mips64r2-el,    **Yes**,    **Yes**,    No,         No Support
+powerpc32,      **Yes**,    **Yes**,    **Yes**,    No Support
+powerpc64,      **Yes**,    **Yes**,    No,         No Support
+riscv64,        **Yes**,    **Yes**,    No Support, No Support
+xtensa,         **Yes**,    **Yes**,    No Support, No Support
