@@ -26,7 +26,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_pe(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_pe(
+        f, platform=platform, address=0x10000
+    )
     machine.add(code)
 
 # Create a stack and add it to the state

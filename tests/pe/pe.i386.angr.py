@@ -93,6 +93,7 @@ machine.add(puts)
 cpu.eip.set(code.address + 0x15D0)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(code.address + 0x15F0)
 final_machine = machine.emulate(emulator)

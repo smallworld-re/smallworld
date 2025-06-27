@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -35,13 +35,13 @@ with open(filename, "rb") as f:
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-stack.push_integer(0x10101010, 4, None)
-cpu.esp.set(stack.get_pointer())
+stack.push_integer(0x10101010, 8, None)
+cpu.rsp.set(stack.get_pointer())
 
 
 # Configure _main model
 class InitModel(smallworld.state.models.Model):
-    name = "___main"
+    name = "_main"
     platform = platform
     abi = smallworld.platforms.ABI.NONE
 
@@ -50,7 +50,7 @@ class InitModel(smallworld.state.models.Model):
         pass
 
 
-init = InitModel(code.address + 0x16A0)
+init = InitModel(code.address + 0x1630)
 machine.add(init)
 
 
@@ -66,10 +66,8 @@ class PutsModel(smallworld.state.models.Model):
         # are guaranteed to be symbolic.
         #
         # Thus, we must step one byte at a time.
-        p = emulator.read_register("esp") + 4
-        s = int.from_bytes(emulator.read_memory(p, 4), "little")
+        s = emulator.read_register("rcx")
         v = b""
-        print(f"Reading string at {hex(s)}")
         try:
             b = emulator.read_memory_content(s, 1)
         except smallworld.exceptions.SymbolicValueError:
@@ -86,13 +84,13 @@ class PutsModel(smallworld.state.models.Model):
         print(v)
 
 
-puts = PutsModel(code.address + 0x252C)
+puts = PutsModel(code.address + 0x2680)
 machine.add(puts)
 
 # Set entrypoint to "main"
-cpu.eip.set(code.address + 0x15D0)
+cpu.rip.set(code.address + 0x1550)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(code.address + 0x15F0)
+emulator = smallworld.emulators.GhidraEmulator(platform)
+emulator.add_exit_point(code.address + 0x1572)
 final_machine = machine.emulate(emulator)

@@ -13,8 +13,17 @@ from ..code import Executable
 IMAGE_FILE_MACHINE_AMD64 = 0x8664
 IMAGE_FILE_MACHINE_I386 = 0x14C
 
+# Section flags
+# Currently, the only one we care about is "code".
+# Not sure how the others interact with file loading.
 IMAGE_SCN_CNT_CODE = 0x20
-IMAGE_SCN_CNT_UNINITIALIZED_DATA = 0x80
+
+# Relocation types
+# All of these adjust based on the difference between
+# the requested and actual load addresses
+IMAGE_REL_BASED_ABSOLUTE = 0x0  # No-op
+IMAGE_REL_BASED_HIGHLOW = 0x3  # Add 32-bit difference to a 32-bit value
+IMAGE_REL_BASED_DIR64 = 0xA  # Add 64-bit difference to a 64-bit value
 
 
 class PEExecutable(Executable):
@@ -154,10 +163,60 @@ class PEExecutable(Executable):
         self[sect_addr - self.address] = sect_value
 
     def _apply_base_relocations(self, pe):
+        # PE32+ files always allow the loader to override
+        # the program's base address.
+        #
+        # The relocation section marks places where
+        # an absolute offset needs fixing
+        # if the loader decides to override
         if self.address == self._file_base:
             # This file was not relocated.  Nothing to do.
             return
 
+        if self.platform.byteorder == Byteorder.LITTLE:
+            byteorder = "little"
+        elif self.platform.byteorder == Byteorder.BIG:
+            byteorder = "big"
+        else:
+            raise ConfigurationError(
+                f"Can't encode byteorder {self.platform.byteorder}"
+            )
+
         for base_reloc in pe.relocations:
             for entry in base_reloc.entries:
-                print(entry)
+                if entry.type.value == IMAGE_REL_BASED_ABSOLUTE:
+                    # Entry is a no-op; continue
+                    continue
+                for off, val in self.items():
+                    if entry.address >= off and entry.address <= val.get_size():
+                        # Find the section containing this address
+                        contents = bytearray(val.get_content())
+                        fix_off = entry.address - off
+
+                        if entry.type.value == IMAGE_REL_BASED_HIGHLOW:
+                            # 4-byte repair
+                            tofix = int.from_bytes(
+                                contents[fix_off : fix_off + 4], byteorder
+                            )
+                            tofix += self.address - self._file_base
+                            contents[fix_off : fix_off + 4] = tofix.to_bytes(
+                                4, byteorder
+                            )
+
+                        elif entry.type.value == IMAGE_REL_BASED_DIR64:
+                            # 8-byte repair
+                            tofix = int.from_bytes(
+                                contents[fix_off : fix_off + 8], byteorder
+                            )
+                            tofix += self.address - self._file_base
+                            contents[fix_off : fix_off + 8] = tofix.to_bytes(
+                                8, byteorder
+                            )
+
+                        else:
+                            raise ConfigurationError(
+                                "Unhandled relocation type {entry.type}"
+                            )
+                        # Reset the data
+                        val.set_content(bytes(contents))
+                        break
