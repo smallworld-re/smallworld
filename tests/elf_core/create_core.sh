@@ -1,7 +1,7 @@
 #!/bin/sh
 
 core_limit=`ulimit -c`
-if [ "$corre_limit" = 0 ]; then
+if [ "$core_limit" = 0 ]; then
     echo "ERROR: Core file creation disabled; please use 'ulimit -c' or similar to override"
     exit 1
 fi
