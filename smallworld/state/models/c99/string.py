@@ -78,7 +78,7 @@ class Strncmp(CStdModel):
     name = "strncmp"
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # int strcmp(const char *ptr1, const char *ptr2, size_t n);
+        # int strncmp(const char *ptr1, const char *ptr2, size_t n);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -87,10 +87,10 @@ class Strncmp(CStdModel):
 
 
 class Strcmp(CStdModel):
-    name = "strncmp"
+    name = "strcmp"
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # int strcmp(const char *ptr1, const char *ptr2, size_t n);
+        # int strcmp(const char *ptr1, const char *ptr2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
         res = _emu_strncmp(emulator, ptr1, ptr2, MAX_STRLEN)
