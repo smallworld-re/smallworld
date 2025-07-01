@@ -42,7 +42,7 @@ class Heap(memory.Memory):
         return self.allocate(value)
 
     def allocate_bytes(
-        self, content: typing.Union[bytes, bytearray], label: str
+        self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> int:
         """Allocate space for and write bytes to the heap.
 

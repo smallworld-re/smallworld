@@ -3,6 +3,7 @@ import struct
 import typing
 
 from .... import emulators, exceptions, platforms
+from ...memory.heap import Heap
 from ..cstd import CStdModel
 from .utils import _emu_strlen
 
@@ -126,10 +127,29 @@ class Atoll(Atoi):
 class Calloc(CStdModel):
     name = "calloc"
 
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Use the same heap model the harness used.
+        # NOTE: This will get cloned on a deep copy.
+        self.heap: typing.Optional[Heap] = None
+
     def model(self, emulator: emulators.Emulator) -> None:
         # void *calloc(size_t amount, size_t size);
-        # FIXME: Figure this out
-        raise NotImplementedError()
+        if self.heap is None:
+            raise exceptions.ConfigurationError(
+                "calloc needs a heap; please assign self.heap"
+            )
+
+        amt = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+
+        data = b"\0" * amt * size
+
+        res = self.heap.allocate_bytes(data, None)
+        # This is calloc; zero out the memory
+        emulator.write_memory(res, data)
+
+        self.set_return_value(emulator, res)
 
 
 class Div(CStdModel):
@@ -162,19 +182,44 @@ class Exit(CStdModel):
 class Free(CStdModel):
     name = "free"
 
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Use the same heap model the harness used.
+        # NOTE: This will get cloned on a deep copy.
+        self.heap: typing.Optional[Heap] = None
+
     def model(self, emulator: emulators.Emulator) -> None:
         # void free(void *ptr);
-        # FIXME: Figure this out
-        raise NotImplementedError()
+        if self.heap is None:
+            raise exceptions.ConfigurationError(
+                "malloc needs a heap; please assign self.heap"
+            )
+
+        ptr = self.get_arg1(emulator)
+        self.heap.free(ptr)
 
 
 class Malloc(CStdModel):
     name = "malloc"
 
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Use the same heap model the harness used.
+        # NOTE: This will get cloned on a deep copy.
+        self.heap: typing.Optional[Heap] = None
+
     def model(self, emulator: emulators.Emulator) -> None:
         # void *malloc(size_t size);
-        # FIXME: Figure this out
-        raise NotImplementedError()
+        if self.heap is None:
+            raise exceptions.ConfigurationError(
+                "malloc needs a heap; please assign self.heap"
+            )
+
+        size = self.get_arg1(emulator)
+
+        res = self.heap.allocate_bytes(b"\0" * size, None)
+
+        self.set_return_value(emulator, res)
 
 
 class QSort(CStdModel):
@@ -204,10 +249,37 @@ class Rand(CStdModel):
 class Realloc(CStdModel):
     name = "realloc"
 
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Use the same heap model the harness used.
+        # NOTE: This will get cloned on a deep copy.
+        self.heap: typing.Optional[Heap] = None
+
     def model(self, emulator: emulators.Emulator) -> None:
         # void *realloc(void *ptr, size_t size);
-        # FIXME: Figure this out
-        raise NotImplementedError()
+        if self.heap is None:
+            raise exceptions.ConfigurationError(
+                "realloc needs a heap; please assign self.heap"
+            )
+
+        ptr = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+
+        if ptr == 0:
+            res = self.heap.allocate_bytes(b"\0" * size, None)
+        elif ptr - self.heap.address not in self.heap:
+            raise exceptions.EmulationError(
+                f"Attempted to realloc {hex(ptr)}, which was not malloc'd on this heap"
+            )
+        else:
+            oldsize = self.heap[ptr - self.heap.address].get_size()
+            data = emulator.read_memory(ptr, oldsize)
+            self.heap.free(ptr)
+
+            res = self.heap.allocate_bytes(b"\0" * size, None)
+            emulator.write_memory(res, data)
+
+        self.set_return_value(emulator, res)
 
 
 class Srand(CStdModel):

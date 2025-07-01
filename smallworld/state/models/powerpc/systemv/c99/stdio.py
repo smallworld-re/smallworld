@@ -1,0 +1,169 @@
+from ....c99 import (
+    Fclose,
+    Feof,
+    Ferror,
+    Fgetc,
+    Fgets,
+    Fopen,
+    Fprintf,
+    Fputc,
+    Fputs,
+    Fread,
+    Fscanf,
+    Fseek,
+    Ftell,
+    Fwrite,
+    Getc,
+    Getchar,
+    Printf,
+    Putc,
+    Putchar,
+    Puts,
+    Remove,
+    Rename,
+    Rewind,
+    Scanf,
+    Snprintf,
+    Sprintf,
+    Sscanf,
+)
+from ..systemv import PowerPCSysVModel
+
+
+class PowerPCSysVFclose(Fclose, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFeof(Feof, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFerror(Ferror, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFgetc(Fgetc, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFgets(Fgets, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFopen(Fopen, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFprintf(Fprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFputc(Fputc, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFputs(Fputs, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFread(Fread, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFscanf(Fscanf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFseek(Fseek, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFtell(Ftell, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFwrite(Fwrite, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVGetc(Getc, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVGetchar(Getchar, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVPrintf(Printf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVPutc(Putc, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVPutchar(Putchar, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVPuts(Puts, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVRemove(Remove, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVRename(Rename, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVRewind(Rewind, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVScanf(Scanf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVSnprintf(Snprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVSprintf(Sprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVSscanf(Sscanf, PowerPCSysVModel):
+    pass
+
+
+__all__ = [
+    "PowerPCSysVFclose",
+    "PowerPCSysVFeof",
+    "PowerPCSysVFerror",
+    "PowerPCSysVFgetc",
+    "PowerPCSysVFgets",
+    "PowerPCSysVFopen",
+    "PowerPCSysVFprintf",
+    "PowerPCSysVFputc",
+    "PowerPCSysVFputs",
+    "PowerPCSysVFread",
+    "PowerPCSysVFscanf",
+    "PowerPCSysVFseek",
+    "PowerPCSysVFtell",
+    "PowerPCSysVFwrite",
+    "PowerPCSysVGetc",
+    "PowerPCSysVGetchar",
+    "PowerPCSysVPrintf",
+    "PowerPCSysVPutc",
+    "PowerPCSysVPutchar",
+    "PowerPCSysVPuts",
+    "PowerPCSysVRemove",
+    "PowerPCSysVRename",
+    "PowerPCSysVRewind",
+    "PowerPCSysVScanf",
+    "PowerPCSysVSnprintf",
+    "PowerPCSysVSprintf",
+    "PowerPCSysVSscanf",
+]
