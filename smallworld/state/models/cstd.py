@@ -1,7 +1,7 @@
 import abc
 
 from ... import emulators
-from .models import Model
+from .model import Model
 
 
 class CStdModel(Model):

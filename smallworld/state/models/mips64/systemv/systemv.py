@@ -10,7 +10,7 @@ class MIPS64SysVModel(CStdModel):
     """
 
     platform = platforms.Platform(
-        platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        platforms.Architecture.MIPS64, platforms.Byteorder.BIG
     )
     abi = platforms.ABI.SYSTEMV
 

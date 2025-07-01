@@ -1,9 +1,0 @@
-class Time(CStdModel):
-class Localtime(CStdModel):
-class Gmtime(CStdModel):
-class Ctime(CStdModel):
-class Asctime(CStdModel):
-class Strftime(CStdModel):
-class Difftime(CStdModel):
-class Mktime(CStdModel):
-class Clock(CStdModel):

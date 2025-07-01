@@ -1,4 +1,4 @@
-from ...c99 import (
+from ....c99 import (
     Abs,
     Atof,
     Atoi,
@@ -18,7 +18,7 @@ from ...c99 import (
     Realloc,
     Srand,
 )
-from .systemv import MIPS64SysVModel
+from ..systemv import MIPS64SysVModel
 
 
 class MIPS64SysVAbs(Abs, MIPS64SysVModel):
