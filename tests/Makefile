@@ -1,11 +1,11 @@
 .PHONY: all build clean check
 .DEFAULT_GOAL=all
 
-SOURCES := $(wildcard */*.s)
+SOURCES := $(wildcard */*.s) $(wildcard */*/*.s)
 BINSOURCES := $(filter-out %.elf.s,$(SOURCES))
 ELFSOURCES := $(filter %.elf.s,$(SOURCES))
 
-CSOURCES := $(wildcard */*.c)
+CSOURCES := $(wildcard */*.c) $(wildcard */*/*.c)
 CELFSOURCES := $(filter %.elf.c,$(CSOURCES))
 CSOSOURCES := $(filter %.so.c,$(CSOURCES))
 CPESOURCES := $(filter %.pe.c,$(CSOURCES))
