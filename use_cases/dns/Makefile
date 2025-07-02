@@ -30,7 +30,7 @@ ALL_CFLAGS = $(CFLAGS) $(GEN_CFLAGS) $(DEBUG_CFLAGS) $(INCLUDES) $(SAN_CFLAGS)
 PLATFORMS = AARCH64 AMD64 ARMEL ARMHF I386 MIPS MIPSEL MIPS64 MIPS64EL PPC
 
 # Platform-specific clang target
-AARCH64_TARGET = --target=aarch64
+AARCH64_TARGET = --target=aarch64-linux-gnu
 AMD64_TARGET =
 ARMEL_TARGET = --target=arm-linux-gnueabi
 ARMHF_TARGET = --target=arm-linux-gnueabihf
