@@ -2054,6 +2054,19 @@ class ColorizerTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "Test result: passed=True")
 
 
+class ThumbTests(ScriptIntegrationTest):
+    def test_thumb_armhf(self):
+        stdout, _ = self.command("python3 thumb/thumb.armhf.py")
+        self.assertLineContainsStrings(stdout, "ARM_V7A=0x6")
+        self.assertLineContainsStrings(stdout, "ARM_V7M=0x6")
+        self.assertLineContainsStrings(stdout, "ARM_V7R=0x6")
+
+    def test_thumb_armel(self):
+        stdout, _ = self.command("python3 thumb/thumb.armel.py")
+        self.assertLineContainsStrings(stdout, "ARM_V5T=0x6")
+        self.assertLineContainsStrings(stdout, "ARM_V6M=0x6")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

@@ -150,6 +150,7 @@ jobs:
           - testsuite: StructureTests
           - testsuite: SyscallTests
           - testsuite: TraceExecutionTests
+          - testsuite: ThumbTests
     steps:
       - name: Preinit
         run: |
