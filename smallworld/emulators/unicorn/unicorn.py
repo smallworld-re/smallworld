@@ -527,6 +527,21 @@ class UnicornEmulator(
         if pc == exit_point:
             raise exceptions.EmulationBounds
 
+        # handle Thumb ISA exchange for ARM32
+        if self.platform.architecture in [
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V6M,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V7M,
+            platforms.Architecture.ARM_V7R,
+        ]:
+            cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
+            if cpsr & 0x20:
+                pc |= 1
+                self.disassembler.mode = capstone.CS_MODE_THUMB
+            else:
+                self.disassembler.mode = capstone.CS_MODE_ARM
+
         if pc not in self.function_hooks:
             disas = self.current_instruction()
             logger.debug(f"single step at 0x{pc:x}: {disas}")

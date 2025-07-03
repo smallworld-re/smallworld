@@ -3114,6 +3114,19 @@ class RTOSDemoTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "Reached stop_udp: True")
 
 
+class ThumbTests(ScriptIntegrationTest):
+    def test_thumb_armhf(self):
+        stdout, _ = self.command("python3 thumb/thumb.armhf.py")
+        self.assertLineContainsStrings(stdout, "ARM_V7A=0x6")
+        self.assertLineContainsStrings(stdout, "ARM_V7M=0x6")
+        self.assertLineContainsStrings(stdout, "ARM_V7R=0x6")
+
+    def test_thumb_armel(self):
+        stdout, _ = self.command("python3 thumb/thumb.armel.py")
+        self.assertLineContainsStrings(stdout, "ARM_V5T=0x6")
+        self.assertLineContainsStrings(stdout, "ARM_V6M=0x6")
+
+
 class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def run_test(self, kind):
         self.command(f"python3 checked_heap/double_free/double_free.{kind}.py")
