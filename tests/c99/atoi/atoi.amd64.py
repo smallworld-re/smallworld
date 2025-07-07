@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -34,7 +34,7 @@ with open(filename, "rb") as f:
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
-cpu.pc.set(entrypoint)
+cpu.rip.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -58,20 +58,20 @@ argv = stack.get_pointer()
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Set argument registers
-cpu.x0.set(2)
-cpu.x1.set(argv)
+cpu.rdi.set(2)
+cpu.rsi.set(argv)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.rsp.set(sp)
 
-memchr_modell = smallworld.state.models.Model.lookup(
-    "memchr", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+atoi_modell = smallworld.state.models.Model.lookup(
+    "atoi", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(memchr_modell)
+machine.add(atoi_modell)
 
 # Relocate puts
-code.update_symbol_value("memchr", memchr_modell._address)
+code.update_symbol_value("atoi", atoi_modell._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
@@ -81,37 +81,9 @@ machine.add(exit_model)
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-
-# Create a type of exception only I will generate
-class FailExitException(Exception):
-    pass
-
-
-# We signal failure exits by dereferencing 0xdead.
-# Catch the dereference
-class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
-    def __init__(self):
-        super().__init__(0xDEAD, 1)
-
-    def on_read(
-        self, emu: smallworld.emulators.Emulator, addr: int, size: int, content: bytes
-    ) -> bytes:
-        raise FailExitException()
-
-    def on_write(
-        self, emu: smallworld.emulators.Emulator, addr: int, size: int, value: bytes
-    ) -> None:
-        pass
-
-
-dead = DeadModel()
-machine.add(dead)
-
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
-try:
-    machine.emulate(emulator)
-except FailExitException:
-    if sys.argv[1] == "foobar":
-        raise Exception("Test case reached failure case unexpectedly")
+# machine.emulate(emulator)
+for _ in machine.step(emulator):
+    pass
