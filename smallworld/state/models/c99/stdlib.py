@@ -249,7 +249,7 @@ class Malloc(CStdModel):
 
     # void *malloc(size_t size);
     argument_types = [ArgumentType.SIZE_T]
-    return_type = ArgumentType.VOID
+    return_type = ArgumentType.POINTER
 
     def __init__(self, address: int):
         super().__init__(address)

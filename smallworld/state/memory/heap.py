@@ -79,7 +79,7 @@ class BumpAllocator(Heap):
         return self.address + offset
 
     def free(self, address: int) -> None:
-        raise NotImplementedError("freeing with a BumpAllocator is not yet implemented")
+        pass
 
 
 __all__ = ["Heap", "BumpAllocator"]

@@ -1,5 +1,4 @@
 import logging
-import sys
 
 import smallworld
 
@@ -9,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -27,9 +26,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -40,46 +37,34 @@ cpu.pc.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a string onto the stack
-string = sys.argv[1].encode("utf-8")
-string += b"\0"
-string += b"\0" * (16 - (len(string) % 16))
-
-stack.push_bytes(string, None)
-str_addr = stack.get_pointer()
-
-# Push argv
-stack.push_integer(0, 8, None)  # NULL terminator
-stack.push_integer(str_addr, 8, None)  # pointer to string
-stack.push_integer(0x10101010, 8, None)  # Bogus pointer to argv[0]
-argv = stack.get_pointer()
-
 # Push a return address onto the stack
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
-
-# Set argument registers
-cpu.x0.set(2)
-cpu.x1.set(argv)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-memcmp_modell = smallworld.state.models.Model.lookup(
-    "memcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure the heap
+heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
+machine.add(heap)
+
+malloc_model = smallworld.state.models.Model.lookup(
+    "malloc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
-machine.add(memcmp_modell)
+malloc_model.heap = heap
+machine.add(malloc_model)
 
 # Relocate puts
-code.update_symbol_value("memcmp", memcmp_modell._address)
+code.update_symbol_value("malloc", malloc_model._address)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+free_model = smallworld.state.models.Model.lookup(
+    "free", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(exit_model)
+free_model.heap = heap
+machine.add(free_model)
 
 # Relocate puts
-code.update_symbol_value("exit", exit_model._address)
+code.update_symbol_value("free", free_model._address)
 
 
 # Create a type of exception only I will generate
@@ -87,7 +72,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure exits by dereferencing 0xdead.
+# We signal failure frees by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -107,11 +92,28 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 dead = DeadModel()
 machine.add(dead)
 
+# UTTER AND TOTAL MADNESS
+# MIPS relies on a "Global Pointer" register
+# to find its place in a position-independent binary.
+# In MIPS64, this is computed by relying on
+# the fact that dynamic function calls use
+# the t9 register to store the address of the target function.
+#
+# The function prologue sets gp to t9 plus a constant,
+# creating an address that's... not in the ELF image...?
+# Position-independent references then subtract
+# larger-than-strictly-necessary offsets
+# from gp to compute the desired address.
+#
+# TL;DR: To call main(), t9 must equal main.
+cpu.t9.set(entrypoint)
+
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
+    raise Exception("Did not exit as expected")
 except FailExitException:
-    if sys.argv[1] == "foobar":
-        raise Exception("Test case reached failure case unexpectedly")
+    pass

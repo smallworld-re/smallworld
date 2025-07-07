@@ -2178,7 +2178,7 @@ class SymbolicTests(ScriptIntegrationTest):
         self.command("python3 symbolic/square.amd64.angr.symbolic.py")
 
 
-class LibraryModelTest(ScriptIntegrationTest):
+class AbsLibraryModelTest(ScriptIntegrationTest):
     """Test case for library models.
 
     These all have an identical interface, and there are a metric ton of them.
@@ -2196,11 +2196,9 @@ class LibraryModelTest(ScriptIntegrationTest):
         """Name of the function to test"""
         return ""
 
+    @abc.abstractmethod
     def run_test(self, arch):
-        # These are all designed to either take no arguments,
-        # or to run a positive test if fed "foobar", and a negative test if fed "bazquxx"
-        self.command(f"python3 c99/{self.function}/{self.function}.{arch}.py foobar")
-        self.command(f"python3 c99/{self.function}/{self.function}.{arch}.py bazquxx")
+        pass
 
     def test_aarch64(self):
         self.run_test("aarch64")
@@ -2236,9 +2234,38 @@ class LibraryModelTest(ScriptIntegrationTest):
         self.run_test("riscv64")
 
 
-class C99ExitTests(LibraryModelTest):
+class LibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        # These are all designed to either take no arguments,
+        # or to run a positive test if fed "foobar", and a negative test if fed "bazquxx"
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py foobar"
+        )
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py bazquxx"
+        )
+
+
+class NoArgLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+
+
+class C99ExitTests(NoArgLibraryModelTest):
     library = "c99"
     function = "exit"
+
+
+class C99FreeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "free"
+
+
+class C99MallocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "malloc"
 
 
 class C99MemcmpTests(LibraryModelTest):
