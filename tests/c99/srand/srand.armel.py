@@ -48,23 +48,23 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-malloc_model = smallworld.state.models.Model.lookup(
-    "malloc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+rand_model = smallworld.state.models.Model.lookup(
+    "rand", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
-malloc_model.heap = heap
-machine.add(malloc_model)
+rand_model.heap = heap
+machine.add(rand_model)
 
 # Relocate puts
-code.update_symbol_value("malloc", malloc_model._address)
+code.update_symbol_value("rand", rand_model._address)
 
-free_model = smallworld.state.models.Model.lookup(
-    "free", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+srand_model = smallworld.state.models.Model.lookup(
+    "srand", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-free_model.heap = heap
-machine.add(free_model)
+srand_model.heap = heap
+machine.add(srand_model)
 
 # Relocate puts
-code.update_symbol_value("free", free_model._address)
+code.update_symbol_value("srand", srand_model._address)
 
 
 # Create a type of exception only I will generate
@@ -72,7 +72,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure frees by dereferencing 0xdead.
+# We signal failure srands by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

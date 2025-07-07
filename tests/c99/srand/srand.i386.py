@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -26,12 +26,14 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
-cpu.pc.set(entrypoint)
+cpu.eip.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -42,29 +44,29 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.esp.set(sp)
 
 # Configure the heap
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-malloc_model = smallworld.state.models.Model.lookup(
-    "malloc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+rand_model = smallworld.state.models.Model.lookup(
+    "rand", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
-malloc_model.heap = heap
-machine.add(malloc_model)
+rand_model.heap = heap
+machine.add(rand_model)
 
 # Relocate puts
-code.update_symbol_value("malloc", malloc_model._address)
+code.update_symbol_value("rand", rand_model._address)
 
-free_model = smallworld.state.models.Model.lookup(
-    "free", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+srand_model = smallworld.state.models.Model.lookup(
+    "srand", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-free_model.heap = heap
-machine.add(free_model)
+srand_model.heap = heap
+machine.add(srand_model)
 
 # Relocate puts
-code.update_symbol_value("free", free_model._address)
+code.update_symbol_value("srand", srand_model._address)
 
 
 # Create a type of exception only I will generate
@@ -72,7 +74,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure frees by dereferencing 0xdead.
+# We signal failure srands by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
