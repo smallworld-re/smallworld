@@ -1,7 +1,7 @@
 import locale
 
 from .... import emulators, exceptions
-from ..cstd import CStdModel
+from ..cstd import ArgumentType, CStdModel
 from .utils import (
     MAX_STRLEN,
     _emu_memcmp,
@@ -16,11 +16,19 @@ from .utils import (
 class Memcpy(CStdModel):
     name = "memcpy"
 
+    # void *memcpy(void *restrict dst, const void *restrict src, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # void *memcpy(void *restrict dst, const void *restrict src, size_t n);
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+        assert isinstance(n, int)
+
         # FIXME: Does not actually mimic memcpy
         # Will not clobber overlapping buffers
         _emu_memcpy(emulator, dst, src, n)
@@ -30,11 +38,19 @@ class Memcpy(CStdModel):
 class Memmove(CStdModel):
     name = "memmove"
 
+    # void *memmove(void *restrict dst, const void *restrict src, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # void *memmove(void *restrict dst, const void *restrict src, size_t n);
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+        assert isinstance(n, int)
+
         _emu_memcpy(emulator, dst, src, n)
         self.set_return_value(emulator, dst)
 
@@ -42,10 +58,17 @@ class Memmove(CStdModel):
 class Strcat(CStdModel):
     name = "strcat"
 
+    # char *strcat(char *restrict s1, const char *restrict s2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # char *strcat(char *restrict s1, const char *restrict s2);
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+
         _emu_strncat(emulator, dst, src, MAX_STRLEN)
         self.set_return_value(emulator, dst)
 
@@ -53,11 +76,19 @@ class Strcat(CStdModel):
 class Strncat(CStdModel):
     name = "strncat"
 
+    # char *strncat(char *restrict s1, const char *restrict s2, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # char *strncat(char *restrict s1, const char *restrict s2, size_t n);
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+        assert isinstance(n, int)
+
         _emu_strncat(emulator, dst, src, n)
         self.set_return_value(emulator, dst)
 
@@ -65,11 +96,19 @@ class Strncat(CStdModel):
 class Memcmp(CStdModel):
     name = "memcmp"
 
+    # int memcmp(const void *ptr1, const void *ptr2, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.INT
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # int memcmp(coonst void *ptr1, const void *ptr2, size_t n);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
+        assert isinstance(n, int)
+
         res = _emu_memcmp(emulator, ptr1, ptr2, n)
         self.set_return_value(emulator, res)
 
@@ -77,11 +116,20 @@ class Memcmp(CStdModel):
 class Strncmp(CStdModel):
     name = "strncmp"
 
+    # int strncmp(const void *ptr1, const void *ptr2, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.INT
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int strncmp(const char *ptr1, const char *ptr2, size_t n);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
+        assert isinstance(n, int)
+
         res = _emu_strncmp(emulator, ptr1, ptr2, n)
         self.set_return_value(emulator, res)
 
@@ -89,16 +137,28 @@ class Strncmp(CStdModel):
 class Strcmp(CStdModel):
     name = "strcmp"
 
+    # int strcmp(const void *ptr1, const void *ptr2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
     def model(self, emulator: emulators.Emulator) -> None:
         # int strcmp(const char *ptr1, const char *ptr2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
+
         res = _emu_strncmp(emulator, ptr1, ptr2, MAX_STRLEN)
         self.set_return_value(emulator, res)
 
 
 class Strcoll(CStdModel):
     name = "strcoll"
+
+    # int strcoll(const void *ptr1, const void *ptr2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
 
     def __init__(self, address: int):
         super().__init__(address)
@@ -107,10 +167,11 @@ class Strcoll(CStdModel):
         self.locale = ""
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # int strcoll(const char *str1, const char *str2);
-
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
 
         # TODO: This might be wrong if CTYPE is different
         len1 = _emu_strlen(emulator, ptr1)
@@ -145,6 +206,10 @@ class Strcoll(CStdModel):
 class Strxfrm(CStdModel):
     name = "strxfrm"
 
+    # size_t strxfrm(char *dst, const char *src, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.SIZE_T
+
     def __init__(self, address: int):
         super().__init__(address)
         # NOTE: This requries extra configuration; set `locale` to the preferred locale.
@@ -152,10 +217,13 @@ class Strxfrm(CStdModel):
         self.locale = ""
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # size_t strxfrm(char *dst, const char *src, size_t n);
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+        assert isinstance(n, int)
 
         # TODO: This might be wrong if CTYPE is different
         if n == 0:
@@ -197,11 +265,19 @@ class Strxfrm(CStdModel):
 class Memchr(CStdModel):
     name = "memchr"
 
+    # const void *memchr(const void *ptr, int value, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.INT, ArgumentType.SIZE_T]
+    return_type = ArgumentType.SIZE_T
+
     def model(self, emulator: emulators.Emulator) -> None:
         # const void *memchr(const void *ptr, int value, size_t n);
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(val, int)
+        assert isinstance(n, int)
 
         data = emulator.read_memory(ptr, n)
         for i in range(0, n):
@@ -215,10 +291,16 @@ class Memchr(CStdModel):
 class Strchr(CStdModel):
     name = "strchr"
 
+    # const char *strchr(const char *ptr, int value);
+    argument_types = [ArgumentType.POINTER, ArgumentType.INT]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # const char *memchr(const char *ptr, int value);
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(val, int)
 
         n = _emu_strlen(emulator, ptr)
 
@@ -234,10 +316,17 @@ class Strchr(CStdModel):
 class Strcspn(CStdModel):
     name = "strcspn"
 
+    # size_t strcspn(const char *str1, const char *str2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.SIZE_T
+
     def model(self, emulator: emulators.Emulator) -> None:
         # size_t strcspn(const char *str1, const char *str2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
 
         len1 = _emu_strlen(emulator, ptr1)
         len2 = _emu_strlen(emulator, ptr2)
@@ -258,10 +347,16 @@ class Strcspn(CStdModel):
 class Strpbrk(CStdModel):
     name = "strpbrk"
 
+    # const char *strpbrk(const char *str1, const char *str2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # const char *strpbrk(const char *str1, const char *str2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
 
         len1 = _emu_strlen(emulator, ptr1)
         len2 = _emu_strlen(emulator, ptr2)
@@ -282,10 +377,16 @@ class Strpbrk(CStdModel):
 class Strrchr(CStdModel):
     name = "strrchr"
 
+    # const char *strrchr(const char *ptr, int value);
+    argument_types = [ArgumentType.POINTER, ArgumentType.INT]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # size_t strspn(const char *str, int val);
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(val, int)
 
         n = _emu_strlen(emulator, ptr)
 
@@ -302,10 +403,16 @@ class Strrchr(CStdModel):
 class Strspn(CStdModel):
     name = "strspn"
 
+    # size_t strspn(const char *str1, const char *str2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.SIZE_T
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # size_t strspn(const char *str1, const char *str2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
 
         len1 = _emu_strlen(emulator, ptr1)
         len2 = _emu_strlen(emulator, ptr2)
@@ -326,10 +433,16 @@ class Strspn(CStdModel):
 class Strstr(CStdModel):
     name = "strstr"
 
+    # const char *strstr(const char *str1, const char *str2);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # const char *strstr(const char *str1, const char *str2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
 
         len1 = _emu_strlen(emulator, ptr1)
         len2 = _emu_strlen(emulator, ptr2)
@@ -348,14 +461,20 @@ class Strstr(CStdModel):
 class Strtok(CStdModel):
     name = "strtok"
 
+    # char *strtok(char *str, const char *delimiters);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
     def __init__(self, address: int):
         super().__init__(address)
         self.ptr = 0
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # char *strtok(char *str, const char *delimiters);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
 
         if ptr1 == 0:
             if self.ptr == 0:
@@ -389,11 +508,18 @@ class Strtok(CStdModel):
 class Memset(CStdModel):
     name = "memset"
 
+    # void *memset(void *ptr, int value, size_t num);
+    argument_types = [ArgumentType.POINTER, ArgumentType.INT, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # void *memset(void *ptr, int value, size_t num);
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(val, int)
+        assert isinstance(n, int)
 
         data = bytes([val & 0xFF]) * n
         emulator.write_memory(ptr, data)
@@ -404,8 +530,11 @@ class Memset(CStdModel):
 class Strerror(CStdModel):
     name = "strerror"
 
+    # const char *strerror(int errno);
+    argument_types = [ArgumentType.INT]
+    return_type = ArgumentType.POINTER
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # const char *strerror(int errno);
         # TODO: Figure out strerror
         # This devolves into a titanic, platform-specific table lookup.
         # The biggest problem is the platform-specific bit;
@@ -416,9 +545,15 @@ class Strerror(CStdModel):
 class Strlen(CStdModel):
     name = "strlen"
 
+    # size_t strlen(const char *str);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.SIZE_T
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # size_t strlen(const char *str);
         ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
         res = _emu_strlen(emulator, ptr)
         self.set_return_value(emulator, res)
 

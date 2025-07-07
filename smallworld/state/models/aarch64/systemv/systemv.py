@@ -1,32 +1,87 @@
-from ..... import emulators, platforms
-from ...cstd import CStdModel
+import struct
+import typing
+
+from ..... import emulators, exceptions, platforms
+from ...cstd import ArgumentType, CStdModel
 
 
 class AArch64SysVModel(CStdModel):
-    """Base class for C models using the AArch64 System-V ABI"""
+    """Base class for C models using the AArch64 System V ABI"""
 
     platform = platforms.Platform(
         platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
     )
     abi = platforms.ABI.SYSTEMV
 
-    def get_arg1(self, emulator: emulators.Emulator) -> int:
-        return emulator.read_register("x0")
+    _four_byte_types = {ArgumentType.INT, ArgumentType.UINT}
 
-    def get_arg2(self, emulator: emulators.Emulator) -> int:
-        return emulator.read_register("x1")
+    _eight_byte_types = {
+        ArgumentType.LONG,
+        ArgumentType.ULONG,
+        ArgumentType.LONGLONG,
+        ArgumentType.ULONGLONG,
+        ArgumentType.SIZE_T,
+        ArgumentType.SSIZE_T,
+        ArgumentType.POINTER,
+    }
 
-    def get_arg3(self, emulator: emulators.Emulator) -> int:
-        return emulator.read_register("x2")
+    _four_byte_arg_regs = ["w0", "w1", "w2", "w3", "w4", "w5"]
 
-    def get_arg4(self, emulator: emulators.Emulator) -> int:
-        return emulator.read_register("x3")
+    _eight_byte_arg_regs = [
+        "x0",
+        "x1",
+        "x2",
+        "x3",
+        "x4",
+        "x5",
+    ]
 
-    def get_arg5(self, emulator: emulators.Emulator) -> int:
-        return emulator.read_register("x4")
+    _float_arg_regs = ["s0", "s1", "s2", "s3", "s4", "s5", "s6"]
 
-    def get_arg6(self, emulator: emulators.Emulator) -> int:
-        return emulator.read_register("x5")
+    _double_arg_regs = ["d0", "d1", "d2", "d3", "d4", "d5"]
 
-    def set_return_value(self, emulator: emulators.Emulator, val: int):
+    def _get_argument(
+        self, index: int, emulator: emulators.Emulator
+    ) -> typing.Union[int, float]:
+        if self.argument_types[index] in self._four_byte_types:
+            return emulator.read_register(self._four_byte_arg_regs[index])
+
+        elif self.argument_types[index] in self._eight_byte_types:
+            return emulator.read_register(self._eight_byte_arg_regs[index])
+
+        elif self.argument_types[index] == ArgumentType.FLOAT:
+            intval = emulator.read_register(self._float_arg_regs[index])
+            byteval = intval.to_bytes(4, "little")
+            (floatval,) = struct.unpack("<f", byteval)
+            return floatval
+
+        elif self.argument_types[index] == ArgumentType.DOUBLE:
+            intval = emulator.read_register(self._double_arg_regs[index])
+            byteval = intval.to_bytes(8, "little")
+            (floatval,) = struct.unpack("<d", byteval)
+            return floatval
+
+        else:
+            raise exceptions.ConfigurationError(
+                "Unknown type {self.argument_types[i]} for argument {i + 1} of {self.name"
+            )
+
+    def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return a four-byte type"""
+        emulator.write_register("w0", val)
+
+    def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return an eight-byte type"""
         emulator.write_register("x0", val)
+
+    def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
+        """Return a float"""
+        data = struct.pack("<f", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("s0", intval)
+
+    def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
+        """Return a double"""
+        data = struct.pack("<d", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("d0", intval)

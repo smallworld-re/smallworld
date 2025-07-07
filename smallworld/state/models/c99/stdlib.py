@@ -1,22 +1,26 @@
 import random
-import struct
 import typing
 
-from .... import emulators, exceptions, platforms
+from .... import emulators, exceptions
 from ...memory.heap import Heap
-from ..cstd import CStdModel
+from ..cstd import ArgumentType, CStdModel
 from .utils import _emu_strlen
 
 
 class Abs(CStdModel):
     name = "abs"
 
+    # int abs(int val);
+    argument_types = [ArgumentType.INT]
+    return_type = ArgumentType.INT
+
     sig_mask = 0x80000000
     inv_mask = 0xFFFFFFFF
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # int abs(int val);
         val = self.get_arg1(emulator)
+
+        assert isinstance(val, int)
 
         if val & self.sig_mask:
             val = ((val ^ self.inv_mask) + 1) & self.inv_mask
@@ -26,12 +30,22 @@ class Abs(CStdModel):
 
 class LAbs(Abs):
     name = "labs"
+
+    # long labs(long x);
+    argument_types = [ArgumentType.LONG]
+    return_type = ArgumentType.LONG
+
     sig_mask = 0x8000000000000000
     inv_mask = 0xFFFFFFFFFFFFFFFF
 
 
 class LLAbs(Abs):
     name = "llabs"
+
+    # long long llabs(long long x);
+    argument_types = [ArgumentType.LONGLONG]
+    return_type = ArgumentType.LONGLONG
+
     sig_mask = 0x8000000000000000
     inv_mask = 0xFFFFFFFFFFFFFFFF
 
@@ -39,10 +53,16 @@ class LLAbs(Abs):
 class Atof(CStdModel):
     name = "atof"
 
+    # float atof(const char *str);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.FLOAT
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # float atof(const char *str);
         # TODO: Support other locales for atof
         ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
         n = _emu_strlen(emulator, ptr)
 
         data = emulator.read_memory(ptr, n)
@@ -66,43 +86,34 @@ class Atof(CStdModel):
         if len(text) == 0:
             text = "0"
 
-        # Now to cram a float into an integer register...
-        num = float(text)
-        byteorder: typing.Literal["little", "big"]
-        if emulator.platform.byteorder == platforms.Byteorder.LITTLE:
-            fmt = "<f"
-            byteorder = "little"
-        elif emulator.platform.byteorder == platforms.Byteorder.BIG:
-            fmt = ">f"
-            byteorder = "big"
-        else:
-            raise exceptions.ConfigurationError(
-                f"Can't encode for byteorder {emulator.platform}"
-            )
-
-        newdata = struct.pack(fmt, num)
-
-        newval = int.from_bytes(newdata, byteorder)
-
-        self.set_return_value(emulator, newval)
+        self.set_return_value(emulator, float(text))
 
 
 class Atoi(CStdModel):
     name = "atoi"
+
+    # int atoi(const char *str);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
     size_mask = 0xFFFFFFFF
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # int atoi(const char *str);
-        # TODO: Support other locales for atof
+        # TODO: Support other locales for atoi
         ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
         n = _emu_strlen(emulator, ptr)
 
         data = emulator.read_memory(ptr, n)
         text = data.decode("utf-8").strip()
+        print(f"Converting {text} ({len(text)})")
 
         for i in range(0, len(text)):
-            if not text[i].isnumeric():
+            if not text[i].isnumeric() and text[i] != "-":
                 text = text[0:i]
+                break
 
         if len(text) == 0:
             # No valid number
@@ -116,16 +127,30 @@ class Atoi(CStdModel):
 
 class Atol(Atoi):
     name = "atol"
+
+    # long atoll(const char *str);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.LONG
+
     size_mask = 0xFFFFFFFFFFFFFFFF
 
 
 class Atoll(Atoi):
     name = "atoll"
+
+    # long long atoll(const char *str);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.LONGLONG
+
     size_mask = 0xFFFFFFFFFFFFFFFF
 
 
 class Calloc(CStdModel):
     name = "calloc"
+
+    # void *calloc(size_t amount, size_t size);
+    argument_types = [ArgumentType.SIZE_T, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
 
     def __init__(self, address: int):
         super().__init__(address)
@@ -134,7 +159,6 @@ class Calloc(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # void *calloc(size_t amount, size_t size);
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "calloc needs a heap; please assign self.heap"
@@ -142,6 +166,9 @@ class Calloc(CStdModel):
 
         amt = self.get_arg1(emulator)
         size = self.get_arg2(emulator)
+
+        assert isinstance(amt, int)
+        assert isinstance(size, int)
 
         data = b"\0" * amt * size
 
@@ -154,26 +181,38 @@ class Calloc(CStdModel):
 
 class Div(CStdModel):
     name = "div"
-    ret_size = 4
+
+    # div_t result(int dividend, int divisor);
+    argument_types = [ArgumentType.INT, ArgumentType.INT]
+    # FIXME: Figure out how different platforms return structs by value
 
     def model(self, emulator: emulators.Emulator) -> None:
         # div_t result(int dividend, int divisor);
-        # FIXME: Figure out how different platforms return structs
         raise NotImplementedError()
 
 
 class LDiv(Div):
     name = "ldiv"
-    ret_size = 8
+
+    # ldiv_t result(long dividend, long divisor);
+    argument_types = [ArgumentType.LONG, ArgumentType.LONG]
+    # FIXME: Figure out how different platforms return structs by value
 
 
 class LLDiv(Div):
     name = "lldiv"
-    ret_size = 8
+
+    # lldiv_t result(long long dividend, long long divisor);
+    argument_types = [ArgumentType.LONGLONG, ArgumentType.LONGLONG]
+    # FIXME: Figure out how different platforms return structs by value
 
 
 class Exit(CStdModel):
     name = "exit"
+
+    # void exit(int code);
+    argument_types = [ArgumentType.INT]
+    return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
         raise exceptions.EmulationStop("Called exit()")
@@ -182,6 +221,10 @@ class Exit(CStdModel):
 class Free(CStdModel):
     name = "free"
 
+    # void free(void *ptr);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.VOID
+
     def __init__(self, address: int):
         super().__init__(address)
         # Use the same heap model the harness used.
@@ -189,18 +232,24 @@ class Free(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # void free(void *ptr);
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "malloc needs a heap; please assign self.heap"
             )
 
         ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
         self.heap.free(ptr)
 
 
 class Malloc(CStdModel):
     name = "malloc"
+
+    # void *malloc(size_t size);
+    argument_types = [ArgumentType.SIZE_T]
+    return_type = ArgumentType.VOID
 
     def __init__(self, address: int):
         super().__init__(address)
@@ -209,13 +258,14 @@ class Malloc(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # void *malloc(size_t size);
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "malloc needs a heap; please assign self.heap"
             )
 
         size = self.get_arg1(emulator)
+
+        assert isinstance(size, int)
 
         res = self.heap.allocate_bytes(b"\0" * size, None)
 
@@ -225,8 +275,16 @@ class Malloc(CStdModel):
 class QSort(CStdModel):
     name = "qsort"
 
+    # void qsort(void *arr, size_t amount, size_t size, int (*compare)(const void *, const void *));
+    argument_types = [
+        ArgumentType.POINTER,
+        ArgumentType.SIZE_T,
+        ArgumentType.SIZE_T,
+        ArgumentType.POINTER,
+    ]
+    return_type = ArgumentType.VOID
+
     def model(self, emulator: emulators.Emulator) -> None:
-        # void qsort(void *arr, size_t amount, size_t size, int (*compare)(const void *, const void *));
         # Not easily possible; need to call a comparator function.
         raise NotImplementedError(
             "qsort uses a function pointer; not sure how to model"
@@ -235,10 +293,14 @@ class QSort(CStdModel):
 
 class Rand(CStdModel):
     name = "rand"
+
+    # int rand(void);
+    argument_types = []
+    return_type = ArgumentType.INT
+
     rand = random.Random()
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # int rand(void);
         # TODO: Rand is easy to do simply, harder to do right.
         # If someone is relying on srand/rand to produce a specific sequence,
         # this won't behave correctly.
@@ -249,6 +311,10 @@ class Rand(CStdModel):
 class Realloc(CStdModel):
     name = "realloc"
 
+    # void *realloc(void *ptr, size_t size);
+    argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
+
     def __init__(self, address: int):
         super().__init__(address)
         # Use the same heap model the harness used.
@@ -256,7 +322,6 @@ class Realloc(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
-        # void *realloc(void *ptr, size_t size);
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "realloc needs a heap; please assign self.heap"
@@ -264,6 +329,9 @@ class Realloc(CStdModel):
 
         ptr = self.get_arg1(emulator)
         size = self.get_arg2(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(size, int)
 
         if ptr == 0:
             res = self.heap.allocate_bytes(b"\0" * size, None)
@@ -284,6 +352,10 @@ class Realloc(CStdModel):
 
 class Srand(CStdModel):
     name = "srand"
+
+    # void srand(int seed);
+    argument_types = [ArgumentType.INT]
+    return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
         seed = self.get_arg1(emulator)
