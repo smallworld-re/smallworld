@@ -1,5 +1,4 @@
 import logging
-import sys
 
 import smallworld
 
@@ -9,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.RISCV64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -40,41 +39,15 @@ cpu.pc.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a string onto the stack
-string = sys.argv[1].encode("utf-8")
-string += b"\0"
-string += b"\0" * (16 - (len(string) % 16))
-
-stack.push_bytes(string, None)
-str_addr = stack.get_pointer()
-
-# Push argv
-stack.push_integer(0, 4, None)  # NULL terminator
-stack.push_integer(str_addr, 4, None)  # pointer to string
-stack.push_integer(0x10101010, 4, None)  # Bogus pointer to argv[0]
-argv = stack.get_pointer()
-
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
-
-# Set argument registers
-cpu.r0.set(2)
-cpu.r1.set(argv)
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strlen_modell = smallworld.state.models.Model.lookup(
-    "strlen", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(strlen_modell)
-
-# Relocate puts
-code.update_symbol_value("strlen", strlen_modell._address)
-
 exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
 machine.add(exit_model)
 
@@ -108,10 +81,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(entrypoint + 0x1000)
-try:
-    machine.emulate(emulator)
-except FailExitException:
-    if sys.argv[1] == "foobar":
-        raise Exception("Test case reached failure case unexpectedly")
+machine.emulate(emulator)

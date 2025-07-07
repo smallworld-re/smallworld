@@ -1,3 +1,4 @@
+import abc
 import io
 import os
 import re
@@ -2175,6 +2176,79 @@ class SymbolicTests(ScriptIntegrationTest):
 
     def test_square_symbolic(self):
         self.command("python3 symbolic/square.amd64.angr.symbolic.py")
+
+
+class LibraryModelTest(ScriptIntegrationTest):
+    """Test case for library models.
+
+    These all have an identical interface, and there are a metric ton of them.
+    """
+
+    @property
+    @abc.abstractmethod
+    def library(self) -> str:
+        """Name of the library this belongs to"""
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def function(self) -> str:
+        """Name of the function to test"""
+        return ""
+
+    def run_test(self, arch):
+        # These are all designed to either take no arguments,
+        # or to run a positive test if fed "foobar", and a negative test if fed "bazquxx"
+        self.command(f"python3 c99/{self.function}/{self.function}.{arch}.py foobar")
+        self.command(f"python3 c99/{self.function}/{self.function}.{arch}.py bazquxx")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_mips(self):
+        self.run_test("mips")
+
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_mips64(self):
+        self.run_test("mips64")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
+
+    def test_ppc(self):
+        self.run_test("ppc")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
+
+class C99ExitTest(LibraryModelTest):
+    library = "c99"
+    function = "exit"
+
+
+class C99MemcmpTest(LibraryModelTest):
+    library = "c99"
+    function = "memcmp"
+
+
+class C99StrlenTest(LibraryModelTest):
+    library = "c99"
+    function = "strlen"
 
 
 class DocumentationTests(unittest.TestCase):
