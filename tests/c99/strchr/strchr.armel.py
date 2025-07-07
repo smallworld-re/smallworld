@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -27,9 +27,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -49,29 +47,29 @@ stack.push_bytes(string, None)
 str_addr = stack.get_pointer()
 
 # Push argv
-stack.push_integer(0, 8, None)  # NULL terminator
-stack.push_integer(str_addr, 8, None)  # pointer to string
-stack.push_integer(0x10101010, 8, None)  # Bogus pointer to argv[0]
+stack.push_integer(0, 4, None)  # NULL terminator
+stack.push_integer(str_addr, 4, None)  # pointer to string
+stack.push_integer(0x10101010, 4, None)  # Bogus pointer to argv[0]
 argv = stack.get_pointer()
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
 # Set argument registers
-cpu.x0.set(2)
-cpu.x1.set(argv)
+cpu.r0.set(2)
+cpu.r1.set(argv)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strncmp_modell = smallworld.state.models.Model.lookup(
-    "strncmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+strchr_modell = smallworld.state.models.Model.lookup(
+    "strchr", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(strncmp_modell)
+machine.add(strchr_modell)
 
 # Relocate puts
-code.update_symbol_value("strncmp", strncmp_modell._address)
+code.update_symbol_value("strchr", strchr_modell._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004

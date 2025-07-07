@@ -2236,19 +2236,39 @@ class LibraryModelTest(ScriptIntegrationTest):
         self.run_test("riscv64")
 
 
-class C99ExitTest(LibraryModelTest):
+class C99ExitTests(LibraryModelTest):
     library = "c99"
     function = "exit"
 
 
-class C99MemcmpTest(LibraryModelTest):
+class C99MemcmpTests(LibraryModelTest):
     library = "c99"
     function = "memcmp"
 
 
-class C99StrlenTest(LibraryModelTest):
+class C99StrcatTests(LibraryModelTest):
+    library = "c99"
+    function = "strcat"
+
+
+class C99StrcmpTests(LibraryModelTest):
+    library = "c99"
+    function = "strncmp"
+
+
+class C99StrlenTests(LibraryModelTest):
     library = "c99"
     function = "strlen"
+
+
+class C99StrncmpTests(LibraryModelTest):
+    library = "c99"
+    function = "strncmp"
+
+
+class C99StrchrTests(LibraryModelTest):
+    library = "c99"
+    function = "strchr"
 
 
 class DocumentationTests(unittest.TestCase):

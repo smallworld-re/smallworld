@@ -82,9 +82,37 @@ machine.add(exit_model)
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
+
+# Create a type of exception only I will generate
+class FailExitException(Exception):
+    pass
+
+
+# We signal failure exits by dereferencing 0xdead.
+# Catch the dereference
+class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
+    def __init__(self):
+        super().__init__(0xDEAD, 1)
+
+    def on_read(
+        self, emu: smallworld.emulators.Emulator, addr: int, size: int, content: bytes
+    ) -> bytes:
+        raise FailExitException()
+
+    def on_write(
+        self, emu: smallworld.emulators.Emulator, addr: int, size: int, value: bytes
+    ) -> None:
+        pass
+
+
+dead = DeadModel()
+machine.add(dead)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
-# machine.emulate(emulator)
-for _ in machine.step(emulator):
-    pass
+try:
+    machine.emulate(emulator)
+except FailExitException:
+    if sys.argv[1] == "foobar":
+        raise Exception("Test case reached failure case unexpectedly")

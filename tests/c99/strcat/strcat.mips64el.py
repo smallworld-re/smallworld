@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -27,9 +27,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -58,20 +56,28 @@ argv = stack.get_pointer()
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Set argument registers
-cpu.x0.set(2)
-cpu.x1.set(argv)
+cpu.a0.set(2)
+cpu.a1.set(argv)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strncmp_modell = smallworld.state.models.Model.lookup(
-    "strncmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+strcat_modell = smallworld.state.models.Model.lookup(
+    "strcat", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(strncmp_modell)
+machine.add(strcat_modell)
 
 # Relocate puts
-code.update_symbol_value("strncmp", strncmp_modell._address)
+code.update_symbol_value("strcat", strcat_modell._address)
+
+strcmp_modell = smallworld.state.models.Model.lookup(
+    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(strcmp_modell)
+
+# Relocate puts
+code.update_symbol_value("strcmp", strcmp_modell._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
@@ -107,8 +113,25 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 dead = DeadModel()
 machine.add(dead)
 
+# UTTER AND TOTAL MADNESS
+# MIPS relies on a "Global Pointer" register
+# to find its place in a position-independent binary.
+# In MIPS64, this is computed by relying on
+# the fact that dynamic function calls use
+# the t9 register to store the address of the target function.
+#
+# The function prologue sets gp to t9 plus a constant,
+# creating an address that's... not in the ELF image...?
+# Position-independent references then subtract
+# larger-than-strictly-necessary offsets
+# from gp to compute the desired address.
+#
+# TL;DR: To call main(), t9 must equal main.
+cpu.t9.set(entrypoint)
+
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

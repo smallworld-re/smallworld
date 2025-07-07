@@ -9,7 +9,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.RISCV64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -58,20 +58,28 @@ argv = stack.get_pointer()
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Set argument registers
-cpu.x0.set(2)
-cpu.x1.set(argv)
+cpu.a0.set(2)
+cpu.a1.set(argv)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strncmp_modell = smallworld.state.models.Model.lookup(
-    "strncmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+strcat_modell = smallworld.state.models.Model.lookup(
+    "strcat", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(strncmp_modell)
+machine.add(strcat_modell)
 
 # Relocate puts
-code.update_symbol_value("strncmp", strncmp_modell._address)
+code.update_symbol_value("strcat", strcat_modell._address)
+
+strcmp_modell = smallworld.state.models.Model.lookup(
+    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(strcmp_modell)
+
+# Relocate puts
+code.update_symbol_value("strcmp", strcmp_modell._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
@@ -108,7 +116,8 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
