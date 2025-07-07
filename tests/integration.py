@@ -2266,6 +2266,11 @@ class C99StrncmpTests(LibraryModelTest):
     function = "strncmp"
 
 
+class C99StrncatTests(LibraryModelTest):
+    library = "c99"
+    function = "strncat"
+
+
 class C99StrchrTests(LibraryModelTest):
     library = "c99"
     function = "strchr"
