@@ -2273,6 +2273,11 @@ class C99MemcmpTests(LibraryModelTest):
     function = "memcmp"
 
 
+class C99ReallocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "realloc"
+
+
 class C99StrcatTests(LibraryModelTest):
     library = "c99"
     function = "strcat"

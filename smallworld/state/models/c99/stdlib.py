@@ -1,3 +1,4 @@
+import logging
 import random
 import typing
 
@@ -5,6 +6,8 @@ from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
 from .utils import _emu_strlen
+
+logger = logging.getLogger("__name__")
 
 
 class Abs(CStdModel):
@@ -333,6 +336,8 @@ class Realloc(CStdModel):
         assert isinstance(ptr, int)
         assert isinstance(size, int)
 
+        logger.warning(f"REALLOC {hex(ptr)}, {size}")
+
         if ptr == 0:
             res = self.heap.allocate_bytes(b"\0" * size, None)
         elif ptr - self.heap.address not in self.heap:
@@ -341,7 +346,11 @@ class Realloc(CStdModel):
             )
         else:
             oldsize = self.heap[ptr - self.heap.address].get_size()
-            data = emulator.read_memory(ptr, oldsize)
+            try:
+                data = emulator.read_memory(ptr, oldsize)
+            except exceptions.SymbolicValueError:
+                data = emulator.read_memory_symbolic(ptr, oldsize)
+
             self.heap.free(ptr)
 
             res = self.heap.allocate_bytes(b"\0" * size, None)
