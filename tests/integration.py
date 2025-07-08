@@ -2278,6 +2278,16 @@ class C99MemcpyTests(LibraryModelTest):
     function = "memcpy"
 
 
+class C99MemmoveTests(LibraryModelTest):
+    library = "c99"
+    function = "memmove"
+
+
+class C99MemsetTests(LibraryModelTest):
+    library = "c99"
+    function = "memset"
+
+
 class C99RandTests(NoArgLibraryModelTest):
     library = "c99"
     function = "rand"
