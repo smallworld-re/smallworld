@@ -53,18 +53,20 @@ machine.add(heap)
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
+exit_model.heap = heap
 machine.add(exit_model)
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-atoi_model = smallworld.state.models.Model.lookup(
-    "atoi", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+calloc_model = smallworld.state.models.Model.lookup(
+    "calloc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(atoi_model)
+calloc_model.heap = heap
+machine.add(calloc_model)
 
 # Relocate puts
-code.update_symbol_value("atoi", atoi_model._address)
+code.update_symbol_value("calloc", calloc_model._address)
 
 
 # Create a type of exception only I will generate
@@ -72,7 +74,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure atois by dereferencing 0xdead.
+# We signal failure callocs by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

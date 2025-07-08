@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -26,9 +26,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -58,13 +56,13 @@ machine.add(exit_model)
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-atoi_model = smallworld.state.models.Model.lookup(
-    "atoi", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+atol_model = smallworld.state.models.Model.lookup(
+    "atol", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(atoi_model)
+machine.add(atol_model)
 
 # Relocate puts
-code.update_symbol_value("atoi", atoi_model._address)
+code.update_symbol_value("atol", atol_model._address)
 
 
 # Create a type of exception only I will generate
@@ -72,7 +70,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure atois by dereferencing 0xdead.
+# We signal failure atols by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -92,8 +90,25 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 dead = DeadModel()
 machine.add(dead)
 
+# UTTER AND TOTAL MADNESS
+# MIPS relies on a "Global Pointer" register
+# to find its place in a position-independent binary.
+# In MIPS64, this is computed by relying on
+# the fact that dynamic function calls use
+# the t9 register to store the address of the target function.
+#
+# The function prologue sets gp to t9 plus a constant,
+# creating an address that's... not in the ELF image...?
+# Position-independent references then subtract
+# larger-than-strictly-necessary offsets
+# from gp to compute the desired address.
+#
+# TL;DR: To call main(), t9 must equal main.
+cpu.t9.set(entrypoint)
+
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

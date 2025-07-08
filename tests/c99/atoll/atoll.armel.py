@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -26,9 +26,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -58,13 +56,13 @@ machine.add(exit_model)
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-atoi_model = smallworld.state.models.Model.lookup(
-    "atoi", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+atoll_model = smallworld.state.models.Model.lookup(
+    "atoll", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(atoi_model)
+machine.add(atoll_model)
 
 # Relocate puts
-code.update_symbol_value("atoi", atoi_model._address)
+code.update_symbol_value("atoll", atoll_model._address)
 
 
 # Create a type of exception only I will generate
@@ -72,7 +70,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure atois by dereferencing 0xdead.
+# We signal failure atolls by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

@@ -2258,6 +2258,26 @@ class C99AbsTests(NoArgLibraryModelTest):
     function = "abs"
 
 
+class C99AtoiTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atoi"
+
+
+class C99AtolTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atol"
+
+
+class C99AtollTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atoll"
+
+
+class C99CallocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "calloc"
+
+
 class C99ExitTests(NoArgLibraryModelTest):
     library = "c99"
     function = "exit"

@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -33,7 +33,7 @@ with open(filename, "rb") as f:
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
-cpu.pc.set(entrypoint)
+cpu.eip.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -44,7 +44,7 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.esp.set(sp)
 
 # Configure the heap
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
@@ -58,13 +58,13 @@ machine.add(exit_model)
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-atoi_model = smallworld.state.models.Model.lookup(
-    "atoi", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+atol_model = smallworld.state.models.Model.lookup(
+    "atol", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(atoi_model)
+machine.add(atol_model)
 
 # Relocate puts
-code.update_symbol_value("atoi", atoi_model._address)
+code.update_symbol_value("atol", atol_model._address)
 
 
 # Create a type of exception only I will generate
@@ -72,7 +72,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure atois by dereferencing 0xdead.
+# We signal failure atols by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
