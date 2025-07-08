@@ -30,8 +30,6 @@ class Abs(CStdModel):
 
         assert isinstance(val, int)
 
-        print(f"abs({hex(val)})")
-
         if val & self.sign_mask:
             val = ((val ^ self.inv_mask) + 1) & self.inv_mask
 
