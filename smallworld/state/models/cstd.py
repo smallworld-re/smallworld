@@ -52,10 +52,38 @@ class CStdModel(Model):
     and location can change depending on the function's signature.
     """
 
-    _int_mask = 0xFFFFFFFF
-    _int_sign_mask = 0x80000000
+    @property
+    @abc.abstractmethod
+    def _int_sign_mask(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _int_inv_mask(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_sign_mask(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_long_inv_mask(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_long_sign_mask(self) -> int:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_inv_mask(self) -> int:
+        raise NotImplementedError()
+
+    # Mask for sign-extending 32-bit numbers to 64-bit.
     _int_signext_mask = 0xFFFFFFFF00000000
-    _long_mask = 0xFFFFFFFFFFFFFFFF
 
     @property
     @abc.abstractmethod
@@ -170,9 +198,9 @@ class CStdModel(Model):
         if val < 0:
             # Negative value; need to find 2s-compliment if it's an int
             if self.return_type in self._four_byte_types:
-                val = ((val ^ self._int_mask) + 1) & self._int_mask
+                val = ((val ^ self._int_inv_mask) + 1) & self._int_inv_mask
             elif self.return_type in self._eight_byte_types:
-                val = ((val ^ self._long_mask) + 1) & self._long_mask
+                val = ((val ^ self._long_long_inv_mask) + 1) & self._long_long_inv_mask
             elif (
                 self.return_type == ArgumentType.FLOAT
                 or self.return_type == ArgumentType.DOUBLE

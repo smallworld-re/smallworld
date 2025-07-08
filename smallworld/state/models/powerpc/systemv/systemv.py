@@ -12,6 +12,13 @@ class PowerPCSysVModel(CStdModel):
     )
     abi = platforms.ABI.SYSTEMV
 
+    _int_sign_mask = 0x80000000
+    _int_inv_mask = 0xFFFFFFFF
+    _long_sign_mask = 0x80000000
+    _long_inv_mask = 0xFFFFFFFF
+    _long_long_sign_mask = 0x8000000000000000
+    _long_long_inv_mask = 0xFFFFFFFFFFFFFFFF
+
     _four_byte_types = {
         ArgumentType.INT,
         ArgumentType.UINT,
@@ -96,13 +103,13 @@ class PowerPCSysVModel(CStdModel):
                 data = emulator.read_memory(addr, 8)
                 return int.from_bytes(data, "little")
             else:
-                lo = emulator.read_register(self._argument_regs[arg_offset])
-                hi = emulator.read_register(self._argument_regs[arg_offset + 1])
+                hi = emulator.read_register(self._argument_regs[arg_offset])
+                lo = emulator.read_register(self._argument_regs[arg_offset + 1])
                 return (hi << 32) | lo
         elif t == ArgumentType.FLOAT:
-            raise NotImplementedError("No support for the MIPS32 FPU")
+            raise NotImplementedError("No support for the PPC32 FPU")
         elif t == ArgumentType.DOUBLE:
-            raise NotImplementedError("No support for the MIPS32 FPU")
+            raise NotImplementedError("No support for the PPC32 FPU")
         else:
             raise exceptions.ConfigurationError(
                 f"{self.name} argument {index} has unknown type {t}"
@@ -112,11 +119,11 @@ class PowerPCSysVModel(CStdModel):
         emulator.write_register("r3", val)
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
-        lo = val & self._int_mask
-        hi = val >> 32 & self._int_mask
+        lo = val & self._int_inv_mask
+        hi = val >> 32 & self._int_inv_mask
 
-        emulator.write_register("r3", lo)
-        emulator.write_register("r4", hi)
+        emulator.write_register("r3", hi)
+        emulator.write_register("r4", lo)
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         raise NotImplementedError("No support for the MIPS32 FPU")

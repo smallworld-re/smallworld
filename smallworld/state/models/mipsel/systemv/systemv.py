@@ -12,6 +12,13 @@ class MIPSELSysVModel(CStdModel):
     )
     abi = platforms.ABI.SYSTEMV
 
+    _int_sign_mask = 0x80000000
+    _int_inv_mask = 0xFFFFFFFF
+    _long_sign_mask = 0x80000000
+    _long_inv_mask = 0xFFFFFFFF
+    _long_long_sign_mask = 0x8000000000000000
+    _long_long_inv_mask = 0xFFFFFFFFFFFFFFFF
+
     _four_byte_types = {
         ArgumentType.INT,
         ArgumentType.UINT,
@@ -128,8 +135,8 @@ class MIPSELSysVModel(CStdModel):
         emulator.write_register("v0", val)
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
-        lo = val & self._int_mask
-        hi = val >> 32 & self._int_mask
+        lo = val & self._int_inv_mask
+        hi = (val >> 32) & self._int_inv_mask
 
         emulator.write_register("v0", lo)
         emulator.write_register("v1", hi)

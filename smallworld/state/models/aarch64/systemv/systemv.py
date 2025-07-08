@@ -13,6 +13,13 @@ class AArch64SysVModel(CStdModel):
     )
     abi = platforms.ABI.SYSTEMV
 
+    _int_sign_mask = 0x80000000
+    _int_inv_mask = 0xFFFFFFFF
+    _long_sign_mask = 0x8000000000000000
+    _long_inv_mask = 0xFFFFFFFFFFFFFFFF
+    _long_long_sign_mask = 0x8000000000000000
+    _long_long_inv_mask = 0xFFFFFFFFFFFFFFFF
+
     _four_byte_types = {ArgumentType.INT, ArgumentType.UINT}
 
     _eight_byte_types = {

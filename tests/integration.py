@@ -2253,6 +2253,11 @@ class NoArgLibraryModelTest(AbsLibraryModelTest):
         )
 
 
+class C99AbsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "abs"
+
+
 class C99ExitTests(NoArgLibraryModelTest):
     library = "c99"
     function = "exit"
@@ -2261,6 +2266,16 @@ class C99ExitTests(NoArgLibraryModelTest):
 class C99FreeTests(NoArgLibraryModelTest):
     library = "c99"
     function = "free"
+
+
+class C99LabsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "labs"
+
+
+class C99LlabsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "llabs"
 
 
 class C99MallocTests(NoArgLibraryModelTest):

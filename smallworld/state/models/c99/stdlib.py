@@ -17,15 +17,22 @@ class Abs(CStdModel):
     argument_types = [ArgumentType.INT]
     return_type = ArgumentType.INT
 
-    sig_mask = 0x80000000
-    inv_mask = 0xFFFFFFFF
+    @property
+    def sign_mask(self):
+        return self._int_sign_mask
+
+    @property
+    def inv_mask(self):
+        return self._int_inv_mask
 
     def model(self, emulator: emulators.Emulator) -> None:
         val = self.get_arg1(emulator)
 
         assert isinstance(val, int)
 
-        if val & self.sig_mask:
+        print(f"abs({hex(val)})")
+
+        if val & self.sign_mask:
             val = ((val ^ self.inv_mask) + 1) & self.inv_mask
 
         self.set_return_value(emulator, val)
@@ -38,8 +45,13 @@ class LAbs(Abs):
     argument_types = [ArgumentType.LONG]
     return_type = ArgumentType.LONG
 
-    sig_mask = 0x8000000000000000
-    inv_mask = 0xFFFFFFFFFFFFFFFF
+    @property
+    def sign_mask(self):
+        return self._long_sign_mask
+
+    @property
+    def inv_mask(self):
+        return self._long_inv_mask
 
 
 class LLAbs(Abs):
@@ -49,8 +61,13 @@ class LLAbs(Abs):
     argument_types = [ArgumentType.LONGLONG]
     return_type = ArgumentType.LONGLONG
 
-    sig_mask = 0x8000000000000000
-    inv_mask = 0xFFFFFFFFFFFFFFFF
+    @property
+    def sign_mask(self):
+        return self._long_long_sign_mask
+
+    @property
+    def inv_mask(self):
+        return self._long_long_inv_mask
 
 
 class Atof(CStdModel):

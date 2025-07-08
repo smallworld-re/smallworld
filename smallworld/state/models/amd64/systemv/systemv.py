@@ -13,6 +13,13 @@ class AMD64SysVModel(CStdModel):
     )
     abi = platforms.ABI.SYSTEMV
 
+    _int_sign_mask = 0x80000000
+    _int_inv_mask = 0xFFFFFFFF
+    _long_sign_mask = 0x8000000000000000
+    _long_inv_mask = 0xFFFFFFFFFFFFFFFF
+    _long_long_sign_mask = 0x8000000000000000
+    _long_long_inv_mask = 0xFFFFFFFFFFFFFFFF
+
     _four_byte_types = {ArgumentType.INT, ArgumentType.UINT}
 
     _eight_byte_types = {
@@ -49,7 +56,7 @@ class AMD64SysVModel(CStdModel):
 
         elif self.argument_types[index] == ArgumentType.FLOAT:
             intval = emulator.read_register(self._fp_arg_regs[index])
-            intval &= self._int_mask
+            intval &= self._int_inv_mask
             byteval = intval.to_bytes(4, "little")
             (floatval,) = struct.unpack("<f", byteval)
             return floatval
