@@ -2343,6 +2343,11 @@ class C99StrcatTests(LibraryModelTest):
     function = "strcat"
 
 
+class C99StrchrTests(LibraryModelTest):
+    library = "c99"
+    function = "strchr"
+
+
 class C99StrcmpTests(LibraryModelTest):
     library = "c99"
     function = "strcmp"
@@ -2351,6 +2356,11 @@ class C99StrcmpTests(LibraryModelTest):
 class C99StrcpyTests(LibraryModelTest):
     library = "c99"
     function = "strcpy"
+
+
+class C99StrcspnTests(LibraryModelTest):
+    library = "c99"
+    function = "strcspn"
 
 
 class C99StrlenTests(LibraryModelTest):
@@ -2373,9 +2383,9 @@ class C99StrncatTests(LibraryModelTest):
     function = "strncat"
 
 
-class C99StrchrTests(LibraryModelTest):
+class C99StrspnTests(LibraryModelTest):
     library = "c99"
-    function = "strchr"
+    function = "strspn"
 
 
 class DocumentationTests(unittest.TestCase):
