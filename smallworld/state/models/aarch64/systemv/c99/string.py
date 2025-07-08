@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class AArch64SysVMemcpy(Memcpy, AArch64SysVModel):
 
 
 class AArch64SysVMemmove(Memmove, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVStrcpy(Strcpy, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVStrncpy(Strncpy, AArch64SysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class AArch64SysVStrlen(Strlen, AArch64SysVModel):
 __all__ = [
     "AArch64SysVMemcpy",
     "AArch64SysVMemmove",
+    "AArch64SysVStrcpy",
+    "AArch64SysVStrncpy",
     "AArch64SysVStrcat",
     "AArch64SysVStrncat",
     "AArch64SysVMemcmp",

@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class PowerPCSysVMemcpy(Memcpy, PowerPCSysVModel):
 
 
 class PowerPCSysVMemmove(Memmove, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVStrcpy(Strcpy, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVStrncpy(Strncpy, PowerPCSysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class PowerPCSysVStrlen(Strlen, PowerPCSysVModel):
 __all__ = [
     "PowerPCSysVMemcpy",
     "PowerPCSysVMemmove",
+    "PowerPCSysVStrcpy",
+    "PowerPCSysVStrncpy",
     "PowerPCSysVStrcat",
     "PowerPCSysVStrncat",
     "PowerPCSysVMemcmp",

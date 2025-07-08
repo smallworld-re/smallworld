@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class MIPSELSysVMemcpy(Memcpy, MIPSELSysVModel):
 
 
 class MIPSELSysVMemmove(Memmove, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVStrcpy(Strcpy, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVStrncpy(Strncpy, MIPSELSysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class MIPSELSysVStrlen(Strlen, MIPSELSysVModel):
 __all__ = [
     "MIPSELSysVMemcpy",
     "MIPSELSysVMemmove",
+    "MIPSELSysVStrcpy",
+    "MIPSELSysVStrncpy",
     "MIPSELSysVStrcat",
     "MIPSELSysVStrncat",
     "MIPSELSysVMemcmp",

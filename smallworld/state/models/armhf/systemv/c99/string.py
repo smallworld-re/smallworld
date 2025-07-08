@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class ArmHFSysVMemcpy(Memcpy, ArmHFSysVModel):
 
 
 class ArmHFSysVMemmove(Memmove, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVStrcpy(Strcpy, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVStrncpy(Strncpy, ArmHFSysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class ArmHFSysVStrlen(Strlen, ArmHFSysVModel):
 __all__ = [
     "ArmHFSysVMemcpy",
     "ArmHFSysVMemmove",
+    "ArmHFSysVStrcpy",
+    "ArmHFSysVStrncpy",
     "ArmHFSysVStrcat",
     "ArmHFSysVStrncat",
     "ArmHFSysVMemcmp",

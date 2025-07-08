@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class ArmELSysVMemcpy(Memcpy, ArmELSysVModel):
 
 
 class ArmELSysVMemmove(Memmove, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVStrcpy(Strcpy, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVStrncpy(Strncpy, ArmELSysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class ArmELSysVStrlen(Strlen, ArmELSysVModel):
 __all__ = [
     "ArmELSysVMemcpy",
     "ArmELSysVMemmove",
+    "ArmELSysVStrcpy",
+    "ArmELSysVStrncpy",
     "ArmELSysVStrcat",
     "ArmELSysVStrncat",
     "ArmELSysVMemcmp",

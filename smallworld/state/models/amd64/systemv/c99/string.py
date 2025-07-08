@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class AMD64SysVMemcpy(Memcpy, AMD64SysVModel):
 
 
 class AMD64SysVMemmove(Memmove, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVStrcpy(Strcpy, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVStrncpy(Strncpy, AMD64SysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class AMD64SysVStrlen(Strlen, AMD64SysVModel):
 __all__ = [
     "AMD64SysVMemcpy",
     "AMD64SysVMemmove",
+    "AMD64SysVStrcpy",
+    "AMD64SysVStrncpy",
     "AMD64SysVStrcat",
     "AMD64SysVStrncat",
     "AMD64SysVMemcmp",

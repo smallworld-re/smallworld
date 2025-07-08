@@ -9,6 +9,7 @@ from .utils import (
     _emu_strlen,
     _emu_strncat,
     _emu_strncmp,
+    _emu_strncpy,
     _emu_strnlen,
 )
 
@@ -52,6 +53,46 @@ class Memmove(CStdModel):
         assert isinstance(n, int)
 
         _emu_memcpy(emulator, dst, src, n)
+        self.set_return_value(emulator, dst)
+
+
+class Strcpy(CStdModel):
+    name = "strcpy"
+
+    # char *strcpy(char *dst, const char *src);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        dst = self.get_arg1(emulator)
+        src = self.get_arg2(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+
+        n = _emu_strlen(emulator, src) + 1
+
+        _emu_memcpy(emulator, dst, src, n)
+        self.set_return_value(emulator, dst)
+
+
+class Strncpy(CStdModel):
+    name = "strncpy"
+
+    # char *strcpy(char *dst, const char *src, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        dst = self.get_arg1(emulator)
+        src = self.get_arg2(emulator)
+        n = self.get_arg3(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(src, int)
+        assert isinstance(n, int)
+
+        _emu_strncpy(emulator, dst, src, n)
         self.set_return_value(emulator, dst)
 
 
@@ -561,6 +602,8 @@ class Strlen(CStdModel):
 __all__ = [
     "Memcpy",
     "Memmove",
+    "Strcpy",
+    "Strncpy",
     "Strcat",
     "Strncat",
     "Memcmp",

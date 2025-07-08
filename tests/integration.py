@@ -2273,9 +2273,24 @@ class C99MemcmpTests(LibraryModelTest):
     function = "memcmp"
 
 
+class C99MemcpyTests(LibraryModelTest):
+    library = "c99"
+    function = "memcpy"
+
+
+class C99RandTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "rand"
+
+
 class C99ReallocTests(NoArgLibraryModelTest):
     library = "c99"
     function = "realloc"
+
+
+class C99SrandTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "srand"
 
 
 class C99StrcatTests(LibraryModelTest):
@@ -2285,7 +2300,12 @@ class C99StrcatTests(LibraryModelTest):
 
 class C99StrcmpTests(LibraryModelTest):
     library = "c99"
-    function = "strncmp"
+    function = "strcmp"
+
+
+class C99StrcpyTests(LibraryModelTest):
+    library = "c99"
+    function = "strcpy"
 
 
 class C99StrlenTests(LibraryModelTest):
@@ -2296,6 +2316,11 @@ class C99StrlenTests(LibraryModelTest):
 class C99StrncmpTests(LibraryModelTest):
     library = "c99"
     function = "strncmp"
+
+
+class C99StrncpyTests(LibraryModelTest):
+    library = "c99"
+    function = "strncpy"
 
 
 class C99StrncatTests(LibraryModelTest):

@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class I386SysVMemcpy(Memcpy, I386SysVModel):
 
 
 class I386SysVMemmove(Memmove, I386SysVModel):
+    pass
+
+
+class I386SysVStrcpy(Strcpy, I386SysVModel):
+    pass
+
+
+class I386SysVStrncpy(Strncpy, I386SysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class I386SysVStrlen(Strlen, I386SysVModel):
 __all__ = [
     "I386SysVMemcpy",
     "I386SysVMemmove",
+    "I386SysVStrcpy",
+    "I386SysVStrncpy",
     "I386SysVStrcat",
     "I386SysVStrncat",
     "I386SysVMemcmp",

@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class MIPS64SysVMemcpy(Memcpy, MIPS64SysVModel):
 
 
 class MIPS64SysVMemmove(Memmove, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVStrcpy(Strcpy, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVStrncpy(Strncpy, MIPS64SysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class MIPS64SysVStrlen(Strlen, MIPS64SysVModel):
 __all__ = [
     "MIPS64SysVMemcpy",
     "MIPS64SysVMemmove",
+    "MIPS64SysVStrcpy",
+    "MIPS64SysVStrncpy",
     "MIPS64SysVStrcat",
     "MIPS64SysVStrncat",
     "MIPS64SysVMemcmp",

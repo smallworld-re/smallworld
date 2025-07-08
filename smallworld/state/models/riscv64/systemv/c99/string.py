@@ -8,11 +8,13 @@ from ....c99 import (
     Strchr,
     Strcmp,
     Strcoll,
+    Strcpy,
     Strcspn,
     Strerror,
     Strlen,
     Strncat,
     Strncmp,
+    Strncpy,
     Strpbrk,
     Strrchr,
     Strspn,
@@ -28,6 +30,14 @@ class RiscV64SysVMemcpy(Memcpy, RiscV64SysVModel):
 
 
 class RiscV64SysVMemmove(Memmove, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVStrcpy(Strcpy, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVStrncpy(Strncpy, RiscV64SysVModel):
     pass
 
 
@@ -106,6 +116,8 @@ class RiscV64SysVStrlen(Strlen, RiscV64SysVModel):
 __all__ = [
     "RiscV64SysVMemcpy",
     "RiscV64SysVMemmove",
+    "RiscV64SysVStrcpy",
+    "RiscV64SysVStrncpy",
     "RiscV64SysVStrcat",
     "RiscV64SysVStrncat",
     "RiscV64SysVMemcmp",

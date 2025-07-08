@@ -34,6 +34,21 @@ def _emu_memcpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> Non
     emulator.write_memory(dst, src_bytes)
 
 
+def _emu_strncpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> None:
+    # strncpy is slightly different from strcpy and memcpy;
+    # it zero-fills any unused space in the buffer.
+    actual = n
+    src_len = _emu_strlen(emulator, src) + 1
+    if src_len < n:
+        actual = src_len
+
+    data = emulator.read_memory(src, actual)
+    data += b"\0" * (n - actual)
+
+    print(f"Writing {n} bytes to {hex(dst)}")
+    emulator.write_memory(dst, data)
+
+
 def _emu_memcmp(emulator: emulators.Emulator, ptr1: int, ptr2: int, n: int) -> int:
     for i in range(0, n):
         char1 = emulator.read_memory(ptr1 + i, 1)[0]
