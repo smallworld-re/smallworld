@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import AArch64SysVModel
 
@@ -178,6 +185,34 @@ class AArch64SysVUngetc(Ungetc, AArch64SysVModel):
     pass
 
 
+class AArch64SysVVfprintf(Vfprintf, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVVfscanf(Vfscanf, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVVprintf(Vprintf, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVVscanf(Vscanf, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVVsnprintf(Vsnprintf, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVVsprintf(Vsprintf, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVVsscanf(Vsscanf, AArch64SysVModel):
+    pass
+
+
 __all__ = [
     "AArch64SysVFclose",
     "AArch64SysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "AArch64SysVTmpfile",
     "AArch64SysVTmpnam",
     "AArch64SysVUngetc",
+    "AArch64SysVVfprintf",
+    "AArch64SysVVfscanf",
+    "AArch64SysVVprintf",
+    "AArch64SysVVscanf",
+    "AArch64SysVVsnprintf",
+    "AArch64SysVVsprintf",
+    "AArch64SysVVsscanf",
 ]

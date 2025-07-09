@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import MIPS64ELSysVModel
 
@@ -178,6 +185,34 @@ class MIPS64ELSysVUngetc(Ungetc, MIPS64ELSysVModel):
     pass
 
 
+class MIPS64ELSysVVfprintf(Vfprintf, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVVfscanf(Vfscanf, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVVprintf(Vprintf, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVVscanf(Vscanf, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVVsnprintf(Vsnprintf, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVVsprintf(Vsprintf, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVVsscanf(Vsscanf, MIPS64ELSysVModel):
+    pass
+
+
 __all__ = [
     "MIPS64ELSysVFclose",
     "MIPS64ELSysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "MIPS64ELSysVTmpfile",
     "MIPS64ELSysVTmpnam",
     "MIPS64ELSysVUngetc",
+    "MIPS64ELSysVVfprintf",
+    "MIPS64ELSysVVfscanf",
+    "MIPS64ELSysVVprintf",
+    "MIPS64ELSysVVscanf",
+    "MIPS64ELSysVVsnprintf",
+    "MIPS64ELSysVVsprintf",
+    "MIPS64ELSysVVsscanf",
 ]

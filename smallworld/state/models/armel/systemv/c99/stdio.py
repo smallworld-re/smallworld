@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import ArmELSysVModel
 
@@ -178,6 +185,34 @@ class ArmELSysVUngetc(Ungetc, ArmELSysVModel):
     pass
 
 
+class ArmELSysVVfprintf(Vfprintf, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVVfscanf(Vfscanf, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVVprintf(Vprintf, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVVscanf(Vscanf, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVVsnprintf(Vsnprintf, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVVsprintf(Vsprintf, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVVsscanf(Vsscanf, ArmELSysVModel):
+    pass
+
+
 __all__ = [
     "ArmELSysVFclose",
     "ArmELSysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "ArmELSysVTmpfile",
     "ArmELSysVTmpnam",
     "ArmELSysVUngetc",
+    "ArmELSysVVfprintf",
+    "ArmELSysVVfscanf",
+    "ArmELSysVVprintf",
+    "ArmELSysVVscanf",
+    "ArmELSysVVsnprintf",
+    "ArmELSysVVsprintf",
+    "ArmELSysVVsscanf",
 ]

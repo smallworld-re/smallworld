@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import RiscV64SysVModel
 
@@ -178,6 +185,34 @@ class RiscV64SysVUngetc(Ungetc, RiscV64SysVModel):
     pass
 
 
+class RiscV64SysVVfprintf(Vfprintf, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVVfscanf(Vfscanf, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVVprintf(Vprintf, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVVscanf(Vscanf, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVVsnprintf(Vsnprintf, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVVsprintf(Vsprintf, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVVsscanf(Vsscanf, RiscV64SysVModel):
+    pass
+
+
 __all__ = [
     "RiscV64SysVFclose",
     "RiscV64SysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "RiscV64SysVTmpfile",
     "RiscV64SysVTmpnam",
     "RiscV64SysVUngetc",
+    "RiscV64SysVVfprintf",
+    "RiscV64SysVVfscanf",
+    "RiscV64SysVVprintf",
+    "RiscV64SysVVscanf",
+    "RiscV64SysVVsnprintf",
+    "RiscV64SysVVsprintf",
+    "RiscV64SysVVsscanf",
 ]

@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import PowerPCSysVModel
 
@@ -178,6 +185,34 @@ class PowerPCSysVUngetc(Ungetc, PowerPCSysVModel):
     pass
 
 
+class PowerPCSysVVfprintf(Vfprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVVfscanf(Vfscanf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVVprintf(Vprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVVscanf(Vscanf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVVsnprintf(Vsnprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVVsprintf(Vsprintf, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVVsscanf(Vsscanf, PowerPCSysVModel):
+    pass
+
+
 __all__ = [
     "PowerPCSysVFclose",
     "PowerPCSysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "PowerPCSysVTmpfile",
     "PowerPCSysVTmpnam",
     "PowerPCSysVUngetc",
+    "PowerPCSysVVfprintf",
+    "PowerPCSysVVfscanf",
+    "PowerPCSysVVprintf",
+    "PowerPCSysVVscanf",
+    "PowerPCSysVVsnprintf",
+    "PowerPCSysVVsprintf",
+    "PowerPCSysVVsscanf",
 ]

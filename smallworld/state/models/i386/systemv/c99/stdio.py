@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import I386SysVModel
 
@@ -178,6 +185,34 @@ class I386SysVUngetc(Ungetc, I386SysVModel):
     pass
 
 
+class I386SysVVfprintf(Vfprintf, I386SysVModel):
+    pass
+
+
+class I386SysVVfscanf(Vfscanf, I386SysVModel):
+    pass
+
+
+class I386SysVVprintf(Vprintf, I386SysVModel):
+    pass
+
+
+class I386SysVVscanf(Vscanf, I386SysVModel):
+    pass
+
+
+class I386SysVVsnprintf(Vsnprintf, I386SysVModel):
+    pass
+
+
+class I386SysVVsprintf(Vsprintf, I386SysVModel):
+    pass
+
+
+class I386SysVVsscanf(Vsscanf, I386SysVModel):
+    pass
+
+
 __all__ = [
     "I386SysVFclose",
     "I386SysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "I386SysVTmpfile",
     "I386SysVTmpnam",
     "I386SysVUngetc",
+    "I386SysVVfprintf",
+    "I386SysVVfscanf",
+    "I386SysVVprintf",
+    "I386SysVVscanf",
+    "I386SysVVsnprintf",
+    "I386SysVVsprintf",
+    "I386SysVVsscanf",
 ]

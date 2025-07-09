@@ -410,6 +410,90 @@ class Tmpnam(StdioModel):
         raise NotImplementedError()
 
 
+class Vfprintf(StdioModel):
+    name = "vfprintf"
+
+    # int vfprintf(FILE *stream, const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Vfscanf(StdioModel):
+    name = "vfscanf"
+
+    # int vfscanf(FILE *stream, const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Vprintf(StdioModel):
+    name = "vprintf"
+
+    # int vprintf(const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Vscanf(StdioModel):
+    name = "vscanf"
+
+    # int vscanf(const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Vsnprintf(StdioModel):
+    name = "vsnprintf"
+
+    # int vsprintf(char *str, size_t len, const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Vsprintf(StdioModel):
+    name = "vsprintf"
+
+    # int vsprintf(char *str, const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Vsscanf(StdioModel):
+    name = "vsprintf"
+
+    # int vsscanf(char *str, const char *fmt, va_list args);
+    # TODO: Figure out how to decode a va_list
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
 __all__ = [
     "Clearerror",
     "Fclose",
@@ -446,4 +530,11 @@ __all__ = [
     "Tmpfile",
     "Tmpnam",
     "Ungetc",
+    "Vfprintf",
+    "Vfscanf",
+    "Vprintf",
+    "Vscanf",
+    "Vsnprintf",
+    "Vsprintf",
+    "Vsscanf",
 ]

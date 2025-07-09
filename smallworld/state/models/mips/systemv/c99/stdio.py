@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import MIPSSysVModel
 
@@ -178,6 +185,34 @@ class MIPSSysVUngetc(Ungetc, MIPSSysVModel):
     pass
 
 
+class MIPSSysVVfprintf(Vfprintf, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVVfscanf(Vfscanf, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVVprintf(Vprintf, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVVscanf(Vscanf, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVVsnprintf(Vsnprintf, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVVsprintf(Vsprintf, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVVsscanf(Vsscanf, MIPSSysVModel):
+    pass
+
+
 __all__ = [
     "MIPSSysVFclose",
     "MIPSSysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "MIPSSysVTmpfile",
     "MIPSSysVTmpnam",
     "MIPSSysVUngetc",
+    "MIPSSysVVfprintf",
+    "MIPSSysVVfscanf",
+    "MIPSSysVVprintf",
+    "MIPSSysVVscanf",
+    "MIPSSysVVsnprintf",
+    "MIPSSysVVsprintf",
+    "MIPSSysVVsscanf",
 ]

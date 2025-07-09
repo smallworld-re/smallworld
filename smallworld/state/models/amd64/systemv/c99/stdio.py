@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import AMD64SysVModel
 
@@ -178,6 +185,34 @@ class AMD64SysVUngetc(Ungetc, AMD64SysVModel):
     pass
 
 
+class AMD64SysVVfprintf(Vfprintf, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVVfscanf(Vfscanf, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVVprintf(Vprintf, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVVscanf(Vscanf, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVVsnprintf(Vsnprintf, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVVsprintf(Vsprintf, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVVsscanf(Vsscanf, AMD64SysVModel):
+    pass
+
+
 __all__ = [
     "AMD64SysVFclose",
     "AMD64SysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "AMD64SysVTmpfile",
     "AMD64SysVTmpnam",
     "AMD64SysVUngetc",
+    "AMD64SysVVfprintf",
+    "AMD64SysVVfscanf",
+    "AMD64SysVVprintf",
+    "AMD64SysVVscanf",
+    "AMD64SysVVsnprintf",
+    "AMD64SysVVsprintf",
+    "AMD64SysVVsscanf",
 ]

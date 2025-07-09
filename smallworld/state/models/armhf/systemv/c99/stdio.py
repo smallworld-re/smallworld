@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import ArmHFSysVModel
 
@@ -178,6 +185,34 @@ class ArmHFSysVUngetc(Ungetc, ArmHFSysVModel):
     pass
 
 
+class ArmHFSysVVfprintf(Vfprintf, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVVfscanf(Vfscanf, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVVprintf(Vprintf, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVVscanf(Vscanf, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVVsnprintf(Vsnprintf, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVVsprintf(Vsprintf, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVVsscanf(Vsscanf, ArmHFSysVModel):
+    pass
+
+
 __all__ = [
     "ArmHFSysVFclose",
     "ArmHFSysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "ArmHFSysVTmpfile",
     "ArmHFSysVTmpnam",
     "ArmHFSysVUngetc",
+    "ArmHFSysVVfprintf",
+    "ArmHFSysVVfscanf",
+    "ArmHFSysVVprintf",
+    "ArmHFSysVVscanf",
+    "ArmHFSysVVsnprintf",
+    "ArmHFSysVVsprintf",
+    "ArmHFSysVVsscanf",
 ]

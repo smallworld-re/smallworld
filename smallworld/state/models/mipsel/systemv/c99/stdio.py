@@ -34,6 +34,13 @@ from ....c99 import (
     Tmpfile,
     Tmpnam,
     Ungetc,
+    Vfprintf,
+    Vfscanf,
+    Vprintf,
+    Vscanf,
+    Vsnprintf,
+    Vsprintf,
+    Vsscanf,
 )
 from ..systemv import MIPSELSysVModel
 
@@ -178,6 +185,34 @@ class MIPSELSysVUngetc(Ungetc, MIPSELSysVModel):
     pass
 
 
+class MIPSELSysVVfprintf(Vfprintf, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVVfscanf(Vfscanf, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVVprintf(Vprintf, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVVscanf(Vscanf, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVVsnprintf(Vsnprintf, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVVsprintf(Vsprintf, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVVsscanf(Vsscanf, MIPSELSysVModel):
+    pass
+
+
 __all__ = [
     "MIPSELSysVFclose",
     "MIPSELSysVFeof",
@@ -214,4 +249,11 @@ __all__ = [
     "MIPSELSysVTmpfile",
     "MIPSELSysVTmpnam",
     "MIPSELSysVUngetc",
+    "MIPSELSysVVfprintf",
+    "MIPSELSysVVfscanf",
+    "MIPSELSysVVprintf",
+    "MIPSELSysVVscanf",
+    "MIPSELSysVVsnprintf",
+    "MIPSELSysVVsprintf",
+    "MIPSELSysVVsscanf",
 ]
