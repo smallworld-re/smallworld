@@ -522,6 +522,7 @@ class Strtok(CStdModel):
                 raise exceptions.EmulationError(
                     "strtok called with NULL when placeholder was NULL"
                 )
+            ptr1 = self.ptr
 
         len1 = _emu_strlen(emulator, ptr1)
         len2 = _emu_strlen(emulator, ptr2)
@@ -532,6 +533,7 @@ class Strtok(CStdModel):
         if len1 == 0:
             # Empty string; we're out of tokens.
             self.set_return_value(emulator, 0)
+            self.ptr = 0
             return
 
         # Non-empty string; we will have a token.
@@ -542,8 +544,10 @@ class Strtok(CStdModel):
             if bytes1[i] in needles:
                 emulator.write_memory(ptr1 + i, b"\0")
                 self.ptr = ptr1 + i + 1
-            if bytes1[i] == 0:
-                self.ptr = 0
+                return
+
+        # Fall-through case; token lasts to end of string
+        self.ptr = ptr1 + len1
 
 
 class Memset(CStdModel):

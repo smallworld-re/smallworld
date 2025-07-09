@@ -16,5 +16,9 @@ int main(int argc, char *argv[]) {
     if(res != 4) {
         exit(0);
     }
+    res = strspn("foobar", "");
+    if(res != 0) {
+        exit(0);
+    }
     return *good;
 }
