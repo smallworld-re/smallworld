@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import ArmELSysVModel
 
@@ -138,6 +146,38 @@ class ArmELSysVSscanf(Sscanf, ArmELSysVModel):
     pass
 
 
+class ArmELSysVClearerror(Clearerror, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVFflush(Fflush, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVFreopen(Freopen, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVFgetpos(Fgetpos, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVFsetpos(Fsetpos, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVTmpfile(Tmpfile, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVTmpnam(Tmpnam, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVUngetc(Ungetc, ArmELSysVModel):
+    pass
+
+
 __all__ = [
     "ArmELSysVFclose",
     "ArmELSysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "ArmELSysVSnprintf",
     "ArmELSysVSprintf",
     "ArmELSysVSscanf",
+    "ArmELSysVClearerror",
+    "ArmELSysVFflush",
+    "ArmELSysVFreopen",
+    "ArmELSysVFgetpos",
+    "ArmELSysVFsetpos",
+    "ArmELSysVTmpfile",
+    "ArmELSysVTmpnam",
+    "ArmELSysVUngetc",
 ]

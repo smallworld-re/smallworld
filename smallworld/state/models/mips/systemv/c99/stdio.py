@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import MIPSSysVModel
 
@@ -138,6 +146,38 @@ class MIPSSysVSscanf(Sscanf, MIPSSysVModel):
     pass
 
 
+class MIPSSysVClearerror(Clearerror, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVFflush(Fflush, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVFreopen(Freopen, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVFgetpos(Fgetpos, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVFsetpos(Fsetpos, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVTmpfile(Tmpfile, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVTmpnam(Tmpnam, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVUngetc(Ungetc, MIPSSysVModel):
+    pass
+
+
 __all__ = [
     "MIPSSysVFclose",
     "MIPSSysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "MIPSSysVSnprintf",
     "MIPSSysVSprintf",
     "MIPSSysVSscanf",
+    "MIPSSysVClearerror",
+    "MIPSSysVFflush",
+    "MIPSSysVFreopen",
+    "MIPSSysVFgetpos",
+    "MIPSSysVFsetpos",
+    "MIPSSysVTmpfile",
+    "MIPSSysVTmpnam",
+    "MIPSSysVUngetc",
 ]

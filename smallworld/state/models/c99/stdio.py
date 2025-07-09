@@ -1,8 +1,15 @@
 from .... import emulators
 from ..cstd import ArgumentType, CStdModel
+from ..filedesc import FDIOError, FileDescriptorManager
 
 
-class Fclose(CStdModel):
+class StdioModel(CStdModel):
+    def __init__(self, address: int):
+        super().__init__(address)
+        self._fdmgr = FileDescriptorManager.for_platform(self.platform, self.abi)
+
+
+class Fclose(StdioModel):
     name = "fclose"
 
     # int fclose(FILE *file);
@@ -10,10 +17,19 @@ class Fclose(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        fd = self._fdmgr.filestar_to_fd(ptr)
+        try:
+            self._fdmgr.close(fd)
+            self.set_return_value(emulator, 0)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
 
 
-class Feof(CStdModel):
+class Feof(StdioModel):
     name = "feof"
 
     # int feof(FILE *file);
@@ -24,7 +40,7 @@ class Feof(CStdModel):
         raise NotImplementedError()
 
 
-class Ferror(CStdModel):
+class Ferror(StdioModel):
     name = "ferror"
 
     # int ferror(FILE *file);
@@ -35,7 +51,29 @@ class Ferror(CStdModel):
         raise NotImplementedError()
 
 
-class Fgetc(CStdModel):
+class Clearerror(StdioModel):
+    name = "ferror"
+
+    # void clearerror(FILE *file);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.VOID
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Fflush(StdioModel):
+    name = "fflush"
+
+    # int fflush(FILE *file);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Fgetc(StdioModel):
     name = "fgetc"
 
     # int fgetc(FILE *file);
@@ -46,7 +84,7 @@ class Fgetc(CStdModel):
         raise NotImplementedError()
 
 
-class Fgets(CStdModel):
+class Fgets(StdioModel):
     name = "fgets"
 
     # char *fgets(char *dst, size_t size, FILE *file);
@@ -57,10 +95,10 @@ class Fgets(CStdModel):
         raise NotImplementedError()
 
 
-class Fopen(CStdModel):
+class Fopen(StdioModel):
     name = "fopen"
 
-    # char *fopen(const char *path, const char *mode);
+    # FILE *fopen(const char *path, const char *mode);
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
@@ -68,7 +106,18 @@ class Fopen(CStdModel):
         raise NotImplementedError()
 
 
-class Fprintf(CStdModel):
+class Freopen(StdioModel):
+    name = "freopen"
+
+    # FILE *freopen(const char *filename, const char *mode, FILE *stream);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Fprintf(StdioModel):
     name = "fprintf"
 
     # int fprintf(FILE *file, const char *fmt, ...);
@@ -79,7 +128,7 @@ class Fprintf(CStdModel):
         raise NotImplementedError()
 
 
-class Fputc(CStdModel):
+class Fputc(StdioModel):
     name = "fputc"
 
     # int fputc(int c, FILE *file);
@@ -90,7 +139,7 @@ class Fputc(CStdModel):
         raise NotImplementedError()
 
 
-class Fputs(CStdModel):
+class Fputs(StdioModel):
     name = "fputs"
 
     # int fputs(const char *str, FILE *file);
@@ -101,7 +150,7 @@ class Fputs(CStdModel):
         raise NotImplementedError()
 
 
-class Fread(CStdModel):
+class Fread(StdioModel):
     name = "fread"
 
     # size_t fread(void *dst, size_t size, size_t amt, FILE *file);
@@ -117,7 +166,7 @@ class Fread(CStdModel):
         raise NotImplementedError()
 
 
-class Fscanf(CStdModel):
+class Fscanf(StdioModel):
     name = "fscanf"
 
     # int fscanf(FILE *, const char *fmt, ...);
@@ -128,7 +177,7 @@ class Fscanf(CStdModel):
         raise NotImplementedError()
 
 
-class Fseek(CStdModel):
+class Fseek(StdioModel):
     name = "fseek"
 
     # int fseek(FILE *file, long int offset, int origin);
@@ -139,7 +188,7 @@ class Fseek(CStdModel):
         raise NotImplementedError()
 
 
-class Ftell(CStdModel):
+class Ftell(StdioModel):
     name = "ftell"
 
     # long ftell(FILE *file);
@@ -150,7 +199,29 @@ class Ftell(CStdModel):
         raise NotImplementedError()
 
 
-class Fwrite(CStdModel):
+class Fgetpos(StdioModel):
+    name = "fgetpos"
+
+    # int fgetpos(FILE *file, fpos_t *pos);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Fsetpos(StdioModel):
+    name = "fsetpos"
+
+    # int ftell(FILE *file, fpos_t *pos);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Fwrite(StdioModel):
     name = "fwrite"
 
     # int fwrite(void *src, size_t size, size_t amt, FILE *file);
@@ -166,7 +237,7 @@ class Fwrite(CStdModel):
         raise NotImplementedError()
 
 
-class Getc(CStdModel):
+class Getc(StdioModel):
     name = "getc"
 
     # int getc(FILE *file);
@@ -177,7 +248,15 @@ class Getc(CStdModel):
         raise NotImplementedError()
 
 
-class Getchar(CStdModel):
+class Ungetc(StdioModel):
+    name = "ungetc"
+
+    # int ungetc(int c, FILE *file);
+    argument_types = [ArgumentType.INT, ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+
+class Getchar(StdioModel):
     name = "getchar"
 
     # int getchar(void);
@@ -188,7 +267,7 @@ class Getchar(CStdModel):
         raise NotImplementedError()
 
 
-class Printf(CStdModel):
+class Printf(StdioModel):
     name = "printf"
 
     # int printf(const char *fmt, ...);
@@ -199,7 +278,7 @@ class Printf(CStdModel):
         raise NotImplementedError()
 
 
-class Putc(CStdModel):
+class Putc(StdioModel):
     name = "putc"
 
     # int putc(int c, FILE *file);
@@ -210,7 +289,7 @@ class Putc(CStdModel):
         raise NotImplementedError()
 
 
-class Putchar(CStdModel):
+class Putchar(StdioModel):
     name = "putchar"
 
     # int putchar(int c);
@@ -221,7 +300,7 @@ class Putchar(CStdModel):
         raise NotImplementedError()
 
 
-class Puts(CStdModel):
+class Puts(StdioModel):
     name = "puts"
 
     # int puts(const char *s);
@@ -232,7 +311,7 @@ class Puts(CStdModel):
         raise NotImplementedError()
 
 
-class Remove(CStdModel):
+class Remove(StdioModel):
     name = "remove"
 
     # int remove(const char *path);
@@ -243,7 +322,7 @@ class Remove(CStdModel):
         raise NotImplementedError()
 
 
-class Rename(CStdModel):
+class Rename(StdioModel):
     name = "rename"
 
     # int rename(const char *oldpath, const char *newpath);
@@ -254,7 +333,7 @@ class Rename(CStdModel):
         raise NotImplementedError()
 
 
-class Rewind(CStdModel):
+class Rewind(StdioModel):
     name = "rewind"
 
     # void rewind(FILE *file);
@@ -265,7 +344,7 @@ class Rewind(CStdModel):
         raise NotImplementedError()
 
 
-class Scanf(CStdModel):
+class Scanf(StdioModel):
     name = "scanf"
 
     # int scanf(const char *fmt, ...);
@@ -276,7 +355,7 @@ class Scanf(CStdModel):
         raise NotImplementedError()
 
 
-class Snprintf(CStdModel):
+class Snprintf(StdioModel):
     name = "snprintf"
 
     # int snprintf(char *dst, size_t size, const char *fmt, ...);
@@ -287,7 +366,7 @@ class Snprintf(CStdModel):
         raise NotImplementedError()
 
 
-class Sprintf(CStdModel):
+class Sprintf(StdioModel):
     name = "sprintf"
 
     # int sprintf(char *dst, const char *fmt, ...);
@@ -298,7 +377,7 @@ class Sprintf(CStdModel):
         raise NotImplementedError()
 
 
-class Sscanf(CStdModel):
+class Sscanf(StdioModel):
     name = "sscanf"
 
     # int sscanf(const char *src, const char *fmt, ...);
@@ -309,19 +388,46 @@ class Sscanf(CStdModel):
         raise NotImplementedError()
 
 
+class Tmpfile(StdioModel):
+    name = "tmpfile"
+
+    # FILE *tmpfile(void);
+    argument_types = []
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
+class Tmpnam(StdioModel):
+    name = "tmpnam"
+
+    # char *tmpnam(char *name);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise NotImplementedError()
+
+
 __all__ = [
+    "Clearerror",
     "Fclose",
     "Feof",
     "Ferror",
+    "Fflush",
     "Fgetc",
+    "Fgetpos",
     "Fgets",
     "Fopen",
     "Fprintf",
     "Fputc",
     "Fputs",
     "Fread",
+    "Freopen",
     "Fscanf",
     "Fseek",
+    "Fsetpos",
     "Ftell",
     "Fwrite",
     "Getc",
@@ -337,4 +443,7 @@ __all__ = [
     "Snprintf",
     "Sprintf",
     "Sscanf",
+    "Tmpfile",
+    "Tmpnam",
+    "Ungetc",
 ]

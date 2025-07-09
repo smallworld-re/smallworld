@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import AArch64SysVModel
 
@@ -138,6 +146,38 @@ class AArch64SysVSscanf(Sscanf, AArch64SysVModel):
     pass
 
 
+class AArch64SysVClearerror(Clearerror, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVFflush(Fflush, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVFreopen(Freopen, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVFgetpos(Fgetpos, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVFsetpos(Fsetpos, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVTmpfile(Tmpfile, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVTmpnam(Tmpnam, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVUngetc(Ungetc, AArch64SysVModel):
+    pass
+
+
 __all__ = [
     "AArch64SysVFclose",
     "AArch64SysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "AArch64SysVSnprintf",
     "AArch64SysVSprintf",
     "AArch64SysVSscanf",
+    "AArch64SysVClearerror",
+    "AArch64SysVFflush",
+    "AArch64SysVFreopen",
+    "AArch64SysVFgetpos",
+    "AArch64SysVFsetpos",
+    "AArch64SysVTmpfile",
+    "AArch64SysVTmpnam",
+    "AArch64SysVUngetc",
 ]

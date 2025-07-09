@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import I386SysVModel
 
@@ -138,6 +146,38 @@ class I386SysVSscanf(Sscanf, I386SysVModel):
     pass
 
 
+class I386SysVClearerror(Clearerror, I386SysVModel):
+    pass
+
+
+class I386SysVFflush(Fflush, I386SysVModel):
+    pass
+
+
+class I386SysVFreopen(Freopen, I386SysVModel):
+    pass
+
+
+class I386SysVFgetpos(Fgetpos, I386SysVModel):
+    pass
+
+
+class I386SysVFsetpos(Fsetpos, I386SysVModel):
+    pass
+
+
+class I386SysVTmpfile(Tmpfile, I386SysVModel):
+    pass
+
+
+class I386SysVTmpnam(Tmpnam, I386SysVModel):
+    pass
+
+
+class I386SysVUngetc(Ungetc, I386SysVModel):
+    pass
+
+
 __all__ = [
     "I386SysVFclose",
     "I386SysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "I386SysVSnprintf",
     "I386SysVSprintf",
     "I386SysVSscanf",
+    "I386SysVClearerror",
+    "I386SysVFflush",
+    "I386SysVFreopen",
+    "I386SysVFgetpos",
+    "I386SysVFsetpos",
+    "I386SysVTmpfile",
+    "I386SysVTmpnam",
+    "I386SysVUngetc",
 ]

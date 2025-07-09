@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import MIPSELSysVModel
 
@@ -138,6 +146,38 @@ class MIPSELSysVSscanf(Sscanf, MIPSELSysVModel):
     pass
 
 
+class MIPSELSysVClearerror(Clearerror, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVFflush(Fflush, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVFreopen(Freopen, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVFgetpos(Fgetpos, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVFsetpos(Fsetpos, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVTmpfile(Tmpfile, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVTmpnam(Tmpnam, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVUngetc(Ungetc, MIPSELSysVModel):
+    pass
+
+
 __all__ = [
     "MIPSELSysVFclose",
     "MIPSELSysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "MIPSELSysVSnprintf",
     "MIPSELSysVSprintf",
     "MIPSELSysVSscanf",
+    "MIPSELSysVClearerror",
+    "MIPSELSysVFflush",
+    "MIPSELSysVFreopen",
+    "MIPSELSysVFgetpos",
+    "MIPSELSysVFsetpos",
+    "MIPSELSysVTmpfile",
+    "MIPSELSysVTmpnam",
+    "MIPSELSysVUngetc",
 ]

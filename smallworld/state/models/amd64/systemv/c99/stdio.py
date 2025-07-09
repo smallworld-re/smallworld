@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import AMD64SysVModel
 
@@ -138,6 +146,38 @@ class AMD64SysVSscanf(Sscanf, AMD64SysVModel):
     pass
 
 
+class AMD64SysVClearerror(Clearerror, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVFflush(Fflush, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVFreopen(Freopen, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVFgetpos(Fgetpos, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVFsetpos(Fsetpos, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVTmpfile(Tmpfile, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVTmpnam(Tmpnam, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVUngetc(Ungetc, AMD64SysVModel):
+    pass
+
+
 __all__ = [
     "AMD64SysVFclose",
     "AMD64SysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "AMD64SysVSnprintf",
     "AMD64SysVSprintf",
     "AMD64SysVSscanf",
+    "AMD64SysVClearerror",
+    "AMD64SysVFflush",
+    "AMD64SysVFreopen",
+    "AMD64SysVFgetpos",
+    "AMD64SysVFsetpos",
+    "AMD64SysVTmpfile",
+    "AMD64SysVTmpnam",
+    "AMD64SysVUngetc",
 ]

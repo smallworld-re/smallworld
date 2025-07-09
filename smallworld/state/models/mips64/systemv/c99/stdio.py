@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import MIPS64SysVModel
 
@@ -138,6 +146,38 @@ class MIPS64SysVSscanf(Sscanf, MIPS64SysVModel):
     pass
 
 
+class MIPS64SysVClearerror(Clearerror, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVFflush(Fflush, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVFreopen(Freopen, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVFgetpos(Fgetpos, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVFsetpos(Fsetpos, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVTmpfile(Tmpfile, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVTmpnam(Tmpnam, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVUngetc(Ungetc, MIPS64SysVModel):
+    pass
+
+
 __all__ = [
     "MIPS64SysVFclose",
     "MIPS64SysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "MIPS64SysVSnprintf",
     "MIPS64SysVSprintf",
     "MIPS64SysVSscanf",
+    "MIPS64SysVClearerror",
+    "MIPS64SysVFflush",
+    "MIPS64SysVFreopen",
+    "MIPS64SysVFgetpos",
+    "MIPS64SysVFsetpos",
+    "MIPS64SysVTmpfile",
+    "MIPS64SysVTmpnam",
+    "MIPS64SysVUngetc",
 ]

@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import RiscV64SysVModel
 
@@ -138,6 +146,38 @@ class RiscV64SysVSscanf(Sscanf, RiscV64SysVModel):
     pass
 
 
+class RiscV64SysVClearerror(Clearerror, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVFflush(Fflush, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVFreopen(Freopen, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVFgetpos(Fgetpos, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVFsetpos(Fsetpos, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVTmpfile(Tmpfile, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVTmpnam(Tmpnam, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVUngetc(Ungetc, RiscV64SysVModel):
+    pass
+
+
 __all__ = [
     "RiscV64SysVFclose",
     "RiscV64SysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "RiscV64SysVSnprintf",
     "RiscV64SysVSprintf",
     "RiscV64SysVSscanf",
+    "RiscV64SysVClearerror",
+    "RiscV64SysVFflush",
+    "RiscV64SysVFreopen",
+    "RiscV64SysVFgetpos",
+    "RiscV64SysVFsetpos",
+    "RiscV64SysVTmpfile",
+    "RiscV64SysVTmpnam",
+    "RiscV64SysVUngetc",
 ]

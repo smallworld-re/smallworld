@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import ArmHFSysVModel
 
@@ -138,6 +146,38 @@ class ArmHFSysVSscanf(Sscanf, ArmHFSysVModel):
     pass
 
 
+class ArmHFSysVClearerror(Clearerror, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVFflush(Fflush, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVFreopen(Freopen, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVFgetpos(Fgetpos, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVFsetpos(Fsetpos, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVTmpfile(Tmpfile, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVTmpnam(Tmpnam, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVUngetc(Ungetc, ArmHFSysVModel):
+    pass
+
+
 __all__ = [
     "ArmHFSysVFclose",
     "ArmHFSysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "ArmHFSysVSnprintf",
     "ArmHFSysVSprintf",
     "ArmHFSysVSscanf",
+    "ArmHFSysVClearerror",
+    "ArmHFSysVFflush",
+    "ArmHFSysVFreopen",
+    "ArmHFSysVFgetpos",
+    "ArmHFSysVFsetpos",
+    "ArmHFSysVTmpfile",
+    "ArmHFSysVTmpnam",
+    "ArmHFSysVUngetc",
 ]

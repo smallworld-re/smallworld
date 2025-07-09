@@ -1,16 +1,21 @@
 from ....c99 import (
+    Clearerror,
     Fclose,
     Feof,
     Ferror,
+    Fflush,
     Fgetc,
+    Fgetpos,
     Fgets,
     Fopen,
     Fprintf,
     Fputc,
     Fputs,
     Fread,
+    Freopen,
     Fscanf,
     Fseek,
+    Fsetpos,
     Ftell,
     Fwrite,
     Getc,
@@ -26,6 +31,9 @@ from ....c99 import (
     Snprintf,
     Sprintf,
     Sscanf,
+    Tmpfile,
+    Tmpnam,
+    Ungetc,
 )
 from ..systemv import PowerPCSysVModel
 
@@ -138,6 +146,38 @@ class PowerPCSysVSscanf(Sscanf, PowerPCSysVModel):
     pass
 
 
+class PowerPCSysVClearerror(Clearerror, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFflush(Fflush, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFreopen(Freopen, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFgetpos(Fgetpos, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVFsetpos(Fsetpos, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVTmpfile(Tmpfile, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVTmpnam(Tmpnam, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVUngetc(Ungetc, PowerPCSysVModel):
+    pass
+
+
 __all__ = [
     "PowerPCSysVFclose",
     "PowerPCSysVFeof",
@@ -166,4 +206,12 @@ __all__ = [
     "PowerPCSysVSnprintf",
     "PowerPCSysVSprintf",
     "PowerPCSysVSscanf",
+    "PowerPCSysVClearerror",
+    "PowerPCSysVFflush",
+    "PowerPCSysVFreopen",
+    "PowerPCSysVFgetpos",
+    "PowerPCSysVFsetpos",
+    "PowerPCSysVTmpfile",
+    "PowerPCSysVTmpnam",
+    "PowerPCSysVUngetc",
 ]
