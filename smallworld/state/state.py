@@ -831,16 +831,9 @@ class Machine(StatefulSet):
                 yield machine_copy
 
             except exceptions.EmulationBounds:
-                # import pdb
-                # pdb.set_trace()
                 print(
                     "emulation complete; encountered exit point or went out of bounds"
                 )
-                break
-            except Exception as e:
-                # import pdb
-                # pdb.set_trace()
-                print(f"emulation ended; raised exception {e}")
                 break
         return None
 
