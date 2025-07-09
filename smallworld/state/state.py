@@ -42,7 +42,7 @@ class Stateful(metaclass=abc.ABCMeta):
 
 
 class Value(metaclass=abc.ABCMeta):
-    """An abstract class whose subclasses all have a tuple of content, type, and label. Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
+    """An abstract class whose subclasses all have a tuple of content, type, and label.  Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
 
     def __init__(self: typing.Any) -> None:
         self._content: typing.Union[None, int, bytes, claripy.ast.bv.BV] = None
