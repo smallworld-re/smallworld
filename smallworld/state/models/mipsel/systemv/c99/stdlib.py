@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import MIPSELSysVModel
 
@@ -93,6 +102,42 @@ class MIPSELSysVSrand(Srand, MIPSELSysVModel):
     pass
 
 
+class MIPSELSysVAbort(Abort, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVAtexit(Atexit, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVGetenv(Getenv, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVMblen(Mblen, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVMbstowcs(Mbstowcs, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVMbtowc(Mbtowc, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVSystem(System, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVWcstombs(Wcstombs, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVWctomb(Wctomb, MIPSELSysVModel):
+    pass
+
+
 __all__ = [
     "MIPSELSysVAbs",
     "MIPSELSysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "MIPSELSysVRand",
     "MIPSELSysVRealloc",
     "MIPSELSysVSrand",
+    "MIPSELSysVAbort",
+    "MIPSELSysVAtexit",
+    "MIPSELSysVGetenv",
+    "MIPSELSysVMblen",
+    "MIPSELSysVMbstowcs",
+    "MIPSELSysVMbtowc",
+    "MIPSELSysVSystem",
+    "MIPSELSysVWcstombs",
+    "MIPSELSysVWctomb",
 ]

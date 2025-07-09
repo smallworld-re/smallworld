@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import AMD64SysVModel
 
@@ -93,6 +102,42 @@ class AMD64SysVSrand(Srand, AMD64SysVModel):
     pass
 
 
+class AMD64SysVAbort(Abort, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVAtexit(Atexit, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVGetenv(Getenv, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVMblen(Mblen, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVMbstowcs(Mbstowcs, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVMbtowc(Mbtowc, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVSystem(System, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVWcstombs(Wcstombs, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVWctomb(Wctomb, AMD64SysVModel):
+    pass
+
+
 __all__ = [
     "AMD64SysVAbs",
     "AMD64SysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "AMD64SysVRand",
     "AMD64SysVRealloc",
     "AMD64SysVSrand",
+    "AMD64SysVAbort",
+    "AMD64SysVAtexit",
+    "AMD64SysVGetenv",
+    "AMD64SysVMblen",
+    "AMD64SysVMbstowcs",
+    "AMD64SysVMbtowc",
+    "AMD64SysVSystem",
+    "AMD64SysVWcstombs",
+    "AMD64SysVWctomb",
 ]

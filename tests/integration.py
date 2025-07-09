@@ -2258,6 +2258,16 @@ class C99AbsTests(NoArgLibraryModelTest):
     function = "abs"
 
 
+class C99AbortTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "abort"
+
+
+class C99AtexitTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atexit"
+
+
 class C99AtoiTests(NoArgLibraryModelTest):
     library = "c99"
     function = "atoi"
@@ -2286,6 +2296,17 @@ class C99ExitTests(NoArgLibraryModelTest):
 class C99FreeTests(NoArgLibraryModelTest):
     library = "c99"
     function = "free"
+
+
+class C99GetenvTests(AbsLibraryModelTest):
+    library = "c99"
+    function = "getenv"
+
+    def run_test(self, arch):
+        _, stderr = self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+        self.assertLineContainsStrings(stderr, "getenv(foobar);")
 
 
 class C99LabsTests(NoArgLibraryModelTest):
@@ -2406,6 +2427,17 @@ class C99StrstrTests(NoArgLibraryModelTest):
 class C99StrtokTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strtok"
+
+
+class C99SystemTests(AbsLibraryModelTest):
+    library = "c99"
+    function = "system"
+
+    def run_test(self, arch):
+        _, stderr = self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+        self.assertLineContainsStrings(stderr, "system(foobar);")
 
 
 class DocumentationTests(unittest.TestCase):

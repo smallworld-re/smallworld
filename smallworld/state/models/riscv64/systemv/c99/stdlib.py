@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import RiscV64SysVModel
 
@@ -93,6 +102,42 @@ class RiscV64SysVSrand(Srand, RiscV64SysVModel):
     pass
 
 
+class RiscV64SysVAbort(Abort, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVAtexit(Atexit, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVGetenv(Getenv, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVMblen(Mblen, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVMbstowcs(Mbstowcs, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVMbtowc(Mbtowc, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVSystem(System, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVWcstombs(Wcstombs, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVWctomb(Wctomb, RiscV64SysVModel):
+    pass
+
+
 __all__ = [
     "RiscV64SysVAbs",
     "RiscV64SysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "RiscV64SysVRand",
     "RiscV64SysVRealloc",
     "RiscV64SysVSrand",
+    "RiscV64SysVAbort",
+    "RiscV64SysVAtexit",
+    "RiscV64SysVGetenv",
+    "RiscV64SysVMblen",
+    "RiscV64SysVMbstowcs",
+    "RiscV64SysVMbtowc",
+    "RiscV64SysVSystem",
+    "RiscV64SysVWcstombs",
+    "RiscV64SysVWctomb",
 ]

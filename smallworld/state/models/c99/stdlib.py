@@ -10,6 +10,17 @@ from .utils import _emu_strlen
 logger = logging.getLogger("__name__")
 
 
+class Abort(CStdModel):
+    name = "abort"
+
+    # void abort(void);
+    argument_types = []
+    return_type = ArgumentType.VOID
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        raise exceptions.EmulationStop("Called abort()")
+
+
 class Abs(CStdModel):
     name = "abs"
 
@@ -66,6 +77,21 @@ class LLAbs(Abs):
     @property
     def inv_mask(self):
         return self._long_long_inv_mask
+
+
+class Atexit(CStdModel):
+    name = "atexit"
+
+    # NOTE: In glibc binaries, relocate atexit against __cxa_atexit
+    # atexit is a statically-linked helper that calls __cxa_atexit
+
+    # void atexit(void);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        logger.warning("Program calls atexit(); not modeled")
+        self.set_return_value(emulator, 0)
 
 
 class Atof(CStdModel):
@@ -161,6 +187,28 @@ class Atoll(Atoi):
     return_type = ArgumentType.LONGLONG
 
     size_mask = 0xFFFFFFFFFFFFFFFF
+
+
+class Bsearch(CStdModel):
+    name = "bsearch"
+
+    # void *bsearch(const void *key, const void *base,
+    #               size_t nitems, size_t size,
+    #               int (*compar)(const void *, const void *));
+    argument_types = [
+        ArgumentType.POINTER,
+        ArgumentType.POINTER,
+        ArgumentType.SIZE_T,
+        ArgumentType.SIZE_T,
+        ArgumentType.POINTER,
+    ]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # Not easily possible; need to call a comparator function.
+        raise NotImplementedError(
+            "bsearch uses a function pointer; not sure how to model"
+        )
 
 
 class Calloc(CStdModel):
@@ -262,6 +310,26 @@ class Free(CStdModel):
         self.heap.free(ptr)
 
 
+class Getenv(CStdModel):
+    name = "getenv"
+
+    # char *getenv(char *name);
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        size = _emu_strlen(emulator, ptr)
+        data = emulator.read_memory(ptr, size)
+        name = data.decode("utf-8")
+
+        logger.info(f"getenv({name});")
+        self.set_return_value(emulator, 0)
+
+
 class Malloc(CStdModel):
     name = "malloc"
 
@@ -288,6 +356,42 @@ class Malloc(CStdModel):
         res = self.heap.allocate_bytes(b"\0" * size, None)
 
         self.set_return_value(emulator, res)
+
+
+class Mblen(CStdModel):
+    name = "mblen"
+
+    # int mblen(char *str, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # Depends the locale.
+        raise NotImplementedError()
+
+
+class Mbstowcs(CStdModel):
+    name = "mbstowcs"
+
+    # size_t mbstowcs(schar_t *pwcs, char *str, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.SIZE_T
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # Depends the locale.
+        raise NotImplementedError()
+
+
+class Mbtowc(CStdModel):
+    name = "mbtowc"
+
+    # size_t mbtowc(wchar_t *pwcs, char *str, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # Depends the locale.
+        raise NotImplementedError()
 
 
 class QSort(CStdModel):
@@ -386,10 +490,55 @@ class Srand(CStdModel):
         Rand.rand.seed(a=seed)
 
 
+class System(CStdModel):
+    name = "system"
+
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        size = _emu_strlen(emulator, ptr)
+        data = emulator.read_memory(ptr, size)
+        cmd = data.decode("utf-8")
+
+        logger.info(f"system({cmd});")
+        self.set_return_value(emulator, 0)
+
+
+class Wcstombs(CStdModel):
+    name = "wctombs"
+
+    # size_t wctombs(char *str, wchar_t *pwcs, size_t n);
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
+    return_type = ArgumentType.SIZE_T
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # Depends the locale.
+        raise NotImplementedError()
+
+
+class Wctomb(CStdModel):
+    name = "wctomb"
+
+    # int wctomb(char *str, wchar_t wchar);
+    argument_types = [ArgumentType.POINTER, ArgumentType.UINT]
+    return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        # Depends the locale.
+        raise NotImplementedError()
+
+
 __all__ = [
     "Abs",
     "LAbs",
     "LLAbs",
+    "Abort",
+    "Atexit",
     "Atof",
     "Atoi",
     "Atol",
@@ -400,9 +549,16 @@ __all__ = [
     "LLDiv",
     "Exit",
     "Free",
+    "Getenv",
     "Malloc",
+    "Mblen",
+    "Mbstowcs",
+    "Mbtowc",
     "QSort",
     "Rand",
     "Realloc",
     "Srand",
+    "System",
+    "Wcstombs",
+    "Wctomb",
 ]

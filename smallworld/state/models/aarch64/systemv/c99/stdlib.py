@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import AArch64SysVModel
 
@@ -93,6 +102,42 @@ class AArch64SysVSrand(Srand, AArch64SysVModel):
     pass
 
 
+class AArch64SysVAbort(Abort, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVAtexit(Atexit, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVGetenv(Getenv, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVMblen(Mblen, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVMbstowcs(Mbstowcs, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVMbtowc(Mbtowc, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVSystem(System, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVWcstombs(Wcstombs, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVWctomb(Wctomb, AArch64SysVModel):
+    pass
+
+
 __all__ = [
     "AArch64SysVAbs",
     "AArch64SysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "AArch64SysVRand",
     "AArch64SysVRealloc",
     "AArch64SysVSrand",
+    "AArch64SysVAbort",
+    "AArch64SysVAtexit",
+    "AArch64SysVGetenv",
+    "AArch64SysVMblen",
+    "AArch64SysVMbstowcs",
+    "AArch64SysVMbtowc",
+    "AArch64SysVSystem",
+    "AArch64SysVWcstombs",
+    "AArch64SysVWctomb",
 ]

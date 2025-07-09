@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import ArmHFSysVModel
 
@@ -93,6 +102,42 @@ class ArmHFSysVSrand(Srand, ArmHFSysVModel):
     pass
 
 
+class ArmHFSysVAbort(Abort, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVAtexit(Atexit, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVGetenv(Getenv, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVMblen(Mblen, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVMbstowcs(Mbstowcs, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVMbtowc(Mbtowc, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVSystem(System, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVWcstombs(Wcstombs, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVWctomb(Wctomb, ArmHFSysVModel):
+    pass
+
+
 __all__ = [
     "ArmHFSysVAbs",
     "ArmHFSysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "ArmHFSysVRand",
     "ArmHFSysVRealloc",
     "ArmHFSysVSrand",
+    "ArmHFSysVAbort",
+    "ArmHFSysVAtexit",
+    "ArmHFSysVGetenv",
+    "ArmHFSysVMblen",
+    "ArmHFSysVMbstowcs",
+    "ArmHFSysVMbtowc",
+    "ArmHFSysVSystem",
+    "ArmHFSysVWcstombs",
+    "ArmHFSysVWctomb",
 ]

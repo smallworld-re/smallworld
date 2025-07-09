@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import I386SysVModel
 
@@ -93,6 +102,42 @@ class I386SysVSrand(Srand, I386SysVModel):
     pass
 
 
+class I386SysVAbort(Abort, I386SysVModel):
+    pass
+
+
+class I386SysVAtexit(Atexit, I386SysVModel):
+    pass
+
+
+class I386SysVGetenv(Getenv, I386SysVModel):
+    pass
+
+
+class I386SysVMblen(Mblen, I386SysVModel):
+    pass
+
+
+class I386SysVMbstowcs(Mbstowcs, I386SysVModel):
+    pass
+
+
+class I386SysVMbtowc(Mbtowc, I386SysVModel):
+    pass
+
+
+class I386SysVSystem(System, I386SysVModel):
+    pass
+
+
+class I386SysVWcstombs(Wcstombs, I386SysVModel):
+    pass
+
+
+class I386SysVWctomb(Wctomb, I386SysVModel):
+    pass
+
+
 __all__ = [
     "I386SysVAbs",
     "I386SysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "I386SysVRand",
     "I386SysVRealloc",
     "I386SysVSrand",
+    "I386SysVAbort",
+    "I386SysVAtexit",
+    "I386SysVGetenv",
+    "I386SysVMblen",
+    "I386SysVMbstowcs",
+    "I386SysVMbtowc",
+    "I386SysVSystem",
+    "I386SysVWcstombs",
+    "I386SysVWctomb",
 ]

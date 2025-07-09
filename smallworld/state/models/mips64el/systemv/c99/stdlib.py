@@ -1,5 +1,7 @@
 from ....c99 import (
+    Abort,
     Abs,
+    Atexit,
     Atof,
     Atoi,
     Atol,
@@ -8,15 +10,22 @@ from ....c99 import (
     Div,
     Exit,
     Free,
+    Getenv,
     LAbs,
     LDiv,
     LLAbs,
     LLDiv,
     Malloc,
+    Mblen,
+    Mbstowcs,
+    Mbtowc,
     QSort,
     Rand,
     Realloc,
     Srand,
+    System,
+    Wcstombs,
+    Wctomb,
 )
 from ..systemv import MIPS64ELSysVModel
 
@@ -93,6 +102,42 @@ class MIPS64ELSysVSrand(Srand, MIPS64ELSysVModel):
     pass
 
 
+class MIPS64ELSysVAbort(Abort, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVAtexit(Atexit, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVGetenv(Getenv, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVMblen(Mblen, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVMbstowcs(Mbstowcs, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVMbtowc(Mbtowc, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVSystem(System, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVWcstombs(Wcstombs, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVWctomb(Wctomb, MIPS64ELSysVModel):
+    pass
+
+
 __all__ = [
     "MIPS64ELSysVAbs",
     "MIPS64ELSysVLAbs",
@@ -112,4 +157,13 @@ __all__ = [
     "MIPS64ELSysVRand",
     "MIPS64ELSysVRealloc",
     "MIPS64ELSysVSrand",
+    "MIPS64ELSysVAbort",
+    "MIPS64ELSysVAtexit",
+    "MIPS64ELSysVGetenv",
+    "MIPS64ELSysVMblen",
+    "MIPS64ELSysVMbstowcs",
+    "MIPS64ELSysVMbtowc",
+    "MIPS64ELSysVSystem",
+    "MIPS64ELSysVWcstombs",
+    "MIPS64ELSysVWctomb",
 ]
