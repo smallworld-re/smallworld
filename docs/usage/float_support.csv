@@ -1,21 +1,21 @@
-,                           angr,       panda,      unicorn
-aarch64 scalar,             **Yes**,    No,         **Yes**
-aarch64 vector,             Untested,   No,         Untested
-amd64 x87,                  No,         No,         No
-amd64 mmx,                  No,         No,         No
-amd64 sse,                  **Yes**,    No,         **Yes**
-amd64 avx2,                 **Yes**,    No,         **Yes**
-amd64 avx512,               No Support, No,         Untested
-arm-v7 double scalar,       **Yes**,    No,         **Yes**
-arm-v7 quad scalar,         No Support, No,         Untested
-arm-v7 double vector,       Untested,   No,         Untested
-arm-v7 quad vector,         No Support, No,         Untested
-i386 x87,                   No,         No,         No
-i386 mmx,                   No,         No,         No
-i386 sse,                   **Yes**,    No,         **Yes**
-mips32,                     No,         No,         No Support
-mips64,                     No,         No,         No Support
-powerpc32,                  No,         No,         No Support
-powerpc64,                  No,         No Support, No Support
-riscv64,                    Untested,   No Support, No Support
-xtensa,                     No,         No Support, No Support
+,                           angr,       ghidra,     panda,      unicorn
+aarch64 scalar,             **Yes**,    **Yes**,    No,         **Yes**
+aarch64 vector,             Untested,   Untested,   No,         Untested
+amd64 x87,                  No,         No,         No,         No
+amd64 mmx,                  No,         No,         No,         No
+amd64 sse,                  **Yes**,    **Yes**,    No,         **Yes**
+amd64 avx2,                 **Yes**,    **Yes**,    No,         **Yes**
+amd64 avx512,               No Support, Untested,   No,         Untested
+arm-v7 double scalar,       **Yes**,    **Yes**,    No,         **Yes**
+arm-v7 quad scalar,         No Support, Untested,   No,         Untested
+arm-v7 double vector,       Untested,   Untested,   No,         Untested
+arm-v7 quad vector,         No Support, Untested,   No,         Untested
+i386 x87,                   No,         No,         No,         No
+i386 mmx,                   No,         No,         No,         No
+i386 sse,                   **Yes**,    **Yes**,    No,         **Yes**
+mips32,                     No,         Untested,   No,         No Support
+mips64,                     No,         Untested,   No,         No Support
+powerpc32,                  No,         Untested,   No,         No Support
+powerpc64,                  No,         Untested,   No Support, No Support
+riscv64,                    Untested,   Untested,   No Support, No Support
+xtensa,                     No,         Untested,   No Support, No Support

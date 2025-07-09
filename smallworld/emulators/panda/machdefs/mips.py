@@ -1,12 +1,9 @@
-import capstone
-
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
 
 class MIPSMachineDef(PandaMachineDef):
     arch = Architecture.MIPS32
-    cs_arch = capstone.CS_ARCH_MIPS
     cpu = "M14K"
 
     # I'm going to define all the ones we are making possible as of now
@@ -79,16 +76,63 @@ class MIPSMachineDef(PandaMachineDef):
             "ra": "ra",
             "31": "ra",
             "pc": "pc",
+            "f0": None,
+            "f1": None,
+            "f2": None,
+            "f3": None,
+            "f4": None,
+            "f5": None,
+            "f6": None,
+            "f7": None,
+            "f8": None,
+            "f9": None,
+            "f10": None,
+            "f11": None,
+            "f12": None,
+            "f13": None,
+            "f14": None,
+            "f15": None,
+            "f16": None,
+            "f17": None,
+            "f18": None,
+            "f19": None,
+            "f20": None,
+            "f21": None,
+            "f22": None,
+            "f23": None,
+            "f24": None,
+            "f25": None,
+            "f26": None,
+            "f27": None,
+            "f28": None,
+            "f29": None,
+            "f30": None,
+            "f31": None,
+            "fir": None,
+            "fcsr": None,
+            "fexr": None,
+            "fenr": None,
+            "fccr": None,
+            "ac0": None,
+            "lo0": None,
+            "hi0": None,
+            "ac1": None,
+            "lo1": None,
+            "hi1": None,
+            "ac2": None,
+            "lo2": None,
+            "hi2": None,
+            "ac3": None,
+            "lo3": None,
+            "hi3": None,
         }
 
 
 class MIPSELMachineDef(MIPSMachineDef):
     panda_arch = "mipsel"
     byteorder = Byteorder.LITTLE
-    cs_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_LITTLE_ENDIAN
 
 
 class MIPSBEMachineDef(MIPSMachineDef):
     panda_arch = "mips"
     byteorder = Byteorder.BIG
-    cs_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_BIG_ENDIAN

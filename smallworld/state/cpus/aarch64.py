@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms, state
 from . import cpu
 
@@ -14,13 +12,6 @@ class AArch64(cpu.CPU):
     platform = platforms.Platform(
         platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
     )
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        # Special registers:
-        # x29: frame pointer
-        # x30: link register
-        # x31: stack pointer or zero, depending on instruction
-        return [f"x{i}" for i in range(0, 29)]
 
     def __init__(self):
         super().__init__()

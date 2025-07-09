@@ -1,10 +1,17 @@
+import logging
+import os
 import signal
+import subprocess
 import typing
 import unittest
 
 import claripy
 
-from smallworld import emulators, platforms, state, utils
+from smallworld import emulators, exceptions, platforms, state, utils
+
+logging.getLogger("angr").setLevel(logging.ERROR)
+logging.getLogger("claripy").setLevel(logging.ERROR)
+logging.getLogger("cle").setLevel(logging.ERROR)
 
 
 class MockConcreteEmulator(emulators.Emulator):
@@ -263,6 +270,814 @@ class UtilsTests(unittest.TestCase):
         self.assertEqual(a, True)
         a = rc.contains((25, 27))
         self.assertEqual(a, False)
+
+
+class CPUTests(unittest.TestCase):
+    def run_test(self, platform):
+        pdef = platforms.PlatformDef.for_platform(platform)
+        cpu = state.cpus.CPU.for_platform(platform)
+
+        all_regs = set(pdef.registers.keys())
+
+        for reg in cpu:
+            # Check that the register is supposed to exist
+            self.assertTrue(
+                reg.name in pdef.registers,
+                msg=f"CPU for {platform} has unknown register {reg.name}",
+            )
+
+            # Track that we've seen this register
+            all_regs.remove(reg.name)
+
+            # Check that the name agrees with the CPU attribute
+            attr_name = reg.name
+            if reg.name[0] in list(map(str, range(0, 10))):
+                attr_name = "_" + attr_name
+            self.assertTrue(
+                hasattr(cpu, attr_name),
+                msg=f"Register {reg.name} for platform {platform} is not in the expected attribute",
+            )
+            actual_name = getattr(cpu, attr_name).name
+            self.assertEqual(
+                actual_name,
+                reg.name,
+                msg=f"Expected {reg.name} at CPU attribute {attr_name}, got {actual_name}",
+            )
+
+            regdef = pdef.registers[reg.name]
+
+            # Check that the size matches what's expected
+            self.assertEqual(
+                reg.size,
+                regdef.size,
+                msg=f"Expected size {regdef.size} for register {reg.name} of platform {platform}; got {reg.size}",
+            )
+            if isinstance(reg, state.RegisterAlias):
+                # Check that the alias should be an alias
+                self.assertTrue(
+                    isinstance(regdef, platforms.defs.RegisterAliasDef),
+                    msg=f"CPU for {platform} defines register {reg.name} as an alias; platform def does not",
+                )
+                parent = reg.reference
+
+                # Check that the parent matches and exists
+                self.assertEqual(
+                    parent.name,
+                    regdef.parent,
+                    msg=f"Expected {reg.name} of {platform} to have parent {regdef.parent}; got {parent.name}",
+                )
+                self.assertTrue(
+                    parent.name in pdef.registers,
+                    msg=f"Parent {parent.name} of {reg.name} of {platform} is unknown",
+                )
+
+                # Check that the offset is what's expected
+                self.assertEqual(
+                    reg.offset,
+                    regdef.offset,
+                    msg=f"Expected {reg.name} of {platform} to have offset {regdef.offset}; got {reg.offset}",
+                )
+            else:
+                # Check that the base register should not be an alias
+                self.assertTrue(
+                    not isinstance(regdef, platforms.defs.RegisterAliasDef),
+                    msg=f"CPU for {platform} defines register {reg.name} as a base; platform def thinks it's an alias",
+                )
+        self.assertEqual(
+            len(all_regs),
+            0,
+            msg=f"CPU for {platform} did not include the following registers: {all_regs}",
+        )
+
+    def test_cpu_aarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_amd64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_amd64_avx512(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv5t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv6m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv6m_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv7m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv7r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_armv7a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_i386(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_mips(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_mipsel(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_mips64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_mips64el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_ppc(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_ppc64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_riscv64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_xtensa(self):
+        platform = platforms.Platform(
+            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+
+class UnicornMachdefTests(unittest.TestCase):
+    def run_test(self, platform):
+        platdef = platforms.PlatformDef.for_platform(platform)
+        machdef = emulators.unicorn.machdefs.UnicornMachineDef.for_platform(platform)
+
+        regs_needed = set(platdef.registers.keys())
+        regs_needed -= machdef._registers.keys()
+        if platdef.pc_register != "pc":
+            regs_needed -= set(["pc"])
+
+        self.assertEqual(
+            len(regs_needed),
+            0,
+            msg=f"Unicorn machine def for {platform} is missing registers {regs_needed}",
+        )
+
+        extra_regs = set(machdef._registers.keys())
+        extra_regs -= platdef.registers.keys()
+
+        self.assertEqual(
+            len(extra_regs),
+            0,
+            msg=f"Unicorn machine def for {platform} has extra registers {extra_regs}",
+        )
+
+        emu = emulators.UnicornEmulator(platform)
+
+        bad_regs = set()
+        for reg in platdef.registers.keys():
+            try:
+                emu.read_register(reg)
+            except exceptions.UnsupportedRegisterError:
+                continue
+            except:
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
+        )
+
+    def test_unicorn_aarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_amd64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_amd64_avx512(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv5t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv6m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv6m_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv7m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv7r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_armv7a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_i386(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_mips(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_unicorn_mipsel(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_mips64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_mips64el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_ppc(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_ppc64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_riscv64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_xtensa(self):
+        platform = platforms.Platform(
+            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+
+class AngrMachdefTests(unittest.TestCase):
+    def run_test(self, platform):
+        platdef = platforms.PlatformDef.for_platform(platform)
+        machdef = emulators.angr.machdefs.AngrMachineDef.for_platform(platform)
+
+        regs_needed = set(platdef.registers.keys())
+        regs_needed -= machdef._registers.keys()
+        if platdef.pc_register != "pc":
+            regs_needed -= set(["pc"])
+
+        self.assertEqual(
+            len(regs_needed),
+            0,
+            msg=f"Angr machine def for {platform} is missing registers {regs_needed}",
+        )
+
+        extra_regs = set(machdef._registers.keys())
+        extra_regs -= platdef.registers.keys()
+
+        self.assertEqual(
+            len(extra_regs),
+            0,
+            msg=f"Angr machine def for {platform} has extra registers {extra_regs}",
+        )
+
+        emu = emulators.AngrEmulator(platform)
+        emu.write_code(0x1000, 0x1000 * b"\x00")
+        emu.initialize()
+        bad_regs = set()
+        for reg in platdef.registers.keys():
+            try:
+                emu.read_register_symbolic(reg)
+            except exceptions.UnsupportedRegisterError:
+                continue
+            except:
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Angr did not handle the following registers for {platform}: {bad_regs}",
+        )
+
+    def test_angr_aarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_amd64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_amd64_avx512(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        # Not supported by angr
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_angr_armv5t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv6m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv6m_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv7m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv7a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_armv7r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+        )
+        # Not supported by angr
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_angr_i386(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_mips(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_mipsel(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_mips64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_mips64el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_ppc(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_ppc64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_riscv64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_xtensa(self):
+        platform = platforms.Platform(
+            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+
+class PandaMachdefTests(unittest.TestCase):
+    def run_test(self, platform):
+        platdef = platforms.PlatformDef.for_platform(platform)
+        machdef = emulators.panda.machdefs.PandaMachineDef.for_platform(platform)
+
+        regs_needed = set(platdef.registers.keys())
+        regs_needed -= machdef._registers.keys()
+        if platdef.pc_register != "pc":
+            regs_needed -= set(["pc"])
+
+        self.assertEqual(
+            len(regs_needed),
+            0,
+            msg=f"Panda machine def for {platform} is missing registers {regs_needed}",
+        )
+
+        extra_regs = set(machdef._registers.keys())
+        extra_regs -= platdef.registers.keys()
+
+        self.assertEqual(
+            len(extra_regs),
+            0,
+            msg=f"Panda machine def for {platform} has extra registers {extra_regs}",
+        )
+        # Actually checking the Panda emulator can't happen here,
+        # since I can't create multiple Panda emulators in one process
+        cwd = os.path.abspath(os.path.dirname(__file__))
+        script = cwd + os.sep + "unit-panda.py"
+        cmd = ["python3", script, platform.architecture.name, platform.byteorder.name]
+        failure = None
+        try:
+            subprocess.run(
+                cmd,
+                cwd=cwd,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.PIPE,
+            )
+        except subprocess.CalledProcessError as e:
+            failure = e.stderr.decode()
+        if failure is not None:
+            self.fail(f"Not all registers for {platform} handled by Panda:\n{failure}")
+
+    def test_panda_aarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_amd64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_amd64_avx512(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_armv5t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_armv6m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_armv6m_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_armv7m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_armv7r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_armv7a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_i386(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_mips(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_mipsel(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_mips64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_mips64el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_panda_ppc(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_ppc64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_riscv64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_xtensa(self):
+        platform = platforms.Platform(
+            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
+        )
+        # Not supported by Panda
+        self.assertRaises(ValueError, self.run_test, platform)
+
+
+class GhidraMachdefTests(unittest.TestCase):
+    def run_test(self, platform):
+        platdef = platforms.PlatformDef.for_platform(platform)
+        emu = emulators.ghidra.GhidraEmulator(platform)
+
+        # Due to import issues, you can't access GhidraMachineDef directly
+        machdef = emu.machdef
+
+        regs_needed = set(platdef.registers.keys())
+        regs_needed -= machdef._registers.keys()
+        if platdef.pc_register != "pc":
+            regs_needed -= set(["pc"])
+
+        self.assertEqual(
+            len(regs_needed),
+            0,
+            msg=f"Ghidra machine def for {platform} is missing registers {regs_needed}",
+        )
+
+        extra_regs = set(machdef._registers.keys())
+        extra_regs -= platdef.registers.keys()
+
+        self.assertEqual(
+            len(extra_regs),
+            0,
+            msg=f"Ghidra machine def for {platform} has extra registers {extra_regs}",
+        )
+
+        bad_regs = set()
+        for reg in platdef.registers.keys():
+            try:
+                emu.read_register(reg)
+            except exceptions.UnsupportedRegisterError:
+                continue
+            except:
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
+        )
+
+    def test_ghidra_aarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_amd64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_amd64_avx512(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+        )
+        # Not supported by ghidra
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_armv5t(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv6m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv6m_thumb(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+        )
+        # Not supported by ghidra
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_armv7m(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_armv7r(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+        )
+        # Not supported by ghidra
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_ghidra_i386(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mips(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mipsel(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mips64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_mips64el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_ppc(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_ppc64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_riscv64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_xtensa(self):
+        platform = platforms.Platform(
+            platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
 
 
 if __name__ == "__main__":

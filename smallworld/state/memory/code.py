@@ -86,7 +86,13 @@ class Executable(memory.RawMemory):
         )
 
     @classmethod
-    def from_pe(cls, file: typing.BinaryIO):
+    def from_pe(
+        cls,
+        file: typing.BinaryIO,
+        address: typing.Optional[int] = None,
+        platform: typing.Optional[Platform] = None,
+        ignore_platform: bool = False,
+    ):
         """Load an PE executable from an open file-like object.
 
         Arguments:
@@ -96,7 +102,11 @@ class Executable(memory.RawMemory):
         Returns:
             An Executable parsed from the given PE file-like object.
         """
-        raise NotImplementedError("PE parsing not yet implemented")
+        from .pe import PEExecutable
+
+        return PEExecutable(
+            file, user_base=address, platform=platform, ignore_platform=ignore_platform
+        )
 
 
 __all__ = ["Executable"]

@@ -1,4 +1,5 @@
 from .unicorn import (
+    UnicornEmulationError,
     UnicornEmulationExecutionError,
     UnicornEmulationMemoryReadError,
     UnicornEmulationMemoryWriteError,
@@ -7,6 +8,7 @@ from .unicorn import (
 
 __all__ = [
     "UnicornEmulator",
+    "UnicornEmulationError",
     "UnicornEmulationMemoryReadError",
     "UnicornEmulationMemoryWriteError",
     "UnicornEmulationExecutionError",

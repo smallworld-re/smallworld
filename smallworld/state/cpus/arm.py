@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms
 from .. import state
 from . import cpu
@@ -15,15 +13,6 @@ class ARM(cpu.CPU):
     All ARM CPUs share the same basic registers, but there are at least two
     dimensions of difference for the available modes.
     """
-
-    # Special registers:
-    # r13: stack pointer
-    # r14: link register
-    # r15: Program counter
-    _GENERAL_PURPOSE_REGS = [f"r{i}" for i in range(0, 13)]
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
         super().__init__()

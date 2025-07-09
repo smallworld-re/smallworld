@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms
 from .. import state
 from ..x86_registers import X86MMRRegister
@@ -12,11 +10,6 @@ class I386(cpu.CPU):
     platform = platforms.Platform(
         platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
     )
-
-    _GENERAL_PURPOSE_REGS = ["eax", "ebx", "ecx", "edx", "edi", "esi", "ebp", "esp"]
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        return self._GENERAL_PURPOSE_REGS
 
     def __init__(self):
         super().__init__()

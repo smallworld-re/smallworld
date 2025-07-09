@@ -76,7 +76,6 @@ class ColorizerSummary(analysis.Filter):
             self.num_micro_executions = hint.micro_exec_num
 
     def activate(self):
-        print("activating colorizer_summary")
         self.listen(hinting.DynamicRegisterValueHint, self.collect_hints)
         self.listen(hinting.DynamicMemoryValueHint, self.collect_hints)
         self.listen(hinting.MemoryUnavailableHint, self.collect_hints)

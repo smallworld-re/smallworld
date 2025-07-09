@@ -5,8 +5,6 @@ from .machdef import AngrMachineDef
 
 
 class ARMMachineDef(AngrMachineDef):
-    pc_reg = "pc"
-
     def __init__(self):
         self._registers = {
             # *** General-purpose registers ***

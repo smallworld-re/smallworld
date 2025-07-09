@@ -6,20 +6,22 @@ BINSOURCES := $(filter-out %.elf.s,$(SOURCES))
 ELFSOURCES := $(filter %.elf.s,$(SOURCES))
 
 CSOURCES := $(wildcard */*.c)
-CELFSOURCES := $(filter-out %.so.c,$(CSOURCES))
+CELFSOURCES := $(filter %.elf.c,$(CSOURCES))
 CSOSOURCES := $(filter %.so.c,$(CSOURCES))
+CPESOURCES := $(filter %.pe.c,$(CSOURCES))
 
 BINS := $(patsubst %.s,%.bin,$(BINSOURCES))
 ELFS := $(patsubst %.s,%,$(ELFSOURCES))
 
-CELFS := $(patsubst %.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.c,%.riscv64.elf,$(CELFSOURCES))
+CELFS := $(patsubst %.elf.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.riscv64.elf,$(CELFSOURCES))
 CSOS := $(patsubst %.so.c,%.aarch64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.amd64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armhf.so,$(CSOSOURCES)) $(patsubst %.so.c,%.i386.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mipsel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64el.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.riscv64.so,$(CSOSOURCES))
+CPES := $(patsubst %.pe.c,%.amd64.pe,$(CPESOURCES)) $(patsubst %.pe.c,%.i386.pe,$(CPESOURCES))
 
 MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
 MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
 MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
-TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS)
+TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS) $(CPES)
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
@@ -33,10 +35,10 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 MIPS64_ELF_START=0x800000
 
 %.aarch64.so: %.so.c
-	aarch64-linux-gnu-gcc $*.so.c -shared -o $*.aarch64.so
+	aarch64-linux-gnu-gcc -g $*.so.c -shared -o $*.aarch64.so
 
-%.aarch64.elf: %.c
-	aarch64-linux-gnu-gcc $*.c -o $*.aarch64.elf
+%.aarch64.elf: %.elf.c
+	aarch64-linux-gnu-gcc -g $*.elf.c -o $*.aarch64.elf
 
 %.aarch64.elf: %.aarch64.elf.s
 	aarch64-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
@@ -49,10 +51,13 @@ MIPS64_ELF_START=0x800000
 	rm $*.aarch64.o
 
 %.amd64.so: %.so.c
-	gcc $*.so.c -shared -o $*.amd64.so
+	gcc -g $*.so.c -shared -o $*.amd64.so
 
-%.amd64.elf: %.c
-	gcc $*.c -o $*.amd64.elf
+%.amd64.elf: %.elf.c
+	gcc -g $*.elf.c -o $*.amd64.elf
+
+%.amd64.pe: %.pe.c
+	x86_64-w64-mingw32-gcc $*.pe.c -o $*.amd64.pe
 
 %.amd64.elf: %.amd64.elf.s
 	as $*.amd64.elf.s -o $*.amd64.elf.o
@@ -63,10 +68,10 @@ MIPS64_ELF_START=0x800000
 	nasm $*.amd64.s -o $*.amd64.bin
 
 %.armel.so: %.so.c
-	arm-linux-gnueabi-gcc -marm $*.so.c -shared -o $*.armel.so
+	arm-linux-gnueabi-gcc -g -marm $*.so.c -shared -o $*.armel.so
 
-%.armel.elf: %.c
-	arm-linux-gnueabi-gcc -marm $*.c -o $*.armel.elf
+%.armel.elf: %.elf.c
+	arm-linux-gnueabi-gcc -g -marm $*.elf.c -o $*.armel.elf
 
 %.armel.elf: %.armel.elf.s
 	arm-linux-gnueabi-as $*.armel.elf.s -o $*.armel.elf.o
@@ -79,10 +84,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.armel.o
 
 %.armhf.so: %.so.c
-	arm-linux-gnueabihf-gcc -marm $*.so.c -shared -o $*.armhf.so
+	arm-linux-gnueabihf-gcc -g -marm $*.so.c -shared -o $*.armhf.so
 
-%.armhf.elf: %.c
-	arm-linux-gnueabihf-gcc -marm $*.c -o $*.armhf.elf
+%.armhf.elf: %.elf.c
+	arm-linux-gnueabihf-gcc -g -marm $*.elf.c -o $*.armhf.elf
 
 %.armhf.elf: %.armhf.elf.s
 	arm-linux-gnueabihf-as $*.armhf.elf.s -o $*.armhf.elf.o
@@ -95,10 +100,13 @@ MIPS64_ELF_START=0x800000
 	rm $*.armhf.o
 
 %.i386.so: %.so.c
-	i686-linux-gnu-gcc $*.so.c -shared -o $*.i386.so
+	i686-linux-gnu-gcc -g $*.so.c -shared -o $*.i386.so
 
-%.i386.elf: %.c
-	i686-linux-gnu-gcc $*.c -o $*.i386.elf
+%.i386.elf: %.elf.c
+	i686-linux-gnu-gcc -g $*.elf.c -o $*.i386.elf
+
+%.i386.pe: %.pe.c
+	i686-w64-mingw32-gcc $*.pe.c -o $*.i386.pe
 
 %.i386.elf: %.i386.elf.s
 	i686-linux-gnu-as $*.i386.elf.s -o $*.i386.elf.o
@@ -111,10 +119,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.i386.o
 
 %.mips.so: %.so.c
-	mips-linux-gnu-gcc $*.so.c -shared -o $*.mips.so
+	mips-linux-gnu-gcc -g $*.so.c -shared -o $*.mips.so
 
-%.mips.elf: %.c
-	mips-linux-gnu-gcc $*.c -o $*.mips.elf
+%.mips.elf: %.elf.c
+	mips-linux-gnu-gcc -g $*.elf.c -o $*.mips.elf
 
 %.mips.elf: %.mips.elf.s
 	mips-linux-gnu-as $*.mips.elf.s -o $*.mips.elf.o
@@ -127,10 +135,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mips.o
 
 %.mipsel.so: %.so.c
-	mipsel-linux-gnu-gcc $*.so.c -shared -o $*.mipsel.so
+	mipsel-linux-gnu-gcc -g $*.so.c -shared -o $*.mipsel.so
 
-%.mipsel.elf: %.c
-	mipsel-linux-gnu-gcc $*.c -o $*.mipsel.elf
+%.mipsel.elf: %.elf.c
+	mipsel-linux-gnu-gcc -g $*.elf.c -o $*.mipsel.elf
 
 %.mipsel.elf: %.mips.elf.s
 	mipsel-linux-gnu-as $*.mips.elf.s -o $*.mipsel.elf.o
@@ -143,10 +151,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mipsel.o
 
 %.mips64.so: %.so.c
-	mips64-linux-gnuabi64-gcc $*.so.c -shared -o $*.mips64.so
+	mips64-linux-gnuabi64-gcc -g $*.so.c -shared -o $*.mips64.so
 
-%.mips64.elf: %.c
-	mips64-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64.elf
+%.mips64.elf: %.elf.c
+	mips64-linux-gnuabi64-gcc -g -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64.elf
 
 %.mips64.elf: %.mips64.elf.s
 	mips64-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64.elf.o
@@ -159,10 +167,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mips64.o
 
 %.mips64el.so: %.so.c
-	mips64el-linux-gnuabi64-gcc $*.so.c -shared -o $*.mips64el.so
+	mips64el-linux-gnuabi64-gcc -g $*.so.c -shared -o $*.mips64el.so
 
-%.mips64el.elf: %.c
-	mips64el-linux-gnuabi64-gcc -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.c -o $*.mips64el.elf
+%.mips64el.elf: %.elf.c
+	mips64el-linux-gnuabi64-gcc -g -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64el.elf
 
 %.mips64el.elf: %.mips64.elf.s
 	mips64el-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64el.elf.o
@@ -175,10 +183,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mips64el.o
 
 %.ppc.so: %.so.c
-	powerpc-linux-gnu-gcc $*.so.c -shared -o $*.ppc.so
+	powerpc-linux-gnu-gcc -g $*.so.c -shared -o $*.ppc.so
 
-%.ppc.elf: %.c
-	powerpc-linux-gnu-gcc $*.c -o $*.ppc.elf
+%.ppc.elf: %.elf.c
+	powerpc-linux-gnu-gcc -g $*.elf.c -o $*.ppc.elf
 
 %.ppc.elf: %.ppc.elf.s
 	powerpc-linux-gnu-as $*.ppc.elf.s -o $*.ppc.elf.o
@@ -191,10 +199,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.ppc.o
 
 %.ppc64.so: %.so.c
-	powerpc64-linux-gnu-gcc $*.so.c -shared -o $*.ppc64.so
+	powerpc64-linux-gnu-gcc -g $*.so.c -shared -o $*.ppc64.so
 
-%.ppc64.elf: %.c
-	powerpc64-linux-gnu-gcc $*.c -o $*.ppc64.elf
+%.ppc64.elf: %.elf.c
+	powerpc64-linux-gnu-gcc -g $*.elf.c -o $*.ppc64.elf
 
 %.ppc64.elf: %.ppc64.elf.s
 	powerpc64-linux-gnu-as $*.ppc64.elf.s -o $*.ppc64.elf.o
@@ -207,10 +215,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.ppc64.o
 
 %.riscv64.so: %.so.c
-	riscv64-linux-gnu-gcc $*.so.c -shared -o $*.riscv64.so
+	riscv64-linux-gnu-gcc -g $*.so.c -shared -o $*.riscv64.so
 
-%.riscv64.elf: %.c
-	riscv64-linux-gnu-gcc $*.c -o $*.riscv64.elf
+%.riscv64.elf: %.elf.c
+	riscv64-linux-gnu-gcc -g $*.elf.c -o $*.riscv64.elf
 
 %.riscv64.elf: %.riscv64.elf.s
 	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o

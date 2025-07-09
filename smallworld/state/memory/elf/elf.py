@@ -99,6 +99,10 @@ class ElfExecutable(Executable):
         self._user_base = user_base
         self._file_base = 0
 
+        # Lief struct.
+        # We can't keep it around forever, since it's not copyable.
+        self._elf: typing.Optional[typing.Any] = None
+
         # Initialize dynamic tag info
         self._dtags: typing.Dict[int, int] = dict()
 
@@ -125,6 +129,9 @@ class ElfExecutable(Executable):
         elf = lief.ELF.parse(list(image))
         if elf is None:
             raise ConfigurationError("Failed parsing ELF")
+
+        # Save the lief struct
+        self._elf = elf
 
         # Extract the file header
         ehdr = elf.header
@@ -706,6 +713,13 @@ class ElfExecutable(Executable):
 
             o_sym = o_syms[0]
             self.update_symbol_value(my_sym, o_sym.value + o_sym.baseaddr, rebase=True)
+
+    def __getstate__(self):
+        # Override the default pickling mechanism.
+        # We can't save any lief data through a copy.
+        state = self.__dict__.copy()
+        state["_elf"] = None
+        return state
 
 
 __all__ = ["ElfExecutable"]

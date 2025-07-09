@@ -12,8 +12,6 @@ class AMD64MachineDef(AngrMachineDef):
 
     angr_arch = archinfo.arch_amd64.ArchAMD64()
 
-    pc_reg = "rip"
-
     _registers = {
         # *** General Purpose Registers ***
         "rax": "rax",
@@ -187,6 +185,4 @@ class AMD64MachineDef(AngrMachineDef):
         "xmm14": "xmm14",
         "ymm15": "ymm15",
         "xmm15": "xmm15",
-        "ymm16": "ymm16",
-        "xmm16": "xmm16",
     }

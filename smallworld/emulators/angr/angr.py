@@ -74,6 +74,12 @@ class AngrEmulator(
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
 
+        # The platform definition;
+        # Holds global info about the platform
+        self.platdef: platforms.PlatformDef = platforms.PlatformDef.for_platform(
+            platform
+        )
+
         # The machine definition;
         # helps translate between angr and smallworld
         self.machdef: AngrMachineDef = AngrMachineDef.for_platform(platform)
@@ -301,7 +307,7 @@ class AngrEmulator(
             )
 
         if name == "pc":
-            name = self.machdef.pc_reg
+            name = self.platdef.pc_register
 
         (off, size) = self.machdef.angr_reg(name)
         return self.state.registers.load(off, size)
@@ -328,7 +334,7 @@ class AngrEmulator(
             )
 
         if name == "pc":
-            name = self.machdef.pc_reg
+            name = self.platdef.pc_register
 
         try:
             # This considers all BVSs to be labeled values;
@@ -357,7 +363,7 @@ class AngrEmulator(
     ) -> None:
         if not self._initialized and content is not None:
             if name == "pc":
-                name = self.machdef.pc_reg
+                name = self.platdef.pc_register
             # Test that the angr register exists
             _, _ = self.machdef.angr_reg(name)
             self._register_contents[name] = content
@@ -371,7 +377,7 @@ class AngrEmulator(
         # write_register_label().
 
         if name == "pc":
-            name = self.machdef.pc_reg
+            name = self.platdef.pc_register
         (off, size) = self.machdef.angr_reg(name)
 
         if content is None:
@@ -404,7 +410,7 @@ class AngrEmulator(
             return
         elif not self._initialized:
             if name == "pc":
-                name = self.machdef.pc_reg
+                name = self.platdef.pc_register
             # Test that the angr register exists
             _, _ = self.machdef.angr_reg(name)
             self._register_labels[name] = label
@@ -414,7 +420,7 @@ class AngrEmulator(
             )
         else:
             if name == "pc":
-                name = self.machdef.pc_reg
+                name = self.platdef.pc_register
             (off, size) = self.machdef.angr_reg(name)
 
             # This will bind whatever value is currently in the register

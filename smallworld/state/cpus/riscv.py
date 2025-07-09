@@ -1,5 +1,3 @@
-import typing
-
 from ... import platforms, state
 from . import cpu
 
@@ -10,14 +8,6 @@ class RISCV64(cpu.CPU):
     platform = platforms.Platform(
         platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
     )
-
-    def get_general_purpose_registers(self) -> typing.List[str]:
-        # - x0 is wired to zero
-        # - x1 is the link register
-        # - x2 is the stack pointer
-        # - x3 is the global pointer
-        # - x4 is the thread pointer
-        return [f"x{i}" for i in range(5, 32)]
 
     def __init__(self):
         super().__init__()
@@ -67,7 +57,7 @@ class RISCV64(cpu.CPU):
         self.x8 = state.Register("x8", 8)
         self.add(self.x8)
         self.s0 = state.RegisterAlias("s0", self.x8, 8, 0)
-        self.add(self.x8)
+        self.add(self.s0)
         # x9 is a callee-saved register
         self.x9 = state.Register("x9", 8)
         self.add(self.x9)

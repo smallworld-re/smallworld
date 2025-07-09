@@ -197,6 +197,14 @@ class Value(metaclass=abc.ABCMeta):
         else:
             return None
 
+    def __getstate__(self):
+        # Override default pickling operation
+        # The '_type' field is a ctypes class which won't be pickleable.
+        # TODO: figure out how to pickle ctypes classes
+        state = self.__dict__.copy()
+        state["_type"] = None
+        return state
+
     @abc.abstractmethod
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         """Convert this value into a byte string.
@@ -230,6 +238,7 @@ class Value(metaclass=abc.ABCMeta):
             def __getstate__(self):
                 state = self.__dict__.copy()
                 del state["_content"]
+                del state["_type"]
                 return state
 
             # def __setstate__(self, state):

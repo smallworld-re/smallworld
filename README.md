@@ -95,6 +95,9 @@ You can then build the tests by running:
 
 ```bash
 make -C tests
+
+ulimit --core unlimited
+make -C tests/elf_core
 ```
 
 #### Running Tests

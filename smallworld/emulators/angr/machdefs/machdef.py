@@ -28,12 +28,6 @@ class AngrMachineDef:
         """The angr architecture to use"""
         raise NotImplementedError("This is an abstract method.")
 
-    @property
-    @abc.abstractmethod
-    def pc_reg(self) -> str:
-        """The program counter register name"""
-        return ""
-
     # Is this thumb?
     # Almost always no, but angr needs to ask.
     is_thumb: bool = False
@@ -98,7 +92,6 @@ class AngrMachineDef:
 
         Arguments:
             arch: The architecture ID you want
-            mode: The mode ID you want
             byteorder: The byteorderness you want
 
         Returns:
@@ -117,7 +110,7 @@ class AngrMachineDef:
             raise ValueError(f"No machine model for {platform}")
 
 
-class PcodeMachineDef(AngrMachineDef):
+class GhidraMachineDef(AngrMachineDef):
     """Container class for pcode-dependent angr architecture-specific definitions"""
 
     @property

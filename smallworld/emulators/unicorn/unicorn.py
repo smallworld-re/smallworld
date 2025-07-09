@@ -70,9 +70,12 @@ class UnicornEmulator(
     def __init__(self, platform: platforms.Platform):
         super().__init__(platform)
         self.platform = platform
+        self.platdef = platforms.PlatformDef.for_platform(self.platform)
         self.machdef = UnicornMachineDef.for_platform(self.platform)
         self.engine = unicorn.Uc(self.machdef.uc_arch, self.machdef.uc_mode)
-        self.disassembler = capstone.Cs(self.machdef.cs_arch, self.machdef.cs_mode)
+        self.disassembler = capstone.Cs(
+            self.platdef.capstone_arch, self.platdef.capstone_mode
+        )
         self.disassembler.detail = True
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
@@ -280,14 +283,26 @@ class UnicornEmulator(
         name = name.lower()
         # support some generic register references
         if name == "pc":
-            name = self.machdef.pc_reg
-        return self.machdef.uc_reg(name)
+            name = self.platdef.pc_register
+
+        uc_const = self.machdef.uc_reg(name)
+        reg = self.platdef.registers[name]
+
+        if hasattr(reg, "parent"):
+            parent = reg.parent
+            offset = reg.offset
+        else:
+            parent = reg.name
+            offset = 0
+
+        return (uc_const, parent, reg.size, offset)
 
     def read_register_content(self, name: str) -> int:
         (reg, _, _, _) = self._register(name)
         if reg == 0:
-            return 0
-        # logger.warn(f"Unicorn doesn't support register {name} for {self.platform}")
+            raise exceptions.UnsupportedRegisterError(
+                "Unicorn does not support register {name} for {self.platform}"
+            )
         try:
             return self.engine.reg_read(reg)
         except Exception as e:
