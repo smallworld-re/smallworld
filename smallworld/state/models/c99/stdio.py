@@ -1,12 +1,58 @@
+import typing
+
 from .... import emulators
 from ..cstd import ArgumentType, CStdModel
 from ..filedesc import FDIOError, FileDescriptorManager
+from .utils import _emu_strlen
 
 
 class StdioModel(CStdModel):
     def __init__(self, address: int):
         super().__init__(address)
         self._fdmgr = FileDescriptorManager.for_platform(self.platform, self.abi)
+
+    def _parse_mode(self, mode: str) -> typing.Tuple[bool, bool]:
+        readable = False
+        writable = False
+        if mode in ("r", "rb"):
+            # - Open for reading
+            # - Fails if doesn't exist
+            # - Cursor starts at zero
+            readable = True
+        elif mode in ("r+", "r+b"):
+            # - Open for reading and writing
+            # - Fails if doesn't exist
+            # - Cursor starts at zero
+            readable = True
+            writable = True
+        elif mode in ("w", "wb"):
+            # - Open for writing
+            # - Creates if doesn't exist
+            # - Truncates if exists
+            # - Cursor starts at zero
+            writable = True
+        elif mode in ("w+", "w+b"):
+            # - Open for reading and writing
+            # - Creates if doesn't exist
+            # - Truncates if exists
+            # - Cursor starts at zero
+            readable = True
+            writable = True
+        elif mode in ("a", "ab"):
+            # - Open for writing
+            # - Creates if doesn't exist
+            # - Cursor starts at end
+            writable = True
+        elif mode in ("a+", "a+b"):
+            # - Open for reading and writing
+            # - Creates if doesn't exist
+            # - Start is unspecified; glibc does the beginning
+            readable = True
+            writable = True
+        else:
+            raise Exception(f"Unknown mode {mode}")
+
+        return (readable, writable)
 
 
 class Fclose(StdioModel):
@@ -103,7 +149,36 @@ class Fopen(StdioModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        ptr1 = self.get_arg1(emulator)
+        ptr2 = self.get_arg2(emulator)
+
+        assert isinstance(ptr1, int)
+        assert isinstance(ptr2, int)
+
+        len1 = _emu_strlen(emulator, ptr1)
+        len2 = _emu_strlen(emulator, ptr2)
+
+        bytes1 = emulator.read_memory(ptr1, len1)
+        bytes2 = emulator.read_memory(ptr2, len2)
+
+        filepath = bytes1.decode("utf-8")
+        filemode = bytes2.decode("utf-8")
+
+        # FIXME: Not all files are seekable.
+        # For now, assume this one is.
+        seekable = True
+
+        try:
+            readable, writable = self._parse_mode(filemode)
+            fd = self._fdmgr.open(
+                filepath, readable=readable, writable=writable, seekable=seekable
+            )
+        except FDIOError:
+            self.set_return_value(emulator, 0)
+            return
+
+        filestar = self._fdmgr.fd_to_filestar(fd)
+        self.set_return_value(emulator, filestar)
 
 
 class Freopen(StdioModel):
@@ -196,7 +271,17 @@ class Ftell(StdioModel):
     return_type = ArgumentType.LONG
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+
+        self.set_return_value(emulator, file.cursor)
 
 
 class Fgetpos(StdioModel):
@@ -245,7 +330,19 @@ class Getc(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+
+        data = file.read(1)
+
+        self.set_return_value(emulator, data[0])
 
 
 class Ungetc(StdioModel):
@@ -264,7 +361,19 @@ class Getchar(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+
+        data = file.read(1)
+
+        self.set_return_value(emulator, data[0])
 
 
 class Printf(StdioModel):
@@ -286,7 +395,21 @@ class Putc(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        char = self.get_arg1(emulator)
+        filestar = self.get_arg2(emulator)
+
+        assert isinstance(char, int)
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+
+        data = file.read(1)
+
+        self.set_return_value(emulator, data[0])
 
 
 class Putchar(StdioModel):
