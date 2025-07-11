@@ -1631,6 +1631,7 @@ class ConcreteAngrEmulator(AngrEmulator):
         self.platform: platforms.Platform = parent.platform
         self.proj: angr.Project = parent.proj
         self.state: angr.SimState = state
+        self.platdef: platforms.PlatformDef = parent.platdef
         self.machdef: AngrMachineDef = parent.machdef
         self.pagesize: int = parent.PAGE_SIZE
 
