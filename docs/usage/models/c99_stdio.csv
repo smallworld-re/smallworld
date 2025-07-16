@@ -1,0 +1,43 @@
+,           Support,    Notes
+Clearerror, N/I,        FILE* Error and EOF not implemented
+Fclose,     Full,
+Feof,       N/I,        FILE* Error and EOF not implemented
+Ferror,     N/I,        FILE* Error and EOF not implemented
+Fflush,     Full,
+Fgetc,      Full,
+Fgetpos,    Full,
+Fgets,      Full,
+Fopen,      Full,
+Fprintf,    N/I,        Variadic function.  ABIs not modeled.
+Fputc,      Full,
+Fputs,      Full,
+Fread,      Full,
+Freopen,    Full,
+Fscanf,     N/I,        Variadic function.  ABIs not modeled.
+Fseek,      Full,
+Fsetpos,    Full,
+Ftell,      Full,
+Fwrite,     Full,
+Getc,       Full,
+Getchar,    Full,
+Printf,     N/I,        Variadic function.  ABIs not modeled.
+Putc,       Full,
+Putchar,    Full,
+Puts,       Full,
+Remove,     Imprecise,  No file system model
+Rename,     Imprecise,  No file system model
+Rewind,     Full,
+Scanf,      N/I,        Variadic function.  ABIs not modeled.
+Snprintf,   N/I,        Variadic function.  ABIs not modeled.
+Sprintf,    N/I,        Variadic function.  ABIs not modeled.
+Sscanf,     N/I,        Variadic function.  ABIs not modeled.
+Tmpfile,    Imprecise,  No file system model
+Tmpnam,     Imprecise,  No file system model
+Ungetc,     Full,       LOTS of undefined behavor relative to other functions
+Vfprintf,   N/I,        Varargs function.  ABIs not modeled.
+Vfscanf,    N/I,        Varargs function.  ABIs not modeled.
+Vprintf,    N/I,        Varargs function.  ABIs mot modeled.
+Vscanf,     N/I,        Varargs function.  ABIs not modeled.
+Vsnprintf,  N/I,        Varargs function.  ABIs not modeled.
+Vsprintf,   N/I,        Varargs function.  ABIs not modeled.
+Vsscanf,    N/I,        Varargs function.  ABIs not modeled.
