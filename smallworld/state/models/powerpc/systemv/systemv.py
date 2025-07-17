@@ -88,7 +88,6 @@ class PowerPCSysVModel(CStdModel):
         index: int,
         kind: ArgumentType,
         emulator: emulators.Emulator,
-        absolute: bool = True,
     ) -> typing.Union[int, float]:
         on_stack = self._on_stack[index]
         arg_offset = self._arg_offset[index]

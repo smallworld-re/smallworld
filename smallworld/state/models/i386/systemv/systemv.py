@@ -63,7 +63,6 @@ class I386SysVModel(CStdModel):
         index: int,
         kind: ArgumentType,
         emulator: emulators.Emulator,
-        absolute: bool = False,
     ) -> typing.Union[int, float]:
         addr = emulator.read_register("esp")
         addr += self._arg_offsets[index]

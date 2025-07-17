@@ -88,7 +88,6 @@ class MIPS64ELSysVModel(CStdModel):
         index: int,
         kind: ArgumentType,
         emulator: emulators.Emulator,
-        absolute: bool = True,
     ) -> typing.Union[int, float]:
         if kind in self._four_byte_types:
             index = self._int_args[index]

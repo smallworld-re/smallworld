@@ -72,7 +72,6 @@ class AMD64SysVModel(CStdModel):
         index: int,
         kind: ArgumentType,
         emulator: emulators.Emulator,
-        absolute: bool = False,
     ) -> typing.Union[int, float]:
         if kind in self._four_byte_types:
             index = self._int_args[index]

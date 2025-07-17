@@ -150,7 +150,6 @@ class CStdModel(Model):
         index: int,
         kind: ArgumentType,
         emulator: emulators.Emulator,
-        absolute: bool = False,
     ) -> typing.Union[int, float]:
         """Fetch the index'th argument given the argument types and the ABI."""
         raise NotImplementedError()
