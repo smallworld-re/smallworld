@@ -146,7 +146,11 @@ class CStdModel(Model):
 
     @abc.abstractmethod
     def _get_argument(
-        self, index: int, emulator: emulators.Emulator
+        self,
+        index: int,
+        kind: ArgumentType,
+        emulator: emulators.Emulator,
+        absolute: bool = False,
     ) -> typing.Union[int, float]:
         """Fetch the index'th argument given the argument types and the ABI."""
         raise NotImplementedError()
@@ -173,27 +177,27 @@ class CStdModel(Model):
 
     def get_arg1(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(0, emulator)
+        return self._get_argument(0, self.argument_types[0], emulator)
 
     def get_arg2(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the second argument from the emulator"""
-        return self._get_argument(1, emulator)
+        return self._get_argument(1, self.argument_types[1], emulator)
 
     def get_arg3(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(2, emulator)
+        return self._get_argument(2, self.argument_types[2], emulator)
 
     def get_arg4(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(3, emulator)
+        return self._get_argument(3, self.argument_types[3], emulator)
 
     def get_arg5(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(4, emulator)
+        return self._get_argument(4, self.argument_types[4], emulator)
 
     def get_arg6(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(5, emulator)
+        return self._get_argument(5, self.argument_types[5], emulator)
 
     def set_return_value(
         self, emulator: emulators.Emulator, val: typing.Union[int, float]

@@ -61,26 +61,56 @@ class MIPS64ELSysVModel(CStdModel):
         "f17",
     ]
 
+    def __init__(self, address: int):
+        super().__init__(address)
+
+        self._int_args = dict()
+        self._fp_args = dict()
+
+        int_arg_idx = 0
+        fp_arg_idx = 0
+
+        for idx in range(0, len(self.argument_types)):
+            arg = self.argument_types[idx]
+            if arg in self._four_byte_types or arg in self._eight_byte_types:
+                self._int_args[idx] = int_arg_idx
+                int_arg_idx += 1
+            elif arg in (ArgumentType.FLOAT, ArgumentType.DOUBLE):
+                self._fp_args[idx] = fp_arg_idx
+                fp_arg_idx += 1
+            else:
+                raise Exception(
+                    f"Unknown argument type {arg} for argument {idx} of {self.name}"
+                )
+
     def _get_argument(
-        self, index: int, emulator: emulators.Emulator
+        self,
+        index: int,
+        kind: ArgumentType,
+        emulator: emulators.Emulator,
+        absolute: bool = True,
     ) -> typing.Union[int, float]:
-        if self.argument_types[index] in self._four_byte_types:
+        if kind in self._four_byte_types:
+            index = self._int_args[index]
             return (
                 emulator.read_register(self._four_byte_arg_regs[index])
                 & self._int_inv_mask
             )
 
-        elif self.argument_types[index] in self._eight_byte_types:
+        elif kind in self._eight_byte_types:
+            index = self._int_args[index]
             return emulator.read_register(self._eight_byte_arg_regs[index])
 
-        elif self.argument_types[index] == ArgumentType.FLOAT:
+        elif kind == ArgumentType.FLOAT:
+            index = self._fp_args[index]
             intval = emulator.read_register(self._float_arg_regs[index])
             intval &= self._int_inv_mask
             byteval = intval.to_bytes(4, "little")
             (floatval,) = struct.unpack("<f", byteval)
             return floatval
 
-        elif self.argument_types[index] == ArgumentType.DOUBLE:
+        elif kind == ArgumentType.DOUBLE:
+            index = self._fp_args[index]
             intval = emulator.read_register(self._double_arg_regs[index])
             byteval = intval.to_bytes(8, "little")
             (floatval,) = struct.unpack("<d", byteval)

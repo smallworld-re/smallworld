@@ -104,20 +104,23 @@ class ArmELSysVModel(CStdModel):
                 )
 
     def _get_argument(
-        self, index: int, emulator: emulators.Emulator
+        self,
+        index: int,
+        kind: ArgumentType,
+        emulator: emulators.Emulator,
+        absolute: bool = True,
     ) -> typing.Union[int, float]:
-        t = self.argument_types[index]
         on_stack = self._on_stack[index]
         arg_offset = self._arg_offset[index]
 
-        if t in self._four_byte_types:
+        if kind in self._four_byte_types:
             if on_stack:
                 addr = emulator.read_register("sp") + arg_offset
                 data = emulator.read_memory(addr, 4)
                 return int.from_bytes(data, "little")
             else:
                 return emulator.read_register(self._argument_regs[arg_offset])
-        elif t in self._eight_byte_types:
+        elif kind in self._eight_byte_types:
             if on_stack:
                 addr = emulator.read_register("sp") + arg_offset
                 data = emulator.read_memory(addr, 8)
@@ -126,13 +129,13 @@ class ArmELSysVModel(CStdModel):
                 lo = emulator.read_register(self._argument_regs[arg_offset])
                 hi = emulator.read_register(self._argument_regs[arg_offset + 1])
                 return (hi << 32) | lo
-        elif t == ArgumentType.FLOAT:
+        elif kind == ArgumentType.FLOAT:
             raise NotImplementedError("TODO: Support float args for armv5t")
-        elif t == ArgumentType.DOUBLE:
+        elif kind == ArgumentType.DOUBLE:
             raise NotImplementedError("TODO: Support double args for armv5t")
         else:
             raise exceptions.ConfigurationError(
-                f"{self.name} argument {index} has unknown type {t}"
+                f"{self.name} argument {index} has unknown type {kind}"
             )
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:

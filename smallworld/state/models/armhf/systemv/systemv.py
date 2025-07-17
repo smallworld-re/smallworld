@@ -110,13 +110,16 @@ class ArmHFSysVModel(CStdModel):
                 )
 
     def _get_argument(
-        self, index: int, emulator: emulators.Emulator
+        self,
+        index: int,
+        kind: ArgumentType,
+        emulator: emulators.Emulator,
+        absolute: bool = False,
     ) -> typing.Union[int, float]:
-        t = self.argument_types[index]
         on_stack = self._on_stack[index]
         arg_offset = self._arg_offset[index]
 
-        if t in self._four_byte_types:
+        if kind in self._four_byte_types:
             if on_stack:
                 addr = emulator.read_register("sp") + arg_offset
                 data = emulator.read_memory(addr, 4)
@@ -124,7 +127,7 @@ class ArmHFSysVModel(CStdModel):
             else:
                 return emulator.read_register(f"r{arg_offset}")
 
-        elif t in self._eight_byte_types:
+        elif kind in self._eight_byte_types:
             if on_stack:
                 addr = emulator.read_register("sp") + arg_offset
                 data = emulator.read_memory(addr, 8)
@@ -134,13 +137,13 @@ class ArmHFSysVModel(CStdModel):
                 hi = emulator.read_register(f"r{arg_offset + 1}")
                 return (hi << 32) | lo
 
-        elif t == ArgumentType.FLOAT:
+        elif kind == ArgumentType.FLOAT:
             intval = emulator.read_register(self._float_arg_regs[index])
             byteval = intval.to_bytes(4, "little")
             (floatval,) = struct.unpack("<f", byteval)
             return floatval
 
-        elif t == ArgumentType.DOUBLE:
+        elif kind == ArgumentType.DOUBLE:
             intval = emulator.read_register(self._double_arg_regs[index])
             byteval = intval.to_bytes(8, "little")
             (floatval,) = struct.unpack("<d", byteval)
@@ -148,7 +151,7 @@ class ArmHFSysVModel(CStdModel):
 
         else:
             raise exceptions.ConfigurationError(
-                f"{self.name} argument {index} has unknown type {t}"
+                f"{self.name} argument {index} has unknown type {kind}"
             )
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
