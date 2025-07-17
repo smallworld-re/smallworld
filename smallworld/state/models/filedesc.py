@@ -22,6 +22,8 @@ class FileDescriptor:
         self.writable = writable
         self.seekable = seekable
 
+        self.ungetc_buf = b""
+
         self.cursor = 0
 
         # TODO: Add extra state to support FILE * operations.
@@ -36,9 +38,23 @@ class FileDescriptor:
         # with the understanding that it may need special handling.
         raise FDIOError("File {self.name} has no backing")
 
-    def read(self, size: int) -> bytes:
+    def read(self, size: int, ungetc: bool = False) -> bytes:
         if not self.readable:
             raise FDIOError(f"File {self.name} is not readable")
+
+        # NOTE: This integrates support for ungetc.
+        # This feature is technically part of FILE * objects;
+        # ungetc effectively appends bytes to the beg
+        ungetc_data = b""
+        if ungetc and len(self.ungetc_buf) > 0:
+            if size == -1:
+                ungetc_data = self.ungetc_buf
+                self.ungetc_buf = b""
+            else:
+                ungetc_data = self.ungetc_buf[0:size]
+                self.ungetc_buf = self.ungetc_buf[size:]
+
+                size -= len(ungetc_data)
 
         file = self._backing
 
@@ -46,18 +62,40 @@ class FileDescriptor:
             # File is seekable; mimic it against the back end.
             file.seek(self.cursor, 0)
 
-        data: typing.Union[str, bytes] = file.read(size)
+        data: typing.Union[str, bytes] = b""
+        if size != 0:
+            data = file.read(size)
+            self.cursor += size
 
         if isinstance(data, str):
             # This is a text file.  Need to encode the result
             assert hasattr(file, "encoding")
-            return data.encode(file.encoding)
+            return ungetc_data + data.encode(file.encoding)
         else:
-            return data
+            return ungetc_data + data
+
+    def read_string(self, size: int = -1) -> bytes:
+        out = b""
+        size -= 1
+        while size != 0:
+            c = self.read(1)
+            out += c
+
+            if c == "\n":
+                break
+
+            if size > 0:
+                size -= 1
+        out += b"\0"
+        return out
 
     def write(self, data: bytes) -> None:
         if not self.writable:
             raise FDIOError(f"File {self.name} is not writable")
+
+        # TODO: Model the effects of ungetc.
+        # By observation, mixing writes with ungetc is unsupported;
+        # the test program segfaulted when I wran fputc after ungetc
 
         file = self._backing
 
@@ -85,6 +123,12 @@ class FileDescriptor:
             raise FDIOError(f"Unknown 'whence' {whence} when seeking {self.name}")
 
         return self.cursor
+
+    def ungetc(self, char: int) -> None:
+        if not self.readable:
+            raise FDIOError(f"File {self.name} is not readable")
+
+        self.ungetc_buf = bytes([char]) + self.ungetc_buf
 
 
 class StdinFileDescriptor(FileDescriptor):

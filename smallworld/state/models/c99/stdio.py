@@ -1,6 +1,9 @@
+import random
+import string
 import typing
 
-from .... import emulators
+from .... import emulators, exceptions
+from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel
 from ..filedesc import FDIOError, FileDescriptorManager
 from .utils import _emu_strlen
@@ -54,6 +57,16 @@ class StdioModel(CStdModel):
 
         return (readable, writable)
 
+    def _generate_tmpnam(self):
+        # TODO: Doesn't actually test uniqueness
+        search = string.ascii_letters + string.ascii_digits
+
+        out = "/tmp/file"
+        for i in range(0, 6):
+            out += search[random.rand_int(0, len(search))]
+
+        return out
+
 
 class Fclose(StdioModel):
     name = "fclose"
@@ -63,12 +76,13 @@ class Fclose(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
 
         assert isinstance(ptr, int)
 
-        fd = self._fdmgr.filestar_to_fd(ptr)
         try:
+            fd = self._fdmgr.filestar_to_fd(ptr)
             self._fdmgr.close(fd)
             self.set_return_value(emulator, 0)
         except FDIOError:
@@ -83,6 +97,7 @@ class Feof(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -94,6 +109,7 @@ class Ferror(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -105,6 +121,7 @@ class Clearerror(StdioModel):
     return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -116,7 +133,9 @@ class Fflush(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+        # TODO: If you want to model something more interesting here, we can talk.
+        self.set_return_value(emulator, 0)
 
 
 class Fgetc(StdioModel):
@@ -127,7 +146,22 @@ class Fgetc(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        data = file.read(1, ungetc=True)
+
+        self.set_return_value(emulator, data[0])
 
 
 class Fgets(StdioModel):
@@ -138,7 +172,26 @@ class Fgets(StdioModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        dst = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+        filestar = self.get_arg3(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(size, int)
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        data = file.read_string(size)
+        emulator.write_memory(dst, data)
+        self.set_return_value(emulator, len(data))
 
 
 class Fopen(StdioModel):
@@ -149,6 +202,7 @@ class Fopen(StdioModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
@@ -189,7 +243,48 @@ class Freopen(StdioModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        name = self.get_arg1(emulator)
+        mode = self.get_arg2(emulator)
+        filestar = self.get_arg3(emulator)
+
+        assert isinstance(name, int)
+        assert isinstance(mode, int)
+        assert isinstance(filestar, int)
+
+        len2 = _emu_strlen(emulator, mode)
+
+        bytes2 = emulator.read_memory(mode, len2)
+
+        filemode = bytes2.decode("utf-8")
+
+        # FIXME: Not all files are seekable.
+        # For now, assume this one is.
+        seekable = True
+
+        # Reset the access mode on the file
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+            readable, writable = self._parse_mode(filemode)
+        except FDIOError:
+            self.set_return_value(emulator, 0)
+            return
+
+        file.readable = readable
+        file.writable = writable
+        file.seekable = seekable
+
+        # Redirect the file if name is not NULL
+        if name != 0:
+            len1 = _emu_strlen(emulator, name)
+            bytes1 = emulator.read_memory(name, len1)
+            filepath = bytes1.decode("utf-8")
+
+            file.name = filepath
+
+        self.set_return_value(emulator, filestar)
 
 
 class Fprintf(StdioModel):
@@ -200,6 +295,7 @@ class Fprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -211,7 +307,24 @@ class Fputc(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        char = self.get_arg1(emulator)
+        filestar = self.get_arg2(emulator)
+
+        assert isinstance(char, int)
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.write(bytes([char]))
+
+        self.set_return_value(emulator, char)
 
 
 class Fputs(StdioModel):
@@ -222,7 +335,27 @@ class Fputs(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        ptr = self.get_arg1(emulator)
+        filestar = self.get_arg2(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(filestar, int)
+
+        strlen = _emu_strlen(emulator, ptr)
+        strbytes = emulator.read_memory(ptr, strlen)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.write(strbytes)
+
+        self.set_return_value(emulator, 0)
 
 
 class Fread(StdioModel):
@@ -238,7 +371,36 @@ class Fread(StdioModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        dst = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+        amt = self.get_arg3(emulator)
+        filestar = self.get_arg4(emulator)
+
+        assert isinstance(dst, int)
+        assert isinstance(size, int)
+        assert isinstance(amt, int)
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        i = 0
+        for i in range(0, amt):
+            data = file.read(size)
+            if len(data) != size:
+                file.cursor -= len(data)
+                break
+
+            emulator.write_memory(dst, data)
+            dst += size
+
+        self.set_return_value(emulator, i)
 
 
 class Fscanf(StdioModel):
@@ -249,6 +411,7 @@ class Fscanf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -260,7 +423,25 @@ class Fseek(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        filestar = self.get_arg1(emulator)
+        offset = self.get_arg2(emulator)
+        origin = self.get_arg3(emulator)
+
+        assert isinstance(filestar, int)
+        assert isinstance(offset, int)
+        assert isinstance(offset, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        pos = file.seek(offset, origin)
+        self.set_return_value(emulator, pos)
 
 
 class Ftell(StdioModel):
@@ -271,6 +452,7 @@ class Ftell(StdioModel):
     return_type = ArgumentType.LONG
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         filestar = self.get_arg1(emulator)
 
         assert isinstance(filestar, int)
@@ -292,7 +474,39 @@ class Fgetpos(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        filestar = self.get_arg1(emulator)
+        ptr = self.get_arg2(emulator)
+
+        assert isinstance(filestar, int)
+        assert isinstance(ptr, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+
+        # Okay, this is a pain.
+        # fpos_t is platform-specific.
+        # On GNU Linux, it's always a struct, and always
+        # at least eight bytes.
+        # One fieldis the offset.  No idea what the other is.
+        #
+        # If you read from inside this, I grump at you.
+
+        if self.platform.byteorder == Byteorder.LITTLE:
+            data = file.cursor.to_bytes(8, "little")
+        elif self.platform.byteorder == Byteorder.BIG:
+            data = file.cursor.to_bytes(8, "big")
+        else:
+            raise exceptions.ConfigurationError(
+                f"Can't encode int for byteorder {self.platform.byteorder}"
+            )
+
+        emulator.write_memory(ptr, data)
+        self.set_return_value(emulator, 0)
 
 
 class Fsetpos(StdioModel):
@@ -303,7 +517,41 @@ class Fsetpos(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        filestar = self.get_arg1(emulator)
+        ptr = self.get_arg2(emulator)
+
+        assert isinstance(filestar, int)
+        assert isinstance(ptr, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+
+        # Okay, this is a pain.
+        # fpos_t is platform-specific.
+        # On GNU Linux, it's always a struct, and always
+        # at least eight bytes.
+        # One fieldis the offset.  No idea what the other is.
+        #
+        # If you read from inside this, I grump at you.
+
+        data = emulator.read_memory(ptr, 8)
+
+        if self.platform.byteorder == Byteorder.LITTLE:
+            pos = int.from_bytes(data, "little")
+        elif self.platform.byteorder == Byteorder.BIG:
+            pos = int.from_bytes(data, "big")
+        else:
+            raise exceptions.ConfigurationError(
+                f"Can't encode int for byteorder {self.platform.byteorder}"
+            )
+
+        file.seek(pos, 0)
+        self.set_return_value(emulator, 0)
 
 
 class Fwrite(StdioModel):
@@ -319,30 +567,36 @@ class Fwrite(StdioModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
 
+        src = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+        amt = self.get_arg3(emulator)
+        filestar = self.get_arg4(emulator)
 
-class Getc(StdioModel):
-    name = "getc"
-
-    # int getc(FILE *file);
-    argument_types = [ArgumentType.POINTER]
-    return_type = ArgumentType.INT
-
-    def model(self, emulator: emulators.Emulator) -> None:
-        filestar = self.get_arg1(emulator)
-
+        assert isinstance(src, int)
+        assert isinstance(size, int)
+        assert isinstance(amt, int)
         assert isinstance(filestar, int)
 
         try:
             fd = self._fdmgr.filestar_to_fd(filestar)
             file = self._fdmgr.get(fd)
+
+            data = emulator.read_memory(src, size * amt)
+            file.write(data)
         except FDIOError:
             self.set_return_value(emulator, -1)
+            return
 
-        data = file.read(1)
+        self.set_return_value(emulator, amt)
 
-        self.set_return_value(emulator, data[0])
+
+class Getc(Fgetc):
+    name = "getc"
+
+    # NOTE: getc and fgetc behave the same.
+    # getc may actually be a macro for fgetc
 
 
 class Ungetc(StdioModel):
@@ -351,6 +605,25 @@ class Ungetc(StdioModel):
     # int ungetc(int c, FILE *file);
     argument_types = [ArgumentType.INT, ArgumentType.POINTER]
     return_type = ArgumentType.INT
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+
+        char = self.get_arg1(emulator)
+        filestar = self.get_arg2(emulator)
+
+        assert isinstance(char, int)
+        assert isinstance(char, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+            file.ungetc(char)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        self.set_return_value(emulator, char)
 
 
 class Getchar(StdioModel):
@@ -361,17 +634,18 @@ class Getchar(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        filestar = self.get_arg1(emulator)
+        super().model(emulator)
 
-        assert isinstance(filestar, int)
+        # Use stdin
+        # TODO: If someone changes the struct pointed to by stdin, we're in trouble.
+        fd = 0
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
             file = self._fdmgr.get(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
 
-        data = file.read(1)
+        data = file.read(1, ungetc=True)
 
         self.set_return_value(emulator, data[0])
 
@@ -384,32 +658,15 @@ class Printf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
-class Putc(StdioModel):
+class Putc(Fputc):
     name = "putc"
 
-    # int putc(int c, FILE *file);
-    argument_types = [ArgumentType.INT, ArgumentType.POINTER]
-    return_type = ArgumentType.INT
-
-    def model(self, emulator: emulators.Emulator) -> None:
-        char = self.get_arg1(emulator)
-        filestar = self.get_arg2(emulator)
-
-        assert isinstance(char, int)
-        assert isinstance(filestar, int)
-
-        try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
-        except FDIOError:
-            self.set_return_value(emulator, -1)
-
-        data = file.read(1)
-
-        self.set_return_value(emulator, data[0])
+    # NOTE: fputc and putc behave the same.
+    # putc may actually be a macro for fputc.
 
 
 class Putchar(StdioModel):
@@ -420,7 +677,25 @@ class Putchar(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        char = self.get_arg1(emulator)
+
+        assert isinstance(char, int)
+
+        # Use stdout
+        # TODO: If someone changes the FILE * in stdout, we're in trouble.
+        fd = 1
+
+        try:
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.write(bytes([char]))
+
+        self.set_return_value(emulator, char)
 
 
 class Puts(StdioModel):
@@ -431,7 +706,29 @@ class Puts(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        size = _emu_strlen(emulator, ptr)
+
+        data = emulator.read_memory(ptr, size)
+
+        # Use stdout
+        # TODO: If someone changes the FILE * in stdout, we're in trouble.
+        fd = 1
+
+        try:
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.write(data)
+
+        self.set_return_value(emulator, 0)
 
 
 class Remove(StdioModel):
@@ -441,8 +738,12 @@ class Remove(StdioModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No file system; just returns true
+    imprecise = True
+
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+        self.set_return_value(emulator, 0)
 
 
 class Rename(StdioModel):
@@ -452,8 +753,12 @@ class Rename(StdioModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No file system; just returns true
+    imprecise = True
+
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+        self.set_return_value(emulator, 0)
 
 
 class Rewind(StdioModel):
@@ -464,7 +769,21 @@ class Rewind(StdioModel):
     return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.cursor = 0
+        self.set_return_value(emulator, 0)
 
 
 class Scanf(StdioModel):
@@ -475,6 +794,7 @@ class Scanf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -486,6 +806,7 @@ class Snprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -497,6 +818,7 @@ class Sprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -508,6 +830,7 @@ class Sscanf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -519,7 +842,18 @@ class Tmpfile(StdioModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        name = self._generate_tmpnam()
+
+        try:
+            fd = self._fdmgr.open(name, True, True, seekable=True)
+        except FDIOError:
+            self.set_return_value(emulator, 0)
+            return
+
+        filestar = self._fdmgr.fd_to_filestar(fd)
+        self.set_return_value(emulator, filestar)
 
 
 class Tmpnam(StdioModel):
@@ -530,7 +864,20 @@ class Tmpnam(StdioModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
-        raise NotImplementedError()
+        super().model(emulator)
+
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        if ptr == 0:
+            raise NotImplementedError("Using tmpnam internal buffer not supported")
+
+        name = self._generate_tmpnam().encode("utf-8")
+
+        emulator.write_memory(ptr, name)
+
+        self.set_return_value(emulator, ptr)
 
 
 class Vfprintf(StdioModel):
@@ -542,6 +889,7 @@ class Vfprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -554,6 +902,7 @@ class Vfscanf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -566,6 +915,7 @@ class Vprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -578,6 +928,7 @@ class Vscanf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -590,6 +941,7 @@ class Vsnprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -602,6 +954,7 @@ class Vsprintf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
@@ -614,6 +967,7 @@ class Vsscanf(StdioModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError()
 
 
