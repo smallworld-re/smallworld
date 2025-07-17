@@ -22,6 +22,7 @@ class Memcpy(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -44,6 +45,7 @@ class Memmove(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -64,6 +66,7 @@ class Strcpy(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
 
@@ -84,6 +87,7 @@ class Strncpy(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -104,6 +108,7 @@ class Strcat(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
 
@@ -122,6 +127,7 @@ class Strncat(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -142,6 +148,7 @@ class Memcmp(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -162,6 +169,7 @@ class Strncmp(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # int strncmp(const char *ptr1, const char *ptr2, size_t n);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
@@ -183,6 +191,7 @@ class Strcmp(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # int strcmp(const char *ptr1, const char *ptr2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
@@ -201,6 +210,9 @@ class Strcoll(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # Won't respond to dynamic changes to the locale.
+    imprecise = True
+
     def __init__(self, address: int):
         super().__init__(address)
         # NOTE: This requries extra configuration; set `locale` to the preferred locale.
@@ -208,6 +220,7 @@ class Strcoll(CStdModel):
         self.locale = ""
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
@@ -251,6 +264,9 @@ class Strxfrm(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.SIZE_T
 
+    # Won't respond to dynamic changes to the locale.
+    imprecise = True
+
     def __init__(self, address: int):
         super().__init__(address)
         # NOTE: This requries extra configuration; set `locale` to the preferred locale.
@@ -258,6 +274,7 @@ class Strxfrm(CStdModel):
         self.locale = ""
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         dst = self.get_arg1(emulator)
         src = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -311,6 +328,7 @@ class Memchr(CStdModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # const void *memchr(const void *ptr, int value, size_t n);
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
@@ -337,6 +355,7 @@ class Strchr(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
 
@@ -362,6 +381,7 @@ class Strcspn(CStdModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # size_t strcspn(const char *str1, const char *str2);
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
@@ -393,6 +413,7 @@ class Strpbrk(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
@@ -423,6 +444,7 @@ class Strrchr(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
 
@@ -449,6 +471,7 @@ class Strspn(CStdModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
@@ -479,6 +502,7 @@ class Strstr(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
@@ -511,6 +535,7 @@ class Strtok(CStdModel):
         self.ptr = 0
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr1 = self.get_arg1(emulator)
         ptr2 = self.get_arg2(emulator)
 
@@ -558,6 +583,7 @@ class Memset(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
         val = self.get_arg2(emulator)
         n = self.get_arg3(emulator)
@@ -580,10 +606,14 @@ class Strerror(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # TODO: Figure out strerror
         # This devolves into a titanic, platform-specific table lookup.
         # The biggest problem is the platform-specific bit;
         # it goes beyond ISA/ABI and into OS version.
+        #
+        # Also, it relies on statically-allocated string buffers,
+        # which I don't want to manage.
         raise NotImplementedError()
 
 
@@ -595,6 +625,7 @@ class Strlen(CStdModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
 
         assert isinstance(ptr, int)

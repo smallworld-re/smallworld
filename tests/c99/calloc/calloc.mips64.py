@@ -53,6 +53,7 @@ exit_model = smallworld.state.models.Model.lookup(
 )
 exit_model.heap = heap
 machine.add(exit_model)
+exit_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
@@ -62,6 +63,7 @@ calloc_model = smallworld.state.models.Model.lookup(
 )
 calloc_model.heap = heap
 machine.add(calloc_model)
+calloc_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("calloc", calloc_model._address)

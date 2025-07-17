@@ -63,26 +63,29 @@ cpu.r4.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-memcpy_modell = smallworld.state.models.Model.lookup(
+memcpy_model = smallworld.state.models.Model.lookup(
     "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(memcpy_modell)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("memcpy", memcpy_modell._address)
+code.update_symbol_value("memcpy", memcpy_model._address)
 
-memcmp_modell = smallworld.state.models.Model.lookup(
+memcmp_model = smallworld.state.models.Model.lookup(
     "memcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
 )
-machine.add(memcmp_modell)
+machine.add(memcmp_model)
+memcmp_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("memcmp", memcmp_modell._address)
+code.update_symbol_value("memcmp", memcmp_model._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
 machine.add(exit_model)
+exit_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)

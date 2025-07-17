@@ -52,34 +52,55 @@ class CStdModel(Model):
     and location can change depending on the function's signature.
     """
 
+    # Flag indicating this model is imprecise.
+    #
+    # Most models are assumed to be approximations,
+    # but this model definitely doesn't capture
+    # a critical behavior.
+    #
+    # By default, these models should raise an exception if called.
+    # The user can accept the risk and run a placeholde version
+    # by setting the attribute "allow_imprecise" to True.
+    #
+    # Authors probably shouldn't rely on this flag
+    # to mark truly-unimplemented models;
+    # just raise an exception yourself.
+    imprecise = False
+
     @property
     @abc.abstractmethod
     def _int_sign_mask(self) -> int:
+        # Bitmask covering the sign bit of an int
         raise NotImplementedError()
 
     @property
     @abc.abstractmethod
     def _int_inv_mask(self) -> int:
+        # Bitmask covering all bits of an int
         raise NotImplementedError()
 
     @property
     @abc.abstractmethod
     def _long_sign_mask(self) -> int:
+        # Bitmask covering the sign bit of a long
         raise NotImplementedError()
 
     @property
     @abc.abstractmethod
     def _long_long_inv_mask(self) -> int:
+        # Bitmask covering all bits of a lon
         raise NotImplementedError()
 
     @property
     @abc.abstractmethod
     def _long_long_sign_mask(self) -> int:
+        # Bitmask covering the sign bit of a long long
         raise NotImplementedError()
 
     @property
     @abc.abstractmethod
     def _long_inv_mask(self) -> int:
+        # Bitmask covering all bits of a long long
         raise NotImplementedError()
 
     # Mask for sign-extending 32-bit numbers to 64-bit.
@@ -111,6 +132,17 @@ class CStdModel(Model):
     def _eight_byte_types(self) -> typing.Set[ArgumentType]:
         """Types that are eight bytes in this ABI."""
         raise NotImplementedError()
+
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Set this to True to bypass the "imprecise" flag.
+        self.allow_imprecise = False
+
+    def model(self, emulator: emulators.Emulator):
+        if self.imprecise and not self.allow_imprecise:
+            raise exceptions.ConfigurationError(
+                f"Invoked model for {self.name}, which is imprecise"
+            )
 
     @abc.abstractmethod
     def _get_argument(

@@ -54,6 +54,7 @@ exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
 machine.add(exit_model)
+exit_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
@@ -62,6 +63,7 @@ strspn_model = smallworld.state.models.Model.lookup(
     "strspn", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
 machine.add(strspn_model)
+strspn_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("strspn", strspn_model._address)

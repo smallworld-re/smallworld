@@ -59,6 +59,7 @@ realloc_model = smallworld.state.models.Model.lookup(
 )
 realloc_model.heap = heap
 machine.add(realloc_model)
+realloc_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("realloc", realloc_model._address)

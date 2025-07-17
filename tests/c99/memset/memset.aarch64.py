@@ -55,6 +55,7 @@ exit_model = smallworld.state.models.Model.lookup(
 )
 exit_model.heap = heap
 machine.add(exit_model)
+exit_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
@@ -64,6 +65,7 @@ memset_model = smallworld.state.models.Model.lookup(
 )
 memset_model.heap = heap
 machine.add(memset_model)
+memset_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("memset", memset_model._address)

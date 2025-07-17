@@ -63,34 +63,38 @@ cpu.r4.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strncpy_modell = smallworld.state.models.Model.lookup(
+strncpy_model = smallworld.state.models.Model.lookup(
     "strncpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(strncpy_modell)
+machine.add(strncpy_model)
+strncpy_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("strncpy", strncpy_modell._address)
+code.update_symbol_value("strncpy", strncpy_model._address)
 
-strcmp_modell = smallworld.state.models.Model.lookup(
+strcmp_model = smallworld.state.models.Model.lookup(
     "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
 )
-machine.add(strcmp_modell)
+machine.add(strcmp_model)
+strcmp_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("strcmp", strcmp_modell._address)
+code.update_symbol_value("strcmp", strcmp_model._address)
 
-strlen_modell = smallworld.state.models.Model.lookup(
+strlen_model = smallworld.state.models.Model.lookup(
     "strlen", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
 )
-machine.add(strlen_modell)
+machine.add(strlen_model)
+strlen_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("strlen", strlen_modell._address)
+code.update_symbol_value("strlen", strlen_model._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
 machine.add(exit_model)
+exit_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)

@@ -55,6 +55,7 @@ malloc_model = smallworld.state.models.Model.lookup(
 )
 malloc_model.heap = heap
 machine.add(malloc_model)
+malloc_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("malloc", malloc_model._address)

@@ -55,6 +55,7 @@ rand_model = smallworld.state.models.Model.lookup(
 )
 rand_model.heap = heap
 machine.add(rand_model)
+rand_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("rand", rand_model._address)
@@ -64,6 +65,7 @@ srand_model = smallworld.state.models.Model.lookup(
 )
 srand_model.heap = heap
 machine.add(srand_model)
+srand_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("srand", srand_model._address)

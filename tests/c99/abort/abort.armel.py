@@ -48,6 +48,7 @@ abort_model = smallworld.state.models.Model.lookup(
     "abort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
 machine.add(abort_model)
+abort_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("abort", abort_model._address)

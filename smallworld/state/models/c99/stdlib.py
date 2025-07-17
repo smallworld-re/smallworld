@@ -18,6 +18,7 @@ class Abort(CStdModel):
     return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise exceptions.EmulationStop("Called abort()")
 
 
@@ -37,6 +38,7 @@ class Abs(CStdModel):
         return self._int_inv_mask
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         val = self.get_arg1(emulator)
 
         assert isinstance(val, int)
@@ -89,8 +91,11 @@ class Atexit(CStdModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # This will not actually result in an exit handler getting registered.
+    imprecise = True
+
     def model(self, emulator: emulators.Emulator) -> None:
-        logger.warning("Program calls atexit(); not modeled")
+        super().model(emulator)
         self.set_return_value(emulator, 0)
 
 
@@ -102,6 +107,7 @@ class Atof(CStdModel):
     return_type = ArgumentType.FLOAT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # TODO: Support other locales for atof
         ptr = self.get_arg1(emulator)
 
@@ -143,6 +149,7 @@ class Atoi(CStdModel):
     size_mask = 0xFFFFFFFF
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # TODO: Support other locales for atoi
         ptr = self.get_arg1(emulator)
 
@@ -205,6 +212,7 @@ class Bsearch(CStdModel):
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Not easily possible; need to call a comparator function.
         raise NotImplementedError(
             "bsearch uses a function pointer; not sure how to model"
@@ -225,6 +233,7 @@ class Calloc(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "calloc needs a heap; please assign self.heap"
@@ -253,6 +262,7 @@ class Div(CStdModel):
     # FIXME: Figure out how different platforms return structs by value
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # div_t result(int dividend, int divisor);
         raise NotImplementedError()
 
@@ -281,6 +291,7 @@ class Exit(CStdModel):
     return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise exceptions.EmulationStop("Called exit()")
 
 
@@ -298,6 +309,7 @@ class Free(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "malloc needs a heap; please assign self.heap"
@@ -317,7 +329,12 @@ class Getenv(CStdModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
+    # We don't have a model of envp,
+    # so this will always return NULL
+    imprecise = True
+
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
 
         assert isinstance(ptr, int)
@@ -344,6 +361,7 @@ class Malloc(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "malloc needs a heap; please assign self.heap"
@@ -366,6 +384,7 @@ class Mblen(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Depends the locale.
         raise NotImplementedError()
 
@@ -378,6 +397,7 @@ class Mbstowcs(CStdModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Depends the locale.
         raise NotImplementedError()
 
@@ -390,6 +410,7 @@ class Mbtowc(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Depends the locale.
         raise NotImplementedError()
 
@@ -407,6 +428,7 @@ class QSort(CStdModel):
     return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Not easily possible; need to call a comparator function.
         raise NotImplementedError(
             "qsort uses a function pointer; not sure how to model"
@@ -423,6 +445,7 @@ class Rand(CStdModel):
     rand = random.Random()
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # TODO: Rand is easy to do simply, harder to do right.
         # If someone is relying on srand/rand to produce a specific sequence,
         # this won't behave correctly.
@@ -444,6 +467,7 @@ class Realloc(CStdModel):
         self.heap: typing.Optional[Heap] = None
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         if self.heap is None:
             raise exceptions.ConfigurationError(
                 "realloc needs a heap; please assign self.heap"
@@ -486,6 +510,7 @@ class Srand(CStdModel):
     return_type = ArgumentType.VOID
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         seed = self.get_arg1(emulator)
         Rand.rand.seed(a=seed)
 
@@ -497,6 +522,7 @@ class System(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         ptr = self.get_arg1(emulator)
 
         assert isinstance(ptr, int)
@@ -517,6 +543,7 @@ class Wcstombs(CStdModel):
     return_type = ArgumentType.SIZE_T
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Depends the locale.
         raise NotImplementedError()
 
@@ -529,6 +556,7 @@ class Wctomb(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         # Depends the locale.
         raise NotImplementedError()
 

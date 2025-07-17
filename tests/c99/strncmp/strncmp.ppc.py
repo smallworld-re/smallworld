@@ -63,18 +63,20 @@ cpu.r4.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strncmp_modell = smallworld.state.models.Model.lookup(
+strncmp_model = smallworld.state.models.Model.lookup(
     "strncmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(strncmp_modell)
+machine.add(strncmp_model)
+strncmp_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("strncmp", strncmp_modell._address)
+code.update_symbol_value("strncmp", strncmp_model._address)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
 machine.add(exit_model)
+exit_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
