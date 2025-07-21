@@ -4,9 +4,14 @@ on:
     - cron: "00 3 * * *"
   workflow_dispatch:
 
+env:
+  REGISTRY: harbor.harbor.svc.cluster.local
+
 jobs:
   Build-Container:
     runs-on: smallworld-arc
+    env:
+      REGISTRY: ${{ env.REGISTRY }}
     steps:
       - name: Install podman
         run: |
@@ -18,7 +23,7 @@ jobs:
           sudo mkdir -p /etc/containers/registries.conf.d
           cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
-          location = "harbor.harbor.svc.cluster.local"
+          location = "$REGISTRY"
           insecure = true
           EOF
 
@@ -29,27 +34,27 @@ jobs:
           REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
           REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login harbor.harbor.svc.cluster.local -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login $REGISTRY -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
 
       - name: Build Deps
         run: |
-          podman build --squash-all -f Dockerfile.deps --network host -t harbor.harbor.svc.cluster.local/smallworld/smallworld_deps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
 
       - name: Tag Deps
         run: |
-          podman tag harbor.harbor.svc.cluster.local/smallworld/smallworld_deps:${{ github.sha }} harbor.harbor.svc.cluster.local/smallworld/smallworld_deps:latest
+          podman tag $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} $REGISTRY/smallworld/smallworld_deps:latest
       
       - name: Build Testdeps
         run: |
-          podman build --squash-all -f Dockerfile.testdeps --network host -t harbor.harbor.svc.cluster.local/smallworld/smallworld_testdeps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
           
       - name: Tag Testdeps
         run: |
-          podman tag harbor.harbor.svc.cluster.local/smallworld/smallworld_testdeps:${{ github.sha }} harbor.harbor.svc.cluster.local/smallworld/smallworld_testdeps:latest
+          podman tag $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} $REGISTRY/smallworld/smallworld_testdeps:latest
 
       - name: Save Containers
         run: |
-          podman push harbor.harbor.svc.cluster.local/smallworld/smallworld_deps:${{ github.sha }}
-          podman push harbor.harbor.svc.cluster.local/smallworld/smallworld_deps:latest
-          podman push harbor.harbor.svc.cluster.local/smallworld/smallworld_testdeps:${{ github.sha }}
-          podman push harbor.harbor.svc.cluster.local/smallworld/smallworld_testdeps:latest
+          podman push $REGISTRY/smallworld/smallworld_deps:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld_deps:latest
+          podman push $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld_testdeps:latest
