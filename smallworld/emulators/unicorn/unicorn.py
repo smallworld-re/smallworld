@@ -518,6 +518,33 @@ class UnicornEmulator(
                 "at least one exit point must be set, emulation cannot start"
             )
 
+    # handle Thumb ISA exchange for ARM32
+    def _handle_thumb_interwork(self, pc) -> int:
+        if self.platform.architecture not in [
+            platforms.Architecture.ARM_V5T,
+            platforms.Architecture.ARM_V6M,
+            platforms.Architecture.ARM_V7A,
+            platforms.Architecture.ARM_V7M,
+            platforms.Architecture.ARM_V7R,
+        ]:
+            return pc
+
+        CPSR_THUMB_MODE_MASK = 0x20
+
+        # reg_read(pc) does not set the low bit for thumb mode, and
+        # reg_write(pc) (which is implicitly called by emu_start) clears
+        # thumb mode if the low bit is not set, so we have to set the
+        # low bit to stay in thumb mode if we were previously in thumb
+        # mode.
+        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
+        if cpsr & CPSR_THUMB_MODE_MASK:
+            pc |= 1
+            self.disassembler.mode = capstone.CS_MODE_THUMB
+        else:
+            self.disassembler.mode = capstone.CS_MODE_ARM
+
+        return pc
+
     def step_instruction(self) -> None:
         self._check()
         self.state = EmulatorState.START_STEP
@@ -527,20 +554,7 @@ class UnicornEmulator(
         if pc == exit_point:
             raise exceptions.EmulationBounds
 
-        # handle Thumb ISA exchange for ARM32
-        if self.platform.architecture in [
-            platforms.Architecture.ARM_V5T,
-            platforms.Architecture.ARM_V6M,
-            platforms.Architecture.ARM_V7A,
-            platforms.Architecture.ARM_V7M,
-            platforms.Architecture.ARM_V7R,
-        ]:
-            cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-            if cpsr & 0x20:
-                pc |= 1
-                self.disassembler.mode = capstone.CS_MODE_THUMB
-            else:
-                self.disassembler.mode = capstone.CS_MODE_ARM
+        pc = self._handle_thumb_interwork(pc)
 
         if pc not in self.function_hooks:
             disas = self.current_instruction()
@@ -570,8 +584,10 @@ class UnicornEmulator(
         logger.info(f"step block at 0x{pc:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
+            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(pc, exit_point)
             pc = self.read_register("pc")
+            pc = self._handle_thumb_interwork(pc)
 
             self.state = EmulatorState.BLOCK
             self.engine.emu_start(pc, exit_point)
@@ -590,7 +606,9 @@ class UnicornEmulator(
         try:
             # unicorn requires one exit point so just use first
             exit_point = list(self._exit_points)[0]
-            self.engine.emu_start(self.read_register("pc"), exit_point)
+            pc = self.read_register("pc")
+            pc = self._handle_thumb_interwork(pc)
+            self.engine.emu_start(pc, exit_point)
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:
@@ -618,6 +636,8 @@ class UnicornEmulator(
 
         try:
             code = self.read_memory(pc, 16)
+            # on arm32, update disassembler for ARM vs Thumb
+            _ = self._handle_thumb_interwork(pc)
             insns, _ = self._disassemble(code, pc, 1)
             i = instructions.Instruction.from_capstone(insns[0])
         except:
