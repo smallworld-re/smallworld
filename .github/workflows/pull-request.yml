@@ -74,11 +74,8 @@ jobs:
 
       - name: Login to registry
         if: steps.ac.outputs.changes_detected == 'false'
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
 
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
@@ -110,12 +107,8 @@ jobs:
           EOF
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
       - name: Load Container
         run: |
           podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
@@ -166,11 +159,8 @@ jobs:
           EOF
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u ${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_USER }}"
 
       - name: Load Container
         run: |
