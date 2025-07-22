@@ -28,7 +28,7 @@ jobs:
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
           location = "$REGISTRY"
           insecure = true
@@ -106,7 +106,7 @@ jobs:
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
           location = "$REGISTRY"
           insecure = true
@@ -162,7 +162,7 @@ jobs:
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
           location = "$REGISTRY"
           insecure = true
