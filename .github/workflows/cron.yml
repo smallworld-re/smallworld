@@ -29,7 +29,7 @@ jobs:
 
       - name: Login to registry
         run: |
-          podman login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "{{ secrets.REGISTRY_PASSWORD }}"
+          podman login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
       - name: Build Deps
         run: |
           podman build --squash-all -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
