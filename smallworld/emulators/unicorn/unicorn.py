@@ -132,7 +132,6 @@ class UnicornEmulator(
                 # this permits modeling
                 # this is the model for the function
                 cb(self)
-                # self.engine.emu_stop()
 
                 # Mimic a platform-specific "return" instruction.
                 if self.platform.architecture == platforms.Architecture.X86_32:
@@ -518,8 +517,9 @@ class UnicornEmulator(
                 "at least one exit point must be set, emulation cannot start"
             )
 
-    # handle Thumb ISA exchange for ARM32
+    # Handle Thumb ISA exchange for ARM32
     def _handle_thumb_interwork(self, pc) -> int:
+        # Check for ARM32 processor
         if self.platform.architecture not in [
             platforms.Architecture.ARM_V5T,
             platforms.Architecture.ARM_V6M,
@@ -529,13 +529,11 @@ class UnicornEmulator(
         ]:
             return pc
 
+        # emu_start clears thumb mode if the low bit of pc != 1.
+        # We use CPSR to determine if unicorn was previously in thumb
+        # mode and set the low bit to 1 to maintain it. We also set
+        # the mode of the disassembler.
         CPSR_THUMB_MODE_MASK = 0x20
-
-        # reg_read(pc) does not set the low bit for thumb mode, and
-        # reg_write(pc) (which is implicitly called by emu_start) clears
-        # thumb mode if the low bit is not set, so we have to set the
-        # low bit to stay in thumb mode if we were previously in thumb
-        # mode.
         cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
         if cpsr & CPSR_THUMB_MODE_MASK:
             pc |= 1
@@ -558,7 +556,7 @@ class UnicornEmulator(
 
         if pc not in self.function_hooks:
             disas = self.current_instruction()
-            logger.debug(f"single step at 0x{pc:x}: {disas}")
+            logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
             self.engine.emu_start(pc, exit_point)
@@ -578,18 +576,18 @@ class UnicornEmulator(
     def step_block(self) -> None:
         self._check()
         pc = self.read_register("pc")
+        pc = self._handle_thumb_interwork(pc)
         exit_point = list(self._exit_points)[0]
 
         disas = self.current_instruction()
-        logger.info(f"step block at 0x{pc:x}: {disas}")
+        logger.info(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(pc, exit_point)
-            pc = self.read_register("pc")
-            pc = self._handle_thumb_interwork(pc)
 
             self.state = EmulatorState.BLOCK
+            pc = self.read_register("pc")
+            pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(pc, exit_point)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")

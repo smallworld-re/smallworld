@@ -8,6 +8,8 @@ import unittest
 
 from sphinx import application, errors
 
+import smallworld
+
 
 class DetailedCalledProcessError(Exception):
     def __init__(self, error: subprocess.CalledProcessError):
@@ -3115,16 +3117,67 @@ class RTOSDemoTests(ScriptIntegrationTest):
 
 
 class ThumbTests(ScriptIntegrationTest):
+    """
+    Test that ARM32 binaries with mixed ARM/Thumb code are
+    executed and disassembled properly.
+    """
+
+    def _check_output(
+        self,
+        stdout: str,
+        stderr: str,
+        archs: list[smallworld.platforms.platforms.Architecture],
+    ):
+        for arch in archs:
+            # check program result for step starting in ARM mode
+            self.assertLineContainsStrings(stdout, f"STEP_{arch.name}=0x6")
+            # check program result for step starting in Thumb mode
+            self.assertLineContainsStrings(stdout, f"STEP_{arch.name}=0x4")
+            # check disassembly
+            self.assertLineContainsStrings(
+                stderr, "single step at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
+            )
+            self.assertLineContainsStrings(
+                stderr, "single step at 0x1010: <CsInsn 0x1010 [0121]: movs r1, #1>"
+            )
+            self.assertLineContainsStrings(
+                stderr, "single step at 0x101c: <CsInsn 0x101c [0110a0e3]: mov r1, #1>"
+            )
+            # check program result for step_block starting in ARM mode
+            self.assertLineContainsStrings(stdout, f"BLOCK_{arch.name}=0x6")
+            # check program result for step_block starting in Thumb mode
+            self.assertLineContainsStrings(stdout, f"BLOCK_{arch.name}=0x4")
+            # check disassembly for step_block
+            self.assertLineContainsStrings(
+                stderr, "step block at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
+            )
+            self.assertLineContainsStrings(
+                stderr, "step block at 0x1010: <CsInsn 0x1010 [0121]: movs r1, #1>"
+            )
+            self.assertLineContainsStrings(
+                stderr, "step block at 0x101c: <CsInsn 0x101c [0110a0e3]: mov r1, #1>"
+            )
+            # check program result for run starting in ARM mode
+            self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x6")
+            # check program result for run starting in Thumb mode
+            self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x4")
+
     def test_thumb_armhf(self):
-        stdout, _ = self.command("python3 thumb/thumb.armhf.py")
-        self.assertLineContainsStrings(stdout, "ARM_V7A=0x6")
-        self.assertLineContainsStrings(stdout, "ARM_V7M=0x6")
-        self.assertLineContainsStrings(stdout, "ARM_V7R=0x6")
+        archs = [
+            smallworld.platforms.Architecture.ARM_V7A,
+            smallworld.platforms.Architecture.ARM_V7M,
+            smallworld.platforms.Architecture.ARM_V7R,
+        ]
+        stdout, stderr = self.command("python3 thumb/thumb.armhf.py")
+        self._check_output(stdout, stderr, archs)
 
     def test_thumb_armel(self):
-        stdout, _ = self.command("python3 thumb/thumb.armel.py")
-        self.assertLineContainsStrings(stdout, "ARM_V5T=0x6")
-        self.assertLineContainsStrings(stdout, "ARM_V6M=0x6")
+        archs = [
+            smallworld.platforms.Architecture.ARM_V5T,
+            smallworld.platforms.Architecture.ARM_V6M,
+        ]
+        stdout, stderr = self.command("python3 thumb/thumb.armel.py")
+        self._check_output(stdout, stderr, archs)
 
 
 class CheckedDoubleFreeTests(ScriptIntegrationTest):
