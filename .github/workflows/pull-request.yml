@@ -78,7 +78,7 @@ jobs:
       - name: Login to registry
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          podman login $REGISTRY -u "$${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
 
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
