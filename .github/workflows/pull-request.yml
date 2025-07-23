@@ -112,6 +112,7 @@ jobs:
       - name: Login to registry
         run: |
           podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
+
       - name: Load Container
         run: |
           podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
@@ -160,7 +161,7 @@ jobs:
           location = "$REGISTRY"
           insecure = true
           EOF
-
+      
       - name: Login to registry
         run: |
           podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_USER }}"
