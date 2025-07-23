@@ -39,12 +39,12 @@ for arch in [
 
     cpu.r0.extract(emulator)
     print(f"{arch.name}={hex(cpu.r0.get())}")
-    assert(cpu.r0.get() == 6)
+    assert cpu.r0.get() == 6
 
     # test beginning execution in thumb code
-    cpu.pc.set(code.address + 0x11) # beginning of thumb code
+    cpu.pc.set(code.address + 0x11)  # beginning of thumb code
     cpu.r0.set(0)
     machine = machine.emulate(emulator)
     cpu.r0.extract(emulator)
     print(f"{arch.name}={hex(cpu.r0.get())}")
-    assert(cpu.r0.get() == 4)
+    assert cpu.r0.get() == 4
