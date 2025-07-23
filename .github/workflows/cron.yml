@@ -28,12 +28,8 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login "$REGISTRY" -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
+          podman login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "{{ secrets.REGISTRY_PASSWORD }}"
       - name: Build Deps
         run: |
           podman build --squash-all -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .

@@ -77,11 +77,8 @@ jobs:
 
       - name: Login to registry
         if: steps.ac.outputs.changes_detected == 'false'
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login $REGISTRY -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
 
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
@@ -113,12 +110,8 @@ jobs:
           EOF
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login $REGISTRY -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
       - name: Load Container
         run: |
           podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
@@ -169,11 +162,8 @@ jobs:
           EOF
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login $REGISTRY -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_USER }}"
 
       - name: Load Container
         run: |
