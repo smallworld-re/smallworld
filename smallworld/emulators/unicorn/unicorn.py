@@ -602,11 +602,13 @@ class UnicornEmulator(
         pc = self.read_register("pc")
 
         try:
-            code = self.read_memory(pc, 16)
+            # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.
+            code = bytes(self.engine.mem_read(pc, 16))
             insns, _ = self._disassemble(code, pc, 1)
             i = instructions.Instruction.from_capstone(insns[0])
         except:
             # looks like that code is not available
+            logger.warn(f"FYI Unicorn rich exception processing unable to read code at pc=0x{pc:x} bc it is unavailable")
             i = None
 
         exc: typing.Type[exceptions.EmulationError] = exceptions.EmulationError
@@ -652,6 +654,7 @@ class UnicornEmulator(
                         else:
                             s = s + ", " + x
                     return s
+            return "None"
 
         if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
             msg = f"{prefix} due to read of unmapped memory"
