@@ -8,7 +8,7 @@ from enum import Enum
 import capstone
 import claripy
 import unicorn
-import unicorn.ppc_const  # Not properly exposed by the unicorn module
+import unicorn.ppc_const  # Not properly exposed by the unicorn module 
 
 from ... import exceptions, instructions, platforms, utils
 from .. import emulator, hookable
