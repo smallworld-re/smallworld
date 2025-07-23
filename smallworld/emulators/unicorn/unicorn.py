@@ -608,7 +608,9 @@ class UnicornEmulator(
             i = instructions.Instruction.from_capstone(insns[0])
         except:
             # looks like that code is not available
-            logger.warn(f"FYI Unicorn rich exception processing unable to read code at pc=0x{pc:x} bc it is unavailable")
+            logger.warn(
+                f"FYI Unicorn rich exception processing unable to read code at pc=0x{pc:x} bc it is unavailable"
+            )
             i = None
 
         exc: typing.Type[exceptions.EmulationError] = exceptions.EmulationError
