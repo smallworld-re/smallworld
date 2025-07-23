@@ -1,4 +1,5 @@
-FROM docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
+ARG DOCKER_REGISTRY=harbor.harbor.svc.cluster.local
+FROM ${DOCKER_REGISTRY}/smallworld/smallworld_testdeps:latest
 
 # Install smallworld
 COPY ./ /opt/smallworld/
