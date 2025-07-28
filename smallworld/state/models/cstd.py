@@ -1,8 +1,10 @@
 import abc
 import enum
+import struct
 import typing
 
 from ... import emulators, exceptions
+from ...platforms import Byteorder, PlatformDef
 from .model import Model
 
 
@@ -32,6 +34,182 @@ class ArgumentType(enum.Enum):
     DOUBLE = "double"
 
     VOID = "void"
+
+
+def add_argument(
+    i: int, kind: ArgumentType, model: typing.Union["CStdModel", "VariadicContext"]
+):
+    if kind in model._four_byte_types or (
+        kind == ArgumentType.FLOAT and model._fp_as_int
+    ):
+        # Four byte int type, or float on a system without separate FP arg regs
+        if model._int_reg_offset == len(model._four_byte_arg_regs):
+            # No room left in registers; use stack
+            model._on_stack.append(True)
+            model._arg_offset.append(model._stack_offset + model._init_stack_offset)
+            model._stack_offset += model._four_byte_stack_size
+        else:
+            # Registers left; use them
+            model._on_stack.append(False)
+            model._arg_offset.append(model._int_reg_offset)
+            model._int_reg_offset += 1
+    elif kind in model._eight_byte_types or (
+        kind == ArgumentType.DOUBLE and model._fp_as_int
+    ):
+        # Eight byte int type, or double on a system without separate FP arg regs
+        if model._int_reg_offset % model._eight_byte_reg_size != 0:
+            # Align argument register for eight-byte value
+            model._int_reg_offset += 1
+
+        if model._int_reg_offset == len(model._eight_byte_arg_regs):
+            # No room left in registers; use stack
+            if (
+                model._align_stack
+                and model._stack_offset % model._eight_byte_stack_size != 0
+            ):
+                # Stack out of alignment.  Align it.
+                model._stack_offset += 4
+            model._on_stack.append(True)
+            model._arg_offset.append(model._stack_offset + model._init_stack_offset)
+            model._stack_offset += model._eight_byte_stack_size
+        else:
+            # Registers left; use them
+            model._on_stack.append(False)
+            model._arg_offset.append(model._int_reg_offset)
+            model._int_reg_offset += model._eight_byte_reg_size
+    elif kind == ArgumentType.FLOAT:
+        # Float type
+        if model._fp_reg_offset == len(model._float_arg_regs):
+            # No room left in registers; use stack
+            model._on_stack.append(True)
+            model._arg_offset.append(model._stack_offset + model._init_stack_offset)
+            model._stack_offset += model._float_stack_size
+        else:
+            # Registers left; use them
+            model._on_stack.append(False)
+            model._arg_offset.append(model._fp_reg_offset)
+            model._fp_reg_offset += 1
+    elif kind == ArgumentType.DOUBLE:
+        # Double type
+        if model._fp_reg_offset % model._double_reg_size != 0:
+            model._fp_reg_offset += 1
+
+        if model._fp_reg_offset == len(model._double_arg_regs):
+            # No room left in registers; use stack
+            if (
+                model._align_stack
+                and model._stack_offset % model._double_stack_size != 0
+            ):
+                model._stack_offset += 4
+            model._on_stack.append(True)
+            model._arg_offset.append(model._stack_offset + model._init_stack_offset)
+            model._stack_offset += model._double_stack_size
+        else:
+            # Registers left; use them
+            model._on_stack.append(False)
+            model._arg_offset.append(model._fp_reg_offset)
+            model._fp_reg_offset += model._double_reg_size
+    else:
+        raise exceptions.ConfigurationError(
+            f"{model.name} argument {i} has unknown type {kind}"
+        )
+
+
+def get_argument(
+    model: typing.Union["CStdModel", "VariadicContext"],
+    index: int,
+    kind: ArgumentType,
+    emulator: emulators.Emulator,
+) -> typing.Union[int, float]:
+    sp = model.platdef.sp_register
+    on_stack = model._on_stack[index]
+    arg_offset = model._arg_offset[index]
+
+    if kind in model._four_byte_types:
+        if on_stack:
+            addr = emulator.read_register(sp) + arg_offset
+            data = emulator.read_memory(addr, model._four_byte_stack_size)
+            if model.platform.byteorder == Byteorder.BIG:
+                intval = int.from_bytes(data, "big")
+            else:
+                intval = int.from_bytes(data, "little")
+        else:
+            intval = emulator.read_register(model._four_byte_arg_regs[arg_offset])
+        return intval & model._int_inv_mask
+    elif kind in model._eight_byte_types:
+        if on_stack:
+            addr = emulator.read_register(sp) + arg_offset
+            data = emulator.read_memory(addr, model._eight_byte_stack_size)
+            if model.platform.byteorder == Byteorder.BIG:
+                return int.from_bytes(data, "big")
+            else:
+                return int.from_bytes(data, "little")
+        elif model._eight_byte_reg_size == 2:
+            lo = emulator.read_register(model._eight_byte_arg_regs[arg_offset])
+            hi = emulator.read_register(model._eight_byte_arg_regs[arg_offset + 1])
+            if model.platform.byteorder == Byteorder.BIG:
+                tmp = lo
+                lo = hi
+                hi = tmp
+            return (hi << 32) | lo
+        else:
+            return emulator.read_register(model._eight_byte_arg_regs[arg_offset])
+    elif kind == ArgumentType.FLOAT:
+        if on_stack:
+            addr = emulator.read_register(sp) + arg_offset
+            data = emulator.read_memory(addr, model._float_stack_size)
+            if model.platform.byteorder == Byteorder.BIG:
+                intval = int.from_bytes(data, "big")
+            else:
+                intval = int.from_bytes(data, "little")
+        elif model._fp_as_int:
+            intval = emulator.read_register(model._four_byte_arg_regs[arg_offset])
+        else:
+            intval = emulator.read_register(model._float_arg_regs[arg_offset])
+
+        if model._floats_are_doubles:
+            # Some ABIs promote floats to doubles.
+            # And by "some ABIs", I mean PowerPC.
+            byteval = intval.to_bytes(8, "little")
+            (floatval,) = struct.unpack("<d", byteval)
+        else:
+            byteval = (intval & model._int_inv_mask).to_bytes(4, "little")
+            (floatval,) = struct.unpack("<f", byteval)
+        return floatval
+    elif kind == ArgumentType.DOUBLE:
+        if on_stack:
+            addr = emulator.read_register(sp) + arg_offset
+            data = emulator.read_memory(addr, model._double_stack_size)
+            if model.platform.byteorder == Byteorder.BIG:
+                intval = int.from_bytes(data, "big")
+            else:
+                intval = int.from_bytes(data, "little")
+        else:
+            if model._fp_as_int:
+                reg_array = model._eight_byte_arg_regs
+                n_regs = model._eight_byte_reg_size
+            else:
+                reg_array = model._double_arg_regs
+                n_regs = model._double_reg_size
+
+            if n_regs == 2:
+                lo = emulator.read_register(reg_array[arg_offset])
+                hi = emulator.read_register(reg_array[arg_offset + 1])
+                if model.platform.byteorder == Byteorder.BIG:
+                    tmp = lo
+                    lo = hi
+                    hi = tmp
+                intval = (hi << 32) | lo
+            else:
+                intval = emulator.read_register(reg_array[arg_offset])
+
+        byteval = intval.to_bytes(8, "little")
+        (floatval,) = struct.unpack("<d", byteval)
+        return floatval
+    else:
+        raise exceptions.ConfigurationError(
+            f"{model.name} argument {index} has unknown type {kind}"
+        )
 
 
 class CStdModel(Model):
@@ -69,45 +247,6 @@ class CStdModel(Model):
 
     @property
     @abc.abstractmethod
-    def _int_sign_mask(self) -> int:
-        # Bitmask covering the sign bit of an int
-        raise NotImplementedError()
-
-    @property
-    @abc.abstractmethod
-    def _int_inv_mask(self) -> int:
-        # Bitmask covering all bits of an int
-        raise NotImplementedError()
-
-    @property
-    @abc.abstractmethod
-    def _long_sign_mask(self) -> int:
-        # Bitmask covering the sign bit of a long
-        raise NotImplementedError()
-
-    @property
-    @abc.abstractmethod
-    def _long_long_inv_mask(self) -> int:
-        # Bitmask covering all bits of a lon
-        raise NotImplementedError()
-
-    @property
-    @abc.abstractmethod
-    def _long_long_sign_mask(self) -> int:
-        # Bitmask covering the sign bit of a long long
-        raise NotImplementedError()
-
-    @property
-    @abc.abstractmethod
-    def _long_inv_mask(self) -> int:
-        # Bitmask covering all bits of a long long
-        raise NotImplementedError()
-
-    # Mask for sign-extending 32-bit numbers to 64-bit.
-    _int_signext_mask = 0xFFFFFFFF00000000
-
-    @property
-    @abc.abstractmethod
     def argument_types(self) -> typing.List[ArgumentType]:
         """List of argument types for this function
 
@@ -121,38 +260,30 @@ class CStdModel(Model):
         """Return type for this function"""
         raise NotImplementedError()
 
-    @property
-    @abc.abstractmethod
-    def _four_byte_types(self) -> typing.Set[ArgumentType]:
-        """Types that are four bytes in this ABI."""
-        raise NotImplementedError()
-
-    @property
-    @abc.abstractmethod
-    def _eight_byte_types(self) -> typing.Set[ArgumentType]:
-        """Types that are eight bytes in this ABI."""
-        raise NotImplementedError()
-
     def __init__(self, address: int):
         super().__init__(address)
+
+        self.platdef = PlatformDef.for_platform(self.platform)
+
         # Set this to True to bypass the "imprecise" flag.
         self.allow_imprecise = False
+
+        self._int_reg_offset = 0
+        self._fp_reg_offset = 0
+        self._stack_offset = 0
+
+        self._on_stack: typing.List[bool] = list()
+        self._arg_offset: typing.List[int] = list()
+
+        for i in range(0, len(self.argument_types)):
+            t = self.argument_types[i]
+            add_argument(i, t, self)
 
     def model(self, emulator: emulators.Emulator):
         if self.imprecise and not self.allow_imprecise:
             raise exceptions.ConfigurationError(
                 f"Invoked model for {self.name}, which is imprecise"
             )
-
-    @abc.abstractmethod
-    def _get_argument(
-        self,
-        index: int,
-        kind: ArgumentType,
-        emulator: emulators.Emulator,
-    ) -> typing.Union[int, float]:
-        """Fetch the index'th argument given the argument types and the ABI."""
-        raise NotImplementedError()
 
     @abc.abstractmethod
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
@@ -176,27 +307,34 @@ class CStdModel(Model):
 
     def get_arg1(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(0, self.argument_types[0], emulator)
+        return get_argument(self, 0, self.argument_types[0], emulator)
 
     def get_arg2(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the second argument from the emulator"""
-        return self._get_argument(1, self.argument_types[1], emulator)
+        return get_argument(self, 1, self.argument_types[1], emulator)
 
     def get_arg3(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(2, self.argument_types[2], emulator)
+        return get_argument(self, 2, self.argument_types[2], emulator)
 
     def get_arg4(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(3, self.argument_types[3], emulator)
+        return get_argument(self, 3, self.argument_types[3], emulator)
 
     def get_arg5(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(4, self.argument_types[4], emulator)
+        return get_argument(self, 4, self.argument_types[4], emulator)
 
     def get_arg6(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
-        return self._get_argument(5, self.argument_types[5], emulator)
+        return get_argument(self, 5, self.argument_types[5], emulator)
+
+    def get_varargs(self) -> "VariadicContext":
+        """Get a variadic argument context to fetch varargs
+
+        Also necessary to handle more than six arguments.
+        """
+        return VariadicContext(self)
 
     def set_return_value(
         self, emulator: emulators.Emulator, val: typing.Union[int, float]
@@ -259,3 +397,215 @@ class CStdModel(Model):
             raise exceptions.ConfigurationError(
                 f"{self.name} returning unhandled type {self.return_type}"
             )
+
+    # *** Integer arithmetic constants ***
+    #
+    # Generalized bitmasks for specific types,
+    # determined by their size on this ABI.
+
+    @property
+    @abc.abstractmethod
+    def _int_sign_mask(self) -> int:
+        # Bitmask covering the sign bit of an int
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _int_inv_mask(self) -> int:
+        # Bitmask covering all bits of an int
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_sign_mask(self) -> int:
+        # Bitmask covering the sign bit of a long
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_long_inv_mask(self) -> int:
+        # Bitmask covering all bits of a lon
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_long_sign_mask(self) -> int:
+        # Bitmask covering the sign bit of a long long
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _long_inv_mask(self) -> int:
+        # Bitmask covering all bits of a long long
+        raise NotImplementedError()
+
+    # Mask for sign-extending 32-bit numbers to 64-bit.
+    _int_signext_mask = 0xFFFFFFFF00000000
+
+    # *** Configuration Constants ***
+    #
+    # It turns out most ABIs follow a generalizable pattern
+    # when it comes to passing arguments.
+    #
+    # The following static fields are the configurations for this pattern.
+    # The actual implementation for adding an argument to the signature,
+    # and fetching an argument from the emulator
+    # are in the functions `add_argument` and `get_argument`.
+    #
+    # These are separate because they're used by fixed and variadic calls,
+    # which are handled separately.
+
+    @property
+    @abc.abstractmethod
+    def _four_byte_types(self) -> typing.Set[ArgumentType]:
+        """Types that are four bytes in this ABI."""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _eight_byte_types(self) -> typing.Set[ArgumentType]:
+        """Types that are eight bytes in this ABI."""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _four_byte_arg_regs(self) -> typing.List[str]:
+        """Registers for four-byte arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _eight_byte_arg_regs(self) -> typing.List[str]:
+        """Registers for eight-byte arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _fp_as_int(self) -> bool:
+        """Use int regs for fp arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _floats_are_doubles(self) -> bool:
+        """Floats are actually stored as doubles"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _float_arg_regs(self) -> typing.List[str]:
+        """Registers for float arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _double_arg_regs(self) -> typing.List[str]:
+        """Registers for double arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _init_stack_offset(self) -> int:
+        """Initial offset for stack arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _align_stack(self) -> bool:
+        """Align stack for eight-byte values"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _eight_byte_reg_size(self) -> int:
+        """Number of registers required for an eight-byte value"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _double_reg_size(self) -> int:
+        """Number of registers required for a double value"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _four_byte_stack_size(self) -> int:
+        """Size of a four-byte argument on the stack.  Not always four bytes"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _eight_byte_stack_size(self) -> int:
+        """Size of an eight-byte argument on the stack."""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _float_stack_size(self) -> int:
+        """Size of a float on the stack"""
+        raise NotImplementedError()
+
+    @property
+    def _double_stack_size(self) -> int:
+        """Size of a double on the stack"""
+        raise NotImplementedError()
+
+
+class VariadicContext:
+    """Context for extracting variadic arguments
+
+    Variadic functions extend the argument list at runtime.
+    Handling this requires dynamically updating the
+    list of arguments.  I'd rather do this on a throw-away object
+    than on a Model object that will have to reset itself
+    for multiple invocations.
+
+    """
+
+    def __init__(self, parent: CStdModel) -> None:
+        self.name = parent.name
+        self.platform = parent.platform
+        self.platdef = parent.platdef
+
+        # Copy the calling convention specification from the parent
+        # It's this, or slow the interpreter down by using properties.
+        self._int_sign_mask = parent._int_sign_mask
+        self._int_inv_mask = parent._int_inv_mask
+        self._long_sign_mask = parent._long_sign_mask
+        self._long_inv_mask = parent._long_inv_mask
+        self._long_long_sign_mask = parent._long_long_sign_mask
+        self._long_long_inv_mask = parent._long_long_inv_mask
+
+        self._four_byte_types = parent._four_byte_types
+        self._eight_byte_types = parent._eight_byte_types
+        self._four_byte_arg_regs = parent._four_byte_arg_regs
+        self._eight_byte_arg_regs = parent._eight_byte_arg_regs
+        self._fp_as_int = parent._fp_as_int
+        self._floats_are_doubles = parent._floats_are_doubles
+        self._float_arg_regs = parent._float_arg_regs
+        self._double_arg_regs = parent._double_arg_regs
+        self._init_stack_offset = parent._init_stack_offset
+        self._align_stack = parent._align_stack
+        self._eight_byte_reg_size = parent._eight_byte_reg_size
+        self._double_reg_size = parent._double_reg_size
+        self._four_byte_stack_size = parent._four_byte_stack_size
+        self._eight_byte_stack_size = parent._eight_byte_stack_size
+        self._float_stack_size = parent._float_stack_size
+        self._double_stack_size = parent._double_stack_size
+
+        # Copy the parent's current argument state
+        self._int_reg_offset = parent._int_reg_offset
+        self._fp_reg_offset = parent._fp_reg_offset
+        self._stack_offset = parent._stack_offset
+
+        self._on_stack = parent._on_stack.copy()
+        self._arg_offset = parent._arg_offset.copy()
+
+    def get_next_arg(
+        self, kind: ArgumentType, emulator: emulators.Emulator
+    ) -> typing.Union[int, float]:
+        """Get the next argument of an assumed type"""
+        index = len(self._on_stack)
+
+        add_argument(index, kind, self)
+        return get_argument(self, index, kind, emulator)

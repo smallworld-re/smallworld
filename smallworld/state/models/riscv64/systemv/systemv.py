@@ -1,7 +1,6 @@
 import struct
-import typing
 
-from ..... import emulators, exceptions, platforms
+from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdModel
 
 
@@ -32,7 +31,7 @@ class RiscV64SysVModel(CStdModel):
         ArgumentType.POINTER,
     }
 
-    _four_byte_arg_regs = ["a0", "a1", "a2", "a3", "a4", "a5"]
+    _four_byte_arg_regs = ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"]
 
     _eight_byte_arg_regs = [
         "a0",
@@ -41,67 +40,24 @@ class RiscV64SysVModel(CStdModel):
         "a3",
         "a4",
         "a5",
+        "a6",
+        "a7",
     ]
 
+    _fp_as_int = False
+    _floats_are_doubles = False
     _float_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6"]
 
-    _double_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5"]
+    _double_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6"]
 
-    def __init__(self, address: int):
-        super().__init__(address)
-
-        self._int_args = dict()
-        self._fp_args = dict()
-
-        int_arg_idx = 0
-        fp_arg_idx = 0
-
-        for idx in range(0, len(self.argument_types)):
-            arg = self.argument_types[idx]
-            if arg in self._four_byte_types or arg in self._eight_byte_types:
-                self._int_args[idx] = int_arg_idx
-                int_arg_idx += 1
-            elif arg in (ArgumentType.FLOAT, ArgumentType.DOUBLE):
-                self._fp_args[idx] = fp_arg_idx
-                fp_arg_idx += 1
-            else:
-                raise Exception(
-                    f"Unknown argument type {arg} for argument {idx} of {self.name}"
-                )
-
-    def _get_argument(
-        self,
-        index: int,
-        kind: ArgumentType,
-        emulator: emulators.Emulator,
-    ) -> typing.Union[int, float]:
-        if kind in self._four_byte_types:
-            index = self._int_args[index]
-            return emulator.read_register(self._four_byte_arg_regs[index])
-
-        elif kind in self._eight_byte_types:
-            index = self._int_args[index]
-            return emulator.read_register(self._eight_byte_arg_regs[index])
-
-        elif kind == ArgumentType.FLOAT:
-            index = self._fp_args[index]
-            intval = emulator.read_register(self._float_arg_regs[index])
-            intval &= self._int_inv_mask
-            byteval = intval.to_bytes(4, "little")
-            (floatval,) = struct.unpack("<f", byteval)
-            return floatval
-
-        elif self.argument_types[index] == ArgumentType.DOUBLE:
-            index = self._fp_args[index]
-            intval = emulator.read_register(self._double_arg_regs[index])
-            byteval = intval.to_bytes(8, "little")
-            (floatval,) = struct.unpack("<d", byteval)
-            return floatval
-
-        else:
-            raise exceptions.ConfigurationError(
-                "Unknown type {self.argument_types[i]} for argument {i + 1} of {self.name"
-            )
+    _init_stack_offset = 0
+    _align_stack = False
+    _eight_byte_reg_size = 1
+    _double_reg_size = 1
+    _four_byte_stack_size = 8
+    _eight_byte_stack_size = 8
+    _float_stack_size = 8
+    _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""

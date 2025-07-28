@@ -121,6 +121,7 @@ class PowerPCPlatformDef(PlatformDef):
     }
 
     pc_register = "pc"
+    sp_register = "sp"
 
     # Special registers
     # - r0 and r2 are reserved for the assembler.

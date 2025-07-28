@@ -1,6 +1,4 @@
-import typing
-
-from ..... import emulators, exceptions, platforms
+from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdModel
 
 
@@ -38,104 +36,22 @@ class ArmELSysVModel(CStdModel):
         ArgumentType.ULONGLONG,
     }
 
-    _argument_regs = ["r0", "r1", "r2", "r3"]
+    _four_byte_arg_regs = ["r0", "r1", "r2", "r3"]
+    _eight_byte_arg_regs = ["r0", "r1", "r2", "r3"]
 
-    def __init__(self, address):
-        super().__init__(address)
-        # - ARM32 allows for four argument registers: r0 - r3.
-        #   - 4-byte int arguments take up one register.
-        #   - 8-byte int arguments take up two registers, and must start on an even-numbered register.
-        #     - Case: func(int a, long long b)
-        #       - r0: holds 'a'
-        #       - r1: unused
-        #       - r2: holds 'b'
-        #       - r3: holds 'b'
-        # - Further arguments are stored on the stack.
-        #   - 4-byte int arguments must be 4-byte aligned
-        #   - 8-byte int arguments must be 8-byte aligned
-        #   - Case: func(long long a, int b, long long c)
-        #       - r0:       holds 'a'
-        #       - r1:       holds 'a'
-        #       - r2:       holds 'b'
-        #       - r3:       unused
-        #       - sp[0:8]:  holds 'c'
-        #   - Case: func(long long a, long long b, int c, long long d)
-        #       - r0:       holds 'a'
-        #       - r1:       holds 'a'
-        #       - r2:       holds 'b'
-        #       - r3:       holds 'b'
-        #       - sp[0:4]:  holds 'c'
-        #       - sp[4:8]:  unused
-        #       - sp[8:16]: holds 'd'
-        reg_offset = 0
-        stack_offset = 0
+    _fp_as_int = True
+    _floats_are_doubles = False
+    _float_arg_regs = []
+    _double_arg_regs = []
 
-        self._on_stack = list()
-        self._arg_offset = list()
-
-        for i in range(0, len(self.argument_types)):
-            t = self.argument_types[i]
-            if t in self._four_byte_types or t == ArgumentType.FLOAT:
-                if reg_offset == 4:
-                    self._on_stack.append(True)
-                    self._arg_offset.append(stack_offset)
-                    stack_offset += 4
-                else:
-                    self._on_stack.append(False)
-                    self._arg_offset.append(reg_offset)
-                    reg_offset += 1
-            elif t in self._eight_byte_types or t == ArgumentType.DOUBLE:
-                if reg_offset >= 3:
-                    reg_offset = 4
-                    if stack_offset & 0x4 != 0:
-                        stack_offset += 4
-                    self._on_stack.append(True)
-                    self._arg_offset.append(stack_offset)
-                    stack_offset += 8
-                else:
-                    if reg_offset & 1 != 0:
-                        reg_offset += 1
-                    self._on_stack.append(False)
-                    self._arg_offset.append(reg_offset)
-                    reg_offset += 2
-            else:
-                raise exceptions.ConfigurationError(
-                    f"{self.name} argument {i} has unknown type {t}"
-                )
-
-    def _get_argument(
-        self,
-        index: int,
-        kind: ArgumentType,
-        emulator: emulators.Emulator,
-    ) -> typing.Union[int, float]:
-        on_stack = self._on_stack[index]
-        arg_offset = self._arg_offset[index]
-
-        if kind in self._four_byte_types:
-            if on_stack:
-                addr = emulator.read_register("sp") + arg_offset
-                data = emulator.read_memory(addr, 4)
-                return int.from_bytes(data, "little")
-            else:
-                return emulator.read_register(self._argument_regs[arg_offset])
-        elif kind in self._eight_byte_types:
-            if on_stack:
-                addr = emulator.read_register("sp") + arg_offset
-                data = emulator.read_memory(addr, 8)
-                return int.from_bytes(data, "little")
-            else:
-                lo = emulator.read_register(self._argument_regs[arg_offset])
-                hi = emulator.read_register(self._argument_regs[arg_offset + 1])
-                return (hi << 32) | lo
-        elif kind == ArgumentType.FLOAT:
-            raise NotImplementedError("TODO: Support float args for armv5t")
-        elif kind == ArgumentType.DOUBLE:
-            raise NotImplementedError("TODO: Support double args for armv5t")
-        else:
-            raise exceptions.ConfigurationError(
-                f"{self.name} argument {index} has unknown type {kind}"
-            )
+    _init_stack_offset = 0
+    _align_stack = True
+    _eight_byte_reg_size = 2
+    _double_reg_size = 2
+    _four_byte_stack_size = 4
+    _eight_byte_stack_size = 8
+    _float_stack_size = 4
+    _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         emulator.write_register("r0", val)

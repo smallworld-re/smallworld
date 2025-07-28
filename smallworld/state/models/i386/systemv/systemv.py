@@ -1,7 +1,4 @@
-import struct
-import typing
-
-from ..... import emulators, exceptions, platforms
+from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdModel
 
 
@@ -35,60 +32,22 @@ class I386SysVModel(CStdModel):
         ArgumentType.ULONGLONG,
     }
 
-    def __init__(self, address: int):
-        super().__init__(address)
-        self._arg_offsets = []
+    _four_byte_arg_regs = []
+    _eight_byte_arg_regs = []
 
-        # Starting argument offset is esp + 4
-        # In most functions, you'll see it as esp + 8
-        # thanks to the pushed value of ebp.
-        offset = 4
-        for i in range(0, len(self.argument_types)):
-            self._arg_offsets.append(offset)
-            if self.argument_types[i] in self._four_byte_types:
-                offset += 4
-            elif self.argument_types[i] in self._eight_byte_types:
-                offset += 8
-            elif self.argument_types[i] == ArgumentType.FLOAT:
-                offset += 4
-            elif self.argument_types[i] == ArgumentType.DOUBLE:
-                offset += 8
-            else:
-                raise exceptions.ConfigurationError(
-                    f"{self.name} argument {i + 1} has unknown type {self.argument_types[i]}"
-                )
+    _fp_as_int = False
+    _floats_are_doubles = False
+    _float_arg_regs = []
+    _double_arg_regs = []
 
-    def _get_argument(
-        self,
-        index: int,
-        kind: ArgumentType,
-        emulator: emulators.Emulator,
-    ) -> typing.Union[int, float]:
-        addr = emulator.read_register("esp")
-        addr += self._arg_offsets[index]
-
-        if self.argument_types[index] in self._four_byte_types:
-            data = emulator.read_memory(addr, 4)
-            return int.from_bytes(data, "little")
-
-        elif self.argument_types[index] in self._eight_byte_types:
-            data = emulator.read_memory(addr, 8)
-            return int.from_bytes(data, "little")
-
-        elif self.argument_types[index] == ArgumentType.FLOAT:
-            data = emulator.read_memory(addr, 4)
-            (floatval,) = struct.unpack("<f", data)
-            return floatval
-
-        elif self.argument_types[index] == ArgumentType.DOUBLE:
-            data = emulator.read_memory(addr, 8)
-            (floatval,) = struct.unpack("<f", data)
-            return floatval
-
-        else:
-            raise exceptions.ConfigurationError(
-                "Unknown type {self.argument_types[i]} for argument {i + 1} of {self.name"
-            )
+    _init_stack_offset = 4
+    _align_stack = False
+    _eight_byte_reg_size = 1
+    _double_reg_size = 1
+    _four_byte_stack_size = 4
+    _eight_byte_stack_size = 8
+    _float_stack_size = 4
+    _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
