@@ -2178,6 +2178,44 @@ class SymbolicTests(ScriptIntegrationTest):
         self.command("python3 symbolic/square.amd64.angr.symbolic.py")
 
 
+class SysVModelTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        self.command(f"python3 sysv/sysv.{arch}.py")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_mips(self):
+        self.run_test("mips")
+
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_mips64(self):
+        self.run_test("mips64")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
+
+    def test_ppc(self):
+        self.run_test("ppc")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
+
 class AbsLibraryModelTest(ScriptIntegrationTest):
     """Test case for library models.
 

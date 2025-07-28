@@ -151,6 +151,7 @@ jobs:
           - testsuite: StrlenTests
           - testsuite: StructureTests
           - testsuite: SyscallTests
+          - testsuite: SysVModelTests
     steps:
       - name: Preinit
         run: |
