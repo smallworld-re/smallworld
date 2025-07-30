@@ -77,6 +77,7 @@ class UnicornEmulator(
             self.platdef.capstone_arch, self.platdef.capstone_mode
         )
         self.disassembler.detail = True
+        self._arm32_thumb_override = False
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
@@ -517,29 +518,57 @@ class UnicornEmulator(
                 "at least one exit point must be set, emulation cannot start"
             )
 
-    # Handle Thumb ISA exchange for ARM32
-    def _handle_thumb_interwork(self, pc) -> int:
-        # Check for ARM32 processor
-        if self.platform.architecture not in [
+    def _check_arm32_platform(self):
+        """Check for ARM32 platform architecture"""
+        return self.platform.architecture in [
             platforms.Architecture.ARM_V5T,
             platforms.Architecture.ARM_V6M,
             platforms.Architecture.ARM_V7A,
             platforms.Architecture.ARM_V7M,
             platforms.Architecture.ARM_V7R,
-        ]:
+        ]
+
+    def get_thumb(self) -> bool:
+        """For ARM32 platforms, returns true if emulator is in Thumb mode."""
+        if not self._check_arm32_platform():
+            raise exceptions.ConfigurationError(
+                "called get_thumb() on non-ARM32 system"
+            )
+
+        if self._arm32_thumb_override:
+            return True
+
+        CPSR_THUMB_MODE_MASK = 0x20
+        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
+        if cpsr & CPSR_THUMB_MODE_MASK:
+            return True
+        else:
+            return False
+
+    def set_thumb(self) -> None:
+        """For ARM32 platforms, sets execution to start in Thumb mode."""
+        if not self._check_arm32_platform():
+            raise exceptions.ConfigurationError(
+                "called set_thumb() on non-ARM32 system"
+            )
+
+        self._arm32_thumb_override = True
+
+    # Handle Thumb ISA exchange for ARM32
+    def _handle_thumb_interwork(self, pc) -> int:
+        if not self._check_arm32_platform():
             return pc
 
         # emu_start clears thumb mode if the low bit of pc != 1.
         # We use CPSR to determine if unicorn was previously in thumb
         # mode and set the low bit to 1 to maintain it. We also set
         # the mode of the disassembler.
-        CPSR_THUMB_MODE_MASK = 0x20
-        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-        if cpsr & CPSR_THUMB_MODE_MASK:
+        if self._arm32_thumb_override or self.get_thumb():
             pc |= 1
             self.disassembler.mode = capstone.CS_MODE_THUMB
         else:
             self.disassembler.mode = capstone.CS_MODE_ARM
+        self._arm32_thumb_override = False
 
         return pc
 
