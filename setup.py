@@ -8,7 +8,7 @@ with open("README.md", "r", encoding="utf-8") as f:
 immediate_dependencies = {
     "angr",
     "capstone",
-    "jsons", 
+    "jsons",
     "lief",
     "pyhidra",
     "pypcode",
