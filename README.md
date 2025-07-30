@@ -19,19 +19,19 @@ There are two fundamental tenets behind SmallWorld
 
 The first of these tenets we hope to support with good software APIs. As a very
 simple example, consider the harnessing script
-[square.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square.amd64.py),
+[square.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square/square.amd64.py),
 composed using SmallWorld, in which registers are initialized and a stack is
 arranged for running the code in
-[square.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/square.amd64.s).
+[square.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/square/square.amd64.s).
 For a more sophisticated example of SmallWorld's harnessing facitilites,
 consider the code snippet
-[struct.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.amd64.s),
+[struct.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct/struct.amd64.s),
 which assumes a stack and input pointers to a linked list with very specific
 format. The harnessing script in this case is more complicated, including
 specifying type information for the linked list element structures as well as
 use of a simple allocator abstraction provided by SmallWorld to instantiate
 nodes and link them together appropriately:
-[struct.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct.py).
+[struct.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/struct/struct.amd64.py).
 
 The second tenet we address with purpose-built analyses which leverage a
 (possibly incomplete) harness script and that use techniques such as [Micro
@@ -47,7 +47,12 @@ SmallWorld directly supports yet.
 
 ## Installation
 
-To install SmallWorld from this repo, [optionally set up a venv](https://docs.python.org/3/library/venv.html) and then run:
+SmallWorld can be installed [directly from PyPi](https://pypi.org/project/smallworld-re/), just:
+```bash
+pip install smallworld-re
+```
+
+If you'd like to install the latest changes or do development, you can install directly. To install SmallWorld from this repo, [optionally set up a venv](https://docs.python.org/3/library/venv.html) and then run:
 
 ```bash
 pip install .
@@ -61,7 +66,15 @@ Pull requests and issues more than welcome.
 
 ### Development
 
-To set up a development environment from this repo, install SmallWorld in
+#### The Easy Way
+To set up a development environment from this repo, the easiest method is to use
+the install script `install.sh`. This has been tested on Ubuntu 22.04 and may be run
+as the root user, or a non-root user with sudo permissions.
+This will both install SmallWorld and build the unit and integration tests.
+Note that installation will not work fully on an ARM and is not supported.
+
+#### The Hard Way
+To manually set up a development environment from this repo, install SmallWorld in
 editable mode with extras for development and testing. Use the include
 constraints to install frozen versions and ensure a consistent development
 environment.
@@ -96,7 +109,7 @@ You can then build the tests by running:
 ```bash
 make -C tests
 
-ulimit --core unlimited
+ulimit -c unlimited
 make -C tests/elf_core
 ```
 
