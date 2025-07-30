@@ -2234,18 +2234,17 @@ class TraceExecutionTests(ScriptIntegrationTest):
             foo = re.search('"pc": ([0-9]+)', line)
             if foo:
                 pc = int(foo.groups()[0])
-            foo = re.search('"cmp": \[(.*)\], "immediates', line)
+            foo = re.search(r'"cmp": \[(.*)\], "immediates', line)
             if foo:
                 cmpi = foo.groups()[0]
                 if cmpi == "":
                     continue
-                null = None
                 c = eval(cmpi)
                 if pc not in cmps:
                     cmps[pc] = [c]
                 else:
                     cmps[pc].append(c)
-            foo = re.search('"immediates": (\[.*\]), "mnemonic"', line)
+            foo = re.search(r'"immediates": (\[.*\]), "mnemonic"', line)
             if foo:
                 i = eval(foo.groups()[0])
                 if len(i) > 0:
@@ -2763,7 +2762,7 @@ class ColorizerTests(ScriptIntegrationTest):
                 (message, pcs, colors, cls) = foo.groups()
                 if "DynamicMemoryValueSummaryHint" in cls:
                     foo = re.search(
-                        '"base": "(.*)", "index": "(.*)", "scale": ([0-9\-]+), "offset": ([0-9\-]+)',
+                        r'"base": "(.*)", "index": "(.*)", "scale": ([0-9-]+), "offset": ([0-9-]+)',
                         line,
                     )
                     assert foo is not None
