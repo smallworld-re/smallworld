@@ -1023,9 +1023,9 @@ class StructureTests(ScriptIntegrationTest):
 
         self.assertLineContainsStrings(
             stderr,
-            "emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)"
+            "emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)",
         )
-        
+
     def test_unicorn(self):
         stdout, _ = self.command("python3 struct/struct.amd64.py")
         self.assertLineContainsStrings(stdout, "arg2 = 42")

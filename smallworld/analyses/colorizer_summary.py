@@ -72,8 +72,8 @@ class ColorizerSummary(analysis.Filter):
 
     def collect_hints(self, hint):
         self.hint_list.append(hint)
-        if 1+hint.micro_exec_num > self.num_micro_executions:
-            self.num_micro_executions = 1+hint.micro_exec_num
+        if 1 + hint.micro_exec_num > self.num_micro_executions:
+            self.num_micro_executions = 1 + hint.micro_exec_num
 
     def activate(self):
         self.listen(hinting.DynamicRegisterValueHint, self.collect_hints)
