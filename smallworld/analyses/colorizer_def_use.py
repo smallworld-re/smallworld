@@ -1,6 +1,7 @@
 # mypy: ignore-errors
 
 import functools
+import re
 
 import networkx as nx
 
@@ -23,7 +24,7 @@ class DefUseGraph(nx.MultiDiGraph):
         )
 
 
-debug = False
+debug = True
 
 
 class ColorizerDefUse(analysis.Filter):
@@ -95,10 +96,18 @@ class ColorizerDefUse(analysis.Filter):
                 # this is a read
                 # hallucinate a node representing the creation of that color
                 color_node = f"input color-{hint.color}"
-                assert dv_info["type"] == "reg"
-                if dv_info["type"] == "reg":
-                    color_node = color_node + " " + dv_info["reg_name"] + "_init"
+                assert dv_info["type"] == "reg" or dv_info["type"] == "mem"
 
+                if dv_info["type"] == "reg":
+                    color_node = color_node + " " + dv_info["reg_name"]
+                if dv_info["type"] == "mem":
+                    color_node = color_node + " *(" + dv_info["base"]
+                    if dv_info["index"] != "None":
+                        color_node += f"{dv_info['scale']}*{dv_info['index']}"
+                    if dv_info["offset"] > 0:
+                        color_node += f"{dv_info['offset']}"
+                    color_node += ")"
+                color_node += "_init"
                 du_graph.add_node(color_node)
                 # record mapping from this color to its creation info
                 color2genesis[hint.color] = (color_node, dv_info)
@@ -132,6 +141,60 @@ class ColorizerDefUse(analysis.Filter):
                 message="concrete-summary-def-use-graph",
             )
         )
+
+        with open("colorizer_def_use.dot", "w") as dot:
+
+            def writeit(foo):
+                print(foo)
+                dot.write(foo + "\n")
+
+            writeit("digraph{")
+            writeit(" rankdir=LR")
+
+            node2nodeid = {}
+            for node in du_graph.nodes:
+                # 4461 is pc
+                # {"id": 4461},
+                # An input color rsp is register
+                # {"id": "input color-1 rsp_init"},
+                node_id = f"node_{len(node2nodeid)}"
+                if type(node) is int:
+                    # nodeinfo = ("instruction", f"0x{node}")
+                    writeit(f'  {node_id} [label="0x{node:x}"]')
+                else:
+                    assert type(node) is str
+                    foo = re.search("input color-([0-9]+) ([a-z0-9]+)_init", node)
+                    if foo:
+                        if foo is None:
+                            breakpoint()
+                            assert foo is not None
+                    else:
+                        foo = re.search("input color-([0-9]+) (.*)_init", node)
+                    if foo is None:
+                        breakpoint()
+                    assert foo is not None
+                    (cns, reg) = foo.groups()
+                    cn = int(cns)
+                    # nodeinfo = ("input", (cn, reg))
+                    writeit(f'  {node_id} [color="blue", label="input({reg})"]')
+                node2nodeid[node] = node_id
+
+            di = nx.get_edge_attributes(du_graph, "def_info")
+            ui = nx.get_edge_attributes(du_graph, "use_info")
+            for e in du_graph.edges:
+                print(e)
+                if type(di[e]) is str:
+                    foo = re.search("color-([0-9]+) (.*)_init", di[e])
+                    (cns, reg) = foo.groups()
+                    cn = int(cns)
+                    assert cn == ui[e]["color"]
+                else:
+                    assert di[e]["color"] == ui[e]["color"]
+                (src, dst, k) = e
+                cn = ui[e]["color"]
+                writeit(f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}"]')
+
+            writeit("}\n")
 
         if debug:
             nodes = []
