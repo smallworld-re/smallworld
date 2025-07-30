@@ -4,6 +4,9 @@ on:
     branches: [main]
     types: [opened, synchronize, reopen, edited]
 
+env:
+  REGISTRY: harbor.harbor.svc.cluster.local
+
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -25,9 +28,9 @@ jobs:
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          location = "$REGISTRY"
           insecure = true
           EOF
 
@@ -74,22 +77,19 @@ jobs:
 
       - name: Login to registry
         if: steps.ac.outputs.changes_detected == 'false'
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
 
       - name: Build Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          IMAGE=docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          IMAGE=$REGISTRY/smallworld/smallworld:${{ github.sha }}
           podman build --ulimit core=-1:-1 --network host -t "$IMAGE" .
 
       - name: Save Container
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld:${{ github.sha }}
 
   Unit-Test:
     runs-on: smallworld-arc
@@ -103,23 +103,20 @@ jobs:
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          location = "$REGISTRY"
           insecure = true
           EOF
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
 
       - name: Load Container
         run: |
-          podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
-          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -156,26 +153,25 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y podman
+
       - name: Allow HTTP for the in-cluster registry
         run: |
           sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          location = "$REGISTRY"
           insecure = true
           EOF
-
+      
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
 
       - name: Load Container
         run: |
-          podman pull docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }}
-          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld:${{ github.sha }} smallworld:latest
+          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
+
       - name: Run Integration Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
