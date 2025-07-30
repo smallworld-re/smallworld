@@ -93,7 +93,7 @@ jobs:
           - testsuite: BlockTests
           - testsuite: BranchTests
           - testsuite: CallTests
-	  - testsuite: ColorizerTests
+  	      - testsuite: ColorizerTests
           - testsuite: DMATests
           - testsuite: DocumentationTests
           - testsuite: ElfTests
