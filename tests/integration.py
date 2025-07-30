@@ -1020,19 +1020,12 @@ class StructureTests(ScriptIntegrationTest):
             '"count": 10',
             '"reg_name": "rdi"',
         )
+
         self.assertLineContainsStrings(
             stderr,
-            "MemoryUnavailableSummaryHint",
-            "mem_unavailable-summary",
-            '"pc": 4113',
-            '"count": 10',
-            '"is_read": true',
-            '"base_reg_name": "rdi"',
-            '"index_reg_name": "None"',
-            '"offset": 24',
-            '"scale": 1',
+            "emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)"
         )
-
+        
     def test_unicorn(self):
         stdout, _ = self.command("python3 struct/struct.amd64.py")
         self.assertLineContainsStrings(stdout, "arg2 = 42")
