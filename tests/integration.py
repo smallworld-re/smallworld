@@ -3161,6 +3161,14 @@ class ThumbTests(ScriptIntegrationTest):
             self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x6")
             # check program result for run starting in Thumb mode
             self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x4")
+            # check program mode pre-execution, starting in Thumb
+            self.assertLineContainsStrings(stdout, f"GET_THUMB_PRE1_{arch.name}=True")
+            # check program mode post-execution, ending in ARM
+            self.assertLineContainsStrings(stdout, f"GET_THUMB_POST1_{arch.name}=False")
+            # check program mode pre-execution, starting in ARM
+            self.assertLineContainsStrings(stdout, f"GET_THUMB_PRE2_{arch.name}=False")
+            # check program mode post-execution, ending in Thumb
+            self.assertLineContainsStrings(stdout, f"GET_THUMB_POST2_{arch.name}=True")
 
     def test_thumb_armhf(self):
         archs = [

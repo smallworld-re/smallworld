@@ -7,7 +7,7 @@ from smallworld.state.cpus.arm import ARM
 smallworld.logging.setup_logging(level=logging.INFO)
 smallworld.hinting.setup_hinting(level=logging.DEBUG)
 
-THUMB_BLOCK_OFFSET = 0x11
+THUMB_BLOCK_OFFSET = 0x10
 
 for arch in [
     smallworld.platforms.Architecture.ARM_V7A,
@@ -37,6 +37,7 @@ for arch in [
 
     # test step_instruction starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
+    emulator.set_thumb()
     cpu.r0.set(0)
     for step in machine.step(emulator):
         pass
@@ -55,6 +56,7 @@ for arch in [
 
     # test step_block starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
+    emulator.set_thumb()
     cpu.r0.set(0)
     machine.apply(emulator)
     emulator.step_block()
@@ -71,7 +73,26 @@ for arch in [
 
     # test run starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
+    emulator.set_thumb()
     cpu.r0.set(0)
     machine.emulate(emulator)
     cpu.r0.extract(emulator)
     print(f"RUN_{arch.name}={hex(cpu.r0.get())}")
+
+    # test mode change Thumb->ARM
+    cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
+    emulator.set_thumb()
+    print(f"GET_THUMB_PRE1_{arch.name}={emulator.get_thumb()}")
+    cpu.r0.set(0)
+    machine.emulate(emulator)
+    cpu.r0.extract(emulator)
+    print(f"GET_THUMB_POST1_{arch.name}={emulator.get_thumb()}")
+
+    # test mode change ARM->Thumb
+    cpu.pc.set(code.address)
+    print(f"GET_THUMB_PRE2_{arch.name}={emulator.get_thumb()}")
+    machine.add_exit_point(code.address + 0x14)
+    cpu.r0.set(0)
+    machine.emulate(emulator)
+    cpu.r0.extract(emulator)
+    print(f"GET_THUMB_POST2_{arch.name}={emulator.get_thumb()}")
