@@ -33,6 +33,7 @@ Colors = typing.Dict[int, typing.Tuple[Operand, int, int, Instruction, int]]
 
 Shad = typing.Dict[int, typing.Tuple[int, bool, int]]
 
+
 class Colorizer(analysis.Analysis):
     """
     A simple kind of data flow analysis via tracking distinct values
@@ -122,7 +123,7 @@ class Colorizer(analysis.Analysis):
         for i in range(self.num_micro_executions):
             logger.info("-------------------------")
             logger.info(f"Gathering trace for micro exec {i}")
-            
+
             traceA = TraceExecution(self.num_insns, True, self.seed + i)
             traceA.run(machine)
             patch.append(traceA.get_patch())
@@ -255,7 +256,7 @@ class Colorizer(analysis.Analysis):
             return struct.unpack("<L", the_bytes)[0]
         if size == 2:
             return struct.unpack("<H", the_bytes)[0]
-        assert(size == 1)
+        assert size == 1
         return struct.unpack("<B", the_bytes)[0]
 
     def _add_color(

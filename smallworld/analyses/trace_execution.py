@@ -51,10 +51,9 @@ def get_cmp_info(
             if op.type == capstone.x86.X86_OP_IMM:
                 immediates.append(op.value.imm)
         return (cmp_info, immediates)
-# smallworld/analyses/trace_execution.py:55: error: Incompatible return value type
-# (got      "tuple[list[tuple[str, Any, Any]], list[Any]]",
-#  expected "tuple[list[list[tuple[Operand | None, int]]], list[int]]")  [return-value]
-
+    # smallworld/analyses/trace_execution.py:55: error: Incompatible return value type
+    # (got      "tuple[list[tuple[str, Any, Any]], list[Any]]",
+    #  expected "tuple[list[list[tuple[Operand | None, int]]], list[int]]")  [return-value]
 
     # its not a compare at all
     return ([], [])
@@ -65,6 +64,7 @@ class TraceRes(Enum):
     ER_BOUNDS = 1
     ER_MAX_INSNS = 2
     ER_FAIL = 3
+
 
 # one element in a trace
 @dataclass
@@ -182,7 +182,9 @@ class TraceExecution(analysis.Analysis):
             self.after_instruction_cbs.append(cb_function)
 
     def run(
-        self, machine: smallworld.state.Machine, patch: typing.Union[None,typing.List[Patch]] = None
+        self,
+        machine: smallworld.state.Machine,
+        patch: typing.Union[None, typing.List[Patch]] = None,
     ) -> None:
         self.machine = copy.deepcopy(machine)
         self.platform = machine.get_platform()
