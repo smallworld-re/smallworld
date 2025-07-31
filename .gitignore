@@ -4,7 +4,7 @@
 *.json
 *.elf
 *.so
-
 *.egg-info/
+venv/
 dist/
 build/
