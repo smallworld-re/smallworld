@@ -96,12 +96,12 @@ class Foo(smallworld.state.models.armhf.systemv.systemv.ArmHFSysVModel):
         varargs = self.get_varargs()
 
         # Skip argument six
-        varargs.get_next_arg(
+        varargs.get_next_argument(
             smallworld.state.models.cstd.ArgumentType.ULONGLONG, emulator
         )
 
         arg7_expected = 0xC001D00D
-        arg7_actual = varargs.get_next_arg(
+        arg7_actual = varargs.get_next_argument(
             smallworld.state.models.cstd.ArgumentType.UINT, emulator
         )
         assert isinstance(arg7_actual, int)
@@ -111,10 +111,12 @@ class Foo(smallworld.state.models.armhf.systemv.systemv.ArmHFSysVModel):
             )
 
         # Skip argument eight
-        varargs.get_next_arg(smallworld.state.models.cstd.ArgumentType.UINT, emulator)
+        varargs.get_next_argument(
+            smallworld.state.models.cstd.ArgumentType.UINT, emulator
+        )
 
         arg9_expected = 0x1337BEEF
-        arg9_actual = varargs.get_next_arg(
+        arg9_actual = varargs.get_next_argument(
             smallworld.state.models.cstd.ArgumentType.ULONGLONG, emulator
         )
         assert isinstance(arg9_actual, int)

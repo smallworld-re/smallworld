@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class ArmELSysVSscanf(Sscanf, ArmELSysVModel):
     pass
 
 
-class ArmELSysVClearerror(Clearerror, ArmELSysVModel):
+class ArmELSysVClearerr(Clearerr, ArmELSysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "ArmELSysVSnprintf",
     "ArmELSysVSprintf",
     "ArmELSysVSscanf",
-    "ArmELSysVClearerror",
+    "ArmELSysVClearerr",
     "ArmELSysVFflush",
     "ArmELSysVFreopen",
     "ArmELSysVFgetpos",

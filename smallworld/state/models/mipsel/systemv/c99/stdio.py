@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class MIPSELSysVSscanf(Sscanf, MIPSELSysVModel):
     pass
 
 
-class MIPSELSysVClearerror(Clearerror, MIPSELSysVModel):
+class MIPSELSysVClearerr(Clearerr, MIPSELSysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "MIPSELSysVSnprintf",
     "MIPSELSysVSprintf",
     "MIPSELSysVSscanf",
-    "MIPSELSysVClearerror",
+    "MIPSELSysVClearerr",
     "MIPSELSysVFflush",
     "MIPSELSysVFreopen",
     "MIPSELSysVFgetpos",

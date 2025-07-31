@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class AMD64SysVSscanf(Sscanf, AMD64SysVModel):
     pass
 
 
-class AMD64SysVClearerror(Clearerror, AMD64SysVModel):
+class AMD64SysVClearerr(Clearerr, AMD64SysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "AMD64SysVSnprintf",
     "AMD64SysVSprintf",
     "AMD64SysVSscanf",
-    "AMD64SysVClearerror",
+    "AMD64SysVClearerr",
     "AMD64SysVFflush",
     "AMD64SysVFreopen",
     "AMD64SysVFgetpos",

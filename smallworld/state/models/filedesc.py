@@ -142,7 +142,7 @@ class StdinFileDescriptor(FileDescriptor):
 
 class StdoutFileDescriptor(FileDescriptor):
     def __init__(self):
-        super().__init__("stdout", readable=True)
+        super().__init__("stdout", writable=True)
 
     @property
     def _backing(self) -> typing.IO:
@@ -151,7 +151,7 @@ class StdoutFileDescriptor(FileDescriptor):
 
 class StderrFileDescriptor(FileDescriptor):
     def __init__(self):
-        super().__init__("stderr", readable=True)
+        super().__init__("stderr", writable=True)
 
     @property
     def _backing(self) -> typing.IO:

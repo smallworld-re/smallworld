@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class MIPS64ELSysVSscanf(Sscanf, MIPS64ELSysVModel):
     pass
 
 
-class MIPS64ELSysVClearerror(Clearerror, MIPS64ELSysVModel):
+class MIPS64ELSysVClearerr(Clearerr, MIPS64ELSysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "MIPS64ELSysVSnprintf",
     "MIPS64ELSysVSprintf",
     "MIPS64ELSysVSscanf",
-    "MIPS64ELSysVClearerror",
+    "MIPS64ELSysVClearerr",
     "MIPS64ELSysVFflush",
     "MIPS64ELSysVFreopen",
     "MIPS64ELSysVFgetpos",

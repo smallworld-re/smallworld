@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class I386SysVSscanf(Sscanf, I386SysVModel):
     pass
 
 
-class I386SysVClearerror(Clearerror, I386SysVModel):
+class I386SysVClearerr(Clearerr, I386SysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "I386SysVSnprintf",
     "I386SysVSprintf",
     "I386SysVSscanf",
-    "I386SysVClearerror",
+    "I386SysVClearerr",
     "I386SysVFflush",
     "I386SysVFreopen",
     "I386SysVFgetpos",

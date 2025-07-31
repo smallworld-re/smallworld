@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class RiscV64SysVSscanf(Sscanf, RiscV64SysVModel):
     pass
 
 
-class RiscV64SysVClearerror(Clearerror, RiscV64SysVModel):
+class RiscV64SysVClearerr(Clearerr, RiscV64SysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "RiscV64SysVSnprintf",
     "RiscV64SysVSprintf",
     "RiscV64SysVSscanf",
-    "RiscV64SysVClearerror",
+    "RiscV64SysVClearerr",
     "RiscV64SysVFflush",
     "RiscV64SysVFreopen",
     "RiscV64SysVFgetpos",

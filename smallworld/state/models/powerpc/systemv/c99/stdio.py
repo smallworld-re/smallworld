@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class PowerPCSysVSscanf(Sscanf, PowerPCSysVModel):
     pass
 
 
-class PowerPCSysVClearerror(Clearerror, PowerPCSysVModel):
+class PowerPCSysVClearerr(Clearerr, PowerPCSysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "PowerPCSysVSnprintf",
     "PowerPCSysVSprintf",
     "PowerPCSysVSscanf",
-    "PowerPCSysVClearerror",
+    "PowerPCSysVClearerr",
     "PowerPCSysVFflush",
     "PowerPCSysVFreopen",
     "PowerPCSysVFgetpos",

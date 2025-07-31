@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class ArmHFSysVSscanf(Sscanf, ArmHFSysVModel):
     pass
 
 
-class ArmHFSysVClearerror(Clearerror, ArmHFSysVModel):
+class ArmHFSysVClearerr(Clearerr, ArmHFSysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "ArmHFSysVSnprintf",
     "ArmHFSysVSprintf",
     "ArmHFSysVSscanf",
-    "ArmHFSysVClearerror",
+    "ArmHFSysVClearerr",
     "ArmHFSysVFflush",
     "ArmHFSysVFreopen",
     "ArmHFSysVFgetpos",

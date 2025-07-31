@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class AArch64SysVSscanf(Sscanf, AArch64SysVModel):
     pass
 
 
-class AArch64SysVClearerror(Clearerror, AArch64SysVModel):
+class AArch64SysVClearerr(Clearerr, AArch64SysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "AArch64SysVSnprintf",
     "AArch64SysVSprintf",
     "AArch64SysVSscanf",
-    "AArch64SysVClearerror",
+    "AArch64SysVClearerr",
     "AArch64SysVFflush",
     "AArch64SysVFreopen",
     "AArch64SysVFgetpos",

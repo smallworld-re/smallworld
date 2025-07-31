@@ -36,6 +36,14 @@ class ArgumentType(enum.Enum):
     VOID = "void"
 
 
+signed_int_types = {
+    ArgumentType.INT,
+    ArgumentType.LONG,
+    ArgumentType.LONGLONG,
+    ArgumentType.SSIZE_T,
+}
+
+
 def add_argument(
     i: int, kind: ArgumentType, model: typing.Union["CStdModel", "VariadicContext"]
 ):
@@ -135,15 +143,19 @@ def get_argument(
                 intval = int.from_bytes(data, "little")
         else:
             intval = emulator.read_register(model._four_byte_arg_regs[arg_offset])
-        return intval & model._int_inv_mask
+        intval = intval & model._int_inv_mask
+        if kind in signed_int_types and (intval & model._int_sign_mask) != 0:
+            intval = (intval ^ model._int_inv_mask) + 1
+            intval *= -1
+        return intval
     elif kind in model._eight_byte_types:
         if on_stack:
             addr = emulator.read_register(sp) + arg_offset
             data = emulator.read_memory(addr, model._eight_byte_stack_size)
             if model.platform.byteorder == Byteorder.BIG:
-                return int.from_bytes(data, "big")
+                intval = int.from_bytes(data, "big")
             else:
-                return int.from_bytes(data, "little")
+                intval = int.from_bytes(data, "little")
         elif model._eight_byte_reg_size == 2:
             lo = emulator.read_register(model._eight_byte_arg_regs[arg_offset])
             hi = emulator.read_register(model._eight_byte_arg_regs[arg_offset + 1])
@@ -151,9 +163,13 @@ def get_argument(
                 tmp = lo
                 lo = hi
                 hi = tmp
-            return (hi << 32) | lo
+            intval = (hi << 32) | lo
         else:
-            return emulator.read_register(model._eight_byte_arg_regs[arg_offset])
+            intval = emulator.read_register(model._eight_byte_arg_regs[arg_offset])
+        if kind in signed_int_types and (intval & model._long_long_sign_mask) != 0:
+            intval = (intval ^ model._long_long_inv_mask) + 1
+            intval *= -1
+        return intval
     elif kind == ArgumentType.FLOAT:
         if on_stack:
             addr = emulator.read_register(sp) + arg_offset
@@ -201,7 +217,12 @@ def get_argument(
                     hi = tmp
                 intval = (hi << 32) | lo
             else:
-                intval = emulator.read_register(reg_array[arg_offset])
+                try:
+                    intval = emulator.read_register(reg_array[arg_offset])
+                except exceptions.SymbolicValueError:
+                    print(
+                        f"{reg_array[arg_offset]}: {emulator.read_register_symbolic(reg_array[arg_offset])}"
+                    )
 
         byteval = intval.to_bytes(8, "little")
         (floatval,) = struct.unpack("<d", byteval)
@@ -601,7 +622,7 @@ class VariadicContext:
         self._on_stack = parent._on_stack.copy()
         self._arg_offset = parent._arg_offset.copy()
 
-    def get_next_arg(
+    def get_next_argument(
         self, kind: ArgumentType, emulator: emulators.Emulator
     ) -> typing.Union[int, float]:
         """Get the next argument of an assumed type"""

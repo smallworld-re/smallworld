@@ -1,5 +1,5 @@
 from ....c99 import (
-    Clearerror,
+    Clearerr,
     Fclose,
     Feof,
     Ferror,
@@ -153,7 +153,7 @@ class MIPSSysVSscanf(Sscanf, MIPSSysVModel):
     pass
 
 
-class MIPSSysVClearerror(Clearerror, MIPSSysVModel):
+class MIPSSysVClearerr(Clearerr, MIPSSysVModel):
     pass
 
 
@@ -241,7 +241,7 @@ __all__ = [
     "MIPSSysVSnprintf",
     "MIPSSysVSprintf",
     "MIPSSysVSscanf",
-    "MIPSSysVClearerror",
+    "MIPSSysVClearerr",
     "MIPSSysVFflush",
     "MIPSSysVFreopen",
     "MIPSSysVFgetpos",

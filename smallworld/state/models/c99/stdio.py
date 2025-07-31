@@ -6,6 +6,7 @@ from .... import emulators, exceptions
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel
 from ..filedesc import FDIOError, FileDescriptorManager
+from .fmt import parse_printf_format
 from .utils import _emu_strlen
 
 
@@ -113,10 +114,10 @@ class Ferror(StdioModel):
         raise NotImplementedError()
 
 
-class Clearerror(StdioModel):
-    name = "ferror"
+class Clearerr(StdioModel):
+    name = "clearerr"
 
-    # void clearerror(FILE *file);
+    # void clearerr(FILE *file);
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.VOID
 
@@ -727,6 +728,7 @@ class Puts(StdioModel):
             return
 
         file.write(data)
+        file.write(b"\n")
 
         self.set_return_value(emulator, 0)
 
@@ -819,7 +821,24 @@ class Sprintf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        buf_addr = self.get_arg1(emulator)
+        fmt_addr = self.get_arg2(emulator)
+
+        assert isinstance(buf_addr, int)
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        output = parse_printf_format(self, fmt, emulator)
+        output_bytes = output.encode("utf-8")
+        output_bytes += b"\0"
+
+        emulator.write_memory(buf_addr, output_bytes)
+
+        self.set_return_value(emulator, len(output_bytes) - 1)
 
 
 class Sscanf(StdioModel):
@@ -972,7 +991,7 @@ class Vsscanf(StdioModel):
 
 
 __all__ = [
-    "Clearerror",
+    "Clearerr",
     "Fclose",
     "Feof",
     "Ferror",
