@@ -77,7 +77,7 @@ Note that installation will not work fully on an ARM and is not supported.
 To manually set up a development environment from this repo, install SmallWorld in
 editable mode with extras for development and testing. Use the include
 constraints to install frozen versions and ensure a consistent development
-environment. Note, cmake versions must be <= 3.27
+environment. Note, cmake version must be <= 3.27
 
 ```bash
 pip install -e ".[development]" -c constraints.txt
