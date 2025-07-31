@@ -80,7 +80,7 @@ constraints to install frozen versions and ensure a consistent development
 environment.
 
 ```bash
-pip install -e .[development] -c constraints.txt
+pip install -e ".[development]" -c constraints.txt
 ```
 
 #### Code Style
