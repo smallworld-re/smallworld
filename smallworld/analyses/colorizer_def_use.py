@@ -37,7 +37,10 @@ class ColorizerDefUse(analysis.Filter):
         self.not_new_hints = []
 
     def collect_hints(self, hint: hinting.Hint):
-        if type(hint) is hinting.DynamicRegisterValueSummaryHint or type(hint) is hinting.DynamicMemoryValueSummaryHint:
+        if (
+            type(hint) is hinting.DynamicRegisterValueSummaryHint
+            or type(hint) is hinting.DynamicMemoryValueSummaryHint
+        ):
             if hint.new:
                 self.new_hints.append(hint)
             else:
