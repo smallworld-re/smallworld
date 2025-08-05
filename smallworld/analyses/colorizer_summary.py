@@ -1,4 +1,4 @@
-# mypy: ignore-errors
+# msdfdsfypy: ignore-errors
 
 import sys
 import typing

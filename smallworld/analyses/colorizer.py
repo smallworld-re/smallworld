@@ -87,7 +87,7 @@ class Colorizer(analysis.Analysis):
         self.colors: Colors = {}
         self.shadow_register: typing.Dict[str, Shad] = {}
         self.shadow_memory: Shad = {}
-        self.edge: typing.Dict[int, typing.Dict[int, typing.Tuple[str, int, int]]] = {}
+        # self.edge: typing.Dict[int, typing.Dict[int, typing.Tuple[str, int, int]]] = {}
 
     def _get_instr_at_pc(self, emu, pc: int) -> capstone.CsInsn:
         code = emu.read_memory(pc, 15)  # longest possible instruction
@@ -132,8 +132,6 @@ class Colorizer(analysis.Analysis):
             logger.info(te)
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
-            # if pc == 0x1222 and (not is_read):
-            #     breakpoint()
             if is_read:
                 operand_list = sw_insn.reads
                 lab = "read"
@@ -146,7 +144,7 @@ class Colorizer(analysis.Analysis):
                 if type(operand) is RegisterOperand and operand.name == "rflags":
                     continue
                 sz = self._operand_size(operand)
-                print(f"operand={operand} sz={sz}")
+                # print(f"operand={operand} sz={sz}")
                 if type(operand) is BSIDMemoryReferenceOperand:
                     # if addr not mapped, discard this operand
                     a = operand.address(emu)
@@ -188,7 +186,7 @@ class Colorizer(analysis.Analysis):
             self.colors = {}
             self.shadow_register = {}
             self.shadow_memory = {}
-            self.edge = {}
+            # self.edge = {}
             traceA = TraceExecution(
                 self.num_insns, True, self.seed + self.micro_exec_num
             )
@@ -200,33 +198,34 @@ class Colorizer(analysis.Analysis):
             )
             traceA.run(machine, patch[self.micro_exec_num])
 
-            if False:
-                print("digraph{")
-                print(" rankdir=LR")
-                pc2nodeid = {}
-                nodeid2pc = {}
-                nodeids = set([])
+            # NOTE: Please keep this code
+            # if False:
+            #     print("digraph{")
+            #     print(" rankdir=LR")
+            #     pc2nodeid = {}
+            #     nodeid2pc = {}
+            #     nodeids = set([])
 
-                def add_pc(pc):
-                    if pc not in pc2nodeid:
-                        nodeid = f"node_{len(nodeids)}"
-                        nodeids.add(nodeid)
-                        pc2nodeid[pc] = nodeid
-                        nodeid2pc[nodeid] = pc
+            #     def add_pc(pc):
+            #         if pc not in pc2nodeid:
+            #             nodeid = f"node_{len(nodeids)}"
+            #             nodeids.add(nodeid)
+            #             pc2nodeid[pc] = nodeid
+            #             nodeid2pc[nodeid] = pc
 
-                for pc1 in self.edge.keys():
-                    add_pc(pc1)
-                    for pc2 in self.edge[pc1].keys():
-                        add_pc(pc2)
-                for nodeid in nodeids:
-                    print(f'{nodeid} [label="0x{nodeid2pc[nodeid]:x}"]')
-                for pc1 in self.edge.keys():
-                    for pc2 in self.edge[pc1].keys():
-                        (lab, conc, color) = self.edge[pc1][pc2]
-                        n1 = pc2nodeid[pc1]
-                        n2 = pc2nodeid[pc2]
-                        print(f'{n1} -> {n2} [label="{lab}"]')
-                print("}")
+            #     for pc1 in self.edge.keys():
+            #         add_pc(pc1)
+            #         for pc2 in self.edge[pc1].keys():
+            #             add_pc(pc2)
+            #     for nodeid in nodeids:
+            #         print(f'{nodeid} [label="0x{nodeid2pc[nodeid]:x}"]')
+            #     for pc1 in self.edge.keys():
+            #         for pc2 in self.edge[pc1].keys():
+            #             (lab, conc, color) = self.edge[pc1][pc2]
+            #             n1 = pc2nodeid[pc1]
+            #             n2 = pc2nodeid[pc2]
+            #             print(f'{n1} -> {n2} [label="{lab}"]')
+            #     print("}")
 
     def _concrete_val_to_color(
         self, concrete_value: typing.Union[int, bytes, bytearray], size: int
@@ -379,48 +378,48 @@ class Colorizer(analysis.Analysis):
         else:
             assert 1 == 0
 
-    def update_shadow(self, emu, pc, is_read, rw):
-        (operand, conc, color, operand_size) = rw
+    # def update_shadow(self, emu, pc, is_read, rw):
+    #     (operand, conc, color, operand_size) = rw
 
-        if type(operand) is RegisterOperand:
-            r = self.pdef.registers[operand.name]
-            if type(r) is platforms.RegisterAliasDef:
-                base_reg = r.parent
-                start = r.offset
-            else:
-                base_reg = r.name
-                start = 0
-            if base_reg not in self.shadow_register:
-                self.shadow_register[base_reg] = {}
-            shad = self.shadow_register[base_reg]
-            end = start + r.size
-            lab = f"reg({r.name})"
-        else:
-            start = operand.address(emu)
-            shad = self.shadow_memory
-            end = start + operand.size
-            lab = f"mem({start:x},{operand.size})"
+    #     if type(operand) is RegisterOperand:
+    #         r = self.pdef.registers[operand.name]
+    #         if type(r) is platforms.RegisterAliasDef:
+    #             base_reg = r.parent
+    #             start = r.offset
+    #         else:
+    #             base_reg = r.name
+    #             start = 0
+    #         if base_reg not in self.shadow_register:
+    #             self.shadow_register[base_reg] = {}
+    #         shad = self.shadow_register[base_reg]
+    #         end = start + r.size
+    #         lab = f"reg({r.name})"
+    #     else:
+    #         start = operand.address(emu)
+    #         shad = self.shadow_memory
+    #         end = start + operand.size
+    #         lab = f"mem({start:x},{operand.size})"
 
-        if is_read:
-            # read. check labels on things we are reading to deduce flows
-            fs = set([])
-            for o in range(start, end):
-                if o in shad:
-                    (pc_from, is_read, conc_from) = shad[o]
-                    if is_read:
-                        f = f"{lab} r->r"
-                    else:
-                        f = f"{lab} w->r"
-                    f += f" flow from pc={pc_from:x} to pc={pc:x} conc={conc} conc_from={conc_from} color={color}"
-                    if f not in fs:
-                        logger.info(f)
-                        if pc_from not in self.edge:
-                            self.edge[pc_from] = {}
-                        if pc not in self.edge[pc_from]:
-                            self.edge[pc_from][pc] = (lab, conc, color)
-                        # self.edge.add((pc_from, lab, pc, conc, color))
-                    fs.add(f)
-        else:
-            # write. we are overwriting things so no reason to check on bytes before doing so
-            for o in range(start, end):
-                shad[o] = (pc, is_read, conc)
+    #     if is_read:
+    #         # read. check labels on things we are reading to deduce flows
+    #         fs = set([])
+    #         for o in range(start, end):
+    #             if o in shad:
+    #                 (pc_from, is_read, conc_from) = shad[o]
+    #                 if is_read:
+    #                     f = f"{lab} r->r"
+    #                 else:
+    #                     f = f"{lab} w->r"
+    #                 f += f" flow from pc={pc_from:x} to pc={pc:x} conc={conc} conc_from={conc_from} color={color}"
+    #                 if f not in fs:
+    #                     logger.info(f)
+    #                     if pc_from not in self.edge:
+    #                         self.edge[pc_from] = {}
+    #                     if pc not in self.edge[pc_from]:
+    #                         self.edge[pc_from][pc] = (lab, conc, color)
+    #                     # self.edge.add((pc_from, lab, pc, conc, color))
+    #                 fs.add(f)
+    #     else:
+    #         # write. we are overwriting things so no reason to check on bytes before doing so
+    #         for o in range(start, end):
+    #             shad[o] = (pc, is_read, conc)
