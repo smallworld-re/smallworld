@@ -1,6 +1,6 @@
-# mypy: ignore-errors
+# skdjfghdskfjmypy: ignore-errors
 
-import functools
+import re
 
 import networkx as nx
 
@@ -23,7 +23,7 @@ class DefUseGraph(nx.MultiDiGraph):
         )
 
 
-debug = False
+debug = True
 
 
 class ColorizerDefUse(analysis.Filter):
@@ -37,10 +37,14 @@ class ColorizerDefUse(analysis.Filter):
         self.not_new_hints = []
 
     def collect_hints(self, hint: hinting.Hint):
-        if hint.new:
-            self.new_hints.append(hint)
-        else:
-            self.not_new_hints.append(hint)
+        if (
+            type(hint) is hinting.DynamicRegisterValueSummaryHint
+            or type(hint) is hinting.DynamicMemoryValueSummaryHint
+        ):
+            if hint.new:
+                self.new_hints.append(hint)
+            else:
+                self.not_new_hints.append(hint)
 
     def activate(self):
         self.listen(hinting.DynamicRegisterValueSummaryHint, self.collect_hints)
@@ -95,10 +99,18 @@ class ColorizerDefUse(analysis.Filter):
                 # this is a read
                 # hallucinate a node representing the creation of that color
                 color_node = f"input color-{hint.color}"
-                assert dv_info["type"] == "reg"
-                if dv_info["type"] == "reg":
-                    color_node = color_node + " " + dv_info["reg_name"] + "_init"
+                assert dv_info["type"] == "reg" or dv_info["type"] == "mem"
 
+                if dv_info["type"] == "reg":
+                    color_node = color_node + " " + dv_info["reg_name"]
+                if dv_info["type"] == "mem":
+                    color_node = color_node + " *(" + dv_info["base"]
+                    if dv_info["index"] != "None":
+                        color_node += f"{dv_info['scale']}*{dv_info['index']}"
+                    if dv_info["offset"] > 0:
+                        color_node += f"{dv_info['offset']}"
+                    color_node += ")"
+                color_node += "_init"
                 du_graph.add_node(color_node)
                 # record mapping from this color to its creation info
                 color2genesis[hint.color] = (color_node, dv_info)
@@ -133,72 +145,46 @@ class ColorizerDefUse(analysis.Filter):
             )
         )
 
-        if debug:
-            nodes = []
+        with open("colorizer_def_use.dot", "w") as dot:
+
+            def writeit(foo):
+                dot.write(foo + "\n")
+
+            writeit("digraph{")
+            writeit(" rankdir=LR")
+
+            node2nodeid = {}
             for node in du_graph.nodes:
-                nodes.append(node)
-
-            def cmp_n(n1, n2):
-                if isinstance(n1, type(n2)):
-                    if n1 < n2:
-                        return -1
-                    if n1 == n2:
-                        return 0
-                    return +1
-                if type(n1) is str:
-                    return -1
+                # 4461 is pc
+                # {"id": 4461},
+                # An input color rsp is register
+                # {"id": "input color-1 rsp_init"},
+                node_id = f"node_{len(node2nodeid)}"
+                if type(node) is int:
+                    # nodeinfo = ("instruction", f"0x{node}")
+                    writeit(f'  {node_id} [label="0x{node:x}"]')
                 else:
-                    return +1
+                    assert type(node) is str
+                    foo = re.search("input color-([0-9]+) (.*)_init", node)
+                    assert foo is not None
+                    (cns, reg) = foo.groups()
+                    cn = int(cns)
+                    # nodeinfo = ("input", (cn, reg))
+                    writeit(f'  {node_id} [color="blue", label="input({reg})"]')
+                node2nodeid[node] = node_id
 
-            # sorted: strings like "input-color-.." come first, then
-            # numbers which are program counters in order
-            snodes = sorted(nodes, key=functools.cmp_to_key(cmp_n))
-
-            def_info = nx.get_edge_attributes(du_graph, "def_info")
-            use_info = nx.get_edge_attributes(du_graph, "use_info")
-
-            def node_str(node):
-                if type(node) is str:
-                    return node
+            di = nx.get_edge_attributes(du_graph, "def_info")
+            ui = nx.get_edge_attributes(du_graph, "use_info")
+            for e in du_graph.edges:
+                if type(di[e]) is str:
+                    foo = re.search("color-([0-9]+) (.*)_init", di[e])
+                    (cns, reg) = foo.groups()
+                    cn = int(cns)
+                    assert cn == ui[e]["color"]
                 else:
-                    return f"0x{node:x}"
+                    assert di[e]["color"] == ui[e]["color"]
+                (src, dst, k) = e
+                cn = ui[e]["color"]
+                writeit(f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}"]')
 
-            def simple_info(info):
-                if info is None:
-                    return "none"
-                if type(info) is str:
-                    return info
-                if info["type"] == "reg":
-                    return f"is_read={info['is_read']} new={info['new']} color={info['color']} Reg({info['reg_name']})"
-                bsid = ""
-                if info["base"] != "None":
-                    bsid += f"{info['base']}"
-                if info["index"] != "None":
-                    bsid += f"+ {info['scale']}*{info['index']}"
-                if info["offset"] != 0:
-                    bsid += f"+ {info['offset']:x}"
-                return f"is_read={info['is_read']} new={info['new']} color={info['color']} Mem({bsid})"
-
-            def simple_node(n):
-                if n is None:
-                    return ""
-                if type(n) is str:
-                    return n
-                return f"0x{n:x}"
-
-            for node in snodes:
-                print(f"\nNODE: {node_str(node)}")
-                for src, dst in du_graph.in_edges(node):
-                    if (src, dst, 0) in use_info:
-                        ssrc = simple_node(src)
-                        sdst = simple_node(dst)
-                        di = simple_info(def_info[(src, dst, 0)])
-                        ui = simple_info(use_info[(src, dst, 0)])
-                        print(f"in-edge src=({ssrc},{di}) dst=({sdst},{ui})")
-                for src, dst in du_graph.out_edges(node):
-                    if (src, dst, 0) in def_info:
-                        ssrc = simple_node(src)
-                        sdst = simple_node(dst)
-                        di = simple_info(def_info[(src, dst, 0)])
-                        ui = simple_info(use_info[(src, dst, 0)])
-                        print(f"out-edge src=({ssrc},{di}) dst=({sdst},{ui})")
+            writeit("}\n")

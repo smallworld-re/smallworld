@@ -1,4 +1,4 @@
-# mypy: ignore-errors
+# msdfdsfypy: ignore-errors
 
 import sys
 import typing
@@ -72,8 +72,8 @@ class ColorizerSummary(analysis.Filter):
 
     def collect_hints(self, hint):
         self.hint_list.append(hint)
-        if hint.micro_exec_num > self.num_micro_executions:
-            self.num_micro_executions = hint.micro_exec_num
+        if 1 + hint.micro_exec_num > self.num_micro_executions:
+            self.num_micro_executions = 1 + hint.micro_exec_num
 
     def activate(self):
         self.listen(hinting.DynamicRegisterValueHint, self.collect_hints)
@@ -142,7 +142,7 @@ class ColorizerSummary(analysis.Filter):
         hk_c = {}
         for hk in hint_keys_sorted:
             hk_c[hk] = 0
-            for me in range(1, 1 + self.num_micro_executions):
+            for me in range(self.num_micro_executions):
                 for hk2 in hk_observed[me]:
                     if hk == hk2:
                         hk_c[hk] += 1
