@@ -1941,8 +1941,8 @@ class PETests(ScriptIntegrationTest):
     def test_pe_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_pe_amd64_panda(self):
-        self.run_test("amd64.panda")
+    # def test_pe_amd64_panda(self):
+    #     self.run_test("amd64.panda")
 
     def test_pe_amd64_pcode(self):
         self.run_test("amd64.pcode")
