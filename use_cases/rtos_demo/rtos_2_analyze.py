@@ -1,5 +1,7 @@
 import logging
 
+import claripy
+
 import smallworld
 
 # Types
@@ -46,9 +48,8 @@ cpu.sp.set(sp)
 
 # Input buffer
 buffer_memory_address = 0x1000
-# input_bytes = b"8x88888\xE18\x17\xF3\x1Faaa"
+input_bytes = b"8x88888\xE18\x17\xF3\x1Faaa"
 # input_bytes = b"\x7F8888888=.3a"
-input_bytes = b"abcdefghijklmnop"
 buffer_memory = smallworld.state.memory.Memory(buffer_memory_address, len(input_bytes))
 buffer_memory[0] = smallworld.state.BytesValue(input_bytes, "input_buffer")
 machine.add(buffer_memory)
@@ -67,12 +68,12 @@ machine.emulate(emulator)
 
 # Investigate crashing instruction
 cpu.extract(emulator)
-# r6 = cpu.r6.get()
-# print(f"r6: {hex(r6)}")
-# r4 = cpu.r4.get()
-# print(f"r4: {hex(r4)}")
-# r8: claripy.ast.bv.BV = cpu.r8.get()
-# print(f"r8: {r8}")
+r6 = cpu.r6.get()
+print(f"r6: {hex(r6)}")
+r4 = cpu.r4.get()
+print(f"r4: {hex(r4)}")
+r8: claripy.ast.bv.BV = cpu.r8.get()
+print(f"r8: {r8}")
 
 # Investigate symbolic stack memory
 stack_memory = emulator.read_memory_symbolic(0x2000, 0x4000)
