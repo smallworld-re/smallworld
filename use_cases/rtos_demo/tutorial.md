@@ -1,11 +1,14 @@
 # RTOS Demo
 In this demonstration, SMALLWORLD is used to harness vulnerable code in an ARM32 RTOS binary for fuzzing, dynamic analysis, and exploit development. Scripts for each completed stage of the process are included for reference (`rtos_0_run.py`, `rtos_1_fuzz.py`, `rtos_2_analyze.py`, `rtos_3_exploit.py`). The binary under analysis (`zephyr.elf`) is also included.
 ## Setup
-First, verify that SMALLWORLD is installed in your development environment (from Github or PyPi).
+First, verify that SMALLWORLD is installed in your development environment. You can do this using the `install.sh` script at the root of this repo or by running a Docker container. For more information, see the [README](https://github.com/smallworld-re/smallworld/blob/rtos-demo/README.md).
+
+Once this is done, verify that everything is installed properly.
 
 ```sh
-pip install smallworld-re
 python -c "import smallworld"
+python -c "import unicornafl"
+python -c "import claripy"
 ```
 
 Next, we will need a binary to harness. For this example, we use [Zephyr](https://www.zephyrproject.org/), an open source RTOS for embedded devices. We will be using a modified version of their [echo server example](https://github.com/zephyrproject-rtos/zephyr/tree/main/samples/net/sockets/echo_server) with some injected vulnerable code for the sake of demonstration.
@@ -132,10 +135,17 @@ def input_callback(uc: Uc, input, persistent_round, data):
 machine.fuzz(emulator, input_callback)
 ```
 
-Now our harness is ready to start fuzzing. We can begin our fuzzing campaign using the command below. Feel free to modify CLI options to best fit your use case.
+Next, we need to create an input for AFL to start mutating. Create a "fuzz_inputs" directory and put any data into a file inside.
 
 ```sh
-afl-fuzz -t 10000 -U -m none -i fuzz_inputs -o out -- python3 rtos_demo.py @@
+mkdir fuzz_inputs
+echo "aaaaaaaaaaaaaaaa" > fuzz_inputs/input1
+```
+
+Now we're ready to start fuzzing. We can begin our fuzzing campaign using the command below. Feel free to modify CLI options to best fit your use case.
+
+```sh
+afl-fuzz -t 10000 -U -m none -i fuzz_inputs -o out -- python3 rtos_1_fuzz.py @@
 ```
 ### Results
 After a 2 hours of fuzzing, my sample campaign's 777k executions yielded 1469 total crashes, deduplicated to 2 unique crashes. The reported crashing inputs are listed below, with some bytes substituted with hex representations.
@@ -256,7 +266,7 @@ After stack memory: <BV32768 mem_6000_19_32768>
 ```
 
 Similarly to our first case, bytes preceded with `'8'` are repeated 8 times. However, we can also see that the top byte of `input_buffer`, which was preceded by `'3'`, is repeated 3 times. This suggests the code may hold this behavior for any numeric character.
-## Exploit Development (work-in-progress)
+## Exploit Development (WORK IN PROGRESS)
 *The `rtos_3_exploit.py` script is included for reference with this section.*
 
 Now that we have an understanding of the vulnerability present in the binary, SMALLWORLD can become a powerful tool for rapid exploit development.
