@@ -69,7 +69,7 @@ First, we set up some smallworld boilerplate.
 This configures logging, as well as the hinter
 that will let us see the output from our analysis. 
 
-```
+```python
 import logging
 import pathlib
 
@@ -94,7 +94,7 @@ Also, since this is the only ELF we're loading,
 we can use its notion of program bounds
 to define which memory the analysis can execute.
 
-```
+```python
 # Create a machine
 machine = smallworld.state.Machine()
 
@@ -119,7 +119,7 @@ the entrypoint for the entire program.
 Fortunately, I left debug symbols in the file,
 so we can recover its address from the ELF metadata.
 
-```
+```python
 # Create a CPU
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
@@ -152,7 +152,7 @@ To start, we'll allocate `buf` and `msg` as blank swaths of memory.
 As we learn more about their internal structure from the analysis,
 we will come back and refine this part of our harness.
 
-```
+```python
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
 machine.add(gdata)
@@ -180,7 +180,7 @@ Next, we use what we know about the function signature to assign values to regis
 We know that the first arg points to `buf`, the second is the size of `buf`,
 the third points to `off`, and the fourth points to `msg`.
 
-```
+```python
 # Configure arguments
 
 # arg 0: pointer to buf
@@ -202,7 +202,7 @@ cpu.rcx.set_label("PTR msg")
 
 At long last, we're reading to actually run our analysis.
 
-```
+```python
 machine.analyze(FieldDetectionAnalysis(platform))
 ```
 
@@ -212,7 +212,7 @@ The code we just wrote can be found in `dns_0.py`
 
 Running `dns_0.py` produces the following hint:
 
-```
+```python
 [*] Partial write to known field
 [*]   pc:         0x41e73
 [*]   address:    0x6010
@@ -228,7 +228,7 @@ Since we defined `msg` as 512 homogenous bytes, it didn't expect to see a field 
 
 We can redefine msg as the following
 
-```
+```python
 gdata[0] = smallworld.state.EmptyValue(16, None, "msg.unk-0x0")
 gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
 gdata[24] = smallworld.state.EmptyValue(24, None, "msg.unk-0x18")
@@ -253,7 +253,7 @@ Running our updated script gives a very similar hint to the first:
 In fact, four iterations tell us the same thing;
 the program writes zero to four 8-byte fields right next to each other:
 
-```
+```python
 gdata[0] = smallworld.state.EmptyValue(16, None, "msg.unk-0x0")
 gdata[16] = smallworld.state.EmptyValue(8, None, "msg.a")
 gdata[24] = smallworld.state.EmptyValue(8, None, "msg.b")
@@ -265,7 +265,7 @@ Some more iterations, and we start decoding both `buf` and `msg.unk-0x0`,
 which I've decided to call `msg.hdr`, since I suspect it's the
 part of the struct representing the DNS header:
 
-```
+```python
 gdata[0] = smallworld.state.EmptyValue(2, None, "msg.hdr.a")
 gdata[2] = smallworld.state.EmptyValue(2, None, "msg.hdr.b")
 gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.c")
@@ -316,7 +316,7 @@ but I want to know what's inside the heap-allocated buffers, too.
 Luckily, `FieldDetectionAnalysis` comes with a malloc model.
 Let's update our harness:
 
-```
+```python
 # Configure malloc and free models
 malloc = MallocModel(
     0x10000, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
@@ -330,7 +330,7 @@ If we were in a raw binary, we'd have to do some manual patching
 to tell it where we put `malloc()`, but this is an ELF.
 Let's use the relocation entries to our advantage:
 
-```
+```python
 # Apply relocations to malloc
 code.update_symbol_value("malloc", malloc._address)
 ```
@@ -352,7 +352,7 @@ Unfortunately, the underlying analysis can't reason over
 an array of undefined size; we'll need to assign a concrete value to `msg.hdr.c`
 to continue:
 
-```
+```python
 gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.c")
 ```
 
@@ -376,7 +376,7 @@ Let's take this one line at a time:
 
 Let's update our harness:
 
-```
+```python
 gdata[4] = smallworld.state.EmptyValue(2, None, "msg.hdr.a.len")
 ...
 gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.msg.a.len")
