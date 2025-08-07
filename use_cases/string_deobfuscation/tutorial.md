@@ -171,7 +171,7 @@ open in ghidra. Here's how that script works from top to bottom.
 
 We start with a little boilerplate code.
 
-```
+```python
 import logging
 import os
 import sys
@@ -194,7 +194,7 @@ halt emulation. Note that the execution bounds correspond to
 start/ends of the two functions `kringle_things` and `kringle_thing`
 which might have come from looking at the code in a disassembler.
 
-```
+```python
 binfile = "strdeobfus"
 code = smallworld.state.memory.code.Executable.from_elf(
     open(binfile, "rb"), address=0
@@ -213,7 +213,7 @@ We need a cpu.  Also a stack (since `kringle_things` calls the
 function `kringle_thing`).  We also must set `rip` to the first
 instruction in `kringle_things`.
 
-```
+```python
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, code.address + code.size + 0x1000, 0x5000)
 cpu.rsp.set(stack.get_pointer() - 128)
@@ -222,7 +222,7 @@ cpu.rip.set(0x11fe)
 
 SmallWorld packages all this up into a `machine` which can be cloned easily, which turns out to be useful.
 
-```
+```python
 machine = smallworld.state.Machine()
 machine.add(cpu)
 machine.add(code)
@@ -232,20 +232,20 @@ machine.add_exit_point(exit_point)
 
 With this setup complete, we can use the Unicorn emulator to run the code.
 
-```
+```python
 emu = smallworld.emulators.UnicornEmulator(platform)
 new_machine = machine.emulate(emu)
 ```
 
 This `new_machine` is the result of running `kringle_things` to
-completion given all that initialization of the environment. A that
+completion given all that initialization of the environment. At that
 point, it will have the decrypted data section in memory. We can use
 `lief` to tell us where the data section is in memory, then read that
 data out of `new_machine`, and finally, again use `lief` to patch that
 decrypted data section into the binary and write it out to disk as the
 binary `strdeobfus2`.
 
-```
+```python
 elf = lief.ELF.parse(binfile)
 ds = elf.get_section(".data")
 decrypted_data = new_machine.read_memory(ds.virtual_address, ds.size)
