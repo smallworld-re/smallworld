@@ -1,7 +1,8 @@
-import typing import Type
+from typing import Type
 from dataclasses import dataclass
 from collections.abc import Callable
 import copy
+
 
 class Hinter:
     def __init__(self) -> None:
@@ -19,9 +20,8 @@ class Hinter:
                 callback(copy.deepcopy(hint))
 
 
-
 @dataclass(frozen=True)
-class Hint():
+class Hint:
     """Base class for all Hints.
 
     Arguments:
@@ -30,5 +30,6 @@ class Hint():
 
     message: str
     """A detailed description."""
+
 
 __all__ = ["Hint", "Hinter"]
