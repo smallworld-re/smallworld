@@ -17,7 +17,6 @@ from smallworld.analyses.field_detection import (
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=False, verbose=True)
 
 log = logging.getLogger("smallworld")
 
