@@ -294,7 +294,7 @@ class Colorizer(analysis.Analysis):
                 insn_num,
                 msg,
             )
-            hinter.send(hint)
+            self.hinter.send(hint)
         else:
             # new color
             self._add_color(color, operand, insn, exec_num, insn_num)
@@ -317,7 +317,7 @@ class Colorizer(analysis.Analysis):
                 insn_num,
                 msg,
             )
-            hinter.send(hint)
+            self.hinter.send(hint)
 
     def _dynamic_value_hint(
         self,

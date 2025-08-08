@@ -1,4 +1,4 @@
-import sys
+self.import sys
 import typing
 
 from .. import hinting
@@ -144,7 +144,7 @@ class ColorizerSummary(analysis.Filter):
         for hk in hint_keys_sorted:
             hint = hk_exemplar[hk]
             if type(hint) is hinting.DynamicRegisterValueHint:
-                hinter.send(
+                self.hinter.send(
                     hinting.DynamicRegisterValueSummaryHint(
                         pc=hint.pc,
                         reg_name=hint.reg_name,
@@ -158,7 +158,7 @@ class ColorizerSummary(analysis.Filter):
                     )
                 )
             if type(hint) is hinting.DynamicMemoryValueHint:
-                hinter.send(
+                self.hinter.send(
                     hinting.DynamicMemoryValueSummaryHint(
                         pc=hint.pc,
                         size=hint.size,
@@ -175,7 +175,7 @@ class ColorizerSummary(analysis.Filter):
                     )
                 )
             if type(hint) is hinting.MemoryUnavailableHint:
-                hinter.send(
+                self.hinter.send(
                     hinting.MemoryUnavailableSummaryHint(
                         is_read=hint.is_read,
                         size=hint.size,

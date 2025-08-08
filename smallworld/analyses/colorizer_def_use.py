@@ -131,7 +131,7 @@ class ColorizerDefUse(analysis.Filter):
                 du_graph.add_def_use(def_node, hint.pc, def_info, dv_info, hint.color)
 
         # hint out the def-use graph
-        hinter.send(
+        self.hinter.send(
             hinting.DefUseGraphHint(
                 graph=nx.node_link_data(du_graph, edges="links"),
                 message="concrete-summary-def-use-graph",

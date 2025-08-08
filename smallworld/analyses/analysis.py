@@ -1,14 +1,14 @@
 import abc
-import logging
-import typing
 
-from .. import hinting, state, utils
+from smallworld.hinting.hinting import Hinter
+
+from .. import state, utils
 
 
 class Analysis(utils.MetadataMixin):
     """An analysis that emits some information about some code, possibly to help with harnessing."""
 
-    def __init__(self, hinter, *args, **kwargs) -> None:
+    def __init__(self, hinter: Hinter, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.hinter = hinter
 

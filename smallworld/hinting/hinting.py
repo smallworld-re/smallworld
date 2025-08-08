@@ -4,6 +4,18 @@ from collections.abc import Callable
 import copy
 
 
+@dataclass(frozen=True)
+class Hint:
+    """Base class for all Hints.
+
+    Arguments:
+        message: A message for this Hint.
+    """
+
+    message: str
+    """A detailed description."""
+
+
 class Hinter:
     def __init__(self) -> None:
         self.callbacks = {}
@@ -18,18 +30,6 @@ class Hinter:
         if clazz in self.callbacks:
             for callback in self.callbacks[clazz]:
                 callback(copy.deepcopy(hint))
-
-
-@dataclass(frozen=True)
-class Hint:
-    """Base class for all Hints.
-
-    Arguments:
-        message: A message for this Hint.
-    """
-
-    message: str
-    """A detailed description."""
 
 
 __all__ = ["Hint", "Hinter"]
