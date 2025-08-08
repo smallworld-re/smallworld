@@ -1,4 +1,4 @@
-self.import sys
+import sys
 import typing
 
 from .. import hinting
