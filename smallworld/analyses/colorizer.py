@@ -7,7 +7,6 @@ import typing
 import capstone
 
 from .. import hinting, platforms, state
-
 from ..exceptions import AnalysisRunError  # , EmulationBounds
 from ..instructions import (
     BSIDMemoryReferenceOperand,
