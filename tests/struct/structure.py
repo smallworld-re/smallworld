@@ -6,7 +6,6 @@ import typing
 import smallworld
 
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(verbose=True, stream=True, file=None)
 
 
 # create a small world

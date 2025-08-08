@@ -4,7 +4,6 @@ import smallworld
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 # NOTE: The core dump doesn't include the ABI flags.

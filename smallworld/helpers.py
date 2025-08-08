@@ -1,4 +1,5 @@
 import argparse
+import copy
 import logging
 import typing
 
@@ -20,24 +21,8 @@ def analyze(
         machine: A state class from which emulation should begin.
         asys: List of analyses and filters to run
     """
-
-    filters: typing.List[analyses.Filter] = []
-    runners: typing.List[analyses.Analysis] = []
-    for analysis in asys:
-        if isinstance(analysis, analyses.Filter):
-            filters.append(analysis)
-            filters[-1].activate()
-        elif isinstance(analysis, analyses.Analysis):
-            runners.append(analysis)
-
-    try:
-        for analysis in runners:
-            analysis.run(machine)
-    except:
-        logger.exception("Error durring analysis")
-    finally:
-        for filter in filters:
-            filter.deactivate()
+    for a in asys:
+        a.run(copy.deepcopy(machine))
 
 
 def fuzz(
