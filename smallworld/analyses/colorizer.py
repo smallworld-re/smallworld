@@ -8,11 +8,6 @@ import capstone
 
 from .. import hinting, platforms, state
 
-# from ..emulators import (
-#     UnicornEmulationMemoryReadError,
-#     UnicornEmulationMemoryWriteError,
-#     UnicornEmulator,
-# )
 from ..exceptions import AnalysisRunError  # , EmulationBounds
 from ..instructions import (
     BSIDMemoryReferenceOperand,
@@ -24,7 +19,6 @@ from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 MIN_ACCEPTABLE_COLOR_INT = 0x20
 BAD_COLOR = (2**64) - 1
@@ -300,7 +294,7 @@ class Colorizer(analysis.Analysis):
                 insn_num,
                 msg,
             )
-            hinter.info(hint)
+            hinter.send(hint)
         else:
             # new color
             self._add_color(color, operand, insn, exec_num, insn_num)
@@ -323,7 +317,7 @@ class Colorizer(analysis.Analysis):
                 insn_num,
                 msg,
             )
-            hinter.info(hint)
+            hinter.send(hint)
 
     def _dynamic_value_hint(
         self,

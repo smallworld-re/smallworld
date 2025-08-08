@@ -1,6 +1,7 @@
 import typing import Type
 from dataclasses import dataclass
 from collections.abc import Callable
+import copy
 
 class Hinter:
     def __init__(self) -> None:
@@ -15,7 +16,7 @@ class Hinter:
         clazz = hint.__class__
         if clazz in self.callbacks:
             for callback in self.callbacks[clazz]:
-                callback(hint)
+                callback(copy.deepcopy(hint))
 
 
 

@@ -8,6 +8,10 @@ from .. import hinting, state, utils
 class Analysis(utils.MetadataMixin):
     """An analysis that emits some information about some code, possibly to help with harnessing."""
 
+    def __init__(self, hinter, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.hinter = hinter
+
     @abc.abstractmethod
     def run(self, machine: state.Machine) -> None:
         """Run the analysis.
