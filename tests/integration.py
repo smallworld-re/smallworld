@@ -2478,6 +2478,16 @@ class C99SystemTests(AbsLibraryModelTest):
         self.assertLineContainsStrings(stderr, "system(foobar);")
 
 
+class C99SprintfTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "sprintf"
+
+
+class C99SnprintfTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "snprintf"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

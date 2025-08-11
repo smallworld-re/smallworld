@@ -44,7 +44,8 @@ class MIPS64ELSysVModel(CStdModel):
         "a7",
     ]
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = [
         "f13",

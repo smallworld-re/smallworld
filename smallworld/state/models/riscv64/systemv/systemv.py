@@ -44,7 +44,8 @@ class RiscV64SysVModel(CStdModel):
         "a7",
     ]
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6"]
 

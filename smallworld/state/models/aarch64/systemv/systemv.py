@@ -44,7 +44,8 @@ class AArch64SysVModel(CStdModel):
         "x7",
     ]
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = False
     _floats_are_doubles = False
     _float_arg_regs = ["s0", "s1", "s2", "s3", "s4", "s5", "s6"]
 

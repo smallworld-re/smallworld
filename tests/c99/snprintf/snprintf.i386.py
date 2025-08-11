@@ -8,7 +8,7 @@ smallworld.hinting.setup_hinting(stream=True, verbose=True)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -26,12 +26,14 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
-cpu.pc.set(entrypoint)
+cpu.eip.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -42,7 +44,7 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.esp.set(sp)
 
 # Configure the heap
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
@@ -57,15 +59,14 @@ strcmp_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("strcmp", strcmp_model._address)
 
-sprintf_model = smallworld.state.models.Model.lookup(
-    "sprintf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+snprintf_model = smallworld.state.models.Model.lookup(
+    "snprintf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-sprintf_model.heap = heap
-machine.add(sprintf_model)
-sprintf_model.allow_imprecise = True
+machine.add(snprintf_model)
+snprintf_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("sprintf", sprintf_model._address)
+code.update_symbol_value("snprintf", snprintf_model._address)
 
 puts_model = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
@@ -82,7 +83,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure sprintfs by dereferencing 0xdead.
+# We signal failure snprintfs by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -104,9 +105,7 @@ machine.add(dead)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-# emulator = smallworld.emulators.AngrEmulator(platform)
-# emulator.enable_linear()
-emulator.add_exit_point(entrypoint + 0x10000)
+emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

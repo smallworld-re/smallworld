@@ -57,15 +57,15 @@ strcmp_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("strcmp", strcmp_model._address)
 
-sprintf_model = smallworld.state.models.Model.lookup(
-    "sprintf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+snprintf_model = smallworld.state.models.Model.lookup(
+    "snprintf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-sprintf_model.heap = heap
-machine.add(sprintf_model)
-sprintf_model.allow_imprecise = True
+snprintf_model.heap = heap
+machine.add(snprintf_model)
+snprintf_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("sprintf", sprintf_model._address)
+code.update_symbol_value("snprintf", snprintf_model._address)
 
 puts_model = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
@@ -82,7 +82,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure sprintfs by dereferencing 0xdead.
+# We signal failure snprintfs by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -104,8 +104,6 @@ machine.add(dead)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-# emulator = smallworld.emulators.AngrEmulator(platform)
-# emulator.enable_linear()
 emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)

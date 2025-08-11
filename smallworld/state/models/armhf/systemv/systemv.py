@@ -39,7 +39,8 @@ class ArmHFSysVModel(CStdModel):
     _four_byte_arg_regs = ["r0", "r1", "r2", "r3"]
     _eight_byte_arg_regs = ["r0", "r1", "r2", "r3"]
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = ["s0", "s1", "s2", "s3", "s4", "s5", "s6"]
     _double_arg_regs = ["d0", "d1", "d2", "d3", "d4", "d5", "d6"]

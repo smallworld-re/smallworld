@@ -54,7 +54,8 @@ class PowerPCSysVModel(CStdModel):
         "r10",
     ]
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = False
     _floats_are_doubles = True
     _float_arg_regs = ["f1", "f2", "f3", "f4", "f5", "f6"]
     _double_arg_regs = ["f1", "f2", "f3", "f4", "f5", "f6"]

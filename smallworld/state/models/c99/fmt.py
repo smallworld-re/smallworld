@@ -3,7 +3,7 @@ import struct
 import typing
 
 from ....emulators import Emulator
-from ....platforms import Architecture, Byteorder
+from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
 from .utils import _emu_strlen
 
@@ -332,21 +332,7 @@ def handle_double_arg(
     length: str, varargs: VariadicContext, emulator: Emulator
 ) -> float:
     if length == "":
-        if varargs.platform.architecture in (
-            Architecture.ARM_V7A,
-            Architecture.MIPS64,
-            Architecture.RISCV64,
-        ):
-            # armhf, mips64, mips64el, and riscv64
-            # all use a soft float calling convention for double args to format string functions.
-            # Suspect it allows reuse of soft float libc implementations
-            # on float-optional platforms
-            intval = varargs.get_next_argument(ArgumentType.ULONGLONG, emulator)
-            assert isinstance(intval, int)
-            byteval = intval.to_bytes(8, "little")
-            (val,) = struct.unpack("<d", byteval)
-        else:
-            val = varargs.get_next_argument(ArgumentType.DOUBLE, emulator)
+        val = varargs.get_next_argument(ArgumentType.DOUBLE, emulator)
     elif length == "L":
         raise NotImplementedError("Type 'long double' not handled")
     else:

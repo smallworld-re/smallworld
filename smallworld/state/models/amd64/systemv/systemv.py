@@ -42,7 +42,8 @@ class AMD64SysVModel(CStdModel):
         "r9",
     ]
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = False
     _floats_are_doubles = False
     _float_arg_regs = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"]
     _double_arg_regs = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"]

@@ -297,7 +297,29 @@ class Fprintf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        filestar = self.get_arg1(emulator)
+        fmt_addr = self.get_arg2(emulator)
+
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        output = parse_printf_format(self, fmt, emulator)
+        output_bytes = output.encode("utf-8")
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.write(output_bytes)
+
+        self.set_return_value(emulator, len(output_bytes))
 
 
 class Fputc(StdioModel):
@@ -660,7 +682,28 @@ class Printf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        fmt_addr = self.get_arg1(emulator)
+
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        output = parse_printf_format(self, fmt, emulator)
+        output_bytes = output.encode("utf-8")
+
+        fd = 1
+        try:
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        file.write(output_bytes)
+
+        self.set_return_value(emulator, len(output_bytes))
 
 
 class Putc(Fputc):
@@ -809,7 +852,32 @@ class Snprintf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        buf_addr = self.get_arg1(emulator)
+        size = self.get_arg2(emulator)
+        fmt_addr = self.get_arg3(emulator)
+
+        assert isinstance(buf_addr, int)
+        assert isinstance(size, int)
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        output = parse_printf_format(self, fmt, emulator)
+        output_bytes = output.encode("utf-8")
+        output_bytes += b"\0"
+
+        trunc_bytes = output_bytes
+        if len(trunc_bytes) > size:
+            trunc_bytes = trunc_bytes[: size - 1]
+            trunc_bytes += b"\0"
+
+        if buf_addr != 0:
+            emulator.write_memory(buf_addr, output_bytes)
+
+        self.set_return_value(emulator, len(output_bytes) - 1)
 
 
 class Sprintf(StdioModel):
@@ -836,7 +904,8 @@ class Sprintf(StdioModel):
         output_bytes = output.encode("utf-8")
         output_bytes += b"\0"
 
-        emulator.write_memory(buf_addr, output_bytes)
+        if buf_addr != 0:
+            emulator.write_memory(buf_addr, output_bytes)
 
         self.set_return_value(emulator, len(output_bytes) - 1)
 

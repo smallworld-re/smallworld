@@ -39,7 +39,8 @@ class ArmELSysVModel(CStdModel):
     _four_byte_arg_regs = ["r0", "r1", "r2", "r3"]
     _eight_byte_arg_regs = ["r0", "r1", "r2", "r3"]
 
-    _fp_as_int = True
+    _soft_float = True
+    _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = []
     _double_arg_regs = []

@@ -35,7 +35,8 @@ class I386SysVModel(CStdModel):
     _four_byte_arg_regs = []
     _eight_byte_arg_regs = []
 
-    _fp_as_int = False
+    _soft_float = False
+    _variadic_soft_float = False
     _floats_are_doubles = False
     _float_arg_regs = []
     _double_arg_regs = []

@@ -48,7 +48,7 @@ def add_argument(
     i: int, kind: ArgumentType, model: typing.Union["CStdModel", "VariadicContext"]
 ):
     if kind in model._four_byte_types or (
-        kind == ArgumentType.FLOAT and model._fp_as_int
+        kind == ArgumentType.FLOAT and model._soft_float
     ):
         # Four byte int type, or float on a system without separate FP arg regs
         if model._int_reg_offset == len(model._four_byte_arg_regs):
@@ -62,7 +62,7 @@ def add_argument(
             model._arg_offset.append(model._int_reg_offset)
             model._int_reg_offset += 1
     elif kind in model._eight_byte_types or (
-        kind == ArgumentType.DOUBLE and model._fp_as_int
+        kind == ArgumentType.DOUBLE and model._soft_float
     ):
         # Eight byte int type, or double on a system without separate FP arg regs
         if model._int_reg_offset % model._eight_byte_reg_size != 0:
@@ -178,7 +178,7 @@ def get_argument(
                 intval = int.from_bytes(data, "big")
             else:
                 intval = int.from_bytes(data, "little")
-        elif model._fp_as_int:
+        elif model._soft_float:
             intval = emulator.read_register(model._four_byte_arg_regs[arg_offset])
         else:
             intval = emulator.read_register(model._float_arg_regs[arg_offset])
@@ -201,7 +201,7 @@ def get_argument(
             else:
                 intval = int.from_bytes(data, "little")
         else:
-            if model._fp_as_int:
+            if model._soft_float:
                 reg_array = model._eight_byte_arg_regs
                 n_regs = model._eight_byte_reg_size
             else:
@@ -502,8 +502,14 @@ class CStdModel(Model):
 
     @property
     @abc.abstractmethod
-    def _fp_as_int(self) -> bool:
+    def _soft_float(self) -> bool:
         """Use int regs for fp arguments"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def _variadic_soft_float(self) -> bool:
+        """Use int regs for fp arguments for variadic args"""
         raise NotImplementedError()
 
     @property
@@ -601,7 +607,7 @@ class VariadicContext:
         self._eight_byte_types = parent._eight_byte_types
         self._four_byte_arg_regs = parent._four_byte_arg_regs
         self._eight_byte_arg_regs = parent._eight_byte_arg_regs
-        self._fp_as_int = parent._fp_as_int
+        self._soft_float = parent._soft_float or parent._variadic_soft_float
         self._floats_are_doubles = parent._floats_are_doubles
         self._float_arg_regs = parent._float_arg_regs
         self._double_arg_regs = parent._double_arg_regs

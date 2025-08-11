@@ -35,7 +35,8 @@ class MIPSSysVModel(CStdModel):
     _four_byte_arg_regs = ["a0", "a1", "a2", "a3"]
     _eight_byte_arg_regs = ["a0", "a1", "a2", "a3"]
 
-    _fp_as_int = True
+    _soft_float = True
+    _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = []
     _double_arg_regs = []
