@@ -2488,6 +2488,30 @@ class C99SnprintfTests(NoArgLibraryModelTest):
     function = "snprintf"
 
 
+class PrintLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+        with open(
+            f"{self.library}/{self.function}/{self.function}.{arch}.txt", "r"
+        ) as f:
+            expected = f.read()
+
+        self.assertTrue("SUCCESS" in stdout)
+        self.assertEqual(stdout, expected)
+
+
+class C99FprintfTests(PrintLibraryModelTest):
+    library = "c99"
+    function = "fprintf"
+
+
+class C99PrintfTests(PrintLibraryModelTest):
+    library = "c99"
+    function = "printf"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

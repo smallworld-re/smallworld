@@ -246,9 +246,18 @@ class CStdModel(Model):
     This abstracts away the ABI-specific operations
     performed by a function, namely getting args and returning vals.
 
-    Annoyingly, many ABIs don't have an easy one-to-one mapping
-    from "arg i" to a specific part of the machine state,
-    and location can change depending on the function's signature.
+    This also includes a parameterizable calling convention model.
+    Every calling convention I've seen fits into a kind
+    of Grand Unifying Theory.  They all pass a certain
+    number of arguments via registers before switching to stack,
+    and handle different-sized integers or floats
+    in a few standard ways.
+
+    It was way easier to figure out this theory and write one model
+    than to maintain eleven-plus separate models.
+    This may break for particularly unusual architectures,
+    or very strange ABIs.  For living architectures
+    with Debian support (sorry, hppa), it works.
     """
 
     # Flag indicating this model is imprecise.

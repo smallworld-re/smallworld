@@ -547,7 +547,6 @@ def handle_sci(
     # Python prints it as positive NaN.
     byteval = struct.pack("<d", val)
     intval = int.from_bytes(byteval, "little")
-    print(f"Double: {intval:016x}")
     if intval == 0xFFF8000000000000:
         text = ("{:" + conv + "}").format(val)
         index = out.index(text)
@@ -644,6 +643,7 @@ def handle_scifloat(
     # Python prints it as positive NaN.
     byteval = struct.pack("<d", val)
     intval = int.from_bytes(byteval, "little")
+
     if intval == 0xFFF8000000000000:
         text = ("{:" + conv + "}").format(val)
         index = out.index(text)
