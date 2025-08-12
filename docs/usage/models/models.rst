@@ -16,19 +16,41 @@ We are planning to have at least stub models for the following API standards:
 - POSIX
 - Win32
 
-
 ABI Support
 ===========
 
-SmallWorld currently provides basic C calling convention definitions for all supported ABIs.
-This is currently limited to a maximum of six arguments and a single return value.
+SmallWorld currently provides basic C calling convention definitions for the following ABIs:
 
-Variadic and `va_list` arguments are not currently supported.
+- System V
+    - aarch64
+    - amd64
+    - armel (arm v5t)
+    - armhf (arm v7a)
+    - i386
+    - mips
+    - mipsel
+    - mips64
+    - mips64el
+    - powerpc
+    - riscv64
 
-Passing or returning structs by value is not currently supported.
+The model API currently supports six arguments,
+the maximum of any standard C function.
+The underlying calling convention model supports arbitrary arguments.
 
-i386 has a special problem where the System-V ABI uses the x87 registers
-to return floating-point values.  x87 is not currently supported by SmallWorld.
+The models support variadic arguments; 
+see the `printf` or `scanf` models for examples on how to use these.
+
+The models do not support returning structs or multiple values.
+
+The models have no way of expressing struct arguments passed by value.
+
+The models currently don't support `va_list` arguments.
+These are opaque structs defined as compiler intrinsics,
+making them annoying to model.
+
+The System V i386 calling convention uses the x87 registers
+to return floating-point values.  None of our emulators support this.
 
 Function Support by Header
 ==========================
