@@ -11,7 +11,6 @@ from .utils import print_state
 from .visitor import ConditionalVisitor
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class DivergentAddressSignal(AnalysisSignal):

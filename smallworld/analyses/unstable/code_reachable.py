@@ -5,13 +5,12 @@ from ... import emulators, exceptions, hinting, state
 from .. import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class CodeReachable(analysis.Analysis):
     """A simple analysis that logs what code is reachable by symbolic execution."""
 
-    def __init__(self, max_steps=500, **kwargs):
+    def __init__(self, *args, max_steps=500, **kwargs):
         self.steps_left = max_steps
         super().__init__(**kwargs)
 
@@ -35,7 +34,7 @@ class CodeReachable(analysis.Analysis):
                             message=f"Address {hex(pc)} is reachable via symbolic execution",
                             address=pc,
                         )
-                        hinter.info(hint)
+                        self.hinter.info(hint)
                 if self.steps_left is not None:
                     self.steps_left -= 1
         except exceptions.EmulationStop:

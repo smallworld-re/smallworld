@@ -5,11 +5,9 @@ import lief
 
 from ..emulators import Emulator
 from ..exceptions import ConfigurationError
-from ..hinting import Hint, get_hinter
 from .state import Code, Memory
 
 log = logging.getLogger(__name__)
-hinter = get_hinter(__name__)
 
 # Prorgam header types
 PT_NULL = 0  # Empty/unused program header
@@ -89,10 +87,9 @@ class ELFImage(Code):
                 # Progam file does not need a specific base address
                 # Use a default
                 # FIXME: Using a fixed value will not be valid if we load multiple files
-                hint = Hint(
-                    message=f"No base address requested, and ELF is PIC.  Using {hex(self.default_base)}"
+                warn.info(
+                    f"No base address requested, and ELF is PIC.  Using {hex(self.default_base)}"
                 )
-                hinter.info(hint)
                 self.base = self.default_base
             else:
                 # Program file needs a specific base address
@@ -111,10 +108,9 @@ class ELFImage(Code):
             else:
                 # Program file needs a specific base address
                 # Not possible to rebase
-                hint = Hint(
-                    message=f"Requested base address {hex(self.user_base)}, but program needs {hex(self.file_base)}"
+                log.error(
+                    f"Requested base address {hex(self.user_base)}, but program needs {hex(self.file_base)}"
                 )
-                hinter.error(hint)
                 raise ConfigurationError("Contradictory base addresses.")
 
     def determine_entry(self):
@@ -219,8 +215,7 @@ class ELFImage(Code):
         # Use lief to check if this is an ELF
         # NOTE: for some reason, this takes list[int], not bytes
         if not lief.is_elf(list(self.image)):
-            hint = Hint(message="File is not an elf.")
-            hinter.error(hint)
+            log.error("File is not an elf.")
             raise ConfigurationError("Input is not an elf")
 
         # Use lief to parse the ELF
@@ -245,14 +240,12 @@ class ELFImage(Code):
         if ehdr.program_header_offset == 0:
             # NULL phoff means no program headers.
             # This file is not loadable; time to use another ELF loader.
-            hint = Hint(message="No program headers; file is not loadable")
-            hinter.error(hint)
+            log.error("No program headers; file is not loadable")
             raise ConfigurationError("File not loadable")
         if ehdr.program_header_offset >= len(self.image):
-            hint = Hint(
-                message=f"Invalid program header offset: {hex(ehdr.program_header_offset)}"
+            log.error(
+                f"Invalid program header offset: {hex(ehdr.program_header_offset)}"
             )
-            hinter.error(hint)
             raise ConfigurationError("Invalid program header offset")
 
         # Determine the file base address,
@@ -272,8 +265,7 @@ class ELFImage(Code):
             elif phdr.type == PT_DYNAMIC:
                 # Dynamic linking metadata.
                 # This ELF needs dynamic linking
-                hint = Hint(message="Program includes dynamic linking metadata")
-                hinter.info(hint)
+                log.info("Program includes dynamic linking metadata")
             elif phdr.type == PT_INTERP:
                 # Program interpreter
                 # This completely changes how program loading works.
@@ -281,8 +273,7 @@ class ELFImage(Code):
                 interp = self.image[
                     phdr.file_offset : phdr.file_offset + phdr.physical_size
                 ]
-                hint = Hint(message=f"Program specifies interpreter {interp!r}")
-                hinter.info(hint)
+                log.info(f"Program specifies interpreter {interp!r}")
             elif phdr.type == PT_NOTE:
                 # Auxiliary information
                 # Possibly useful for comparing machine/OS type.
@@ -294,8 +285,7 @@ class ELFImage(Code):
             elif phdr.type == PT_TLS:
                 # TLS Segment
                 # Your analysis is about to get nasty :(
-                hint = Hint(message="Program includes thread-local storage")
-                hinter.info(hint)
+                log.info("Program includes thread-local storage")
             elif phdr.type == PT_GNU_EH_FRAME:
                 # Exception handler frame.
                 # GCC puts one of these in everything.  Do we care?
@@ -303,13 +293,11 @@ class ELFImage(Code):
             elif phdr.type == PT_GNU_STACK:
                 # Stack executability
                 # If this is missing, assume executable stack
-                hint = Hint(message="Program specifies stack permissions")
-                hinter.info(hint)
+                log.info("Program specifies stack permissions")
             elif phdr.type == PT_GNU_RELRO:
                 # Read-only after relocation
                 # Only the dynamic linker should write this data.
-                hint = Hint(message="Program specifies RELRO data")
-                hinter.info(hint)
+                log.info("Program specifies RELRO data")
             elif phdr.type == PT_GNU_PROPERTY:
                 # GNU property segment
                 # Contains extra metadata which I'm not sure anything uses
@@ -318,19 +306,16 @@ class ELFImage(Code):
                 # Unknown OS-specific program header
                 # Either this is a weird ISA that extends the generic GNU ABI,
                 # or this isn't a Linux ELF.
-                hint = Hint(f"Unknown OS-specific program header: {phdr.type:08x}")
-                hinter.warn(hint)
+                log.warn(f"Unknown OS-specific program header: {phdr.type:08x}")
             elif phdr.type >= PT_LOPROC and phdr.type <= PT_HIPROC:
                 # Unknown machine-specific program header
                 # This is probably a non-Intel ISA.
                 # Most of these are harmless, serving to tell the RTLD
                 # where to find machine-specific metadata
-                hint = Hint(f"Unknown machine-specific program header: {phdr.type:08x}")
-                hinter.warn(hint)
+                log.warn(f"Unknown machine-specific program header: {phdr.type:08x}")
             else:
                 # Unknown program header outside the allowed custom ranges
-                hint = Hint(f"Invalid program header: {phdr.type:08x}")
-                hinter.warn(hint)
+                log.warn(f"Invalid program header: {phdr.type:08x}")
 
     def map_segment(self, phdr):
         """Map a segment into a SmallWorld machine state object

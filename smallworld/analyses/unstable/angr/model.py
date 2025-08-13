@@ -12,7 +12,6 @@ from .base import BaseMemoryMixin
 from .visitor import EvalVisitor
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 visitor = EvalVisitor()
 
 

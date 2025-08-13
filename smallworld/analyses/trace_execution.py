@@ -16,7 +16,6 @@ from . import analysis
 # from ..emulators.unicorm import UnicornEmulator
 
 logger = logging.getLogger(__name__)
-hinter = smallworld.hinting.get_hinter(__name__)
 
 
 class TraceExecutionCBPoint(Enum):
@@ -121,9 +120,11 @@ class TraceExecution(analysis.Analysis):
 
     def __init__(
         self,
+        *args,
         num_insns: int,
         randomize_regs: int = True,
         seed: int = 1234567,
+        **kwargs,
     ):
         self.num_insns = num_insns
         self.randomize_regs = randomize_regs
@@ -268,4 +269,4 @@ class TraceExecution(analysis.Analysis):
             exception_class=str(type(the_exc)),
         )
 
-        hinter.info(hint)
+        self.hinter.send(hint)
