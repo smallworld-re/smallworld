@@ -287,7 +287,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                         end=end,
                         expr=str(expr),
                     )
-                    hinter.info(hint)
+                    self.hinter.send(hint)
                     bad = True
         if bad and good:
             log.error("Write was complete and partial; your labels overlap.")
