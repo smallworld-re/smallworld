@@ -29,9 +29,10 @@ machine.add_exit_point(code.address + code.get_capacity())
 # set the instruction pointer to the entrypoint of our executable
 cpu.rip.set(code.address)
 
-analyses: typing.List[
-    typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
-] = [smallworld.analyses.Colorizer(), smallworld.analyses.ColorizerSummary()]
+analyses: typing.List[smallworld.analyses.Analysis] = [
+    smallworld.analyses.Colorizer(),
+    smallworld.analyses.ColorizerSummary(),
+]
 
 machine.add(cpu)
 

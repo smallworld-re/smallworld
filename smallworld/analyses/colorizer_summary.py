@@ -56,7 +56,7 @@ def compute_dv_key(hint):
         )
 
 
-class ColorizerSummary(analysis.Filter):
+class ColorizerSummary(analysis.Analysis):
     name = "colorizer_summary"
     description = "collect and summarize colorizer output across micro executions"
     version = "0.0.1"

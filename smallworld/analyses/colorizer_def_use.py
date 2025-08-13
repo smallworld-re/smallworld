@@ -19,7 +19,7 @@ class DefUseGraph(nx.MultiDiGraph):
         )
 
 
-class ColorizerDefUse(analysis.Filter):
+class ColorizerDefUse(analysis.Analysis):
     name = "colorizer_def_use_graph"
     description = "assemble a def use graph from colorizer summary hints"
     version = "0.0.1"

@@ -55,7 +55,7 @@ class ControlFlowTracer(analysis.Analysis):
                     instruction_num=i,
                     exception=str(e),
                 )
-                self.hinter.info(exhint)
+                self.hinter.send(exhint)
                 break
 
     def is_cfi(self, instruction):

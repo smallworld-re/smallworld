@@ -90,9 +90,10 @@ cpu.rdi.set_label("arg1")
 print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 
-analyses: typing.List[
-    typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
-] = [smallworld.analyses.Colorizer(), smallworld.analyses.ColorizerSummary()]
+analyses: typing.List[smallworld.analyses.Analysis] = [
+    smallworld.analyses.Colorizer(),
+    smallworld.analyses.ColorizerSummary(),
+]
 
 smallworld.helpers.analyze(machine, analyses)
 

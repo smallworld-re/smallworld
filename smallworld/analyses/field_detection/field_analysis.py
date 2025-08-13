@@ -419,7 +419,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
         filt.deactivate()
 
 
-class FieldDetectionFilter(analyses.Filter):
+class FieldDetectionFilter(analyses.Analysis):
     """Secondary field definition analysis.
 
     This picks up patterns that aren't noticeable from any

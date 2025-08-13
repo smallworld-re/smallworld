@@ -34,7 +34,7 @@ class CodeReachable(analysis.Analysis):
                             message=f"Address {hex(pc)} is reachable via symbolic execution",
                             address=pc,
                         )
-                        self.hinter.info(hint)
+                        self.hinter.send(hint)
                 if self.steps_left is not None:
                     self.steps_left -= 1
         except exceptions.EmulationStop:

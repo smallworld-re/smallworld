@@ -18,7 +18,7 @@ class Hint:
 
 class Hinter:
     def __init__(self) -> None:
-        self.callbacks = {}
+        self.callbacks: Dict[Type[Hint], Callable[[Hint], None]] = {}
 
     def register(self, clazz: Type[Hint], callback: Callable[[Hint], None]):
         if clazz not in self.callbacks:

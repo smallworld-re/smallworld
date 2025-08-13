@@ -13,7 +13,7 @@ T = typing.TypeVar("T", bound=state.Machine)
 
 def analyze(
     machine: state.Machine,
-    asys: typing.List[typing.Union[analyses.Analysis, analyses.Filter]],
+    asys: typing.List[analyses.Analysis],
 ) -> None:
     """Run requested analyses on some code
 
