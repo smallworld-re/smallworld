@@ -254,7 +254,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         instruction=self.state._ip.concrete_value,
                         value=str(value),
                     )
-                    hinter.info(hint)
+                    self.hinter.send(hint)
                 environ.set_symbol(v.args[0], value)
                 if isinstance(value, int):
                     pretty_value = hex(value)

@@ -120,7 +120,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 size=size,
                 expr=str(expr),
             )
-            hinter.info(hint)
+            self.hinter.self(hint)
             if self.halt_on_hint:
                 raise PathTerminationSignal()
             else:
@@ -203,7 +203,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                             start=start // 8,
                             end=end // 8,
                         )
-                hinter.info(hint)
+                self.hinter.send(hint)
                 if self.halt_on_hint:
                     raise PathTerminationSignal()
                 else:
@@ -225,7 +225,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             access="read",
             expr=str(expr),
         )
-        hinter.info(hint)
+        self.hinter.send(hint)
         if self.halt_on_hint:
             raise PathTerminationSignal()
         else:
@@ -316,7 +316,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 access="write",
                 expr=str(expr),
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
             if self.halt_on_hint:
                 raise PathTerminationSignal()
             else:
@@ -361,7 +361,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                             size=val.get_size(),
                             label=label,
                         )
-                        hinter.info(hint)
+                        self.hinter.send(hint)
 
                         if label in fda.fda_labels:
                             log.error(
