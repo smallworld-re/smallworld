@@ -426,9 +426,9 @@ class ElfExecutable(Executable):
 
         # Add the segment to the memory map
         seg_value = BytesValue(seg_data, None)
-        assert seg_value._size == seg_size, (
-            f"Expected {seg_size:x} bytes, got {seg_value._size:x}"
-        )
+        assert (
+            seg_value._size == seg_size
+        ), f"Expected {seg_size:x} bytes, got {seg_value._size:x}"
         self[seg_addr - self.address] = seg_value
 
     def _extract_dtags(self, elf):
