@@ -87,7 +87,7 @@ class ELFImage(Code):
                 # Progam file does not need a specific base address
                 # Use a default
                 # FIXME: Using a fixed value will not be valid if we load multiple files
-                warn.info(
+                log.info(
                     f"No base address requested, and ELF is PIC.  Using {hex(self.default_base)}"
                 )
                 self.base = self.default_base

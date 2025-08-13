@@ -19,7 +19,6 @@ from .hints import (
 )
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 # Tell angr to be quiet please
 logging.getLogger("angr").setLevel(logging.WARNING)
