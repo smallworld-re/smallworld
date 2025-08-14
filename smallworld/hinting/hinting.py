@@ -1,7 +1,7 @@
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Type, Dict, List
+from typing import Dict, List, Type
 
 
 @dataclass(frozen=True)
