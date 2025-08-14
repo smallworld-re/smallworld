@@ -80,7 +80,9 @@ def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
         cpu.rdi.set_content(buf)
     # arg 2 is length of buffer
     cpu.esi.set_content(buflen)
-    traceA = TraceExecution(num_insn, randomize_regs, seed + num_calls)
+    traceA = TraceExecution(
+        num_insns=num_insn, randomize_regs=randomize_regs, seed=seed + num_calls
+    )
     traceA.run(machine)
     num_calls += 1
 
