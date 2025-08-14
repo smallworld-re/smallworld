@@ -3,6 +3,7 @@ import sys
 import typing
 
 import smallworld
+from smallworld.hinting import hinting
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -29,9 +30,11 @@ machine.add_exit_point(code.address + code.get_capacity())
 # set the instruction pointer to the entrypoint of our executable
 cpu.rip.set(code.address)
 
+hinter = hinting.Hinter()
+
 analyses: typing.List[smallworld.analyses.Analysis] = [
-    smallworld.analyses.Colorizer(),
-    smallworld.analyses.ColorizerSummary(),
+    smallworld.analyses.Colorizer(hinter),
+    smallworld.analyses.ColorizerSummary(hinter),
 ]
 
 machine.add(cpu)
