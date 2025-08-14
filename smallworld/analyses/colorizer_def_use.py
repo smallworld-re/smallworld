@@ -43,7 +43,7 @@ class ColorizerDefUse(analysis.Analysis):
             else:
                 self.not_new_hints.append(hint)
 
-    def deactivate(self):
+    def run(self, machine):
         du_graph = DefUseGraph()
         color2genesis = {}
 
