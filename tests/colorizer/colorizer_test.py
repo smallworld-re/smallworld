@@ -9,7 +9,7 @@ from smallworld import hinting
 from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
 
 # setup logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(

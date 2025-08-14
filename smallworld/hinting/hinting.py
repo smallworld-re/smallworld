@@ -1,7 +1,11 @@
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass
+import logging
 from typing import Dict, List, Type
+import json
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -26,6 +30,7 @@ class Hinter:
         self.callbacks[clazz].append(callback)
 
     def send(self, hint: Hint) -> None:
+        logger.debug(json.dumps(hint))
         clazz = hint.__class__
         if clazz in self.callbacks:
             for callback in self.callbacks[clazz]:
