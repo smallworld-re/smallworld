@@ -1,7 +1,7 @@
 import copy
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Type, Dict
+from typing import Type, Dict, List
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,7 @@ class Hint:
 
 class Hinter:
     def __init__(self) -> None:
-        self.callbacks: Dict[Type[Hint], Callable[[Hint], None]] = {}
+        self.callbacks: Dict[Type[Hint], List[Callable[[Hint], None]]] = {}
 
     def register(self, clazz: Type[Hint], callback: Callable[[Hint], None]):
         if clazz not in self.callbacks:

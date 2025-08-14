@@ -117,7 +117,9 @@ class Colorizer(analysis.Analysis):
             logger.info("-------------------------")
             logger.info(f"Gathering trace for micro exec {i}")
 
-            traceA = TraceExecution(self.num_insns, True, self.seed + i)
+            traceA = TraceExecution(
+                num_insns=self.num_insns, randomize_regs=True, seed=self.seed + i
+            )
             traceA.run(machine)
             patch.append(traceA.get_patch())
 
@@ -181,7 +183,9 @@ class Colorizer(analysis.Analysis):
             self.shadow_memory = {}
             # self.edge = {}
             traceA = TraceExecution(
-                self.num_insns, True, self.seed + self.micro_exec_num
+                num_insns=self.num_insns,
+                randomize_regs=True,
+                seed=self.seed + self.micro_exec_num,
             )
             traceA.register_cb(
                 TraceExecutionCBPoint.BEFORE_INSTRUCTION, before_instruction_cb

@@ -75,7 +75,7 @@ class ColorizerSummary(analysis.Analysis):
         if 1 + hint.micro_exec_num > self.num_micro_executions:
             self.num_micro_executions = 1 + hint.micro_exec_num
 
-    def deactivate(self):
+    def run(self, machine):
         # Establish true colors 1, 2, 3, ...
         #
         # The colors we have in hints are random initial reg or memory
