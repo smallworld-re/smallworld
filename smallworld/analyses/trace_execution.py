@@ -126,6 +126,7 @@ class TraceExecution(analysis.Analysis):
         seed: int = 1234567,
         **kwargs,
     ):
+        super().__init__(*args, **kwargs)
         self.num_insns = num_insns
         self.randomize_regs = randomize_regs
         random.seed(seed)
