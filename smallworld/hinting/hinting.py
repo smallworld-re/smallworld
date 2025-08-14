@@ -30,7 +30,7 @@ class Hinter:
         self.callbacks[clazz].append(callback)
 
     def send(self, hint: Hint) -> None:
-        logger.debug(json.dumps(hint.asdict()))
+        logger.debug(json.dumps(hint.asdict()))  # type: ignore
         clazz = hint.__class__
         if clazz in self.callbacks:
             for callback in self.callbacks[clazz]:
