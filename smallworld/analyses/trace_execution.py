@@ -6,12 +6,14 @@ from dataclasses import dataclass
 from enum import Enum
 
 import capstone
-# import jsons
 
 import smallworld
 
 from .. import platforms
 from . import analysis
+
+# import jsons
+
 
 # from ..emulators.unicorm import UnicornEmulator
 
