@@ -33,7 +33,7 @@ class Hinter:
         try:
             logger.debug(json.dumps(asdict(hint)))
         except:
-            logger.debug(hint.to_json())
+            logger.debug(hint.to_json())  # type: ignore
 
         clazz = hint.__class__
         if clazz in self.callbacks:
