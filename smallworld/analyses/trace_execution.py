@@ -87,6 +87,9 @@ class TraceExecutionHint(smallworld.hinting.Hint):
     exception: typing.Optional[Exception]
     exception_class: str
 
+    def asdict(self):
+        return self.to_dict()
+
     def to_dict(self):
         return {
             "trace": jsons.dump(self.trace),
