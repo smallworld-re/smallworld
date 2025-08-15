@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 import capstone
-import jsons
+# import jsons
 
 import smallworld
 
