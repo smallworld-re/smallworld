@@ -2,7 +2,7 @@ import copy
 import json
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Dict, List, Type
 
 logger = logging.getLogger(__name__)
