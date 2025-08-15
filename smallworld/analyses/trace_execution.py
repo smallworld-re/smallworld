@@ -13,8 +13,6 @@ import smallworld
 from .. import platforms
 from . import analysis
 
-# from ..emulators.unicorm import UnicornEmulator
-
 logger = logging.getLogger(__name__)
 
 
