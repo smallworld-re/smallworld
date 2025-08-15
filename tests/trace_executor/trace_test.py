@@ -5,8 +5,9 @@ import sys
 
 import smallworld
 from smallworld.analyses import TraceExecution
+from smallworld import hinting
 
-# setup logging and hinting
+# setup logging
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # configure the platform for emulation
@@ -80,8 +81,9 @@ def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
         cpu.rdi.set_content(buf)
     # arg 2 is length of buffer
     cpu.esi.set_content(buflen)
+    hinter = hinting.Hinter()
     traceA = TraceExecution(
-        num_insns=num_insn, randomize_regs=randomize_regs, seed=seed + num_calls
+        hinter, num_insns=num_insn, randomize_regs=randomize_regs, seed=seed + num_calls
     )
     traceA.run(machine)
     num_calls += 1
