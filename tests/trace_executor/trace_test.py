@@ -4,8 +4,8 @@ import random
 import sys
 
 import smallworld
-from smallworld.analyses import TraceExecution
 from smallworld import hinting
+from smallworld.analyses import TraceExecution
 
 # setup logging
 smallworld.logging.setup_logging(level=logging.INFO)
