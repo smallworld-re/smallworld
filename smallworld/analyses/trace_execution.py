@@ -87,20 +87,20 @@ class TraceExecutionHint(smallworld.hinting.Hint):
     exception: typing.Optional[Exception]
     exception_class: str
 
-    def to_dict(self):
-        return {
-            "trace": jsons.dump(self.trace),
-            "emu_result": jsons.dump(self.emu_result),
-            "exception": jsons.dump(self.exception),
-            "exception_class": str(type(self.exception)),
-        }
+    # def to_dict(self):
+    #     return {
+    #         "trace": jsons.dump(self.trace),
+    #         "emu_result": jsons.dump(self.emu_result),
+    #         "exception": jsons.dump(self.exception),
+    #         "exception_class": str(type(self.exception)),
+    #     }
 
-    @classmethod
-    def from_dict(cls, dict):
-        trace = jsons.load(dict, typing.List[TraceElement])
-        emu_result = jsons.load(dict, TraceRes)
-        exception = jsons.load(dict, Exception)
-        return cls(trace, emu_result, exception)
+    # @classmethod
+    # def from_dict(cls, dict):
+    #     trace = jsons.load(dict, typing.List[TraceElement])
+    #     emu_result = jsons.load(dict, TraceRes)
+    #     exception = jsons.load(dict, Exception)
+    #     return cls(trace, emu_result, exception)
 
 
 class Patch:
