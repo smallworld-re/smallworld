@@ -13,10 +13,7 @@ import smallworld
 from .. import platforms
 from . import analysis
 
-# from ..emulators.unicorm import UnicornEmulator
-
 logger = logging.getLogger(__name__)
-hinter = smallworld.hinting.get_hinter(__name__)
 
 
 class TraceExecutionCBPoint(Enum):
@@ -88,7 +85,7 @@ class TraceExecutionHint(smallworld.hinting.Hint):
     exception: typing.Optional[Exception]
     exception_class: str
 
-    def to_dict(self):
+    def to_json(self):
         return {
             "trace": jsons.dump(self.trace),
             "emu_result": jsons.dump(self.emu_result),
@@ -96,12 +93,12 @@ class TraceExecutionHint(smallworld.hinting.Hint):
             "exception_class": str(type(self.exception)),
         }
 
-    @classmethod
-    def from_dict(cls, dict):
-        trace = jsons.load(dict, typing.List[TraceElement])
-        emu_result = jsons.load(dict, TraceRes)
-        exception = jsons.load(dict, Exception)
-        return cls(trace, emu_result, exception)
+    # @classmethod
+    # def from_dict(cls, dict):
+    #     trace = jsons.load(dict, typing.List[TraceElement])
+    #     emu_result = jsons.load(dict, TraceRes)
+    #     exception = jsons.load(dict, Exception)
+    #     return cls(trace, emu_result, exception)
 
 
 class Patch:
@@ -121,10 +118,13 @@ class TraceExecution(analysis.Analysis):
 
     def __init__(
         self,
+        *args,
         num_insns: int,
         randomize_regs: int = True,
         seed: int = 1234567,
+        **kwargs,
     ):
+        super().__init__(*args, **kwargs)
         self.num_insns = num_insns
         self.randomize_regs = randomize_regs
         random.seed(seed)
@@ -268,4 +268,4 @@ class TraceExecution(analysis.Analysis):
             exception_class=str(type(the_exc)),
         )
 
-        hinter.info(hint)
+        self.hinter.send(hint)

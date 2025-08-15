@@ -5,11 +5,11 @@ import sys
 import typing
 
 import smallworld
+from smallworld import hinting
 from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
 
 # setup logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(
@@ -82,12 +82,15 @@ def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
     # arg 2 is length of buffer
     cpu.esi.set_content(buflen)
 
+    hinter = hinting.Hinter()
     analyses: typing.List[
         typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
     ] = [
-        Colorizer(num_micro_executions=num_micro_exec, num_insns=num_insn, seed=seed),
-        ColorizerSummary(),
-        ColorizerDefUse(),
+        Colorizer(
+            hinter, num_micro_executions=num_micro_exec, num_insns=num_insn, seed=seed
+        ),
+        ColorizerSummary(hinter),
+        ColorizerDefUse(hinter),
     ]
 
     # analyze

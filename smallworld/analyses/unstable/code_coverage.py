@@ -6,7 +6,6 @@ from ... import emulators, exceptions, hinting, state
 from .. import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class CodeCoverage(analysis.Analysis):
@@ -48,7 +47,7 @@ class CodeCoverage(analysis.Analysis):
                     instruction_num=i,
                     exception=str(e),
                 )
-                hinter.info(exhint)
+                self.hinter.send(exhint)
                 break
         hint = hinting.CoverageHint(message="Coverage for execution", coverage=coverage)
-        hinter.info(hint)
+        self.hinter.send(hint)

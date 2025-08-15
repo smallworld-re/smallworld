@@ -34,13 +34,13 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
         return base + self.scale * index + self.offset
 
-    # def to_json(self) -> dict:
-    #     return {
-    #         "base": self.base,
-    #         "index": self.index,
-    #         "scale": self.scale,
-    #         "offset": self.offset,
-    #     }
+    def to_json(self) -> dict:
+        return {
+            "base": self.base,
+            "index": self.index,
+            "scale": self.scale,
+            "offset": self.offset,
+        }
 
     @classmethod
     def from_json(cls, dict):

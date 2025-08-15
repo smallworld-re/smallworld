@@ -1,12 +1,8 @@
-# msdfdsfypy: ignore-errors
-
 import sys
 import typing
 
 from .. import hinting
 from . import analysis
-
-hinter = hinting.get_hinter(__name__)
 
 # goal here is to summarize across multiple micro execution if two
 # hints map to the same key then they are in same equivalence class so
@@ -60,28 +56,26 @@ def compute_dv_key(hint):
         )
 
 
-class ColorizerSummary(analysis.Filter):
+class ColorizerSummary(analysis.Analysis):
     name = "colorizer_summary"
     description = "collect and summarize colorizer output across micro executions"
     version = "0.0.1"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.hint_list = []
         self.num_micro_executions = 0
+        self.hinter.register(hinting.DynamicRegisterValueHint, self.collect_hints)
+        self.hinter.register(hinting.DynamicMemoryValueHint, self.collect_hints)
+        self.hinter.register(hinting.MemoryUnavailableHint, self.collect_hints)
+        self.hinter.register(hinting.EmulationException, self.collect_hints)
 
     def collect_hints(self, hint):
         self.hint_list.append(hint)
         if 1 + hint.micro_exec_num > self.num_micro_executions:
             self.num_micro_executions = 1 + hint.micro_exec_num
 
-    def activate(self):
-        self.listen(hinting.DynamicRegisterValueHint, self.collect_hints)
-        self.listen(hinting.DynamicMemoryValueHint, self.collect_hints)
-        self.listen(hinting.MemoryUnavailableHint, self.collect_hints)
-        self.listen(hinting.EmulationException, self.collect_hints)
-
-    def deactivate(self):
+    def run(self, machine):
         # Establish true colors 1, 2, 3, ...
         #
         # The colors we have in hints are random initial reg or memory
@@ -150,7 +144,7 @@ class ColorizerSummary(analysis.Filter):
         for hk in hint_keys_sorted:
             hint = hk_exemplar[hk]
             if type(hint) is hinting.DynamicRegisterValueHint:
-                hinter.info(
+                self.hinter.send(
                     hinting.DynamicRegisterValueSummaryHint(
                         pc=hint.pc,
                         reg_name=hint.reg_name,
@@ -164,7 +158,7 @@ class ColorizerSummary(analysis.Filter):
                     )
                 )
             if type(hint) is hinting.DynamicMemoryValueHint:
-                hinter.info(
+                self.hinter.send(
                     hinting.DynamicMemoryValueSummaryHint(
                         pc=hint.pc,
                         size=hint.size,
@@ -181,7 +175,7 @@ class ColorizerSummary(analysis.Filter):
                     )
                 )
             if type(hint) is hinting.MemoryUnavailableHint:
-                hinter.info(
+                self.hinter.send(
                     hinting.MemoryUnavailableSummaryHint(
                         is_read=hint.is_read,
                         size=hint.size,

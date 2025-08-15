@@ -4,7 +4,6 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....hinting import Hint, get_hinter
 from ....platforms import Architecture, Byteorder, Platform
 from ....utils import RangeCollection
 from ...state import BytesValue
@@ -13,7 +12,6 @@ from .rela import ElfRelocator
 from .structs import ElfRela, ElfSymbol
 
 log = logging.getLogger(__name__)
-hinter = get_hinter(__name__)
 
 # ELF machine values
 # See /usr/include/elf.h for the complete list
@@ -181,15 +179,13 @@ class ElfExecutable(Executable):
             elif phdr.type == PT_DYNAMIC:
                 # Dynamic linking metadata.
                 # This ELF needs dynamic linking
-                hint = Hint(message="Program includes dynamic linking metadata")
-                hinter.info(hint)
+                log.info("Program includes dynamic linking metadata")
             elif phdr.type == PT_INTERP:
                 # Program interpreter
                 # This completely changes how program loading works.
                 # Whether you care is a different matter.
                 interp = image[phdr.file_offset : phdr.file_offset + phdr.physical_size]
-                hint = Hint(message=f"Program specifies interpreter {interp!r}")
-                hinter.info(hint)
+                log.info(f"Program specifies interpreter {interp!r}")
             elif phdr.type == PT_NOTE:
                 # Auxiliary information
                 # Possibly useful for comparing machine/OS type.
@@ -201,8 +197,7 @@ class ElfExecutable(Executable):
             elif phdr.type == PT_TLS:
                 # TLS Segment
                 # Your analysis is about to get nasty :(
-                hint = Hint(message="Program includes thread-local storage")
-                hinter.info(hint)
+                log.info("Program includes thread-local storage")
             elif phdr.type == PT_GNU_EH_FRAME:
                 # Exception handler frame.
                 # GCC puts one of these in everything.  Do we care?
@@ -210,13 +205,11 @@ class ElfExecutable(Executable):
             elif phdr.type == PT_GNU_STACK:
                 # Stack executability
                 # If this is missing, assume executable stack
-                hint = Hint(message="Program specifies stack permissions")
-                hinter.info(hint)
+                log.info("Program specifies stack permissions")
             elif phdr.type == PT_GNU_RELRO:
                 # Read-only after relocation
                 # Only the dynamic linker should write this data.
-                hint = Hint(message="Program specifies RELRO data")
-                hinter.info(hint)
+                log.info("Program specifies RELRO data")
             elif phdr.type == PT_GNU_PROPERTY:
                 # GNU property segment
                 # Contains extra metadata which I'm not sure anything uses
@@ -225,21 +218,18 @@ class ElfExecutable(Executable):
                 # Unknown OS-specific program header
                 # Either this is a weird ISA that extends the generic GNU ABI,
                 # or this isn't a Linux ELF.
-                hint = Hint(f"Unknown OS-specific program header: {phdr.type:08x}")
-                hinter.warn(hint)
+                log.warn(f"Unknown OS-specific program header: {phdr.type:08x}")
             elif phdr.type >= PT_LOPROC and phdr.type <= PT_HIPROC:
                 # Unknown machine-specific program header
                 # This is probably a non-Intel ISA.
                 # Most of these are harmless, serving to tell the RTLD
                 # where to find machine-specific metadata
-                hint = Hint(
+                log.warn(
                     f"Unknown machine-specific program header: {phdr.type.value:08x}"
                 )
-                hinter.warn(hint)
             else:
                 # Unknown program header outside the allowed custom ranges
-                hint = Hint(f"Invalid program header: {phdr.type.value:08x}")
-                hinter.warn(hint)
+                log.warn(f"Invalid program header: {phdr.type.value:08x}")
 
         # Compute the final total capacity
         for offset, value in self.items():

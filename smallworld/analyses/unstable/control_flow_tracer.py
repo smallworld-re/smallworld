@@ -5,7 +5,6 @@ from ... import emulators, exceptions, hinting, instructions, state
 from .. import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class ControlFlowTracer(analysis.Analysis):
@@ -41,7 +40,7 @@ class ControlFlowTracer(analysis.Analysis):
                     ),
                     to_instruction=instructions.Instruction.from_capstone(instruction),
                 )
-                hinter.info(hint)
+                self.hinter.send(hint)
                 from_instruction = None
             if self.is_cfi(instruction):
                 from_instruction = instruction
@@ -56,7 +55,7 @@ class ControlFlowTracer(analysis.Analysis):
                     instruction_num=i,
                     exception=str(e),
                 )
-                hinter.info(exhint)
+                self.hinter.send(exhint)
                 break
 
     def is_cfi(self, instruction):

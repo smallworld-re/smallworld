@@ -5,7 +5,6 @@ from .. import emulators, hinting
 from . import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class CodeCoverage(analysis.Analysis):
@@ -28,4 +27,4 @@ class CodeCoverage(analysis.Analysis):
                 coverage[pc] = 1
 
         hint = hinting.CoverageHint(message="Coverage for execution", coverage=coverage)
-        hinter.info(hint)
+        self.hinter.send(hint)

@@ -7,7 +7,6 @@ from ... import emulators, exceptions, hinting, instructions, state
 from .. import analysis
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class PointerFinder(analysis.Analysis):
@@ -41,7 +40,7 @@ class PointerFinder(analysis.Analysis):
 
         assert p, "we can't find the pointer"
         hint = hinting.PointerHint(message="Pointer Found", instruction=i, pointer=r)
-        hinter.info(hint)
+        self.hinter.send(hint)
 
     def run(self, state: state.Machine) -> None:
         machine = copy.deepcopy(state)
@@ -86,5 +85,5 @@ class PointerFinder(analysis.Analysis):
                     instruction_num=i,
                     exception=str(e),
                 )
-                hinter.info(exhint)
+                self.hinter.send(exhint)
                 break

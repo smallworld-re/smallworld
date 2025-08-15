@@ -7,12 +7,6 @@ import typing
 import capstone
 
 from .. import hinting, platforms, state
-
-# from ..emulators import (
-#     UnicornEmulationMemoryReadError,
-#     UnicornEmulationMemoryWriteError,
-#     UnicornEmulator,
-# )
 from ..exceptions import AnalysisRunError  # , EmulationBounds
 from ..instructions import (
     BSIDMemoryReferenceOperand,
@@ -24,7 +18,6 @@ from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
 logger = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 MIN_ACCEPTABLE_COLOR_INT = 0x20
 BAD_COLOR = (2**64) - 1
@@ -124,7 +117,12 @@ class Colorizer(analysis.Analysis):
             logger.info("-------------------------")
             logger.info(f"Gathering trace for micro exec {i}")
 
-            traceA = TraceExecution(self.num_insns, True, self.seed + i)
+            traceA = TraceExecution(
+                self.hinter,
+                num_insns=self.num_insns,
+                randomize_regs=True,
+                seed=self.seed + i,
+            )
             traceA.run(machine)
             patch.append(traceA.get_patch())
 
@@ -188,7 +186,10 @@ class Colorizer(analysis.Analysis):
             self.shadow_memory = {}
             # self.edge = {}
             traceA = TraceExecution(
-                self.num_insns, True, self.seed + self.micro_exec_num
+                self.hinter,
+                num_insns=self.num_insns,
+                randomize_regs=True,
+                seed=self.seed + self.micro_exec_num,
             )
             traceA.register_cb(
                 TraceExecutionCBPoint.BEFORE_INSTRUCTION, before_instruction_cb
@@ -300,7 +301,7 @@ class Colorizer(analysis.Analysis):
                 insn_num,
                 msg,
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
         else:
             # new color
             self._add_color(color, operand, insn, exec_num, insn_num)
@@ -323,7 +324,7 @@ class Colorizer(analysis.Analysis):
                 insn_num,
                 msg,
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
 
     def _dynamic_value_hint(
         self,
