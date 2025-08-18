@@ -8,7 +8,7 @@ from smallworld import hinting
 from smallworld.analyses import TraceExecution
 
 # setup logging
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(
