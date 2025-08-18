@@ -158,11 +158,17 @@ class Fgetc(StdioModel):
             fd = self._fdmgr.filestar_to_fd(filestar)
             file = self._fdmgr.get(fd)
         except FDIOError:
+            print(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
-        data = file.read(1, ungetc=True)
+        try:
+            data = file.read(1, ungetc=True)
+        except Exception as e:
+            print(f"Failed reading from {file.name}: {e}")
+            raise e
 
+        print(f"Returning {data[0]:x}")
         self.set_return_value(emulator, data[0])
 
 

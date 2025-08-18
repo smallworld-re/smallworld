@@ -2284,6 +2284,15 @@ class LibraryModelTest(AbsLibraryModelTest):
         )
 
 
+class OneArgLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        # These are all designed to either take no arguments,
+        # or to run a positive test if fed "foobar"
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py foobar"
+        )
+
+
 class NoArgLibraryModelTest(AbsLibraryModelTest):
     def run_test(self, arch):
         self.command(
@@ -2542,6 +2551,11 @@ class C99FopenTests(NoArgLibraryModelTest):
 class C99FcloseTests(NoArgLibraryModelTest):
     library = "c99"
     function = "fclose"
+
+
+class C99FgetcTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "fgetc"
 
 
 class DocumentationTests(unittest.TestCase):
