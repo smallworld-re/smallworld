@@ -2534,6 +2534,16 @@ class C99ScanfTests(ScanLibraryModelTest):
     function = "scanf"
 
 
+class C99FopenTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fopen"
+
+
+class C99FcloseTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fclose"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

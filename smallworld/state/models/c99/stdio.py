@@ -55,7 +55,7 @@ class StdioModel(CStdModel):
             readable = True
             writable = True
         else:
-            raise Exception(f"Unknown mode {mode}")
+            raise FDIOError(f"Unknown mode {mode}")
 
         return (readable, writable)
 

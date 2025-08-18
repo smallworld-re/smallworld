@@ -400,6 +400,7 @@ class CStdModel(Model):
 
         if val < 0:
             # Negative value; need to find 2s-compliment if it's an int
+            val *= -1
             if self.return_type in self._four_byte_types:
                 val = ((val ^ self._int_inv_mask) + 1) & self._int_inv_mask
             elif self.return_type in self._eight_byte_types:
