@@ -86,15 +86,6 @@ fgetc_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("fgetc", fgetc_model._address)
 
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
-)
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate printf
-code.update_symbol_value("printf", printf_model._address)
-
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
