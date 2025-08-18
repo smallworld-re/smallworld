@@ -2512,6 +2512,28 @@ class C99PrintfTests(PrintLibraryModelTest):
     function = "printf"
 
 
+class C99SscanfTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "sscanf"
+
+
+class ScanLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        _, _ = self.command(
+            f"echo -n '' | python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+
+
+class C99FscanfTests(ScanLibraryModelTest):
+    library = "c99"
+    function = "fscanf"
+
+
+class C99ScanfTests(ScanLibraryModelTest):
+    library = "c99"
+    function = "scanf"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

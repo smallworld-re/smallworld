@@ -6,7 +6,8 @@ from .... import emulators, exceptions
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel
 from ..filedesc import FDIOError, FileDescriptorManager
-from .fmt import parse_printf_format
+from .fmt_print import parse_printf_format
+from .fmt_scan import FileIntake, StringIntake, handle_scanf_format
 from .utils import _emu_strlen
 
 
@@ -435,7 +436,29 @@ class Fscanf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        filestar = self.get_arg1(emulator)
+        fmt_addr = self.get_arg2(emulator)
+
+        assert isinstance(filestar, int)
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        intake = FileIntake(file)
+
+        res = handle_scanf_format(self, intake, fmt, emulator)
+
+        self.set_return_value(emulator, res)
 
 
 class Fseek(StdioModel):
@@ -840,7 +863,27 @@ class Scanf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        fmt_addr = self.get_arg1(emulator)
+
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        try:
+            fd = 0
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
+            return
+
+        intake = FileIntake(file)
+
+        res = handle_scanf_format(self, intake, fmt, emulator)
+
+        self.set_return_value(emulator, res)
 
 
 class Snprintf(StdioModel):
@@ -919,7 +962,22 @@ class Sscanf(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        src_addr = self.get_arg1(emulator)
+        fmt_addr = self.get_arg2(emulator)
+
+        assert isinstance(src_addr, int)
+        assert isinstance(fmt_addr, int)
+
+        fmt_len = _emu_strlen(emulator, fmt_addr)
+        fmt_bytes = emulator.read_memory(fmt_addr, fmt_len)
+        fmt = fmt_bytes.decode("utf-8")
+
+        intake = StringIntake(src_addr, emulator)
+
+        res = handle_scanf_format(self, intake, fmt, emulator)
+
+        self.set_return_value(emulator, res)
 
 
 class Tmpfile(StdioModel):
