@@ -2558,6 +2558,16 @@ class C99FgetcTests(OneArgLibraryModelTest):
     function = "fgetc"
 
 
+class C99GetcTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "getc"
+
+
+class C99GetcharTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "getchar"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
