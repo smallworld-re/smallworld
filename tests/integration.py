@@ -2653,6 +2653,11 @@ class C99ClearerrTests(NoArgLibraryModelTest):
     function = "clearerr"
 
 
+class C99UngetcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ungetc"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
