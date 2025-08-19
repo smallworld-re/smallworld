@@ -101,8 +101,6 @@ def collect_hints(hint):
 
 import hashlib
 
-
-
 print(
     hashlib.md5("000005fab4534d05key9a055eb014e4e5d52write".encode("utf-8")).hexdigest()
 )
