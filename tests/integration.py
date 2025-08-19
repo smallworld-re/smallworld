@@ -2593,6 +2593,16 @@ class C99FputsTests(NoArgLibraryModelTest):
     function = "fputs"
 
 
+class C99PutcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "putc"
+
+
+class C99PutsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "puts"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

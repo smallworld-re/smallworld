@@ -288,6 +288,9 @@ class FileDescriptorManager:
 
         return self._fds[fd]
 
+    def set(self, fd: int, file: FileDescriptor) -> None:
+        self._fds[fd] = file
+
     # Magic number for identifying FILE * pointers created by this API.
     # ASCII for 'FI*'
     #
