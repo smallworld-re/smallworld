@@ -2613,6 +2613,16 @@ class C99FreadTests(OneArgLibraryModelTest):
     function = "fread"
 
 
+class C99FwriteTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fwrite"
+
+
+class C99FtellTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ftell"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

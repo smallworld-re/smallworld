@@ -110,6 +110,8 @@ class FileDescriptor:
         else:
             file.write(data)
 
+        self.cursor = file.tell()
+
     def seek(self, pos: int, whence: int) -> int:
         if not self.seekable:
             raise FDIOError(f"File {self.name} is not seekable")
