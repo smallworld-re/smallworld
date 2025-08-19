@@ -2231,163 +2231,21 @@ class TraceExecutionTests(ScriptIntegrationTest):
 
 
 class ColorizerTests(ScriptIntegrationTest):
-    ct_script = "colorizer/colorizer_test.py"
-    #   10 47 56 False 1234
-
-    def run_colorizer_test(self, num_micro_execs, num_insns, buflen, fortytwos, seed):
-        stdout, stderr = self.command(
-            f"python3 colorizer/colorizer_test.py {num_micro_execs} {num_insns} {buflen} {fortytwos} {seed}"
-        )
-        return (stdout, stderr)
-
-    def get_color_info(self, num_micro_execs, num_insns, buflen, fortytwos, seed):
-        stdout, stderr = self.run_colorizer_test(10, 37, 13, True, 1234)
-
-        mem_hints = set([])
-        reg_hints = set([])
-
-        for line in stderr.split("\n"):
-            if "summary" not in line:
-                continue
-            foo = re.search(
-                '"message": "(.*)", "pc": ([0-9]+), "color": ([0-9]+), .* "class": "(.*)"}}',
-                line,
-            )
-            if foo:
-                (message, pcs, colors, cls) = foo.groups()
-                if "DynamicMemoryValueSummaryHint" in cls:
-                    foo = re.search(
-                        r'"base": "(.*)", "index": "(.*)", "scale": ([0-9-]+), "offset": ([0-9-]+)',
-                        line,
-                    )
-                    assert foo is not None
-                    (base, index, scale, offset) = foo.groups()
-                    mem_hints.add((message, pcs, colors, base, index, scale, offset))
-                else:
-                    assert "DynamicRegisterValueSummaryHint" in cls
-                    foo = re.search('"reg_name": "(.*)", "class', line)
-                    assert foo is not None
-                    reg_name = foo.groups()[0]
-                    reg_hints.add((message, pcs, colors, reg_name))
-
-        return (mem_hints, reg_hints)
-
-    def check(self, truth, observed, msg):
-        if not (truth == observed):
-            raise AssertionError(
-                f"""Colorizer observed output disagrees with truth for {msg}.
-Got
-{observed}
-Expected
-{truth}"""
-            )
 
     def test_colors_1(self):
-        (mem_hints, reg_hints) = self.get_color_info(10, 37, 13, True, 1234)
-
-        mem_hints_truth = {
-            ("read-flow-summary", "4635", "3", "rbp", "None", "1", "-24"),
-            ("write-copy-summary", "4465", "3", "rbp", "None", "1", "-24"),
-            ("read-def-summary", "4642", "4", "rax", "None", "1", "0"),
-        }
-        reg_hints_truth = {
-            ("read-flow-summary", "4680", "4", "ecx"),
-            ("write-copy-summary", "4639", "3", "rax"),
-            ("read-def-summary", "4465", "3", "rdi"),
-            ("write-def-summary", "4461", "2", "rsp"),
-            ("read-flow-summary", "4676", "4", "eax"),
-            ("write-copy-summary", "4668", "4", "ecx"),
-            ("write-copy-summary", "4676", "4", "ecx"),
-            ("read-flow-summary", "4650", "5", "ecx"),
-            ("read-flow-summary", "4685", "2", "rbp"),
-            ("write-copy-summary", "4678", "4", "eax"),
-            ("read-flow-summary", "4661", "4", "edx"),
-            ("read-flow-summary", "4678", "4", "edx"),
-            ("write-copy-summary", "4650", "5", "eax"),
-            ("read-flow-summary", "4629", "2", "rbp"),
-            ("read-flow-summary", "4639", "3", "rax"),
-            ("read-flow-summary", "4472", "2", "rbp"),
-            ("read-flow-summary", "4673", "4", "ecx"),
-            ("read-flow-summary", "4663", "4", "cl"),
-            ("write-def-summary", "4652", "6", "ax"),
-            ("read-def-summary", "4461", "1", "rsp"),
-            ("read-flow-summary", "4688", "2", "rbp"),
-            ("read-flow-summary", "4635", "2", "rbp"),
-            ("read-flow-summary", "4469", "2", "rbp"),
-            ("read-flow-summary", "4680", "4", "eax"),
-            ("read-flow-summary", "4654", "6", "ax"),
-            ("write-copy-summary", "4635", "3", "rax"),
-            ("read-flow-summary", "4652", "4", "dl"),
-            ("write-copy-summary", "4661", "4", "ecx"),
-            ("read-flow-summary", "4692", "2", "rbp"),
-            ("write-copy-summary", "4673", "4", "eax"),
-            ("read-flow-summary", "4695", "2", "rbp"),
-            ("read-flow-summary", "4465", "2", "rbp"),
-            ("write-copy-summary", "4642", "4", "edx"),
-            ("write-copy-summary", "4462", "2", "rbp"),
-            ("write-def-summary", "4645", "5", "ecx"),
-            ("read-flow-summary", "4462", "2", "rsp"),
-            ("read-flow-summary", "4652", "5", "al"),
-            ("read-flow-summary", "4642", "3", "rax"),
-            ("read-flow-summary", "4479", "2", "rbp"),
-            ("read-flow-summary", "4620", "2", "rbp"),
-        }
-        self.check(mem_hints_truth, mem_hints, "mem_hints")
-        self.check(reg_hints_truth, reg_hints, "reg_hints")
+        stdout, stderr = self.command("python3 colorizer/test_colorizer_1.py")
+        self.assertLineContainsStrings(stdout, "Summary hints match: True")
+        self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
+        self.assertLineContainsStrings(stdout, "Def-use graph match: True")
+        self.assertLineContainsStrings(stdout, "Test result: passed=True")
 
     def test_colors_2(self):
-        (mem_hints, reg_hints) = self.get_color_info(10, 52, 12, True, 1234)
-
-        mem_hints_truth = {
-            ("read-flow-summary", "4635", "3", "rbp", "None", "1", "-24"),
-            ("write-copy-summary", "4465", "3", "rbp", "None", "1", "-24"),
-            ("read-def-summary", "4642", "4", "rax", "None", "1", "0"),
-        }
-        reg_hints_truth = {
-            ("read-flow-summary", "4692", "2", "rbp"),
-            ("write-copy-summary", "4678", "4", "eax"),
-            ("write-copy-summary", "4673", "4", "eax"),
-            ("write-copy-summary", "4668", "4", "ecx"),
-            ("read-flow-summary", "4663", "4", "cl"),
-            ("write-copy-summary", "4639", "3", "rax"),
-            ("write-def-summary", "4461", "2", "rsp"),
-            ("read-flow-summary", "4680", "4", "eax"),
-            ("write-copy-summary", "4642", "4", "edx"),
-            ("read-flow-summary", "4465", "2", "rbp"),
-            ("read-flow-summary", "4629", "2", "rbp"),
-            ("read-flow-summary", "4673", "4", "ecx"),
-            ("write-def-summary", "4652", "6", "ax"),
-            ("read-flow-summary", "4676", "4", "eax"),
-            ("read-flow-summary", "4685", "2", "rbp"),
-            ("read-flow-summary", "4642", "3", "rax"),
-            ("read-flow-summary", "4652", "4", "dl"),
-            ("read-flow-summary", "4462", "2", "rsp"),
-            ("write-copy-summary", "4676", "4", "ecx"),
-            ("read-flow-summary", "4639", "3", "rax"),
-            ("write-def-summary", "4645", "5", "ecx"),
-            ("read-flow-summary", "4678", "4", "edx"),
-            ("read-def-summary", "4461", "1", "rsp"),
-            ("read-flow-summary", "4680", "4", "ecx"),
-            ("read-flow-summary", "4635", "2", "rbp"),
-            ("read-flow-summary", "4472", "2", "rbp"),
-            ("read-flow-summary", "4652", "5", "al"),
-            ("write-copy-summary", "4661", "4", "ecx"),
-            ("read-flow-summary", "4479", "2", "rbp"),
-            ("write-copy-summary", "4462", "2", "rbp"),
-            ("read-flow-summary", "4620", "2", "rbp"),
-            ("read-flow-summary", "4650", "5", "ecx"),
-            ("read-def-summary", "4465", "3", "rdi"),
-            ("read-flow-summary", "4695", "2", "rbp"),
-            ("write-copy-summary", "4650", "5", "eax"),
-            ("read-flow-summary", "4688", "2", "rbp"),
-            ("read-flow-summary", "4469", "2", "rbp"),
-            ("write-copy-summary", "4635", "3", "rax"),
-            ("read-flow-summary", "4654", "6", "ax"),
-            ("read-flow-summary", "4661", "4", "edx"),
-        }
-        self.check(mem_hints_truth, mem_hints, "mem_hints")
-        self.check(reg_hints_truth, reg_hints, "reg_hints")
-
+        stdout, stderr = self.command("python3 colorizer/test_colorizer_2.py")
+        self.assertLineContainsStrings(stdout, "Summary hints match: True")
+        self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
+        self.assertLineContainsStrings(stdout, "Def-use graph match: True")
+        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        
 
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):

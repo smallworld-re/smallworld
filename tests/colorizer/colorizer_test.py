@@ -1,3 +1,4 @@
+import copy
 import logging
 import pathlib
 import random
@@ -6,6 +7,7 @@ import typing
 
 import smallworld
 from smallworld import hinting
+from smallworld.hinting.hints import TraceExecutionHint, MemoryUnavailableSummaryHint, DynamicMemoryValueSummaryHint, DynamicRegisterValueSummaryHint, DefUseGraphHint
 from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
 
 # setup logging and hinting
@@ -25,34 +27,34 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 # create an executable and add it to the machine
 path = pathlib.Path(__file__).parent.resolve()
 code = smallworld.state.memory.code.Executable.from_elf(
-    open(f"{path}/../trace_executor/ahme-x86_64.bin", "rb"), address=0x000
+    open(f"{path}/../trace_executor/ahme-x86_64.bin", "rb"), address=0x1000
 )
 machine.add(code)
 
 # Create a stack and add it to the state
-stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x10000, 0x4000)
 machine.add(stack)
 rsp = stack.get_pointer()
 cpu.rsp.set(rsp)
 
 # set the instruction pointer to the entrypoint of our executable
 # these values are from
-# % md5sum ahme-x86_64.bin
-# ffe4930bb1bb00b720dc725b3c1edbf6  ahme-x86_64.bin
-entry_point = 0x1169
-exit_point = 0x1260
+# md5sum trace_executor/ahme-x86_64.bin
+# 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64.bin
+entry_point = 0x2189
+exit_point = 0x2291
 
 cpu.rip.set(entry_point)
 machine.add(cpu)
 machine.add_exit_point(exit_point)
 
-heap_size = 0x1000
-heap = smallworld.state.memory.heap.BumpAllocator(0x10000, heap_size)
-machine.add(heap)
+hints = []
 
-total_alloc = 0
+def collect_hints(hint):
+    global hints
+    hints.append(hint)    
 
-
+    
 # num_micro_exec   How many micro executions.
 # num_insn:       how many (max) instructions to execute from entry
 # buflen:         length of buffer on heap that will be processed by fn foo @ 0x1169
@@ -61,14 +63,20 @@ total_alloc = 0
 # randomize_regs: if True, TraceExecution will randomize any regs not initialized
 # seed:           seed for RNG
 def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
-    global total_alloc, heap_size
+    global hints
+    global machine
 
+    machine_copy = copy.deepcopy(machine)
+    cpu = machine_copy.get_cpus()[0]
+
+    hints = []
     print(
         f"\ntest: num_micro_exec={num_micro_exec} num_insn={num_insn} buflen={buflen} fortytwos={fortytwos} seed={seed}"
     )
 
-    total_alloc += buflen
-    assert total_alloc < heap_size
+    heap_size = 0x1000
+    heap = smallworld.state.memory.heap.BumpAllocator(0x20000, heap_size)
+    machine_copy.add(heap)
 
     random.seed(seed)
     bytz = random.randbytes(buflen)
@@ -83,6 +91,11 @@ def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
     cpu.esi.set_content(buflen)
 
     hinter = hinting.Hinter()
+    hinter.register(TraceExecutionHint, collect_hints)
+    hinter.register(MemoryUnavailableSummaryHint, collect_hints)
+    hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
+    hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
+    hinter.register(DefUseGraphHint, collect_hints)
     analyses: typing.List[
         typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
     ] = [
@@ -90,11 +103,12 @@ def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
             hinter, num_micro_executions=num_micro_exec, num_insns=num_insn, seed=seed
         ),
         ColorizerSummary(hinter),
-        ColorizerDefUse(hinter),
+        ColorizerDefUse(hinter)
     ]
 
     # analyze
-    smallworld.analyze(machine, analyses)
+    smallworld.analyze(machine_copy, analyses)
+    return hints
 
 
 if __name__ == "__main__":
@@ -118,4 +132,4 @@ seed:           Seed for random number generator."""
         )
         sys.exit(1)
 
-    test(num_micro_exec, num_insn, buflen, fortytwos, seed)
+    _ = test(num_micro_exec, num_insn, buflen, fortytwos, seed)

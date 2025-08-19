@@ -38,8 +38,8 @@ cpu.rsp.set(rsp)
 
 # set the instruction pointer to the entrypoint of our executable
 # these values are from
-# % md5sum ahme-x86_64.bin
-# ffe4930bb1bb00b720dc725b3c1edbf6  ahme-x86_64.bin
+# md5sum trace_executor/ahme-x86_64.bin
+# 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64.bin
 entry_point = 0x2189
 exit_point = 0x2291
 
@@ -102,10 +102,6 @@ def collect_hints(hint):
 import hashlib
 
 
-def get_md5_of_bytz(bytz):
-    md5_hash = hashlib.md5(bytz)
-    return md5_hash.hexdigest()
-
 
 print(
     hashlib.md5("000005fab4534d05key9a055eb014e4e5d52write".encode("utf-8")).hexdigest()
@@ -131,20 +127,20 @@ def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
         # create a heap
         random.seed(seed)
         bytz = random.randbytes(buflen)
-        print(f"md5sum(bytz) = {get_md5_of_bytz(bytz)}")
         if fortytwos:
             for i in range(buflen):
                 if random.random() > 0.5:
                     bytz = bytz[: i - 1] + b"\x2a" + bytz[i + 1 :]
-        print("bytz:")
-        for b in bytz:
-            print(f"{b:x} ", end="")
-        print("")
+        # print("bytz:")
+        # for b in bytz:
+        #     print(f"{b:x} ", end="")
+        # print("")
         buf = heap.allocate_bytes(bytz, "buf")
         # arg 1 of foo is addr of buffer
         cpu.rdi.set_content(buf)
     # arg 2 is length of buffer
     cpu.esi.set_content(buflen)
+    # arg 3 is "y" which controls some things
     cpu.rdx.set_content(0)
     hinter = hinting.Hinter()
     hinter.register(TraceExecutionHint, collect_hints)
@@ -179,7 +175,4 @@ seed:           Seed for random number generator."""
         )
         sys.exit(1)
 
-    hints = test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed)
-    print(hints)
-    for te in hints[0].trace:
-        print(f"pc={te.pc:x}")
+    _ = test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed)
