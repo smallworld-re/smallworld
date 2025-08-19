@@ -3,7 +3,7 @@ from colorizer_test import test
 from smallworld.hinting.hints import (
     DefUseGraphHint,
     DynamicMemoryValueSummaryHint,
-    DynamicRegisterValueSummaryHint,
+    DynamicRegisterValueSummaryHint
 )
 
 if __name__ == "__main__":
