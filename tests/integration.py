@@ -2623,6 +2623,21 @@ class C99FtellTests(NoArgLibraryModelTest):
     function = "ftell"
 
 
+class C99FseekTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fseek"
+
+
+class C99RewindTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "rewind"
+
+
+class C99TmpfileTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "tmpfile"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

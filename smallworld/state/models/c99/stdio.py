@@ -71,11 +71,11 @@ class StdioModel(CStdModel):
 
     def _generate_tmpnam(self):
         # TODO: Doesn't actually test uniqueness
-        search = string.ascii_letters + string.ascii_digits
+        search = string.ascii_letters + "0123456789"
 
         out = "/tmp/file"
         for i in range(0, 6):
-            out += search[random.rand_int(0, len(search))]
+            out += search[random.randint(0, len(search) - 1)]
 
         return out
 
@@ -1029,7 +1029,15 @@ class Tmpfile(StdioModel):
         name = self._generate_tmpnam()
 
         try:
-            fd = self._fdmgr.open(name, True, True, seekable=True)
+            fd = self._fdmgr.open(
+                name,
+                readable=True,
+                writable=True,
+                create=True,
+                truncate=False,
+                append=False,
+                seekable=True,
+            )
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
