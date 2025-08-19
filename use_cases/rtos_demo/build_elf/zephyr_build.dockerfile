@@ -43,4 +43,4 @@ RUN west packages pip --install
 
 # Install Zephyr SDK
 RUN cd zephyr && \
-    west sdk install
+    sudo west sdk install
