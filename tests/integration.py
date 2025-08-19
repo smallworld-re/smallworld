@@ -2658,6 +2658,16 @@ class C99UngetcTests(NoArgLibraryModelTest):
     function = "ungetc"
 
 
+class C99FgetposTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fgetpos"
+
+
+class C99FsetposTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fsetpos"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
