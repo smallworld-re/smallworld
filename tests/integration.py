@@ -2231,7 +2231,6 @@ class TraceExecutionTests(ScriptIntegrationTest):
 
 
 class ColorizerTests(ScriptIntegrationTest):
-
     def test_colors_1(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_1.py")
         self.assertLineContainsStrings(stdout, "Summary hints match: True")
@@ -2245,7 +2244,7 @@ class ColorizerTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
         self.assertLineContainsStrings(stdout, "Def-use graph match: True")
         self.assertLineContainsStrings(stdout, "Test result: passed=True")
-        
+
 
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):

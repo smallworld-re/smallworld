@@ -7,8 +7,14 @@ import typing
 
 import smallworld
 from smallworld import hinting
-from smallworld.hinting.hints import TraceExecutionHint, MemoryUnavailableSummaryHint, DynamicMemoryValueSummaryHint, DynamicRegisterValueSummaryHint, DefUseGraphHint
 from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
+from smallworld.hinting.hints import (
+    DefUseGraphHint,
+    DynamicMemoryValueSummaryHint,
+    DynamicRegisterValueSummaryHint,
+    MemoryUnavailableSummaryHint,
+    TraceExecutionHint,
+)
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.DEBUG)
@@ -50,11 +56,12 @@ machine.add_exit_point(exit_point)
 
 hints = []
 
+
 def collect_hints(hint):
     global hints
-    hints.append(hint)    
+    hints.append(hint)
 
-    
+
 # num_micro_exec   How many micro executions.
 # num_insn:       how many (max) instructions to execute from entry
 # buflen:         length of buffer on heap that will be processed by fn foo @ 0x1169
@@ -103,7 +110,7 @@ def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
             hinter, num_micro_executions=num_micro_exec, num_insns=num_insn, seed=seed
         ),
         ColorizerSummary(hinter),
-        ColorizerDefUse(hinter)
+        ColorizerDefUse(hinter),
     ]
 
     # analyze
