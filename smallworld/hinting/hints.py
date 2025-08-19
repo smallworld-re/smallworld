@@ -1,9 +1,11 @@
 import typing
 from dataclasses import dataclass
 
+import jsons
 import networkx as nx
 
 from .. import hinting
+from ..analyses.trace_execution_types import TraceElement, TraceRes
 
 
 @dataclass(frozen=True)
@@ -269,6 +271,27 @@ class OutputHint(hinting.Hint):
     memory: typing.Dict[int, str]
 
 
+# This is used by the TraceExecutor
+
+
+@dataclass(frozen=True)
+class TraceExecutionHint(TypeHint):
+    trace: typing.List[TraceElement]
+    seed: int
+    emu_result: TraceRes
+    exception: typing.Optional[Exception]
+    exception_class: str
+
+    def to_json(self):
+        return {
+            "trace": jsons.dump(self.trace),
+            "seed": jsons.dump(self.seed),
+            "emu_result": jsons.dump(self.emu_result),
+            "exception": jsons.dump(self.exception),
+            "exception_class": str(type(self.exception)),
+        }
+
+
 # These next three are used by the colorizer
 
 
@@ -434,4 +457,5 @@ __all__ = [
     "ControlFlowHint",
     "ReachableCodeHint",
     "DefUseGraphHint",
+    "TraceExecutionHint",
 ]

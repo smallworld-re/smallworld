@@ -2171,562 +2171,63 @@ class SymbolicTests(ScriptIntegrationTest):
         self.command("python3 symbolic/square.amd64.angr.symbolic.py")
 
 
-import json
-
-
 class TraceExecutionTests(ScriptIntegrationTest):
-    te_script = "trace_executor/trace_test.py"
-
-    def run_trace_test(
-        self, num_insns, buflen, create_heap, fortytwos, randomize_regs, seed
-    ):
-        stdout, stderr = self.command(
-            f"python3 trace_executor/trace_test.py {num_insns} {buflen} {create_heap} {fortytwos} {randomize_regs} {seed}"
-        )
-        return (stdout, stderr)
-
-    def get_trace(
-        self, num_insns, buflen, create_heap, fortytwos, randomize_regs, seed
-    ):
-        stdout, stderr = self.run_trace_test(
-            num_insns, buflen, create_heap, fortytwos, randomize_regs, seed
-        )
-        trace = []
-        exceptions = []
-        for line in stderr.split("\n"):
-            # print(f" stder: {line}")
-            foo = re.search("single step at (0x[0-9a-f]+)", line)
-            if foo:
-                trace.append(int(foo.groups()[0], 16))
-            # [+] {"content": {"tr
-            if "content" in line:
-                content = json.loads(line[4:])["content"]
-                if (
-                    content["class"]
-                    == "smallworld.analyses.trace_execution.TraceExecutionHint"
-                ):
-                    if content["exception"] is not None:
-                        e = content["exception"]
-                        ec = content["exception_class"]
-                        pc = e["pc"]
-                        exceptions.append((pc, ec))
-        return (trace, exceptions)
-
-    def get_cmp_br(
-        self, num_insns, buflen, create_heap, fortytwos, randomize_regs, seed
-    ):
-        stdout, stderr = self.run_trace_test(
-            num_insns, buflen, create_heap, fortytwos, randomize_regs, seed
-        )
-        branches = 0
-        cmps = {}
-        imms = {}
-        for line in stderr.split("branch"):
-            foo = re.search('": true', line)
-            if foo:
-                branches += 1
-            foo = re.search('"pc": ([0-9]+)', line)
-            if foo:
-                pc = int(foo.groups()[0])
-            foo = re.search(r'"cmp": \[(.*)\], "immediates', line)
-            if foo:
-                cmpi = foo.groups()[0]
-                if cmpi == "":
-                    continue
-                c = eval(cmpi)
-                if pc not in cmps:
-                    cmps[pc] = [c]
-                else:
-                    cmps[pc].append(c)
-            foo = re.search(r'"immediates": (\[.*\]), "mnemonic"', line)
-            if foo:
-                i = eval(foo.groups()[0])
-                if len(i) > 0:
-                    if pc not in imms:
-                        imms[pc] = [i]
-                    else:
-                        imms[pc].append(i)
-
-        def sort_kl(kl):
-            ks = [x for x in kl.keys()]
-            ks.sort()
-            kll = []
-            for k in ks:
-                l1 = kl[k]
-                l1.sort()
-                kll.append((k, l1))
-            return kll
-
-        cmps = sort_kl(cmps)
-        imms = sort_kl(imms)
-        return (cmps, imms, branches)
-
-    def compare_traces(self, tr1, tr2, same_is_correct, msg):
-        # tr1, tr2 are traces (lists of integer program counters)
-        # same_is_correct is a bool: true means we expect these traces to be the same
-        # false, means we expect them to differ
-        # msg is a message
-        l1 = len(tr1)
-        l2 = len(tr2)
-        # if l1 == 0 or l2 == 0:
-        #     breakpoint()
-        first_mismatch = None
-        for i in range(min(l1, l2)):
-            if tr1[i] == tr2[i]:
-                continue
-            first_mismatch = i
-            break
-        if l1 != l2:
-            if same_is_correct:
-                raise AssertionError(
-                    f"{msg}, traces should be identical but are not of same length? {l1}, {l2}"
-                )
-            else:
-                # good
-                pass
-        if first_mismatch is not None:
-            if same_is_correct:
-                # breakpoint()
-                tms = ""
-                tms += "Trace mismatch at **:\n"
-                for j in range(max(0, first_mismatch - 3), i + 1):
-                    if j == i:
-                        tms += f"{j} {i} ** "
-                    else:
-                        tms += f"{j} {i}    "
-                    tms += f"0x{tr1[j]:x} | 0x{tr2[j]:x}"
-                # breakpoint()
-                raise AssertionError(f"{msg}, traces disagree at index {i}: \n {tms}")
-            else:
-                # good
-                pass
-
     def test_trace_is_correct_no_heap(self):
-        # This test assumes this is the version of ahme-x86_64.bin:
-        # % md5sum ahme-x86_64.bin
-        # ffe4930bb1bb00b720dc725b3c1edbf6  ahme-x86_64.bin
-
-        # for these cmdline args to trace_execution.py,
-        # note we have no heap here so we should see a memory unavailable
-        (tr, exc) = self.get_trace(100, 12, False, False, False, 1234)
-        # then this should be the trace followed.
-        # [hand verified by TRL 7-23-2025]
-
-        # print("tr_noheap=[")
-        # for i in range(len(tr)):
-        #     if ((i % 8) == 0):
-        #         print("")
-        #     print(f"0x{tr[i]:x}, ", end="")
-        # print("]")
-        tr_no_heap = [
-            0x2169,
-            0x216D,
-            0x216E,
-            0x2171,
-            0x2175,
-            0x2178,
-            0x217F,
-            0x2183,
-            0x2189,
-            0x2190,
-            0x2202,
-            0x2205,
-            0x2208,
-            0x2192,
-            0x2195,
-            0x2198,
-            0x219C,
-            0x219F,
-        ]
-        # breakpoint()
-        self.compare_traces(
-            tr, tr_no_heap, True, "Checking trace 1 correctness with ground truth"
-        )
-        found = False
-        for pc, ec in exc:
-            if (pc == 0x219F) and (
-                ec
-                == "<class 'smallworld.emulators.unicorn.unicorn.UnicornEmulationMemoryReadError'>"
-            ):
-                found = True
-        if not found:
-            raise AssertionError(
-                f"Didn't observe UnicornEmulationMemoryReadError exception @ {0x219f}"
-            )
+        stdout, stderr = self.command("python3 trace_executor/test_trace_no_heap.py")
+        self.assertLineContainsStrings(stdout, "Test result: passed=True")
 
     def test_trace_is_correct_1(self):
-        # This test assumes this is the version of ahme-x86_64.bin:
-        # % md5sum ahme-x86_64.bin
-        # ffe4930bb1bb00b720dc725b3c1edbf6  ahme-x86_64.bin
-
-        # for these cmdline args to trace_execution.py,
-        (tr, exc) = self.get_trace(100, 12, True, False, False, 1234)
-        # then this should be the trace followed.
-        # [hand verified by TRL 7-23-2025]
-        correct_trace = [
-            0x2169,
-            0x216D,
-            0x216E,
-            0x2171,
-            0x2175,
-            0x2178,
-            0x217F,
-            0x2183,
-            0x2189,
-            0x2190,
-            0x2202,
-            0x2205,
-            0x2208,
-            0x2192,
-            0x2195,
-            0x2198,
-            0x219C,
-            0x219F,
-            0x21A2,
-            0x21A7,
-            0x21A9,
-            0x21AB,
-            0x21AF,
-            0x21B1,
-            0x21B4,
-            0x21B6,
-            0x21B8,
-            0x21BA,
-            0x21BC,
-            0x21BE,
-            0x21C0,
-            0x21C2,
-            0x21D2,
-            0x21D5,
-            0x21D7,
-            0x21DA,
-            0x21DC,
-            0x21DE,
-            0x21E0,
-            0x21E3,
-            0x21E6,
-            0x21E9,
-            0x21ED,
-            0x21F0,
-            0x21F3,
-            0x21F5,
-            0x21FE,
-            0x2202,
-            0x2205,
-            0x2208,
-            0x2192,
-            0x2195,
-            0x2198,
-            0x219C,
-            0x219F,
-            0x21A2,
-            0x21A7,
-            0x21A9,
-            0x21AB,
-            0x21AF,
-            0x21B1,
-            0x21B4,
-            0x21B6,
-            0x21B8,
-            0x21BA,
-            0x21BC,
-            0x21BE,
-            0x21C0,
-            0x21C2,
-            0x21D2,
-            0x21D5,
-            0x21D7,
-            0x21DA,
-            0x21DC,
-            0x21DE,
-            0x21E0,
-            0x21E3,
-            0x21E6,
-            0x21E9,
-            0x21ED,
-            0x21F0,
-            0x21F3,
-            0x21F5,
-            0x21FE,
-            0x2202,
-            0x2205,
-            0x2208,
-            0x2192,
-            0x2195,
-            0x2198,
-            0x219C,
-            0x219F,
-            0x21A2,
-            0x21A7,
-            0x21A9,
-            0x21AB,
-            0x21AF,
-            0x21B1,
-            0x21B4,
-        ]
-        self.compare_traces(
-            tr, correct_trace, True, "Checking trace 1 correctness with ground truth"
+        stdout, stderr = self.command(
+            "python3 trace_executor/test_trace_is_correct_1.py"
         )
+        self.assertLineContainsStrings(stdout, "Test result: passed=True")
 
     def test_trace_is_correct_2(self):
-        # This test assumes this is the version of ahme-x86_64.bin:
-        # % md5sum ahme-x86_64.bin
-        # ffe4930bb1bb00b720dc725b3c1edbf6  ahme-x86_64.bin
-
-        # same as _1 but with different cmdline
-        (tr, exc) = self.get_trace(100, 13, True, False, False, 1234)
-        correct_trace = [
-            0x2169,
-            0x216D,
-            0x216E,
-            0x2171,
-            0x2175,
-            0x2178,
-            0x217F,
-            0x2183,
-            0x220C,
-            0x2213,
-            0x2254,
-            0x2257,
-            0x225A,
-            0x2215,
-            0x2218,
-            0x221B,
-            0x221F,
-            0x2222,
-            0x2225,
-            0x222A,
-            0x222C,
-            0x222E,
-            0x2232,
-            0x2235,
-            0x2237,
-            0x223A,
-            0x223C,
-            0x2241,
-            0x2244,
-            0x2246,
-            0x2248,
-            0x224A,
-            0x224D,
-            0x2250,
-            0x2254,
-            0x2257,
-            0x225A,
-            0x2215,
-            0x2218,
-            0x221B,
-            0x221F,
-            0x2222,
-            0x2225,
-            0x222A,
-            0x222C,
-            0x222E,
-            0x2232,
-            0x2235,
-            0x2237,
-            0x223A,
-            0x223C,
-            0x2241,
-            0x2244,
-            0x2246,
-            0x2248,
-            0x224A,
-            0x224D,
-            0x2250,
-            0x2254,
-            0x2257,
-            0x225A,
-            0x2215,
-            0x2218,
-            0x221B,
-            0x221F,
-            0x2222,
-            0x2225,
-            0x222A,
-            0x222C,
-            0x222E,
-            0x2232,
-            0x2235,
-            0x2237,
-            0x223A,
-            0x223C,
-            0x2241,
-            0x2244,
-            0x2246,
-            0x2248,
-            0x224A,
-            0x224D,
-            0x2250,
-            0x2254,
-            0x2257,
-            0x225A,
-            0x2215,
-            0x2218,
-            0x221B,
-            0x221F,
-            0x2222,
-            0x2225,
-            0x222A,
-            0x222C,
-            0x222E,
-            0x2232,
-            0x2235,
-            0x2237,
-            0x223A,
-            0x223C,
-        ]
-        self.compare_traces(
-            tr, correct_trace, True, "Checking trace 2 correctness with ground truth"
+        stdout, stderr = self.command(
+            "python3 trace_executor/test_trace_is_correct_2.py"
         )
+        self.assertLineContainsStrings(stdout, "Test result: passed=True")
 
     def test_trace_reproduces(self):
-        # trace execution twice with same seed; should get exact same trace
-        (tr1, exc1) = self.get_trace(100, 12, True, True, True, 1234)
-        (tr2, exc2) = self.get_trace(100, 12, True, True, True, 1234)
-        # here, we expect the traces to be identical
-        self.compare_traces(tr1, tr2, True, "Checking trace generation is reproducable")
+        stdout, stderr = self.command("python3 trace_executor/test_trace_reproduces.py")
+        self.assertLineContainsStrings(stdout, "Test result: passed=True")
 
-    def test_trace_change_seed(self):
-        # if we change the seed when we are randomizing regs, then, for rest of these cmdline args, we should see a different trace
-        (tr1, exc1) = self.get_trace(100, 12, True, True, True, 1234)
-        (tr2, exc2) = self.get_trace(100, 12, True, True, True, 12345)
-        # here, we expect the traces to be different
-        self.compare_traces(tr1, tr2, False, "Checking traces diverge")
+    def test_traces_different(self):
+        stdout, stderr = self.command("python3 trace_executor/test_traces_different.py")
+        self.assertLineContainsStrings(stdout, "Test result: passed=False")
+        self.assertLineContainsStrings(stdout, "version1 DOES NOT matches version2")
 
     def test_branch_and_cmp_info(self):
-        # This test assumes this is the version of ahme-x86_64.bin:
-        # % md5sum ahme-x86_64.bin
-        # ffe4930bb1bb00b720dc725b3c1edbf6  ahme-x86_64.bin
-        (cmps, imms, brs) = self.get_cmp_br(100, 12, True, True, True, 1234)
-        # trace should emit this cmp/branch/imm info
-        truth_cmps = [
-            (
-                4479,
-                [
-                    (
-                        [
-                            "BSIDMemoryReference",
-                            {
-                                "base": "rbp",
-                                "index": None,
-                                "offset": -28,
-                                "scale": 1,
-                                "size": 4,
-                            },
-                            [12, 0, 0, 0],
-                        ],
-                        ["Register", {"name": "rbp"}, 24568],
-                    )
-                ],
-            ),
-            (
-                4544,
-                [["Register", {"name": "al"}, 0], ["Register", {"name": "al"}, 254]],
-            ),
-            (
-                4595,
-                [["Register", {"name": "al"}, 42], ["Register", {"name": "al"}, 185]],
-            ),
-            (
-                4613,
-                [
-                    (
-                        ["Register", {"name": "eax"}, 0],
-                        [
-                            "BSIDMemoryReference",
-                            {
-                                "base": "rbp",
-                                "index": None,
-                                "offset": -28,
-                                "scale": 1,
-                                "size": 4,
-                            },
-                            [12, 0, 0, 0],
-                        ],
-                        ["Register", {"name": "rbp"}, 24568],
-                    ),
-                    (
-                        ["Register", {"name": "eax"}, 1],
-                        [
-                            "BSIDMemoryReference",
-                            {
-                                "base": "rbp",
-                                "index": None,
-                                "offset": -28,
-                                "scale": 1,
-                                "size": 4,
-                            },
-                            [12, 0, 0, 0],
-                        ],
-                        ["Register", {"name": "rbp"}, 24568],
-                    ),
-                    (
-                        ["Register", {"name": "eax"}, 2],
-                        [
-                            "BSIDMemoryReference",
-                            {
-                                "base": "rbp",
-                                "index": None,
-                                "offset": -28,
-                                "scale": 1,
-                                "size": 4,
-                            },
-                            [12, 0, 0, 0],
-                        ],
-                        ["Register", {"name": "rbp"}, 24568],
-                    ),
-                ],
-            ),
-        ]
-        truth_imms = [
-            (0x217F, [[12]]),
-            (0x21F3, [[42], [42]]),
-        ]
-        # truth_imms = [(4479, [[12]]), (4595, [[42], [42]])]
-        truth_brs = 8
-        for pc1, rest1 in truth_cmps:
-            for pc2, rest2 in cmps:
-                if pc1 != pc2:
-                    continue
-                # breakpoint()
-                l1 = len(rest1)
-                l2 = len(rest2)
-                disagree = False
-                if l1 != l2:
-                    disagree = True
-                    num_same = 0
-                    for e1 in rest1:
-                        for e2 in rest2:
-                            if e1 == e2:
-                                num_same += 1
-                    if num_same != l1:
-                        disagree = True
-                if disagree:
-                    print("discrepency found in compare info:")
-                    print(f"  truth:    {pc1:x} {rest1}")
-                    print(f"  observed: {pc2:x} {rest2}")
-                    raise AssertionError("Compare info disagrees with truth")
-        if not (truth_imms == imms):
-
-            def immstr(immi):
-                ims = "["
-                for pc, l in immi:
-                    ims += f"(0x{pc:x} {l}), "
-                ims += "]"
-                return ims
-
-            raise AssertionError(
-                f"""Immediate info disagrees with truth
-  truth:    {immstr(truth_imms)}
-  observed: {immstr(imms)}"""
-            )
-        if not (truth_brs == brs):
-            raise AssertionError(
-                """Number of true branches taken disagrees with truth
-  truth:    {truth_brs}
-  observed: {brs}"""
-            )
+        stdout, stderr = self.command(
+            "python3 trace_executor/test_branch_and_cmp_info.py"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED   immediate 21a2 [12]")
+        self.assertLineContainsStrings(stdout, "EXPECTED   immediate 21ac [0]")
+        self.assertLineContainsStrings(stdout, "EXPECTED   num_branches = 3")
+        self.assertLineContainsStrings(
+            stdout,
+            "EXPECTED   cmp part 21a2 ('BSIDMemoryReference', BSIDMemoryReferenceOperand(rbp+-1c)",
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED   cmp part 21a2 ('Register', RegisterOperand(rbp), 81912)"
+        )
+        self.assertLineContainsStrings(
+            stdout,
+            "EXPECTED   cmp part 21ac ('BSIDMemoryReference', BSIDMemoryReferenceOperand(rbp+-20)",
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED   cmp part 21ac ('Register', RegisterOperand(rbp), 81912)"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED   cmp part 2236 ('Register', RegisterOperand(eax), 0)"
+        )
+        self.assertLineContainsStrings(
+            stdout,
+            "EXPECTED   cmp part 2236 ('BSIDMemoryReference', BSIDMemoryReferenceOperand(rbp+-1c)",
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED   cmp part 2236 ('Register', RegisterOperand(rbp), 81912)"
+        )
 
 
 class ColorizerTests(ScriptIntegrationTest):
