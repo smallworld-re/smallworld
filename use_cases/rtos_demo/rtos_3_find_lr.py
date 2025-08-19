@@ -1,8 +1,6 @@
 import logging
 
 import smallworld
-
-# Types
 from smallworld.state.cpus.arm import ARM
 from smallworld.state.memory.stack.arm import ARM32Stack
 
@@ -18,9 +16,9 @@ log = logging.getLogger("smallworld")
 machine = smallworld.state.Machine()
 
 # Code
-with open("./zephyr.elf", "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, page_size=1)
-    machine.add(code)
+zephyr_elf = open("./zephyr.elf", "rb")
+code = smallworld.state.memory.code.Executable.from_elf(zephyr_elf, page_size=1)
+machine.add(code)
 
 # CPU
 cpu: ARM = smallworld.state.cpus.CPU.for_platform(code.platform)
@@ -58,6 +56,7 @@ cpu.lr.set_label("lr")
 
 ###################
 # HARNESS EXECUTION
+
 machine.emulate(emulator)
 
 ###################

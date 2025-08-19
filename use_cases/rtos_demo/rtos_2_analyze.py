@@ -1,10 +1,6 @@
 import logging
 
-import claripy
-
 import smallworld
-
-# Types
 from smallworld.state.cpus.arm import ARM
 from smallworld.state.memory.stack.arm import ARM32Stack
 
@@ -20,9 +16,9 @@ log = logging.getLogger("smallworld")
 machine = smallworld.state.Machine()
 
 # Code
-with open("./zephyr.elf", "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, page_size=1)
-    machine.add(code)
+zephyr_elf = open("./zephyr.elf", "rb")
+code = smallworld.state.memory.code.Executable.from_elf(zephyr_elf, page_size=1)
+machine.add(code)
 
 # CPU
 cpu: ARM = smallworld.state.cpus.CPU.for_platform(code.platform)
@@ -60,6 +56,7 @@ cpu.r1.set(buffer_memory_address)
 
 ###################
 # HARNESS EXECUTION
+
 machine.emulate(emulator)
 
 ###################
@@ -71,7 +68,7 @@ r6 = cpu.r6.get()
 print(f"r6: {hex(r6)}")
 r4 = cpu.r4.get()
 print(f"r4: {hex(r4)}")
-r8: claripy.ast.bv.BV = cpu.r8.get()
+r8 = cpu.r8.get()
 print(f"r8: {r8}")
 
 # Investigate symbolic stack memory

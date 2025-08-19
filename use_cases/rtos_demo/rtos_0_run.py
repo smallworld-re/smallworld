@@ -1,8 +1,6 @@
 import logging
 
 import smallworld
-
-# Types
 from smallworld.state.cpus.arm import ARM
 from smallworld.state.memory.stack.arm import ARM32Stack
 
@@ -18,9 +16,9 @@ log = logging.getLogger("smallworld")
 machine = smallworld.state.Machine()
 
 # Code
-with open("./zephyr.elf", "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, page_size=1)
-    machine.add(code)
+zephyr_elf = open("./zephyr.elf", "rb")
+code = smallworld.state.memory.code.Executable.from_elf(zephyr_elf, page_size=1)
+machine.add(code)
 
 # CPU
 cpu: ARM = smallworld.state.cpus.CPU.for_platform(code.platform)
@@ -46,9 +44,8 @@ cpu.sp.set(sp)
 # Input buffer
 buffer_memory_address = 0x1000
 input_bytes = b"abcdefghijklmnop"
-buffer_memory = smallworld.state.memory.RawMemory.from_bytes(
-    input_bytes, buffer_memory_address
-)
+buffer_memory = smallworld.state.memory.Memory(buffer_memory_address, len(input_bytes))
+buffer_memory[0] = smallworld.state.BytesValue(input_bytes, "input_buffer")
 machine.add(buffer_memory)
 
 # Pass the buffer to smallworld_bug
@@ -57,6 +54,7 @@ cpu.r1.set(buffer_memory_address)
 
 ###################
 # HARNESS EXECUTION
+
 for step in machine.step(emulator):
     pass
 
@@ -66,4 +64,4 @@ for step in machine.step(emulator):
 # Extract changes to buffer
 buffer_memory.extract(emulator)
 output_bytes = buffer_memory.to_bytes(byteorder=code.platform.byteorder)
-print(f"Buffer: {output_bytes}")
+print(f"Buffer: {output_bytes!r}")
