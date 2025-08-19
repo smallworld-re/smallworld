@@ -1,0 +1,7 @@
+res = fdmgr.get_file("/tmp/foobar")
+res.seek(0)
+expected = bf
+actual = res.read()
+
+if expected != actual:
+    raise Exception(f"Expected /tmp/foobar to contain {expected}; got {actual}")

@@ -199,6 +199,9 @@ class Strcmp(CStdModel):
         assert isinstance(ptr1, int)
         assert isinstance(ptr2, int)
 
+        print(f"ptr1: {ptr1:x}")
+        print(f"ptr2: {ptr2:x}")
+
         res = _emu_strncmp(emulator, ptr1, ptr2, MAX_STRLEN)
         self.set_return_value(emulator, res)
 

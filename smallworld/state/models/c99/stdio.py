@@ -16,9 +16,12 @@ class StdioModel(CStdModel):
         super().__init__(address)
         self._fdmgr = FileDescriptorManager.for_platform(self.platform, self.abi)
 
-    def _parse_mode(self, mode: str) -> typing.Tuple[bool, bool]:
+    def _parse_mode(self, mode: str) -> typing.Tuple[bool, bool, bool, bool, bool]:
         readable = False
         writable = False
+        create = False
+        truncate = False
+        append = True
         if mode in ("r", "rb"):
             # - Open for reading
             # - Fails if doesn't exist
@@ -36,6 +39,8 @@ class StdioModel(CStdModel):
             # - Truncates if exists
             # - Cursor starts at zero
             writable = True
+            create = True
+            truncate = True
         elif mode in ("w+", "w+b"):
             # - Open for reading and writing
             # - Creates if doesn't exist
@@ -43,21 +48,26 @@ class StdioModel(CStdModel):
             # - Cursor starts at zero
             readable = True
             writable = True
+            create = True
+            truncate = True
         elif mode in ("a", "ab"):
             # - Open for writing
             # - Creates if doesn't exist
             # - Cursor starts at end
             writable = True
+            create = True
+            append = True
         elif mode in ("a+", "a+b"):
             # - Open for reading and writing
             # - Creates if doesn't exist
             # - Start is unspecified; glibc does the beginning
             readable = True
             writable = True
+            create = True
         else:
             raise FDIOError(f"Unknown mode {mode}")
 
-        return (readable, writable)
+        return (readable, writable, create, truncate, append)
 
     def _generate_tmpnam(self):
         # TODO: Doesn't actually test uniqueness
@@ -194,12 +204,12 @@ class Fgets(StdioModel):
             fd = self._fdmgr.filestar_to_fd(filestar)
             file = self._fdmgr.get(fd)
         except FDIOError:
-            self.set_return_value(emulator, -1)
+            self.set_return_value(emulator, 0)
             return
 
         data = file.read_string(size)
         emulator.write_memory(dst, data)
-        self.set_return_value(emulator, len(data))
+        self.set_return_value(emulator, dst)
 
 
 class Fopen(StdioModel):
@@ -231,9 +241,15 @@ class Fopen(StdioModel):
         seekable = True
 
         try:
-            readable, writable = self._parse_mode(filemode)
+            readable, writable, create, truncate, append = self._parse_mode(filemode)
             fd = self._fdmgr.open(
-                filepath, readable=readable, writable=writable, seekable=seekable
+                filepath,
+                readable=readable,
+                writable=writable,
+                create=create,
+                truncate=truncate,
+                append=append,
+                seekable=seekable,
             )
         except FDIOError:
             self.set_return_value(emulator, 0)
@@ -275,7 +291,7 @@ class Freopen(StdioModel):
         try:
             fd = self._fdmgr.filestar_to_fd(filestar)
             file = self._fdmgr.get(fd)
-            readable, writable = self._parse_mode(filemode)
+            readable, writable, _, _, _ = self._parse_mode(filemode)
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
@@ -817,7 +833,21 @@ class Remove(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        self.set_return_value(emulator, 0)
+
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        size = _emu_strlen(emulator, ptr)
+
+        data = emulator.read_memory(ptr, size)
+
+        name = data.decode("utf-8")
+
+        if self._fdmgr.remove(name):
+            self.set_return_value(emulator, 0)
+        else:
+            self.set_return_value(emulator, -1)
 
 
 class Rename(StdioModel):

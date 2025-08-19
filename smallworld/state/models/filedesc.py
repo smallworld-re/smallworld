@@ -1,6 +1,8 @@
+import io
 import sys
 import typing
 
+from ...exceptions import ConfigurationError
 from ...platforms import ABI, Platform
 
 
@@ -131,6 +133,25 @@ class FileDescriptor:
         self.ungetc_buf = bytes([char]) + self.ungetc_buf
 
 
+class BytesFileDescriptor(FileDescriptor):
+    def __init__(
+        self,
+        name: str,
+        initial: typing.Union[bytes, io.BytesIO] = b"",
+        readable: bool = False,
+        writable: bool = False,
+        seekable: bool = False,
+    ):
+        super().__init__(name, readable=readable, writable=writable, seekable=seekable)
+        if isinstance(initial, bytes):
+            initial = io.BytesIO(initial)
+        self.backing_io = initial
+
+    @property
+    def _backing(self) -> typing.IO:
+        return self.backing_io
+
+
 class StdinFileDescriptor(FileDescriptor):
     def __init__(self):
         super().__init__("stdin", readable=True)
@@ -176,7 +197,12 @@ class FileDescriptorManager:
     ] = dict()
 
     def __init__(self):
+        # Enables full FS modeling.
+        # By default, this will
+        self.model_fs = False
+
         self._fds = dict()
+        self._files = dict()
 
         # Allocate stdstreams
         # NOTE: This is POSIX-specific
@@ -184,17 +210,60 @@ class FileDescriptorManager:
         self._fds[1] = StdoutFileDescriptor()
         self._fds[2] = StderrFileDescriptor()
 
+    def add_file(self, name: str, init: bytes = b"") -> None:
+        if not self.model_fs:
+            raise ConfigurationError("Full FS support not enabled.")
+
+        self._files[name] = io.BytesIO(init)
+
+    def get_file(self, name: str) -> io.BytesIO:
+        if name in self._files:
+            return self._files[name]
+
+        raise KeyError(f"No file named {name}")
+
     def open(
-        self, name: str, readable: bool, writable: bool, seekable: bool = True
+        self,
+        name: str,
+        readable: bool,
+        writable: bool,
+        create: bool,
+        truncate: bool,
+        append: bool,
+        seekable: bool = True,
     ) -> int:
         # Limited to 256 file descriptors thanks to shenanigans with FILE * management.
         # If you need more than 256 file descriptors in a micro-execution context,
         # I have many questions.
         for fd in range(0, 1 << 8):
             if fd not in self._fds:
-                self._fds[fd] = FileDescriptor(
-                    name, readable=readable, writable=writable, seekable=seekable
-                )
+                if self.model_fs:
+                    if name not in self._files:
+                        if not create:
+                            raise FDIOError(
+                                f"{name} does not exist, and creation not specified"
+                            )
+                        self.add_file(name, b"")
+
+                    initial = self._files[name]
+
+                    if truncate:
+                        initial.truncate()
+
+                    self._fds[fd] = BytesFileDescriptor(
+                        name,
+                        initial,
+                        readable=readable,
+                        writable=writable,
+                        seekable=seekable,
+                    )
+
+                    if append:
+                        self._fds[fd].cursor = len(initial.getvalue())
+                else:
+                    self._fds[fd] = FileDescriptor(
+                        name, readable=readable, writable=writable, seekable=seekable
+                    )
                 return fd
         raise FDIOError("Ran out of fds")
 
@@ -203,6 +272,15 @@ class FileDescriptorManager:
             raise FDIOError(f"Unknown fd {fd}")
 
         del self._fds[fd]
+
+    def remove(self, name: str) -> bool:
+        if self.model_fs:
+            if name in self._files:
+                del self._files[name]
+                return True
+            return False
+        else:
+            return True
 
     def get(self, fd: int) -> FileDescriptor:
         if fd not in self._fds:

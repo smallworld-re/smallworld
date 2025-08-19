@@ -1,13 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char *argv[]) {
+int main() {
     int *good = (int *)(size_t)0xdead;
-    FILE *file = fopen("/tmp/foobar", "w");
-    if(file == NULL) {
+    if(fflush(stdout)) {
         exit(1);
     }
-    if(-1 == fputc('f', file)) {
+    if(fflush(NULL)) {
         exit(1);
     }
     return *good;

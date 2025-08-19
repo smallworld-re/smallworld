@@ -2289,7 +2289,7 @@ class OneArgLibraryModelTest(AbsLibraryModelTest):
         # These are all designed to either take no arguments,
         # or to run a positive test if fed "foobar"
         self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py foobar"
+            f"echo 'foobar' | python3 {self.library}/{self.function}/{self.function}.{arch}.py"
         )
 
 
@@ -2566,6 +2566,26 @@ class C99GetcTests(OneArgLibraryModelTest):
 class C99GetcharTests(OneArgLibraryModelTest):
     library = "c99"
     function = "getchar"
+
+
+class C99FgetsTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "fgets"
+
+
+class C99FflushTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fflush"
+
+
+class C99RemoveTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "remove"
+
+
+class C99FputcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fputc"
 
 
 class DocumentationTests(unittest.TestCase):
