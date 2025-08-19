@@ -110,7 +110,21 @@ class Feof(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            print(f"Failed looking up filestar {filestar:x}")
+            self.set_return_value(emulator, -1)
+            return
+
+        print(f"EOF: {file.eof}")
+        self.set_return_value(emulator, 1 if file.eof else 0)
 
 
 class Ferror(StdioModel):
@@ -122,7 +136,9 @@ class Ferror(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        # We never have errors.
+        self.set_return_value(emulator, 0)
 
 
 class Clearerr(StdioModel):
@@ -134,7 +150,20 @@ class Clearerr(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+
+        filestar = self.get_arg1(emulator)
+
+        assert isinstance(filestar, int)
+
+        try:
+            fd = self._fdmgr.filestar_to_fd(filestar)
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            print(f"Failed looking up filestar {filestar:x}")
+            self.set_return_value(emulator, -1)
+            return
+
+        file.eof = False
 
 
 class Fflush(StdioModel):

@@ -14,5 +14,9 @@ int main(int argc, char *argv[]) {
     if(!feof(file)) {
         exit(1);
     }
+    clearerr(file);
+    if(feof(file)) {
+        exit(1);
+    }
     return *good;
 }

@@ -28,9 +28,7 @@ class FileDescriptor:
 
         self.cursor = 0
 
-        # TODO: Add extra state to support FILE * operations.
-        # Things like feof and ferror.
-        # I don't want to have to add an entire FILE * manager just to track them.
+        self.eof = False
 
     @property
     def _backing(self) -> typing.IO:
@@ -67,7 +65,11 @@ class FileDescriptor:
         data: typing.Union[str, bytes] = b""
         if size != 0:
             data = file.read(size)
-            self.cursor += size
+            self.cursor += len(data)
+            print(f"Read {len(data)} {data!r} bytes of {size} requested")
+            if len(data) != size:
+                print("EOF")
+                self.eof = True
 
         if isinstance(data, str):
             # This is a text file.  Need to encode the result

@@ -2638,6 +2638,21 @@ class C99TmpfileTests(NoArgLibraryModelTest):
     function = "tmpfile"
 
 
+class C99TmpnamTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "tmpnam"
+
+
+class C99FeofTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "feof"
+
+
+class C99ClearerrTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "clearerr"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
