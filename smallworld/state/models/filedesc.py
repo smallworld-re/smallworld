@@ -277,15 +277,6 @@ class FileDescriptorManager:
 
         del self._fds[fd]
 
-    def remove(self, name: str) -> bool:
-        if self.model_fs:
-            if name in self._files:
-                del self._files[name]
-                return True
-            return False
-        else:
-            return True
-
     def get(self, fd: int) -> FileDescriptor:
         if fd not in self._fds:
             raise FDIOError(f"Unknown fd {fd}")
@@ -294,6 +285,24 @@ class FileDescriptorManager:
 
     def set(self, fd: int, file: FileDescriptor) -> None:
         self._fds[fd] = file
+
+    def rename(self, old: str, new: str) -> None:
+        if not self.model_fs:
+            return
+
+        if old not in self._files:
+            raise FDIOError(f"Unknown file {old}")
+        self._files[new] = self._files[old]
+        del self._files[old]
+
+    def remove(self, name: str) -> bool:
+        if self.model_fs:
+            if name in self._files:
+                del self._files[name]
+                return True
+            return False
+        else:
+            return True
 
     # Magic number for identifying FILE * pointers created by this API.
     # ASCII for 'FI*'

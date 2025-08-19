@@ -2668,6 +2668,11 @@ class C99FsetposTests(NoArgLibraryModelTest):
     function = "fsetpos"
 
 
+class C99RenameTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "rename"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

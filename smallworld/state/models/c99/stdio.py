@@ -891,7 +891,27 @@ class Rename(StdioModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        self.set_return_value(emulator, 0)
+
+        oldptr = self.get_arg1(emulator)
+        newptr = self.get_arg2(emulator)
+
+        assert isinstance(oldptr, int)
+        assert isinstance(newptr, int)
+
+        oldsize = _emu_strlen(emulator, oldptr)
+        newsize = _emu_strlen(emulator, newptr)
+
+        olddata = emulator.read_memory(oldptr, oldsize)
+        newdata = emulator.read_memory(newptr, newsize)
+
+        old = olddata.decode("utf-8")
+        new = newdata.decode("utf-8")
+
+        try:
+            self._fdmgr.rename(old, new)
+            self.set_return_value(emulator, 0)
+        except FDIOError:
+            self.set_return_value(emulator, -1)
 
 
 class Rewind(StdioModel):
