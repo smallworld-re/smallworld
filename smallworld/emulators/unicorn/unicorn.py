@@ -563,7 +563,7 @@ class UnicornEmulator(
         # We use CPSR to determine if unicorn was previously in thumb
         # mode and set the low bit to 1 to maintain it. We also set
         # the mode of the disassembler.
-        if self._arm32_thumb_override or self.get_thumb():
+        if self.get_thumb():
             pc |= 1
             self.disassembler.mode = capstone.CS_MODE_THUMB
         else:
