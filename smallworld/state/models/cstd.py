@@ -16,6 +16,12 @@ class ArgumentType(enum.Enum):
     the ABI-specific subclasses of CStdModel figure out how to decode them.
     """
 
+    CHAR = "char"
+    UCHAR = "unsigned char"
+
+    SHORT = "short"
+    USHORT = "unsigned short"
+
     INT = "int"
     UINT = "unsigned int"
 
@@ -429,10 +435,71 @@ class CStdModel(Model):
                 f"{self.name} returning unhandled type {self.return_type}"
             )
 
+    def read_integer(
+        self, address: int, kind: ArgumentType, emulator: emulators.Emulator
+    ) -> int:
+        if kind in (ArgumentType.CHAR, ArgumentType.UCHAR):
+            width = 1
+        elif kind in (ArgumentType.SHORT, ArgumentType.USHORT):
+            width = 2
+        elif kind in (ArgumentType.INT, ArgumentType.UINT):
+            width = 4
+        elif kind in (ArgumentType.LONG, ArgumentType.ULONG, ArgumentType.POINTER):
+            width = 4 if ArgumentType.LONG in self._four_byte_types else 8
+        elif kind in (ArgumentType.LONGLONG, ArgumentType.ULONGLONG):
+            width = 8
+
+        byteval = emulator.read_memory(address, width)
+
+        if self.platform.byteorder == Byteorder.LITTLE:
+            return int.from_bytes(byteval, "little")
+        else:
+            return int.from_bytes(byteval, "big")
+
+    def write_integer(
+        self,
+        address: int,
+        intval: int,
+        kind: ArgumentType,
+        emulator: emulators.Emulator,
+    ) -> None:
+        if intval < 0:
+            intval *= -1
+            intval = (intval ^ self._long_long_inv_mask) + 1
+
+        if kind in (ArgumentType.CHAR, ArgumentType.UCHAR):
+            intval &= self._char_inv_mask
+            width = 1
+        elif kind in (ArgumentType.SHORT, ArgumentType.USHORT):
+            intval &= self._short_inv_mask
+            width = 2
+        elif kind in (ArgumentType.INT, ArgumentType.UINT):
+            intval &= self._int_inv_mask
+            width = 4
+        elif kind in (ArgumentType.LONG, ArgumentType.ULONG, ArgumentType.POINTER):
+            intval &= self._long_inv_mask
+            width = 4 if ArgumentType.LONG in self._four_byte_types else 8
+        elif kind in (ArgumentType.LONGLONG, ArgumentType.ULONGLONG):
+            intval &= self._long_long_inv_mask
+            width = 8
+
+        if self.platform.byteorder == Byteorder.LITTLE:
+            byteval = intval.to_bytes(width, "little")
+        else:
+            byteval = intval.to_bytes(width, "big")
+
+        emulator.write_memory(address, byteval)
+
     # *** Integer arithmetic constants ***
     #
     # Generalized bitmasks for specific types,
     # determined by their size on this ABI.
+
+    _char_sign_mask: int = 0x80
+    _char_inv_mask: int = 0xFF
+
+    _short_sign_mask: int = 0x8000
+    _short_inv_mask: int = 0xFFFF
 
     @property
     @abc.abstractmethod

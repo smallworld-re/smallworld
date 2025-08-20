@@ -1,3 +1,5 @@
+import struct
+
 from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdModel
 
@@ -65,7 +67,16 @@ class ArmELSysVModel(CStdModel):
         emulator.write_register("r1", hi)
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
-        raise NotImplementedError("ARMv5t has no FPU")
+        data = struct.pack("<f", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("r0", intval)
 
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
-        raise NotImplementedError("ARMv5t has no FPU")
+        data = struct.pack("<d", val)
+        intval = int.from_bytes(data, "little")
+
+        lo = intval & self._int_inv_mask
+        hi = (intval >> 32) & self._int_inv_mask
+
+        emulator.write_register("r0", lo)
+        emulator.write_register("r1", hi)

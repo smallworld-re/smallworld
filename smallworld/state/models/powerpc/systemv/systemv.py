@@ -1,3 +1,5 @@
+import struct
+
 from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdModel
 
@@ -80,7 +82,12 @@ class PowerPCSysVModel(CStdModel):
         emulator.write_register("r4", lo)
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
-        raise NotImplementedError("No support for the MIPS32 FPU")
+        # NOTE: powerpc promotes floats to doubles
+        data = struct.pack("<d", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("f1", intval)
 
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
-        raise NotImplementedError("No support for the MIPS32 FPU")
+        data = struct.pack("<d", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("f1", intval)

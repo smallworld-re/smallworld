@@ -1,3 +1,5 @@
+import struct
+
 from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdModel
 
@@ -65,7 +67,11 @@ class ArmHFSysVModel(CStdModel):
         emulator.write_register("r1", hi)
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
-        raise NotImplementedError("ARMv7a FPU not implemented")
+        data = struct.pack("<f", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("s0", intval)
 
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
-        raise NotImplementedError("ARMv7a FPU not implemented")
+        data = struct.pack("<d", val)
+        intval = int.from_bytes(data, "little")
+        emulator.write_register("d0", intval)

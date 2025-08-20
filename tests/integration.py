@@ -2673,6 +2673,31 @@ class C99RenameTests(NoArgLibraryModelTest):
     function = "rename"
 
 
+class C99ClockTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "clock"
+
+
+class C99TimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "time"
+
+
+class C99DifftimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "difftime"
+
+
+class C99MktimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "mktime"
+
+
+class C99StrftimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strftime"
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
