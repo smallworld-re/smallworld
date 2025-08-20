@@ -730,7 +730,6 @@ class BlockTests(ScriptIntegrationTest):
 
 
 class StackTests(ScriptIntegrationTest):
-
     def run_test(self, arch, reg="eax", res="0xaaaaaaaa"):
         stdout, _ = self.command(f"python3 stack/stack.{arch}.py")
         self.assertLineContainsStrings(stdout, reg, res)
@@ -866,7 +865,7 @@ class StackTests(ScriptIntegrationTest):
 
 
 class StructureTests(ScriptIntegrationTest):
-     def test_unicorn(self):
+    def test_unicorn(self):
         stdout, _ = self.command("python3 struct/struct.amd64.py")
         self.assertLineContainsStrings(stdout, "arg2 = 42")
 
