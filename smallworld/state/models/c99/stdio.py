@@ -956,11 +956,9 @@ class Rewind(StdioModel):
             fd = self._fdmgr.filestar_to_fd(filestar)
             file = self._fdmgr.get(fd)
         except FDIOError:
-            self.set_return_value(emulator, -1)
             return
 
         file.cursor = 0
-        self.set_return_value(emulator, 0)
 
 
 class Scanf(StdioModel):

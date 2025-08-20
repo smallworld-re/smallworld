@@ -72,7 +72,7 @@ class PowerPCSysVModel(CStdModel):
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
-        emulator.write_register("r3", val)
+        emulator.write_register("r3", val & self._int_inv_mask)
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         lo = val & self._int_inv_mask

@@ -112,7 +112,7 @@ class FileDescriptor:
         else:
             file.write(data)
 
-        self.cursor = file.tell()
+        self.cursor += len(data)
 
     def seek(self, pos: int, whence: int) -> int:
         if not self.seekable:

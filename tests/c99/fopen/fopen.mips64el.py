@@ -109,8 +109,7 @@ machine.add(dead)
 cpu.t9.set(entrypoint)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
