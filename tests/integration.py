@@ -3161,6 +3161,8 @@ class ThumbTests(ScriptIntegrationTest):
             self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x6")
             # check program result for run starting in Thumb mode
             self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x4")
+            # check ISA persistance between emulators
+            self.assertLineContainsStrings(stdout, f"PERSIST_THUMB_{arch.name}=0x4")
             # check program mode pre-execution, starting in Thumb
             self.assertLineContainsStrings(stdout, f"GET_THUMB_PRE1_{arch.name}=True")
             # check program mode post-execution, ending in ARM

@@ -5,7 +5,6 @@ from smallworld.state.cpus.arm import ARM
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(level=logging.DEBUG)
 
 THUMB_BLOCK_OFFSET = 0x10
 
@@ -78,6 +77,18 @@ for arch in [
     machine.emulate(emulator)
     cpu.r0.extract(emulator)
     print(f"RUN_{arch.name}={hex(cpu.r0.get())}")
+
+    # test ISA persistance across emulator instances
+    emulator2 = smallworld.emulators.UnicornEmulator(platform)
+    cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
+    emulator.set_thumb()
+    cpu.r0.set(0)
+    machine.step(emulator)
+    machine.extract(emulator)
+    for step in machine.step(emulator2):
+        pass
+    cpu.r0.extract(emulator2)
+    print(f"PERSIST_THUMB_{arch.name}={hex(cpu.r0.get())}")
 
     # test mode change Thumb->ARM
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
