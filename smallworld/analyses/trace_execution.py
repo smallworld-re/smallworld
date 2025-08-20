@@ -6,25 +6,20 @@ from dataclasses import dataclass
 from enum import Enum
 
 import capstone
-import jsons
 
 import smallworld
+from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
 
 from .. import platforms
+from ..hinting.hints import TraceExecutionHint
 from . import analysis
 
-# from ..emulators.unicorm import UnicornEmulator
-
 logger = logging.getLogger(__name__)
-hinter = smallworld.hinting.get_hinter(__name__)
 
 
 class TraceExecutionCBPoint(Enum):
     BEFORE_INSTRUCTION = 1
     AFTER_INSTRUCTION = 2
-
-
-CmpInfo = typing.Tuple[str, smallworld.instructions.Operand, int]
 
 
 def get_cmp_info(
@@ -51,57 +46,7 @@ def get_cmp_info(
             if op.type == capstone.x86.X86_OP_IMM:
                 immediates.append(op.value.imm)
         return (cmp_info, immediates)
-    # smallworld/analyses/trace_execution.py:55: error: Incompatible return value type
-    # (got      "tuple[list[tuple[str, Any, Any]], list[Any]]",
-    #  expected "tuple[list[list[tuple[Operand | None, int]]], list[int]]")  [return-value]
-
-    # its not a compare at all
     return ([], [])
-
-
-class TraceRes(Enum):
-    ER_NONE = 0
-    ER_BOUNDS = 1
-    ER_MAX_INSNS = 2
-    ER_FAIL = 3
-
-
-# one element in a trace
-@dataclass
-class TraceElement:
-    pc: int
-    ic: int  # instruction count
-    mnemonic: str
-    op_str: str
-    cmp: typing.List[CmpInfo]
-    branch: bool
-    immediates: typing.List[int]
-
-    def __str__(self):
-        return f"{self.ic} 0x{self.pc:x} [{self.mnemonic} {self.op_str}] {self.cmp} {self.branch} {self.immediates}"
-
-
-@dataclass(frozen=True)
-class TraceExecutionHint(smallworld.hinting.Hint):
-    trace: typing.List[TraceElement]
-    emu_result: TraceRes
-    exception: typing.Optional[Exception]
-    exception_class: str
-
-    def to_dict(self):
-        return {
-            "trace": jsons.dump(self.trace),
-            "emu_result": jsons.dump(self.emu_result),
-            "exception": jsons.dump(self.exception),
-            "exception_class": str(type(self.exception)),
-        }
-
-    @classmethod
-    def from_dict(cls, dict):
-        trace = jsons.load(dict, typing.List[TraceElement])
-        emu_result = jsons.load(dict, TraceRes)
-        exception = jsons.load(dict, Exception)
-        return cls(trace, emu_result, exception)
 
 
 class Patch:
@@ -121,10 +66,13 @@ class TraceExecution(analysis.Analysis):
 
     def __init__(
         self,
+        *args,
         num_insns: int,
         randomize_regs: int = True,
         seed: int = 1234567,
+        **kwargs,
     ):
+        super().__init__(*args, **kwargs)
         self.num_insns = num_insns
         self.randomize_regs = randomize_regs
         random.seed(seed)
@@ -263,9 +211,10 @@ class TraceExecution(analysis.Analysis):
         hint = TraceExecutionHint(
             message="A single execution trace",
             trace=trace,
+            seed=self.seed,
             emu_result=emu_result,
             exception=the_exc,
             exception_class=str(type(the_exc)),
         )
 
-        hinter.info(hint)
+        self.hinter.send(hint)

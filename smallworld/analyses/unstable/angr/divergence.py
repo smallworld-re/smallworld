@@ -11,7 +11,6 @@ from .utils import print_state
 from .visitor import ConditionalVisitor
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class DivergentAddressSignal(AnalysisSignal):
@@ -144,7 +143,7 @@ class DivergenceMemoryMixin(BaseMemoryMixin):
                 address=str(addr),
                 options=[(str(k), str(v)) for (k, v) in guards.items()],
             )
-            hinter.info(hint)
+            self.hinter.info(hint)
             options = {
                 "fork": self.divergence_fork,
                 "choose": self.divergence_choose,

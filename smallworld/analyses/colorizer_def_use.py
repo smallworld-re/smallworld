@@ -1,13 +1,9 @@
-# skdjfghdskfjmypy: ignore-errors
-
 import re
 
 import networkx as nx
 
 from .. import hinting
 from . import analysis
-
-hinter = hinting.get_hinter(__name__)
 
 
 class DefUseGraph(nx.MultiDiGraph):
@@ -23,18 +19,19 @@ class DefUseGraph(nx.MultiDiGraph):
         )
 
 
-debug = True
-
-
-class ColorizerDefUse(analysis.Filter):
+class ColorizerDefUse(analysis.Analysis):
     name = "colorizer_def_use_graph"
     description = "assemble a def use graph from colorizer summary hints"
     version = "0.0.1"
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.new_hints = []
         self.not_new_hints = []
+        self.hinter.register(
+            hinting.DynamicRegisterValueSummaryHint, self.collect_hints
+        )
+        self.hinter.register(hinting.DynamicMemoryValueSummaryHint, self.collect_hints)
 
     def collect_hints(self, hint: hinting.Hint):
         if (
@@ -46,11 +43,7 @@ class ColorizerDefUse(analysis.Filter):
             else:
                 self.not_new_hints.append(hint)
 
-    def activate(self):
-        self.listen(hinting.DynamicRegisterValueSummaryHint, self.collect_hints)
-        self.listen(hinting.DynamicMemoryValueSummaryHint, self.collect_hints)
-
-    def deactivate(self):
+    def run(self, machine):
         du_graph = DefUseGraph()
         color2genesis = {}
 
@@ -138,7 +131,7 @@ class ColorizerDefUse(analysis.Filter):
                 du_graph.add_def_use(def_node, hint.pc, def_info, dv_info, hint.color)
 
         # hint out the def-use graph
-        hinter.info(
+        self.hinter.send(
             hinting.DefUseGraphHint(
                 graph=nx.node_link_data(du_graph, edges="links"),
                 message="concrete-summary-def-use-graph",

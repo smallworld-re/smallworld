@@ -4,7 +4,7 @@ import typing
 from ... import hinting
 
 
-class ClaripySerializable(hinting.Serializable):
+class ClaripySerializable(hinting.Hint):
     """Serializable wrapper that allows serializing claripy expressions in hints."""
 
     @classmethod

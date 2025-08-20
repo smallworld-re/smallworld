@@ -19,7 +19,6 @@ from .hints import (
 )
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 # Tell angr to be quiet please
 logging.getLogger("angr").setLevel(logging.WARNING)
@@ -121,7 +120,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 size=size,
                 expr=str(expr),
             )
-            hinter.info(hint)
+            self.hinter.self(hint)
             if self.halt_on_hint:
                 raise PathTerminationSignal()
             else:
@@ -204,7 +203,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                             start=start // 8,
                             end=end // 8,
                         )
-                hinter.info(hint)
+                self.hinter.send(hint)
                 if self.halt_on_hint:
                     raise PathTerminationSignal()
                 else:
@@ -226,7 +225,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
             access="read",
             expr=str(expr),
         )
-        hinter.info(hint)
+        self.hinter.send(hint)
         if self.halt_on_hint:
             raise PathTerminationSignal()
         else:
@@ -288,7 +287,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                         end=end,
                         expr=str(expr),
                     )
-                    hinter.info(hint)
+                    self.hinter.send(hint)
                     bad = True
         if bad and good:
             log.error("Write was complete and partial; your labels overlap.")
@@ -317,7 +316,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 access="write",
                 expr=str(expr),
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
             if self.halt_on_hint:
                 raise PathTerminationSignal()
             else:
@@ -362,7 +361,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                             size=val.get_size(),
                             label=label,
                         )
-                        hinter.info(hint)
+                        self.hinter.send(hint)
 
                         if label in fda.fda_labels:
                             log.error(
@@ -420,7 +419,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
         filt.deactivate()
 
 
-class FieldDetectionFilter(analyses.Filter):
+class FieldDetectionFilter(analyses.Analysis):
     """Secondary field definition analysis.
 
     This picks up patterns that aren't noticeable from any

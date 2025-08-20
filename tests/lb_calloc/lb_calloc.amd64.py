@@ -24,7 +24,6 @@ output in `rdi` is displayed.
 """
 
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(verbose=True, stream=True, file=None)
 
 # create a small world
 platform = smallworld.platforms.Platform(
