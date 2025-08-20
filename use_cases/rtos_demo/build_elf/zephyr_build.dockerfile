@@ -1,6 +1,6 @@
 FROM ubuntu:24.04
 
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Update packages and package list
 RUN apt update && \
@@ -26,7 +26,7 @@ RUN cmake --version && python3 --version && dtc --version
 RUN apt install -y python3-venv && \
     python3 -m venv /zephyrproject/.venv
 WORKDIR /zephyrproject
-ENV PATH "/zephyrproject/.venv/bin:$PATH"
+ENV PATH="/zephyrproject/.venv/bin:$PATH"
 
 # Install west
 RUN pip install west
@@ -43,4 +43,4 @@ RUN west packages pip --install
 
 # Install Zephyr SDK
 RUN cd zephyr && \
-    sudo west sdk install
+    west sdk install
