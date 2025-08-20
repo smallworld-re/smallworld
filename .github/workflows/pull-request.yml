@@ -67,7 +67,7 @@ jobs:
           isort --check --profile black .
           black --check ./
           flake8 ./
-          mypy --ignore-missing-imports ./
+          mypy --explicit-package-bases --ignore-missing-imports ./
 
       - name: Check Title
         if: steps.ac.outputs.changes_detected == 'false'
