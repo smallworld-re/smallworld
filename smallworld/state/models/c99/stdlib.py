@@ -2,6 +2,8 @@ import logging
 import random
 import typing
 
+import claripy
+
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
@@ -489,6 +491,7 @@ class Realloc(CStdModel):
             )
         else:
             oldsize = self.heap[ptr - self.heap.address].get_size()
+            data: typing.Union[bytes, claripy.ast.bv.BV]
             try:
                 data = emulator.read_memory(ptr, oldsize)
             except exceptions.SymbolicValueError:
