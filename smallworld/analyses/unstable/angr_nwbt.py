@@ -6,7 +6,6 @@ from .angr.nwbt import configure_nwbt_plugins, configure_nwbt_strategy
 from .angr.utils import print_state
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 
 
 class AngrNWBTAnalysis(analysis.Analysis):
@@ -71,21 +70,21 @@ class AngrNWBTAnalysis(analysis.Analysis):
                 registers=st.registers.create_hint(),
                 memory=st.memory.create_hint(),
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
         for st in emu.mgr.deadended:
             hint = hinting.OutputHint(
                 message="State exited due to breakpoint",
                 registers=st.registers.create_hint(),
                 memory=st.memory.create_hint(),
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
         for st in emu.mgr.unsat:
             hint = hinting.OutputHint(
                 message="State cannot continue; constraints unsat",
                 registers=st.registers.create_hint(),
                 memory=st.memory.create_hint(),
             )
-            hinter.info(hint)
+            self.hinter.send(hint)
         for err in emu.mgr.errored:
             print_state(log.info, err.state, "error")
             log.error(

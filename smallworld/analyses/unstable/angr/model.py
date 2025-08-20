@@ -12,7 +12,6 @@ from .base import BaseMemoryMixin
 from .visitor import EvalVisitor
 
 log = logging.getLogger(__name__)
-hinter = hinting.get_hinter(__name__)
 visitor = EvalVisitor()
 
 
@@ -158,7 +157,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
-                hinter.info(hint)
+                self.hinter.send(hint)
             else:
                 res = self._handle_untyped_register(reg_name, res)
                 hint = hinting.UntypedUnderSpecifiedRegisterHint(
@@ -167,7 +166,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
-                hinter.info(hint)
+                self.hinter.send(hint)
             if isinstance(res, int):
                 res = self.state.solver.BVV(res, size * 8)
         else:
@@ -182,7 +181,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
-                hinter.info(hint)
+                self.hinter.send(hint)
             else:
                 hint = hinting.UntypedUnderSpecifiedMemoryHint(
                     message="Memory has no type or value",
@@ -191,7 +190,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                     instruction=self.state._ip.concrete_value,
                     value=str(res),
                 )
-                hinter.info(hint)
+                self.hinter.send(hint)
                 self._handle_untyped_address(addr, res)
 
         return res
@@ -255,7 +254,7 @@ class ModelMemoryMixin(BaseMemoryMixin):
                         instruction=self.state._ip.concrete_value,
                         value=str(value),
                     )
-                    hinter.info(hint)
+                    self.hinter.send(hint)
                 environ.set_symbol(v.args[0], value)
                 if isinstance(value, int):
                     pretty_value = hex(value)

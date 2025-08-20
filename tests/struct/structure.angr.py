@@ -6,7 +6,6 @@ from smallworld.analyses.unstable.angr_nwbt import AngrNWBTAnalysis
 
 if __name__ == "__main__":
     smallworld.logging.setup_logging(level=logging.DEBUG)
-    smallworld.hinting.setup_hinting(verbose=True, stream=True, file="hints.jsonl")
 
     # Load the 'struct.bin' test.
     infile = "struct.amd64.bin"

@@ -5,6 +5,8 @@ from .colorizer_def_use import ColorizerDefUse
 from .colorizer_summary import ColorizerSummary
 from .field_detection import FieldDetectionAnalysis, ForcedFieldDetectionAnalysis
 from .forced_exec import ForcedExecution
+from .trace_execution import TraceExecution
+from .trace_execution_types import CmpInfo, TraceElement, TraceRes
 
 __all__ = __analysis__ + [
     "Colorizer",
@@ -13,4 +15,8 @@ __all__ = __analysis__ + [
     "FieldDetectionAnalysis",
     "ForcedFieldDetectionAnalysis",
     "ForcedExecution",
+    "TraceExecution",
+    "TraceElement",
+    "TraceRes",
+    "CmpInfo",
 ]

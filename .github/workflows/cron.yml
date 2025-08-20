@@ -4,6 +4,9 @@ on:
     - cron: "00 3 * * *"
   workflow_dispatch:
 
+env:
+  REGISTRY: harbor.harbor.svc.cluster.local
+
 jobs:
   Build-Container:
     runs-on: smallworld-arc
@@ -18,38 +21,34 @@ jobs:
           sudo mkdir -p /etc/containers/registries.conf.d
           cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
-          location = "docker-registry.docker-registry.svc.cluster.local:5000"
+          location = "${{ env.REGISTRY }}"
           insecure = true
           EOF
 
       - uses: actions/checkout@v3
 
       - name: Login to registry
-        env:
-          REGISTRY_USER: ${{ secrets.REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
         run: |
-          podman login docker-registry.docker-registry.svc.cluster.local:5000 -u "$REGISTRY_USER" -p "$REGISTRY_PASSWORD"
-
+          podman login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
       - name: Build Deps
         run: |
-          podman build --squash-all -f Dockerfile.deps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
 
       - name: Tag Deps
         run: |
-          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }} docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
+          podman tag $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} $REGISTRY/smallworld/smallworld_deps:latest
       
       - name: Build Testdeps
         run: |
-          podman build --squash-all -f Dockerfile.testdeps --network host -t docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
           
       - name: Tag Testdeps
         run: |
-          podman tag docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }} docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
+          podman tag $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} $REGISTRY/smallworld/smallworld_testdeps:latest
 
       - name: Save Containers
         run: |
-          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:${{ github.sha }}
-          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_deps:latest
-          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:${{ github.sha }}
-          podman push docker-registry.docker-registry.svc.cluster.local:5000/smallworld/smallworld_testdeps:latest
+          podman push $REGISTRY/smallworld/smallworld_deps:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld_deps:latest
+          podman push $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld_testdeps:latest
