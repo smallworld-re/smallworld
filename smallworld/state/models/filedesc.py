@@ -7,10 +7,14 @@ from ...platforms import ABI, Platform
 
 
 class FDIOError(Exception):
+    """Exception indicating an error case in the file IO model"""
+
     pass
 
 
 class FileDescriptor:
+    """File Descriptor Representation"""
+
     def __init__(
         self,
         name: str,
@@ -39,6 +43,12 @@ class FileDescriptor:
         raise FDIOError("File {self.name} has no backing")
 
     def read(self, size: int, ungetc: bool = False) -> bytes:
+        """Read data from this file descriptor
+
+        Arguments:
+            size: Number of bytes to read
+            ungetc: Set to true to use the 'ungetc' buffer
+        """
         if not self.readable:
             raise FDIOError(f"File {self.name} is not readable")
 
@@ -66,7 +76,6 @@ class FileDescriptor:
         if size != 0:
             data = file.read(size)
             self.cursor += len(data)
-            print(f"Read {len(data)} {data!r} bytes of {size} requested")
             if len(data) != size:
                 print("EOF")
                 self.eof = True
@@ -79,6 +88,14 @@ class FileDescriptor:
             return ungetc_data + data
 
     def read_string(self, size: int = -1) -> bytes:
+        """Read a newline-terminated string from this file
+
+        Arguments
+            size: Maximum number of bytes to read.  Defaults to as many as possible
+
+        Returns:
+            String read from file
+        """
         out = b""
         size -= 1
         while size != 0:
@@ -94,6 +111,11 @@ class FileDescriptor:
         return out
 
     def write(self, data: bytes) -> None:
+        """Write data to this file
+
+        Arguments:
+            data: Bytes to write to this file
+        """
         if not self.writable:
             raise FDIOError(f"File {self.name} is not writable")
 
@@ -115,6 +137,12 @@ class FileDescriptor:
         self.cursor += len(data)
 
     def seek(self, pos: int, whence: int) -> int:
+        """Set the cursor for this file
+
+        Arguments:
+            pos: Position, possibly relative
+            whence: How to interpret 'pos'.  See real implementations for possible values
+        """
         if not self.seekable:
             raise FDIOError(f"File {self.name} is not seekable")
 
@@ -131,6 +159,18 @@ class FileDescriptor:
         return self.cursor
 
     def ungetc(self, char: int) -> None:
+        """Push a character back to the buffer
+
+        In real life, this is only supported by stdio FILE* objects.
+        It pushes the character to an internal buffer that's
+        read from before the actual stream gets read.
+
+        Its interactions with 'write', 'seek', and readingf from 'cursor'
+        are all undefined.
+
+        Arguments:
+            char: Character to push
+        """
         if not self.readable:
             raise FDIOError(f"File {self.name} is not readable")
 
@@ -138,6 +178,8 @@ class FileDescriptor:
 
 
 class BytesFileDescriptor(FileDescriptor):
+    """File descriptor backed by a byte string."""
+
     def __init__(
         self,
         name: str,
@@ -157,6 +199,11 @@ class BytesFileDescriptor(FileDescriptor):
 
 
 class StdinFileDescriptor(FileDescriptor):
+    """File descriptor backed by host's stdin.
+
+    Read-only, not seekable.
+    """
+
     def __init__(self):
         super().__init__("stdin", readable=True)
 
@@ -166,6 +213,11 @@ class StdinFileDescriptor(FileDescriptor):
 
 
 class StdoutFileDescriptor(FileDescriptor):
+    """File descriptor backed by host's stdout.
+
+    Write-only, not seekable.
+    """
+
     def __init__(self):
         super().__init__("stdout", writable=True)
 
@@ -175,6 +227,11 @@ class StdoutFileDescriptor(FileDescriptor):
 
 
 class StderrFileDescriptor(FileDescriptor):
+    """File descriptor backed by host's stderr.
+
+    Write-only, not seekable.
+    """
+
     def __init__(self):
         super().__init__("stderr", writable=True)
 
@@ -192,6 +249,12 @@ class FileDescriptorManager:
 
     This is a unified model that supports C99,
     and is pretty much identical between System V and Windows.
+
+    It also supports an extermely basic filesystem model.
+    It's disabled by default, and enabled by setting 'model_fs' to True.
+    Its utility is currently extremely limited;
+    it has no directory tree or permissions model,
+    but it can help for very basic interactions.
 
     There can absolutely be ABI-specific subclasses.
     """
@@ -215,12 +278,32 @@ class FileDescriptorManager:
         self._fds[2] = StderrFileDescriptor()
 
     def add_file(self, name: str, init: bytes = b"") -> None:
+        """Add a file to the manager
+
+        This allows basic support for opening files
+        without creating them.
+
+        As of now, there is no actual file tree support;
+        whatever string is used as the name is what will match.
+
+        Arguments:
+            name: Name or path of the file to place
+            init: Initial bytes contained in that file
+        """
         if not self.model_fs:
             raise ConfigurationError("Full FS support not enabled.")
 
         self._files[name] = io.BytesIO(init)
 
     def get_file(self, name: str) -> io.BytesIO:
+        """Get the backing stream behind a file
+
+        Arguments:
+            name: The name to look up
+
+        Returns:
+            The file-like object storing the byte stream.
+        """
         if name in self._files:
             return self._files[name]
 
@@ -236,6 +319,32 @@ class FileDescriptorManager:
         append: bool,
         seekable: bool = True,
     ) -> int:
+        """Mimic opening a file
+
+        This will behave a bit differently depending
+        on whether 'self.model_fs' is set.
+
+        If it's unset, it will create file descriptors blindly,
+        and attempting to interact with them will raise exceptions.
+
+        If it's set, it will use the basic file model; see add_file() and get_file().
+
+        As of now, there is no actual file tree support;
+        the name is merely used as a label.
+
+        Arguments:
+            name: Name of the file to open
+            readable: Whether the file should be readable
+            writable: Whether the file should be writable
+            create: Whether the file should be created if it doesn't exist.
+            truncate: Whether the file should be truncated when opened
+            append: Whether the cursor should be set at the end of the file
+            seekable: Whether the file should be seekable
+
+        Returns:
+            An integer file descriptor
+        """
+
         # Limited to 256 file descriptors thanks to shenanigans with FILE * management.
         # If you need more than 256 file descriptors in a micro-execution context,
         # I have many questions.
@@ -272,21 +381,42 @@ class FileDescriptorManager:
         raise FDIOError("Ran out of fds")
 
     def close(self, fd: int) -> None:
+        """Close a file
+
+        Arguments:
+            fd: Integer file descriptor
+        """
         if fd not in self._fds:
             raise FDIOError(f"Unknown fd {fd}")
 
         del self._fds[fd]
 
     def get(self, fd: int) -> FileDescriptor:
+        """Get the file representaiton by its integer file descriptor
+
+        Arguments:
+            fd: The integer file descriptor
+
+        Returns:
+            The file representation tied to 'fd'.
+        """
         if fd not in self._fds:
             raise FDIOError(f"Unknown fd {fd}")
 
         return self._fds[fd]
 
-    def set(self, fd: int, file: FileDescriptor) -> None:
-        self._fds[fd] = file
-
     def rename(self, old: str, new: str) -> None:
+        """Rename a file.
+
+        Only available if model_fs is set.
+
+        As of now, there is no actual file tree support;
+        the name is merely used as a label.
+
+        Arguments:
+            old: The current name of the file
+            new: The new name of the file
+        """
         if not self.model_fs:
             return
 
@@ -296,6 +426,19 @@ class FileDescriptorManager:
         del self._files[old]
 
     def remove(self, name: str) -> bool:
+        """Remove a file
+
+        Is a no-op if model_fs is not set.
+
+        As of now, there is no actual file tree support;
+        the name is merely used as a label.
+
+        Arguments:
+            name: Name of the file to remove
+        Returns:
+            True if model_fs is not set, or if the file was removed
+        """
+
         if self.model_fs:
             if name in self._files:
                 del self._files[name]
@@ -320,6 +463,17 @@ class FileDescriptorManager:
 
     @classmethod
     def filestar_to_fd(cls, ptr: int) -> int:
+        """Convert a FILE* pointer to an integer file descriptor
+
+        This will attempt to detect if the FILE* was actually created
+        by SmallWorld's model.  If not, it raises an exception.
+
+        Arguments:
+            ptr: The FILE* pointer to decode
+
+        Returns:
+            The associated integer file descriptor
+        """
         if (ptr >> 8) != cls.filestar_magic:
             raise FDIOError(f"FILE * {hex(ptr)} is not a FILE * created by this model.")
 
@@ -327,14 +481,32 @@ class FileDescriptorManager:
 
     @classmethod
     def fd_to_filestar(cls, fd: int) -> int:
+        """Convert an integer file descriptor to a FILE* pointer
+
+        Arguments:
+            fd: The integer file descriptor to encode
+
+        Returns:
+            The associated FILE* pointer
+        """
         return cls.filestar_magic << 8 | fd
 
     @classmethod
     def for_platform(cls, platform: Platform, abi: ABI):
-        # NOTE: This isn't a true singleton, and I want it that way.
-        # Everything that asks for a manager during setup
-        # should get the same instance,
-        # but deep-copies of Machines should get their own managers.
+        """Get an instance of this class for the desired platform
+
+        NOTE: This isn't a true singleton, and I want it that way.
+        Everything that asks for a manager during setup
+        should get the same instance,
+        but deep-copies of Machines should get their own managers
+
+        Arguments:
+            platform: The desired platform
+            abi: The desired ABI
+
+        Returns:
+            An instance of the manager for the platform
+        """
         if (platform, abi) not in cls._singletons:
             # TODO: Actually implement this when I have multiple implementations
             cls._singletons[(platform, abi)] = cls()

@@ -135,12 +135,15 @@ def get_argument(
     kind: ArgumentType,
     emulator: emulators.Emulator,
 ) -> typing.Union[int, float]:
+    # Get an argument out of a CStdModel or VariadicContext
     sp = model.platdef.sp_register
     on_stack = model._on_stack[index]
     arg_offset = model._arg_offset[index]
 
     if kind in model._four_byte_types:
+        # Four byte integer
         if on_stack:
+            # Stored on the stack; read from memory
             addr = emulator.read_register(sp) + arg_offset
             data = emulator.read_memory(addr, model._four_byte_stack_size)
             if model.platform.byteorder == Byteorder.BIG:
@@ -148,14 +151,22 @@ def get_argument(
             else:
                 intval = int.from_bytes(data, "little")
         else:
+            # Stored in a register
             intval = emulator.read_register(model._four_byte_arg_regs[arg_offset])
+
+        # Handle integer signing and signedness
+        # SmallWorld registers are unsigned, so we'll need to convert.
+        # Some architectures zero-extend their integers, so we need to mask.
         intval = intval & model._int_inv_mask
         if kind in signed_int_types and (intval & model._int_sign_mask) != 0:
             intval = (intval ^ model._int_inv_mask) + 1
             intval *= -1
         return intval
+
     elif kind in model._eight_byte_types:
+        # Eight byte integer
         if on_stack:
+            # Stored on the stack
             addr = emulator.read_register(sp) + arg_offset
             data = emulator.read_memory(addr, model._eight_byte_stack_size)
             if model.platform.byteorder == Byteorder.BIG:
@@ -163,6 +174,7 @@ def get_argument(
             else:
                 intval = int.from_bytes(data, "little")
         elif model._eight_byte_reg_size == 2:
+            # Stored in a register pair
             lo = emulator.read_register(model._eight_byte_arg_regs[arg_offset])
             hi = emulator.read_register(model._eight_byte_arg_regs[arg_offset + 1])
             if model.platform.byteorder == Byteorder.BIG:
@@ -171,13 +183,19 @@ def get_argument(
                 hi = tmp
             intval = (hi << 32) | lo
         else:
+            # Stored in a single register
             intval = emulator.read_register(model._eight_byte_arg_regs[arg_offset])
+
+        # Handle signedness
+        # SmallWorld registers are unsigned, so we'll need to convert.
         if kind in signed_int_types and (intval & model._long_long_sign_mask) != 0:
             intval = (intval ^ model._long_long_inv_mask) + 1
             intval *= -1
         return intval
     elif kind == ArgumentType.FLOAT:
+        # Four-byte float
         if on_stack:
+            # Stored on the stack
             addr = emulator.read_register(sp) + arg_offset
             data = emulator.read_memory(addr, model._float_stack_size)
             if model.platform.byteorder == Byteorder.BIG:
@@ -185,10 +203,14 @@ def get_argument(
             else:
                 intval = int.from_bytes(data, "little")
         elif model._soft_float:
+            # Soft-float ABI; treat as a four-byte int
             intval = emulator.read_register(model._four_byte_arg_regs[arg_offset])
         else:
+            # Hard-float ABI; fetch from FPU registers
             intval = emulator.read_register(model._float_arg_regs[arg_offset])
 
+        # Unpack the bits into a Python float
+        # SmallWorld already did the work of converting endianness.
         if model._floats_are_doubles:
             # Some ABIs promote floats to doubles.
             # And by "some ABIs", I mean PowerPC.
@@ -199,7 +221,9 @@ def get_argument(
             (floatval,) = struct.unpack("<f", byteval)
         return floatval
     elif kind == ArgumentType.DOUBLE:
+        # Eight-byte double float
         if on_stack:
+            # Stored on the stack
             addr = emulator.read_register(sp) + arg_offset
             data = emulator.read_memory(addr, model._double_stack_size)
             if model.platform.byteorder == Byteorder.BIG:
@@ -208,13 +232,16 @@ def get_argument(
                 intval = int.from_bytes(data, "little")
         else:
             if model._soft_float:
+                # Soft-float ABI; treated as an eight-byte int
                 reg_array = model._eight_byte_arg_regs
                 n_regs = model._eight_byte_reg_size
             else:
+                # Hard-float ABI; stored in FPU registers
                 reg_array = model._double_arg_regs
                 n_regs = model._double_reg_size
 
             if n_regs == 2:
+                # Register pair.  Possible for both soft and hard floats.
                 lo = emulator.read_register(reg_array[arg_offset])
                 hi = emulator.read_register(reg_array[arg_offset + 1])
                 if model.platform.byteorder == Byteorder.BIG:
@@ -223,13 +250,11 @@ def get_argument(
                     hi = tmp
                 intval = (hi << 32) | lo
             else:
-                try:
-                    intval = emulator.read_register(reg_array[arg_offset])
-                except exceptions.SymbolicValueError:
-                    print(
-                        f"{reg_array[arg_offset]}: {emulator.read_register_symbolic(reg_array[arg_offset])}"
-                    )
+                # Single register
+                intval = emulator.read_register(reg_array[arg_offset])
 
+        # Convert bits into Python float
+        # SmallWorld already did the work of converting endianness.
         byteval = intval.to_bytes(8, "little")
         (floatval,) = struct.unpack("<d", byteval)
         return floatval
@@ -383,6 +408,7 @@ class CStdModel(Model):
             )
 
         if self.return_type == ArgumentType.FLOAT:
+            # We're a float.
             if not isinstance(val, float):
                 raise exceptions.ConfigurationError(
                     f"{self.name} trying to return {type(val)} as a float"
@@ -391,6 +417,7 @@ class CStdModel(Model):
             return
 
         if self.return_type == ArgumentType.DOUBLE:
+            # We're a double
             if not isinstance(val, float):
                 raise exceptions.ConfigurationError(
                     f"{self.name} trying to return {type(val)} as a double"
@@ -438,6 +465,13 @@ class CStdModel(Model):
     def read_integer(
         self, address: int, kind: ArgumentType, emulator: emulators.Emulator
     ) -> int:
+        """Read an integer out of memory based on type
+
+        Arguments:
+            address: The address to read from
+            kind: The ArgumentType to read
+            emulator: The emulator to read from
+        """
         if kind in (ArgumentType.CHAR, ArgumentType.UCHAR):
             width = 1
         elif kind in (ArgumentType.SHORT, ArgumentType.USHORT):
@@ -463,6 +497,16 @@ class CStdModel(Model):
         kind: ArgumentType,
         emulator: emulators.Emulator,
     ) -> None:
+        """Write an integer based on type
+
+        Note that this will handle converting signed to bytes.
+
+        Arguments:
+            address: The address to write to
+            intval: The integer value to write
+            kind: The ArgumentType to write
+            emulator: The emulator to write to
+        """
         if intval < 0:
             intval *= -1
             intval = (intval ^ self._long_long_inv_mask) + 1

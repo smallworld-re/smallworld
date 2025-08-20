@@ -828,6 +828,25 @@ def handle_percent(
 
 
 def parse_printf_format(model: CStdModel, fmt: str, emulator: Emulator) -> str:
+    """Create a string based on a printf format
+
+    This doesn't model all features of the printf family.
+    The following features are missing:
+
+    - The %a and %A hexadecimal float conversions
+    - The %m strerror conversion
+    - intmax_t integer size
+    - ptrdiff_t integer size
+    - long double float size
+
+    Arguments:
+        model: The parent model
+        fmt: The format string
+        emulator: The emulator to query
+
+    Returns:
+        A string formatted according to 'fmt'
+    """
     handlers: typing.List[
         typing.Tuple[
             re.Pattern, typing.Callable[[str, VariadicContext, re.Match, Emulator], str]
@@ -889,3 +908,6 @@ def parse_printf_format(model: CStdModel, fmt: str, emulator: Emulator) -> str:
             fmt = fmt[1:]
 
     return output
+
+
+__all__ = ["parse_printf_format"]

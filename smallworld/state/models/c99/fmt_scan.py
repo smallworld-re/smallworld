@@ -17,6 +17,12 @@ class InputEndedError(Exception):
 
 
 class Intake(metaclass=abc.ABCMeta):
+    """Abstract class for input stream
+
+    The format scan algorithms need to scan both files
+    and strings.  I don't want to write two models.
+    """
+
     def __init__(self):
         self.cursor = 0
 
@@ -34,6 +40,11 @@ class Intake(metaclass=abc.ABCMeta):
 
 
 class FileIntake(Intake):
+    """Input stream backed by a file
+
+    That is, a file modeled by the stdio models.
+    """
+
     def __init__(self, file: FileDescriptor):
         super().__init__()
         self.file = file
@@ -63,6 +74,11 @@ class FileIntake(Intake):
 
 
 class StringIntake(Intake):
+    """Input stream backed by memory.
+
+    Data is read on-demand from the emulator
+    """
+
     def __init__(self, address: int, emulator: Emulator):
         super().__init__()
         self.address = address
@@ -753,6 +769,23 @@ def handle_percent(
 def handle_scanf_format(
     model: CStdModel, intake: Intake, fmt: str, emulator: Emulator
 ) -> int:
+    """Process a scanf format string
+
+    This is not an entirely complete model.
+    The following features are missing:
+
+    - Decoding for hexadecimal floats
+    - intmax_t integers
+    - ptrdiff_t integers
+
+    Arguments:
+        model: The parent API model
+        intake: The intake structure from which to fetch data
+        emulator: The emulator to run against
+
+    Returns:
+        The number of converted arguments, or -1, as per the scanf family.
+    """
     varargs = model.get_varargs()
 
     orig_fmt = fmt
@@ -826,3 +859,6 @@ def handle_scanf_format(
                 return -1
 
     return converted
+
+
+__all__ = ["FileIntake", "StringIntake", "handle_scanf_format"]
