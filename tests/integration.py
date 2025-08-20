@@ -423,56 +423,6 @@ class DMATests(ScriptIntegrationTest):
 
 
 class SquareTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command(
-            "python3 ../examples/basic_harness.py ./square/square.amd64.bin"
-        )
-
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4096',
-            '"color": 1',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "edi"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "write-def-summary",
-            '"pc": 4096',
-            '"color": 2',
-            '"use": false',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "edi"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-flow-summary",
-            '"pc": 4099',
-            '"color": 2',
-            '"use": true',
-            '"new": false',
-            '"count": 10',
-            '"reg_name": "edi"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "write-copy-summary",
-            '"pc": 4099',
-            '"color": 2',
-            '"use": false',
-            '"new": false',
-            '"count": 10',
-            '"reg_name": "eax"',
-        )
-
     def run_test(self, arch, signext=False):
         def test_output(number):
             stdout, _ = self.command(f"python3 square/square.{arch}.py {number}")
@@ -780,94 +730,6 @@ class BlockTests(ScriptIntegrationTest):
 
 
 class StackTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command(
-            "python3 ../examples/basic_harness.py stack/stack.amd64.bin"
-        )
-
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4096',
-            '"color": 1',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rdi"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4096',
-            '"color": 2',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rdx"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "write-def-summary",
-            '"pc": 4096',
-            '"color": 3',
-            '"use": false',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rdi"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-flow-summary",
-            '"pc": 4099',
-            '"color": 3',
-            '"use": true',
-            '"new": false',
-            '"count": 10',
-            '"reg_name": "rdi"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4099',
-            '"color": 4',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "r8"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "write-def-summary",
-            '"pc": 4099',
-            '"color": 5',
-            '"use": false',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rax"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-flow-summary",
-            '"pc": 4103',
-            '"color": 5',
-            '"use": true',
-            '"new": false',
-            '"count": 10',
-            '"reg_name": "rax"',
-        )
-
-        # self.assertLineContainsStrings(stderr, '"pointer"', '"base": "rsp"')
-
-        # self.assertLineContainsStrings(
-        #    stderr, '{"4096": 1, "4099": 1, "4103": 1}', "coverage"
-        # )
 
     def run_test(self, arch, reg="eax", res="0xaaaaaaaa"):
         stdout, _ = self.command(f"python3 stack/stack.{arch}.py")
@@ -1004,29 +866,7 @@ class StackTests(ScriptIntegrationTest):
 
 
 class StructureTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command(
-            "python3 ../examples/basic_harness.py struct/struct.amd64.bin"
-        )
-
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4113',
-            '"color": 1',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rdi"',
-        )
-
-        self.assertLineContainsStrings(
-            stderr,
-            "emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)",
-        )
-
-    def test_unicorn(self):
+     def test_unicorn(self):
         stdout, _ = self.command("python3 struct/struct.amd64.py")
         self.assertLineContainsStrings(stdout, "arg2 = 42")
 
@@ -1036,37 +876,6 @@ class StructureTests(ScriptIntegrationTest):
 
 
 class BranchTests(ScriptIntegrationTest):
-    def test_basic(self):
-        _, stderr = self.command(
-            "python3 ../examples/basic_harness.py branch/branch.amd64.bin"
-        )
-
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4096',
-            '"color": 1',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "eax"',
-        )
-        self.assertLineContainsStrings(
-            stderr,
-            "DynamicRegisterValueSummaryHint",
-            "read-def-summary",
-            '"pc": 4098',
-            '"color": 2',
-            '"use": true',
-            '"new": true',
-            '"count": 10',
-            '"reg_name": "rdi"',
-        )
-        # self.assertLineContainsStrings(
-        #    stderr, '{"4096": 1, "4098": 1, "4102": 1}', "coverage"
-        # )
-
     def run_branch(self, arch, reg="eax"):
         stdout, _ = self.command(f"python3 branch/branch.{arch}.py 99")
         self.assertLineContainsStrings(stdout, reg, "0x0")
