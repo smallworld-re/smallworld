@@ -115,7 +115,7 @@ jobs:
 
       - name: Load Container
         run: |
-          podman pull --retry=10 $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
           podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
       - name: Run Unit Tests
         env:
@@ -245,7 +245,7 @@ jobs:
 
       - name: Load Container
         run: |
-          podman pull --retry=10 $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
           podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
 
       - name: Run Integration Tests
