@@ -6,7 +6,6 @@ from smallworld.state.memory.stack.arm import ARM32Stack
 
 # Logging/hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=True, verbose=True)
 log = logging.getLogger("smallworld")
 
 ###################

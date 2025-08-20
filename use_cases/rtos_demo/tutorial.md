@@ -19,7 +19,7 @@ Using the `zephyr.elf` binary included with this tutorial is recommended. Howeve
 ## Harnessing
 *The `rtos_0_run.py` script is included for reference with this section.*
 
-To start, we must establish some boilerplate to configure logging and hinting. We can also import types to enable type hinting in our script.
+To start, we must establish some boilerplate to configure logging. We can also import types to enable type hinting in our script.
 
 ```python
 import logging
@@ -30,7 +30,6 @@ from smallworld.state.memory.stack.arm import ARM32Stack
 
 # Logging/hinting
 smallworld.logging.setup_logging(level=logging.INFO)
-smallworld.hinting.setup_hinting(stream=True, verbose=True)
 log = logging.getLogger("smallworld")
 ```
 
