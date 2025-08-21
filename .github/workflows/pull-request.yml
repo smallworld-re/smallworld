@@ -112,7 +112,6 @@ jobs:
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
-      max-parallel: 20
       matrix:
         include:
           - testsuite: BlockTests
