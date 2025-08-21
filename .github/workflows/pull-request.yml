@@ -75,6 +75,22 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Login to registry
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
+
+      - name: Build Container
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          IMAGE=$REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman build --ulimit core=-1:-1 --network host -t "$IMAGE" .
+
+      - name: Save Container
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          podman push $REGISTRY/smallworld/smallworld:${{ github.sha }}
+
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
@@ -99,8 +115,8 @@ jobs:
 
       - name: Load Container
         run: |
-          podman pull $REGISTRY/smallworld/smallworld_testdeps:latest
-          podman build --ulimit core=-1:-1 --network host -t smallworld:latest 
+          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -214,11 +230,23 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y podman
 
+      - name: Allow HTTP for the in-cluster registry
+        run: |
+          sudo mkdir -p /etc/containers/registries.conf.d
+          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
+          [[registry]]
+          location = "$REGISTRY"
+          insecure = true
+          EOF
+      
+      - name: Login to registry
+        run: |
+          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
+
       - name: Load Container
         run: |
-          podman build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:latest
-          podman build -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:latest
-          podman build --ulimit core=-1:-1 --network host -t smallworld:latest 
+          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
 
       - name: Run Integration Tests
         env:
