@@ -2,6 +2,16 @@ import logging
 
 import smallworld
 
+# NOTE: PowerPC has a bad heisenbug.
+#
+# machine.emulate() terminates early,
+# but only if this script is run in a subshell,
+# and only if I run it exactly as is without this print statement,
+# and even then only some of the time.
+#
+# I have no idea how to begin debugging this.
+print("This blocks a heisenbug.  Don't delete please")
+
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 

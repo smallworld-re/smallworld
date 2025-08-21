@@ -140,9 +140,23 @@ class Strftime(TimeModel):
 
         timetuple = self.time_struct_to_tuple(ptr, emulator)
 
+        # FIXME: strftime is timezone dependent
+        # This is actually something of a pain to handle.  For now, assume UTC.
+        old_tz = None
+        if "TZ" in os.environ:
+            old_tz = os.environ["TZ"]
+        os.environ["TZ"] = "UTC"
+        time.tzset()
+
         timestr = time.strftime(fmtstr, timetuple)
         timebytes = timestr.encode("utf-8")
         timebytes += b"\0"
+
+        if old_tz is None:
+            del os.environ["TZ"]
+        else:
+            os.environ["TZ"] = old_tz
+        time.tzset()
 
         if len(timebytes) > max:
             self.set_return_value(emulator, 0)
