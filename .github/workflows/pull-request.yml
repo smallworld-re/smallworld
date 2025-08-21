@@ -20,27 +20,9 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - name: Install podman
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "$REGISTRY"
-          insecure = true
-          EOF
-
       - uses: actions/checkout@v3
         with:
           token: ${{ secrets.BOT_TOKEN }}
-
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.x"
 
       - name: Install Lint Tools
         run: |
@@ -75,60 +57,24 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
-      - name: Login to registry
-        if: steps.ac.outputs.changes_detected == 'false'
-        run: |
-          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-
-      - name: Build Container
-        if: steps.ac.outputs.changes_detected == 'false'
-        run: |
-          IMAGE=$REGISTRY/smallworld/smallworld:${{ github.sha }}
-          podman build --ulimit core=-1:-1 --network host -t "$IMAGE" .
-
-      - name: Save Container
-        if: steps.ac.outputs.changes_detected == 'false'
-        run: |
-          podman push $REGISTRY/smallworld/smallworld:${{ github.sha }}
-
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     steps:
-      - name: Preinit
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "$REGISTRY"
-          insecure = true
-          EOF
-
-      - name: Login to registry
-        run: |
-          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-
-      - name: Load Container
-        run: |
-          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
-          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
+      - uses: actions/checkout@v3
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 unit.py
+          cd tests
+          python3 unit.py
 
   Integration-Test:
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
-      max-parallel: 20
       matrix:
         include:
           - testsuite: BlockTests
@@ -226,34 +172,13 @@ jobs:
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
     steps:
-      - name: Preinit
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "$REGISTRY"
-          insecure = true
-          EOF
-      
-      - name: Login to registry
-        run: |
-          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-
-      - name: Load Container
-        run: |
-          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
-          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
-
+      - uses: actions/checkout@v3
       - name: Run Integration Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 integration.py -v ${{ matrix.testsuite }}
+          cd tests
+          python3 integration.py -v ${{ matrix.testsuite }}
 
   Results:
     runs-on: smallworld-arc
