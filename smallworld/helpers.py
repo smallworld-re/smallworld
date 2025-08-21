@@ -1,7 +1,7 @@
+import typing
 import argparse
 import copy
 import logging
-import typing
 
 logger = logging.getLogger(__name__)
 
