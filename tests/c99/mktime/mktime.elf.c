@@ -1,9 +1,10 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
 int main(int argc, char *argv[]) {
     int *good = (int *)(size_t)0xdead;
-    time_t expected = 1741987920;
+    time_t expected = 1741969920;
     struct tm st = {
         .tm_sec = 0,
         .tm_min = 92,

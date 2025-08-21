@@ -1,3 +1,4 @@
+import os
 import time
 
 from ....emulators import Emulator
@@ -188,7 +189,22 @@ class Mktime(TimeModel):
         assert isinstance(ptr, int)
 
         timetuple = self.time_struct_to_tuple(ptr, emulator)
+
+        # FIXME: mktime is timezone dependent
+        # This is actually something of a pain to handle.  For now, assume UTC.
+        old_tz = None
+        if "TZ" in os.environ:
+            old_tz = os.environ["TZ"]
+        os.environ["TZ"] = "UTC"
+        time.tzset()
+
         timefloat = time.mktime(timetuple)
+
+        if old_tz is None:
+            del os.environ["TZ"]
+        else:
+            os.environ["TZ"] = old_tz
+        time.tzset()
 
         self.set_return_value(emulator, int(timefloat))
 
