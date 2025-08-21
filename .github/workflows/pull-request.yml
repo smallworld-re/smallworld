@@ -100,7 +100,7 @@ jobs:
       - name: Load Container
         run: |
           podman pull $REGISTRY/smallworld/smallworld_testdeps:latest
-          podman build --ulimit core=-1:-1 --network host -t smallworld:latest .
+          podman build --ulimit core=-1:-1 --network host -t smallworld:latest 
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -216,9 +216,9 @@ jobs:
 
       - name: Load Container
         run: |
-          podman build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:latest .
-          podman build -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:latest .
-          podman build --ulimit core=-1:-1 --network host -t smallworld:latest .
+          podman build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:latest
+          podman build -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:latest
+          podman build --ulimit core=-1:-1 --network host -t smallworld:latest 
 
       - name: Run Integration Tests
         env:
