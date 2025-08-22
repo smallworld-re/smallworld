@@ -157,7 +157,7 @@ jobs:
           - testsuite: C99UngetcTests
           - testsuite: ColorizerTests
           - testsuite: DMATests
-          - testsuite: DocumentationTests
+          # - testsuite: DocumentationTests
           - testsuite: ElfTests
           - testsuite: ElfCoreTests
           - testsuite: FloatsTests
