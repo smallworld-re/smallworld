@@ -181,6 +181,10 @@ jobs:
         run: |
           pip install -e .[development] -c constraints.txt
           cd tests
+          make -j$(nproc)
+          cd elf_core
+          make -j$(nrpoc)
+          cd ..
           python3 integration.py -v ${{ matrix.testsuite }}
 
   Results:
