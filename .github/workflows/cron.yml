@@ -32,7 +32,7 @@ jobs:
           docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
       - name: Build Deps
         run: |
-          docker build --squash-all -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
+          docker build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
 
       - name: Tag Deps
         run: |
@@ -40,7 +40,7 @@ jobs:
       
       - name: Build Testdeps
         run: |
-          docker build --squash-all -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
+          docker build -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
           
       - name: Tag Testdeps
         run: |
