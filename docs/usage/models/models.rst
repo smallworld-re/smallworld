@@ -71,7 +71,7 @@ The options for the "support" field mean the following:
     :stub-columns: 1
 
 .. csv-table:: C99: stdlib.h
-    :file: c99_stlib.csv
+    :file: c99_stdlib.csv
     :header-rows: 1
     :stub-columns: 1
 
