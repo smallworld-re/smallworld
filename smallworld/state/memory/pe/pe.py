@@ -73,6 +73,8 @@ class PEExecutable(Executable):
         # NOTE: lief objects aren't deep-copyable.
         # I'd love to keep `pe` around for later use, but I can't.
         pe = lief.PE.parse(list(image))
+        if pe is None:
+            raise ConfigurationError("Failed parsing PE image")
 
         # Check machine compatibility
         if not ignore_platform:

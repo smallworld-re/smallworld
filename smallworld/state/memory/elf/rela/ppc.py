@@ -3,6 +3,7 @@ from .....exceptions import ConfigurationError
 from ..structs import ElfRela
 from .rela import ElfRelocator
 
+R_PPC_ABS32 = 1  # Direct 32-bit
 R_PPC_GLOB_DAT = 20  # Create GOT entry
 R_PPC_JUMP_SLOT = 21  # Create PLT entry
 R_PPC_RELATIVE = 22  # Adjust by program base
@@ -14,7 +15,10 @@ class PowerPCElfRelocator(ElfRelocator):
     addrsz = 4
 
     def _compute_value(self, rela: ElfRela):
-        if (
+        if rela.type == R_PPC_ABS32:
+            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            return val.to_bytes(4, "big")
+        elif (
             rela.type == R_PPC_GLOB_DAT
             or rela.type == R_PPC_JUMP_SLOT
             or rela.type == R_PPC_RELATIVE

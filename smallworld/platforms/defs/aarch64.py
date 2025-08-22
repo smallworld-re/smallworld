@@ -13,6 +13,7 @@ class AArch64(PlatformDef):
     capstone_mode = capstone.CS_MODE_ARM
 
     pc_register = "pc"
+    sp_register = "sp"
 
     # NOTE: aarch64 has unconditional conditions.
     # "al" is always true, and "nv" is never true.

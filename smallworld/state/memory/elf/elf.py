@@ -654,6 +654,7 @@ class ElfExecutable(Executable):
         if self._relocator is not None:
             for rela in sym.relas:
                 # Relocate!
+                log.info(f"Relocating {rela}")
                 self._relocator.relocate(self, rela)
         else:
             log.error(f"No platform defined; cannot relocate {name}!")

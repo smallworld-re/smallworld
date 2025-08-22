@@ -67,7 +67,7 @@ jobs:
           isort --check --profile black .
           black --check ./
           flake8 ./
-          mypy --ignore-missing-imports ./
+          mypy --explicit-package-bases --ignore-missing-imports ./
 
       - name: Check Title
         if: steps.ac.outputs.changes_detected == 'false'
@@ -128,11 +128,85 @@ jobs:
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
+      max-parallel: 20
       matrix:
         include:
           - testsuite: BlockTests
           - testsuite: BranchTests
           - testsuite: CallTests
+          - testsuite: C99AbortTests
+          - testsuite: C99AbsTests
+          - testsuite: C99AtexitTests
+          - testsuite: C99AtoiTests
+          - testsuite: C99AtollTests
+          - testsuite: C99AtolTests
+          - testsuite: C99CallocTests
+          - testsuite: C99ClearerrTests
+          - testsuite: C99ClockTests
+          - testsuite: C99DifftimeTests
+          - testsuite: C99ExitTests
+          - testsuite: C99FcloseTests
+          - testsuite: C99FeofTests
+          - testsuite: C99FflushTests
+          - testsuite: C99FgetcTests
+          - testsuite: C99FgetposTests
+          - testsuite: C99FgetsTests
+          - testsuite: C99FopenTests
+          - testsuite: C99FprintfTests
+          - testsuite: C99FputcTests
+          - testsuite: C99FputsTests
+          - testsuite: C99FreadTests
+          - testsuite: C99FreeTests
+          - testsuite: C99FscanfTests
+          - testsuite: C99FseekTests
+          - testsuite: C99FsetposTests
+          - testsuite: C99FtellTests
+          - testsuite: C99FwriteTests
+          - testsuite: C99GetcharTests
+          - testsuite: C99GetcTests
+          - testsuite: C99GetenvTests
+          - testsuite: C99LabsTests
+          - testsuite: C99LlabsTests
+          - testsuite: C99MallocTests
+          - testsuite: C99MemcmpTests
+          - testsuite: C99MemcpyTests
+          - testsuite: C99MemmoveTests
+          - testsuite: C99MemsetTests
+          - testsuite: C99MktimeTests
+          - testsuite: C99PrintfTests
+          - testsuite: C99PutcharTests
+          - testsuite: C99PutcTests
+          - testsuite: C99PutsTests
+          - testsuite: C99RandTests
+          - testsuite: C99ReallocTests
+          - testsuite: C99RemoveTests
+          - testsuite: C99RenameTests
+          - testsuite: C99RewindTests
+          - testsuite: C99ScanfTests
+          - testsuite: C99SnprintfTests
+          - testsuite: C99SprintfTests
+          - testsuite: C99SrandTests
+          - testsuite: C99SscanfTests
+          - testsuite: C99StrcatTests
+          - testsuite: C99StrchrTests
+          - testsuite: C99StrcmpTests
+          - testsuite: C99StrcpyTests
+          - testsuite: C99StrcspnTests
+          - testsuite: C99StrftimeTests
+          - testsuite: C99StrlenTests
+          - testsuite: C99StrncatTests
+          - testsuite: C99StrncmpTests
+          - testsuite: C99StrncpyTests
+          - testsuite: C99StrpbrkTests
+          - testsuite: C99StrrchrTests
+          - testsuite: C99StrspnTests
+          - testsuite: C99StrstrTests
+          - testsuite: C99StrtokTests
+          - testsuite: C99SystemTests
+          - testsuite: C99TimeTests
+          - testsuite: C99TmpfileTests
+          - testsuite: C99TmpnamTests
+          - testsuite: C99UngetcTests
           - testsuite: ColorizerTests
           - testsuite: DMATests
           - testsuite: DocumentationTests
@@ -149,6 +223,7 @@ jobs:
           - testsuite: StrlenTests
           - testsuite: StructureTests
           - testsuite: SyscallTests
+          - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
     steps:
       - name: Preinit

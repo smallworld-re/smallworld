@@ -10,9 +10,16 @@ that test for each relevant emulator:
 
 - `test.arch.s`: Assembly for building a raw binary for `test` for `arch`.
 - `test.arch.elf.s`: Assembly for building an ELF executable for `test` for `arch`.
+- `test.elf.c`: C for building ELF executable files for `test` for all viable architectures.
+- `test.so.c`: C for building all ELF shared object files for `test` for all viable architectures.
+- `test.pe.c`: C for building all PE executable files for `test` for all viable architectures.
 - `test.arch.py`: Script for exercising the test case using Unicorn.
 - `test.arch.angr.py`: Script for exercising the test case using angr.
 - `test.arch.panda.py`: Script for exercising the test case using Panda.
+
+The library model test cases have an extra layer of organization.
+Test cases for specific functions are grouped by API standard, 
+e.g.: `c99/atoi`.
 
 There are also two test suites in the root directory:
 
@@ -20,7 +27,9 @@ There are also two test suites in the root directory:
 - `integration.py`: Exercises and verifies most test scripts described above.
 
 Internally, `integration.py` groups tests into suites under a single class,
-with each suite containing multiple test cases.
+with each suite containing multiple test cases,
+usually testing the same behavior for different combinations
+of platform and emulator.
 
 ## Usage
 
@@ -40,6 +49,7 @@ To build all of the tests, run:
 
 ```bash
 make
+make -C elf_core    # NOTE: Requires `ulimit --core` to be set
 ```
 
 ### Running
@@ -60,7 +70,7 @@ python3 integration.py SuiteTests.test_case # Execute a single test case
 ```
 
 Some features of smallworld are optional, given dependencies on large external libraries.
-The AFL and Panda-based tests will be skipped if the dependencies are not installed.
+The integration tests assume that all features are present.
 
 #### Test Cases
 
