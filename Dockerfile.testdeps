@@ -4,7 +4,7 @@ FROM ${DOCKER_REGISTRY}/smallworld/smallworld_deps:latest
 # Install smallworld
 COPY ./ /opt/smallworld/
 
-WORKDIR /opt/smallworld/tests
+WORKDIR /opt/smallworld/
 RUN pip install -e ".[development]" -c constraints.txt
 
 WORKDIR /opt/smallworld/tests
