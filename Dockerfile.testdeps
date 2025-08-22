@@ -5,4 +5,7 @@ FROM ${DOCKER_REGISTRY}/smallworld/smallworld_deps:latest
 COPY ./ /opt/smallworld/
 
 WORKDIR /opt/smallworld/tests
+RUN pip install -e ".[development]" -c constraints.txt
+
+WORKDIR /opt/smallworld/tests
 RUN apt-get -y install $(cat ./dependencies/apt.txt) && apt-get clean
