@@ -11,15 +11,18 @@ jobs:
   Build-Container:
     runs-on: smallworld-arc
     steps:
-      - name: Install docker
+      - name: Cleanup Shared
+        run: find /home/runner/_shared/* -mtime +3 -exec rm {} \;
+ 
+      - name: Install podman
         run: |
-          apt-get update -y
-          apt-get install -y docker
+          sudo apt-get update -y
+          sudo apt-get install -y podman
 
       - name: Allow HTTP for the in-cluster registry
         run: |
-          mkdir -p /etc/containers/registries.conf.d
-          cat <<'EOF' | tee /etc/containers/registries.conf.d/50-smallworld.conf
+          sudo mkdir -p /etc/containers/registries.conf.d
+          cat <<'EOF' | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
           [[registry]]
           location = "${{ env.REGISTRY }}"
           insecure = true
@@ -29,26 +32,26 @@ jobs:
 
       - name: Login to registry
         run: |
-          docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
+          podman login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
       - name: Build Deps
         run: |
-          docker build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
 
       - name: Tag Deps
         run: |
-          docker tag $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} $REGISTRY/smallworld/smallworld_deps:latest
+          podman tag $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} $REGISTRY/smallworld/smallworld_deps:latest
       
       - name: Build Testdeps
         run: |
-          docker build -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
+          podman build --squash-all -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
           
       - name: Tag Testdeps
         run: |
-          docker tag $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} $REGISTRY/smallworld/smallworld_testdeps:latest
+          podman tag $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} $REGISTRY/smallworld/smallworld_testdeps:latest
 
       - name: Save Containers
         run: |
-          docker push $REGISTRY/smallworld/smallworld_deps:${{ github.sha }}
-          docker push $REGISTRY/smallworld/smallworld_deps:latest
-          docker push $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }}
-          docker push $REGISTRY/smallworld/smallworld_testdeps:latest
+          podman push $REGISTRY/smallworld/smallworld_deps:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld_deps:latest
+          podman push $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }}
+          podman push $REGISTRY/smallworld/smallworld_testdeps:latest
