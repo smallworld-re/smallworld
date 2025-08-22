@@ -13,8 +13,8 @@ jobs:
     steps:
       - name: Install podman
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
+          apt-get update -y
+          apt-get install -y podman
 
       - name: Allow HTTP for the in-cluster registry
         run: |
