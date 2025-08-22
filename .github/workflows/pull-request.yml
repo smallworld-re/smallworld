@@ -75,11 +75,11 @@ jobs:
         run: |
           cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
           tar xf smallworld_${{ github.sha }}.tar.gz
-          cd smallworld/
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
+          cd smallworld/
           pip install -e .[development] -c constraints.txt
           cd tests
           python3 unit.py
@@ -190,11 +190,11 @@ jobs:
         run: |
           cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
           tar xf smallworld_${{ github.sha }}.tar.gz
-          cd smallworld/
       - name: Run Integration Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
+          cd smallworld/
           pip install -e .[development] -c constraints.txt
           cd tests
           make -j$(nproc)
