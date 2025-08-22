@@ -63,7 +63,7 @@ jobs:
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
           cd ..
-          tar -cfz smallworld_${{ github.sha }}.tar.gz smallworld
+          tar -cfz smallworld_${{ github.sha }}.tar.gz smallworld/
           mv smallworld_${{ github.sha }}.tar.gz $SCRATCH
 
   Unit-Test:
