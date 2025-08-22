@@ -6,6 +6,7 @@ on:
 
 env:
   REGISTRY: harbor.harbor.svc.cluster.local
+  TZ: UTC
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
