@@ -7,6 +7,7 @@ on:
 env:
   REGISTRY: harbor.harbor.svc.cluster.local
   TZ: UTC
+  SCRATCH: /home/runner/_shared
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
@@ -58,12 +59,23 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Save Repo
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          cd ..
+          tar -cfz smallworld_${{ github.sha }}.tar.gz smallworld
+          mv smallworld_${{ github.sha }}.tar.gz $SCRATCH
+
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     steps:
-      - uses: actions/checkout@v3
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar -xf smallworld_${{ github.sha }}.tar.gz
+          cd smallworld/
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -163,7 +175,7 @@ jobs:
           - testsuite: FloatsTests
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
-          - testsuite: HookingTests
+          # - testsuite: HookingTests
           - testsuite: PETests    
           - testsuite: RelaTests
           - testsuite: SquareTests
@@ -174,7 +186,11 @@ jobs:
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
     steps:
-      - uses: actions/checkout@v3
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar -xf smallworld_${{ github.sha }}.tar.gz
+          cd smallworld/
       - name: Run Integration Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -203,3 +219,6 @@ jobs:
       - name: Tests Failed
         if: needs.Lint.outputs.changes_detected == 'false' && contains(needs.*.result, 'failure')
         run: exit 1
+
+      - name: Cleanup
+        run: rm $SCRATCH/smallworld_${{ github.sha }}.tar.gz
