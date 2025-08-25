@@ -1,8 +1,8 @@
 import copy
+import hashlib
 import logging
 import random
 import typing
-from dataclasses import dataclass
 from enum import Enum
 
 import capstone
@@ -49,16 +49,6 @@ def get_cmp_info(
     return ([], [])
 
 
-class Patch:
-    pass
-
-
-@dataclass
-class PatchRegister(Patch):
-    name: str
-    value: int
-
-
 class TraceExecution(analysis.Analysis):
     name = "trace_execution"
     description = "perform one concrete execution given a machine state, collecting trace, coverage, and errors"
@@ -68,7 +58,8 @@ class TraceExecution(analysis.Analysis):
         self,
         *args,
         num_insns: int,
-        randomize_regs: int = True,
+        randomize_regs: bool = True,
+        randomize_extra_regs: typing.List[str] = [],
         seed: int = 1234567,
         **kwargs,
     ):
@@ -76,21 +67,36 @@ class TraceExecution(analysis.Analysis):
         self.num_insns = num_insns
         self.randomize_regs = randomize_regs
         random.seed(seed)
+        self.randomize_extra_regs = randomize_extra_regs
         self.seed = seed
-        # this will be used to record seq of changes to machine before
-        # beginning emulation
-        self.patch: typing.List[Patch] = []
         self.before_instruction_cbs: typing.List[typing.Any] = []
         self.after_instruction_cbs: typing.List[typing.Any] = []
 
+    def register_emu_summary(self):
+        pdefs = platforms.defs.PlatformDef.for_platform(self.platform)
+        m = hashlib.md5()
+        for reg in pdefs.general_purpose_registers:
+            vs = (str(self.emulator.read_register(reg))).encode("utf-8")
+            m.update(vs)
+        return m.hexdigest()
+
     def randomize_registers(self) -> None:
+        m = hashlib.md5()
         cpu = self.machine.get_cpu()
         regs = []
         pdefs = platforms.defs.PlatformDef.for_platform(self.platform)
         for reg in cpu:
-            if (reg.name in pdefs.general_purpose_registers) and (
-                reg.get_content() is None
+            if (
+                (type(reg) is smallworld.state.Register)
+                and (reg.get_content() is None)
+                and (
+                    (reg.name in pdefs.general_purpose_registers)
+                    or (reg.name in self.randomize_extra_regs)
+                )
             ):
+                # if (reg.name in pdefs.general_purpose_registers) and (
+                # reg.get_content() is None
+                # ):
                 regs.append((reg.name, reg.size))
         regs.sort(key=lambda x: x[0])
         for name, size in regs:
@@ -116,11 +122,9 @@ class TraceExecution(analysis.Analysis):
                 # make sure to update cpu as well as emu not sure why
                 # print(f"reg {name} updated with {bc} random bytes to {new_val:x}")
                 self.emulator.write_register(name, new_val)
-                self.patch.append(PatchRegister(name, new_val))
+                m.update(str(new_val).encode("utf-8"))
                 setattr(cpu, name, new_val)
-
-    def get_patch(self) -> typing.List[Patch]:
-        return self.patch
+        logger.debug(f"summary of register changes: {m.hexdigest()}")
 
     def register_cb(self, cb_point, cb_function):
         assert isinstance(cb_point, TraceExecutionCBPoint)
@@ -129,28 +133,18 @@ class TraceExecution(analysis.Analysis):
         if cb_point == TraceExecutionCBPoint.AFTER_INSTRUCTION:
             self.after_instruction_cbs.append(cb_function)
 
-    def run(
-        self,
-        machine: smallworld.state.Machine,
-        patch: typing.Union[None, typing.List[Patch]] = None,
-    ) -> None:
+    def run(self, machine: smallworld.state.Machine) -> None:
         self.machine = copy.deepcopy(machine)
         self.platform = machine.get_platform()
         self.emulator = smallworld.emulators.unicorn.UnicornEmulator(self.platform)
         start_m = copy.deepcopy(self.machine)
         self.machine.apply(self.emulator)
 
-        if patch is not None:
-            # if there is a patch provided, that will specify edits to
-            # machine before emulation
-            for pr in patch:
-                if isinstance(pr, PatchRegister):
-                    self.emulator.write_register(pr.name, pr.value)
-        else:
-            # else, we will do something and record what we did in
-            # case someone wants to get the patch
-            if self.randomize_regs:
-                self.randomize_registers()
+        logger.debug(f"starting regs in emu {self.register_emu_summary()}")
+
+        if self.randomize_regs:
+            self.randomize_registers()
+            logger.debug(f"regs in emu after randomizing {self.register_emu_summary()}")
 
         start_m.extract(self.emulator)
 
@@ -203,8 +197,6 @@ class TraceExecution(analysis.Analysis):
             # run any after callbacks
             for after_cb in self.after_instruction_cbs:
                 after_cb(self.emulator, pc, te)
-
-            logger.info("*** done with instr")
 
         assert emu_result is not None
 

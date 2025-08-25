@@ -2562,17 +2562,29 @@ class TraceExecutionTests(ScriptIntegrationTest):
 class ColorizerTests(ScriptIntegrationTest):
     def test_colors_1(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_1.py")
-        self.assertLineContainsStrings(stdout, "Summary hints match: True")
-        self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
-        self.assertLineContainsStrings(stdout, "Def-use graph match: True")
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: summary hints match = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: got a single def-use graph = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: Def-use graph match = True"
+        )
+        self.assertLineContainsStrings(stdout, "Test result: overall = True")
 
     def test_colors_2(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_2.py")
-        self.assertLineContainsStrings(stdout, "Summary hints match: True")
-        self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
-        self.assertLineContainsStrings(stdout, "Def-use graph match: True")
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: summary hints match = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: got a single def-use graph = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: Def-use graph match = True"
+        )
+        self.assertLineContainsStrings(stdout, "Test result: overall = True")
 
 
 class DocumentationTests(unittest.TestCase):
