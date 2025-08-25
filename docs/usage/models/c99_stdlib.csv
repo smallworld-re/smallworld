@@ -1,0 +1,29 @@
+,           Support,    Notes
+Abs,        Full,
+LAbs,       Full,
+LLAbs,      Full,
+Abort,      Full,
+Atexit,     Imprecise,  Does not actually register an on-exit call.
+Atof,       Full,       i386 ABI uses x87 registers; not supported.
+Atoi,       Full,
+Atol,       Full,
+Atoll,      Full,
+Calloc,     Full,
+Div,        None,       Requires returning a struct by value.
+LDiv,       None,       Requires returning a struct by value.
+LLDiv,      None,       Requires returning a struct by value.
+Exit,       Full,
+Free,       Full,
+Getenv,     Imprecise,  envp not modeled
+Malloc,     Full,
+Mblen,      None,       Requires locale
+Mbstowcs,   None,       Requires locale
+Mbtowc,     None,       Requires locale
+QSort,      None,       Requires calling a function pointer
+Rand,       Full,
+Realloc,    Full,
+Srand,      Full,
+System,     Imprecise,  Does not actually invoke subprocess
+Wcstombs,   None,       Requires locale
+Wctomb,     None,       Requires locale
+

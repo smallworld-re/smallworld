@@ -465,7 +465,42 @@ class PandaEmulator(
                 logger.error("This strays into reserved MMIO memory; please don't.")
                 raise exceptions.EmulationError("Write to MIPS64 MMIO space")
 
-        self.panda_thread.panda.physical_memory_write(address, content)
+        # self.panda_thread.panda.physical_memory_write(address, content)
+
+        # NOTE: Panda does not handle writing across segment boundaries gracefully
+        #
+        # If you map 0x1000 - 0x2000, and then map 0x2000 - 0x3000,
+        # writing to 0x1000 - 0x3000 will probably segfault the emulator.
+        #
+        # This is because QEMU may put adjacent guest memory segments
+        # in non-adjacent host memory.
+        # Panda only performs the guest-to-host address translation
+        # on the initial address; it doesn't check
+        # that all requested blocks are in the same segment.
+
+        offset = 0
+        size = len(content)
+
+        # NOTE: This algorithm takes advantage of the fact that Python slices
+        # can return fewer than the requested number of bytes if the upper bound
+        # is past the end of the list being sliced.
+        if address % self.PAGE_SIZE != 0:
+            block_size = address % self.PAGE_SIZE
+            self.panda_thread.panda.physical_memory_write(
+                address, content[0:block_size]
+            )
+
+            offset += block_size
+            size -= block_size
+
+        while size > 0:
+            block_address = address + offset
+            self.panda_thread.panda.physical_memory_write(
+                block_address, content[offset : offset + self.PAGE_SIZE]
+            )
+
+            offset += self.PAGE_SIZE
+            size -= self.PAGE_SIZE
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 

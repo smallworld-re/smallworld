@@ -114,6 +114,24 @@ class Memory(state.Stateful, dict):
         self.clear()
         self[0] = value
 
+    def write_bytes(self, address: int, data: bytes) -> None:
+        """Overwrite part of this memory region with specific bytes
+
+        This will fail if the data you want to overwrite is in a symbolic sub-region.
+        """
+
+        for segment_offset, segment in self.items():
+            segment_address = self.address + segment_offset
+            if address >= segment_address and address < segment_address + segment._size:
+                contents = segment.get_content()
+                if not isinstance(contents, bytes):
+                    raise exceptions.SymbolicValueError(
+                        f"Tried to write {len(data)} bytes at {hex(address)}; data in {segment_address:x} - {segment_address + segment._size:x} is symbolic."
+                    )
+                offset = address - segment_address
+                contents = contents[0:offset] + data + contents[offset + len(data) :]
+                segment.set_content(contents)
+
     def __hash__(self):
         return super(dict, self).__hash__()
 

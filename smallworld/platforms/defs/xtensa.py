@@ -60,6 +60,7 @@ class Xtensa(PlatformDef):
     capstone_mode = -1
 
     pc_register = "pc"
+    sp_register = "sp"
 
     # Special registers:
     # - a0 is the default link register

@@ -42,7 +42,7 @@ class Heap(memory.Memory):
         return self.allocate(value)
 
     def allocate_bytes(
-        self, content: typing.Union[bytes, bytearray], label: str
+        self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> int:
         """Allocate space for and write bytes to the heap.
 
@@ -79,7 +79,7 @@ class BumpAllocator(Heap):
         return self.address + offset
 
     def free(self, address: int) -> None:
-        raise NotImplementedError("freeing with a BumpAllocator is not yet implemented")
+        pass
 
 
 __all__ = ["Heap", "BumpAllocator"]

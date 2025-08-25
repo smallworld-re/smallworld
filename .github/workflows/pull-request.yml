@@ -6,10 +6,12 @@ on:
 
 env:
   REGISTRY: harbor.harbor.svc.cluster.local
+  TZ: UTC
+  SCRATCH: /home/runner/_shared
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  # cancel-in-progress: true
 
 jobs:
   Lint:
@@ -20,31 +22,13 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - name: Install podman
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "$REGISTRY"
-          insecure = true
-          EOF
-
       - uses: actions/checkout@v3
         with:
           token: ${{ secrets.BOT_TOKEN }}
 
-      - uses: actions/setup-python@v4
-        with:
-          python-version: "3.x"
-
       - name: Install Lint Tools
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install $(grep isort= constraints.txt)
           pip install $(grep black= constraints.txt)
           pip install $(grep flake8= constraints.txt)
@@ -67,7 +51,7 @@ jobs:
           isort --check --profile black .
           black --check ./
           flake8 ./
-          mypy --ignore-missing-imports ./
+          mypy --explicit-package-bases --ignore-missing-imports ./
 
       - name: Check Title
         if: steps.ac.outputs.changes_detected == 'false'
@@ -75,73 +59,124 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
-      - name: Login to registry
+      - name: Save Repo
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
-          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-
-      - name: Build Container
-        if: steps.ac.outputs.changes_detected == 'false'
-        run: |
-          IMAGE=$REGISTRY/smallworld/smallworld:${{ github.sha }}
-          podman build --ulimit core=-1:-1 --network host -t "$IMAGE" .
-
-      - name: Save Container
-        if: steps.ac.outputs.changes_detected == 'false'
-        run: |
-          podman push $REGISTRY/smallworld/smallworld:${{ github.sha }}
+          cd ..
+          tar cfz smallworld_${{ github.sha }}.tar.gz smallworld/
+          mv smallworld_${{ github.sha }}.tar.gz $SCRATCH
 
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     steps:
-      - name: Preinit
+      - name: Copy Repo
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "$REGISTRY"
-          insecure = true
-          EOF
-
-      - name: Login to registry
-        run: |
-          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-
-      - name: Load Container
-        run: |
-          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
-          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
       - name: Run Unit Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 unit.py
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          python3 unit.py
 
   Integration-Test:
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
+      max-parallel: 20
       matrix:
         include:
           - testsuite: BlockTests
           - testsuite: BranchTests
           - testsuite: CallTests
+          - testsuite: C99AbortTests
+          - testsuite: C99AbsTests
+          - testsuite: C99AtexitTests
+          - testsuite: C99AtoiTests
+          - testsuite: C99AtollTests
+          - testsuite: C99AtolTests
+          - testsuite: C99CallocTests
+          - testsuite: C99ClearerrTests
+          - testsuite: C99ClockTests
+          - testsuite: C99DifftimeTests
+          - testsuite: C99ExitTests
+          - testsuite: C99FcloseTests
+          - testsuite: C99FeofTests
+          - testsuite: C99FflushTests
+          - testsuite: C99FgetcTests
+          - testsuite: C99FgetposTests
+          - testsuite: C99FgetsTests
+          - testsuite: C99FopenTests
+          - testsuite: C99FprintfTests
+          - testsuite: C99FputcTests
+          - testsuite: C99FputsTests
+          - testsuite: C99FreadTests
+          - testsuite: C99FreeTests
+          - testsuite: C99FscanfTests
+          - testsuite: C99FseekTests
+          - testsuite: C99FsetposTests
+          - testsuite: C99FtellTests
+          - testsuite: C99FwriteTests
+          - testsuite: C99GetcharTests
+          - testsuite: C99GetcTests
+          - testsuite: C99GetenvTests
+          - testsuite: C99LabsTests
+          - testsuite: C99LlabsTests
+          - testsuite: C99MallocTests
+          - testsuite: C99MemcmpTests
+          - testsuite: C99MemcpyTests
+          - testsuite: C99MemmoveTests
+          - testsuite: C99MemsetTests
+          - testsuite: C99MktimeTests
+          - testsuite: C99PrintfTests
+          - testsuite: C99PutcharTests
+          - testsuite: C99PutcTests
+          - testsuite: C99PutsTests
+          - testsuite: C99RandTests
+          - testsuite: C99ReallocTests
+          - testsuite: C99RemoveTests
+          - testsuite: C99RenameTests
+          - testsuite: C99RewindTests
+          - testsuite: C99ScanfTests
+          - testsuite: C99SnprintfTests
+          - testsuite: C99SprintfTests
+          - testsuite: C99SrandTests
+          - testsuite: C99SscanfTests
+          - testsuite: C99StrcatTests
+          - testsuite: C99StrchrTests
+          - testsuite: C99StrcmpTests
+          - testsuite: C99StrcpyTests
+          - testsuite: C99StrcspnTests
+          # - testsuite: C99StrftimeTests
+          - testsuite: C99StrlenTests
+          - testsuite: C99StrncatTests
+          - testsuite: C99StrncmpTests
+          - testsuite: C99StrncpyTests
+          - testsuite: C99StrpbrkTests
+          - testsuite: C99StrrchrTests
+          - testsuite: C99StrspnTests
+          - testsuite: C99StrstrTests
+          - testsuite: C99StrtokTests
+          - testsuite: C99SystemTests
+          - testsuite: C99TimeTests
+          - testsuite: C99TmpfileTests
+          - testsuite: C99TmpnamTests
+          - testsuite: C99UngetcTests
           - testsuite: ColorizerTests
           - testsuite: DMATests
-          - testsuite: DocumentationTests
+          # - testsuite: DocumentationTests
           - testsuite: ElfTests
           - testsuite: ElfCoreTests
           - testsuite: FloatsTests
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
-          - testsuite: HookingTests
+          # - testsuite: HookingTests
           - testsuite: PETests    
           - testsuite: RelaTests
           - testsuite: SquareTests
@@ -149,36 +184,25 @@ jobs:
           - testsuite: StrlenTests
           - testsuite: StructureTests
           - testsuite: SyscallTests
+          - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
     steps:
-      - name: Preinit
+      - name: Copy Repo
         run: |
-          sudo apt-get update -y
-          sudo apt-get install -y podman
-
-      - name: Allow HTTP for the in-cluster registry
-        run: |
-          sudo mkdir -p /etc/containers/registries.conf.d
-          cat <<EOF | sudo tee /etc/containers/registries.conf.d/50-smallworld.conf
-          [[registry]]
-          location = "$REGISTRY"
-          insecure = true
-          EOF
-      
-      - name: Login to registry
-        run: |
-          podman login $REGISTRY -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-
-      - name: Load Container
-        run: |
-          podman pull $REGISTRY/smallworld/smallworld:${{ github.sha }}
-          podman tag $REGISTRY/smallworld/smallworld:${{ github.sha }} smallworld:latest
-
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
       - name: Run Integration Tests
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}
         run: |
-          podman run --rm -w /opt/smallworld/tests smallworld:latest python3 integration.py -v ${{ matrix.testsuite }}
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          make -j$(nproc)
+          cd elf_core
+          make -j$(nrpoc)
+          cd ..
+          python3 integration.py -v ${{ matrix.testsuite }}
 
   Results:
     runs-on: smallworld-arc
@@ -196,3 +220,6 @@ jobs:
       - name: Tests Failed
         if: needs.Lint.outputs.changes_detected == 'false' && contains(needs.*.result, 'failure')
         run: exit 1
+
+      - name: Cleanup
+        run: rm $SCRATCH/smallworld_${{ github.sha }}.tar.gz

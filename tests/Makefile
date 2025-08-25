@@ -1,11 +1,11 @@
 .PHONY: all build clean check
 .DEFAULT_GOAL=all
 
-SOURCES := $(wildcard */*.s)
+SOURCES := $(wildcard */*.s) $(wildcard */*/*.s)
 BINSOURCES := $(filter-out %.elf.s,$(SOURCES))
 ELFSOURCES := $(filter %.elf.s,$(SOURCES))
 
-CSOURCES := $(wildcard */*.c)
+CSOURCES := $(wildcard */*.c) $(wildcard */*/*.c)
 CELFSOURCES := $(filter %.elf.c,$(CSOURCES))
 CSOSOURCES := $(filter %.so.c,$(CSOURCES))
 CPESOURCES := $(filter %.pe.c,$(CSOURCES))
@@ -28,6 +28,8 @@ NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
 PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu xtensa-lx106-elf)
 
+GENERAL_CFLAGS := $(CFLAGS) -g -fno-stack-protector -fno-builtin
+
 # Custom start offset for MIPS64 and MIPS64EL
 # Panda currently runs binaries in the physical address space.
 # mips64 GCC uses a starting address that's inside
@@ -35,10 +37,10 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 MIPS64_ELF_START=0x800000
 
 %.aarch64.so: %.so.c
-	aarch64-linux-gnu-gcc -g $*.so.c -shared -o $*.aarch64.so
+	aarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.aarch64.so
 
 %.aarch64.elf: %.elf.c
-	aarch64-linux-gnu-gcc -g $*.elf.c -o $*.aarch64.elf
+	aarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.aarch64.elf
 
 %.aarch64.elf: %.aarch64.elf.s
 	aarch64-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
@@ -51,10 +53,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.aarch64.o
 
 %.amd64.so: %.so.c
-	gcc -g $*.so.c -shared -o $*.amd64.so
+	gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
 
 %.amd64.elf: %.elf.c
-	gcc -g $*.elf.c -o $*.amd64.elf
+	gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
 
 %.amd64.pe: %.pe.c
 	x86_64-w64-mingw32-gcc $*.pe.c -o $*.amd64.pe
@@ -68,10 +70,10 @@ MIPS64_ELF_START=0x800000
 	nasm $*.amd64.s -o $*.amd64.bin
 
 %.armel.so: %.so.c
-	arm-linux-gnueabi-gcc -g -marm $*.so.c -shared -o $*.armel.so
+	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.so.c -shared -o $*.armel.so
 
 %.armel.elf: %.elf.c
-	arm-linux-gnueabi-gcc -g -marm $*.elf.c -o $*.armel.elf
+	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.elf.c -o $*.armel.elf
 
 %.armel.elf: %.armel.elf.s
 	arm-linux-gnueabi-as $*.armel.elf.s -o $*.armel.elf.o
@@ -84,10 +86,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.armel.o
 
 %.armhf.so: %.so.c
-	arm-linux-gnueabihf-gcc -g -marm $*.so.c -shared -o $*.armhf.so
+	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.so.c -shared -o $*.armhf.so
 
 %.armhf.elf: %.elf.c
-	arm-linux-gnueabihf-gcc -g -marm $*.elf.c -o $*.armhf.elf
+	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.elf.c -o $*.armhf.elf
 
 %.armhf.elf: %.armhf.elf.s
 	arm-linux-gnueabihf-as $*.armhf.elf.s -o $*.armhf.elf.o
@@ -100,10 +102,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.armhf.o
 
 %.i386.so: %.so.c
-	i686-linux-gnu-gcc -g $*.so.c -shared -o $*.i386.so
+	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.i386.so
 
 %.i386.elf: %.elf.c
-	i686-linux-gnu-gcc -g $*.elf.c -o $*.i386.elf
+	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.i386.elf
 
 %.i386.pe: %.pe.c
 	i686-w64-mingw32-gcc $*.pe.c -o $*.i386.pe
@@ -119,10 +121,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.i386.o
 
 %.mips.so: %.so.c
-	mips-linux-gnu-gcc -g $*.so.c -shared -o $*.mips.so
+	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips.so
 
 %.mips.elf: %.elf.c
-	mips-linux-gnu-gcc -g $*.elf.c -o $*.mips.elf
+	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.mips.elf
 
 %.mips.elf: %.mips.elf.s
 	mips-linux-gnu-as $*.mips.elf.s -o $*.mips.elf.o
@@ -135,10 +137,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mips.o
 
 %.mipsel.so: %.so.c
-	mipsel-linux-gnu-gcc -g $*.so.c -shared -o $*.mipsel.so
+	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mipsel.so
 
 %.mipsel.elf: %.elf.c
-	mipsel-linux-gnu-gcc -g $*.elf.c -o $*.mipsel.elf
+	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.mipsel.elf
 
 %.mipsel.elf: %.mips.elf.s
 	mipsel-linux-gnu-as $*.mips.elf.s -o $*.mipsel.elf.o
@@ -151,10 +153,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mipsel.o
 
 %.mips64.so: %.so.c
-	mips64-linux-gnuabi64-gcc -g $*.so.c -shared -o $*.mips64.so
+	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips64.so
 
 %.mips64.elf: %.elf.c
-	mips64-linux-gnuabi64-gcc -g -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64.elf
+	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64.elf
 
 %.mips64.elf: %.mips64.elf.s
 	mips64-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64.elf.o
@@ -167,10 +169,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mips64.o
 
 %.mips64el.so: %.so.c
-	mips64el-linux-gnuabi64-gcc -g $*.so.c -shared -o $*.mips64el.so
+	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips64el.so
 
 %.mips64el.elf: %.elf.c
-	mips64el-linux-gnuabi64-gcc -g -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64el.elf
+	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64el.elf
 
 %.mips64el.elf: %.mips64.elf.s
 	mips64el-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64el.elf.o
@@ -183,10 +185,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.mips64el.o
 
 %.ppc.so: %.so.c
-	powerpc-linux-gnu-gcc -g $*.so.c -shared -o $*.ppc.so
+	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.ppc.so
 
 %.ppc.elf: %.elf.c
-	powerpc-linux-gnu-gcc -g $*.elf.c -o $*.ppc.elf
+	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.ppc.elf
 
 %.ppc.elf: %.ppc.elf.s
 	powerpc-linux-gnu-as $*.ppc.elf.s -o $*.ppc.elf.o
@@ -199,10 +201,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.ppc.o
 
 %.ppc64.so: %.so.c
-	powerpc64-linux-gnu-gcc -g $*.so.c -shared -o $*.ppc64.so
+	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.ppc64.so
 
 %.ppc64.elf: %.elf.c
-	powerpc64-linux-gnu-gcc -g $*.elf.c -o $*.ppc64.elf
+	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.ppc64.elf
 
 %.ppc64.elf: %.ppc64.elf.s
 	powerpc64-linux-gnu-as $*.ppc64.elf.s -o $*.ppc64.elf.o
@@ -215,10 +217,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.ppc64.o
 
 %.riscv64.so: %.so.c
-	riscv64-linux-gnu-gcc -g $*.so.c -shared -o $*.riscv64.so
+	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.riscv64.so
 
 %.riscv64.elf: %.elf.c
-	riscv64-linux-gnu-gcc -g $*.elf.c -o $*.riscv64.elf
+	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.riscv64.elf
 
 %.riscv64.elf: %.riscv64.elf.s
 	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o
