@@ -126,6 +126,7 @@ jobs:
           - testsuite: C99GetcharTests
           - testsuite: C99GetcTests
           - testsuite: C99GetenvTests
+          - testsuite: C99GetsTests
           - testsuite: C99LabsTests
           - testsuite: C99LlabsTests
           - testsuite: C99MallocTests
@@ -176,7 +177,7 @@ jobs:
           - testsuite: FloatsTests
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
-          # - testsuite: HookingTests
+          - testsuite: HookingTests
           - testsuite: PETests    
           - testsuite: RelaTests
           - testsuite: SquareTests
