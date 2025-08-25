@@ -2,15 +2,13 @@ import logging
 
 import smallworld
 
-# NOTE: PowerPC has a bad heisenbug.
-#
-# machine.emulate() terminates early,
-# but only if this script is run in a subshell,
-# and only if I run it exactly as is without this print statement,
-# and even then only some of the time.
-#
-# I have no idea how to begin debugging this.
-print("This blocks a heisenbug.  Don't delete please")
+print(
+    "WARNING: This test is not supported.\n\n"
+    "Ghidra emulating PowerPC has a heisenbug that only triggers on this test,\n"
+    "and only if run in a sub-shell, as in the integration test environment.\n\n"
+    "I have no idea how to even begin debugging this."
+)
+quit()
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
