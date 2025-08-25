@@ -153,7 +153,7 @@ jobs:
           - testsuite: C99StrcmpTests
           - testsuite: C99StrcpyTests
           - testsuite: C99StrcspnTests
-          # - testsuite: C99StrftimeTests
+          - testsuite: C99StrftimeTests
           - testsuite: C99StrlenTests
           - testsuite: C99StrncatTests
           - testsuite: C99StrncmpTests
