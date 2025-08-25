@@ -1,3 +1,4 @@
+import logging
 import re
 
 import networkx as nx
@@ -5,9 +6,14 @@ import networkx as nx
 from .. import hinting
 from . import analysis
 
+logger = logging.getLogger(__name__)
+
 
 class DefUseGraph(nx.MultiDiGraph):
     def add_def_use(self, def_node, use_node, def_info, use_info, color):
+        # logger.info(f"def use def_node={def_node} use_node={use_node}")
+        # logger.info(f"  def_info={def_info}")
+        # logger.info(f"  use_info={use_info}")
         self.add_edges_from(
             [
                 (
@@ -44,7 +50,7 @@ class ColorizerDefUse(analysis.Analysis):
                 self.not_new_hints.append(hint)
 
     def run(self, machine):
-        du_graph = DefUseGraph()
+        self.du_graph = DefUseGraph()
         color2genesis = {}
 
         def hint_dv_info(hint):
@@ -84,7 +90,7 @@ class ColorizerDefUse(analysis.Analysis):
                 (not hint.use) and ("write" in hint.message)
             )
 
-            du_graph.add_node(hint.pc)
+            self.du_graph.add_node(hint.pc)
 
             dv_info = hint_dv_info(hint)
 
@@ -104,21 +110,21 @@ class ColorizerDefUse(analysis.Analysis):
                         color_node += f"{dv_info['offset']}"
                     color_node += ")"
                 color_node += "_init"
-                du_graph.add_node(color_node)
+                self.du_graph.add_node(color_node)
                 # record mapping from this color to its creation info
                 color2genesis[hint.color] = (color_node, dv_info)
                 # and an edge between that color node and this instruction
-                du_graph.add_def_use(
+                self.du_graph.add_def_use(
                     color_node, hint.pc, color_node, dv_info, hint.color
                 )
             else:
-                # this is a write
+                # this is a write of a computed value
                 # record mapping from this color to its creation info
                 color2genesis[hint.color] = (hint.pc, dv_info)
 
         for hint in self.not_new_hints:
             # not a new color.  so its a flow
-            du_graph.add_node(hint.pc)
+            self.du_graph.add_node(hint.pc)
             # can't be a def
             assert "def" not in hint.message
             # we should never see !new && !use since that is just a value copy
@@ -128,12 +134,14 @@ class ColorizerDefUse(analysis.Analysis):
             else:
                 dv_info = hint_dv_info(hint)
                 (def_node, def_info) = color2genesis[hint.color]
-                du_graph.add_def_use(def_node, hint.pc, def_info, dv_info, hint.color)
+                self.du_graph.add_def_use(
+                    def_node, hint.pc, def_info, dv_info, hint.color
+                )
 
         # hint out the def-use graph
         self.hinter.send(
             hinting.DefUseGraphHint(
-                graph=nx.node_link_data(du_graph, edges="links"),
+                graph=nx.node_link_data(self.du_graph, edges="links"),
                 message="concrete-summary-def-use-graph",
             )
         )
@@ -147,7 +155,7 @@ class ColorizerDefUse(analysis.Analysis):
             writeit(" rankdir=LR")
 
             node2nodeid = {}
-            for node in du_graph.nodes:
+            for node in self.du_graph.nodes:
                 # 4461 is pc
                 # {"id": 4461},
                 # An input color rsp is register
@@ -166,9 +174,9 @@ class ColorizerDefUse(analysis.Analysis):
                     writeit(f'  {node_id} [color="blue", label="input({reg})"]')
                 node2nodeid[node] = node_id
 
-            di = nx.get_edge_attributes(du_graph, "def_info")
-            ui = nx.get_edge_attributes(du_graph, "use_info")
-            for e in du_graph.edges:
+            di = nx.get_edge_attributes(self.du_graph, "def_info")
+            ui = nx.get_edge_attributes(self.du_graph, "use_info")
+            for e in self.du_graph.edges:
                 if type(di[e]) is str:
                     foo = re.search("color-([0-9]+) (.*)_init", di[e])
                     (cns, reg) = foo.groups()
@@ -181,3 +189,6 @@ class ColorizerDefUse(analysis.Analysis):
                 writeit(f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}"]')
 
             writeit("}\n")
+
+    def get_graph(self):
+        return self.du_graph
