@@ -78,4 +78,4 @@ The options for the "support" field mean the following:
 .. csv-table:: C99: stdio.h
     :file: c99_stdio.csv
     :header-rows: 1
-    :header-columns: 1
+    :stub-columns: 1
