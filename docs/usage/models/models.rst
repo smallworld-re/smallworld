@@ -69,13 +69,16 @@ The options for the "support" field mean the following:
     :file: c99_string.csv
     :header-rows: 1
     :stub-columns: 1
+    :delim: ,
 
 .. csv-table:: C99: stdlib.h
     :file: c99_stdlib.csv
     :header-rows: 1
     :stub-columns: 1
+    :delim: ,
 
 .. csv-table:: C99: stdio.h
     :file: c99_stdio.csv
     :header-rows: 1
     :stub-columns: 1
+    :delim: ,
