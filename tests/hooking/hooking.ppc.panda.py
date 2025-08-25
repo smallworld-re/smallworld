@@ -43,23 +43,9 @@ cpu.sp.set(sp)
 
 
 # Configure gets model
-class GetsModel(smallworld.state.models.Model):
-    name = "gets"
-    platform = platform
-    abi = smallworld.platforms.ABI.NONE
-
-    def model(self, emulator: smallworld.emulators.Emulator) -> None:
-        s = emulator.read_register("r3")
-        v = input().encode("utf-8") + b"\0"
-        try:
-            emulator.write_memory_content(s, v)
-        except:
-            raise smallworld.exceptions.AnalysisError(
-                f"Failed writing {len(v)} bytes to {hex(s)} "
-            )
-
-
-gets = GetsModel(0x1000)
+gets = smallworld.state.models.Model.lookup(
+    "gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000
+)
 machine.add(gets)
 
 

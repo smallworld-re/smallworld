@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class MIPSSysVGetc(Getc, MIPSSysVModel):
 
 
 class MIPSSysVGetchar(Getchar, MIPSSysVModel):
+    pass
+
+
+class MIPSSysVGets(Gets, MIPSSysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "MIPSSysVFwrite",
     "MIPSSysVGetc",
     "MIPSSysVGetchar",
+    "MIPSSysVGets",
     "MIPSSysVPrintf",
     "MIPSSysVPutc",
     "MIPSSysVPutchar",

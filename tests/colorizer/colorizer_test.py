@@ -33,7 +33,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 # create an executable and add it to the machine
 path = pathlib.Path(__file__).parent.resolve()
 code = smallworld.state.memory.code.Executable.from_elf(
-    open(f"{path}/../trace_executor/ahme-x86_64.bin", "rb"), address=0x1000
+    open(f"{path}/../trace_executor/ahme-x86_64", "rb"), address=0x1000
 )
 machine.add(code)
 
@@ -45,8 +45,8 @@ cpu.rsp.set(rsp)
 
 # set the instruction pointer to the entrypoint of our executable
 # these values are from
-# md5sum trace_executor/ahme-x86_64.bin
-# 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64.bin
+# md5sum trace_executor/ahme-x86_64
+# 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64
 entry_point = 0x2189
 exit_point = 0x2291
 

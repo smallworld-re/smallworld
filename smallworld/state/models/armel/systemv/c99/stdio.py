@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class ArmELSysVGetc(Getc, ArmELSysVModel):
 
 
 class ArmELSysVGetchar(Getchar, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVGets(Gets, ArmELSysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "ArmELSysVFwrite",
     "ArmELSysVGetc",
     "ArmELSysVGetchar",
+    "ArmELSysVGets",
     "ArmELSysVPrintf",
     "ArmELSysVPutc",
     "ArmELSysVPutchar",

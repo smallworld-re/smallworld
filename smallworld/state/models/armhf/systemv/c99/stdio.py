@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class ArmHFSysVGetc(Getc, ArmHFSysVModel):
 
 
 class ArmHFSysVGetchar(Getchar, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVGets(Gets, ArmHFSysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "ArmHFSysVFwrite",
     "ArmHFSysVGetc",
     "ArmHFSysVGetchar",
+    "ArmHFSysVGets",
     "ArmHFSysVPrintf",
     "ArmHFSysVPutc",
     "ArmHFSysVPutchar",

@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class I386SysVGetc(Getc, I386SysVModel):
 
 
 class I386SysVGetchar(Getchar, I386SysVModel):
+    pass
+
+
+class I386SysVGets(Gets, I386SysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "I386SysVFwrite",
     "I386SysVGetc",
     "I386SysVGetchar",
+    "I386SysVGets",
     "I386SysVPrintf",
     "I386SysVPutc",
     "I386SysVPutchar",

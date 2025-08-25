@@ -2370,6 +2370,11 @@ class C99GetcharTests(OneArgLibraryModelTest):
     function = "getchar"
 
 
+class C99GetsTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "gets"
+
+
 class C99FgetsTests(OneArgLibraryModelTest):
     library = "c99"
     function = "fgets"

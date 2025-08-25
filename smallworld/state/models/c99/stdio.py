@@ -747,6 +747,32 @@ class Getchar(StdioModel):
         self.set_return_value(emulator, data[0])
 
 
+class Gets(StdioModel):
+    name = "gets"
+
+    # char *fgets(char *dst);
+    argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T, ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+
+        dst = self.get_arg1(emulator)
+
+        assert isinstance(dst, int)
+
+        try:
+            fd = 0
+            file = self._fdmgr.get(fd)
+        except FDIOError:
+            self.set_return_value(emulator, 0)
+            return
+
+        data = file.read_string()
+        emulator.write_memory(dst, data)
+        self.set_return_value(emulator, dst)
+
+
 class Printf(StdioModel):
     name = "printf"
 
@@ -1254,6 +1280,7 @@ __all__ = [
     "Fwrite",
     "Getc",
     "Getchar",
+    "Gets",
     "Printf",
     "Putc",
     "Putchar",

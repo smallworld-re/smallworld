@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class AMD64SysVGetc(Getc, AMD64SysVModel):
 
 
 class AMD64SysVGetchar(Getchar, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVGets(Gets, AMD64SysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "AMD64SysVFwrite",
     "AMD64SysVGetc",
     "AMD64SysVGetchar",
+    "AMD64SysVGets",
     "AMD64SysVPrintf",
     "AMD64SysVPutc",
     "AMD64SysVPutchar",

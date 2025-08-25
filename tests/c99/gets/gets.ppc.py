@@ -2,14 +2,6 @@ import logging
 
 import smallworld
 
-print(
-    "WARNING: This test is not supported.\n\n"
-    "Ghidra emulating PowerPC has a heisenbug that only triggers on this test,\n"
-    "and only if run in a sub-shell, as in the integration test environment.\n\n"
-    "I have no idea how to even begin debugging this."
-)
-quit()
-
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 
@@ -44,33 +36,16 @@ cpu.pc.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-
-str_addr = stack.get_pointer()
-
-# Push argv
-stack.push_integer(0, 4, None)  # NULL terminator
-stack.push_integer(0x10101010, 4, None)  # Bogus pointer to argv[0]
-argv = stack.get_pointer()
-
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
-
-# Set argument registers
-cpu.r3.set(2)
-cpu.r4.set(argv)
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strftime_model = smallworld.state.models.Model.lookup(
-    "strftime", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(strftime_model)
-strftime_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strftime", strftime_model._address)
+# Configure the heap
+heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
+machine.add(heap)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
@@ -81,15 +56,14 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-# PPC injects an implicit memset
-memset_model = smallworld.state.models.Model.lookup(
-    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+gets_model = smallworld.state.models.Model.lookup(
+    "gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(memset_model)
-memset_model.allow_imprecise = True
+machine.add(gets_model)
+gets_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("memset", memset_model._address)
+code.update_symbol_value("gets", gets_model._address)
 
 strcmp_model = smallworld.state.models.Model.lookup(
     "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
@@ -106,7 +80,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure exits by dereferencing 0xdead.
+# We signal failure getss by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

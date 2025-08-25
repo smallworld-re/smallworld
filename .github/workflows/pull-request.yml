@@ -126,6 +126,7 @@ jobs:
           - testsuite: C99GetcharTests
           - testsuite: C99GetcTests
           - testsuite: C99GetenvTests
+          - testsuite: C99GetsTests
           - testsuite: C99LabsTests
           - testsuite: C99LlabsTests
           - testsuite: C99MallocTests
@@ -153,7 +154,7 @@ jobs:
           - testsuite: C99StrcmpTests
           - testsuite: C99StrcpyTests
           - testsuite: C99StrcspnTests
-          # - testsuite: C99StrftimeTests
+          - testsuite: C99StrftimeTests
           - testsuite: C99StrlenTests
           - testsuite: C99StrncatTests
           - testsuite: C99StrncmpTests
