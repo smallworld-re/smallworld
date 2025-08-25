@@ -14,9 +14,9 @@ from ..instructions import (
     Operand,
     RegisterOperand,
 )
+from ..platforms.defs import AMD64, I386
 from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
-from ..platforms.defs import AMD64, I386
 
 logger = logging.getLogger(__name__)
 
@@ -170,11 +170,15 @@ class Colorizer(analysis.Analysis):
             self.shadow_memory = {}
             extra_regs = []
             if isinstance(self.pdef, AMD64):
-                extra_regs = ['rbp', 'rsp']
+                extra_regs = ["rbp", "rsp"]
             if isinstance(self.pdef, I386):
-                extra_regs = ['ebp', 'esp']
+                extra_regs = ["ebp", "esp"]
             traceA = TraceExecution(
-                self.hinter, num_insns=self.num_insns, randomize_regs=True, randomize_extra_regs=extra_regs, seed=seed
+                self.hinter,
+                num_insns=self.num_insns,
+                randomize_regs=True,
+                randomize_extra_regs=extra_regs,
+                seed=seed,
             )
             traceA.register_cb(
                 TraceExecutionCBPoint.BEFORE_INSTRUCTION, before_instruction_cb

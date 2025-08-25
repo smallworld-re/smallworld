@@ -9,6 +9,7 @@ import capstone
 
 import smallworld
 from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
+
 from .. import platforms
 from ..hinting.hints import TraceExecutionHint
 from . import analysis
@@ -90,8 +91,9 @@ class TraceExecution(analysis.Analysis):
                 and (reg.get_content() is None)
                 and (
                     (reg.name in pdefs.general_purpose_registers)
-                    or (reg.name in self.randomize_extra_regs))
-            ):            
+                    or (reg.name in self.randomize_extra_regs)
+                )
+            ):
                 # if (reg.name in pdefs.general_purpose_registers) and (
                 # reg.get_content() is None
                 # ):
