@@ -8,3 +8,4 @@ Using SmallWorld
     hinting
     analyses
     platforms
+    models/models
