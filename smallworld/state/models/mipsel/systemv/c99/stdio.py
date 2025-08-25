@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class MIPSELSysVGetc(Getc, MIPSELSysVModel):
 
 
 class MIPSELSysVGetchar(Getchar, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVGets(Gets, MIPSELSysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "MIPSELSysVFwrite",
     "MIPSELSysVGetc",
     "MIPSELSysVGetchar",
+    "MIPSELSysVGets",
     "MIPSELSysVPrintf",
     "MIPSELSysVPutc",
     "MIPSELSysVPutchar",

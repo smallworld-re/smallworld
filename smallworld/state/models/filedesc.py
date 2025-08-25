@@ -100,9 +100,11 @@ class FileDescriptor:
         size -= 1
         while size != 0:
             c = self.read(1)
+            if len(c) < 1:
+                break
             out += c
 
-            if c == "\n":
+            if c == b"\n":
                 break
 
             if size > 0:

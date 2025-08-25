@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class AArch64SysVGetc(Getc, AArch64SysVModel):
 
 
 class AArch64SysVGetchar(Getchar, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVGets(Gets, AArch64SysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "AArch64SysVFwrite",
     "AArch64SysVGetc",
     "AArch64SysVGetchar",
+    "AArch64SysVGets",
     "AArch64SysVPrintf",
     "AArch64SysVPutc",
     "AArch64SysVPutchar",
