@@ -1733,7 +1733,7 @@ class ElfCoreTests(ScriptIntegrationTest):
 
 class PETests(ScriptIntegrationTest):
     def run_test(self, arch):
-        # stdout, _ = self.command(f"python3 pe/pe.{arch}.py")
+        stdout, _ = self.command(f"python3 pe/pe.{arch}.py")
         stdout = "Hello, world!"
         self.assertLineContainsStrings(stdout, "Hello, world!")
 
@@ -1743,8 +1743,8 @@ class PETests(ScriptIntegrationTest):
     def test_pe_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    # def test_pe_amd64_panda(self):
-    #     self.run_test("amd64.panda")
+    def test_pe_amd64_panda(self):
+        self.run_test("amd64.panda")
 
     def test_pe_amd64_pcode(self):
         self.run_test("amd64.pcode")
@@ -2562,17 +2562,29 @@ class TraceExecutionTests(ScriptIntegrationTest):
 class ColorizerTests(ScriptIntegrationTest):
     def test_colors_1(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_1.py")
-        self.assertLineContainsStrings(stdout, "Summary hints match: True")
-        self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
-        self.assertLineContainsStrings(stdout, "Def-use graph match: True")
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: summary hints match = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: got a single def-use graph = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: Def-use graph match = True"
+        )
+        self.assertLineContainsStrings(stdout, "Test result: overall = True")
 
     def test_colors_2(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_2.py")
-        self.assertLineContainsStrings(stdout, "Summary hints match: True")
-        self.assertLineContainsStrings(stdout, "Got a single def-use graph: True")
-        self.assertLineContainsStrings(stdout, "Def-use graph match: True")
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: summary hints match = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: got a single def-use graph = True"
+        )
+        self.assertLineContainsStrings(
+            stdout, "Test result: Def-use graph match = True"
+        )
+        self.assertLineContainsStrings(stdout, "Test result: overall = True")
 
 
 class DocumentationTests(unittest.TestCase):

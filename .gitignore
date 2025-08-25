@@ -8,3 +8,5 @@
 *.egg-info/
 dist/
 build/
+
+core.*
