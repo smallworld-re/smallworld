@@ -98,6 +98,7 @@ class MIPSN64PlatformDef(PlatformDef):
     }
 
     pc_register = "pc"
+    sp_register = "sp"
 
     general_purpose_registers = [
         "v0",

@@ -137,6 +137,7 @@ class I386(PlatformDef):
     }
 
     pc_register = "eip"
+    sp_register = "esp"
 
     # NOTE: ebp and esp are not considered general.
     # You _can_ use them as GPRs; it's very rarely a good idea.

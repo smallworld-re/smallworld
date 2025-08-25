@@ -1,4 +1,6 @@
-FROM ubuntu:22.04
+FROM ghcr.io/actions/actions-runner:latest
+
+USER root
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -y && \
     apt-get -y --no-install-recommends install \

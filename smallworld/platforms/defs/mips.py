@@ -95,6 +95,7 @@ class MIPSO32PlatformDef(PlatformDef):
     }
 
     pc_register = "pc"
+    sp_register = "sp"
 
     # Special registers
     # zero: Hard-wired to zero

@@ -140,6 +140,7 @@ class AMD64BasePlatformDef(PlatformDef):
     }
 
     pc_register = "rip"
+    sp_register = "rsp"
 
     # NOTE: rbp and rsp are not considered general.
     # You _can_ use them as GPRs; it's very rarely a good idea.

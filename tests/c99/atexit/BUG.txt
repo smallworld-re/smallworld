@@ -1,0 +1,1 @@
+In glibc, atexit() isn't a libc function.

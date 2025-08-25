@@ -42,6 +42,7 @@ class RiscV64(PlatformDef):
     compare_mnemonics = set()
 
     pc_register = "pc"
+    sp_register = "sp"
 
     # Special registers:
     # - x0 is wired to zero

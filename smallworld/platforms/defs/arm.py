@@ -45,6 +45,7 @@ class ARMPlatformDef(PlatformDef):
     }
 
     pc_register = "pc"
+    sp_register = "sp"
 
     # NOTE: r9, r10, r11, and r12 technically have special purposes,
     # but they're optional.

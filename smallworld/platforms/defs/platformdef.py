@@ -69,6 +69,12 @@ class PlatformDef(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
+    def sp_register(self) -> str:
+        """Stack Pointer register name"""
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
     def general_purpose_registers(self) -> typing.List[str]:
         """List of general-purpose register names"""
         raise NotImplementedError()

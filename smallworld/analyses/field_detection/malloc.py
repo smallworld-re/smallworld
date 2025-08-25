@@ -14,7 +14,7 @@ class MallocModel(state.models.Model):
     platform = platforms.Platform(
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
-    abi = platforms.ABI.SYSTEMV
+    abi = platforms.ABI.NONE
 
     _arg1_for_arch = {
         platforms.Architecture.AARCH64: "x0",
@@ -201,7 +201,7 @@ class FreeModel(state.models.Model):
     platform = platforms.Platform(
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
-    abi = platforms.ABI.SYSTEMV
+    abi = platforms.ABI.NONE
 
     def __init__(self, address: int):
         super().__init__(address)

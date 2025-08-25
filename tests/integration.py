@@ -1,3 +1,4 @@
+import abc
 import io
 import os
 import re
@@ -1732,7 +1733,7 @@ class ElfCoreTests(ScriptIntegrationTest):
 
 class PETests(ScriptIntegrationTest):
     def run_test(self, arch):
-        # stdout, _ = self.command(f"python3 pe/pe.{arch}.py")
+        stdout, _ = self.command(f"python3 pe/pe.{arch}.py")
         stdout = "Hello, world!"
         self.assertLineContainsStrings(stdout, "Hello, world!")
 
@@ -1742,8 +1743,8 @@ class PETests(ScriptIntegrationTest):
     def test_pe_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    # def test_pe_amd64_panda(self):
-    #     self.run_test("amd64.panda")
+    def test_pe_amd64_panda(self):
+        self.run_test("amd64.panda")
 
     def test_pe_amd64_pcode(self):
         self.run_test("amd64.pcode")
@@ -1977,6 +1978,526 @@ class SymbolicTests(ScriptIntegrationTest):
 
     def test_square_symbolic(self):
         self.command("python3 symbolic/square.amd64.angr.symbolic.py")
+
+
+class SysVModelTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        self.command(f"python3 sysv/sysv.{arch}.py")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_mips(self):
+        self.run_test("mips")
+
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_mips64(self):
+        self.run_test("mips64")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
+
+    def test_ppc(self):
+        self.run_test("ppc")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
+
+class AbsLibraryModelTest(ScriptIntegrationTest):
+    """Test case for library models.
+
+    These all have an identical interface, and there are a metric ton of them.
+    """
+
+    @property
+    @abc.abstractmethod
+    def library(self) -> str:
+        """Name of the library this belongs to"""
+        return ""
+
+    @property
+    @abc.abstractmethod
+    def function(self) -> str:
+        """Name of the function to test"""
+        return ""
+
+    @abc.abstractmethod
+    def run_test(self, arch):
+        pass
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_mips(self):
+        self.run_test("mips")
+
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_mips64(self):
+        self.run_test("mips64")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
+
+    def test_ppc(self):
+        self.run_test("ppc")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
+
+class LibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        # These are all designed to either take no arguments,
+        # or to run a positive test if fed "foobar", and a negative test if fed "bazquxx"
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py foobar"
+        )
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py bazquxx"
+        )
+
+
+class OneArgLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        # These are all designed to either take no arguments,
+        # or to run a positive test if fed "foobar"
+        self.command(
+            f"echo 'foobar' | python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+
+
+class NoArgLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+
+
+class C99AbsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "abs"
+
+
+class C99AbortTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "abort"
+
+
+class C99AtexitTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atexit"
+
+
+class C99AtoiTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atoi"
+
+
+class C99AtolTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atol"
+
+
+class C99AtollTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "atoll"
+
+
+class C99CallocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "calloc"
+
+
+class C99ExitTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "exit"
+
+
+class C99FreeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "free"
+
+
+class C99GetenvTests(AbsLibraryModelTest):
+    library = "c99"
+    function = "getenv"
+
+    def run_test(self, arch):
+        _, stderr = self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+        self.assertLineContainsStrings(stderr, "getenv(foobar);")
+
+
+class C99LabsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "labs"
+
+
+class C99LlabsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "llabs"
+
+
+class C99MallocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "malloc"
+
+
+class C99MemcmpTests(LibraryModelTest):
+    library = "c99"
+    function = "memcmp"
+
+
+class C99MemcpyTests(LibraryModelTest):
+    library = "c99"
+    function = "memcpy"
+
+
+class C99MemmoveTests(LibraryModelTest):
+    library = "c99"
+    function = "memmove"
+
+
+class C99MemsetTests(LibraryModelTest):
+    library = "c99"
+    function = "memset"
+
+
+class C99RandTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "rand"
+
+
+class C99ReallocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "realloc"
+
+
+class C99SrandTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "srand"
+
+
+class C99StrcatTests(LibraryModelTest):
+    library = "c99"
+    function = "strcat"
+
+
+class C99StrchrTests(LibraryModelTest):
+    library = "c99"
+    function = "strchr"
+
+
+class C99StrcmpTests(LibraryModelTest):
+    library = "c99"
+    function = "strcmp"
+
+
+class C99StrcpyTests(LibraryModelTest):
+    library = "c99"
+    function = "strcpy"
+
+
+class C99StrcspnTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strcspn"
+
+
+class C99StrlenTests(LibraryModelTest):
+    library = "c99"
+    function = "strlen"
+
+
+class C99StrncmpTests(LibraryModelTest):
+    library = "c99"
+    function = "strncmp"
+
+
+class C99StrncpyTests(LibraryModelTest):
+    library = "c99"
+    function = "strncpy"
+
+
+class C99StrncatTests(LibraryModelTest):
+    library = "c99"
+    function = "strncat"
+
+
+class C99StrpbrkTests(LibraryModelTest):
+    library = "c99"
+    function = "strpbrk"
+
+
+class C99StrrchrTests(LibraryModelTest):
+    library = "c99"
+    function = "strrchr"
+
+
+class C99StrspnTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strspn"
+
+
+class C99StrstrTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strstr"
+
+
+class C99StrtokTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strtok"
+
+
+class C99SystemTests(AbsLibraryModelTest):
+    library = "c99"
+    function = "system"
+
+    def run_test(self, arch):
+        _, stderr = self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+        self.assertLineContainsStrings(stderr, "system(foobar);")
+
+
+class C99SprintfTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "sprintf"
+
+
+class C99SnprintfTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "snprintf"
+
+
+class PrintLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(
+            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+        with open(
+            f"{self.library}/{self.function}/{self.function}.{arch}.txt", "r"
+        ) as f:
+            expected = f.read()
+
+        self.assertTrue("SUCCESS" in stdout)
+        self.assertEqual(stdout, expected)
+
+
+class C99FprintfTests(PrintLibraryModelTest):
+    library = "c99"
+    function = "fprintf"
+
+
+class C99PrintfTests(PrintLibraryModelTest):
+    library = "c99"
+    function = "printf"
+
+
+class C99SscanfTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "sscanf"
+
+
+class ScanLibraryModelTest(AbsLibraryModelTest):
+    def run_test(self, arch):
+        _, _ = self.command(
+            f"echo -n '' | python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+
+
+class C99FscanfTests(ScanLibraryModelTest):
+    library = "c99"
+    function = "fscanf"
+
+
+class C99ScanfTests(ScanLibraryModelTest):
+    library = "c99"
+    function = "scanf"
+
+
+class C99FopenTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fopen"
+
+
+class C99FcloseTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fclose"
+
+
+class C99FgetcTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "fgetc"
+
+
+class C99GetcTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "getc"
+
+
+class C99GetcharTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "getchar"
+
+
+class C99FgetsTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "fgets"
+
+
+class C99FflushTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fflush"
+
+
+class C99RemoveTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "remove"
+
+
+class C99FputcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fputc"
+
+
+class C99FputsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fputs"
+
+
+class C99PutcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "putc"
+
+
+class C99PutsTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "puts"
+
+
+class C99PutcharTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "putchar"
+
+
+class C99FreadTests(OneArgLibraryModelTest):
+    library = "c99"
+    function = "fread"
+
+
+class C99FwriteTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fwrite"
+
+
+class C99FtellTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ftell"
+
+
+class C99FseekTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fseek"
+
+
+class C99RewindTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "rewind"
+
+
+class C99TmpfileTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "tmpfile"
+
+
+class C99TmpnamTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "tmpnam"
+
+
+class C99FeofTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "feof"
+
+
+class C99ClearerrTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "clearerr"
+
+
+class C99UngetcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ungetc"
+
+
+class C99FgetposTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fgetpos"
+
+
+class C99FsetposTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "fsetpos"
+
+
+class C99RenameTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "rename"
+
+
+class C99ClockTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "clock"
+
+
+class C99TimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "time"
+
+
+class C99DifftimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "difftime"
+
+
+class C99MktimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "mktime"
+
+
+class C99StrftimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strftime"
 
 
 class TraceExecutionTests(ScriptIntegrationTest):
