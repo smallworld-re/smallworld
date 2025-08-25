@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class RiscV64SysVGetc(Getc, RiscV64SysVModel):
 
 
 class RiscV64SysVGetchar(Getchar, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVGets(Gets, RiscV64SysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "RiscV64SysVFwrite",
     "RiscV64SysVGetc",
     "RiscV64SysVGetchar",
+    "RiscV64SysVGets",
     "RiscV64SysVPrintf",
     "RiscV64SysVPutc",
     "RiscV64SysVPutchar",

@@ -20,6 +20,7 @@ from ....c99 import (
     Fwrite,
     Getc,
     Getchar,
+    Gets,
     Printf,
     Putc,
     Putchar,
@@ -106,6 +107,10 @@ class PowerPCSysVGetc(Getc, PowerPCSysVModel):
 
 
 class PowerPCSysVGetchar(Getchar, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVGets(Gets, PowerPCSysVModel):
     pass
 
 
@@ -230,6 +235,7 @@ __all__ = [
     "PowerPCSysVFwrite",
     "PowerPCSysVGetc",
     "PowerPCSysVGetchar",
+    "PowerPCSysVGets",
     "PowerPCSysVPrintf",
     "PowerPCSysVPutc",
     "PowerPCSysVPutchar",
