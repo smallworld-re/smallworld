@@ -16,6 +16,7 @@ from ..instructions import (
 )
 from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
+from ..platforms.defs import AMD64, I386
 
 logger = logging.getLogger(__name__)
 
@@ -110,24 +111,7 @@ class Colorizer(analysis.Analysis):
         self.pdef = platforms.PlatformDef.for_platform(self.platform)
         self.random.seed(self.seed)
 
-        # start off by collecting micro execution traces
-        logger.info("Collecting micro-execution traces")
-        patch = []
-        for i in range(self.num_micro_executions):
-            logger.info("-------------------------")
-            logger.info(f"Gathering trace for micro exec {i}")
-
-            traceA = TraceExecution(
-                self.hinter,
-                num_insns=self.num_insns,
-                randomize_regs=True,
-                seed=self.seed + i,
-            )
-            traceA.run(machine)
-            patch.append(traceA.get_patch())
-
         def check_rws(emu, pc, te, is_read):
-            logger.info(te)
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
             if is_read:
@@ -174,22 +158,23 @@ class Colorizer(analysis.Analysis):
         def after_instruction_cb(emu, pc, te):
             check_rws(emu, pc, te, False)
 
-        logger.info("re-running traces with colorizer")
         # now follow those same traces tracking colors
         for self.micro_exec_num in range(self.num_micro_executions):
-            logger.info("-------------------------")
+            seed = self.seed + self.micro_exec_num
+            logger.info(".............")
             logger.info(
-                f"Running colorizer on trace for micro exec {self.micro_exec_num}"
+                f"Running colorizer on trace for micro_exec={self.micro_exec_num} seed={seed}"
             )
             self.colors = {}
             self.shadow_register = {}
             self.shadow_memory = {}
-            # self.edge = {}
+            extra_regs = []
+            if isinstance(self.pdef, AMD64):
+                extra_regs = ['rbp', 'rsp']
+            if isinstance(self.pdef, I386):
+                extra_regs = ['ebp', 'esp']
             traceA = TraceExecution(
-                self.hinter,
-                num_insns=self.num_insns,
-                randomize_regs=True,
-                seed=self.seed + self.micro_exec_num,
+                self.hinter, num_insns=self.num_insns, randomize_regs=True, randomize_extra_regs=extra_regs, seed=seed
             )
             traceA.register_cb(
                 TraceExecutionCBPoint.BEFORE_INSTRUCTION, before_instruction_cb
@@ -197,7 +182,7 @@ class Colorizer(analysis.Analysis):
             traceA.register_cb(
                 TraceExecutionCBPoint.AFTER_INSTRUCTION, after_instruction_cb
             )
-            traceA.run(machine, patch[self.micro_exec_num])
+            traceA.run(machine)
 
             # NOTE: Please keep this code
             # if False:
