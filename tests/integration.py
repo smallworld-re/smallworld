@@ -2520,6 +2520,11 @@ class POSIXSigactionTests(NoArgLibraryModelTest):
     function = "sigaction"
 
 
+class POSIXSigaddsetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigaddset"
+
+
 class TraceExecutionTests(ScriptIntegrationTest):
     def test_trace_is_correct_no_heap(self):
         stdout, stderr = self.command("python3 trace_executor/test_trace_no_heap.py")

@@ -267,6 +267,9 @@ class Sigaddset(CStdModel):
         if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
             max_idx = 128
 
+        # Signal numbers are one-indexed
+        idx -= 1
+
         if idx < 0 or idx >= max_idx:
             # Bad signal number
             self.set_return_value(emulator, -1)
@@ -334,6 +337,9 @@ class Sigdelset(CStdModel):
         max_idx = 64
         if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
             max_idx = 128
+
+        # Signal numbers are one-indexed
+        idx -= 1
 
         if idx < 0 or idx >= max_idx:
             # Bad signal number
