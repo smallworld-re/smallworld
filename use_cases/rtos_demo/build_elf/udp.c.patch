@@ -42,7 +42,7 @@
 > }
 > void smallworld_bug(char* input, char* output) {
 >     char temp[SMALLWORLD_BUFFER_SIZE] = {0};
->     unsigned int t = 0;this won't compile.
+>     unsigned int t = 0;
 >     unsigned int i = 0;
 >     unsigned int j = 0;
 >     int count = 0;
