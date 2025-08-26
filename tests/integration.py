@@ -2505,6 +2505,56 @@ class C99StrftimeTests(NoArgLibraryModelTest):
     function = "strftime"
 
 
+class C99SignalTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "signal"
+
+
+class POSIXBsdSignalTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "bsd_signal"
+
+
+class POSIXPthreadSigmaskTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "pthread_sigmask"
+
+
+class POSIXSigactionTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigaction"
+
+
+class POSIXSigaddsetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigaddset"
+
+
+class POSIXSigdelsetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigdelset"
+
+
+class POSIXSigemptysetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigemptyset"
+
+
+class POSIXSigfillsetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigfillset"
+
+
+class POSIXSigpendingTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigpending"
+
+
+class POSIXSigprocmaskTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigprocmask"
+
+
 class TraceExecutionTests(ScriptIntegrationTest):
     def test_trace_is_correct_no_heap(self):
         stdout, stderr = self.command("python3 trace_executor/test_trace_no_heap.py")
