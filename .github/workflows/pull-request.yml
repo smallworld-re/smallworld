@@ -145,6 +145,7 @@ jobs:
           - testsuite: C99RenameTests
           - testsuite: C99RewindTests
           - testsuite: C99ScanfTests
+          - testsuite: C99SignalTests
           - testsuite: C99SnprintfTests
           - testsuite: C99SprintfTests
           - testsuite: C99SrandTests
@@ -178,7 +179,16 @@ jobs:
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
           - testsuite: HookingTests
-          - testsuite: PETests    
+          - testsuite: PETests
+          - testsuite: POSIXBsdSignalTests
+          - testsuite: POSIXPthreadSigmaskTests
+          - testsuite: POSIXSigactionTests
+          - testsuite: POSIXSigaddsetTests
+          - testsuite: POSIXSigdelsetTests
+          - testsuite: POSIXSigemptysetTests
+          - testsuite: POSIXSigfillsetTests
+          - testsuite: POSIXSigpendingTests
+          - testsuite: POSIXSigprocmaskTests
           - testsuite: RelaTests
           - testsuite: SquareTests
           - testsuite: StackTests
