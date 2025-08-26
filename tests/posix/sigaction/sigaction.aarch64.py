@@ -58,14 +58,14 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-bsd_signal_model = smallworld.state.models.Model.lookup(
-    "bsd_signal", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+sigaction_model = smallworld.state.models.Model.lookup(
+    "sigaction", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(bsd_signal_model)
-bsd_signal_model.allow_imprecise = True
+machine.add(sigaction_model)
+sigaction_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("bsd_signal", bsd_signal_model._address)
+code.update_symbol_value("sigaction", sigaction_model._address)
 
 
 # Create a type of exception only I will generate
@@ -73,7 +73,7 @@ class FailExitException(Exception):
     pass
 
 
-# We bsd_signal failure bsd_signals by dereferencing 0xdead.
+# We sigaction failure sigactions by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

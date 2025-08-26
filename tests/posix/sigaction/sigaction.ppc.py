@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -25,9 +25,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -58,14 +56,23 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-bsd_signal_model = smallworld.state.models.Model.lookup(
-    "bsd_signal", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+sigaction_model = smallworld.state.models.Model.lookup(
+    "sigaction", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(bsd_signal_model)
-bsd_signal_model.allow_imprecise = True
+machine.add(sigaction_model)
+sigaction_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("bsd_signal", bsd_signal_model._address)
+code.update_symbol_value("sigaction", sigaction_model._address)
+
+memset_model = smallworld.state.models.Model.lookup(
+    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(memset_model)
+memset_model.allow_imprecise = True
+
+# Relocate puts
+code.update_symbol_value("memset", memset_model._address)
 
 
 # Create a type of exception only I will generate
@@ -73,7 +80,7 @@ class FailExitException(Exception):
     pass
 
 
-# We bsd_signal failure bsd_signals by dereferencing 0xdead.
+# We sigaction failure sigactions by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -94,7 +101,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

@@ -2515,6 +2515,11 @@ class POSIXBsdSignalTests(NoArgLibraryModelTest):
     function = "bsd_signal"
 
 
+class POSIXSigactionTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigaction"
+
+
 class TraceExecutionTests(ScriptIntegrationTest):
     def test_trace_is_correct_no_heap(self):
         stdout, stderr = self.command("python3 trace_executor/test_trace_no_heap.py")

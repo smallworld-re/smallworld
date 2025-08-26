@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -32,7 +32,7 @@ with open(filename, "rb") as f:
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
-cpu.pc.set(entrypoint)
+cpu.rip.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -43,7 +43,7 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.rsp.set(sp)
 
 # Configure the heap
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
@@ -58,14 +58,14 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-bsd_signal_model = smallworld.state.models.Model.lookup(
-    "bsd_signal", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+sigaction_model = smallworld.state.models.Model.lookup(
+    "sigaction", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
-machine.add(bsd_signal_model)
-bsd_signal_model.allow_imprecise = True
+machine.add(sigaction_model)
+sigaction_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("bsd_signal", bsd_signal_model._address)
+code.update_symbol_value("sigaction", sigaction_model._address)
 
 
 # Create a type of exception only I will generate
@@ -73,7 +73,7 @@ class FailExitException(Exception):
     pass
 
 
-# We bsd_signal failure bsd_signals by dereferencing 0xdead.
+# We sigaction failure sigactions by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

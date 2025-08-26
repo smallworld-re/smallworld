@@ -67,13 +67,6 @@ signal_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("signal", signal_model._address)
 
-# Create a file at /tmp/foobar to signal
-fdmgr = smallworld.state.models.filedesc.FileDescriptorManager.for_platform(
-    platform, smallworld.platforms.ABI.SYSTEMV
-)
-fdmgr.model_fs = True
-fdmgr.add_file("/tmp/foobar")
-
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):

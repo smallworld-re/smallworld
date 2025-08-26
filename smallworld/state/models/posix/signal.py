@@ -254,6 +254,46 @@ class Sigaddset(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
 
+        ptr = self.get_arg1(emulator)
+        idx = self.get_arg2(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(idx, int)
+
+        # NOTE: This uses glibc's model of how this works.
+        # This only supports 64 signals for most platforms,
+        # 128 for MIPS.
+        max_idx = 64
+        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+            max_idx = 128
+
+        if idx < 0 or idx >= max_idx:
+            # Bad signal number
+            self.set_return_value(emulator, -1)
+            return
+
+        if ArgumentType.LONG in self._four_byte_types:
+            bitoff = idx % 32
+            wordoff = idx // 32
+            wordsize = 4
+        else:
+            bitoff = idx % 64
+            wordoff = idx // 64
+            wordsize = 8
+
+        # Read the specific word storing our bit.
+        # The array is LSW-first, but the words are in native byte order.
+        # Technically they're longs, but it's easier to handle them as ulongs.
+        word = self.read_integer(
+            ptr + (wordoff * wordsize), ArgumentType.ULONG, emulator
+        )
+        word |= 1 << bitoff
+        self.write_integer(
+            ptr + (wordoff * wordsize), word, ArgumentType.ULONG, emulator
+        )
+
+        self.set_return_value(emulator, 0)
+
 
 class Sigaltstack(CStdModel):
     name = "sigaltstack"
@@ -281,6 +321,46 @@ class Sigdelset(CStdModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
+
+        ptr = self.get_arg1(emulator)
+        idx = self.get_arg2(emulator)
+
+        assert isinstance(ptr, int)
+        assert isinstance(idx, int)
+
+        # NOTE: This uses glibc's model of how this works.
+        # This only supports 64 signals for most platforms,
+        # 128 for MIPS.
+        max_idx = 64
+        if self.platform.architecture in (Architecture.MIPS32, Architecture.MIPS64):
+            max_idx = 128
+
+        if idx < 0 or idx >= max_idx:
+            # Bad signal number
+            self.set_return_value(emulator, -1)
+            return
+
+        if ArgumentType.LONG in self._four_byte_types:
+            bitoff = idx % 32
+            wordoff = idx // 32
+            wordsize = 4
+        else:
+            bitoff = idx % 64
+            wordoff = idx // 64
+            wordsize = 8
+
+        # Read the specific word storing our bit.
+        # The array is LSW-first, but the words are in native byte order.
+        # Technically they're longs, but it's easier to handle them as ulongs.
+        word = self.read_integer(
+            ptr + (wordoff * wordsize), ArgumentType.ULONG, emulator
+        )
+        word &= ~(1 << bitoff)
+        self.write_integer(
+            ptr + (wordoff * wordsize), word, ArgumentType.ULONG, emulator
+        )
+
+        self.set_return_value(emulator, 0)
 
 
 class Sigemptyset(CStdModel):
