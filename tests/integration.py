@@ -2535,6 +2535,11 @@ class POSIXSigdelsetTests(NoArgLibraryModelTest):
     function = "sigdelset"
 
 
+class POSIXSigemptysetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigemptyset"
+
+
 class POSIXSigprocmaskTests(NoArgLibraryModelTest):
     library = "posix"
     function = "sigprocmask"
