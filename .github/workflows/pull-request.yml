@@ -230,7 +230,7 @@ jobs:
 
       - uses: actions/checkout@v3
 
-      - name: Build Zephyr SDK Image
+      - name: Build RTOS binary
         run: |
           cd use_cases/rtos_demo
           docker build -t smallworld-zephyr-sdk -f ./build_elf/zephyr_build.dockerfile .
