@@ -2540,6 +2540,16 @@ class POSIXSigemptysetTests(NoArgLibraryModelTest):
     function = "sigemptyset"
 
 
+class POSIXSigfillsetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigfillset"
+
+
+class POSIXSigpendingTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigpending"
+
+
 class POSIXSigprocmaskTests(NoArgLibraryModelTest):
     library = "posix"
     function = "sigprocmask"
