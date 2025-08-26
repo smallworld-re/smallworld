@@ -2515,6 +2515,11 @@ class POSIXBsdSignalTests(NoArgLibraryModelTest):
     function = "bsd_signal"
 
 
+class POSIXPthreadSigmaskTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "pthread_sigmask"
+
+
 class POSIXSigactionTests(NoArgLibraryModelTest):
     library = "posix"
     function = "sigaction"
@@ -2523,6 +2528,16 @@ class POSIXSigactionTests(NoArgLibraryModelTest):
 class POSIXSigaddsetTests(NoArgLibraryModelTest):
     library = "posix"
     function = "sigaddset"
+
+
+class POSIXSigdelsetTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigdelset"
+
+
+class POSIXSigprocmaskTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "sigprocmask"
 
 
 class TraceExecutionTests(ScriptIntegrationTest):

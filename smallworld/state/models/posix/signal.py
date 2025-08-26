@@ -134,32 +134,44 @@ class PthreadSigmask(CStdModel):
         # TODO: This syscall actually handles out-of-bounds addresses
         # Do we want to model this, or leave the error to let harness authors know?
 
+        if oldset != 0:
+            # If oldset is set, save the sigmask to it.
+            emulator.write_memory(oldset, self.sigmask)
+
         if newset != 0:
             # Read the new vector out of memory.
             # If this thing has alignment issues, I will make ugly noises.
             newvec = emulator.read_memory(newset, 128)
 
-            if how == 0:
+            # OF COURSE MIPS IS DIFFERENT!
+            is_mips = (
+                1
+                if self.platform.architecture
+                in (Architecture.MIPS32, Architecture.MIPS64)
+                else 0
+            )
+
+            if how == 0 + is_mips:
                 # Case: how == SIG_BLOCK: Set sigmask to newvec | sigmask
                 self.sigmask = bytes(
                     map(lambda x: self.sigmask[x] | newvec[x], range(0, 128))
                 )
-            elif how == 1:
+            elif how == 1 + is_mips:
                 # Case: how == SIG_UNBLOCK: Set sigmask to ~newvec | sigmask
+
                 self.sigmask = bytes(
-                    map(lambda x: self.sigmask[x] | ~newvec[x], range(0, 128))
+                    map(lambda x: self.sigmask[x] & ~newvec[x], range(0, 128))
                 )
-            elif how == 2:
+            elif how == 2 + is_mips:
                 # Case: how == SIG_SETMASK: Set sigmask to newvec
                 self.sigmask = newvec
             else:
                 # Case: default: Return failure
+                print(f"Unknown how {how}")
                 self.set_return_value(emulator, -1)
                 return
 
-        if oldset != 0:
-            # If oldset is set, save the sigmask to it.
-            emulator.write_memory(oldset, self.sigmask)
+        self.set_return_value(emulator, 0)
 
 
 class Sigaction(CStdModel):
