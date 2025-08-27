@@ -2495,6 +2495,16 @@ class C99TimeTests(NoArgLibraryModelTest):
     function = "time"
 
 
+class C99AsctimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "asctime"
+
+
+class C99CtimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ctime"
+
+
 class C99DifftimeTests(NoArgLibraryModelTest):
     library = "c99"
     function = "difftime"
