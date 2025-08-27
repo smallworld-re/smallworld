@@ -2103,7 +2103,7 @@ class OneArgLibraryModelTest(AbsLibraryModelTest):
 class NoArgLibraryModelTest(AbsLibraryModelTest):
     def run_test(self, arch):
         self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
         )
 
 
@@ -2493,6 +2493,16 @@ class C99ClockTests(NoArgLibraryModelTest):
 class C99TimeTests(NoArgLibraryModelTest):
     library = "c99"
     function = "time"
+
+
+class C99GmtimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "gmtime"
+
+
+class C99LocaltimeTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "localtime"
 
 
 class C99AsctimeTests(NoArgLibraryModelTest):

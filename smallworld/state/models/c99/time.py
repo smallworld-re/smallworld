@@ -104,8 +104,25 @@ class Localtime(TimeModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
+    # Need a static struct tm
+    # NOTE: This looks bigger, because GNU struct tms have extra fields.
+    static_space_required = 64
+
     def model(self, emulator: Emulator) -> None:
         super().model(emulator)
+
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+
+        timetuple = time.localtime(tv)
+
+        assert self.static_buffer_address is not None
+
+        self.tuple_to_time_struct(timetuple, self.static_buffer_address, emulator)
+        self.set_return_value(emulator, self.static_buffer_address)
 
 
 class Gmtime(TimeModel):
@@ -115,9 +132,25 @@ class Gmtime(TimeModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
+    # Need a static struct tm
+    # NOTE: This looks bigger, because GNU struct tms have extra fields.
+    static_space_required = 64
+
     def model(self, emulator: Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError("gmtime returns a pointer to a static struct")
+
+        ptr = self.get_arg1(emulator)
+
+        assert isinstance(ptr, int)
+
+        tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
+
+        timetuple = time.gmtime(tv)
+
+        assert self.static_buffer_address is not None
+
+        self.tuple_to_time_struct(timetuple, self.static_buffer_address, emulator)
+        self.set_return_value(emulator, self.static_buffer_address)
 
 
 class Ctime(TimeModel):
@@ -138,22 +171,7 @@ class Ctime(TimeModel):
 
         tv = self.read_integer(ptr, ArgumentType.LONG, emulator)
 
-        # FIXME: mktime is timezone dependent
-        # This is actually something of a pain to handle.  For now, assume UTC.
-        old_tz = None
-        if "TZ" in os.environ:
-            old_tz = os.environ["TZ"]
-        os.environ["TZ"] = "UTC"
-        time.tzset()
-
         timestr = time.ctime(tv)
-
-        if old_tz is None:
-            del os.environ["TZ"]
-        else:
-            os.environ["TZ"] = old_tz
-        time.tzset()
-
         timebytes = timestr.encode("utf-8") + b"\n\0"
 
         assert len(timebytes) <= 26
@@ -240,24 +258,9 @@ class Strftime(TimeModel):
         fmtstr = fmtbytes.decode("utf-8")
 
         timetuple = self.time_struct_to_tuple(ptr, emulator)
-
-        # FIXME: strftime is timezone dependent
-        # This is actually something of a pain to handle.  For now, assume UTC.
-        old_tz = None
-        if "TZ" in os.environ:
-            old_tz = os.environ["TZ"]
-        os.environ["TZ"] = "UTC"
-        time.tzset()
-
         timestr = time.strftime(fmtstr, timetuple)
         timebytes = timestr.encode("utf-8")
         timebytes += b"\0"
-
-        if old_tz is None:
-            del os.environ["TZ"]
-        else:
-            os.environ["TZ"] = old_tz
-        time.tzset()
 
         if len(timebytes) > max:
             self.set_return_value(emulator, 0)
@@ -304,22 +307,7 @@ class Mktime(TimeModel):
         assert isinstance(ptr, int)
 
         timetuple = self.time_struct_to_tuple(ptr, emulator)
-
-        # FIXME: mktime is timezone dependent
-        # This is actually something of a pain to handle.  For now, assume UTC.
-        old_tz = None
-        if "TZ" in os.environ:
-            old_tz = os.environ["TZ"]
-        os.environ["TZ"] = "UTC"
-        time.tzset()
-
         timefloat = time.mktime(timetuple)
-
-        if old_tz is None:
-            del os.environ["TZ"]
-        else:
-            os.environ["TZ"] = old_tz
-        time.tzset()
 
         self.set_return_value(emulator, int(timefloat))
 
