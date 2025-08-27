@@ -84,13 +84,24 @@ class Model(Hook):
     function, e.g., libc `fread`. It is the responsibility of the
     model to read arguments and generate reasonable return values.
 
+    Some models require static scratch space to operate.
+    The quantity is stored in the 'static_space_required' attribute.
+    If true, the harness must set the 'static_buffer_address' property
+    of this model object.  The model will take care of mapping
+    a buffer of the appropriate size at that address.
+
+    A harness doesn't need to include a `Memory` object
+    for a static buffer.  A harness can include such an object
+    if it wants to initialize that memory with a specific value, or if it
+    wants to inspect the contents of that buffer via `Machine.extract()`
+
     Arguments:
         address: The address to model.
-
     """
 
     def __init__(self, address: int):
         super().__init__(address=address, function=self.model)
+        self.static_buffer_address: typing.Optional[int] = None
 
     @property
     @abc.abstractmethod
@@ -109,6 +120,8 @@ class Model(Hook):
     def abi(self) -> platforms.ABI:
         """The ABI according to which this model works."""
         pass
+
+    static_space_required: int = 0
 
     @classmethod
     def lookup(
@@ -136,7 +149,20 @@ class Model(Hook):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         logger.debug(f"Hooking Model {self} {self._address:x}")
+
+        if self.static_space_required != 0:
+            # We need a static buffer.
+            if self.static_buffer_address is None:
+                # Harness author forgot to reserve us one
+                raise exceptions.ConfigurationError(
+                    f"No static buffer address provided for {self.name}"
+                )
+            emulator.map_memory(self.static_buffer_address, self.static_space_required)
+
+        # Map just enough memory to jump to the model address without faulting.
         emulator.map_memory(self._address, 16)
+
+        # Add the function hook to the emulator
         if not isinstance(emulator, emulators.FunctionHookable):
             raise exceptions.ConfigurationError("Emulator cannot hook functions")
         emulator.hook_function(self._address, self._function)
