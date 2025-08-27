@@ -10,19 +10,11 @@ from smallworld.analyses.field_detection import (
     MallocModel,
 )
 
-# Stage 4 DNS exploration: Flesh out msg.a.item
+# Stage 5 DNS exploration: Complete msg.a.item
 #
-# - We know that the first few fields of msg.a.item are one byte.
-# - By staring at guards, you can see that buf.msg.a.len is a run length
-# - The buffer contains more than one run-length encoded string in sequence.
-# - The sequence is terminated with a length-zero run length
-# - After successfully
-# - The total is compared to 0xff, so msg.a.item.a is a char[] of at least 255
-# - Every string is terminated with a '.' or a '\0', so that's a char[256]
-#
-# I told you run-length encoding was annoying :p
-#
-# We're not done with this struct, but we're close.
+# This harness contains a complete description
+# of msg.a's items, and their representation
+# on the wire.
 
 
 # Set up logging and hinting
@@ -81,17 +73,22 @@ malloc = MallocModel(
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
 
+free = FreeModel(0x1036)
+machine.add(free)
+machine.add_bound(free._address, free._address + 16)
+
+# Define struct msg.a.item
+# This will get applied when an array is called using msg.hdr.msg.a.len
+# to compute its length
+#
 # NOTE: The full definition would need msg.a.item.text.{i} for all i 0 - 255.
 # That makes the field listing unreasonably verbose.
 fields = [(1, f"text.{i}") for i in range(0, 3)]
 fields.append((253, "text"))
-fields.append((8, "ftr"))
+fields.append((4, "a"))
+fields.append((4, "b"))
 
 malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", fields)
-
-free = FreeModel(0x1036)
-machine.add(free)
-machine.add_bound(free._address, free._address + 16)
 
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
@@ -121,10 +118,13 @@ gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
 # This is a sequence of zero or more run-length-encoded strings.
 # Strings can be of length 0 - 63,
 # and the total number of characters can't exceed 25
-gdata[60] = smallworld.state.IntegerValue(1, 1, "buf.a.item0.len")
-gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item0.0")
-gdata[62] = smallworld.state.IntegerValue(0, 1, "buf.a.item1.len")
-gdata[63] = smallworld.state.SymbolicValue(497, None, None, "buf")
+gdata[60] = smallworld.state.IntegerValue(2, 1, "buf.a.item.0.text.0.len")
+gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item.0.text.0.0")
+gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item.0.text.0.1")
+gdata[63] = smallworld.state.IntegerValue(0, 1, "buf.a.item.0.text.1.len")
+gdata[64] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.a")
+gdata[66] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.b")
+gdata[68] = smallworld.state.SymbolicValue(492, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
 
