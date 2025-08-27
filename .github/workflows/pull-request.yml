@@ -180,7 +180,9 @@ jobs:
           - testsuite: LinkElfTests
           - testsuite: HookingTests
           - testsuite: PETests
+          - testsuite: POSIXBasenameTests
           - testsuite: POSIXBsdSignalTests
+          - testsuite: POSIXDirnameTests
           - testsuite: POSIXPthreadSigmaskTests
           - testsuite: POSIXSigactionTests
           - testsuite: POSIXSigaddsetTests
