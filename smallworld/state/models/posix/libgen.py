@@ -46,8 +46,8 @@ class Basename(CStdModel):
 
         if path[-1] == self.separator[0]:
             # Case: Path ends in '/': Delete the trailing slash
+            path = path[0:-2]
             emulator.write_memory(pathptr + pathlen - 1, b"\0")
-            return
 
         if self.separator not in path:
             # Case: no path separator: Return copy of path
