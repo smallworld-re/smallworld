@@ -59,6 +59,14 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Build Artifacts
+        if: steps.ac.outputs.changes_detected == 'false'
+        run: |
+          cd tests
+          make -j$(nproc)
+          cd elf_core
+          make -j$(nproc)
+
       - name: Save Repo
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
@@ -212,9 +220,6 @@ jobs:
           cd smallworld/
           pip install -e .[development] -c constraints.txt
           cd tests
-          make -j$(nproc)
-          cd elf_core
-          make -j$(nrpoc)
           cd ..
           python3 integration.py -v ${{ matrix.testsuite }}
 
