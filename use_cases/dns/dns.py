@@ -1,8 +1,6 @@
 import logging
 import pathlib
 
-import claripy
-
 import smallworld
 import smallworld.analyses.field_detection
 import smallworld.analyses.unstable.angr.visitor
@@ -12,22 +10,20 @@ from smallworld.analyses.field_detection import (
     MallocModel,
 )
 
-# Stage 3 DNS exploration: Play with buf.a
+# Stage 4 DNS exploration: Flesh out msg.a.item
 #
-# In our last experiment, we determined buf.a
-# is controlling how buf gets parsed.
+# - We know that the first few fields of msg.a.item are one byte.
+# - By staring at guards, you can see that buf.msg.a.len is a run length
+# - The buffer contains more than one run-length encoded string in sequence.
+# - The sequence is terminated with a length-zero run length
+# - After successfully
+# - The total is compared to 0xff, so msg.a.item.a is a char[] of at least 255
+# - Every string is terminated with a '.' or a '\0', so that's a char[256]
 #
-# We know the following rules:
-# - If buf.a & 0xc != 0, the routine exits
-# - If buf.a == 0, the routine id's buf[0:2] as a field.
-# - If buf.a > 0, the routine id's buf[0:1] as a field.
+# I told you run-length encoding was annoying :p
 #
-# Let's explore the behavior when buf[0:1] is a field.
-# Here, we add the ability to track malloc'd arrays of items.
-# It's limited, but I know that msg.hdr.msg.a.len
-# is responsible for an array of homogenous structs
-# of size 264
-#
+# We're not done with this struct, but we're close.
+
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -85,7 +81,13 @@ malloc = MallocModel(
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
 
-malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", [(264, "unk")])
+# NOTE: The full definition would need msg.a.item.text.{i} for all i 0 - 255.
+# That makes the field listing unreasonably verbose.
+fields = [(1, f"text.{i}") for i in range(0, 3)]
+fields.append((253, "text"))
+fields.append((8, "ftr"))
+
+malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", fields)
 
 free = FreeModel(0x1036)
 machine.add(free)
@@ -116,9 +118,12 @@ gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
 gdata[54] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.d")
 gdata[56] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.e")
 gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
-gdata[60] = smallworld.state.SymbolicValue(1, None, None, "buf.a")
-gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.b")
-gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.c")
+# This is a sequence of zero or more run-length-encoded strings.
+# Strings can be of length 0 - 63,
+# and the total number of characters can't exceed 25
+gdata[60] = smallworld.state.IntegerValue(1, 1, "buf.a.item0.len")
+gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item0.0")
+gdata[62] = smallworld.state.IntegerValue(0, 1, "buf.a.item1.len")
 gdata[63] = smallworld.state.SymbolicValue(497, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
@@ -137,8 +142,4 @@ cpu.rdx.set_label("PTR off")
 cpu.rcx.set(gdata.address)
 cpu.rcx.set_label("PTR msg")
 
-# Add constraint to buf.a
-machine.add_constraint(
-    claripy.UGT(claripy.BVS("buf.a", 8, explicit_name=True), claripy.BVV(0, 8))
-)
 machine.analyze(analysis)
