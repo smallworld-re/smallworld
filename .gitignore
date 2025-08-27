@@ -8,5 +8,5 @@
 *.egg-info/
 dist/
 build/
-
+venv/
 core.*
