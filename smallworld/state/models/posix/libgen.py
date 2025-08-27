@@ -88,6 +88,7 @@ class Dirname(CStdModel):
 
         if path == self.separator:
             # Case: Path is '/': Return itself
+            print("Root case")
             self.set_return_value(emulator, pathptr)
             return
 
@@ -97,9 +98,16 @@ class Dirname(CStdModel):
             self.set_return_value(emulator, pathptr)
             return
 
-        # Case: Path has a '/' in it.  Replace it with \0 and return original pointer
+        if path[-1] == self.separator[0]:
+            path = path[:-2]
+
         idx = path.rindex(self.separator)
-        emulator.write_memory(pathptr + idx, b"\0")
+        if idx == 0:
+            # Case: Path's lowest '/' is the root path; return '/'
+            emulator.write_memory(pathptr + idx + 1, b"\0")
+        else:
+            # Case: Path has a '/' in it.  Replace it with \0 and return original pointer
+            emulator.write_memory(pathptr + idx, b"\0")
         self.set_return_value(emulator, pathptr)
 
 

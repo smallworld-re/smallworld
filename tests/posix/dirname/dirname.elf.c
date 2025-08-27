@@ -11,48 +11,48 @@ int main() {
     char *actual = NULL;
     
     strcpy(buf, "/usr/local/lib");
-    expected = "lib";
-    actual = basename(buf);
+    expected = "/usr/local";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
     }
     
     strcpy(buf, "/usr/lib/");
-    expected = "lib";
-    actual = basename(buf);
+    expected = "/usr";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
     }
     
     strcpy(buf, "/usr/lib");
-    expected = "lib";
-    actual = basename(buf);
+    expected = "/usr";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
     }
     
     strcpy(buf, "usr/lib");
-    expected = "lib";
-    actual = basename(buf);
+    expected = "usr";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
     }
 
     strcpy(buf, "/usr");
-    expected = "usr";
-    actual = basename(buf);
+    expected = "/";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
     }
     
     strcpy(buf, "usr");
-    expected = "usr";
-    actual = basename(buf);
+    expected = ".";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
@@ -60,7 +60,7 @@ int main() {
 
     strcpy(buf, "/");
     expected = "/";
-    actual = basename(buf);
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
@@ -68,15 +68,15 @@ int main() {
     
     strcpy(buf, ".");
     expected = ".";
-    actual = basename(buf);
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
     }
     
     strcpy(buf, "..");
-    expected = "..";
-    actual = basename(buf);
+    expected = ".";
+    actual = dirname(buf);
     if(strcmp(actual, expected)) {
         printf("Expected %s, got %s\n", expected, actual);
         exit(1);
