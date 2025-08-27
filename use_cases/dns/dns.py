@@ -4,7 +4,16 @@ import pathlib
 import smallworld
 import smallworld.analyses.field_detection
 import smallworld.analyses.unstable.angr.visitor
-from smallworld.analyses.field_detection import FieldDetectionAnalysis
+from smallworld.analyses.field_detection import FieldDetectionAnalysis, MallocModel
+
+# Stage 1 DNS exploration: First Malloc
+#
+# I've run through the process of parsing DNS headers
+# from the input buffer.
+#
+# This will fail on the first call to malloc(),
+# since at least one of the header fields msg.hdr.c
+# is getting interpreted as a length.
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -54,6 +63,16 @@ cpu.rsp.set(sp)
 # Add a blank heap
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x10000)
 machine.add(heap)
+
+# Configure malloc and free models
+malloc = MallocModel(
+    0x10000, heap, platform, analysis.mem_read_hook, analysis.mem_write_hook
+)
+machine.add(malloc)
+machine.add_bound(malloc._address, malloc._address + 16)
+
+# Apply relocations to malloc
+code.update_symbol_value("malloc", malloc._address)
 
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
