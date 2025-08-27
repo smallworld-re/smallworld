@@ -19,7 +19,11 @@ class DetailedCalledProcessError(Exception):
 
 class ScriptIntegrationTest(unittest.TestCase):
     def command(
-        self, cmd: str, stdin: typing.Optional[str] = None, error: bool = True
+        self,
+        cmd: str,
+        stdin: typing.Optional[str] = None,
+        error: bool = True,
+        cwd: typing.Optional[str] = None,
     ) -> typing.Tuple[str, str]:
         """Run the given command and return the output.
 
@@ -35,7 +39,8 @@ class ScriptIntegrationTest(unittest.TestCase):
 
         input = stdin.encode() if stdin else None
 
-        cwd = os.path.abspath(os.path.dirname(__file__))
+        if cwd is None:
+            cwd = os.path.abspath(os.path.dirname(__file__))
 
         try:
             process = subprocess.run(
@@ -2640,6 +2645,65 @@ class ColorizerTests(ScriptIntegrationTest):
             stdout, "Test result: Def-use graph match = True"
         )
         self.assertLineContainsStrings(stdout, "Test result: overall = True")
+
+
+class RTOSDemoTests(ScriptIntegrationTest):
+    def _rtos_demo_dir(self):
+        return os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "..", "use_cases", "rtos_demo"
+        )
+
+    def _fuzz_inputs_dir(self):
+        return os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "rtos_demo", "fuzz_inputs"
+        )
+
+    def run_test(self, script: str) -> str:
+        stdout, _ = self.command(f"python3 {script}", cwd=self._rtos_demo_dir())
+        return stdout
+
+    def test_rtos_run(self):
+        stdout = self.run_test("rtos_0_run.py")
+        self.assertLineContainsStrings(stdout, "Buffer: b'ABCDEFGHIJKLMNOP'")
+
+    def test_rtos_fuzz(self):
+        stdout, _ = self.command(
+            f"afl-showmap -C -t 10000 -U -m none -i {self._fuzz_inputs_dir()} -o /dev/stdout -- python3 rtos_1_fuzz.py @@",
+            stdin="testcase",
+            cwd=self._rtos_demo_dir(),
+        )
+        for line in [
+            "002456:16",
+            "011100:1",
+            "013130:1",
+            "015900:1",
+            "024604:32",
+            "025020:16",
+            "037869:16",
+            "040576:1",
+            "040899:1",
+            "041903:16",
+            "042135:1",
+            "047722:32",
+            "052842:1",
+            "058902:1",
+            "062301:1",
+        ]:
+            self.assertLineContainsStrings(stdout, line)
+
+    def test_rtos_analysis(self):
+        stdout = self.run_test("rtos_2_analyze.py")
+        self.assertLineContainsStrings(stdout, "r4: 0xf")
+        self.assertLineContainsStrings(stdout, "r8: <BV32 0#24 .. input_buffer[7:0]>")
+
+    def test_rtos_find_lr(self):
+        stdout = self.run_test("rtos_3_find_lr.py")
+        self.assertLineContainsStrings(stdout, ".. Reverse(lr)>")
+
+    def test_rtos_exploit(self):
+        stdout = self.run_test("rtos_4_exploit.py")
+        self.assertLineContainsStrings(stdout, "PC: 0x1027c4")
+        self.assertLineContainsStrings(stdout, "Reached stop_udp: True")
 
 
 class DocumentationTests(unittest.TestCase):

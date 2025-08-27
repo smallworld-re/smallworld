@@ -1,0 +1,21 @@
+name: RTOS Build
+on:
+  schedule:
+    - cron: "00 6 * * sun"
+  workflow_dispatch:
+
+jobs:
+  Build-RTOS:
+    runs-on: smallworld-arc
+    steps:
+      - name: Install docker
+        run: |
+          apt-get update -y
+          apt-get install -y docker
+
+      - uses: actions/checkout@v3
+
+      - name: Build RTOS binary
+        run: |
+          cd use_cases/rtos_demo
+          docker run -v ./build_elf:/opt/build_elf --entrypoint "/opt/build_elf/entrypoint.sh" zephyrprojectrtos/ci
