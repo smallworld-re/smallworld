@@ -2238,6 +2238,11 @@ class C99StrcspnTests(NoArgLibraryModelTest):
     function = "strcspn"
 
 
+class C99StrerrorTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "strerror"
+
+
 class C99StrlenTests(LibraryModelTest):
     library = "c99"
     function = "strlen"
