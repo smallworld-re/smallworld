@@ -53,7 +53,7 @@ RUN make install
 
 # We need to reinstall in our venv
 WORKDIR /opt/afl/AFLplusplus/unicorn_mode/unicornafl/bindings/python
-RUN python3 setup.py install
+RUN python3 -m pip install .
 RUN python3 -c "import unicornafl"
 
 WORKDIR /opt

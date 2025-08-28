@@ -83,7 +83,7 @@ else
   make -j"$(nproc)" binary-only
   sudo make install
   cd unicorn_mode/unicornafl/bindings/python
-  python3 setup.py install
+  python3 -m pip install .
   python3 -c "import unicornafl"
   cd "$CODE_ROOT" && rm -rf afl
 fi
