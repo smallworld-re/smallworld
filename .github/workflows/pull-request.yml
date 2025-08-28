@@ -132,7 +132,7 @@ jobs:
           - testsuite: C99GmtimeTests
           - testsuite: C99LabsTests
           - testsuite: C99LlabsTests
-          - testsuite: C99LocalTimeTests
+          - testsuite: C99LocaltimeTests
           - testsuite: C99MallocTests
           - testsuite: C99MemcmpTests
           - testsuite: C99MemcpyTests
