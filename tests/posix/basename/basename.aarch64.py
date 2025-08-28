@@ -52,6 +52,7 @@ machine.add(heap)
 basename_model = smallworld.state.models.Model.lookup(
     "basename", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
 )
+basename_model.static_buffer_address = 0x10000
 machine.add(basename_model)
 basename_model.allow_imprecise = True
 

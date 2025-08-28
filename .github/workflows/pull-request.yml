@@ -105,6 +105,7 @@ jobs:
           - testsuite: CallTests
           - testsuite: C99AbortTests
           - testsuite: C99AbsTests
+          - testsuite: C99AsctimeTests
           - testsuite: C99AtexitTests
           - testsuite: C99AtoiTests
           - testsuite: C99AtollTests
@@ -112,6 +113,7 @@ jobs:
           - testsuite: C99CallocTests
           - testsuite: C99ClearerrTests
           - testsuite: C99ClockTests
+          - testsuite: C99CtimeTests
           - testsuite: C99DifftimeTests
           - testsuite: C99ExitTests
           - testsuite: C99FcloseTests
@@ -135,8 +137,10 @@ jobs:
           - testsuite: C99GetcTests
           - testsuite: C99GetenvTests
           - testsuite: C99GetsTests
+          - testsuite: C99GmtimeTests
           - testsuite: C99LabsTests
           - testsuite: C99LlabsTests
+          - testsuite: C99LocaltimeTests
           - testsuite: C99MallocTests
           - testsuite: C99MemcmpTests
           - testsuite: C99MemcpyTests
@@ -163,6 +167,7 @@ jobs:
           - testsuite: C99StrcmpTests
           - testsuite: C99StrcpyTests
           - testsuite: C99StrcspnTests
+          - testsuite: C99StrerrorTests
           - testsuite: C99StrftimeTests
           - testsuite: C99StrlenTests
           - testsuite: C99StrncatTests

@@ -2,6 +2,7 @@ import locale
 
 from .... import emulators, exceptions
 from ..cstd import ArgumentType, CStdModel
+from ..errno import ErrnoResolver
 from .utils import (
     MAX_STRLEN,
     _emu_memcmp,
@@ -605,16 +606,29 @@ class Strerror(CStdModel):
     argument_types = [ArgumentType.INT]
     return_type = ArgumentType.POINTER
 
+    # Needs a string buffer for the description
+    static_space_required = 64
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        # TODO: Figure out strerror
-        # This devolves into a titanic, platform-specific table lookup.
-        # The biggest problem is the platform-specific bit;
-        # it goes beyond ISA/ABI and into OS version.
-        #
-        # Also, it relies on statically-allocated string buffers,
-        # which I don't want to manage.
-        raise NotImplementedError()
+
+        errno = self.get_arg1(emulator)
+
+        assert isinstance(errno, int)
+
+        resolver = ErrnoResolver.for_platform(self.platform, self.abi)
+
+        try:
+            description = resolver.get_description(errno)
+        except KeyError:
+            description = f"Unknown error {errno}"
+
+        descbytes = description.encode("utf-8") + b"\0"
+
+        assert len(descbytes) <= self.static_space_required
+        assert isinstance(self.static_buffer_address, int)
+        emulator.write_memory(self.static_buffer_address, descbytes)
+        self.set_return_value(emulator, self.static_buffer_address)
 
 
 class Strlen(CStdModel):

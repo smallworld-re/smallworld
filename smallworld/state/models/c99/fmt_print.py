@@ -815,9 +815,11 @@ def handle_len(
 def handle_strerror(
     output: str, varargs: VariadicContext, m: re.Match, emulator: Emulator
 ) -> str:
-    # This depends on the actual errno global,
-    # to which I do not have access.
-    raise NotImplementedError("Strerror conversion not supported")
+    # This is weird.  It's a glibc extension, but gcc errors if you use it.
+    # If you actually see this, please open a bug ticket.
+    raise NotImplementedError(
+        "%m conversion (strerror) not implemented; if you see this, submit a ticket."
+    )
 
 
 def handle_percent(

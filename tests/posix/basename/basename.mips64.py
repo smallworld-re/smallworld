@@ -68,6 +68,7 @@ code.update_symbol_value("__xpg_basename", basename_model._address)
 strcmp_model = smallworld.state.models.Model.lookup(
     "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
 )
+basename_model.static_buffer_address = 0x10000
 machine.add(strcmp_model)
 strcmp_model.allow_imprecise = True
 
