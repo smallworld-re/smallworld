@@ -1864,6 +1864,141 @@ class SyscallTests(ScriptIntegrationTest):
         self.run_test("xtensa.angr")
 
 
+class StaticBufferTests(ScriptIntegrationTest):
+    def run_test(self, arch: str):
+        stdout, _ = self.command(f"python3 static_buf/static_buf.{arch}.py")
+        self.assertLineContainsStrings(stdout, "=0x4a1")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_aarch64_pcode(self):
+        self.run_test("aarch64.pcode")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_amd64_pcode(self):
+        self.run_test("amd64.pcode")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_armel_pcode(self):
+        self.run_test("armel.pcode")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_armhf_pcode(self):
+        self.run_test("armhf.pcode")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_i386_pcode(self):
+        self.run_test("i386.pcode")
+
+    def test_mips(self):
+        self.run_test("mips")
+
+    def test_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_mips_pcode(self):
+        self.run_test("mips.pcode")
+
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+    def test_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_mipsel_pcode(self):
+        self.run_test("mipsel.pcode")
+
+    def test_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_mips64_pcode(self):
+        self.run_test("mips64.pcode")
+
+    def test_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
+    def test_mips64el_pcode(self):
+        self.run_test("mips64el.pcode")
+
+    def test_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    def test_ppc_pcode(self):
+        self.run_test("ppc.pcode")
+
+    def test_ppc64_angr(self):
+        self.run_test("ppc64.angr")
+
+    def test_ppc64_pcode(self):
+        self.run_test("ppc64.pcode")
+
+    def test_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    def test_riscv64_pcode(self):
+        self.run_test("riscv64.pcode")
+
+    def test_xtensa_angr(self):
+        self.run_test("xtensa.angr")
+
+    def test_xtensa_pcode(self):
+        self.run_test("xtensa.pcode")
+
+
 class FuzzTests(ScriptIntegrationTest):
     def run_fuzz(self, arch: str):
         stdout, _ = self.command(f"python3 fuzz/fuzz.{arch}.py")

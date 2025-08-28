@@ -6,9 +6,21 @@ from ..cstd import ArgumentType, CStdModel
 class Basename(CStdModel):
     name = "basename"
 
+    # NOTE: There are two versions of basename().
+    #
+    # POSIX and GNU have competing specifications.
+    # They have the following differences:
+    #
+    # - GNU always uses a static buffer for its returns
+    # - GNU returns "" in case of trailing separators
+    # - GNU returns "" in case of the root path
+
     # char *basename(char *path);
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
+
+    # Use the GNU memory semantics
+    static_space_required = 0x1000
 
     def __init__(self, address: int):
         super().__init__(address)
@@ -23,40 +35,37 @@ class Basename(CStdModel):
 
         assert isinstance(pathptr, int)
 
-        # NOTE: This is the POSIX version of basename
-        #
-        # There is also a GNU version.
-        # The main semantic difference is that the GNU version
-        # will return an empty string on trailing separator,
-        # or on the root path.
-        #
-        # The GNU version also always uses static memory, which is a problem
+        # Not actually a loop; I just want to use break.
+        while True:
+            if pathptr == 0:
+                # Case: pathptr is NULL; return a static buffer containing '.'
+                path = b"."
+                break
 
-        if pathptr == 0:
-            # Case: pathptr is NULL; return a static buffer containing '.'
-            raise NotImplementedError("Requires a static buffer")
+            pathlen = _emu_strlen(emulator, pathptr)
+            path = emulator.read_memory(pathptr, pathlen)
 
-        pathlen = _emu_strlen(emulator, pathptr)
-        path = emulator.read_memory(pathptr, pathlen)
+            if path == self.separator:
+                # Case: Path is the root path: Return itself
+                break
 
-        if path == self.separator:
-            # Case: Path is '/': Return itself
-            self.set_return_value(emulator, pathptr)
-            return
+            if path[-1] == self.separator[0]:
+                # Case: Path ends in separator: Delete the trailing separator
+                path = path[0:-1]
 
-        if path[-1] == self.separator[0]:
-            # Case: Path ends in '/': Delete the trailing slash
-            path = path[0:-2]
-            emulator.write_memory(pathptr + pathlen - 1, b"\0")
+            if self.separator not in path:
+                # Case: no path separator: Return copy of path
+                break
 
-        if self.separator not in path:
-            # Case: no path separator: Return copy of path
-            self.set_return_value(emulator, pathptr)
-            return
+            # Case: Path has a separator in it: Return the trailing substring of path
+            idx = path.rindex(self.separator)
+            path = path[idx + 1 :]
+            break
 
-        # Case: Path has a '/' in it: Return the trailing substring of path
-        idx = path.rindex(self.separator)
-        self.set_return_value(emulator, pathptr + idx + 1)
+        assert self.static_buffer_address is not None
+
+        emulator.write_memory(self.static_buffer_address, path + b"\0")
+        self.set_return_value(emulator, self.static_buffer_address)
 
 
 class Dirname(CStdModel):

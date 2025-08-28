@@ -11,7 +11,7 @@ test:
     jal     ra, foobar
 
     # return *ret;
-    ld      a0, 0x0(a0)
+    lw      a0, 0x0(a0)
 
     # Clean up the stack
     ld      ra, 0x0(sp)
