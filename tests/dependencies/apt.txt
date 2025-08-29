@@ -10,7 +10,6 @@ binutils-mips64el-linux-gnuabi64
 binutils-powerpc-linux-gnu
 binutils-powerpc64-linux-gnu
 binutils-riscv64-linux-gnu
-binutils-sparc64-linux-gnu
 binutils-xtensa-lx106
 gcc-aarch64-linux-gnu
 gcc-arm-linux-gnueabi
@@ -23,7 +22,6 @@ gcc-mips64el-linux-gnuabi64
 gcc-powerpc-linux-gnu
 gcc-powerpc64-linux-gnu
 gcc-riscv64-linux-gnu
-gcc-sparc64-linux-gnu
 gcc-mingw-w64
 qemu-user
 gdb-multiarch
