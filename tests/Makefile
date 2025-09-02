@@ -26,7 +26,7 @@ TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
-PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu xtensa-lx106-elf)
+PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu xtensa-lx106-elf)
 
 GENERAL_CFLAGS := $(CFLAGS) -g -fno-stack-protector -fno-builtin -Wno-deprecated-declarations
 
@@ -231,11 +231,6 @@ MIPS64_ELF_START=0x800000
 	riscv64-linux-gnu-as $*.riscv64.s -o $*.riscv64.o
 	riscv64-linux-gnu-objcopy -O binary -j .text $*.riscv64.o $*.riscv64.bin
 	rm $*.riscv64.o
-
-%.sparc64.bin: %.sparc64.s
-	sparc64-linux-gnu-as $*.sparc64.s -o $*.sparc64.o
-	sparc64-linux-gnu-objcopy -O binary -j .text $*.sparc64.o $*.sparc64.bin
-	rm $*.sparc64.o
 
 %.xtensa.bin: %.xtensa.s
 	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.s -o $*.xtensa.o
