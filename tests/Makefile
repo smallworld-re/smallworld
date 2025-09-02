@@ -232,11 +232,6 @@ MIPS64_ELF_START=0x800000
 	riscv64-linux-gnu-objcopy -O binary -j .text $*.riscv64.o $*.riscv64.bin
 	rm $*.riscv64.o
 
-%.sparc64.bin: %.sparc64.s
-	sparc64-linux-gnu-as $*.sparc64.s -o $*.sparc64.o
-	sparc64-linux-gnu-objcopy -O binary -j .text $*.sparc64.o $*.sparc64.bin
-	rm $*.sparc64.o
-
 %.xtensa.bin: %.xtensa.s
 	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.s -o $*.xtensa.o
 	xtensa-lx106-elf-objcopy -O binary -j .text $*.xtensa.o $*.xtensa.bin
