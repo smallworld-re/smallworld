@@ -10,7 +10,7 @@ MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
 TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS)
 
-PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu sparc64-linux-gnu xtensa-lx106-elf)
+PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu xtensa-lx106-elf)
 
 %.aarch64.elf: %.aarch64.elf.s
 	aarch64-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
@@ -131,11 +131,6 @@ PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-g
 	riscv64-linux-gnu-as $*.riscv64.s -o $*.riscv64.o
 	riscv64-linux-gnu-objcopy -O binary -j .text $*.riscv64.o $*.riscv64.bin
 	rm $*.riscv64.o
-
-%.sparc64.bin: %.sparc64.s
-	sparc64-linux-gnu-as $*.sparc64.s -o $*.sparc64.o
-	sparc64-linux-gnu-objcopy -O binary -j .text $*.sparc64.o $*.sparc64.bin
-	rm $*.sparc64.o
 
 %.xtensa.bin: %.xtensa.s
 	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.s -o $*.xtensa.o
