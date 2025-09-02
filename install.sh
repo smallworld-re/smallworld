@@ -56,7 +56,6 @@ apt-get install -y \
     gcc-powerpc-linux-gnu \
     gcc-powerpc64-linux-gnu \
     gcc-riscv64-linux-gnu \
-    gcc-sparc64-linux-gnu \
     gcc-xtensa-lx106 \
     gcc-i686-linux-gnu \
     gcc-mingw-w64 \

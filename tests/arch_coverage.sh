@@ -1,6 +1,6 @@
 #!/bin/bash
 
-platforms="aarch64 amd64 armel armhf mips mipsel mips64 mips64el ppc ppc64 riscv64 sparc64"
+platforms="aarch64 amd64 armel armhf mips mipsel mips64 mips64el ppc ppc64 riscv64"
 find_files() {
     local ext="$1"
     local stem="$2"
