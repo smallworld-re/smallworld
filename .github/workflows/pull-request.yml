@@ -192,6 +192,7 @@ jobs:
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
           - testsuite: HookingTests
+          - testsuite: MemhookTests
           - testsuite: PETests
           - testsuite: POSIXBasenameTests
           - testsuite: POSIXBsdSignalTests
