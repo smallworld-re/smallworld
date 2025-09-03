@@ -183,7 +183,7 @@ class UnicornEmulator(
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
-            orig_data = (value.to_bytes(size, self.platform.byteorder.value),)
+            orig_data = value.to_bytes(size, self.platform.byteorder.value)
             if self.all_reads_hook:
                 data = self.all_reads_hook(self, address, size, orig_data)
                 if data:
