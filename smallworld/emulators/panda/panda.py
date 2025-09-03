@@ -257,7 +257,7 @@ class PandaEmulator(
                     if val:
                         self.manager.write_memory(addr, val)
                         orig_data = val
-                if cb := self.manager.is_memory_read_hooked(addr):
+                if cb := self.manager.is_memory_read_hooked(addr, size):
                     val = cb(self.manager, addr, size, orig_data)
                     if val:
                         self.manager.write_memory(addr, val)
@@ -271,7 +271,7 @@ class PandaEmulator(
                 if self.manager.all_writes_hook:
                     self.manager.all_writes_hook(self.manager, addr, size, byte_val)
 
-                if cb := self.manager.is_memory_write_hooked(addr):
+                if cb := self.manager.is_memory_write_hooked(addr, size):
                     cb(self.manager, addr, size, byte_val)
 
             @self.panda.cb_before_handle_interrupt(enabled=True)

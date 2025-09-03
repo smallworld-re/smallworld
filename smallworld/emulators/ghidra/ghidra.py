@@ -319,8 +319,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
             if new_data is not None:
                 data = new_data
 
+        end_addr = addr + len(data) - 1
+
         for (start, end), hook in self._mem_read_hooks.items():
-            if addr >= start and addr < end:
+            rng = range(start, end)
+            if addr in rng or end_addr in rng:
                 okay = True
                 new_data = hook(self, addr, len(data), data)
                 if new_data is not None:
@@ -374,8 +377,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if self._mem_writes_hook is not None:
             okay = True
             self._mem_writes_hook(self, addr, len(data), data)
+
+        end_addr = addr + len(data) - 1
+
         for (start, end), hook in self._mem_write_hooks.items():
-            if addr >= start and addr < end:
+            rng = range(start, end)
+            if addr in rng or end_addr in rng:
                 okay = True
                 hook(self, addr, len(data), data)
 

@@ -846,7 +846,8 @@ class AngrEmulator(
                     return False
                 read_end = read_start + read_size
 
-                return start <= read_start and end >= read_end
+                rng = range(start, end)
+                return read_start in rng or read_end in rng
 
             def read_callback(state):
                 # The breakpoint action.
@@ -1091,7 +1092,8 @@ class AngrEmulator(
                     state.inspect.mem_write_length = write_size
                 write_end = write_start + write_size
 
-                return start <= write_start and end >= write_end
+                rng = range(start, end)
+                return write_start in rng or write_end in rng
 
             def write_callback(state):
                 addr = state.inspect.mem_write_address

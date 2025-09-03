@@ -194,7 +194,7 @@ class UnicornEmulator(
                     uc.mem_write(address, data)
                     orig_data = data
 
-            if cb := self.is_memory_read_hooked(address):
+            if cb := self.is_memory_read_hooked(address, size):
                 data = cb(self, address, size, orig_data)
 
                 # Execute registered callback
@@ -219,7 +219,7 @@ class UnicornEmulator(
                     value.to_bytes(size, self.platform.byteorder.value),
                 )
 
-            if cb := self.is_memory_write_hooked(address):
+            if cb := self.is_memory_write_hooked(address, size):
                 cb(
                     self,
                     address,

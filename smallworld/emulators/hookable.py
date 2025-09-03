@@ -142,12 +142,13 @@ class QMemoryReadHookable(MemoryReadHookable):
     #    self.memory_read_hooks.pop(address, None)
 
     def is_memory_read_hooked(
-        self, address: int
+        self, address: int, size: int
     ) -> typing.Optional[
         typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]]
     ]:
+        end = address + size - 1
         for rng in self.memory_read_hooks:
-            if address in rng:
+            if address in rng or end in rng:
                 return self.memory_read_hooks[rng]
         return None
 
@@ -203,10 +204,11 @@ class QMemoryWriteHookable(MemoryWriteHookable):
     #        )
     #    self.memory_write_hooks.pop(address, None)
     def is_memory_write_hooked(
-        self, address: int
+        self, address: int, size: int
     ) -> typing.Optional[typing.Callable[[Emulator, int, int, bytes], None]]:
+        end = address + size - 1
         for rng in self.memory_write_hooks:
-            if address in rng:
+            if address in rng or end in rng:
                 return self.memory_write_hooks[rng]
         return None
 

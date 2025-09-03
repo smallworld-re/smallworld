@@ -600,6 +600,13 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
     ) -> None:
         """Hook memory reads within a given range, handling concrete values
 
+        Note that this will trigger for any read that overlaps the specified range,
+        and will report all data read, not just the overlap.
+        Hooks should expect to handle partial or oddly-sized reads.
+
+        If the hook chooses to override the data being read,
+        it must return data of the same size as the original read.
+
         Arguments:
             start: The start address of the memory range to hook.
             end: The end address of the memory range to hook.
@@ -632,6 +639,13 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
         ],
     ) -> None:
         """Hook memory reads within a given range, handling symbolic values
+
+        Note that this will trigger for any read that overlaps the specified range,
+        and will report all data read, not just the overlap.
+        Hooks should expect to handle partial or oddly-sized reads.
+
+        If the hook chooses to override the data being read,
+        it must return data of the same size as the original read.
 
         Arguments:
             start: The start address of the memory range to hook.
@@ -739,6 +753,10 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
     ) -> None:
         """Hook memory writes within a given range, handling concrete values.
 
+        Note that this will trigger for any write that overlaps the specified range,
+        and will report all data written, not just the overlap.
+        Hooks should expect to handle partial or oddly-sized writes.
+
         Arguments:
             start: The start address of the memory range to hook.
             end: The end address of the memory range to hook.
@@ -762,6 +780,10 @@ class MemoryWriteHookable(metaclass=abc.ABCMeta):
         function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
     ) -> None:
         """Hook memory writes within a given range, handling symbolic values
+
+        Note that this will trigger for any write that overlaps the specified range,
+        and will report all data written, not just the overlap.
+        Hooks should expect to handle partial or oddly-sized writes.
 
         Arguments:
             start: The start address of the memory range to hook.
