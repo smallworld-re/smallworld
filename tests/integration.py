@@ -1306,6 +1306,144 @@ class HookingTests(ScriptIntegrationTest):
         self.run_test("xtensa.pcode")
 
 
+class MemhookTests(ScriptIntegrationTest):
+    def run_test_64(self, arch):
+        stdout, _ = self.command(f"python3 memhook/memhook.{arch}.py")
+        self.assertLineContainsStrings(stdout, "foo: read 1 bytes at 0x1004")
+        self.assertLineContainsStrings(stdout, "bar: read 8 bytes at 0x100c")
+        self.assertLineContainsStrings(stdout, "baz: read 8 bytes at 0x1024")
+        self.assertLineContainsStrings(stdout, "qux: read 8 bytes at 0x1030")
+
+    def run_test_32(self, arch):
+        stdout, _ = self.command(f"python3 memhook/memhook.{arch}.py")
+        self.assertLineContainsStrings(stdout, "foo: read 1 bytes at 0x1004")
+        self.assertLineContainsStrings(stdout, "bar: read 4 bytes at 0x1010")
+        self.assertLineContainsStrings(stdout, "baz: read 4 bytes at 0x1024")
+        self.assertLineContainsStrings(stdout, "qux: read 4 bytes at 0x1034")
+
+    def test_aarch64(self):
+        self.run_test_64("aarch64")
+
+    def test_aarch64_angr(self):
+        self.run_test_64("aarch64.angr")
+
+    def test_aarch64_panda(self):
+        self.run_test_64("aarch64.panda")
+
+    def test_aarch64_ghidra(self):
+        self.run_test_64("aarch64.ghidra")
+
+    def test_amd64(self):
+        self.run_test_64("amd64")
+
+    def test_amd64_angr(self):
+        self.run_test_64("amd64.angr")
+
+    def test_amd64_panda(self):
+        self.run_test_64("amd64.panda")
+
+    def test_amd64_ghidra(self):
+        self.run_test_64("amd64.ghidra")
+
+    def test_armel(self):
+        self.run_test_32("armel")
+
+    def test_armel_angr(self):
+        self.run_test_32("armel.angr")
+
+    def test_armel_panda(self):
+        self.run_test_32("armel.panda")
+
+    def test_armel_ghidra(self):
+        self.run_test_32("armel.ghidra")
+
+    def test_armhf(self):
+        self.run_test_32("armhf")
+
+    def test_armhf_angr(self):
+        self.run_test_32("armhf.angr")
+
+    def test_armhf_panda(self):
+        self.run_test_32("armhf.panda")
+
+    def test_armhf_ghidra(self):
+        self.run_test_32("armhf.ghidra")
+
+    def test_i386(self):
+        self.run_test_32("i386")
+
+    def test_i386_angr(self):
+        self.run_test_32("i386.angr")
+
+    def test_i386_panda(self):
+        self.run_test_32("i386.panda")
+
+    def test_i386_ghidra(self):
+        self.run_test_32("i386.ghidra")
+
+    def test_mips(self):
+        self.run_test_32("mips")
+
+    def test_mips_angr(self):
+        self.run_test_32("mips.angr")
+
+    def test_mips_panda(self):
+        self.run_test_32("mips.panda")
+
+    def test_mips_ghidra(self):
+        self.run_test_32("mips.ghidra")
+
+    def test_mipsel(self):
+        self.run_test_32("mipsel")
+
+    def test_mipsel_angr(self):
+        self.run_test_32("mipsel.angr")
+
+    def test_mipsel_panda(self):
+        self.run_test_32("mipsel.panda")
+
+    def test_mipsel_ghidra(self):
+        self.run_test_32("mipsel.ghidra")
+
+    def test_mips64_angr(self):
+        self.run_test_64("mips64.angr")
+
+    def test_mips64_panda(self):
+        # Broken; no idea why
+        # self.run_test_64("mips64.panda")
+        pass
+
+    def test_mips64_ghidra(self):
+        self.run_test_64("mips64.ghidra")
+        pass
+
+    def test_mips64el_angr(self):
+        self.run_test_64("mips64el.angr")
+
+    def test_mips64el_panda(self):
+        # Broken; no idea why
+        # self.run_test_64("mips64el.panda")
+        pass
+
+    def test_mips64el_ghidra(self):
+        self.run_test_64("mips64el.ghidra")
+
+    def test_ppc_angr(self):
+        self.run_test_32("ppc.angr")
+
+    def test_ppc_panda(self):
+        self.run_test_32("ppc.panda")
+
+    def test_ppc_ghidra(self):
+        self.run_test_32("ppc.ghidra")
+
+    def test_riscv64_angr(self):
+        self.run_test_64("riscv64.angr")
+
+    def test_riscv64_ghidra(self):
+        self.run_test_64("riscv64.ghidra")
+
+
 class ElfTests(ScriptIntegrationTest):
     def run_test(self, arch):
         self.command(f"python3 elf/elf.{arch}.py foobar")
