@@ -120,23 +120,70 @@ class Memory(state.Stateful, dict):
         This will fail if the data you want to overwrite is in a symbolic sub-region.
         """
 
+        if address + len(data) > self.address + self.size:
+            raise exceptions.ConfigurationError(
+                f"Out of bounds: tried to read {len(data)} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
+            )
+
+        next_segment_address = address
+        remaining_length = len(data)
+
         segment: state.Value
-        for segment_offset, segment in self.items():
+        for segment_offset, segment in sorted(self.items()):
             segment_address = self.address + segment_offset
+
+            # fill gaps before/between existing segments
+            if next_segment_address < segment_address:
+                buffer = data[
+                    next_segment_address - address : segment_address - address
+                ]
+                self[next_segment_address - self.address] = state.BytesValue(
+                    buffer,
+                    None,
+                )
+                next_segment_address += len(buffer)
+                remaining_length -= len(buffer)
+
+            # overwrite existing segment
             if (
-                address >= segment_address
-                and address < segment_address + segment.get_size()
+                segment_address <= next_segment_address
+                and next_segment_address < segment_address + segment.get_size()
             ):
                 contents = segment.get_content()
+
+                # check for symbolic
                 if not isinstance(contents, bytes):
                     raise exceptions.SymbolicValueError(
-                        f"Tried to write {len(data)} bytes at {hex(address)}; data in {segment_address:x} - {segment_address + segment.get_size():x} is symbolic."
+                        f"Tried to write {len(data)} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
                     )
-                offset = address - segment_address
-                contents = contents[0:offset] + data + contents[offset + len(data) :]
+
+                offset_in_segment = next_segment_address - segment_address
+                length_in_segment = min(
+                    remaining_length, segment.get_size() - offset_in_segment
+                )
+                contents = (
+                    contents[:offset_in_segment]
+                    + data[
+                        next_segment_address
+                        - address : next_segment_address
+                        - address
+                        + length_in_segment
+                    ]
+                    + contents[offset_in_segment + length_in_segment :]
+                )
                 segment.set_content(contents)
-        if address - self.address not in self.keys():
-            self[address - self.address] = state.BytesValue(data, None)
+                next_segment_address += length_in_segment
+                remaining_length -= length_in_segment
+
+            # check if output complete
+            if remaining_length == 0:
+                break
+
+        # fill gap past end of existing segments
+        if next_segment_address != address + len(data):
+            self[next_segment_address - self.address] = state.BytesValue(
+                data[next_segment_address - address :], None
+            )
 
     def read_bytes(self, address: int, length: int) -> bytes:
         """Read part of this memory region
@@ -144,12 +191,17 @@ class Memory(state.Stateful, dict):
         This will fail if any sub-region of the memory requested is symbolic or uninitialized
         """
 
+        if address + length > self.address + self.size:
+            raise exceptions.ConfigurationError(
+                f"Out of bounds: tried to read {length} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
+            )
+
         out: bytes = b""
         next_segment_address = address
         remaining_length = length
 
         segment: state.Value
-        for segment_offset, segment in self.items():
+        for segment_offset, segment in sorted(self.items()):
             contents = segment.get_content()
             segment_address = self.address + segment_offset
 
