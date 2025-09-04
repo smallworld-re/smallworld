@@ -93,8 +93,6 @@ jobs:
           python3 unit.py
 
   Integration-Test:
-    # Core functionality tests
-    # Test cases are defined as {testsuite}.test_{platform}_{emulator}
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
@@ -136,34 +134,26 @@ jobs:
           - panda
           - unicorn
         exclude:
-          # mips64 does not run on unicorn
           - platform: mips64
             emulator: unicorn
-          # mips64el does not run on unicorn
           - platform: mips64el
             emulator: unicorn
-          # ppc does not run on unicorn
           - platform: ppc
             emulator: unicorn
-          # ppc64 does not run on unicorn or panda
           - platform: ppc64
             emulator: panda
           - platform: ppc64
             emulator: unicorn
-          # riscv64 does not run on unicorn or panda
           - platform: riscv64
             emulator: panda
           - platform: riscv64
             emulator: unicorn
-          # xtensa does not run on unicorn or panda
           - platform: xtensa
             emulator: panda
           - platform: xtensa
             emulator: unicorn
-          # FloatsTest is not run on Panda
           - testsuite: FloatsTests
             emulator: panda
-          # FloatsTest is not run on armel, mips, mipsel, mips64, mips64el, ppc, ppc64, riscv64, or xtensa
           - testsuite: FloatsTests
             platform: armel
           - testsuite: FloatsTests
@@ -182,28 +172,23 @@ jobs:
             platform: riscv64
           - testsuite: FloatsTests
             platform: xtensa
-          # FloatsTest doesn't work on armhf/unicorn
           - testsuite: FloatsTests
             platform: armhf
             emulator: unicorn
-          # FuzzTest is only run on Unicorn
           - testsuite: FuzzTests
             emulator: angr
           - testsuite: FuzzTests
             emulator: ghidra
           - testsuite: FuzzTests
             emulator: panda
-          # LinkElfTests is not run on ppc64 or xtensa
           - testsuite: LinkElfTests
             platform: ppc64
           - testsuite: LinkElfTests
             platform: xtensa
-          # RelaTests is not run on ppc64 or xtensa
           - testsuite: LinkElfTests
             platform: ppc64
           - testsuite: LinkElfTests
             platform: xtensa
-          # SyscallTests only runs on angr
           - testsuite: SyscallTests
             emulator: ghidra
           - testsuite: SyscallTests
@@ -211,14 +196,12 @@ jobs:
           - testsuite: SyscallTests
             emulator: unicorn
         include:
-          # BlockTests only runs on a few combinations
           - testsuite: BlockTests
             platform: amd64
             emulator: panda
           - testsuite: BlockTests
             platform: amd64
             emulator: unicorn
-          # PETests only runs on a few combinations
           - testsuite: PETests
             platform: amd64
           - testsuite: PETests
@@ -355,7 +338,6 @@ jobs:
           - C99TmpfileTests
           - C99TmpnamTests
           - C99UngetcTests
-          # This isn't a library model, but it uses the same nomenclature
           - ElfCoreTests
           - POSIXBasenameTests
           - POSIXBsdSignalTests
@@ -382,9 +364,7 @@ jobs:
           - mips64
           - mips64el
           - ppc
-          # No ppc64; its linker spec is a disaster
           - riscv64
-          # No xtensa; no libc
     steps:
       - name: Copy Repo
         run: |
