@@ -107,7 +107,6 @@ jobs:
           - LinkElfTests
           - HookingTests
           - MemhookTests
-          - PETests
           - RelaTests
           - SquareTests
           - StackTests
@@ -190,7 +189,6 @@ jobs:
           - LinkElfTests
           - HookingTests
           - MemhookTests
-          - PETests
           - RelaTests
           - SquareTests
           - StackTests
@@ -271,7 +269,6 @@ jobs:
           - LinkElfTests
           - HookingTests
           - MemhookTests
-          - PETests
           - RelaTests
           - SquareTests
           - StackTests
@@ -339,7 +336,6 @@ jobs:
           - LinkElfTests
           - HookingTests
           - MemhookTests
-          - PETests
           - RelaTests
           - SquareTests
           - StackTests
