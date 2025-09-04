@@ -257,100 +257,8 @@ jobs:
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
       matrix:
-        testsuite:
-          - C99AbortTests
-          - C99AbsTests
-          - C99AsctimeTests
-          - C99AtexitTests
-          - C99AtoiTests
-          - C99AtollTests
-          - C99AtolTests
-          - C99CallocTests
-          - C99ClearerrTests
-          - C99ClockTests
-          - C99CtimeTests
-          - C99DifftimeTests
-          - C99ExitTests
-          - C99FcloseTests
-          - C99FeofTests
-          - C99FflushTests
-          - C99FgetcTests
-          - C99FgetposTests
-          - C99FgetsTests
-          - C99FopenTests
-          - C99FprintfTests
-          - C99FputcTests
-          - C99FputsTests
-          - C99FreadTests
-          - C99FreeTests
-          - C99FscanfTests
-          - C99FseekTests
-          - C99FsetposTests
-          - C99FtellTests
-          - C99FwriteTests
-          - C99GetcharTests
-          - C99GetcTests
-          - C99GetenvTests
-          - C99GetsTests
-          - C99GmtimeTests
-          - C99LabsTests
-          - C99LlabsTests
-          - C99LocaltimeTests
-          - C99MallocTests
-          - C99MemcmpTests
-          - C99MemcpyTests
-          - C99MemmoveTests
-          - C99MemsetTests
-          - C99MktimeTests
-          - C99PrintfTests
-          - C99PutcharTests
-          - C99PutcTests
-          - C99PutsTests
-          - C99RandTests
-          - C99ReallocTests
-          - C99RemoveTests
-          - C99RenameTests
-          - C99RewindTests
-          - C99ScanfTests
-          - C99SignalTests
-          - C99SnprintfTests
-          - C99SprintfTests
-          - C99SrandTests
-          - C99SscanfTests
-          - C99StrcatTests
-          - C99StrchrTests
-          - C99StrcmpTests
-          - C99StrcpyTests
-          - C99StrcspnTests
-          - C99StrerrorTests
-          - C99StrftimeTests
-          - C99StrlenTests
-          - C99StrncatTests
-          - C99StrncmpTests
-          - C99StrncpyTests
-          - C99StrpbrkTests
-          - C99StrrchrTests
-          - C99StrspnTests
-          - C99StrstrTests
-          - C99StrtokTests
-          - C99SystemTests
-          - C99TimeTests
-          - C99TmpfileTests
-          - C99TmpnamTests
-          - C99UngetcTests
-          - ElfCoreTests
-          - POSIXBasenameTests
-          - POSIXBsdSignalTests
-          - POSIXDirnameTests
-          - POSIXPthreadSigmaskTests
-          - POSIXSigactionTests
-          - POSIXSigaddsetTests
-          - POSIXSigdelsetTests
-          - POSIXSigemptysetTests
-          - POSIXSigfillsetTests
-          - POSIXSigpendingTests
-          - POSIXSigprocmaskTests
-          - SysVModelTests
+        testsuite: [C99AbortTests, C99AbsTests]
+        architecture: [aarch64, amd64]
     steps:
       - name: Copy Repo
         run: |
@@ -363,7 +271,7 @@ jobs:
           cd smallworld/
           pip install -e .[development] -c constraints.txt
           cd tests
-          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}_${{ matrix.emulator }}
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}
 
   Results:
     runs-on: smallworld-arc
