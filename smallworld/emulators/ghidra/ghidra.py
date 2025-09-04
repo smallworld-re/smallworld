@@ -4,7 +4,7 @@ import typing
 import claripy
 import jpype
 from ghidra.pcode.emu import PcodeEmulator, PcodeThread
-from ghidra.pcode.exec import InterruptPcodeExecutionException, PcodeExecutorStatePiece
+from ghidra.pcode.exec import PcodeExecutorStatePiece
 from ghidra.program.model.address import AddressRangeImpl
 from ghidra.program.model.pcode import Varnode
 
@@ -262,6 +262,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
         # Refresh all access breakpoints
         # There's no way to clear a single access breakpoint;
         # you need to clear them all and re-apply.
+        return
 
         # Wipe out all access breakpoints
         self._emu.clearAccessBreakpoints()
@@ -312,26 +313,33 @@ class GhidraEmulator(AbstractGhidraEmulator):
         data_var = Varnode(addr_addr, out_var.getSize())
         data = state.getVar(data_var, PcodeExecutorStatePiece.Reason.INSPECT)
 
-        okay = False
         if self._mem_reads_hook is not None:
-            okay = True
             new_data = self._mem_reads_hook(self, addr, len(data), data)
             if new_data is not None:
                 data = new_data
 
+        end_addr = addr + len(data)
+
         for (start, end), hook in self._mem_read_hooks.items():
-            if addr >= start and addr < end:
-                okay = True
+            rng = range(start, end)
+            access_rng = range(addr, end_addr)
+            if (
+                addr in rng
+                or end_addr - 1 in rng
+                or start in access_rng
+                or end - 1 in access_rng
+            ):
                 new_data = hook(self, addr, len(data), data)
                 if new_data is not None:
                     data = new_data
 
-        if not okay:
-            raise exceptions.EmulationError(
-                f"Read breakpoint at {hex(addr)} has no matching handler"
-            )
-
         # Write the data to the output
+        #
+        # CRITICAL: This must always happen, even if the op wasn't hooked!
+        # The main processing loop skips any LOAD opcodes,
+        # since their normal execution will clobber any value produced
+        # by this handler.
+        # Thus, this handler must fully replace the behavior of LOAD.
         state.setVar(out_var, self.bytes_py_to_java(data))
 
     def hook_memory_read(
@@ -370,19 +378,21 @@ class GhidraEmulator(AbstractGhidraEmulator):
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
             addr = int.from_bytes(addr_bytes, "little")
 
-        okay = False
         if self._mem_writes_hook is not None:
-            okay = True
             self._mem_writes_hook(self, addr, len(data), data)
-        for (start, end), hook in self._mem_write_hooks.items():
-            if addr >= start and addr < end:
-                okay = True
-                hook(self, addr, len(data), data)
 
-        if not okay:
-            raise exceptions.EmulationError(
-                f"Write breakpoint at {hex(addr)} has no matching handler"
-            )
+        end_addr = addr + len(data)
+
+        for (start, end), hook in self._mem_write_hooks.items():
+            rng = range(start, end)
+            access_rng = range(addr, end_addr)
+            if (
+                addr in rng
+                or end_addr - 1 in rng
+                or start in access_rng
+                or end - 1 in access_rng
+            ):
+                hook(self, addr, len(data), data)
 
     def hook_memory_write(
         self,
@@ -434,46 +444,49 @@ class GhidraEmulator(AbstractGhidraEmulator):
             # but I still want bounds/exits to work normally.
             self._process_function_hook(pc)
         else:
+            skip = False
             frame = None
-            try:
-                # Try to run the next instruction
-                self._thread.stepInstruction()
-            except InterruptPcodeExecutionException as e:
-                # Interrupted while processing
-                frame = e.getFrame()
+            # We need to step individual pcode ops to capture hooks
+            # There is an exception-based hooking mechanism,
+            # but it's unworkable for SmallWorld's purpose.
+            while True:
+                if skip:
+                    # Skip the next op; it was modeled by a hook
+                    skip = False
+                    self._thread.skipPcodeOp()
+                else:
+                    # Execute the opcode normally
+                    self._thread.stepPcodeOp()
 
-            while frame is not None:
-                # We got an interrupt.
-                # This probably means we hit an access breakpoint.
-                #
-                # NOTE: For access breakpoints, index is one past the breaking operation.
-                # Given observations, I think access breakpoints are strictly "after" breakpoints.
-                # Not sure if this holds for other interrupts.
-                op = frame.getCode()[frame.index() - 1]
+                frame = self._thread.getFrame()
+
+                if frame is None:
+                    # No frame; this is the end of the instruction
+                    break
+
+                if frame.isFinished():
+                    # Frame is finished; this is the end of the instruction
+                    self._thread.finishInstruction()
+                    break
+
+                # Inspect the op to see if it's memory-hook relevant
+                code = frame.getCode()
+                op = code[frame.index()]
                 opcode = op.getOpcode()
                 if opcode == op.STORE:
-                    # This is a STORE opcode; almost certainly a write hook
+                    # This is a STORE opcode; could trigger a "write" hook
                     _, addr_var, data_var = op.getInputs()
                     self._process_write_breakpoint(addr_var, data_var)
                 elif opcode == op.LOAD:
-                    # This is a LOAD opcode; almost certainly a read hook
+                    # This is a LOAD opcode; could trigger a "read" hook
                     _, addr_var = op.getInputs()
                     out_var = op.getOutput()
                     self._process_read_breakpoint(addr_var, out_var)
-                else:
-                    # No idea.
-                    raise exceptions.EmulationError(
-                        f"Unexpected interrupt at {hex(pc)} opcode {frame.index() - 1}: {op}"
-                    )
-
-                try:
-                    # Try to finish out the instruction.
-                    self._thread.finishInstruction()
-                    frame = None
-                except InterruptPcodeExecutionException as e:
-                    # Something else triggered an interrupt.
-                    # Go around.
-                    frame = e.getFrame()
+                    # Skip the actual LOAD opcode
+                    # The read breakpoint handler will mimic its behavior;
+                    # running the op normally will clobber a custom value
+                    # produced by a hook.
+                    skip = True
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)

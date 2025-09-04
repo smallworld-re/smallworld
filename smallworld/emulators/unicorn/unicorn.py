@@ -183,7 +183,7 @@ class UnicornEmulator(
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
-            orig_data = (value.to_bytes(size, self.platform.byteorder.value),)
+            orig_data = value.to_bytes(size, self.platform.byteorder.value)
             if self.all_reads_hook:
                 data = self.all_reads_hook(self, address, size, orig_data)
                 if data:
@@ -194,7 +194,7 @@ class UnicornEmulator(
                     uc.mem_write(address, data)
                     orig_data = data
 
-            if cb := self.is_memory_read_hooked(address):
+            if cb := self.is_memory_read_hooked(address, size):
                 data = cb(self, address, size, orig_data)
 
                 # Execute registered callback
@@ -219,7 +219,7 @@ class UnicornEmulator(
                     value.to_bytes(size, self.platform.byteorder.value),
                 )
 
-            if cb := self.is_memory_write_hooked(address):
+            if cb := self.is_memory_write_hooked(address, size):
                 cb(
                     self,
                     address,

@@ -105,7 +105,7 @@ class PandaEmulator(
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
-                print("Panda: setting up state")
+                logger.debug("Panda: setting up state")
                 self.setup_state(cpu)
                 self.signal_and_wait()
 
@@ -123,27 +123,27 @@ class PandaEmulator(
 
                 if pc in self.manager._exit_points:
                     # stay here until i say die
-                    print("\ton_insn: exit")
+                    logger.debug("\ton_insn: exit")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.RUN:
                     # keep going until the end
-                    print("\ton_insn: run")
+                    logger.debug("\ton_insn: run")
                 elif self.state == PandaEmulator.ThreadState.STEP:
                     # stop and wait for me
-                    print("\ton_insn: step")
+                    logger.debug("\ton_insn: step")
                     self.signal_and_wait()
                 elif self.state == PandaEmulator.ThreadState.BLOCK:
                     # keep going until the end
-                    print("\ton_insn: block")
+                    logger.debug("\ton_insn: block")
 
-                print(f"Panda: on_insn: {hex(pc)}, {self.state}")
+                logger.debug(f"Panda: on_insn: {hex(pc)}, {self.state}")
                 # Check if our pc is in bounds; if not stop
                 if (
                     not self.manager._bounds.is_empty()
                     and not self.manager._bounds.contains_value(pc)
                 ):
-                    print(f"Panda: {pc} out of bounds")
+                    logger.debug(f"Panda: {pc} out of bounds")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
 
@@ -152,10 +152,31 @@ class PandaEmulator(
                     self.manager.all_instructions_hook(self.manager)
 
                 if cb := self.manager.is_instruction_hooked(pc):
-                    cb(self.manager)
+                    try:
+                        cb(self.manager)
+                    except exceptions.EmulationStop:
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait()
+                    except Exception as e:
+                        logger.exception(
+                            f"Exception running instruction hook at {pc:x}"
+                        )
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait(exception=e)
 
                 if cb := self.manager.is_function_hooked(pc):
-                    cb(self.manager)
+                    try:
+                        logger.info(f"Calling function callback at {hex(pc)}")
+                        cb(self.manager)
+                        logger.info(f"Completed function callback at {hex(pc)}")
+                    except exceptions.EmulationStop:
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait()
+                    except Exception as e:
+                        logger.exception(f"Exception running function hook at {pc:x}")
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait(exception=e)
+
                     # Mimic a platform-specific "return" instruction.
                     if (
                         self.manager.platform.architecture
@@ -210,9 +231,11 @@ class PandaEmulator(
                         # mips32 and mips64: branch to register 'ra'
                         ret = self.manager.read_register("ra")
                     else:
-                        raise exceptions.ConfigurationError(
+                        logger.error(
                             "Don't know how to return for {self.manager.platform.architecture}"
                         )
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait()
 
                     self.manager.write_register("pc", ret)
 
@@ -228,7 +251,7 @@ class PandaEmulator(
                 if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
                     pass
-                print(f"\t{self.manager.current_instruction()}")
+                logger.debug(f"\t{self.manager.current_instruction()}")
                 self.hook_return = pc + self.manager.current_instruction().size
 
                 return True
@@ -241,63 +264,100 @@ class PandaEmulator(
                     self.state == PandaEmulator.ThreadState.BLOCK
                     or self.state == PandaEmulator.ThreadState.SETUP
                 ):
-                    print(f"Panda: on_block: {tb}, {self.state}")
+                    logger.debug(f"Panda: on_block: {tb}, {self.state}")
                     # We need to pause on the next block and wait
                     self.signal_and_wait()
 
             # Used for hooking mem reads
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
-                print(f"\ton_read: {addr}")
+                logger.debug(f"\ton_read: {addr}")
                 orig_data = self.panda.virtual_memory_read(self.manager.cpu, addr, size)
-                if self.manager.all_reads_hook:
-                    val = self.manager.all_reads_hook(
-                        self.manager, addr, size, orig_data
+                try:
+                    if self.manager.all_reads_hook:
+                        val = self.manager.all_reads_hook(
+                            self.manager, addr, size, orig_data
+                        )
+                        if val:
+                            self.manager.write_memory(addr, val)
+                            orig_data = val
+                    if cb := self.manager.is_memory_read_hooked(addr, size):
+                        val = cb(self.manager, addr, size, orig_data)
+                        if val:
+                            self.manager.write_memory(addr, val)
+                except exceptions.EmulationStop:
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait()
+                except Exception as e:
+                    logger.exception(
+                        "Exception running read hook at {pc:x}, from {addr:x}"
                     )
-                    if val:
-                        self.manager.write_memory(addr, val)
-                        orig_data = val
-                if cb := self.manager.is_memory_read_hooked(addr):
-                    val = cb(self.manager, addr, size, orig_data)
-                    if val:
-                        self.manager.write_memory(addr, val)
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(exception=e)
 
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
-                print(f"\ton_write: {hex(addr)}")
+                logger.debug(f"\ton_write: {hex(addr)}")
                 byte_val = bytes([buf[i] for i in range(size)])
+                try:
+                    if self.manager.all_writes_hook:
+                        self.manager.all_writes_hook(self.manager, addr, size, byte_val)
 
-                if self.manager.all_writes_hook:
-                    self.manager.all_writes_hook(self.manager, addr, size, byte_val)
-
-                if cb := self.manager.is_memory_write_hooked(addr):
-                    cb(self.manager, addr, size, byte_val)
+                    if cb := self.manager.is_memory_write_hooked(addr, size):
+                        cb(self.manager, addr, size, byte_val)
+                except exceptions.EmulationStop:
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait()
+                except Exception as e:
+                    logger.exception(
+                        "Exception running read hook at {pc:x}, from {addr:x}"
+                    )
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(exception=e)
 
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
-                print(f"\ton_interrupt: {intno}")
-                # First if all interrupts are hooked, run that function
-                if self.manager.all_interrupts_hook:
-                    self.manager.all_interrupts_hook(self.manager)
-                # Then run interrupt specific function
-                if cb := self.manager.is_interrupt_hooked(intno):
-                    cb(self.manager)
+                logger.debug(f"\ton_interrupt: {intno}")
+                try:
+                    # First if all interrupts are hooked, run that function
+                    if self.manager.all_interrupts_hook:
+                        self.manager.all_interrupts_hook(self.manager)
+                    # Then run interrupt specific function
+                    if cb := self.manager.is_interrupt_hooked(intno):
+                        cb(self.manager)
+                except exceptions.EmulationStop:
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait()
+                except Exception as e:
+                    logger.exception("Exception running interrupt hook for {intno}")
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(exception=e)
 
             @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
-                print(
+                logger.error(
                     f"Panda for help: you are hitting an exception at {exception_index}."
                 )
+                self.state = PandaEmulator.ThreadState.EXIT
+                # Generate an exception so we exit ungracefully
+                try:
+                    raise exceptions.EmulationError(
+                        f"Panda exception {exception_index}"
+                    )
+                except exceptions.EmulationError as e:
+                    self.signal_and_wait(exception=e)
 
             self.panda.run()
 
         # This is a blocking call for this thread
-        def signal_and_wait(self):
-            print("Signaling main to run")
+        def signal_and_wait(self, exception: typing.Optional[Exception] = None):
+            logger.debug("Signaling main to run")
             with self.manager.condition:
-                # Signal that we are done and to run main
+                # Save an exception if someone wanted to raise one
+                self.manager.exception = exception
 
+                # Signal that we are done and to run main
                 self.manager.run_main = True
                 self.manager.condition.notify()
 
@@ -321,6 +381,7 @@ class PandaEmulator(
         self.condition = threading.Condition()
         self.run_panda = False
         self.run_main = False
+        self.exception: typing.Optional[Exception] = None
 
         # Thread communication variables
         self.cpu = None
@@ -551,7 +612,7 @@ class PandaEmulator(
         logger.info("emulation complete")
 
     def signal_and_wait(self) -> None:
-        print("Main signaling panda to run")
+        logger.debug("Main signaling panda to run")
         with self.condition:
             # Signal that we are done and to run panda
             self.run_panda = True
@@ -563,6 +624,10 @@ class PandaEmulator(
 
             # Clear the event for the next iteration
             self.run_main = False
+
+            # If we had an exception, raise it
+            if self.exception is not None:
+                raise self.exception
 
     def step_block(self) -> None:
         self.check()
@@ -595,7 +660,7 @@ class PandaEmulator(
         self.panda_thread.state = self.ThreadState.STEP
 
         pc = self.pc
-        print(f"Step: reading register {pc}")
+        logger.debug(f"Step: reading register {pc}")
 
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
