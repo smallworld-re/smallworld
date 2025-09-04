@@ -98,8 +98,7 @@ jobs:
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
       matrix:
-        testsuite: [
-          'BranchTests',
+        testsuite: ['BranchTests',
           'CallTests',
           'DMATests',
           'ElfTests',
@@ -114,8 +113,7 @@ jobs:
           'StackTests',
           'StrlenTests',
           'SyscallTests']
-        architecture: [
-          'aarch64',
+        architecture: ['aarch64',
           'amd64',
           'armel',
           'armhf',
@@ -128,8 +126,7 @@ jobs:
           'ppc64',
           'riscv64',
           'xtensa']
-        emulator: [
-          'angr',
+        emulator: ['angr',
           'ghidra',
           'panda',
           'unicorn']
@@ -257,8 +254,7 @@ jobs:
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
       matrix:
-        testsuite: [
-          'C99AbortTests',
+        testsuite: ['C99AbortTests',
           'C99AbsTests',
           'C99AsctimeTests',
           'C99AtexitTests',
@@ -351,8 +347,7 @@ jobs:
           'POSIXSigpendingTests',
           'POSIXSigprocmaskTests',
           'SysVModelTests']
-        architecture: [
-          'aarch64',
+        architecture: ['aarch64',
           'amd64',
           'armel',
           'armhf',
