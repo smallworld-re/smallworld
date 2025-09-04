@@ -334,6 +334,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     data = new_data
 
         # Write the data to the output
+        #
+        # CRITICAL: This must always happen, even if the op wasn't hooked!
+        # The main processing loop skips any LOAD opcodes,
+        # since their normal execution will clobber any value produced
+        # by this handler.
+        # Thus, this handler must fully replace the behavior of LOAD.
         state.setVar(out_var, self.bytes_py_to_java(data))
 
     def hook_memory_read(
@@ -438,36 +444,49 @@ class GhidraEmulator(AbstractGhidraEmulator):
             # but I still want bounds/exits to work normally.
             self._process_function_hook(pc)
         else:
+            skip = False
             frame = None
             # We need to step individual pcode ops to capture hooks
             # There is an exception-based hooking mechanism,
             # but it's unworkable for SmallWorld's purpose.
             while True:
-                # Step the op
-                self._thread.stepPcodeOp()
+                if skip:
+                    # Skip the next op; it was modeled by a hook
+                    skip = False
+                    self._thread.skipPcodeOp()
+                else:
+                    # Execute the opcode normally
+                    self._thread.stepPcodeOp()
+
                 frame = self._thread.getFrame()
 
                 if frame is None:
                     # No frame; this is the end of the instruction
                     break
 
-                if frame.index() >= len(frame.getCode()):
-                    # We're past the end of the frame.
+                if frame.isFinished():
+                    # Frame is finished; this is the end of the instruction
                     self._thread.finishInstruction()
                     break
 
                 # Inspect the op to see if it's memory-hook relevant
-                op = frame.getCode()[frame.index()]
+                code = frame.getCode()
+                op = code[frame.index()]
                 opcode = op.getOpcode()
                 if opcode == op.STORE:
-                    # This is a STORE opcode; almost certainly a write hook
+                    # This is a STORE opcode; could trigger a "write" hook
                     _, addr_var, data_var = op.getInputs()
                     self._process_write_breakpoint(addr_var, data_var)
                 elif opcode == op.LOAD:
-                    # This is a LOAD opcode; almost certainly a read hook
+                    # This is a LOAD opcode; could trigger a "read" hook
                     _, addr_var = op.getInputs()
                     out_var = op.getOutput()
                     self._process_read_breakpoint(addr_var, out_var)
+                    # Skip the actual LOAD opcode
+                    # The read breakpoint handler will mimic its behavior;
+                    # running the op normally will clobber a custom value
+                    # produced by a hook.
+                    skip = True
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)
