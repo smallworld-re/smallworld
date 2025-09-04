@@ -92,65 +92,44 @@ jobs:
           cd tests
           python3 unit.py
 
-  Integration-Test:
+  Integration-Test-Angr:
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
       matrix:
-        testsuite: ['BranchTests',
-          'CallTests',
-          'DMATests',
-          'ElfTests',
-          'FloatsTests',
-          'FuzzTests',
-          'LinkElfTests',
-          'HookingTests',
-          'MemhookTests',
-          'PETests',
-          'RelaTests',
-          'SquareTests',
-          'StackTests',
-          'StrlenTests',
-          'SyscallTests']
-        architecture: ['aarch64',
-          'amd64',
-          'armel',
-          'armhf',
-          'i386',
-          'mips',
-          'mipsel',
-          'mips64',
-          'mips64el',
-          'ppc',
-          'ppc64',
-          'riscv64',
-          'xtensa']
-        emulator: ['angr',
-          'ghidra',
-          'panda',
-          'unicorn']
+        testsuite:
+          - BranchTests
+          - CallTests
+          - DMATests
+          - ElfTests
+          - FloatsTests
+          - LinkElfTests
+          - HookingTests
+          - MemhookTests
+          - PETests
+          - RelaTests
+          - SquareTests
+          - StackTests
+          - StrlenTests
+          - SyscallTests
+        architecture:
+          - aarch64
+          - amd64
+          - armel
+          - armhf
+          - i386
+          - mips
+          - mipsel
+          - mips64
+          - mips64el
+          - ppc
+          - ppc64
+          - riscv64
+          - xtensa
+        emulator: 
+          - angr
         exclude:
-          - architecture: mips64
-            emulator: unicorn
-          - architecture: mips64el
-            emulator: unicorn
-          - architecture: ppc
-            emulator: unicorn
-          - architecture: ppc64
-            emulator: panda
-          - architecture: ppc64
-            emulator: unicorn
-          - architecture: riscv64
-            emulator: panda
-          - architecture: riscv64
-            emulator: unicorn
-          - architecture: xtensa
-            emulator: panda
-          - architecture: xtensa
-            emulator: unicorn
-          - testsuite: FloatsTests
-            emulator: panda
           - testsuite: FloatsTests
             architecture: armel
           - testsuite: FloatsTests
@@ -169,36 +148,267 @@ jobs:
             architecture: riscv64
           - testsuite: FloatsTests
             architecture: xtensa
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
+        include:
+          - testsuite: PETests
+            architecture: amd64
+          - testsuite: PETests
+            architecture: i386 
+    steps:
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - name: Run Integration Tests
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}_${{ matrix.emulator }}
+
+  Integration-Test-Ghidra:
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    strategy:
+      matrix:
+        testsuite:
+          - BranchTests
+          - CallTests
+          - DMATests
+          - ElfTests
+          - FloatsTests
+          - LinkElfTests
+          - HookingTests
+          - MemhookTests
+          - PETests
+          - RelaTests
+          - SquareTests
+          - StackTests
+          - StrlenTests
+        architecture:
+          - aarch64
+          - amd64
+          - armel
+          - armhf
+          - i386
+          - mips
+          - mipsel
+          - mips64
+          - mips64el
+          - ppc
+          - ppc64
+          - riscv64
+          - xtensa
+        emulator:
+          - ghidra
+        exclude:
           - testsuite: FloatsTests
-            architecture: armhf
-            emulator: unicorn
-          - testsuite: FuzzTests
-            emulator: angr
-          - testsuite: FuzzTests
-            emulator: ghidra
-          - testsuite: FuzzTests
-            emulator: panda
-          - testsuite: LinkElfTests
+            architecture: armel
+          - testsuite: FloatsTests
+            architecture: mips
+          - testsuite: FloatsTests
+            architecture: mipsel
+          - testsuite: FloatsTests
+            architecture: mips64
+          - testsuite: FloatsTests
+            architecture: mips64el
+          - testsuite: FloatsTests
+            architecture: ppc
+          - testsuite: FloatsTests
             architecture: ppc64
-          - testsuite: LinkElfTests
+          - testsuite: FloatsTests
+            architecture: riscv64
+          - testsuite: FloatsTests
             architecture: xtensa
           - testsuite: LinkElfTests
             architecture: ppc64
           - testsuite: LinkElfTests
             architecture: xtensa
-          - testsuite: SyscallTests
-            emulator: ghidra
-          - testsuite: SyscallTests
-            emulator: panda
-          - testsuite: SyscallTests
-            emulator: unicorn
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
+        include:
+          - testsuite: PETests
+            architecture: amd64
+          - testsuite: PETests
+            architecture: i386 
+    steps:
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - name: Run Integration Tests
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}_${{ matrix.emulator }}
+  
+  Integration-Test-Panda:
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    strategy:
+      matrix:
+        testsuite:
+          - BranchTests
+          - CallTests
+          - DMATests
+          - ElfTests
+          - LinkElfTests
+          - HookingTests
+          - MemhookTests
+          - PETests
+          - RelaTests
+          - SquareTests
+          - StackTests
+          - StrlenTests
+        architecture:
+          - aarch64
+          - amd64
+          - armel
+          - armhf
+          - i386
+          - mips
+          - mipsel
+          - mips64
+          - mips64el
+          - ppc
+          - ppc64
+          - riscv64
+          - xtensa
+        emulator:
+          - panda
+        exclude:
+          - testsuite: FloatsTests
+            architecture: armel
+          - testsuite: FloatsTests
+            architecture: mips
+          - testsuite: FloatsTests
+            architecture: mipsel
+          - testsuite: FloatsTests
+            architecture: mips64
+          - testsuite: FloatsTests
+            architecture: mips64el
+          - testsuite: FloatsTests
+            architecture: ppc
+          - testsuite: FloatsTests
+            architecture: ppc64
+          - testsuite: FloatsTests
+            architecture: riscv64
+          - testsuite: FloatsTests
+            architecture: xtensa
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
         include:
           - testsuite: BlockTests
             architecture: amd64
-            emulator: panda
+          - testsuite: PETests
+            architecture: amd64
+          - testsuite: PETests
+            architecture: i386 
+    steps:
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - name: Run Integration Tests
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}_${{ matrix.emulator }}
+  
+  Integration-Test-Unicorn:
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    strategy:
+      matrix:
+        testsuite:
+          - BranchTests
+          - CallTests
+          - DMATests
+          - ElfTests
+          - FloatsTests
+          - FuzzTests
+          - LinkElfTests
+          - HookingTests
+          - MemhookTests
+          - PETests
+          - RelaTests
+          - SquareTests
+          - StackTests
+          - StrlenTests
+        architecture:
+          - aarch64
+          - amd64
+          - armel
+          - armhf
+          - i386
+          - mips
+          - mipsel
+          - mips64
+          - mips64el
+          - ppc
+          - ppc64
+          - riscv64
+          - xtensa
+        emulator:
+          - unicorn
+        exclude:
+          - testsuite: FloatsTests
+            architecture: armel
+          - testsuite: FloatsTests
+            architecture: armhf
+          - testsuite: FloatsTests
+            architecture: mips
+          - testsuite: FloatsTests
+            architecture: mipsel
+          - testsuite: FloatsTests
+            architecture: mips64
+          - testsuite: FloatsTests
+            architecture: mips64el
+          - testsuite: FloatsTests
+            architecture: ppc
+          - testsuite: FloatsTests
+            architecture: ppc64
+          - testsuite: FloatsTests
+            architecture: riscv64
+          - testsuite: FloatsTests
+            architecture: xtensa
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
+          - testsuite: LinkElfTests
+            architecture: ppc64
+          - testsuite: LinkElfTests
+            architecture: xtensa
+        include:
           - testsuite: BlockTests
             architecture: amd64
-            emulator: unicorn
           - testsuite: PETests
             architecture: amd64
           - testsuite: PETests
