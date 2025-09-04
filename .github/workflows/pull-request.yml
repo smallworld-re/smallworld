@@ -351,20 +351,6 @@ jobs:
           - POSIXSigpendingTests
           - POSIXSigprocmaskTests
           - SysVModelTests
-        architecture:
-          - aarch64
-          - amd64
-          - armel
-          - armhf
-          - armel
-          - armhf
-          - i386
-          - mips
-          - mipsel
-          - mips64
-          - mips64el
-          - ppc
-          - riscv64
     steps:
       - name: Copy Repo
         run: |
