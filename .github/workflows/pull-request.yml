@@ -114,7 +114,7 @@ jobs:
           - StackTests
           - StrlenTests
           - SyscallTests
-        platform:
+        architecture:
           - aarch64
           - amd64
           - armel
@@ -134,46 +134,46 @@ jobs:
           - panda
           - unicorn
         exclude:
-          - platform: mips64
+          - architecture: mips64
             emulator: unicorn
-          - platform: mips64el
+          - architecture: mips64el
             emulator: unicorn
-          - platform: ppc
+          - architecture: ppc
             emulator: unicorn
-          - platform: ppc64
+          - architecture: ppc64
             emulator: panda
-          - platform: ppc64
+          - architecture: ppc64
             emulator: unicorn
-          - platform: riscv64
+          - architecture: riscv64
             emulator: panda
-          - platform: riscv64
+          - architecture: riscv64
             emulator: unicorn
-          - platform: xtensa
+          - architecture: xtensa
             emulator: panda
-          - platform: xtensa
+          - architecture: xtensa
             emulator: unicorn
           - testsuite: FloatsTests
             emulator: panda
           - testsuite: FloatsTests
-            platform: armel
+            architecture: armel
           - testsuite: FloatsTests
-            platform: mips
+            architecture: mips
           - testsuite: FloatsTests
-            platform: mipsel
+            architecture: mipsel
           - testsuite: FloatsTests
-            platform: mips64
+            architecture: mips64
           - testsuite: FloatsTests
-            platform: mips64el
+            architecture: mips64el
           - testsuite: FloatsTests
-            platform: ppc
+            architecture: ppc
           - testsuite: FloatsTests
-            platform: ppc64
+            architecture: ppc64
           - testsuite: FloatsTests
-            platform: riscv64
+            architecture: riscv64
           - testsuite: FloatsTests
-            platform: xtensa
+            architecture: xtensa
           - testsuite: FloatsTests
-            platform: armhf
+            architecture: armhf
             emulator: unicorn
           - testsuite: FuzzTests
             emulator: angr
@@ -182,13 +182,13 @@ jobs:
           - testsuite: FuzzTests
             emulator: panda
           - testsuite: LinkElfTests
-            platform: ppc64
+            architecture: ppc64
           - testsuite: LinkElfTests
-            platform: xtensa
+            architecture: xtensa
           - testsuite: LinkElfTests
-            platform: ppc64
+            architecture: ppc64
           - testsuite: LinkElfTests
-            platform: xtensa
+            architecture: xtensa
           - testsuite: SyscallTests
             emulator: ghidra
           - testsuite: SyscallTests
@@ -197,15 +197,15 @@ jobs:
             emulator: unicorn
         include:
           - testsuite: BlockTests
-            platform: amd64
+            architecture: amd64
             emulator: panda
           - testsuite: BlockTests
-            platform: amd64
+            architecture: amd64
             emulator: unicorn
           - testsuite: PETests
-            platform: amd64
+            architecture: amd64
           - testsuite: PETests
-            platform: i386 
+            architecture: i386 
     steps:
       - name: Copy Repo
         run: |
@@ -218,7 +218,7 @@ jobs:
           cd smallworld/
           pip install -e .[development] -c constraints.txt
           cd tests
-          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.platform }}_${{ matrix.emulator }}
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}_${{ matrix.emulator }}
   
   Extra-Test:
     # Extra functionality tests
@@ -251,7 +251,7 @@ jobs:
   
   Library-Test:
     # Library model test suite
-    # Test cases are defined as {testsuite}.test_{platform}
+    # Test cases are defined as {testsuite}.test_{architecture}
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
@@ -351,7 +351,7 @@ jobs:
           - POSIXSigpendingTests
           - POSIXSigprocmaskTests
           - SysVModelTests
-        platform:
+        architecture:
           - aarch64
           - amd64
           - armel
@@ -377,7 +377,7 @@ jobs:
           cd smallworld/
           pip install -e .[development] -c constraints.txt
           cd tests
-          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.platform }}_${{ matrix.emulator }}
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.architecture }}_${{ matrix.emulator }}
 
   Results:
     runs-on: smallworld-arc
