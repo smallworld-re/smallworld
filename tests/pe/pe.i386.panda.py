@@ -22,7 +22,7 @@ filename = (
     __file__.replace(".py", ".pe")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".ghidra", "")
 )
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_pe(f, platform=platform)

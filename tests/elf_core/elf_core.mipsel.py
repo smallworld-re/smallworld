@@ -22,7 +22,7 @@ filename = (
     __file__.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".ghidra", "")
 )
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf_core(f, platform=platform)
@@ -34,7 +34,7 @@ filename = (
     __file__.replace(".py", ".elf.registers")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".ghidra", "")
 )
 
 expected_regs = dict()

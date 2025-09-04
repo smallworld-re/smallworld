@@ -23,7 +23,7 @@ filename = (
     __file__.replace(".py", ".elf")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".ghidra", "")
 )
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(
@@ -35,7 +35,7 @@ libname = (
     __file__.replace(".py", ".so")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".ghidra", "")
 )
 with open(libname, "rb") as f:
     lib = smallworld.state.memory.code.Executable.from_elf(

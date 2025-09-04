@@ -22,7 +22,7 @@ filename = (
     __file__.replace(".py", ".elf")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".ghidra", "")
 )
 
 with open(filename, "rb") as f:
