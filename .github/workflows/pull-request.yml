@@ -152,9 +152,9 @@ jobs:
             architecture: ppc64
           - testsuite: LinkElfTests
             architecture: xtensa
-          - testsuite: LinkElfTests
+          - testsuite: RelaTests
             architecture: ppc64
-          - testsuite: LinkElfTests
+          - testsuite: RelaTests
             architecture: xtensa
         include:
           - testsuite: PETests
@@ -234,9 +234,9 @@ jobs:
             architecture: ppc64
           - testsuite: LinkElfTests
             architecture: xtensa
-          - testsuite: LinkElfTests
+          - testsuite: RelaTests
             architecture: ppc64
-          - testsuite: LinkElfTests
+          - testsuite: RelaTests
             architecture: xtensa
         include:
           - testsuite: PETests
@@ -287,9 +287,6 @@ jobs:
           - mips64
           - mips64el
           - ppc
-          - ppc64
-          - riscv64
-          - xtensa
         emulator:
           - panda
         exclude:
@@ -305,20 +302,6 @@ jobs:
             architecture: mips64el
           - testsuite: FloatsTests
             architecture: ppc
-          - testsuite: FloatsTests
-            architecture: ppc64
-          - testsuite: FloatsTests
-            architecture: riscv64
-          - testsuite: FloatsTests
-            architecture: xtensa
-          - testsuite: LinkElfTests
-            architecture: ppc64
-          - testsuite: LinkElfTests
-            architecture: xtensa
-          - testsuite: LinkElfTests
-            architecture: ppc64
-          - testsuite: LinkElfTests
-            architecture: xtensa
         include:
           - testsuite: BlockTests
             architecture: amd64
@@ -369,12 +352,6 @@ jobs:
           - i386
           - mips
           - mipsel
-          - mips64
-          - mips64el
-          - ppc
-          - ppc64
-          - riscv64
-          - xtensa
         emulator:
           - unicorn
         exclude:
@@ -386,26 +363,6 @@ jobs:
             architecture: mips
           - testsuite: FloatsTests
             architecture: mipsel
-          - testsuite: FloatsTests
-            architecture: mips64
-          - testsuite: FloatsTests
-            architecture: mips64el
-          - testsuite: FloatsTests
-            architecture: ppc
-          - testsuite: FloatsTests
-            architecture: ppc64
-          - testsuite: FloatsTests
-            architecture: riscv64
-          - testsuite: FloatsTests
-            architecture: xtensa
-          - testsuite: LinkElfTests
-            architecture: ppc64
-          - testsuite: LinkElfTests
-            architecture: xtensa
-          - testsuite: LinkElfTests
-            architecture: ppc64
-          - testsuite: LinkElfTests
-            architecture: xtensa
         include:
           - testsuite: BlockTests
             architecture: amd64
