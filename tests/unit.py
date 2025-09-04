@@ -136,6 +136,47 @@ class StateTests(unittest.TestCase):
         self.assertClaripyEqual(res_s, foo.get())
         self.assertClaripyEqual(bar_s, bar.get())
 
+    def test_memory_read(self):
+        # test memory all in one segment
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcdefgh")
+
+        # test memory in sub-segment
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh")
+        self.assertEqual(memory.read_bytes(0x1001, 0x4), b"bcde")
+
+        # test memory split over 2 segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcd")
+        memory.write_bytes(0x1004, b"efgh")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcdefgh")
+
+        # test memory split over 3 segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abc")
+        memory.write_bytes(0x1003, b"de")
+        memory.write_bytes(0x1005, b"fgh")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcdefgh")
+
+        # test memory discontinuous
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abc")
+        memory.write_bytes(0x1005, b"fgh")
+        self.assertRaises(
+            exceptions.ConfigurationError, lambda: memory.read_bytes(0x1000, 0x8)
+        )
+
+        # test memory contains symbolic
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abc")
+        memory[3] = state.SymbolicValue(2, None, None, None)
+        memory.write_bytes(0x1005, b"fgh")
+        self.assertRaises(
+            exceptions.SymbolicValueError, lambda: memory.read_bytes(0x1000, 0x8)
+        )
+
 
 class UtilsTests(unittest.TestCase):
     def test_range_collection_add(self):
