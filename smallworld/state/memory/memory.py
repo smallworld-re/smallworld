@@ -120,6 +120,7 @@ class Memory(state.Stateful, dict):
         This will fail if the data you want to overwrite is in a symbolic sub-region.
         """
 
+        segment: state.Value
         for segment_offset, segment in self.items():
             segment_address = self.address + segment_offset
             if (
@@ -144,26 +145,43 @@ class Memory(state.Stateful, dict):
         """
 
         out: bytes = b""
-        next_address = address
+        next_segment_address = address
+        remaining_length = length
+
         segment: state.Value
         for segment_offset, segment in self.items():
             contents = segment.get_content()
             segment_address = self.address + segment_offset
+
+            # check for symbolic
             if not isinstance(contents, bytes):
                 raise exceptions.SymbolicValueError(
-                    f"Tried to read {length} bytes at {hex(address)}. Data at {hex(next_address)} - {hex(next_address + segment.get_size())} is symbolic."
+                    f"Tried to read {length} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
                 )
-            if segment_address <= next_address:
-                offset_in_segment = next_address - segment_address
-                length_in_segment = min(length, segment.get_size())
+
+            # read into output buffer
+            if (
+                segment_address <= next_segment_address
+                and next_segment_address < segment_address + segment.get_size()
+            ):
+                offset_in_segment = next_segment_address - segment_address
+                length_in_segment = min(
+                    remaining_length, segment.get_size() - offset_in_segment
+                )
                 out += contents[
                     offset_in_segment : offset_in_segment + length_in_segment
                 ]
-                next_address += length_in_segment
-        # next segment or requested region not found
-        if next_address != address + length:
+                next_segment_address += length_in_segment
+                remaining_length -= length_in_segment
+
+            # check if output complete
+            if remaining_length == 0:
+                break
+
+        # next segment of requested region not found
+        if next_segment_address != address + length:
             raise exceptions.ConfigurationError(
-                f"Tried to read {length} bytes at {hex(address)}. Data at {hex(next_address)} is uninitialized."
+                f"Tried to read {length} bytes at {hex(address)}. Data at {hex(next_segment_address)} is uninitialized."
             )
 
         return out
