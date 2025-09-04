@@ -101,8 +101,14 @@ jobs:
       matrix:
         include:
           - testsuite: BlockTests
-          - testsuite: BranchTests
-          - testsuite: CallTests
+          - testsuite: BranchTestsAngr
+          - testsuite: BranchTestsGhidra
+          - testsuite: BranchTestsPanda
+          - testsuite: BranchTestsUnicorn
+          - testsuite: CallTestsAngr
+          - testsuite: CallTestsGhidra
+          - testsuite: CallTestsPanda
+          - testsuite: CallTestsUnicorn
           - testsuite: C99AbortTests
           - testsuite: C99AbsTests
           - testsuite: C99AsctimeTests
