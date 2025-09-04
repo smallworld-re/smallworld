@@ -93,127 +93,165 @@ jobs:
           python3 unit.py
 
   Integration-Test:
+    # Core functionality tests
+    # Test cases are defined as {testsuite}.test_{platform}_{emulator}
     runs-on: smallworld-arc
     needs: Lint
     if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
-      max-parallel: 20
       matrix:
-        include:
-          - testsuite: BlockTests
-          - testsuite: BranchTests
-          - testsuite: CallTests
-          - testsuite: C99AbortTests
-          - testsuite: C99AbsTests
-          - testsuite: C99AsctimeTests
-          - testsuite: C99AtexitTests
-          - testsuite: C99AtoiTests
-          - testsuite: C99AtollTests
-          - testsuite: C99AtolTests
-          - testsuite: C99CallocTests
-          - testsuite: C99ClearerrTests
-          - testsuite: C99ClockTests
-          - testsuite: C99CtimeTests
-          - testsuite: C99DifftimeTests
-          - testsuite: C99ExitTests
-          - testsuite: C99FcloseTests
-          - testsuite: C99FeofTests
-          - testsuite: C99FflushTests
-          - testsuite: C99FgetcTests
-          - testsuite: C99FgetposTests
-          - testsuite: C99FgetsTests
-          - testsuite: C99FopenTests
-          - testsuite: C99FprintfTests
-          - testsuite: C99FputcTests
-          - testsuite: C99FputsTests
-          - testsuite: C99FreadTests
-          - testsuite: C99FreeTests
-          - testsuite: C99FscanfTests
-          - testsuite: C99FseekTests
-          - testsuite: C99FsetposTests
-          - testsuite: C99FtellTests
-          - testsuite: C99FwriteTests
-          - testsuite: C99GetcharTests
-          - testsuite: C99GetcTests
-          - testsuite: C99GetenvTests
-          - testsuite: C99GetsTests
-          - testsuite: C99GmtimeTests
-          - testsuite: C99LabsTests
-          - testsuite: C99LlabsTests
-          - testsuite: C99LocaltimeTests
-          - testsuite: C99MallocTests
-          - testsuite: C99MemcmpTests
-          - testsuite: C99MemcpyTests
-          - testsuite: C99MemmoveTests
-          - testsuite: C99MemsetTests
-          - testsuite: C99MktimeTests
-          - testsuite: C99PrintfTests
-          - testsuite: C99PutcharTests
-          - testsuite: C99PutcTests
-          - testsuite: C99PutsTests
-          - testsuite: C99RandTests
-          - testsuite: C99ReallocTests
-          - testsuite: C99RemoveTests
-          - testsuite: C99RenameTests
-          - testsuite: C99RewindTests
-          - testsuite: C99ScanfTests
-          - testsuite: C99SignalTests
-          - testsuite: C99SnprintfTests
-          - testsuite: C99SprintfTests
-          - testsuite: C99SrandTests
-          - testsuite: C99SscanfTests
-          - testsuite: C99StrcatTests
-          - testsuite: C99StrchrTests
-          - testsuite: C99StrcmpTests
-          - testsuite: C99StrcpyTests
-          - testsuite: C99StrcspnTests
-          - testsuite: C99StrerrorTests
-          - testsuite: C99StrftimeTests
-          - testsuite: C99StrlenTests
-          - testsuite: C99StrncatTests
-          - testsuite: C99StrncmpTests
-          - testsuite: C99StrncpyTests
-          - testsuite: C99StrpbrkTests
-          - testsuite: C99StrrchrTests
-          - testsuite: C99StrspnTests
-          - testsuite: C99StrstrTests
-          - testsuite: C99StrtokTests
-          - testsuite: C99SystemTests
-          - testsuite: C99TimeTests
-          - testsuite: C99TmpfileTests
-          - testsuite: C99TmpnamTests
-          - testsuite: C99UngetcTests
-          - testsuite: ColorizerTests
-          - testsuite: DMATests
-          - testsuite: DocumentationTests
-          - testsuite: ElfTests
-          - testsuite: ElfCoreTests
+        testsuite:
+          - BranchTests
+          - CallTests
+          - DMATests
+          - ElfTests
+          - FloatsTests
+          - FuzzTests
+          - LinkElfTests
+          - HookingTests
+          - MemhookTests
+          - PETests
+          - RelaTests
+          - SquareTests
+          - StackTests
+          - StrlenTests
+          - SyscallTests
+        platform:
+          - aarch64
+          - amd64
+          - armel
+          - armhf
+          - i386
+          - mips
+          - mipsel
+          - mips64
+          - mips64el
+          - ppc
+          - ppc64
+          - riscv64
+          - xtensa
+        emulator:
+          - angr
+          - ghidra
+          - panda
+          - unicorn
+        exclude:
+          # mips64 does not run on unicorn
+          - platform: mips64
+            emulator: unicorn
+          # mips64el does not run on unicorn
+          - platform: mips64el
+            emulator: unicorn
+          # ppc does not run on unicorn
+          - platform: ppc
+            emulator: unicorn
+          # ppc64 does not run on unicorn or panda
+          - platform: ppc64
+            emulator: panda
+          - platform: ppc64
+            emulator: unicorn
+          # riscv64 does not run on unicorn or panda
+          - platform: riscv64
+            emulator: panda
+          - platform: riscv64
+            emulator: unicorn
+          # xtensa does not run on unicorn or panda
+          - platform: xtensa
+            emulator: panda
+          - platform: xtensa
+            emulator: unicorn
+          # FloatsTest is not run on Panda
           - testsuite: FloatsTests
+            emulator: panda
+          # FloatsTest is not run on armel, mips, mipsel, mips64, mips64el, ppc, ppc64, riscv64, or xtensa
+          - testsuite: FloatsTests
+            platform: armel
+          - testsuite: FloatsTests
+            platform: mips
+          - testsuite: FloatsTests
+            platform: mipsel
+          - testsuite: FloatsTests
+            platform: mips64
+          - testsuite: FloatsTests
+            platform: mips64el
+          - testsuite: FloatsTests
+            platform: ppc
+          - testsuite: FloatsTests
+            platform: ppc64
+          - testsuite: FloatsTests
+            platform: riscv64
+          - testsuite: FloatsTests
+            platform: xtensa
+          # FloatsTest doesn't work on armhf/unicorn
+          - testsuite: FloatsTests
+            platform: armhf
+            emulator: unicorn
+          # FuzzTest is only run on Unicorn
           - testsuite: FuzzTests
+            emulator: angr
+          - testsuite: FuzzTests
+            emulator: ghidra
+          - testsuite: FuzzTests
+            emulator: panda
+          # LinkElfTests is not run on ppc64 or xtensa
           - testsuite: LinkElfTests
-          - testsuite: HookingTests
-          - testsuite: MemhookTests
-          - testsuite: PETests
-          - testsuite: POSIXBasenameTests
-          - testsuite: POSIXBsdSignalTests
-          - testsuite: POSIXDirnameTests
-          - testsuite: POSIXPthreadSigmaskTests
-          - testsuite: POSIXSigactionTests
-          - testsuite: POSIXSigaddsetTests
-          - testsuite: POSIXSigdelsetTests
-          - testsuite: POSIXSigemptysetTests
-          - testsuite: POSIXSigfillsetTests
-          - testsuite: POSIXSigpendingTests
-          - testsuite: POSIXSigprocmaskTests
-          - testsuite: RelaTests
-          - testsuite: RTOSDemoTests
-          - testsuite: SquareTests
-          - testsuite: StackTests
-          - testsuite: StrlenTests
-          - testsuite: StructureTests
+            platform: ppc64
+          - testsuite: LinkElfTests
+            platform: xtensa
+          # RelaTests is not run on ppc64 or xtensa
+          - testsuite: LinkElfTests
+            platform: ppc64
+          - testsuite: LinkElfTests
+            platform: xtensa
+          # SyscallTests only runs on angr
           - testsuite: SyscallTests
-          - testsuite: SysVModelTests
-          - testsuite: TraceExecutionTests
+            emulator: ghidra
+          - testsuite: SyscallTests
+            emulator: panda
+          - testsuite: SyscallTests
+            emulator: unicorn
+        include:
+          # BlockTests only runs on a few combinations
+          - testsuite: BlockTests
+            platform: amd64
+            emulator: panda
+          - testsuite: BlockTests
+            platform: amd64
+            emulator: unicorn
+          # PETests only runs on a few combinations
+          - testsuite: PETests
+            platform: amd64
+          - testsuite: PETests
+            platform: i386 
+    steps:
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - name: Run Integration Tests
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.platform }}_${{ matrix.emulator }}
+  
+  Extra-Test:
+    # Extra functionality tests
+    # Runs full test suites; these are all small, and don't have a consistent nomenclature
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    strategy:
+      matrix:
+        testsuite:
+          - ColorizerTests
+          - DocumentationTests
+          - RTOSDemoTests
+          - StructureTests
+          - SymbolicTests
+          - TraceExecutionTests
     steps:
       - name: Copy Repo
         run: |
@@ -227,10 +265,143 @@ jobs:
           pip install -e .[development] -c constraints.txt
           cd tests
           python3 integration.py -v ${{ matrix.testsuite }}
+  
+  Library-Test:
+    # Library model test suite
+    # Test cases are defined as {testsuite}.test_{platform}
+    runs-on: smallworld-arc
+    needs: Lint
+    if: needs.Lint.outputs.changes_detected == 'false'
+    strategy:
+      matrix:
+        testsuite:
+          - C99AbortTests
+          - C99AbsTests
+          - C99AsctimeTests
+          - C99AtexitTests
+          - C99AtoiTests
+          - C99AtollTests
+          - C99AtolTests
+          - C99CallocTests
+          - C99ClearerrTests
+          - C99ClockTests
+          - C99CtimeTests
+          - C99DifftimeTests
+          - C99ExitTests
+          - C99FcloseTests
+          - C99FeofTests
+          - C99FflushTests
+          - C99FgetcTests
+          - C99FgetposTests
+          - C99FgetsTests
+          - C99FopenTests
+          - C99FprintfTests
+          - C99FputcTests
+          - C99FputsTests
+          - C99FreadTests
+          - C99FreeTests
+          - C99FscanfTests
+          - C99FseekTests
+          - C99FsetposTests
+          - C99FtellTests
+          - C99FwriteTests
+          - C99GetcharTests
+          - C99GetcTests
+          - C99GetenvTests
+          - C99GetsTests
+          - C99GmtimeTests
+          - C99LabsTests
+          - C99LlabsTests
+          - C99LocaltimeTests
+          - C99MallocTests
+          - C99MemcmpTests
+          - C99MemcpyTests
+          - C99MemmoveTests
+          - C99MemsetTests
+          - C99MktimeTests
+          - C99PrintfTests
+          - C99PutcharTests
+          - C99PutcTests
+          - C99PutsTests
+          - C99RandTests
+          - C99ReallocTests
+          - C99RemoveTests
+          - C99RenameTests
+          - C99RewindTests
+          - C99ScanfTests
+          - C99SignalTests
+          - C99SnprintfTests
+          - C99SprintfTests
+          - C99SrandTests
+          - C99SscanfTests
+          - C99StrcatTests
+          - C99StrchrTests
+          - C99StrcmpTests
+          - C99StrcpyTests
+          - C99StrcspnTests
+          - C99StrerrorTests
+          - C99StrftimeTests
+          - C99StrlenTests
+          - C99StrncatTests
+          - C99StrncmpTests
+          - C99StrncpyTests
+          - C99StrpbrkTests
+          - C99StrrchrTests
+          - C99StrspnTests
+          - C99StrstrTests
+          - C99StrtokTests
+          - C99SystemTests
+          - C99TimeTests
+          - C99TmpfileTests
+          - C99TmpnamTests
+          - C99UngetcTests
+          # This isn't a library model, but it uses the same nomenclature
+          - ElfCoreTests
+          - POSIXBasenameTests
+          - POSIXBsdSignalTests
+          - POSIXDirnameTests
+          - POSIXPthreadSigmaskTests
+          - POSIXSigactionTests
+          - POSIXSigaddsetTests
+          - POSIXSigdelsetTests
+          - POSIXSigemptysetTests
+          - POSIXSigfillsetTests
+          - POSIXSigpendingTests
+          - POSIXSigprocmaskTests
+          - SysVModelTests
+        platform:
+          - aarch64
+          - amd64
+          - armel
+          - armhf
+          - armel
+          - armhf
+          - i386
+          - mips
+          - mipsel
+          - mips64
+          - mips64el
+          - ppc
+          # No ppc64; its linker spec is a disaster
+          - riscv64
+          # No xtensa; no libc
+    steps:
+      - name: Copy Repo
+        run: |
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - name: Run Integration Tests
+        env:
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+        run: |
+          cd smallworld/
+          pip install -e .[development] -c constraints.txt
+          cd tests
+          python3 integration.py -v ${{ matrix.testsuite }}.test_${{ matrix.platform }}_${{ matrix.emulator }}
 
   Results:
     runs-on: smallworld-arc
-    needs: [Lint, Unit-Test, Integration-Test]
+    needs: [Lint, Unit-Test, Integration-Test, Extra-Test, Library-Test]
     if: always()
     steps:
       - name: Formatter committed – new run will verify

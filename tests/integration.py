@@ -160,133 +160,133 @@ class CallTests(ScriptIntegrationTest):
         test_output(102, 0x21)
         test_output(65536, 0x21)
 
-    def test_call_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_call_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_call_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_call_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_call_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_call_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_call_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_call_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_call_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_call_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_call_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_call_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_call_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_call_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_call_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_call_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_call_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_call_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_call_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_call_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_call_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_call_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_call_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_call_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_call_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_call_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_call_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_call_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_call_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr", signext=True)
 
-    def test_call_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda", signext=True)
 
-    def test_call_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra", signext=True)
 
-    def test_call_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
 
-    def test_call_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda", signext=True)
 
-    def test_call_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra", signext=True)
 
-    def test_call_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_call_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_call_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_call_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
-    def test_call_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra", signext=True)
 
-    def test_call_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr", signext=True)
 
-    def test_call_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra", signext=True)
 
-    def test_call_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
-    def test_call_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra")
 
 
@@ -298,133 +298,133 @@ class DMATests(ScriptIntegrationTest):
 
         test_output(10, 2, 0x5)
 
-    def test_dma_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_dma_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_dma_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_dma_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_dma_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_dma_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_dma_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_dma_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_dma_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_dma_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_dma_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_dma_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_dma_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_dma_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_dma_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_dma_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_dma_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_dma_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_dma_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_dma_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_dma_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_dma_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_dma_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_dma_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_dma_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_dma_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_dma_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_dma_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_dma_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr", signext=True)
 
-    def test_dma_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda", signext=True)
 
-    def test_dma_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra", signext=True)
 
-    def test_dma_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
 
-    def test_dma_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda", signext=True)
 
-    def test_dma_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra", signext=True)
 
-    def test_dma_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_dma_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_dma_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_dma_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
-    def test_dma_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra")
 
-    def test_dma_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_dma_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
-    def test_dma_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
-    def test_dma_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra")
 
 
@@ -443,133 +443,133 @@ class SquareTests(ScriptIntegrationTest):
         test_output(1337)
         test_output(65535)
 
-    def test_square_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test(arch="amd64")
 
-    def test_square_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test(arch="amd64.angr")
 
-    def test_square_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test(arch="amd64.panda")
 
-    def test_square_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test(arch="amd64.ghidra")
 
-    def test_square_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test(arch="aarch64")
 
-    def test_square_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test(arch="aarch64.angr")
 
-    def test_square_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test(arch="aarch64.panda")
 
-    def test_square_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test(arch="aarch64.ghidra")
 
-    def test_square_armel(self):
+    def test_armel_unicorn(self):
         self.run_test(arch="armel")
 
-    def test_square_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test(arch="armel.angr")
 
-    def test_square_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test(arch="armel.panda")
 
-    def test_square_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test(arch="armel.ghidra")
 
-    def test_square_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test(arch="armhf")
 
-    def test_square_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test(arch="armhf.angr")
 
-    def test_square_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test(arch="armhf.panda")
 
-    def test_square_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test(arch="armhf.ghidra")
 
-    def test_square_i386(self):
+    def test_i386_unicorn(self):
         self.run_test(arch="i386")
 
-    def test_square_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test(arch="i386.angr")
 
-    def test_square_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test(arch="i386.panda")
 
-    def test_square_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test(arch="i386.ghidra")
 
-    def test_square_mips(self):
+    def test_mips_unicorn(self):
         self.run_test(arch="mips")
 
-    def test_square_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test(arch="mips.angr")
 
-    def test_square_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test(arch="mips.panda")
 
-    def test_square_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test(arch="mips.ghidra")
 
-    def test_square_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test(arch="mipsel")
 
-    def test_square_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test(arch="mipsel.angr")
 
-    def test_square_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test(arch="mipsel.panda")
 
-    def test_square_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test(arch="mipsel.ghidra")
 
-    def test_square_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test(arch="mips64.angr", signext=True)
 
-    def test_square_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test(arch="mips64.panda", signext=True)
 
-    def test_square_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test(arch="mips64.ghidra", signext=True)
 
-    def test_square_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test(arch="mips64el.angr", signext=True)
 
-    def test_square_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test(arch="mips64el.panda", signext=True)
 
-    def test_square_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test(arch="mips64el.ghidra", signext=True)
 
-    def test_square_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_square_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_square_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_square_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
-    def test_square_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra", signext=True)
 
-    def test_square_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr", signext=True)
 
-    def test_square_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra", signext=True)
 
-    def test_square_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
-    def test_square_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra")
 
 
@@ -585,127 +585,127 @@ class RecursionTests(ScriptIntegrationTest):
         test_output(101, 91)
         test_output(102, 92)
 
-    def test_recursion_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_recursion_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_recursion_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_recursion_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_recursion_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_recursion_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_recursion_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_recursion_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_recursion_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_recursion_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_recursion_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_recursion_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_recursion_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_recursion_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_recursion_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_recursion_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_recursion_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_recursion_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_recursion_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_recursion_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_recursion_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_recursion_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_recursion_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_recursion_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_recursion_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_recursion_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_recursion_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_recursion_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_recursion_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_recursion_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda")
 
-    def test_recursion_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra")
 
-    def test_recursion_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_recursion_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda")
 
-    def test_recursion_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra")
 
-    def test_recursion_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_recursion_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_recursion_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_recursion_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
-    def test_recursion_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra")
 
-    def test_recursion_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_recursion_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
     def test_xtensa_angr(self):
@@ -728,10 +728,10 @@ class BlockTests(ScriptIntegrationTest):
 
         test_output()
 
-    def test_block_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_block_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
 
@@ -740,133 +740,133 @@ class StackTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 stack/stack.{arch}.py")
         self.assertLineContainsStrings(stdout, reg, res)
 
-    def test_stack_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_stack_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_stack_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_stack_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_stack_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64", reg="x0", res="0xffffffff")
 
-    def test_stack_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr", reg="x0", res="0xffffffff")
 
-    def test_stack_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda", reg="x0", res="0xffffffff")
 
-    def test_stack_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra", reg="x0", res="0xffffffff")
 
-    def test_stack_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel", reg="r0")
 
-    def test_stack_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr", reg="r0")
 
-    def test_stack_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda", reg="r0")
 
-    def test_stack_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra", reg="r0")
 
-    def test_stack_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf", reg="r0")
 
-    def test_stack_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr", reg="r0")
 
-    def test_stack_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda", reg="r0")
 
-    def test_stack_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra", reg="r0")
 
-    def test_stack_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_stack_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_stack_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_stack_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_stack_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips", reg="v0", res="0xaaaa")
 
-    def test_stack_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr", reg="v0", res="0xaaaa")
 
-    def test_stack_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda", reg="v0", res="0xaaaa")
 
-    def test_stack_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra", reg="v0", res="0xaaaa")
 
-    def test_stack_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel", reg="v0", res="0xaaaa")
 
-    def test_stack_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr", reg="v0", res="0xaaaa")
 
-    def test_stack_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda", reg="v0", res="0xaaaa")
 
-    def test_stack_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra", reg="v0", res="0xaaaa")
 
-    def test_stack_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr", reg="v0", res="0xffff")
 
-    def test_stack_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda", reg="v0", res="0xffff")
 
-    def test_stack_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra", reg="v0", res="0xffff")
 
-    def test_stack_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr", reg="v0", res="0xffff")
 
-    def test_stack_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda", reg="v0", res="0xffff")
 
-    def test_stack_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra", reg="v0", res="0xffff")
 
-    def test_stack_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr", reg="r3", res="0xffff")
 
-    def test_stack_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda", reg="r3", res="0xffff")
 
-    def test_stack_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra", reg="r3", res="0xffff")
 
-    def test_stack_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr", reg="r3", res="0xffff")
 
-    def test_stack_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra", reg="r3", res="0xffff")
 
-    def test_stack_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr", reg="a0", res="0xffffffff")
 
-    def test_stack_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra", reg="a0", res="0xffffffff")
 
-    def test_stack_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr", reg="a2", res="0xaaaaaaaa")
 
-    def test_stack_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra", reg="a2", res="0xaaaaaaaa")
 
 
@@ -891,133 +891,133 @@ class BranchTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 branch/branch.{arch}.py 101")
         self.assertLineContainsStrings(stdout, reg, "0x0")
 
-    def test_branch_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_branch("amd64")
 
-    def test_branch_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_branch("amd64.angr")
 
-    def test_branch_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_branch("amd64.panda")
 
-    def test_branch_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_branch("amd64.ghidra")
 
-    def test_branch_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_branch("aarch64", reg="w0")
 
-    def test_branch_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_branch("aarch64.angr", reg="w0")
 
-    def test_branch_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_branch("aarch64.panda", reg="w0")
 
-    def test_branch_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_branch("aarch64.ghidra", reg="w0")
 
-    def test_branch_armel(self):
+    def test_armel_unicorn(self):
         self.run_branch("armel", reg="r0")
 
-    def test_branch_armel_angr(self):
+    def test_armel_angr(self):
         self.run_branch("armel.angr", reg="r0")
 
-    def test_branch_armel_panda(self):
+    def test_armel_panda(self):
         self.run_branch("armel.panda", reg="r0")
 
-    def test_branch_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_branch("armel.ghidra", reg="r0")
 
-    def test_branch_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_branch("armhf", reg="r0")
 
-    def test_branch_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_branch("armhf.angr", reg="r0")
 
-    def test_branch_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_branch("armhf.panda", reg="r0")
 
-    def test_branch_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_branch("armhf.ghidra", reg="r0")
 
-    def test_branch_i386(self):
+    def test_i386_unicorn(self):
         self.run_branch("i386")
 
-    def test_branch_i386_angr(self):
+    def test_i386_angr(self):
         self.run_branch("i386.angr")
 
-    def test_branch_i386_panda(self):
+    def test_i386_panda(self):
         self.run_branch("i386.panda")
 
-    def test_branch_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_branch("i386.ghidra")
 
-    def test_branch_mips(self):
+    def test_mips_unicorn(self):
         self.run_branch("mips", reg="v0")
 
-    def test_branch_mips_angr(self):
+    def test_mips_angr(self):
         self.run_branch("mips.angr", reg="v0")
 
-    def test_branch_mips_panda(self):
+    def test_mips_panda(self):
         self.run_branch("mips.panda", reg="v0")
 
-    def test_branch_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_branch("mips.ghidra", reg="v0")
 
-    def test_branch_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_branch("mipsel", reg="v0")
 
-    def test_branch_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_branch("mipsel.angr", reg="v0")
 
-    def test_branch_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_branch("mipsel.panda", reg="v0")
 
-    def test_branch_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_branch("mipsel.ghidra", reg="v0")
 
-    def test_branch_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_branch("mips64.angr", reg="v0")
 
-    def test_branch_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_branch("mips64.panda", reg="v0")
 
-    def test_branch_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_branch("mips64.ghidra", reg="v0")
 
-    def test_branch_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_branch("mips64el.angr", reg="v0")
 
-    def test_branch_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_branch("mips64el.panda", reg="v0")
 
-    def test_branch_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_branch("mips64el.ghidra", reg="v0")
 
-    def test_branch_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_branch("ppc.angr", reg="r3")
 
-    def test_branch_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_branch("ppc.panda", reg="r3")
 
-    def test_branch_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_branch("ppc.ghidra", reg="r3")
 
-    def test_branch_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
 
-    def test_branch_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_branch("ppc64.ghidra", reg="r3")
 
-    def test_branch_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_branch("riscv64.angr", reg="a0")
 
-    def test_branch_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_branch("riscv64.ghidra", reg="a0")
 
-    def test_branch_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_branch("xtensa.angr", reg="a2")
 
-    def test_branch_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_branch("xtensa.ghidra", reg="a2")
 
 
@@ -1029,133 +1029,133 @@ class StrlenTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 strlen/strlen.{arch}.py foobar")
         self.assertLineContainsStrings(stdout, "0x6")
 
-    def test_strlen_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_strlen_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_strlen_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_strlen_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_strlen_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_strlen_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_strlen_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_strlen_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_strlen_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_strlen_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_strlen_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_strlen_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_strlen_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_strlen_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_strlen_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_strlen_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_strlen_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_strlen_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_strlen_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_strlen_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_strlen_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_strlen_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_strlen_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_strlen_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_strlen_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_strlen_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_strlen_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_strlen_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_strlen_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_strlen_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda")
 
-    def test_strlen_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra")
 
-    def test_strlen_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_strlen_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda")
 
-    def test_strlen_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra")
 
-    def test_strlen_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_strlen_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_strlen_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_strlen_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
-    def test_strlen_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra")
 
-    def test_strlen_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_strlen_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
-    def test_strlen_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
-    def test_strlen_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra")
 
 
@@ -1172,137 +1172,137 @@ class HookingTests(ScriptIntegrationTest):
         )
         self.assertLineContainsStrings(stdout, expected)
 
-    def test_hooking_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_hooking_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_hooking_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_hooking_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_hooking_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_hooking_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_hooking_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_hooking_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_hooking_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_hooking_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_hooking_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_hooking_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_hooking_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_hooking_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_hooking_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_hooking_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_hooking_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_hooking_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_hooking_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_hooking_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_hooking_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_hooking_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_hooking_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_hooking_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_hooking_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_hooking_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_hooking_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_hooking_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_hooking_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_hooking_mips64_panda(self):
+    def test_mips64_panda(self):
         # There is a crazy bug in panda/mips64;
         # it forgets the first character
         self.run_test("mips64.panda", heckingMIPS64=True)
 
-    def test_hooking_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra")
 
-    def test_hooking_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_hooking_mips64el_panda(self):
+    def test_mips64el_panda(self):
         # There is a crazy bug in panda/mips64;
         # it forgets the first character
         self.run_test("mips64el.panda", heckingMIPS64=True)
 
-    def test_hooking_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra")
 
-    def test_hooking_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_hooking_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_hooking_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_hooking_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
-    def test_hooking_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra")
 
-    def test_hooking_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_hooking_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
-    def test_hooking_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
-    def test_hooking_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra")
 
 
@@ -1321,7 +1321,7 @@ class MemhookTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "baz: read 4 bytes at 0x1024")
         self.assertLineContainsStrings(stdout, "qux: read 4 bytes at 0x1034")
 
-    def test_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test_64("aarch64")
 
     def test_aarch64_angr(self):
@@ -1333,7 +1333,7 @@ class MemhookTests(ScriptIntegrationTest):
     def test_aarch64_ghidra(self):
         self.run_test_64("aarch64.ghidra")
 
-    def test_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test_64("amd64")
 
     def test_amd64_angr(self):
@@ -1345,7 +1345,7 @@ class MemhookTests(ScriptIntegrationTest):
     def test_amd64_ghidra(self):
         self.run_test_64("amd64.ghidra")
 
-    def test_armel(self):
+    def test_armel_unicorn(self):
         self.run_test_32("armel")
 
     def test_armel_angr(self):
@@ -1357,7 +1357,7 @@ class MemhookTests(ScriptIntegrationTest):
     def test_armel_ghidra(self):
         self.run_test_32("armel.ghidra")
 
-    def test_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test_32("armhf")
 
     def test_armhf_angr(self):
@@ -1369,7 +1369,7 @@ class MemhookTests(ScriptIntegrationTest):
     def test_armhf_ghidra(self):
         self.run_test_32("armhf.ghidra")
 
-    def test_i386(self):
+    def test_i386_unicorn(self):
         self.run_test_32("i386")
 
     def test_i386_angr(self):
@@ -1381,7 +1381,7 @@ class MemhookTests(ScriptIntegrationTest):
     def test_i386_ghidra(self):
         self.run_test_32("i386.ghidra")
 
-    def test_mips(self):
+    def test_mips_unicorn(self):
         self.run_test_32("mips")
 
     def test_mips_angr(self):
@@ -1393,7 +1393,7 @@ class MemhookTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test_32("mips.ghidra")
 
-    def test_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test_32("mipsel")
 
     def test_mipsel_angr(self):
@@ -1448,133 +1448,133 @@ class ElfTests(ScriptIntegrationTest):
     def run_test(self, arch):
         self.command(f"python3 elf/elf.{arch}.py foobar")
 
-    def test_elf_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_elf_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_elf_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_elf_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_elf_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_elf_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_elf_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_elf_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_elf_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_elf_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_elf_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_elf_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_elf_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_elf_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_elf_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_elf_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_elf_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_elf_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_elf_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_elf_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_elf_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_elf_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_elf_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_elf_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_elf_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_elf_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_elf_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_elf_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_elf_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_elf_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda")
 
-    def test_elf_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra")
 
-    def test_elf_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_elf_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda")
 
-    def test_elf_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra")
 
-    def test_elf_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_elf_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_elf_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
-    def test_elf_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
-    def test_elf_ppc64_ghidra(self):
+    def test_ppc64_ghidra(self):
         self.run_test("ppc64.ghidra")
 
-    def test_elf_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_elf_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
-    def test_elf_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
-    def test_elf_xtensa_ghidra(self):
+    def test_xtensa_ghidra(self):
         self.run_test("xtensa.ghidra")
 
 
@@ -1583,123 +1583,123 @@ class RelaTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 rela/rela.{arch}.py")
         self.assertLineContainsStrings(stdout, "Hello, world!")
 
-    def test_rela_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_rela_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_rela_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_rela_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_rela_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_rela_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_rela_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_rela_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_rela_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_rela_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_rela_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_rela_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_rela_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_rela_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_rela_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_rela_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_rela_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_rela_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_rela_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_rela_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_rela_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_rela_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_rela_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_rela_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_rela_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_rela_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_rela_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_rela_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_rela_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_rela_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda")
 
-    def test_rela_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra")
 
-    def test_rela_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_rela_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda")
 
-    def test_rela_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra")
 
-    def test_rela_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_rela_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_rela_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
     # NOTE: PowerPC64 relocations are not currently supported
 
-    def test_rela_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_rela_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
     # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
@@ -1710,123 +1710,123 @@ class LinkElfTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 link_elf/link_elf.{arch}.py 42")
         self.assertLineContainsStrings(stdout, "0x2a")
 
-    def test_link_elf_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_link_elf_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_link_elf_aarch64_panda(self):
+    def test_aarch64_panda(self):
         self.run_test("aarch64.panda")
 
-    def test_link_elf_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_link_elf_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_link_elf_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_link_elf_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_link_elf_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_link_elf_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
-    def test_link_elf_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_link_elf_armel_panda(self):
+    def test_armel_panda(self):
         self.run_test("armel.panda")
 
-    def test_link_elf_armel_ghidra(self):
+    def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_link_elf_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
-    def test_link_elf_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_link_elf_armhf_panda(self):
+    def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
-    def test_link_elf_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_link_elf_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_link_elf_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_link_elf_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_link_elf_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_link_elf_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
-    def test_link_elf_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_link_elf_mips_panda(self):
+    def test_mips_panda(self):
         self.run_test("mips.panda")
 
-    def test_link_elf_mips_ghidra(self):
+    def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_link_elf_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
-    def test_link_elf_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_link_elf_mipsel_panda(self):
+    def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
-    def test_link_elf_mipsel_ghidra(self):
+    def test_mipsel_ghidra(self):
         self.run_test("mipsel.ghidra")
 
-    def test_link_elf_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_link_elf_mips64_panda(self):
+    def test_mips64_panda(self):
         self.run_test("mips64.panda")
 
-    def test_link_elf_mips64_ghidra(self):
+    def test_mips64_ghidra(self):
         self.run_test("mips64.ghidra")
 
-    def test_link_elf_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_link_elf_mips64el_panda(self):
+    def test_mips64el_panda(self):
         self.run_test("mips64el.panda")
 
-    def test_link_elf_mips64el_ghidra(self):
+    def test_mips64el_ghidra(self):
         self.run_test("mips64el.ghidra")
 
-    def test_link_elf_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_link_elf_ppc_panda(self):
+    def test_ppc_panda(self):
         self.run_test("ppc.panda")
 
-    def test_link_elf_ppc_ghidra(self):
+    def test_ppc_ghidra(self):
         self.run_test("ppc.ghidra")
 
     # NOTE: PowerPC64 relocations are not currently supported
 
-    def test_link_elf_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_link_elf_riscv64_ghidra(self):
+    def test_riscv64_ghidra(self):
         self.run_test("riscv64.ghidra")
 
     # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
@@ -1836,37 +1836,37 @@ class ElfCoreTests(ScriptIntegrationTest):
     def run_test(self, arch):
         self.command(f"python3 elf_core/elf_core.{arch}.py")
 
-    def test_elf_core_aarch64(self):
+    def test_aarch64(self):
         self.run_test("aarch64")
 
-    def test_elf_core_amd64(self):
+    def test_amd64(self):
         self.run_test("amd64")
 
-    def test_elf_core_armel(self):
+    def test_armel(self):
         self.run_test("armel")
 
-    def test_elf_core_armhf(self):
+    def test_armhf(self):
         self.run_test("armhf")
 
-    def test_elf_core_i386(self):
+    def test_i386(self):
         self.run_test("i386")
 
-    def test_elf_core_mips(self):
+    def test_mips(self):
         self.run_test("mips")
 
-    def test_elf_core_mipsel(self):
+    def test_mipsel(self):
         self.run_test("mipsel")
 
-    def test_elf_core_mips64(self):
+    def test_mips64(self):
         self.run_test("mips64")
 
-    def test_elf_core_mips64el(self):
+    def test_mips64el(self):
         self.run_test("mips64el")
 
-    def test_elf_core_ppc(self):
+    def test_ppc(self):
         self.run_test("ppc")
 
-    def test_elf_core_ppc64(self):
+    def test_ppc64(self):
         self.run_test("ppc64")
 
     # NOTE: RiscV doesn't produce a core file when asked.
@@ -1880,28 +1880,28 @@ class PETests(ScriptIntegrationTest):
         stdout = "Hello, world!"
         self.assertLineContainsStrings(stdout, "Hello, world!")
 
-    def test_pe_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_pe_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_pe_amd64_panda(self):
+    def test_amd64_panda(self):
         self.run_test("amd64.panda")
 
-    def test_pe_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_pe_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_pe_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_pe_i386_panda(self):
+    def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    def test_pe_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
 
@@ -1910,41 +1910,41 @@ class FloatsTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 floats/floats.{arch}.py 2.2 1.1")
         self.assertLineContainsStrings(stdout, "3.3")
 
-    def test_floats_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
-    def test_floats_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_floats_aarch64_ghidra(self):
+    def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_floats_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
-    def test_floats_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_floats_amd64_ghidra(self):
+    def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
     # NOTE: armel has no FPU, so no tests
 
     # NOTE: Unicorn does not support armhf float instructions
 
-    def test_floats_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_floats_armhf_ghidra(self):
+    def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_floats_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
-    def test_floats_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_floats_i386_ghidra(self):
+    def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
     # NOTE: mips be crazy
@@ -1962,43 +1962,43 @@ class SyscallTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "Executing syscall")
         self.assertLineContainsStrings(stdout, "Executing a write syscall")
 
-    def test_syscall_aarch64_angr(self):
+    def test_aarch64_angr(self):
         self.run_test("aarch64.angr")
 
-    def test_syscall_amd64_angr(self):
+    def test_amd64_angr(self):
         self.run_test("amd64.angr")
 
-    def test_syscall_armel_angr(self):
+    def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    def test_syscall_armhf_angr(self):
+    def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    def test_syscall_i386_angr(self):
+    def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    def test_syscall_mips_angr(self):
+    def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    def test_syscall_mipsel_angr(self):
+    def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    def test_syscall_mips64_angr(self):
+    def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    def test_syscall_mips64el_angr(self):
+    def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    def test_syscall_ppc_angr(self):
+    def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
-    def test_syscall_ppc64_angr(self):
+    def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
-    def test_syscall_riscv64_angr(self):
+    def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
-    def test_syscall_xtensa_angr(self):
+    def test_xtensa_angr(self):
         self.run_test("xtensa.angr")
 
 
@@ -2007,7 +2007,7 @@ class StaticBufferTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 static_buf/static_buf.{arch}.py")
         self.assertLineContainsStrings(stdout, "=0x4a1")
 
-    def test_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64")
 
     def test_aarch64_angr(self):
@@ -2019,7 +2019,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_aarch64_ghidra(self):
         self.run_test("aarch64.ghidra")
 
-    def test_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_test("amd64")
 
     def test_amd64_angr(self):
@@ -2031,7 +2031,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_amd64_ghidra(self):
         self.run_test("amd64.ghidra")
 
-    def test_armel(self):
+    def test_armel_unicorn(self):
         self.run_test("armel")
 
     def test_armel_angr(self):
@@ -2043,7 +2043,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_armel_ghidra(self):
         self.run_test("armel.ghidra")
 
-    def test_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_test("armhf")
 
     def test_armhf_angr(self):
@@ -2055,7 +2055,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_armhf_ghidra(self):
         self.run_test("armhf.ghidra")
 
-    def test_i386(self):
+    def test_i386_unicorn(self):
         self.run_test("i386")
 
     def test_i386_angr(self):
@@ -2067,7 +2067,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_i386_ghidra(self):
         self.run_test("i386.ghidra")
 
-    def test_mips(self):
+    def test_mips_unicorn(self):
         self.run_test("mips")
 
     def test_mips_angr(self):
@@ -2079,7 +2079,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.ghidra")
 
-    def test_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_test("mipsel")
 
     def test_mipsel_angr(self):
@@ -2155,10 +2155,8 @@ class FuzzTests(ScriptIntegrationTest):
         for line in lines:
             self.assertLineContainsStrings(stdout, line)
 
-    def test_fuzz_amd64(self):
+    def test_amd64_unicorn(self):
         self.run_fuzz("amd64")
-
-    def test_afl_amd64(self):
         self.run_afl(
             "amd64",
             [
@@ -2172,10 +2170,8 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
-    def test_fuzz_aarch64(self):
+    def test_aarch64_unicorn(self):
         self.run_fuzz("aarch64")
-
-    def test_afl_aarch64(self):
         self.run_afl(
             "aarch64",
             [
@@ -2186,10 +2182,8 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
-    def test_fuzz_armel(self):
+    def test_armel_unicorn(self):
         self.run_fuzz("armel")
-
-    def test_afl_armel(self):
         self.run_afl(
             "armel",
             [
@@ -2199,10 +2193,8 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
-    def test_fuzz_armhf(self):
+    def test_armhf_unicorn(self):
         self.run_fuzz("armhf")
-
-    def test_afl_armhf(self):
         self.run_afl(
             "armhf",
             [
@@ -2212,10 +2204,8 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
-    def test_fuzz_mips(self):
+    def test_mips_unicorn(self):
         self.run_fuzz("mips")
-
-    def test_afl_mips(self):
         self.run_afl(
             "mips",
             [
@@ -2226,10 +2216,8 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
-    def test_fuzz_mipsel(self):
+    def test_mipsel_unicorn(self):
         self.run_fuzz("mipsel")
-
-    def test_afl_mipsel(self):
         self.run_afl(
             "mipsel",
             [
