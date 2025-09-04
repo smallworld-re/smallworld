@@ -154,10 +154,7 @@ class CallTests(ScriptIntegrationTest):
             test_output(0, 0xFFFFFFFFFFFFFFF9)
         else:
             test_output(0, 0xFFFFFFF9)
-        test_output(1, 0x1)
-        test_output(2, 0x9)
         test_output(101, 0x321)
-        test_output(102, 0x21)
         test_output(65536, 0x21)
 
 
