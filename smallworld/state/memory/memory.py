@@ -122,15 +122,51 @@ class Memory(state.Stateful, dict):
 
         for segment_offset, segment in self.items():
             segment_address = self.address + segment_offset
-            if address >= segment_address and address < segment_address + segment._size:
+            if (
+                address >= segment_address
+                and address < segment_address + segment.get_size()
+            ):
                 contents = segment.get_content()
                 if not isinstance(contents, bytes):
                     raise exceptions.SymbolicValueError(
-                        f"Tried to write {len(data)} bytes at {hex(address)}; data in {segment_address:x} - {segment_address + segment._size:x} is symbolic."
+                        f"Tried to write {len(data)} bytes at {hex(address)}; data in {segment_address:x} - {segment_address + segment.get_size():x} is symbolic."
                     )
                 offset = address - segment_address
                 contents = contents[0:offset] + data + contents[offset + len(data) :]
                 segment.set_content(contents)
+        if address - self.address not in self.keys():
+            self[address - self.address] = state.BytesValue(data, None)
+
+    def read_bytes(self, address: int, length: int) -> bytes:
+        """Read part of this memory region
+
+        This will fail if any sub-region of the memory requested is symbolic or uninitialized
+        """
+
+        out: bytes = b""
+        next_address = address
+        segment: state.Value
+        for segment_offset, segment in self.items():
+            contents = segment.get_content()
+            segment_address = self.address + segment_offset
+            if not isinstance(contents, bytes):
+                raise exceptions.SymbolicValueError(
+                    f"Tried to read {length} bytes at {hex(address)}. Data at {hex(next_address)} - {hex(next_address + segment.get_size())} is symbolic."
+                )
+            if segment_address <= next_address:
+                offset_in_segment = next_address - segment_address
+                length_in_segment = min(length, segment.get_size())
+                out += contents[
+                    offset_in_segment : offset_in_segment + length_in_segment
+                ]
+                next_address += length_in_segment
+        # next segment or requested region not found
+        if next_address != address + length:
+            raise exceptions.ConfigurationError(
+                f"Tried to read {length} bytes at {hex(address)}. Data at {hex(next_address)} is uninitialized."
+            )
+
+        return out
 
     def __hash__(self):
         return super(dict, self).__hash__()
