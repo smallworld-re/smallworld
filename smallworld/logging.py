@@ -23,6 +23,8 @@ class ColorLevelFilter(logging.Filter):
 
     WHITE_DIM = "\x1b[37;2m"
     WHITE = "\x1b[37m"
+    NORMAL_DIM = "\x1b[0;2m"
+    NORMAL = "\x1b[0m"
     YELLOW = "\x1b[33m"
     RED = "\x1b[31m"
     RED_BOLD = "\x1b[31;1m"
@@ -30,8 +32,8 @@ class ColorLevelFilter(logging.Filter):
     NULL = END
 
     COLORS = {
-        logging.DEBUG: WHITE_DIM,
-        logging.INFO: WHITE,
+        logging.DEBUG: NORMAL_DIM,
+        logging.INFO: NORMAL,
         logging.WARNING: YELLOW,
         logging.ERROR: RED,
         logging.CRITICAL: RED_BOLD,

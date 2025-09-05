@@ -38,6 +38,9 @@ development = [
   "pre-commit",
   "sphinx",
   "sphinxcontrib-programoutput",
+  "jupyterlab",
+  "notebook",
+  "timeout-decorator",
 ]
 
 [project.scripts]
