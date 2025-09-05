@@ -22,8 +22,9 @@ class ColorLevelFilter(logging.Filter):
     """Adds logging level as a color for formatting."""
 
     WHITE_DIM = "\x1b[37;2m"
-    # WHITE = "\x1b[37m"
-    WHITE = "\x1b[0m"
+    WHITE = "\x1b[37m"
+    NORMAL_DIM = "\x1b[0;2m"
+    NORMAL = "\x1b[0m"
     YELLOW = "\x1b[33m"
     RED = "\x1b[31m"
     RED_BOLD = "\x1b[31;1m"
@@ -31,8 +32,8 @@ class ColorLevelFilter(logging.Filter):
     NULL = END
 
     COLORS = {
-        logging.DEBUG: WHITE_DIM,
-        logging.INFO: WHITE,
+        logging.DEBUG: NORMAL_DIM,
+        logging.INFO: NORMAL,
         logging.WARNING: YELLOW,
         logging.ERROR: RED,
         logging.CRITICAL: RED_BOLD,
@@ -47,7 +48,6 @@ def setup_logging(
     level: int = logging.INFO,
     verbose: bool = False,
     colors: bool = True,
-    force_colors: bool = False,
     clear: bool = True,
 ) -> None:
     """Setup log handling.
@@ -66,7 +66,7 @@ def setup_logging(
     else:
         format = "[%(levelchar)s] %(message)s"
 
-    if force_colors or (colors and sys.stderr.isatty()):
+    if colors and sys.stderr.isatty():
         format = f"%(levelcolor)s{format}{ColorLevelFilter.END}"
 
     root = logging.getLogger()
@@ -79,7 +79,7 @@ def setup_logging(
 
     formatter = logging.Formatter(format)
 
-    handler = logging.StreamHandler(sys.stdout)
+    handler = logging.StreamHandler()
     handler.setLevel(level)
     handler.addFilter(CharacterLevelFilter())
     handler.addFilter(ColorLevelFilter())
