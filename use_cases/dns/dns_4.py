@@ -141,6 +141,8 @@ cpu.rcx.set_label("PTR msg")
 
 # Add constraint to buf.a
 machine.add_constraint(
-    claripy.UGT(claripy.BVS("buf.struct.var.a", 8, explicit_name=True), claripy.BVV(0, 8))
+    claripy.UGT(
+        claripy.BVS("buf.struct.var.a", 8, explicit_name=True), claripy.BVV(0, 8)
+    )
 )
 machine.analyze(analysis)
