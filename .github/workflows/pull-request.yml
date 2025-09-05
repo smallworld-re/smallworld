@@ -220,6 +220,7 @@ jobs:
           - testsuite: SyscallTests
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
+          - testsuite: ThumbTests
     steps:
       - name: Copy Repo
         run: |
