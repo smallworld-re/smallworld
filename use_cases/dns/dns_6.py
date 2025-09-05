@@ -87,7 +87,7 @@ fields.append((253, "text"))
 fields.append((4, "a"))
 fields.append((4, "b"))
 
-malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", fields)
+malloc.bind_length_to_struct("msg.hdr.numstructs", "msg.struct.item", fields)
 
 # Configure somewhere for arguments to live
 gdata = smallworld.state.memory.Memory(0x6000, 0x1000)
@@ -110,19 +110,19 @@ gdata[40] = smallworld.state.SymbolicValue(8, None, None, "msg.d")
 gdata[48] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.a")
 gdata[50] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.b")
 # NOTE: msg.a.len is interpreted as big-endian
-gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
+gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.numstruct")
 gdata[54] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.d")
 gdata[56] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.e")
 gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
 # This is a sequence of zero or more run-length-encoded strings.
 # Strings can be of length 0 - 63,
 # and the total number of characters can't exceed 25
-gdata[60] = smallworld.state.IntegerValue(2, 1, "buf.a.item.0.text.0.len")
-gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item.0.text.0.0")
-gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item.0.text.0.1")
-gdata[63] = smallworld.state.IntegerValue(0, 1, "buf.a.item.0.text.1.len")
-gdata[64] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.a")
-gdata[66] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.b")
+gdata[60] = smallworld.state.IntegerValue(2, 1, "buf.struct.string0.len")
+gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.string0[0]")
+gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.string0[1]")
+gdata[63] = smallworld.state.IntegerValue(0, 1, "buf.struct.string1.len")
+gdata[64] = smallworld.state.SymbolicValue(2, None, None, "buf.struct.a")
+gdata[66] = smallworld.state.SymbolicValue(2, None, None, "buf.struct.b")
 gdata[68] = smallworld.state.SymbolicValue(492, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)

@@ -22,6 +22,9 @@ from smallworld.analyses.field_detection import (
 # - If buf.a == 0, the routine id's buf[0:2] as a field.
 # - If buf.a > 0, the routine id's buf[0:1] as a field.
 #
+# we observed [!]   Length field msg.hdr.msg.a.len not known, that's memory we're tracking
+# This is the number of structs in a malloc'd array
+
 # Let's explore the behavior when buf[0:1] is a field.
 # Here, we add the ability to track malloc'd arrays of items.
 # It's limited, but I know that msg.hdr.msg.a.len
@@ -84,7 +87,7 @@ malloc = MallocModel(
 machine.add(malloc)
 machine.add_bound(malloc._address, malloc._address + 16)
 
-malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", [(264, "unk")])
+malloc.bind_length_to_struct("msg.hdr.numstructs", "msg.struct.item", [(264, "unk")])
 
 free = FreeModel(0x1036)
 machine.add(free)
@@ -98,7 +101,7 @@ machine.add(gdata)
 # I cheated a bit; I know it's a nested struct
 gdata[0] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.a")
 gdata[2] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.b")
-gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.msg.a.len")
+gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.numstructs")
 gdata[6] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.d")
 gdata[8] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.e")
 gdata[10] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.f")
@@ -111,13 +114,13 @@ gdata[40] = smallworld.state.SymbolicValue(8, None, None, "msg.d")
 gdata[48] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.a")
 gdata[50] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.b")
 # NOTE: msg.a.len is interpreted as big-endian
-gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
+gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.numstructs")
 gdata[54] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.d")
 gdata[56] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.e")
 gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
-gdata[60] = smallworld.state.SymbolicValue(1, None, None, "buf.a")
-gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.b")
-gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.c")
+gdata[60] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.var.a")
+gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.var.b")
+gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.var.c")
 gdata[63] = smallworld.state.SymbolicValue(497, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
@@ -138,6 +141,6 @@ cpu.rcx.set_label("PTR msg")
 
 # Add constraint to buf.a
 machine.add_constraint(
-    claripy.UGT(claripy.BVS("buf.a", 8, explicit_name=True), claripy.BVV(0, 8))
+    claripy.UGT(claripy.BVS("buf.struct.var.a", 8, explicit_name=True), claripy.BVV(0, 8))
 )
 machine.analyze(analysis)

@@ -15,10 +15,11 @@ from smallworld.analyses.field_detection import (
 # - We know that the first few fields of msg.a.item are one byte.
 # - By staring at guards, you can see that buf.msg.a.len is a run length
 # - The buffer contains more than one run-length encoded string in sequence.
+# (We see additional bytes being used for run length later)
 # - The sequence is terminated with a length-zero run length
-# - After successfully
-# - The total is compared to 0xff, so msg.a.item.a is a char[] of at least 255
-# - Every string is terminated with a '.' or a '\0', so that's a char[256]
+# - After successfully terminating
+# - The total is compared to 0xff, so msg.a.item.a is a char[] of at most 255
+# - Every string is terminated with a '.' or a '\0', so that's char[256]
 #
 # I told you run-length encoding was annoying :p
 #
@@ -86,7 +87,7 @@ fields = [(1, f"text.{i}") for i in range(0, 3)]
 fields.append((253, "text"))
 fields.append((8, "ftr"))
 
-malloc.bind_length_to_struct("msg.hdr.msg.a.len", "msg.a.item", fields)
+malloc.bind_length_to_struct("msg.hdr.numstructs", "msg.struct.item", fields)
 
 free = FreeModel(0x1036)
 machine.add(free)
@@ -100,7 +101,7 @@ machine.add(gdata)
 # I cheated a bit; I know it's a nested struct
 gdata[0] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.a")
 gdata[2] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.b")
-gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.msg.a.len")
+gdata[4] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.numstructs")
 gdata[6] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.d")
 gdata[8] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.e")
 gdata[10] = smallworld.state.SymbolicValue(2, None, None, "msg.hdr.f")
@@ -113,16 +114,16 @@ gdata[40] = smallworld.state.SymbolicValue(8, None, None, "msg.d")
 gdata[48] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.a")
 gdata[50] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.b")
 # NOTE: msg.a.len is interpreted as big-endian
-gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.a.len")
+gdata[52] = smallworld.state.BytesValue(b"\x00\x01", "buf.msg.hdr.numstruct")
 gdata[54] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.d")
 gdata[56] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.e")
 gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
 # This is a sequence of zero or more run-length-encoded strings.
 # Strings can be of length 0 - 63,
-# and the total number of characters can't exceed 25
-gdata[60] = smallworld.state.IntegerValue(1, 1, "buf.a.item0.len")
-gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.a.item0.0")
-gdata[62] = smallworld.state.IntegerValue(0, 1, "buf.a.item1.len")
+# and the total number of characters can't exceed 255
+gdata[60] = smallworld.state.IntegerValue(1, 1, "buf.struct.item0.len")
+gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.item0.0")
+gdata[62] = smallworld.state.IntegerValue(0, 1, "buf.struct.item1.len")
 gdata[63] = smallworld.state.SymbolicValue(497, None, None, "buf")
 # Offset into buffer
 gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
