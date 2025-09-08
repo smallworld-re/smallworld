@@ -1918,6 +1918,36 @@ class PETests(ScriptIntegrationTest):
         self.run_test("i386.pcode")
 
 
+class LinkPETests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 link_pe/link_pe.{arch}.py 42")
+        self.assertLineContainsStrings(stdout, "0x2a")
+
+    def test_pe_amd64(self):
+        self.run_test("amd64")
+
+    def test_pe_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_pe_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_pe_amd64_pcode(self):
+        self.run_test("amd64.pcode")
+
+    def test_pe_i386(self):
+        self.run_test("i386")
+
+    def test_pe_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_pe_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_pe_i386_pcode(self):
+        self.run_test("i386.pcode")
+
+
 class FloatsTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 floats/floats.{arch}.py 2.2 1.1")

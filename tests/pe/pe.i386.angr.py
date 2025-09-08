@@ -25,9 +25,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_pe(
-        f, platform=platform, address=0x10000
-    )
+    code = smallworld.state.memory.code.Executable.from_pe(f, platform=platform)
     machine.add(code)
 
 # Create a stack and add it to the state
@@ -85,7 +83,8 @@ class PutsModel(smallworld.state.models.Model):
         print(v)
 
 
-puts = PutsModel(code.address + 0x252C)
+puts = PutsModel(0x10000000)
+code.update_import("msvcrt.dll", "puts", puts._address)
 machine.add(puts)
 
 # Set entrypoint to "main"
