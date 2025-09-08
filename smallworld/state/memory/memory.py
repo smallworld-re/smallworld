@@ -14,7 +14,9 @@ class Memory(state.Stateful, dict):
     to ``Value`` objects.
     """
 
-    def __init__(self, address: int, size: int, *args, **kwargs) -> None:
+    def __init__(
+        self, address: int, size: int, platform: platforms.Platform, *args, **kwargs
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.address: int = address
@@ -22,6 +24,9 @@ class Memory(state.Stateful, dict):
 
         self.size: int = size
         """The size address of this memory region."""
+
+        self.platform = platform
+        """The platform of this memory region."""
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         """Convert this memory region into a byte string.
@@ -238,13 +243,43 @@ class Memory(state.Stateful, dict):
 
         return out
 
+    def __read_int(
+        self, address: int, size: typing.Literal[1, 2, 4], signed: bool
+    ) -> typing.Optional[int]:
+        try:
+            return int.from_bytes(
+                self.read_bytes(address, size),
+                self.platform.byteorder.value,
+                signed=signed,
+            )
+        except:
+            return None
+
+    def read_8(self, address: int) -> typing.Optional[int]:
+        return self.__read_int(address, 1, True)
+
+    def read_u8(self, address: int) -> typing.Optional[int]:
+        return self.__read_int(address, 1, False)
+
+    def read_16(self, address: int) -> typing.Optional[int]:
+        return self.__read_int(address, 2, True)
+
+    def read_u16(self, address: int) -> typing.Optional[int]:
+        return self.__read_int(address, 2, False)
+
+    def read_32(self, address: int) -> typing.Optional[int]:
+        return self.__read_int(address, 4, True)
+
+    def read_u32(self, address: int) -> typing.Optional[int]:
+        return self.__read_int(address, 4, False)
+
     def __hash__(self):
         return super(dict, self).__hash__()
 
 
 class RawMemory(Memory):
     @classmethod
-    def from_bytes(cls, bytes: bytes, address: int):
+    def from_bytes(cls, bytes: bytes, address: int, platform: platforms.Platform):
         """Load from a byte array.
 
         Arguments:
@@ -256,14 +291,18 @@ class RawMemory(Memory):
             A RawMemory contstructed from the given bytes.
         """
 
-        memory = cls(address=address, size=len(bytes))
+        memory = cls(address=address, size=len(bytes), platform=platform)
         memory[0] = state.BytesValue(bytes, None)
 
         return memory
 
     @classmethod
     def from_file(
-        cls, file: typing.BinaryIO, address: int, label: typing.Optional[str] = None
+        cls,
+        file: typing.BinaryIO,
+        address: int,
+        platform: platforms.Platform,
+        label: typing.Optional[str] = None,
     ):
         """Load from an open file-like object.
 
@@ -278,7 +317,7 @@ class RawMemory(Memory):
 
         data, size = file.read(), file.tell()
 
-        memory = cls(address=address, size=size)
+        memory = cls(address=address, size=size, platform=platform)
         memory[0] = state.BytesValue(data, label)
 
         return memory
