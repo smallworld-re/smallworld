@@ -91,8 +91,7 @@ class ElfExecutable(Executable):
     ):
         # Initialize with null address and size;
         # we will update these later.
-        super().__init__(0, 0)
-        self.platform = platform
+        super().__init__(0, 0, platform)
         self.bounds: RangeCollection = RangeCollection()
         self._page_size = page_size
         self._user_base = user_base

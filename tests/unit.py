@@ -136,7 +136,7 @@ class StateTests(unittest.TestCase):
         self.assertClaripyEqual(res_s, foo.get())
         self.assertClaripyEqual(bar_s, bar.get())
 
-    def test_memory_write(self):
+    def test_memory_write_bytes(self):
         # test write to entire segment
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abcdefgh", None)
@@ -203,7 +203,7 @@ class StateTests(unittest.TestCase):
             memory.to_bytes(byteorder=platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
 
-    def test_memory_read(self):
+    def test_memory_read_bytes(self):
         # test read memory all in one segment
         memory = state.memory.Memory(0x1000, 0x8)
         memory.write_bytes(0x1000, b"abcdefgh")
@@ -258,6 +258,73 @@ class StateTests(unittest.TestCase):
         self.assertRaises(
             exceptions.SymbolicValueError, lambda: memory.read_bytes(0x1000, 0x8)
         )
+
+    def test_memory_read_int(self):
+        def __create_mem(
+            size: typing.Literal[1, 2, 4], platform: platforms.Platform, test_int: int
+        ) -> state.memory.Memory:
+            addr = 0x1000
+            memory = state.memory.Memory(addr, size, platform)
+            memory.write_bytes(
+                addr, int.to_bytes(test_int, size, platform.byteorder.value)
+            )
+            return memory
+
+        # 8, little endian, signed
+        memory = __create_mem(1, platforms.defs.ARMv7M(), 0b10011001)
+        self.assertEqual(memory.read_8(memory.address), -103)
+
+        # 8, little endian, unsigned
+        memory = __create_mem(1, platforms.defs.ARMv7M(), 0b10011001)
+        self.assertEqual(memory.read_u8(memory.address), 153)
+
+        # 8, big endian, signed
+        memory = __create_mem(1, platforms.defs.MIPS32BE(), 0b10011001)
+        self.assertEqual(memory.read_8(memory.address), -103)
+
+        # 8, big endian, unsigned
+        memory = __create_mem(1, platforms.defs.MIPS32BE(), 0b10011001)
+        self.assertEqual(memory.read_u8(memory.address), 153)
+
+        # 16, little endian, signed
+        memory = __create_mem(2, platforms.defs.ARMv7M(), 0b1001100110011001)
+        self.assertEqual(memory.read_16(memory.address), -26215)
+
+        # 16, little endian, unsigned
+        memory = __create_mem(2, platforms.defs.ARMv7M(), 0b1001100110011001)
+        self.assertEqual(memory.read_u16(memory.address), 39321)
+
+        # 16, big endian, signed
+        memory = __create_mem(2, platforms.defs.MIPS32BE(), 0b1001100110011001)
+        self.assertEqual(memory.read_16(memory.address), -26215)
+
+        # 16, big endian, unsigned
+        memory = __create_mem(2, platforms.defs.MIPS32BE(), 0b1001100110011001)
+        self.assertEqual(memory.read_u16(memory.address), 39321)
+
+        # 32, little endian, signed
+        memory = __create_mem(
+            4, platforms.defs.ARMv7M(), 0b10011001100110011001100110011001
+        )
+        self.assertEqual(memory.read_32(memory.address), -1717986919)
+
+        # 32, little endian, unsigned
+        memory = __create_mem(
+            4, platforms.defs.ARMv7M(), 0b10011001100110011001100110011001
+        )
+        self.assertEqual(memory.read_u32(memory.address), 2576980377)
+
+        # 32, big endian, signed
+        memory = __create_mem(
+            4, platforms.defs.MIPS32BE(), 0b10011001100110011001100110011001
+        )
+        self.assertEqual(memory.read_32(memory.address), -1717986919)
+
+        # 32, big endian, unsigned
+        memory = __create_mem(
+            4, platforms.defs.MIPS32BE(), 0b10011001100110011001100110011001
+        )
+        self.assertEqual(memory.read_u32(memory.address), 2576980377)
 
 
 class UtilsTests(unittest.TestCase):
