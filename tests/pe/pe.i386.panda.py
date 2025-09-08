@@ -83,7 +83,8 @@ class PutsModel(smallworld.state.models.Model):
         print(v)
 
 
-puts = PutsModel(code.address + 0x252C)
+puts = PutsModel(0x10000000)
+code.update_import("msvcrt.dll", "puts", puts._address)
 machine.add(puts)
 
 # Set entrypoint to "main"

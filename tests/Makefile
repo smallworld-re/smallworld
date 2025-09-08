@@ -9,6 +9,7 @@ CSOURCES := $(wildcard */*.c) $(wildcard */*/*.c)
 CELFSOURCES := $(filter %.elf.c,$(CSOURCES))
 CSOSOURCES := $(filter %.so.c,$(CSOURCES))
 CPESOURCES := $(filter %.pe.c,$(CSOURCES))
+CDLLSOURCES := $(filter %.dll.c,$(CSOURCES))
 
 BINS := $(patsubst %.s,%.bin,$(BINSOURCES))
 ELFS := $(patsubst %.s,%,$(ELFSOURCES))
@@ -16,12 +17,13 @@ ELFS := $(patsubst %.s,%,$(ELFSOURCES))
 CELFS := $(patsubst %.elf.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.riscv64.elf,$(CELFSOURCES))
 CSOS := $(patsubst %.so.c,%.aarch64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.amd64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armhf.so,$(CSOSOURCES)) $(patsubst %.so.c,%.i386.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mipsel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64el.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.riscv64.so,$(CSOSOURCES))
 CPES := $(patsubst %.pe.c,%.amd64.pe,$(CPESOURCES)) $(patsubst %.pe.c,%.i386.pe,$(CPESOURCES))
+CDLLS := $(patsubst %.dll.c,%.amd64.dll,$(CDLLSOURCES)) $(patsubst %.dll.c,%.i386.dll,$(CDLLSOURCES))
 
 MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
 MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
 MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
-TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS) $(CPES)
+TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS) $(CPES) $(CDLLS)
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
@@ -58,8 +60,15 @@ MIPS64_ELF_START=0x800000
 %.amd64.elf: %.elf.c
 	gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
 
+%.amd64.pe: %.pe.c %.amd64.dll
+	x86_64-w64-mingw32-gcc $*.pe.c $*.amd64.dll -o $*.amd64.pe
+
 %.amd64.pe: %.pe.c
 	x86_64-w64-mingw32-gcc $*.pe.c -o $*.amd64.pe
+
+
+%.amd64.dll: %.dll.c
+	x86_64-w64-mingw32-gcc -shared $*.dll.c -o $*.amd64.dll
 
 %.amd64.elf: %.amd64.elf.s
 	as $*.amd64.elf.s -o $*.amd64.elf.o
@@ -106,6 +115,12 @@ MIPS64_ELF_START=0x800000
 
 %.i386.elf: %.elf.c
 	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.i386.elf
+
+%.i386.pe: %.pe.c %.i386.dll
+	i686-w64-mingw32-gcc $*.pe.c $*.i386.dll -o $*.i386.pe
+
+%.i386.dll: %.dll.c
+	i686-w64-mingw32-gcc -shared $*.dll.c -o $*.i386.dll
 
 %.i386.pe: %.pe.c
 	i686-w64-mingw32-gcc $*.pe.c -o $*.i386.pe

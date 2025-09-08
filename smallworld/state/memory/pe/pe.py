@@ -3,10 +3,11 @@ import typing
 import lief
 
 from ....exceptions import ConfigurationError
-from ....platforms import Architecture, Byteorder, Platform
+from ....platforms import Architecture, Byteorder, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
+from .structs import PEExport, PEImport
 
 # PE32+ machine types
 # There are a lot more of these, but I can only test on amd64 and i386
@@ -54,11 +55,20 @@ class PEExecutable(Executable):
         super().__init__(0, 0)
 
         self.platform = platform
+        self.platdef: typing.Optional[PlatformDef] = None
         self.bounds: RangeCollection = RangeCollection()
 
         self._page_size = page_size
         self._user_base = user_base
         self._file_base = 0
+
+        self._exports: typing.List[PEExport] = list()
+        self._exports_by_name: typing.Dict[typing.Tuple[str, str], PEExport] = dict()
+        self._exports_by_ordinal: typing.Dict[typing.Tuple[str, int], PEExport] = dict()
+
+        self._imports: typing.List[PEImport] = list()
+        self._imports_by_name: typing.Dict[typing.Tuple[str, str], PEImport] = dict()
+        self._imports_by_ordinal: typing.Dict[typing.Tuple[str, int], PEImport] = dict()
 
         # Read the entire image out of the file
         image = file.read()
@@ -87,6 +97,7 @@ class PEExecutable(Executable):
                     )
             else:
                 self.platform = hdr_platform
+            self.platdef = PlatformDef.for_platform(hdr_platform)
 
         # Determine the file base address
         self._file_base = pe.imagebase
@@ -104,6 +115,12 @@ class PEExecutable(Executable):
         # Compute the final total capacity
         for offset, value in self.items():
             self.size = max(self.size, offset + value.get_size())
+
+        # Extract exports
+        self._extract_exports(pe)
+
+        # Extract imports
+        self._extract_imports(pe)
 
     def _platform_for_chdr(self, pe):
         if pe.header.machine.value == IMAGE_FILE_MACHINE_AMD64:
@@ -222,3 +239,123 @@ class PEExecutable(Executable):
                         # Reset the data
                         val.set_content(bytes(contents))
                         break
+
+    def _extract_exports(self, pe) -> None:
+        if not pe.has_exports:
+            return
+
+        d = pe.get_export()
+        for e in d.entries:
+            if e.is_forwarded:
+                raise NotImplementedError(
+                    "{d.name}.{e.name} is forwarded to {e.forward_information}"
+                )
+            else:
+                exp = PEExport(
+                    dll=d.name,
+                    name=e.name,
+                    ordinal=e.ordinal,
+                    forwarder=None,
+                    value=e.value + self.address,
+                )
+            self._exports.append(exp)
+            self._exports_by_name[(d.name, e.name)] = exp
+            self._exports_by_ordinal[(d.name, e.ordinal)] = exp
+
+    def _extract_imports(self, pe) -> None:
+        if not pe.has_imports:
+            return
+
+        # Iterate over the import directories
+        # These group imports by the DLL that provides them
+        for d in pe.imports:
+            for e in d.entries:
+                imp = PEImport(
+                    dll=d.name,
+                    name=e.name if not e.is_ordinal else None,
+                    ordinal=e.ordinal if e.is_ordinal else None,
+                    iat_address=e.iat_address + self.address,
+                    forwarder=None,
+                    value=None,
+                )
+                if e.name == "puts":
+                    print(f"puts IAT at {e.iat_address:x} or {e.iat_value:x}")
+                self._imports.append(imp)
+                if e.is_ordinal:
+                    self._imports_by_ordinal[(d.name, e.ordinal)] = imp
+                else:
+                    self._imports_by_name[(d.name, e.name)] = imp
+
+    def update_import(
+        self, dll: str, hint: typing.Union[str, int, PEImport], value: int
+    ) -> None:
+        """Update an imported symbol in this PE file
+
+        Arguments:
+            dll: Name of the DLL where the import is defined
+            hint: Symbol name or ordinal
+            value: New value of the symbol
+        """
+        # No platform specified
+        if self.platform is None or self.platdef is None:
+            raise ConfigurationError("No platform specified; can't update imports")
+
+        if isinstance(hint, str):
+            # Look up by name
+            if (dll, hint) not in self._imports_by_name:
+                raise ConfigurationError(
+                    f"No import for {dll}.{hint}.  Try by ordinal?"
+                )
+            imp = self._imports_by_name[(dll, hint)]
+        elif isinstance(hint, int):
+            # Look up by ordinal
+            if (dll, hint) not in self._imports_by_ordinal:
+                raise ConfigurationError(f"No import for {dll}.#{hint}.  Try by name?")
+            imp = self._imports_by_ordinal[(dll, hint)]
+        elif isinstance(hint, PEImport):
+            imp = hint
+        else:
+            raise TypeError(f"Unexpected hint {hint} of type {type(hint)}")
+
+        # Save the new value to the import
+        # This marks it as initialized
+        imp.value = value
+
+        # Convert value to bytes
+        if self.platform.byteorder == Byteorder.LITTLE:
+            value_bytes = value.to_bytes(self.platdef.address_size, "little")
+        elif self.platform.byteorder == Byteorder.BIG:
+            value_bytes = value.to_bytes(self.platdef.address_size, "big")
+        else:
+            raise ConfigurationError(
+                f"Can't encode int for byteorder {self.platform.byteorder}"
+            )
+
+        # Rewrite IAT slot
+        # NOTE: PE files can have overlapping segments; check all of them.
+        for off, seg in self.items():
+            start = off + self.address
+            stop = start + seg.get_size()
+            if imp.iat_address >= start and imp.iat_address < stop:
+                start = imp.iat_address - start
+                end = start + len(value_bytes)
+                contents = seg.get_content()
+                contents = contents[0:start] + value_bytes + contents[end:]
+                seg.set_content(contents)
+
+    def link_pe(self, dll: "PEExecutable"):
+        for imp in self._imports:
+            if imp.value is not None:
+                continue
+
+            if imp.name is not None and (imp.dll, imp.name) in dll._exports_by_name:
+                exp = dll._exports_by_name[(imp.dll, imp.name)]
+            elif (
+                imp.ordinal is not None
+                and (imp.dll, imp.ordinal) in dll._exports_by_ordinal
+            ):
+                exp = dll._exports_by_ordinal[(imp.dll, imp.ordinal)]
+            else:
+                continue
+
+            self.update_import(imp.dll, imp, exp.value)
