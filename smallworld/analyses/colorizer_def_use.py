@@ -186,7 +186,28 @@ class ColorizerDefUse(analysis.Analysis):
                     assert di[e]["color"] == ui[e]["color"]
                 (src, dst, k) = e
                 cn = ui[e]["color"]
-                writeit(f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}"]')
+                tl = ""
+                
+                def i2s(inf):
+                    lab = ""                    
+                    if "type" in inf:
+                        if inf["type"] == "reg":
+                            lab = inf["reg_name"]
+                        if inf["type"] == "mem":
+                            lab = "["
+                            if inf["base"] != "None":
+                                lab += inf["base"]
+                            if inf["index"] != "None":
+                                lab += f'+{inf["scale"]}*{inf["index"]}'
+                            if inf["offset"] != 0:
+                                lab += f'+{inf["offset"]:x}'
+                            lab += "]"
+                    return lab
+                
+                hl = i2s(ui[e])
+                tl = i2s(di[e])
+                
+                writeit(f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}",headlabel="{hl}",taillabel="{tl}"]')
 
             writeit("}\n")
 

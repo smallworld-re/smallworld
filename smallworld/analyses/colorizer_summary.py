@@ -64,7 +64,7 @@ class ColorizerSummary(analysis.Analysis):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hint_list = []
-        self.num_micro_executions = 0
+        self.exec_ids = set([])
         self.hinter.register(hinting.DynamicRegisterValueHint, self.collect_hints)
         self.hinter.register(hinting.DynamicMemoryValueHint, self.collect_hints)
         self.hinter.register(hinting.MemoryUnavailableHint, self.collect_hints)
@@ -72,8 +72,7 @@ class ColorizerSummary(analysis.Analysis):
 
     def collect_hints(self, hint):
         self.hint_list.append(hint)
-        if 1 + hint.micro_exec_num > self.num_micro_executions:
-            self.num_micro_executions = 1 + hint.micro_exec_num
+        self.exec_ids.add(hint.exec_id)
 
     def run(self, machine):
         # Establish true colors 1, 2, 3, ...
@@ -127,17 +126,17 @@ class ColorizerSummary(analysis.Analysis):
             int, typing.Set[typing.Tuple[int, bool, str, bool, str, str, str, int, int]]
         ] = {}
         for hint in self.hint_list:
-            if hint.micro_exec_num not in hk_observed:
-                hk_observed[hint.micro_exec_num] = set([])
+            if hint.exec_id not in hk_observed:
+                hk_observed[hint.exec_id] = set([])
                 # this hint key was observed in micro execution me
-            hk_observed[hint.micro_exec_num].add(compute_dv_key(hint))
+            hk_observed[hint.exec_id].add(compute_dv_key(hint))
 
         # get counts for hint across micro executions
         hk_c = {}
         for hk in hint_keys_sorted:
             hk_c[hk] = 0
-            for me in range(self.num_micro_executions):
-                for hk2 in hk_observed[me]:
+            for exec_id in self.exec_ids:
+                for hk2 in hk_observed[exec_id]:
                     if hk == hk2:
                         hk_c[hk] += 1
 
@@ -153,7 +152,7 @@ class ColorizerSummary(analysis.Analysis):
                         use=hint.use,
                         new=hint.new,
                         count=hk_c[hk],
-                        num_micro_executions=self.num_micro_executions,
+                        num_micro_executions=len(self.exec_ids),
                         message=hint.message + "-summary",
                     )
                 )
@@ -171,7 +170,7 @@ class ColorizerSummary(analysis.Analysis):
                         new=hint.new,
                         message=hint.message + "-summary",
                         count=hk_c[hk],
-                        num_micro_executions=self.num_micro_executions,
+                        num_micro_executions=len(self.exec_ids),
                     )
                 )
             if type(hint) is hinting.MemoryUnavailableHint:
@@ -182,10 +181,10 @@ class ColorizerSummary(analysis.Analysis):
                         base_reg_name=hint.base_reg_name,
                         index_reg_name=hint.index_reg_name,
                         offset=hint.offset,
-                        scale=hint.scale,
+                        scale=hint.bscale,
                         pc=hint.pc,
                         count=hk_c[hk],
-                        num_micro_executions=self.num_micro_executions,
+                        num_micro_executions=len(self.exec_ids),                         
                         message=hint.message + "-summary",
                     )
                 )

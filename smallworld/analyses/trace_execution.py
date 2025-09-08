@@ -1,7 +1,6 @@
 import copy
 import hashlib
 import logging
-import random
 import typing
 from enum import Enum
 
@@ -9,6 +8,7 @@ import capstone
 
 import smallworld
 from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
+from smallworld.instructions import RegisterOperand
 
 from .. import platforms
 from ..hinting.hints import TraceExecutionHint
@@ -32,15 +32,13 @@ def get_cmp_info(
         # it's a compare -- return list of "reads'
         sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
         cmp_info = []
-        for r in sw_insn.reads:
-            label = None
-            if isinstance(r, smallworld.instructions.BSIDMemoryReferenceOperand):
-                label = "BSIDMemoryReference"
-            elif isinstance(r, smallworld.instructions.RegisterOperand):
-                label = "Register"
-            assert label is not None
-            tup = (label, r, r.concretize(emulator))
-            cmp_info.append(tup)
+        for op in cs_insn.operands:
+            if op.type == capstone.CS_OP_MEM and (op.access & capstone.CS_AC_READ):
+                cmp_info.append(sw_insn._memory_reference_operand(op))
+            if op.type == capstone.CS_OP_REG and (op.access & capstone.CS_AC_READ):
+                cmp_info.append(RegisterOperand(cs_insn.reg_name(op.value.reg)))
+            if op.type == capstone.CS_OP_IMM:
+                cmp_info.append(op.value.imm)
         immediates = []
         for op in cs_insn.operands:
             if op.type == capstone.x86.X86_OP_IMM:
@@ -58,16 +56,11 @@ class TraceExecution(analysis.Analysis):
         self,
         *args,
         num_insns: int,
-        randomize_regs: bool = True,
-        randomize_extra_regs: typing.List[str] = [],
         seed: int = 1234567,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.num_insns = num_insns
-        self.randomize_regs = randomize_regs
-        random.seed(seed)
-        self.randomize_extra_regs = randomize_extra_regs
         self.seed = seed
         self.before_instruction_cbs: typing.List[typing.Any] = []
         self.after_instruction_cbs: typing.List[typing.Any] = []
@@ -80,52 +73,6 @@ class TraceExecution(analysis.Analysis):
             m.update(vs)
         return m.hexdigest()
 
-    def randomize_registers(self) -> None:
-        m = hashlib.md5()
-        cpu = self.machine.get_cpu()
-        regs = []
-        pdefs = platforms.defs.PlatformDef.for_platform(self.platform)
-        for reg in cpu:
-            if (
-                (type(reg) is smallworld.state.Register)
-                and (reg.get_content() is None)
-                and (
-                    (reg.name in pdefs.general_purpose_registers)
-                    or (reg.name in self.randomize_extra_regs)
-                )
-            ):
-                # if (reg.name in pdefs.general_purpose_registers) and (
-                # reg.get_content() is None
-                # ):
-                regs.append((reg.name, reg.size))
-        regs.sort(key=lambda x: x[0])
-        for name, size in regs:
-            orig_val = self.emulator.read_register(name)
-            new_val = 0
-            bc = 0
-            for i in range(0, size):
-                new_val = new_val << 8
-                if (
-                    name in self.emulator.initialized_registers
-                    and i in self.emulator.initialized_registers[name]
-                ):
-                    bs = 8 * (size - i - 1)
-                    b = (orig_val >> bs) & 0xFF
-                    # b = (orig_val >> (i * 8)) & 0xFF
-                    new_val |= b
-                else:
-                    new_val |= random.randint(0, 255)
-                    bc += 1
-            if bc == 0:
-                pass
-            else:
-                # make sure to update cpu as well as emu not sure why
-                # print(f"reg {name} updated with {bc} random bytes to {new_val:x}")
-                self.emulator.write_register(name, new_val)
-                m.update(str(new_val).encode("utf-8"))
-                setattr(cpu, name, new_val)
-        logger.debug(f"summary of register changes: {m.hexdigest()}")
-
     def register_cb(self, cb_point, cb_function):
         assert isinstance(cb_point, TraceExecutionCBPoint)
         if cb_point == TraceExecutionCBPoint.BEFORE_INSTRUCTION:
@@ -137,16 +84,9 @@ class TraceExecution(analysis.Analysis):
         self.machine = copy.deepcopy(machine)
         self.platform = machine.get_platform()
         self.emulator = smallworld.emulators.unicorn.UnicornEmulator(self.platform)
-        start_m = copy.deepcopy(self.machine)
         self.machine.apply(self.emulator)
 
         logger.debug(f"starting regs in emu {self.register_emu_summary()}")
-
-        if self.randomize_regs:
-            self.randomize_registers()
-            logger.debug(f"regs in emu after randomizing {self.register_emu_summary()}")
-
-        start_m.extract(self.emulator)
 
         def get_insn(pc):
             code = self.emulator.read_memory(pc, 15)
@@ -167,21 +107,17 @@ class TraceExecution(analysis.Analysis):
         while True:
             pc = self.emulator.read_register("pc")
             cs_insn = get_insn(pc)
-            # sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
             (cmp_info, imm_info) = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
             te = TraceElement(
                 pc, i, cs_insn.mnemonic, cs_insn.op_str, cmp_info, branch_info, imm_info
             )
             trace.append(te)
-            i += 1
-            if i == self.num_insns:
-                emu_result = TraceRes.ER_MAX_INSNS
-                break
             # run any callbacks
             for before_cb in self.before_instruction_cbs:
                 before_cb(self.emulator, pc, te)
             try:
+                i += 1
                 self.emulator.step()
             except smallworld.exceptions.EmulationBounds:
                 # this one really isnt an error of any kind; we
@@ -193,11 +129,19 @@ class TraceExecution(analysis.Analysis):
                 emu_result = TraceRes.ER_FAIL
                 the_exc = e
                 break
-
             # run any after callbacks
             for after_cb in self.after_instruction_cbs:
                 after_cb(self.emulator, pc, te)
-
+            if i == self.num_insns:
+                emu_result = TraceRes.ER_MAX_INSNS
+                break
+                        
+        m = hashlib.md5()
+        for te in trace:
+            logger.debug(te)
+            m.update((str(te.pc).encode("utf-8")))
+        logger.info(f"captured trace of {i} instructions, res={emu_result} trace_digest={m.hexdigest()}")
+        
         assert emu_result is not None
 
         hint = TraceExecutionHint(

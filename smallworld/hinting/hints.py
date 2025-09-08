@@ -198,7 +198,6 @@ class InputUseHint(UnderSpecifiedValueHint):
     """
 
     input_register: str
-    micro_exec_num: int
     instruction_num: int
     use_register: str
 
@@ -282,9 +281,12 @@ class TraceExecutionHint(TypeHint):
     exception: typing.Optional[Exception]
     exception_class: str
 
+    # note this is just for logging purposes
     def to_json(self):
+        tracel = [te.to_json() for te in self.trace]
+
         return {
-            "trace": jsons.dump(self.trace),
+            "trace": tracel, # jsons.dump(self.trace),
             "seed": jsons.dump(self.seed),
             "emu_result": jsons.dump(self.emu_result),
             "exception": jsons.dump(self.exception),
@@ -311,7 +313,6 @@ class MemoryUnavailableHint(hinting.Hint):
       address: memory address of this value
       instruction: a smallworld instruction
       pc: program counter of that instruction
-      micro_exec_num: micro-execution run number
       instruction_num: for micro-execution the instr count
     """
 
@@ -325,7 +326,6 @@ class MemoryUnavailableHint(hinting.Hint):
     scale: int
     address: int
     pc: int
-    micro_exec_num: int
     instruction_num: int
 
 
@@ -339,7 +339,6 @@ class MemoryUnavailableSummaryHint(hinting.Hint):
     scale: int
     pc: int
     count: int
-    num_micro_executions: int
 
 
 @dataclass(frozen=True)
@@ -350,7 +349,6 @@ class DynamicValueHint(hinting.Hint):
     Arguments:
       instruction: a smallworld instruction
       pc: program counter of that instruction
-      micro_exec_num: micro-execution run number
       instruction_num: for micro-execution the instr count
       dynamic_value: this is the actual value
       size: the size of the value in bytes
@@ -360,8 +358,8 @@ class DynamicValueHint(hinting.Hint):
 
     # instruction: typing.Any
     pc: int
-    micro_exec_num: int
     instruction_num: int
+    exec_id: int
     dynamic_value: int
     color: int
     size: int
@@ -380,7 +378,6 @@ class DynamicRegisterValueHint(DynamicValueHint):
       use: True if its a "use" of this value, else its a "def"
       capstone_instruction: the instruction in capstone parlance
       pc: program counter of that instruction
-      micro_exec_num: micro-execution run number
       instruction_num: for micro-execution the instr count
       info: extra info about use or def if available
     """
@@ -403,7 +400,6 @@ class DynamicMemoryValueHint(DynamicValueHint):
       use: True if its a "use" of this value, else its a "def"
       capstone_instruction: the instruction in capstone parlance
       pc: program counter of that instruction
-      micro_exec_num: micro-execution run number
       instruction_num: for micro-execution the instr count
       info: extra info about use or def if available
     """
