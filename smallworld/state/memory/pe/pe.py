@@ -52,7 +52,7 @@ class PEExecutable(Executable):
     ):
         # Initialize with null address and size;
         # we will update these later
-        super().__init__(0, 0, platform)
+        super().__init__(0, 0)
 
         self.platform = platform
         self.platdef: typing.Optional[PlatformDef] = None
