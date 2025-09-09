@@ -7,7 +7,7 @@ from ... import emulators, exceptions, platforms
 from .. import state
 
 
-class Memory(state.Stateful, dict):
+class Memory(state.Stateful, dict[int, state.Value]):
     """A memory region.
 
     A memory maps integer offsets (implicitly from the base ``address``)
