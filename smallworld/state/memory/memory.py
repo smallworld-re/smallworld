@@ -15,7 +15,12 @@ class Memory(state.Stateful, dict):
     """
 
     def __init__(
-        self, address: int, size: int, platform: platforms.Platform, *args, **kwargs
+        self,
+        address: int,
+        size: int,
+        platform: typing.Optional[platforms.Platform] = None,
+        *args,
+        **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
 
@@ -246,12 +251,28 @@ class Memory(state.Stateful, dict):
     def __read_int(
         self, address: int, size: typing.Literal[1, 2, 4], signed: bool
     ) -> typing.Optional[int]:
-        try:
-            return int.from_bytes(
-                self.read_bytes(address, size),
-                self.platform.byteorder.value,
-                signed=signed,
+        if self.platform is None:
+            raise exceptions.ConfigurationError(
+                f"Unable to interpret memory at {address} as int without defined Platform."
             )
+        try:
+            match self.platform.byteorder.value:
+                case platforms.Byteorder.LITTLE.value:
+                    return int.from_bytes(
+                        self.read_bytes(address, size),
+                        "little",
+                        signed=signed,
+                    )
+                case platforms.Byteorder.BIG.value:
+                    return int.from_bytes(
+                        self.read_bytes(address, size),
+                        "big",
+                        signed=signed,
+                    )
+                case _:
+                    raise exceptions.ConfigurationError(
+                        f"Unsupported byteorder '{self.platform.byteorder.value}' for reading ints."
+                    )
         except:
             return None
 
@@ -279,7 +300,12 @@ class Memory(state.Stateful, dict):
 
 class RawMemory(Memory):
     @classmethod
-    def from_bytes(cls, bytes: bytes, address: int, platform: platforms.Platform):
+    def from_bytes(
+        cls,
+        bytes: bytes,
+        address: int,
+        platform: typing.Optional[platforms.Platform] = None,
+    ):
         """Load from a byte array.
 
         Arguments:
@@ -301,7 +327,7 @@ class RawMemory(Memory):
         cls,
         file: typing.BinaryIO,
         address: int,
-        platform: platforms.Platform,
+        platform: typing.Optional[platforms.Platform] = None,
         label: typing.Optional[str] = None,
     ):
         """Load from an open file-like object.

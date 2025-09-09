@@ -266,7 +266,14 @@ class StateTests(unittest.TestCase):
             addr = 0x1000
             memory = state.memory.Memory(addr, size, platform)
             memory.write_bytes(
-                addr, int.to_bytes(test_int, size, platform.byteorder.value)
+                addr,
+                int.to_bytes(
+                    test_int,
+                    size,
+                    typing.cast(
+                        typing.Literal["big", "little"], platform.byteorder.value
+                    ),
+                ),
             )
             return memory
 
