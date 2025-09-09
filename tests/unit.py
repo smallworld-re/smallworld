@@ -260,78 +260,38 @@ class StateTests(unittest.TestCase):
         )
 
     def test_memory_read_int(self):
-        def __create_mem(
-            size: typing.Literal[1, 2, 4], platform: platforms.Platform, test_int: int
-        ) -> state.memory.Memory:
-            addr = 0x1000
-            memory = state.memory.Memory(addr, size, platform)
-            memory.write_bytes(
-                addr,
-                int.to_bytes(
-                    test_int,
-                    size,
-                    typing.cast(
-                        typing.Literal["big", "little"], platform.byteorder.value
-                    ),
-                ),
-            )
-            return memory
-
-        # 8, little endian, signed
-        memory = __create_mem(1, platforms.defs.ARMv7M(), 0b10011001)
-        self.assertEqual(memory.read_8(memory.address), -103)
-
-        # 8, little endian, unsigned
-        memory = __create_mem(1, platforms.defs.ARMv7M(), 0b10011001)
-        self.assertEqual(memory.read_u8(memory.address), 153)
-
-        # 8, big endian, signed
-        memory = __create_mem(1, platforms.defs.MIPS32BE(), 0b10011001)
-        self.assertEqual(memory.read_8(memory.address), -103)
-
-        # 8, big endian, unsigned
-        memory = __create_mem(1, platforms.defs.MIPS32BE(), 0b10011001)
-        self.assertEqual(memory.read_u8(memory.address), 153)
-
-        # 16, little endian, signed
-        memory = __create_mem(2, platforms.defs.ARMv7M(), 0b1001100110011001)
-        self.assertEqual(memory.read_16(memory.address), -26215)
-
-        # 16, little endian, unsigned
-        memory = __create_mem(2, platforms.defs.ARMv7M(), 0b1001100110011001)
-        self.assertEqual(memory.read_u16(memory.address), 39321)
-
-        # 16, big endian, signed
-        memory = __create_mem(2, platforms.defs.MIPS32BE(), 0b1001100110011001)
-        self.assertEqual(memory.read_16(memory.address), -26215)
-
-        # 16, big endian, unsigned
-        memory = __create_mem(2, platforms.defs.MIPS32BE(), 0b1001100110011001)
-        self.assertEqual(memory.read_u16(memory.address), 39321)
-
-        # 32, little endian, signed
-        memory = __create_mem(
-            4, platforms.defs.ARMv7M(), 0b10011001100110011001100110011001
+        addr = 0x1000
+        memory = state.memory.Memory(addr, 4)
+        memory.write_bytes(
+            addr,
+            int.to_bytes(0b11110000000011111111000000001111, 4, "big"),
         )
-        self.assertEqual(memory.read_32(memory.address), -1717986919)
 
-        # 32, little endian, unsigned
-        memory = __create_mem(
-            4, platforms.defs.ARMv7M(), 0b10011001100110011001100110011001
+        self.assertEqual(memory.read_int(addr, 1, platforms.Byteorder.LITTLE), 240)
+        self.assertEqual(memory.read_int(addr, 1, platforms.Byteorder.BIG), 240)
+        self.assertEqual(memory.read_int(addr, 2, platforms.Byteorder.LITTLE), 4080)
+        self.assertEqual(memory.read_int(addr, 2, platforms.Byteorder.BIG), 61455)
+        self.assertEqual(
+            memory.read_int(addr, 4, platforms.Byteorder.LITTLE), 267390960
         )
-        self.assertEqual(memory.read_u32(memory.address), 2576980377)
+        self.assertEqual(memory.read_int(addr, 4, platforms.Byteorder.BIG), 4027576335)
 
-        # 32, big endian, signed
-        memory = __create_mem(
-            4, platforms.defs.MIPS32BE(), 0b10011001100110011001100110011001
-        )
-        self.assertEqual(memory.read_32(memory.address), -1717986919)
+    def test_memory_write_int(self):
+        addr = 0x1000
+        memory = state.memory.Memory(addr, 4)
 
-        # 32, big endian, unsigned
-        memory = __create_mem(
-            4, platforms.defs.MIPS32BE(), 0b10011001100110011001100110011001
-        )
-        self.assertEqual(memory.read_u32(memory.address), 2576980377)
+        memory.write_int(addr, 240, 1, platforms.Byteorder.LITTLE)
+        self.assertEqual(memory.read_bytes(addr, 1), b"\xf0")
+        memory.write_int(addr, 240, 1, platforms.Byteorder.BIG)
+        self.assertEqual(memory.read_bytes(addr, 1), b"\xf0")
+        memory.write_int(addr, 4080, 2, platforms.Byteorder.LITTLE)
+        self.assertEqual(memory.read_bytes(addr, 2), b"\xf0\x0f")
+        memory.write_int(addr, 4080, 2, platforms.Byteorder.BIG)
+        self.assertEqual(memory.read_bytes(addr, 2), b"\x0f\xf0")
+        memory.write_int(addr, 4027576335, 4, platforms.Byteorder.LITTLE)
+        self.assertEqual(memory.read_bytes(addr, 4), b"\x0f\xf0\x0f\xf0")
+        memory.write_int(addr, 4027576335, 4, platforms.Byteorder.BIG)
+        self.assertEqual(memory.read_bytes(addr, 4), b"\xf0\x0f\xf0\x0f")
 
 
 class UtilsTests(unittest.TestCase):

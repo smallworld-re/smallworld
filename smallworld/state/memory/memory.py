@@ -18,7 +18,6 @@ class Memory(state.Stateful, dict):
         self,
         address: int,
         size: int,
-        platform: typing.Optional[platforms.Platform] = None,
         *args,
         **kwargs,
     ) -> None:
@@ -29,9 +28,6 @@ class Memory(state.Stateful, dict):
 
         self.size: int = size
         """The size address of this memory region."""
-
-        self.platform = platform
-        """The platform of this memory region."""
 
     def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
         """Convert this memory region into a byte string.
@@ -125,9 +121,12 @@ class Memory(state.Stateful, dict):
         self[0] = value
 
     def write_bytes(self, address: int, data: bytes) -> None:
-        """Overwrite part of this memory region with specific bytes
+        """Overwrite part of this memory region with specific bytes.
+        This will fail if any sub-region of the existing memory is symbolic.
 
-        This will fail if the data you want to overwrite is in a symbolic sub-region.
+        Arguments:
+            address: The address to write to.
+            data: The bytes to write.
         """
 
         if address + len(data) > self.address + self.size:
@@ -195,20 +194,26 @@ class Memory(state.Stateful, dict):
                 data[next_segment_address - address :], None
             )
 
-    def read_bytes(self, address: int, length: int) -> bytes:
-        """Read part of this memory region
+    def read_bytes(self, address: int, size: int) -> bytes:
+        """Read part of this memory region.
+        This will fail if any sub-region of the memory requested is symbolic or uninitialized.
 
-        This will fail if any sub-region of the memory requested is symbolic or uninitialized
+        Arguments:
+            address: The address to read from.
+            size: The number of bytes to read.
+
+        Returns:
+            The bytes in the requested memory region.
         """
 
-        if address + length > self.address + self.size:
+        if address + size > self.address + self.size:
             raise exceptions.ConfigurationError(
-                f"Out of bounds: tried to read {length} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
+                f"Out of bounds: tried to read {size} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
             )
 
         out: bytes = b""
         next_segment_address = address
-        remaining_length = length
+        remaining_length = size
 
         segment: state.Value
         for segment_offset, segment in sorted(self.items()):
@@ -218,7 +223,7 @@ class Memory(state.Stateful, dict):
             # check for symbolic
             if not isinstance(contents, bytes):
                 raise exceptions.SymbolicValueError(
-                    f"Tried to read {length} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
+                    f"Tried to read {size} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
                 )
 
             # read into output buffer
@@ -241,58 +246,57 @@ class Memory(state.Stateful, dict):
                 break
 
         # next segment of requested region not found
-        if next_segment_address != address + length:
+        if next_segment_address != address + size:
             raise exceptions.ConfigurationError(
-                f"Tried to read {length} bytes at {hex(address)}. Data at {hex(next_segment_address)} is uninitialized."
+                f"Tried to read {size} bytes at {hex(address)}. Data at {hex(next_segment_address)} is uninitialized."
             )
 
         return out
 
-    def __read_int(
-        self, address: int, size: typing.Literal[1, 2, 4], signed: bool
-    ) -> typing.Optional[int]:
-        if self.platform is None:
-            raise exceptions.ConfigurationError(
-                f"Unable to interpret memory at {address} as int without defined Platform."
-            )
-        try:
-            match self.platform.byteorder.value:
-                case platforms.Byteorder.LITTLE.value:
-                    return int.from_bytes(
-                        self.read_bytes(address, size),
-                        "little",
-                        signed=signed,
-                    )
-                case platforms.Byteorder.BIG.value:
-                    return int.from_bytes(
-                        self.read_bytes(address, size),
-                        "big",
-                        signed=signed,
-                    )
-                case _:
-                    raise exceptions.ConfigurationError(
-                        f"Unsupported byteorder '{self.platform.byteorder.value}' for reading ints."
-                    )
-        except:
-            return None
+    def write_int(
+        self,
+        address: int,
+        value: int,
+        size: typing.Literal[1, 2, 4],
+        endianness: platforms.Byteorder,
+    ) -> None:
+        """Write an integer to memory.
+        This will fail if any sub-region of the existing memory is symbolic.
 
-    def read_8(self, address: int) -> typing.Optional[int]:
-        return self.__read_int(address, 1, True)
+        Arguments:
+            address: The address to write to.
+            value: The integer value to write.
+            size: The size of the integer in bytes.
+            endianness: The byteorder of the platform.
+        """
 
-    def read_u8(self, address: int) -> typing.Optional[int]:
-        return self.__read_int(address, 1, False)
+        self.write_bytes(
+            address, int.to_bytes(value, size, endianness.value, signed=False)
+        )
 
-    def read_16(self, address: int) -> typing.Optional[int]:
-        return self.__read_int(address, 2, True)
+    def read_int(
+        self,
+        address: int,
+        size: typing.Literal[1, 2, 4],
+        endianness: platforms.Byteorder,
+    ) -> int:
+        """Read and interpret as an integer.
+        This will fail if any sub-region of the memory requested is symbolic or uninitialized.
 
-    def read_u16(self, address: int) -> typing.Optional[int]:
-        return self.__read_int(address, 2, False)
+        Arguments:
+            address: The address to read from.
+            size: The size of the integer in bytes.
+            endianness: The byteorder of the platform.
 
-    def read_32(self, address: int) -> typing.Optional[int]:
-        return self.__read_int(address, 4, True)
+        Returns:
+            The integer read from memory.
+        """
 
-    def read_u32(self, address: int) -> typing.Optional[int]:
-        return self.__read_int(address, 4, False)
+        return int.from_bytes(
+            self.read_bytes(address, size),
+            endianness.value,
+            signed=False,
+        )
 
     def __hash__(self):
         return super(dict, self).__hash__()
@@ -300,12 +304,7 @@ class Memory(state.Stateful, dict):
 
 class RawMemory(Memory):
     @classmethod
-    def from_bytes(
-        cls,
-        bytes: bytes,
-        address: int,
-        platform: typing.Optional[platforms.Platform] = None,
-    ):
+    def from_bytes(cls, bytes: bytes, address: int):
         """Load from a byte array.
 
         Arguments:
@@ -317,18 +316,14 @@ class RawMemory(Memory):
             A RawMemory contstructed from the given bytes.
         """
 
-        memory = cls(address=address, size=len(bytes), platform=platform)
+        memory = cls(address=address, size=len(bytes))
         memory[0] = state.BytesValue(bytes, None)
 
         return memory
 
     @classmethod
     def from_file(
-        cls,
-        file: typing.BinaryIO,
-        address: int,
-        platform: typing.Optional[platforms.Platform] = None,
-        label: typing.Optional[str] = None,
+        cls, file: typing.BinaryIO, address: int, label: typing.Optional[str] = None
     ):
         """Load from an open file-like object.
 
@@ -343,7 +338,7 @@ class RawMemory(Memory):
 
         data, size = file.read(), file.tell()
 
-        memory = cls(address=address, size=size, platform=platform)
+        memory = cls(address=address, size=size)
         memory[0] = state.BytesValue(data, label)
 
         return memory

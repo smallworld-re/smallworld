@@ -9,6 +9,12 @@ from .. import memory
 class Stack(memory.Memory):
     """A stack-like region of memory with convenient operations like push and pop."""
 
+    @property
+    @abc.abstractmethod
+    def platform(self) -> platforms.Platform:
+        """The platform for which this stack is intended."""
+        pass
+
     @classmethod
     def get_platform(cls) -> platforms.Platform:
         """Retrieve the platform for this stack."""
