@@ -304,7 +304,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         for segment_offset, segment in sorted(self.items()):
             segment_start = self.address + segment_offset
             segment_end = segment_start + segment.get_size() - 1
-            if len(out) > 0 and out[len(out) - 1].stop + 1 == segment_end:
+            if len(out) > 0 and out[-1].stop + 1 == segment_end:
                 segment_start = out.pop().start
             out.append(
                 range(
@@ -315,8 +315,23 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
         return out
 
-    def get_ranges_uninitialized(self):
-        pass
+    def get_ranges_uninitialized(self) -> list[range]:
+        out: list[range] = []
+        next_segment_start = self.address
+
+        for segment_offset, segment in sorted(self.items()):
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size()
+            if next_segment_start != segment_start:
+                out.append(range(next_segment_start, segment_start - 1))
+            next_segment_start = segment_end
+
+        if next_segment_start != self.address + self.get_capacity():
+            out.append(
+                range(next_segment_start, self.address + self.get_capacity() - 1)
+            )
+
+        return out
 
     def get_ranges_symbolic(self):
         pass
