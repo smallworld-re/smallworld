@@ -1,0 +1,38 @@
+name: Toolchains
+on:
+  schedule:
+    - cron: "00 6 * * sun"
+  workflow_dispatch:
+
+jobs:
+  Build-LoongArch:
+    runs-on: smallworld-arc
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check Cached Debs
+        id: cache-loongarch64-check
+        uses: actions/cache/restore@v4
+        with:
+          path: toolchains/buildtools-loongarch64-linux-gnu.deb
+          key: ${{ runner.os }}-buildtools-loongarch64
+          lookup-only: true
+
+      - name: Build LoongArch64 Toolchain
+        if: steps.cache-loongarch64-check.cache-hit != 'true'
+        id: build-loongarch64
+        run: |
+          GLIBC_EXTRA_ARGS=--disable-default-pie ./toolchains/compile_gcc.sh loongarch64-linux-gnu "$PWD/toolchains/buildtools-loongarch64-linux-gnu/usr"
+
+      - name: Build LoongArch64 Deb
+        if: steps.cache-loongarch64-check.cache-hit != 'true'
+        id: build-loongarch64-deb
+        run: |
+          dpkg --build toolchains/buildtools-loongarch64-linux-gnu
+
+      - name: Cache Debs
+        if: steps.cache-loongarch64-check.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: toolchains/buildtools-loongarch64-linux-gnu.deb
+          key: ${{ runner.os }}-buildtools-loongarch64

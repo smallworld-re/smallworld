@@ -135,6 +135,12 @@ MIPS64_ELF_START=0x800000
 	i686-linux-gnu-objcopy -O binary -j .text $*.i386.o $*.i386.bin
 	rm $*.i386.o
 
+%.la64.bin: %.la64.s
+	#loongarch64-linux-gnu-as $*.la64.s -o $*.la64.o
+	#loongarch64-linux-gnu-objcopy -O binary -j .text $*.la64.o $*.la64.bin
+	#rm $*.la64.o
+	touch $*.la64.s
+
 %.mips.so: %.so.c
 	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips.so
 
@@ -266,6 +272,8 @@ clean:
 	find . -name '*.elf' -type f -delete
 	find . -name '*.o' -type f -delete
 	find . -name '*.so' -type f -delete
+	find . -name '*.pe' -type f -delete
+	find . -name '*.dll' -type f -delete
 
 nasm: $(NASM_TARGETS)
 

@@ -409,6 +409,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_loongarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_mips(self):
         platform = platforms.Platform(
             platforms.Architecture.MIPS32, platforms.Byteorder.BIG
@@ -715,6 +721,12 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_i386(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_loongarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1028,6 +1040,12 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_i386(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_loongarch64(self):
+        platform = platforms.Platform(
+            platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 

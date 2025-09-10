@@ -36,6 +36,9 @@ class Architecture(enum.Enum):
     ARM_V7R = "arm-v7r"
     ARM_V7A = "arm-v7a"
 
+    LOONGARCH32 = "loongarch32"
+    LOONGARCH64 = "loongarch64"
+
     RISCV64 = "riscv-64"
 
     XTENSA = "xtensa"

@@ -1,0 +1,162 @@
+from ....platforms import Architecture, Byteorder
+from .machdef import GhidraMachineDef
+
+
+class LoongArchMachineDef(GhidraMachineDef):
+    byteorder = Byteorder.LITTLE
+
+    _registers = {
+        "pc": "pc",
+        # Zero register
+        "r0": "zero",
+        "zero": "zero",
+        # Return address
+        "r1": "ra",
+        "ra": "ra",
+        # TLS pointer
+        "r2": "tp",
+        "tp": "tp",
+        # Stack pointer
+        "r3": "sp",
+        "sp": "sp",
+        # Arguments.
+        # a0 and a1 are also the return registers
+        "r4": "a0",
+        "a0": "a0",
+        "v0": "a0",
+        "r5": "a1",
+        "a1": "a1",
+        "v1": "a1",
+        "r6": "a2",
+        "a2": "a2",
+        "r7": "a3",
+        "a3": "a3",
+        "r8": "a4",
+        "a4": "a4",
+        "r9": "a5",
+        "a5": "a5",
+        "r10": "a6",
+        "a6": "a6",
+        "r11": "a7",
+        "a7": "a7",
+        # Temporary registers
+        "r12": "t0",
+        "t0": "t0",
+        "r13": "t1",
+        "t1": "t1",
+        "r14": "t2",
+        "t2": "t2",
+        "r15": "t3",
+        "t3": "t3",
+        "r16": "t4",
+        "t4": "t4",
+        "r17": "t5",
+        "t5": "t5",
+        "r18": "t6",
+        "t6": "t6",
+        "r19": "t7",
+        "t7": "t7",
+        "r20": "t8",
+        "t8": "t8",
+        # Per-CPU Base Address
+        "r21": "r21",
+        "u0": "r21",
+        # Frame Pointer
+        "r22": "fp",
+        "fp": "fp",
+        # Static registers
+        "r23": "s0",
+        "s0": "s0",
+        "r24": "s1",
+        "s1": "s1",
+        "r25": "s2",
+        "s2": "s2",
+        "r26": "s3",
+        "s3": "s3",
+        "r27": "s4",
+        "s4": "s4",
+        "r28": "s5",
+        "s5": "s5",
+        "r29": "s6",
+        "s6": "s6",
+        "r30": "s7",
+        "s7": "s7",
+        "r31": "s8",
+        "s8": "s8",
+        # Floating-point arguments.
+        # fa0 and fa1 are also return values
+        "f0": "fa0",
+        "fa0": "fa0",
+        "f1": "fa1",
+        "fa1": "fa1",
+        "f2": "fa2",
+        "fa2": "fa2",
+        "f3": "fa3",
+        "fa3": "fa3",
+        "f4": "fa4",
+        "fa4": "fa4",
+        "f5": "fa5",
+        "fa5": "fa5",
+        "f6": "fa6",
+        "fa6": "fa6",
+        "f7": "fa7",
+        "fa7": "fa7",
+        # Floating-point temporary registers
+        "f8": "ft0",
+        "ft0": "ft0",
+        "f9": "ft1",
+        "ft1": "ft1",
+        "f10": "ft2",
+        "ft2": "ft2",
+        "f11": "ft3",
+        "ft3": "ft3",
+        "f12": "ft4",
+        "ft4": "ft4",
+        "f13": "ft5",
+        "ft5": "ft5",
+        "f14": "ft6",
+        "ft6": "ft6",
+        "f15": "ft7",
+        "ft7": "ft7",
+        "f16": "ft8",
+        "ft8": "ft8",
+        "f17": "ft9",
+        "ft9": "ft9",
+        "f18": "ft10",
+        "ft10": "ft10",
+        "f19": "ft11",
+        "ft11": "ft11",
+        "f20": "ft12",
+        "ft12": "ft12",
+        "f21": "ft13",
+        "ft13": "ft13",
+        "f22": "ft14",
+        "ft14": "ft14",
+        "f23": "ft15",
+        "ft15": "ft15",
+        # Floating-point static registers
+        "f24": "fs0",
+        "fs0": "fs0",
+        "f25": "fs1",
+        "fs1": "fs1",
+        "f26": "fs2",
+        "fs2": "fs2",
+        "f27": "fs3",
+        "fs3": "fs3",
+        "f28": "fs4",
+        "fs4": "fs4",
+        "f29": "fs5",
+        "fs5": "fs5",
+        "f30": "fs6",
+        "fs6": "fs6",
+        "f31": "fs7",
+        "fs7": "fs7",
+    }
+
+
+class LoongArch64MachineDef(LoongArchMachineDef):
+    arch = Architecture.LOONGARCH64
+    pcode_language = "Loongarch:LE:64:lp64d"
+
+
+__all__ = ["LoongArch64MachineDef"]
