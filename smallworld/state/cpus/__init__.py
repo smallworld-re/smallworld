@@ -4,6 +4,7 @@ from .arm import ARMv5T, ARMv6M, ARMv6MThumb, ARMv7A, ARMv7M, ARMv7R
 from .cpu import *  # noqa: F401, F403
 from .cpu import __all__ as __cpu__
 from .i386 import I386
+from .loongarch import LoongArch64
 from .mips import MIPSBE, MIPSEL
 from .mips64 import MIPS64BE, MIPS64EL
 from .powerpc import PowerPC32, PowerPC64
@@ -20,6 +21,7 @@ __all__ = __cpu__ + [
     "ARMv7R",
     "ARMv7A",
     "I386",
+    "LoongArch64",
     "MIPS64EL",
     "MIPS64BE",
     "MIPSEL",

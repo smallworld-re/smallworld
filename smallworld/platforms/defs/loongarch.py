@@ -73,19 +73,19 @@ class LoongArchPlatformDef(PlatformDef):
             "a0": RegisterAliasDef(
                 name="a0", parent="r4", size=self.address_size, offset=0
             ),
+            "v0": RegisterAliasDef(
+                name="v0", parent="r4", size=self.address_size, offset=0
+            ),
             "r5": RegisterDef(name="r5", size=self.address_size),
             "a1": RegisterAliasDef(
                 name="a1", parent="r5", size=self.address_size, offset=0
             ),
-            "v0": RegisterAliasDef(
-                name="v0", parent="r5", size=self.address_size, offset=0
+            "v1": RegisterAliasDef(
+                name="v1", parent="r5", size=self.address_size, offset=0
             ),
             "r6": RegisterDef(name="r6", size=self.address_size),
             "a2": RegisterAliasDef(
                 name="a2", parent="r6", size=self.address_size, offset=0
-            ),
-            "v1": RegisterAliasDef(
-                name="v1", parent="r6", size=self.address_size, offset=0
             ),
             "r7": RegisterDef(name="r7", size=self.address_size),
             "a3": RegisterAliasDef(
@@ -262,6 +262,9 @@ class LoongArchPlatformDef(PlatformDef):
         }
 
 
-class LoongArch64PlatformDef(LoongArchPlatformDef):
+class LoongArch64(LoongArchPlatformDef):
     arch = Architecture.LOONGARCH64
     address_size = 8
+
+
+__all__ = ["LoongArch64"]
