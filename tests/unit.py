@@ -320,8 +320,7 @@ class StateTests(unittest.TestCase):
         self.assertEqual(
             memory.get_ranges_initialized(),
             [
-                range(memory.address + 1, memory.address + 2),
-                range(memory.address + 3, memory.address + 3),
+                range(memory.address + 1, memory.address + 3),
                 range(memory.address + 6, memory.address + 7),
             ],
         )

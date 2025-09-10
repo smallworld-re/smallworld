@@ -299,13 +299,21 @@ class Memory(state.Stateful, dict[int, state.Value]):
         )
 
     def get_ranges_initialized(self) -> list[range]:
-        return [
-            range(
-                self.address + segment_offset,
-                self.address + segment_offset + segment.get_size() - 1,
+        out: list[range] = []
+
+        for segment_offset, segment in sorted(self.items()):
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size() - 1
+            if len(out) > 0 and out[len(out) - 1].stop + 1 == segment_end:
+                segment_start = out.pop().start
+            out.append(
+                range(
+                    segment_start,
+                    segment_end,
+                )
             )
-            for segment_offset, segment in sorted(self.items())
-        ]
+
+        return out
 
     def get_ranges_uninitialized(self):
         pass
