@@ -298,6 +298,24 @@ class Memory(state.Stateful, dict[int, state.Value]):
             signed=False,
         )
 
+    def get_ranges_initialized(self) -> list[range]:
+        return [
+            range(
+                self.address + segment_offset,
+                self.address + segment_offset + segment.get_size() - 1,
+            )
+            for segment_offset, segment in sorted(self.items())
+        ]
+
+    def get_ranges_uninitialized(self):
+        pass
+
+    def get_ranges_symbolic(self):
+        pass
+
+    def get_ranges_concrete(self):
+        pass
+
     def __hash__(self):
         return super(dict, self).__hash__()
 
