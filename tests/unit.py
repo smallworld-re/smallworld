@@ -330,7 +330,53 @@ class StateTests(unittest.TestCase):
         memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
         self.assertEqual(
             memory.get_ranges_initialized(),
-            [range(memory.address, memory.address + memory.get_capacity() - 1)],
+            [range(memory.address, memory.address + 7)],
+        )
+
+    def test_memory_ranges_uninitialized(self):
+        # empty memory has no initialized ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [range(memory.address, memory.address + 7)],
+        )
+
+        # single memory region
+        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [
+                range(memory.address, memory.address),
+                range(memory.address + 3, memory.address + 7),
+            ],
+        )
+
+        # non-contiguous initialized regions
+        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [
+                range(memory.address, memory.address),
+                range(memory.address + 3, memory.address + 5),
+            ],
+        )
+
+        # contiguous and non-contiguous initialized regions
+        memory[3] = state.SymbolicValue(1, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [
+                range(memory.address, memory.address),
+                range(memory.address + 4, memory.address + 5),
+            ],
+        )
+
+        # fully initialized
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [],
         )
 
 
