@@ -293,6 +293,47 @@ class StateTests(unittest.TestCase):
         memory.write_int(addr, 4027576335, 4, platforms.Byteorder.BIG)
         self.assertEqual(memory.read_bytes(addr, 4), b"\xf0\x0f\xf0\x0f")
 
+    def test_memory_ranges_initialized(self):
+        # empty memory has no initialized ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(memory.get_ranges_initialized(), [])
+
+        # single memory region
+        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [range(memory.address + 1, memory.address + 2)],
+        )
+
+        # non-contiguous initialized regions
+        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # contiguous and non-contiguous initialized regions
+        memory[3] = state.SymbolicValue(1, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 3, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # fully initialized
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [range(memory.address, memory.address + memory.get_capacity() - 1)],
+        )
+
 
 class UtilsTests(unittest.TestCase):
     def test_range_collection_add(self):
