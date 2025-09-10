@@ -30,6 +30,11 @@ jobs:
         run: |
           dpkg --build toolchains/buildtools-loongarch64-linux-gnu
 
+      - name: Test LoongArch64 Deb
+        run: |
+          apt-get install toolchains/buildtools-loongarch64-linux-gnu.deb
+          loongarch64-linux-gnu-gcc --version
+
       - name: Cache Debs
         if: steps.cache-loongarch64-check.cache-hit != 'true'
         uses: actions/cache/save@v4
