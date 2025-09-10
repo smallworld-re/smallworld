@@ -5,7 +5,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
 
 class LoongArchPlatformDef(PlatformDef):
-    byteorder = Byteorder.BIG
+    byteorder = Byteorder.LITTLE
 
     # NOTE: Capstone does not yet support LoongArch
     capstone_arch = -1
@@ -263,7 +263,7 @@ class LoongArchPlatformDef(PlatformDef):
 
 
 class LoongArch64(LoongArchPlatformDef):
-    arch = Architecture.LOONGARCH64
+    architecture = Architecture.LOONGARCH64
     address_size = 8
 
 

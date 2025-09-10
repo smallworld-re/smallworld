@@ -154,7 +154,7 @@ class LoongArchMachineDef(GhidraMachineDef):
     }
 
 
-class LoongArch64MachineDef(GhidraMachineDef):
+class LoongArch64MachineDef(LoongArchMachineDef):
     arch = Architecture.LOONGARCH64
     pcode_language = "Loongarch:LE:64:lp64d"
 
