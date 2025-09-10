@@ -101,8 +101,6 @@ make install-strip-gcc || exit 1
 
 popd || exit 1
 
-exit 0
-
 # Build Kernel Headers
 echo "Building kernel headers"
 pushd "$LINUX_SRC" || exit 1
