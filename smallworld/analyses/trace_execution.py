@@ -140,6 +140,7 @@ class TraceExecution(analysis.Analysis):
         for te in trace:
             logger.debug(te)
             m.update((str(te.pc).encode("utf-8")))
+        
         logger.info(f"captured trace of {i} instructions, res={emu_result} trace_digest={m.hexdigest()}")
         
         assert emu_result is not None
@@ -147,6 +148,7 @@ class TraceExecution(analysis.Analysis):
         hint = TraceExecutionHint(
             message="A single execution trace",
             trace=trace,
+            trace_digest=m.hexdigest(),
             seed=self.seed,
             emu_result=emu_result,
             exception=the_exc,

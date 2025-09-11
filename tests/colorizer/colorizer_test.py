@@ -8,6 +8,7 @@ import typing
 import smallworld
 from smallworld import hinting
 from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
+from smallworld.analyses.colorizer import randomize_uninitialized
 from smallworld.hinting.hints import (
     DefUseGraphHint,
     DynamicMemoryValueSummaryHint,
@@ -69,33 +70,14 @@ def collect_hints(hint):
 #                 if true, buffers with random bytes will have lots of 42s
 # randomize_regs: if True, TraceExecution will randomize any regs not initialized
 # seed:           seed for RNG
-def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
+def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
     global hints
     global machine
 
-    machine_copy = copy.deepcopy(machine)
-    cpu = machine_copy.get_cpus()[0]
-
     hints = []
     print(
-        f"\ntest: num_micro_exec={num_micro_exec} num_insn={num_insn} buflen={buflen} fortytwos={fortytwos} seed={seed}"
+        f"\ntest: num_micro_exec={num_micro_exec} num_insns={num_insns} buflen={buflen} fortytwos={fortytwos} seed={seed}"
     )
-
-    heap_size = 0x1000
-    heap = smallworld.state.memory.heap.BumpAllocator(0x20000, heap_size)
-    machine_copy.add(heap)
-
-    random.seed(seed)
-    bytz = random.randbytes(buflen)
-    if fortytwos:
-        for i in range(buflen):
-            if random.random() > 0.5:
-                bytz = bytz[: i - 1] + b"\x2a" + bytz[i + 1 :]
-    buf = heap.allocate_bytes(bytz, "buf")
-    # arg 1 of foo is addr of buffer
-    cpu.rdi.set_content(buf)
-    # arg 2 is length of buffer
-    cpu.esi.set_content(buflen)
 
     hinter = hinting.Hinter()
     hinter.register(TraceExecutionHint, collect_hints)
@@ -103,34 +85,52 @@ def test(num_micro_exec, num_insn, buflen, fortytwos, seed):
     hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
     hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
     hinter.register(DefUseGraphHint, collect_hints)
-    analyses: typing.List[
-        typing.Union[smallworld.analyses.Analysis, smallworld.analyses.Filter]
-    ] = [
-        Colorizer(
-            hinter, num_micro_executions=num_micro_exec, num_insns=num_insn, seed=seed
-        ),
+    analyses = [
         ColorizerSummary(hinter),
         ColorizerDefUse(hinter),
     ]
 
-    # analyze
-    smallworld.analyze(machine_copy, analyses)
+    for i in range(num_micro_exec):
+        c = Colorizer(hinter, num_insns=num_insns, exec_id=i)
+
+        machine_copy = copy.deepcopy(machine)
+        cpu = machine_copy.get_cpus()[0]
+        heap_size = 0x1000
+        heap = smallworld.state.memory.heap.BumpAllocator(0x20000, heap_size)
+        machine_copy.add(heap)
+
+        random.seed(seed+i)
+        bytz = random.randbytes(buflen)
+        if fortytwos:
+            for i in range(buflen):
+                if random.random() > 0.5:
+                    bytz = bytz[: i - 1] + b"\x2a" + bytz[i + 1 :]
+        buf = heap.allocate_bytes(bytz, "buf")
+        # arg 1 of foo is addr of buffer
+        cpu.rdi.set_content(buf)
+        # arg 2 is length of buffer
+        cpu.esi.set_content(buflen)
+        
+        perturbed_machine = randomize_uninitialized(machine_copy, seed+i, ["rbp", "rsp"])
+        c.run(perturbed_machine)
+        
+    smallworld.analyze(perturbed_machine, analyses)
     return hints
 
 
 if __name__ == "__main__":
     try:
         num_micro_exec = int(sys.argv[1])
-        num_insn = int(sys.argv[2])
+        num_insns = int(sys.argv[2])
         buflen = int(sys.argv[3])
         fortytwos = sys.argv[4] == "True"
         seed = int(sys.argv[5])
     except:
         print("Error in one or more args")
         print(
-            """Usage: colorizer_test.py num_insn buflen fortytwos seed
+            """Usage: colorizer_test.py num_insns buflen fortytwos seed
 num_micro_exec  How many micro executions.
-num_insn:       How many (max) instructions to execute from entry for each micro exec.
+num_insns:       How many (max) instructions to execute from entry for each micro exec.
 buflen:         Length of buffer on heap that will be processed by fn foo @ 0x1169
 fortytwos:      The program handed to the colorizer for analysis, ahme, has a preference
                 for byte value 42 on some branches. If true, buffers with random bytes
@@ -139,4 +139,4 @@ seed:           Seed for random number generator."""
         )
         sys.exit(1)
 
-    _ = test(num_micro_exec, num_insn, buflen, fortytwos, seed)
+    _ = test(num_micro_exec, num_insns, buflen, fortytwos, seed)
