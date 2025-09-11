@@ -7,6 +7,7 @@ import sys
 import smallworld
 from smallworld import hinting
 from smallworld.analyses import TraceExecution
+from smallworld.analyses.colorizer import randomize_uninitialized
 from smallworld.hinting.hints import TraceExecutionHint
 
 # setup logging
@@ -142,9 +143,9 @@ def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
     cpu.rdx.set_content(0)
     hinter = hinting.Hinter()
     hinter.register(TraceExecutionHint, collect_hints)
-    traceA = TraceExecution(
-        hinter, num_insns=num_insn, randomize_regs=randomize_regs, seed=seed
-    )
+    traceA = TraceExecution(hinter, num_insns=num_insn, seed=seed)
+    if randomize_regs:
+        machine_copy = randomize_uninitialized(machine_copy, seed)
     traceA.run(machine_copy)
     return hints
 

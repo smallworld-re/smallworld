@@ -1,3 +1,4 @@
+import json
 import typing
 from dataclasses import dataclass
 from enum import Enum
@@ -27,3 +28,15 @@ class TraceElement:
 
     def __str__(self):
         return f"{self.ic} 0x{self.pc:x} [{self.mnemonic} {self.op_str}] {self.cmp} {self.branch} {self.immediates}"
+
+    # NOTE this is just used for logging. Can't un-jsonify
+    def to_json(self):
+        d = {
+            "instruction_count": self.ic,
+            "pc": self.pc,
+            "instr": f"{self.mnemonic} {self.op_str}",
+            "cmp": str(self.cmp),
+            "branch": self.branch,
+            "immediates": self.immediates,
+        }
+        return json.dumps(d)

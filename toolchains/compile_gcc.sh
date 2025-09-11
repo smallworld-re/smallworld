@@ -39,7 +39,7 @@ fi
 # GLIBC_EXTRA_ARGS
 
 # Install odd dependencies
-apt-get -y install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo libisl-dev
+apt-get -y install build-essential bison flex libgmp3-dev libmpc-dev libmpfr-dev texinfo libisl-dev rsync gawk
 
 # Clone all the repos.
 if [[ ! -d "$BINUTILS_SRC" ]]; then
@@ -75,7 +75,7 @@ git checkout "v6.16" || exit 1
 popd || exit 1
 
 
-export PATH "$PREFIX/bin:$PATH"
+export PATH="$PREFIX/bin:$PATH"
 
 # Build binutils
 echo "Building binutils"
@@ -83,7 +83,7 @@ rm -rf build-binutils || exit 1
 mkdir build-binutils || exit 1
 pushd build-binutils || exit 1
 
-"$BINUTILS_SRC/configure" --prefix="$PREFIX" --target="$TARGET" --disable-multilib --with-sysroot --disable-werror --disable-nls $BINUTILS_EXTRA_ARGS || exit 1
+"$BINUTILS_SRC/configure" --prefix="$PREFIX" --target="$TARGET" --disable-multilib --with-sysroot --disable-werror --disable-nls --disable-gdb $BINUTILS_EXTRA_ARGS || exit 1
 make -j $(nproc) || exit 1
 make install-strip || exit 1
 

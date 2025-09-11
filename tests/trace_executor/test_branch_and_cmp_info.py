@@ -6,38 +6,31 @@ from smallworld.instructions.instructions import RegisterOperand
 if __name__ == "__main__":
     # test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
     hints = test(100, 12, False, False, False, 1234)
+    truth_trace_digest = "89bc64081e73e0414ce7d659a27c67b5"
+    res = hints[0].trace_digest == truth_trace_digest
+    print(f"Test result: trace_digest matches passed={res}")
+
+    #                               TraceElement(pc=8610, ic=7, mnemonic='cmp', op_str='dword ptr [rbp - 0x1c], 0xc',
+    #                                            cmp=[BSIDMemoryReferenceOperand(rbp+-1c), 12], branch=False, immediates=[12]),
+    #                               TraceElement(pc=8620, ic=9, mnemonic='cmp', op_str='dword ptr [rbp - 0x20], 0',
+    #                                            cmp=[BSIDMemoryReferenceOperand(rbp+-20), 0], branch=False, immediates=[0]),
+    #                               TraceElement(pc=8758, ic=14, mnemonic='cmp', op_str='dword ptr [rbp - 0x1c], eax',
+    #                                            cmp=[BSIDMemoryReferenceOperand(rbp+-1c), RegisterOperand(eax)], branch=False, immediates=[]),
+    #                               ],
+
     if len(hints) == 0 or len(hints) > 1:
         print("Did not get 1 hint which is wrong")
     else:
-        branches = 0
-        cmps = {
-            0x21A2: [
-                ("Register", RegisterOperand("rbp"), 81912),
-                (
-                    "BSIDMemoryReference",
-                    BSIDMemoryReferenceOperand("rbp", None, 1, -0x1C),
-                    b"\x0c\x00\x00\x00",
-                ),
-            ],
-            0x21AC: [
-                ("Register", RegisterOperand("rbp"), 81912),
-                (
-                    "BSIDMemoryReference",
-                    BSIDMemoryReferenceOperand("rbp", None, 1, -0x20),
-                    b"\x00\x00\x00\x00",
-                ),
-            ],
+        truth_cmps = {
+            0x21A2: [BSIDMemoryReferenceOperand("rbp", None, 1, -0x1C), 12],
+            0x21AC: [BSIDMemoryReferenceOperand("rbp", None, 1, -0x20), 0],
             0x2236: [
-                ("Register", RegisterOperand("eax"), 0),
-                ("Register", RegisterOperand("rbp"), 81912),
-                (
-                    "BSIDMemoryReference",
-                    BSIDMemoryReferenceOperand("rbp", None, 1, -0x1C),
-                    b"\x0c\x00\x00\x00",
-                ),
+                BSIDMemoryReferenceOperand("rbp", None, 1, -0x1C),
+                RegisterOperand("eax"),
             ],
         }
-        immediates = {0x21A2: [12], 0x21AC: [0]}
+        truth_immediates = {0x21A2: [12], 0x21AC: [0]}
+        truth_branches = 3
 
         def expected(cond, msg):
             if cond:
@@ -46,34 +39,23 @@ if __name__ == "__main__":
                 print("UNEXPECTED ", end="")
             print(msg)
 
-        def cmp_in_cmps(pc, c1, cmps):
-            for pc2, c2 in cmps.items():
-                if pc == pc2 and (len(c1) == len(c2)):
-                    num_matches = 0
-                    for e1 in c1:
-                        found = False
-                        for e2 in c2:
-                            if e1 == e2:
-                                found = True
-                                num_matches += 1
-                        expected(found, f"cmp part {pc:x} {e1}")
-                    if num_matches == len(c1):
-                        # found all parts of c1 in c2. done
-                        return True
-            return False
-
+        branches = 0
         for te in hints[0].trace:
             if te.branch:
                 branches += 1
             if len(te.cmp) > 0:
-                cmp_in_cmps(te.pc, te.cmp, cmps)
-            #                         f"cmp {te.pc:x} {te.cmp}")
+                expected(
+                    te.pc in truth_cmps and te.cmp == truth_cmps[te.pc],
+                    f"cmps match for pc={te.pc:x}",
+                )
             if len(te.immediates) > 0:
                 expected(
-                    te.pc in immediates and immediates[te.pc] == te.immediates,
-                    f"immediate {te.pc:x} {te.immediates}",
+                    te.pc in truth_immediates
+                    and te.immediates == truth_immediates[te.pc],
+                    f"immediates match for pc={te.pc:x}",
                 )
-        expected(branches == 3, f"num_branches = {branches}")
+
+        expected(branches == truth_branches, f"num_branches = {branches}")
 
     # breakpoint()
     # pcs = [te.pc for te in hints[0].trace]

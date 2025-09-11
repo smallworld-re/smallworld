@@ -2914,19 +2914,25 @@ class POSIXDirnameTests(NoArgLibraryModelTest):
 class TraceExecutionTests(ScriptIntegrationTest):
     def test_trace_is_correct_no_heap(self):
         stdout, stderr = self.command("python3 trace_executor/test_trace_no_heap.py")
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: trace_digest matches passed=True"
+        )
 
     def test_trace_is_correct_1(self):
         stdout, stderr = self.command(
             "python3 trace_executor/test_trace_is_correct_1.py"
         )
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: trace_digest matches passed=True"
+        )
 
     def test_trace_is_correct_2(self):
         stdout, stderr = self.command(
             "python3 trace_executor/test_trace_is_correct_2.py"
         )
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(
+            stdout, "Test result: trace_digest matches passed=True"
+        )
 
     def test_trace_reproduces(self):
         stdout, stderr = self.command("python3 trace_executor/test_trace_reproduces.py")
@@ -2941,61 +2947,29 @@ class TraceExecutionTests(ScriptIntegrationTest):
         stdout, stderr = self.command(
             "python3 trace_executor/test_branch_and_cmp_info.py"
         )
-        self.assertLineContainsStrings(stdout, "EXPECTED   immediate 21a2 [12]")
-        self.assertLineContainsStrings(stdout, "EXPECTED   immediate 21ac [0]")
+        self.assertLineContainsStrings(
+            stdout, "Test result: trace_digest matches passed=True"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED   cmps match for pc=21a2")
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED   immediates match for pc=21a2"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED   cmps match for pc=21ac")
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED   immediates match for pc=21ac"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED   cmps match for pc=2236")
         self.assertLineContainsStrings(stdout, "EXPECTED   num_branches = 3")
-        self.assertLineContainsStrings(
-            stdout,
-            "EXPECTED   cmp part 21a2 ('BSIDMemoryReference', BSIDMemoryReferenceOperand(rbp+-1c)",
-        )
-        self.assertLineContainsStrings(
-            stdout, "EXPECTED   cmp part 21a2 ('Register', RegisterOperand(rbp), 81912)"
-        )
-        self.assertLineContainsStrings(
-            stdout,
-            "EXPECTED   cmp part 21ac ('BSIDMemoryReference', BSIDMemoryReferenceOperand(rbp+-20)",
-        )
-        self.assertLineContainsStrings(
-            stdout, "EXPECTED   cmp part 21ac ('Register', RegisterOperand(rbp), 81912)"
-        )
-        self.assertLineContainsStrings(
-            stdout, "EXPECTED   cmp part 2236 ('Register', RegisterOperand(eax), 0)"
-        )
-        self.assertLineContainsStrings(
-            stdout,
-            "EXPECTED   cmp part 2236 ('BSIDMemoryReference', BSIDMemoryReferenceOperand(rbp+-1c)",
-        )
-        self.assertLineContainsStrings(
-            stdout, "EXPECTED   cmp part 2236 ('Register', RegisterOperand(rbp), 81912)"
-        )
 
 
 class ColorizerTests(ScriptIntegrationTest):
     def test_colors_1(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_1.py")
-        self.assertLineContainsStrings(
-            stdout, "Test result: summary hints match = True"
-        )
-        self.assertLineContainsStrings(
-            stdout, "Test result: got a single def-use graph = True"
-        )
-        self.assertLineContainsStrings(
-            stdout, "Test result: Def-use graph match = True"
-        )
-        self.assertLineContainsStrings(stdout, "Test result: overall = True")
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
     def test_colors_2(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_2.py")
-        self.assertLineContainsStrings(
-            stdout, "Test result: summary hints match = True"
-        )
-        self.assertLineContainsStrings(
-            stdout, "Test result: got a single def-use graph = True"
-        )
-        self.assertLineContainsStrings(
-            stdout, "Test result: Def-use graph match = True"
-        )
-        self.assertLineContainsStrings(stdout, "Test result: overall = True")
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
 
 class RTOSDemoTests(ScriptIntegrationTest):
