@@ -70,7 +70,7 @@ free_model.allow_imprecise = True
 code.update_symbol_value("free", free_model._address)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.PandaEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
     

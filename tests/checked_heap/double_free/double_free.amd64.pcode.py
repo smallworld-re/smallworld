@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -70,7 +70,7 @@ free_model.allow_imprecise = True
 code.update_symbol_value("free", free_model._address)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
     
