@@ -3057,6 +3057,16 @@ class RTOSDemoTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "Reached stop_udp: True")
 
 
+class CheckedDoubleFreeTests(ScriptIntegrationTest):
+    def run_test(self, arch, emulator):
+        self.command(
+            f"python3 checked_heap/double_free/double_free.{emulator}.{arch}.py"
+        )
+
+    def test_aarch64_unicorn():
+        self.run_test("aarch64", "unicorn")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
