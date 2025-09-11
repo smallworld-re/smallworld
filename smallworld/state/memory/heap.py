@@ -94,7 +94,7 @@ class CheckedBumpAllocator(Heap):
         self._shadow = [0] * size
         self._current_free_offset = 0
         self._guard_size = guard_bytes
-        self._allocations: Dict[int, int] = {}
+        self._allocations: typing.Dict[int, int] = {}
 
     def get_used(self) -> int:
         return self._current_free_offset - self.address
