@@ -1,9 +1,13 @@
 # let's get all of it
+import copy
 import ctypes
 import logging
 import typing
 
 import smallworld
+from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
+from smallworld.analyses.colorizer import randomize_uninitialized
+from smallworld.hinting import hinting
 
 smallworld.logging.setup_logging(level=logging.INFO)
 
@@ -90,12 +94,25 @@ cpu.rdi.set_label("arg1")
 print(f"RDI: {hex(cpu.rdi.get())}")
 # all the allocated things get put in memory as concrete bytes
 
+
+hinter = hinting.Hinter()
+
 analyses: typing.List[smallworld.analyses.Analysis] = [
-    smallworld.analyses.Colorizer(),
-    smallworld.analyses.ColorizerSummary(),
+    ColorizerSummary(hinter),
+    ColorizerDefUse(hinter),
 ]
 
-smallworld.helpers.analyze(machine, analyses)
+seed = 123456
+
+for i in range(10):
+    c = Colorizer(hinter, num_insns=10, exec_id=i)
+    machine_copy = copy.deepcopy(machine)
+    perturbed_machine = randomize_uninitialized(machine_copy, seed + i, ["rbp", "rsp"])
+    c.run(perturbed_machine)
+
+
+smallworld.analyze(perturbed_machine, analyses)
+
 
 # now we can do a single micro-execution without error
 # final_state = smallworld.emulate(code, cpu)

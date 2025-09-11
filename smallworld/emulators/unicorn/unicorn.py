@@ -529,7 +529,7 @@ class UnicornEmulator(
 
         if pc not in self.function_hooks:
             disas = self.current_instruction()
-            logger.info(f"single step at 0x{pc:x}: {disas}")
+            logger.debug(f"single step at 0x{pc:x}: {disas}")
 
         try:
             self.engine.emu_start(pc, exit_point)
