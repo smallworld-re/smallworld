@@ -94,7 +94,7 @@ class CheckedBumpAllocator(Heap):
         self._shadow = [0] * size
         self._current_free_offset = 0
         self._guard_size = guard_bytes
-        self._allocations = {}
+        self._allocations: Dict[int, int] = {}
 
     def get_used(self) -> int:
         return self._current_free_offset - self.address
@@ -151,7 +151,7 @@ class CheckedBumpAllocator(Heap):
 
         return bytes
 
-    def apply(self, emulator: smallworld.emulators.Emulator) -> None:
+    def apply(self, emulator: typing.Any) -> None:
         super().apply(emulator)
         emulator.hook_memory_read(
             self.address, self.address + self.size, self.check_access
