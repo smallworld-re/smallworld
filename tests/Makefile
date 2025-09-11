@@ -136,10 +136,9 @@ MIPS64_ELF_START=0x800000
 	rm $*.i386.o
 
 %.la64.bin: %.la64.s
-	#loongarch64-linux-gnu-as $*.la64.s -o $*.la64.o
-	#loongarch64-linux-gnu-objcopy -O binary -j .text $*.la64.o $*.la64.bin
-	#rm $*.la64.o
-	touch $*.la64.s
+	loongarch64-linux-gnu-as $*.la64.s -o $*.la64.o
+	loongarch64-linux-gnu-objcopy -O binary -j .text $*.la64.o $*.la64.bin
+	rm $*.la64.o
 
 %.mips.so: %.so.c
 	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips.so
