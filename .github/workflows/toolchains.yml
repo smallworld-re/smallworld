@@ -14,7 +14,7 @@ jobs:
         id: cache-loongarch64-check
         uses: actions/cache/restore@v4
         with:
-          path: toolchains/${{ .deb
+          path: toolchains/buildtools-loongarch64-linux-gnu.deb
           key: ${{ runner.os }}-buildtools-loongarch64
           lookup-only: true
 
