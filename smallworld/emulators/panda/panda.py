@@ -8,7 +8,7 @@ from enum import Enum
 
 import capstone
 import claripy
-import pandare
+import pandare2
 
 from ... import exceptions, platforms, utils
 from .. import emulator, hookable
@@ -101,7 +101,7 @@ class PandaEmulator(
         def run(self):
             panda_args = self.get_panda_args_from_machdef()
 
-            self.panda = pandare.Panda(self.machdef.panda_arch, extra_args=panda_args)
+            self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
