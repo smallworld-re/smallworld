@@ -83,7 +83,7 @@ rm -rf build-binutils || exit 1
 mkdir build-binutils || exit 1
 pushd build-binutils || exit 1
 
-"$BINUTILS_SRC/configure" --prefix="$PREFIX" --target="$TARGET" --disable-multilib --with-sysroot --disable-werror --disable-nls --disable-gdb $BINUTILS_EXTRA_ARGS || exit 1
+"$BINUTILS_SRC/configure" --prefix="$PREFIX" --target="$TARGET" --disable-multilib --disable-werror --disable-nls --disable-gdb $BINUTILS_EXTRA_ARGS || exit 1
 make -j $(nproc) || exit 1
 make install-strip || exit 1
 
