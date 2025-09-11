@@ -1,7 +1,7 @@
 import abc
 import typing
 
-from smallworld.emulators import emulator
+import smallworld.emulators
 
 from .. import state
 from . import memory
@@ -130,7 +130,11 @@ class CheckedBumpAllocator(Heap):
             raise ValueError(f"Invalid Free at {hex(address)}")
 
     def check_access(
-        self, emulator: emulators.Emulator, address: int, size: int, content: bytes
+        self,
+        emulator: smallworld.emulators.Emulator,
+        address: int,
+        size: int,
+        content: bytes,
     ):
         offset = address - self.address
         if (offset + size) > size:
@@ -147,7 +151,7 @@ class CheckedBumpAllocator(Heap):
 
         return bytes
 
-    def apply(self, emulator: emulators.Emulator) -> None:
+    def apply(self, emulator: smallworld.emulators.Emulator) -> None:
         super().apply(emulator)
         emulator.hook_memory_read(
             self.address, self.address + self.size, self.check_access

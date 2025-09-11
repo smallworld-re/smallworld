@@ -3037,7 +3037,7 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
             f"python3 checked_heap/double_free/double_free.{emulator}.{arch}.py"
         )
 
-    def test_aarch64_unicorn():
+    def test_aarch64_unicorn(self):
         self.run_test("aarch64", "unicorn")
 
 
