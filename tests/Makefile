@@ -14,8 +14,8 @@ CDLLSOURCES := $(filter %.dll.c,$(CSOURCES))
 BINS := $(patsubst %.s,%.bin,$(BINSOURCES))
 ELFS := $(patsubst %.s,%,$(ELFSOURCES))
 
-CELFS := $(patsubst %.elf.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.riscv64.elf,$(CELFSOURCES))
-CSOS := $(patsubst %.so.c,%.aarch64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.amd64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armhf.so,$(CSOSOURCES)) $(patsubst %.so.c,%.i386.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mipsel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64el.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.riscv64.so,$(CSOSOURCES))
+CELFS := $(patsubst %.elf.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.la64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.riscv64.elf,$(CELFSOURCES))
+CSOS := $(patsubst %.so.c,%.aarch64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.amd64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armhf.so,$(CSOSOURCES)) $(patsubst %.so.c,%.i386.so,$(CSOSOURCES)) $(patsubst %.so.c,%.la64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mipsel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64el.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.riscv64.so,$(CSOSOURCES))
 CPES := $(patsubst %.pe.c,%.amd64.pe,$(CPESOURCES)) $(patsubst %.pe.c,%.i386.pe,$(CPESOURCES))
 CDLLS := $(patsubst %.dll.c,%.amd64.dll,$(CDLLSOURCES)) $(patsubst %.dll.c,%.i386.dll,$(CDLLSOURCES))
 
@@ -134,6 +134,17 @@ MIPS64_ELF_START=0x800000
 	i686-linux-gnu-as $*.i386.s -o $*.i386.o
 	i686-linux-gnu-objcopy -O binary -j .text $*.i386.o $*.i386.bin
 	rm $*.i386.o
+
+%.la64.so: %.so.c
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.la64.so
+
+%.la64.elf: %.elf.c
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.la64.elf
+
+%.la64.elf: %.la64.elf.s
+	loongarch64-linux-gnu-as $*.la64.elf.s -o $*.la64.elf.o
+	loongarch64-linux-gnu-ld $*.la64.elf.o -o $*.la64.elf
+	rm $*.la64.elf.o
 
 %.la64.bin: %.la64.s
 	loongarch64-linux-gnu-as $*.la64.s -o $*.la64.o
