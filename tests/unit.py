@@ -379,6 +379,108 @@ class StateTests(unittest.TestCase):
             [],
         )
 
+    def test_memory_ranges_symbolic(self):
+        # empty memory has no symbolic ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(memory.get_ranges_symbolic(), [])
+
+        # single symbolic memory region
+        memory[1] = state.SymbolicValue(2, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [range(memory.address + 1, memory.address + 2)],
+        )
+
+        # non-contiguous symbolic regions
+        memory[6] = state.SymbolicValue(2, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # contiguous and non-contiguous symbolic regions
+        memory[3] = state.SymbolicValue(1, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # gaps filled with bytes values
+        memory.write_bytes(memory.address, b"\xFF")
+        memory.write_bytes(memory.address + 4, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # fully symbolic
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.SymbolicValue(8, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [range(memory.address, memory.address + 7)],
+        )
+
+    def test_memory_ranges_concrete(self):
+        # empty memory has no concrete ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(memory.get_ranges_concrete(), [])
+
+        # single concrete memory region
+        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [range(memory.address + 1, memory.address + 2)],
+        )
+
+        # non-contiguous concrete regions
+        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # contiguous and non-contiguous concrete regions
+        memory.write_bytes(memory.address + 3, b"\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # gaps filled with symbolic values
+        memory[0] = state.SymbolicValue(1, None, None, None)
+        memory[4] = state.SymbolicValue(2, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # fully concrete initialized
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [range(memory.address, memory.address + 7)],
+        )
+
 
 class UtilsTests(unittest.TestCase):
     def test_range_collection_add(self):
