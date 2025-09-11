@@ -88,7 +88,7 @@ class CheckedBumpAllocator(Heap):
     """A simple bump allocator heap that uses a shadow memory to check reads and write. It will also check for UAF bugs."""
 
     def __init__(
-        self, address: int, size: int, guard_bytes: int, args, **kwargs
+        self, address: int, size: int, guard_bytes: int, *args, **kwargs
     ) -> None:
         super().__init__(address, size, *args, **kwargs)
         self._shadow = [0] * size
