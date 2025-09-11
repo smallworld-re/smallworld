@@ -60,16 +60,17 @@ jobs:
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
       
       - name: Fetch Extra Build Tools
-        id: cache-loongarch64-check
+        id: cache-loongarch64-fetch
         uses: actions/cache/restore@v4
         with:
           path: toolchains/buildtools-loongarch64-linux-gnu.deb
           key: ${{ runner.os }}-buildtools-loongarch64
           
       - name: Build Tool Fetch Failed
-        if: steps.ac.outputs.changes_detected && ${{ steps.cache-loongarch64-check.cache-hit }} != 'true'
+        if: steps.ac.outputs.changes_detected && ${{ steps.cache-loongarch64-fetch.cache-hit }} != 'true'
         run: |
           echo "No cached loongarch64 build tools!"
+          echo ${{ steps.cache-loongarch64-fetch.cache-hit }}
           exit 1
 
       - name: Install Extra Build Tools
