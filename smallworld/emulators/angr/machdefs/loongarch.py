@@ -1,5 +1,107 @@
+import enum
+import typing
+
+import angr
+import archinfo
+import pypcode
+
+from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
+
+
+class UpdatedEnumMeta(enum.EnumMeta):
+    def __contains__(cls, obj):
+        if isinstance(obj, int):
+            return obj in cls._value2member_map_
+        return enum.EnumMeta.__contains__(enum.EnumMeta, obj)
+
+
+def handle_nop(irsb, i):
+    # This op has no impact on user-facing machine state.
+    irsb._ops.pop(i)
+    return i
+
+
+def handle_sigtrap(irsb, i):
+    # This op should terminate this block with SIGTRAP
+    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    irsb._ops = irsb._ops[0:i]
+    irsb.next = next_addr
+    irsb._size = next_addr - irsb.addr
+    irsb._instruction_addresses = list(
+        filter(lambda x: x < next_addr, irsb._instruction_addresses)
+    )
+    irsb.jumpkind = "Ijk_SigTRAP"
+    return i
+
+
+def handle_syscall(irsb, i):
+    # This op should terminate this block with a syscall
+    next_addr = irsb._ops[i - 1].inputs[0].offset + 3
+    irsb._ops = irsb._ops[0:i]
+    irsb.next = next_addr
+    irsb._size = next_addr - irsb.addr
+    irsb._instruction_addresses = list(
+        filter(lambda x: x < next_addr, irsb._instruction_addresses)
+    )
+    irsb.jumpkind = "Ijk_Sys_syscall"
+
+    return i
+
+
+def handle_unimpl(irsb, i):
+    # I don't know what this op does yet
+    userop = LoongArchUserOp(irsb._ops[i].inputs[0].offset)
+    raise EmulationError(f"Unimplemented user op {userop!r}")
+
+
+class LoongArchUserOp(enum.IntEnum, metaclass=UpdatedEnumMeta):
+    def __new__(
+        cls, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
+    ):
+        obj = int.__new__(cls, val)
+        obj._value_ = val
+        obj.short_name = name
+        obj.handler = handler
+        obj.description = desc
+        return obj
+
+    def __init__(
+        self, val: int, name: str = "", handler: typing.Any = None, desc: str = ""
+    ):
+        self._value_: int = val
+        self.short_name: str = name
+        self.handler: typing.Any = handler
+        self.description: str = desc
+
+    def __repr__(self):
+        return f"{hex(self.value)}: {self.short_name} - {self.description}"
+
+    BREAK = 0x00, "break", handle_sigtrap, "Breakpoint instruction"
+    CPUCFG = 0x01, "cpucfg", handle_unimpl, "CPU config instruction"
+    ADDR_BOUND_EXCEPTION = 0x02, "addr_bound_exception", handle_unimpl, "Unknown"
+    BOUND_CHECK_EXCEPTION = 0x03, "bound_check_exception", handle_unimpl, "Unknown"
+    CRC_IEEE802_3 = 0x04, "crc_ieee802.3", handle_unimpl, "Unknown"
+    CRC_CASTAGNOLI = 0x05, "crc_castagnoli", handle_unimpl, "Unknown"
+    DBCL = 0x06, "dbcl", handle_unimpl, "Unknown"
+    DBAR = 0x07, "dbar", handle_nop, "Data Barrier"
+    IBAR = 0x08, "ibar", handle_nop, "Instruction Barrier"
+    IOCSRRD = 0x09, "iocsrrd", handle_unimpl, "Unknown"
+    IOCSRWR = 0x0A, "iocsrwr", handle_unimpl, "Unknown"
+    PRELD_LOADL1CACHE = 0x0B, "preld_loadl1cache", handle_unimpl, "Unknown"
+    PRELD_STOREL1CACHE = 0x0C, "preld_storel1cache", handle_unimpl, "Unknown"
+    PRELD_NOP = 0x0D, "preld_nop", handle_unimpl, "Unknown"
+    PRELDX_LOADL1CACHE = 0x0E, "preldx_loadl1cache", handle_unimpl, "Unknown"
+    PRELDX_STOREL1CACHE = 0x0F, "preldx_storel1cache", handle_unimpl, "Unknown"
+    PRELDX_NOP = 0x10, "preldx_nop", handle_unimpl, "Unknown"
+    RDTIME_COUNTER = 0x11, "rdtime.counter", handle_unimpl, "Unknown"
+    RDTIME_COUNTERID = 0x12, "rdtime.counterid", handle_unimpl, "Unknown"
+    SYSCALL = 0x13, "syscall", handle_syscall, "Unknown"
+    F_SCALEB = 0x14, "f_scaleb", handle_unimpl, "Unknown"
+    F_LOGB = 0x15, "f_logb", handle_unimpl, "Unknown"
+    F_CLASS = 0x16, "f_class", handle_unimpl, "Unknown"
+    ROUND_EVEN = 0x17, "round_even", handle_unimpl, "Unknown"
 
 
 class LoongArchMachineDef(GhidraMachineDef):
@@ -152,6 +254,82 @@ class LoongArchMachineDef(GhidraMachineDef):
         "f31": "fs7",
         "fs7": "fs7",
     }
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        # xtensa includes a _LOT_ of custom pcode operations.
+
+        # Fetch or compute the IR block for our state
+        if "irsb" in kwargs and kwargs["irsb"] is not None:
+            # Someone's already specified an IR block.
+            irsb = kwargs["irsb"]
+        else:
+            # Disable optimization; it doesn't work
+            kwargs["opt_level"] = 0
+
+            # Compute the block from the state.
+            # Pray to the Powers that kwargs are compatible.
+            irsb = state.block(**kwargs).vex
+
+        i = 0
+        while i < len(irsb._ops):
+            op = irsb._ops[i]
+            if op.opcode == pypcode.OpCode.CALLOTHER:
+                # This is a user-defined Pcode op.
+                # Alter irsb to mimic its behavior, if we can.
+                opnum = op.inputs[0].offset
+
+                if opnum not in LoongArchUserOp:
+                    # Not a userop.
+                    raise EmulationError(f"Undefined user op {hex(opnum)}")
+                # get the enum struct
+                userop = LoongArchUserOp(opnum)
+
+                # Invoke the handler
+                i = userop.handler(irsb, i)
+            else:
+                i += 1
+
+        # Force the engine to use our IR block
+        kwargs["irsb"] = irsb
+
+        # Turn the crank on the engine
+        return super().successors(state, **kwargs)
+
+
+class SimCCLoongArchLinux(angr.calling_conventions.SimCC):
+    ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5", "a6", "a7"]
+    FP_ARG_REGS = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 8)
+    ARCH = archinfo.ArchPcode("Loongarch:LE:64:lp64d")
+
+
+angr.calling_conventions.register_default_cc(
+    "Loongarch:LE:64:lp64d", SimCCLoongArchLinux
+)
+
+
+class SimCCLoongArchLinuxSyscall(angr.calling_conventions.SimCCSyscall):
+    ARG_REGS = ["a0", "a1", "a2", "a3", "a4", "a5"]
+    FP_ARG_REGS: typing.List[str] = []
+    RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
+    RETURN_ADDR = angr.calling_conventions.SimRegArg("ip_at_syscall", 8)
+    ARCH = None
+
+    @classmethod
+    def _match(cls, arch, args, sp_data):
+        # Never match; only occurs durring syscalls
+        return False
+
+    @staticmethod
+    def syscall_num(state):
+        # This is a massive guess from RE'ing libc
+        return state.regs.a7
+
+
+angr.calling_conventions.register_syscall_cc(
+    "Loongarch:LE:64:lp64d", "default", SimCCLoongArchLinuxSyscall
+)
 
 
 class LoongArch64MachineDef(LoongArchMachineDef):

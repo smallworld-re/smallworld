@@ -237,7 +237,8 @@ class GhidraEmulator(AbstractGhidraEmulator):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
             ret = self.read_register("lr")
         elif (
-            self.platform.architecture == platforms.Architecture.MIPS32
+            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
         ):
