@@ -222,6 +222,23 @@ jobs:
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
     steps:
+      - name: Fetch Extra Build Tools
+        id: cache-loongarch64-check
+        uses: actions/cache/restore@v4
+        with:
+          path: toolchains/buildtools-loongarch64-linux-gnu.deb
+          key: ${{ runner.os }}-buildtools-loongarch64
+          
+      - name: Build Tool Fetch Failed
+        if: ${{ steps.cache-loongarch64-check }} != 'true'
+        run: |
+          echo "No cached loongarch64 build tools!"
+          exit 1
+
+      - name: Install Extra Build Tools
+        run: |
+          apt-get install ./toolchains/buildtools-*.deb
+        
       - name: Copy Repo
         run: |
           cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
