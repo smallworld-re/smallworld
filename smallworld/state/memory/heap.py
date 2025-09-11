@@ -83,34 +83,39 @@ class BumpAllocator(Heap):
     def free(self, address: int) -> None:
         pass
 
+
 class CheckedBumpAllocator(Heap):
     """A simple bump allocator heap that uses a shadow memory to check reads and write. It will also check for UAF bugs."""
 
-    def __init__(self, address: int, size: int, guard_bytes: int, args, **kwargs) -> None:
+    def __init__(
+        self, address: int, size: int, guard_bytes: int, args, **kwargs
+    ) -> None:
         super().__init__(address, size, *args, **kwargs)
         self._shadow = [0] * size
         self._current_free_offset = 0
         self._guard_size = guard_bytes
         self._allocations = {}
-        
+
     def get_used(self) -> int:
         return self._current_free_offset - self.address
 
     def _is_safe(self, value: state.Value):
-        if (self.get_used() + value.get_size() + self._guard_size) > self.get_capacity():
+        if (
+            self.get_used() + value.get_size() + self._guard_size
+        ) > self.get_capacity():
             raise ValueError("Memory is full")
-            
+
     def allocate(self, value: state.Value) -> int:
         self._is_safe(value)
         value_size = value.get_size()
-        
+
         offset = self._current_free_offset
         self._current_free_offset += value_size + self._guard_size
 
         for i in range(value_size):
             self._shadow[offset + i] = 1
 
-        self._allocations[offset] = 
+        self._allocations[offset] = value_size
         self[offset] = value_size
         return self.address + offset
 
@@ -123,8 +128,10 @@ class CheckedBumpAllocator(Heap):
             del self._allocations[address]
         else:
             raise ValueError(f"Invalid Free at {hex(address)}")
-        
-    def check_access(self, emulator: emulators.Emulator, address: int, size: int, content: bytes):
+
+    def check_access(
+        self, emulator: emulators.Emulator, address: int, size: int, content: bytes
+    ):
         offset = address - self.address
         if (offset + size) > size:
             raise ValueError(f"Invalid access at {hex(address)} of size {size}")
@@ -137,13 +144,17 @@ class CheckedBumpAllocator(Heap):
                 raise ValueError(f"Access uninitialized bytes at {hex(address + i)}")
             elif shadow_byte == 2:
                 raise ValueError(f"Access freed memory at {hex(address + i)}")
-        
+
         return bytes
-    
-   
+
     def apply(self, emulator: emulators.Emulator) -> None:
         super().apply(emulator)
-        emulator.hook_memory_read(self.address, self.address + self.size, self.check_access)
-        emulator.hook_memory_write(self.address, self.address + self.size, self.check_access)
-        
+        emulator.hook_memory_read(
+            self.address, self.address + self.size, self.check_access
+        )
+        emulator.hook_memory_write(
+            self.address, self.address + self.size, self.check_access
+        )
+
+
 __all__ = ["Heap", "BumpAllocator", "CheckedBumpAllocator"]
