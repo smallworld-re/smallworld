@@ -2,6 +2,7 @@ from .aarch64 import AArch64Stack
 from .amd64 import AMD64Stack
 from .arm import ARMv5tStack, ARMv6mStack, ARMv7aStack, ARMv7mStack, ARMv7rStack
 from .i386 import X86Stack
+from .loongarch import LoongArch64Stack
 from .mips import MIPSBEStack, MIPSELStack
 from .mips64 import MIPS64BEStack, MIPS64ELStack
 from .ppc import PowerPC32Stack, PowerPC64Stack
@@ -19,6 +20,7 @@ __all__ = __stack__ + [
     "ARMv7rStack",
     "ARMv7aStack",
     "X86Stack",
+    "LoongArch64Stack",
     "MIPSBEStack",
     "MIPSELStack",
     "MIPS64BEStack",
