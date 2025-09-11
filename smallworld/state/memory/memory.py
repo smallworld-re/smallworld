@@ -155,7 +155,8 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
             # overwrite existing segment
             if (
-                segment_address <= next_segment_address
+                remaining_length > 0
+                and segment_address <= next_segment_address
                 and next_segment_address < segment_address + segment.get_size()
             ):
                 contents = segment.get_content()
@@ -334,10 +335,42 @@ class Memory(state.Stateful, dict[int, state.Value]):
         return out
 
     def get_ranges_symbolic(self):
-        pass
+        out: list[range] = []
+
+        for segment_offset, segment in sorted(self.items()):
+            if not isinstance(segment, state.SymbolicValue):
+                continue
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size() - 1
+            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+                segment_start = out.pop().start
+            out.append(
+                range(
+                    segment_start,
+                    segment_end,
+                )
+            )
+
+        return out
 
     def get_ranges_concrete(self):
-        pass
+        out: list[range] = []
+
+        for segment_offset, segment in sorted(self.items()):
+            if isinstance(segment, state.SymbolicValue):
+                continue
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size() - 1
+            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+                segment_start = out.pop().start
+            out.append(
+                range(
+                    segment_start,
+                    segment_end,
+                )
+            )
+
+        return out
 
     def __hash__(self):
         return super(dict, self).__hash__()
