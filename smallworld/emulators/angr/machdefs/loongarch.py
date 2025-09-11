@@ -301,7 +301,7 @@ class SimCCLoongArchLinux(angr.calling_conventions.SimCC):
     FP_ARG_REGS = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
     RETURN_VAL = angr.calling_conventions.SimRegArg("a0", 8)
     RETURN_ADDR = angr.calling_conventions.SimRegArg("ra", 8)
-    ARCH = archinfo.ArchPcode("Loongarch:LE:64:lp64d")
+    ARCH = archinfo.ArchPcode("Loongarch:LE:64:lp64d")  # type: ignore
 
 
 angr.calling_conventions.register_default_cc(
