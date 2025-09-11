@@ -184,7 +184,7 @@ class ColorizerSummary(analysis.Analysis):
                         scale=hint.bscale,
                         pc=hint.pc,
                         count=hk_c[hk],
-                        num_micro_executions=len(self.exec_ids),                         
+                        num_micro_executions=len(self.exec_ids),
                         message=hint.message + "-summary",
                     )
                 )

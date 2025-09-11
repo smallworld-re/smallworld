@@ -187,9 +187,9 @@ class ColorizerDefUse(analysis.Analysis):
                 (src, dst, k) = e
                 cn = ui[e]["color"]
                 tl = ""
-                
+
                 def i2s(inf):
-                    lab = ""                    
+                    lab = ""
                     if "type" in inf:
                         if inf["type"] == "reg":
                             lab = inf["reg_name"]
@@ -203,11 +203,13 @@ class ColorizerDefUse(analysis.Analysis):
                                 lab += f'+{inf["offset"]:x}'
                             lab += "]"
                     return lab
-                
+
                 hl = i2s(ui[e])
                 tl = i2s(di[e])
-                
-                writeit(f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}",headlabel="{hl}",taillabel="{tl}"]')
+
+                writeit(
+                    f'  {node2nodeid[src]} -> {node2nodeid[dst]} [label="{cn}",headlabel="{hl}",taillabel="{tl}"]'
+                )
 
             writeit("}\n")
 

@@ -3,7 +3,6 @@ import logging
 import pathlib
 import random
 import sys
-import typing
 
 import smallworld
 from smallworld import hinting
@@ -99,7 +98,7 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
         heap = smallworld.state.memory.heap.BumpAllocator(0x20000, heap_size)
         machine_copy.add(heap)
 
-        random.seed(seed+i)
+        random.seed(seed + i)
         bytz = random.randbytes(buflen)
         if fortytwos:
             for i in range(buflen):
@@ -110,10 +109,12 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
         cpu.rdi.set_content(buf)
         # arg 2 is length of buffer
         cpu.esi.set_content(buflen)
-        
-        perturbed_machine = randomize_uninitialized(machine_copy, seed+i, ["rbp", "rsp"])
+
+        perturbed_machine = randomize_uninitialized(
+            machine_copy, seed + i, ["rbp", "rsp"]
+        )
         c.run(perturbed_machine)
-        
+
     smallworld.analyze(perturbed_machine, analyses)
     return hints
 

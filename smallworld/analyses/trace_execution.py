@@ -135,14 +135,16 @@ class TraceExecution(analysis.Analysis):
             if i == self.num_insns:
                 emu_result = TraceRes.ER_MAX_INSNS
                 break
-                        
+
         m = hashlib.md5()
         for te in trace:
             logger.debug(te)
             m.update((str(te.pc).encode("utf-8")))
-        
-        logger.info(f"captured trace of {i} instructions, res={emu_result} trace_digest={m.hexdigest()}")
-        
+
+        logger.info(
+            f"captured trace of {i} instructions, res={emu_result} trace_digest={m.hexdigest()}"
+        )
+
         assert emu_result is not None
 
         hint = TraceExecutionHint(

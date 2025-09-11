@@ -7,8 +7,8 @@ import sys
 import smallworld
 from smallworld import hinting
 from smallworld.analyses import TraceExecution
-from smallworld.hinting.hints import TraceExecutionHint
 from smallworld.analyses.colorizer import randomize_uninitialized
+from smallworld.hinting.hints import TraceExecutionHint
 
 # setup logging
 smallworld.logging.setup_logging(level=logging.DEBUG)

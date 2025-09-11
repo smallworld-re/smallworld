@@ -9,8 +9,7 @@ if __name__ == "__main__":
     truth_trace_digest = "89bc64081e73e0414ce7d659a27c67b5"
     res = hints[0].trace_digest == truth_trace_digest
     print(f"Test result: trace_digest matches passed={res}")
- 
-    
+
     #                               TraceElement(pc=8610, ic=7, mnemonic='cmp', op_str='dword ptr [rbp - 0x1c], 0xc',
     #                                            cmp=[BSIDMemoryReferenceOperand(rbp+-1c), 12], branch=False, immediates=[12]),
     #                               TraceElement(pc=8620, ic=9, mnemonic='cmp', op_str='dword ptr [rbp - 0x20], 0',
@@ -23,15 +22,11 @@ if __name__ == "__main__":
         print("Did not get 1 hint which is wrong")
     else:
         truth_cmps = {
-            0x21A2: [
-                BSIDMemoryReferenceOperand("rbp", None, 1, -0x1c), 12
-            ],
-            0x21AC: [
-                BSIDMemoryReferenceOperand("rbp", None, 1, -0x20), 0
-            ],
-            0x2236: [                
+            0x21A2: [BSIDMemoryReferenceOperand("rbp", None, 1, -0x1C), 12],
+            0x21AC: [BSIDMemoryReferenceOperand("rbp", None, 1, -0x20), 0],
+            0x2236: [
                 BSIDMemoryReferenceOperand("rbp", None, 1, -0x1C),
-                RegisterOperand("eax")
+                RegisterOperand("eax"),
             ],
         }
         truth_immediates = {0x21A2: [12], 0x21AC: [0]}
@@ -44,18 +39,22 @@ if __name__ == "__main__":
                 print("UNEXPECTED ", end="")
             print(msg)
 
-
         branches = 0
         for te in hints[0].trace:
             if te.branch:
                 branches += 1
             if len(te.cmp) > 0:
-                expected(te.pc in truth_cmps and \
-                         te.cmp == truth_cmps[te.pc], f"cmps match for pc={te.pc:x}")
+                expected(
+                    te.pc in truth_cmps and te.cmp == truth_cmps[te.pc],
+                    f"cmps match for pc={te.pc:x}",
+                )
             if len(te.immediates) > 0:
-                expected(te.pc in truth_immediates and \
-                         te.immediates == truth_immediates[te.pc], f"immediates match for pc={te.pc:x}")
-                
+                expected(
+                    te.pc in truth_immediates
+                    and te.immediates == truth_immediates[te.pc],
+                    f"immediates match for pc={te.pc:x}",
+                )
+
         expected(branches == truth_branches, f"num_branches = {branches}")
 
     # breakpoint()

@@ -15,7 +15,6 @@ from ..instructions import (
     Operand,
     RegisterOperand,
 )
-from ..platforms.defs import AMD64, I386
 from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
@@ -25,15 +24,13 @@ logger = logging.getLogger(__name__)
 MIN_ACCEPTABLE_COLOR_INT = 0x20
 BAD_COLOR = (2**64) - 1
 
-Colors = typing.Dict[int, typing.Tuple[Operand, int, int, Instruction, int]]
+Colors = typing.Dict[int, typing.Tuple[Operand, int, Instruction, int]]
 
 Shad = typing.Dict[int, typing.Tuple[int, bool, int]]
 
 
 def randomize_uninitialized(
-        machine: state.Machine,
-        seed:int = 123456,
-        extra_regs: typing.List[str] = []
+    machine: state.Machine, seed: int = 123456, extra_regs: typing.List[str] = []
 ) -> state.Machine:
     """Consider all parts of the machine that can be written to (registers
     + memory regions). Write random values to any bytes in those machine
@@ -56,14 +53,11 @@ def randomize_uninitialized(
     random.seed(seed)
     logger.setLevel(logging.DEBUG)
 
-
-    #if logger.getEffectiveLevel() >= logging.DEBUG:
+    # if logger.getEffectiveLevel() >= logging.DEBUG:
     m = hashlib.md5()
     platform = machine.get_platform()
     machine_copy = copy.deepcopy(machine)
-    cpu = machine_copy.get_cpu()
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    regs = []
     reg_names = list(pdefs.registers.keys())
     reg_names.sort()
 
@@ -76,19 +70,16 @@ def randomize_uninitialized(
         return None
 
     for name in reg_names:
-        if (
-            (name in pdefs.general_purpose_registers)
-            or (name in extra_regs)
-        ):
+        if (name in pdefs.general_purpose_registers) or (name in extra_regs):
             reg = get_reg(machine_copy, name)
-            if (reg.get_content() is None):
+            if reg.get_content() is None:
                 # this means reg is uninitialized; ok to randomize
-                v = random.randint(0,(1<<(8*reg.size))-1)
+                v = random.randint(0, (1 << (8 * reg.size)) - 1)
                 reg.set(v)
-                #logger.info(f"randomize_uninitialized setting {reg}")
-                #if logger.getEffectiveLevel() >= logging.DEBUG:
+                # logger.info(f"randomize_uninitialized setting {reg}")
+                # if logger.getEffectiveLevel() >= logging.DEBUG:
                 m.update(str(v).encode("utf-8"))
-            
+
     for el in machine_copy:
         if isinstance(m, state.memory.Memory):
             if isinstance(m, state.memory.Executable):
@@ -96,10 +87,10 @@ def randomize_uninitialized(
                 continue
             # To come, I guess
             # we'd like to randomize anything uninitialized...
-            pass 
-    #if logger.getEffectiveLevel() >= logging.DEBUG:
+            pass
+    # if logger.getEffectiveLevel() >= logging.DEBUG:
     logger.info(f"digest of changes made to machine: {m.hexdigest()}")
-        
+
     logger.setLevel(logging.INFO)
 
     return machine_copy
@@ -214,14 +205,12 @@ class Colorizer(analysis.Analysis):
                 if color == BAD_COLOR:
                     pass
                 else:
-                    self._check_color(
-                        emu, is_read, rw, sw_insn, te.ic
-                    )
+                    self._check_color(emu, is_read, rw, sw_insn, te.ic)
                 # self.update_shadow(emu, pc, is_read, rw)
             if is_read:
                 self.reads = rws
 
-        def before_instruction_cb(emu, pc, te):            
+        def before_instruction_cb(emu, pc, te):
             check_rws(emu, pc, te, True)
 
         def after_instruction_cb(emu, pc, te):
@@ -230,10 +219,7 @@ class Colorizer(analysis.Analysis):
         self.colors = {}
         self.shadow_register = {}
         self.shadow_memory = {}
-        traceA = TraceExecution(
-            self.hinter,
-            num_insns=self.num_insns
-        )
+        traceA = TraceExecution(self.hinter, num_insns=self.num_insns)
         traceA.register_cb(
             TraceExecutionCBPoint.BEFORE_INSTRUCTION, before_instruction_cb
         )
@@ -249,14 +235,14 @@ class Colorizer(analysis.Analysis):
         #     pc2nodeid = {}
         #     nodeid2pc = {}
         #     nodeids = set([])
-        
+
         #     def add_pc(pc):
         #         if pc not in pc2nodeid:
         #             nodeid = f"node_{len(nodeids)}"
         #             nodeids.add(nodeid)
         #             pc2nodeid[pc] = nodeid
         #             nodeid2pc[nodeid] = pc
-        
+
         #     for pc1 in self.edge.keys():
         #         add_pc(pc1)
         #         for pc2 in self.edge[pc1].keys():

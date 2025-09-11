@@ -1,7 +1,7 @@
+import json
 import typing
 from dataclasses import dataclass
 from enum import Enum
-import json
 
 from smallworld.instructions import Operand
 
@@ -37,6 +37,6 @@ class TraceElement:
             "instr": f"{self.mnemonic} {self.op_str}",
             "cmp": str(self.cmp),
             "branch": self.branch,
-            "immediates": self.immediates
+            "immediates": self.immediates,
         }
         return json.dumps(d)

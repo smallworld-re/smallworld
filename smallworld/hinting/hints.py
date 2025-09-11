@@ -276,7 +276,7 @@ class OutputHint(hinting.Hint):
 @dataclass(frozen=True)
 class TraceExecutionHint(TypeHint):
     trace: typing.List[TraceElement]
-    trace_digest:str
+    trace_digest: str
     seed: int
     emu_result: TraceRes
     exception: typing.Optional[Exception]
@@ -287,7 +287,7 @@ class TraceExecutionHint(TypeHint):
         tracel = [te.to_json() for te in self.trace]
 
         return {
-            "trace": tracel, # jsons.dump(self.trace),
+            "trace": tracel,  # jsons.dump(self.trace),
             "trace_digest": self.trace_digest,
             "seed": jsons.dump(self.seed),
             "emu_result": jsons.dump(self.emu_result),
