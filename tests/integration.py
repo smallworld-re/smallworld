@@ -3033,7 +3033,7 @@ class RTOSDemoTests(ScriptIntegrationTest):
 
 class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def run_test(self, kind):
-        self.command(f"python3 checked_heap/double_free/double_free.{arch}.py")
+        self.command(f"python3 checked_heap/double_free/double_free.{kind}.py")
 
     def test_aarch64_unicorn(self):
         self.run_test("aarch64")
