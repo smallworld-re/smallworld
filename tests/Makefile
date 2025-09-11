@@ -38,6 +38,10 @@ GENERAL_CFLAGS := $(CFLAGS) -g -fno-stack-protector -fno-builtin -Wno-deprecated
 # the mips64 MMIO regions.
 MIPS64_ELF_START=0x800000
 
+ifdef LOONGARCH_SYSROOT
+    LOONGARCH64_CFLAGS=--sysroot $(LOONGARCH64_SYSROOT)
+endif
+
 %.aarch64.so: %.so.c
 	aarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.aarch64.so
 
@@ -136,10 +140,10 @@ MIPS64_ELF_START=0x800000
 	rm $*.i386.o
 
 %.la64.so: %.so.c
-	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.la64.so
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
 
 %.la64.elf: %.elf.c
-	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.la64.elf
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.elf.c -o $*.la64.elf
 
 %.la64.elf: %.la64.elf.s
 	loongarch64-linux-gnu-as $*.la64.elf.s -o $*.la64.elf.o

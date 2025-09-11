@@ -76,7 +76,7 @@ jobs:
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
           cd tests
-          make -j$(nproc)
+          make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
           cd elf_core
           make -j$(nproc)
 
