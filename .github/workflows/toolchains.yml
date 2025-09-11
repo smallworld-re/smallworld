@@ -14,7 +14,7 @@ jobs:
         id: cache-loongarch64-check
         uses: actions/cache/restore@v4
         with:
-          path: toolchains/buildtools-loongarch64-linux-gnu.deb
+          path: toolchains/${{ .deb
           key: ${{ runner.os }}-buildtools-loongarch64
           lookup-only: true
 
@@ -31,8 +31,9 @@ jobs:
           dpkg --build toolchains/buildtools-loongarch64-linux-gnu
 
       - name: Test LoongArch64 Deb
+        if: steps.cache-loongarch64-check.cache-hit != 'true'
         run: |
-          apt-get install toolchains/buildtools-loongarch64-linux-gnu.deb
+          apt-get install ./toolchains/buildtools-loongarch64-linux-gnu.deb
           loongarch64-linux-gnu-gcc --version
 
       - name: Cache Debs
