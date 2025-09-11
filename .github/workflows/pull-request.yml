@@ -221,6 +221,7 @@ jobs:
           - testsuite: SyscallTests
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
+          - testsuite: CheckedDoubleFreeTests
     steps:
       - name: Copy Repo
         run: |
