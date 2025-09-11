@@ -53,9 +53,6 @@ class Byteorder(enum.Enum):
     LITTLE = "little"
     """Little endian - least significant bit first."""
 
-    MIDDLE = "middle"
-    """Middle endian - also known as PDP-endian."""
-
 
 class ABI(enum.Enum):
     """Application binary interface.
