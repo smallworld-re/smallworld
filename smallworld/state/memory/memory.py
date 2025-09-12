@@ -66,7 +66,7 @@ class Memory(state.Stateful, dict):
 
     def _is_safe(self, value: state.Value):
         if (self.get_used() + value.get_size()) > self.get_capacity():
-            raise ValueError("Stack is full")
+            raise ValueError("Memory is full")
 
     def _write_content(
         self, emulator: emulators.Emulator, address: int, value: state.Value
