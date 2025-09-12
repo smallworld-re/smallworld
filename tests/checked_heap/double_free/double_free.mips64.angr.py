@@ -26,7 +26,7 @@ filename = (
 )
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
+        f, platform=platform
     )
     machine.add(code)
 
@@ -73,7 +73,7 @@ code.update_symbol_value("free", free_model._address)
 emulator = smallworld.emulators.AngrEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
-
+    
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

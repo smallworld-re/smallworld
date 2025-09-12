@@ -9,3 +9,10 @@ do
   cat double_free.template | sed 's/ARCH/'$1'/' | sed 's/ORDER/'$2'/' | sed 's/EMULATOR/AngrEmulator/' >> double_free.$3.angr.py
   cat double_free.template | sed 's/ARCH/'$1'/' | sed 's/ORDER/'$2'/' | sed 's/EMULATOR/GhidraEmulator/' >> double_free.$3.pcode.py
 done
+
+rm double_free.riscv64.panda.py
+rm double_free.riscv64.py
+sed -i '' -e 's/, address=0x400000//' double_free.armel.*
+sed -i '' -e 's/, address=0x400000//' double_free.mips64.*
+sed -i '' -e 's/, address=0x400000//' double_free.mips64el.*
+sed -i '' -e 's/, address=0x400000//' double_free.ppc.*
