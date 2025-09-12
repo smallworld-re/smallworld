@@ -3162,6 +3162,399 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
         self.run_test("riscv64.pcode")
 
 
+class CheckedReadTests(ScriptIntegrationTest):
+    def run_test(self, kind):
+        self.command(f"python3 checked_heap/read/read.{kind}.py")
+
+    def test_aarch64_unicorn(self):
+        self.run_test("aarch64")
+
+    def test_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_aarch64_ghidra(self):
+        self.run_test("aarch64.pcode")
+
+    def test_amd64_unicorn(self):
+        self.run_test("amd64")
+
+    def test_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_amd64_ghidra(self):
+        self.run_test("amd64.pcode")
+
+    def test_armel_unicorn(self):
+        self.run_test("armel")
+
+    def test_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_armel_ghidra(self):
+        self.run_test("armel.pcode")
+
+    def test_armhf_unicorn(self):
+        self.run_test("armhf")
+
+    def test_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_armhf_ghidra(self):
+        self.run_test("armhf.pcode")
+
+    def test_i386_unicorn(self):
+        self.run_test("i386")
+
+    def test_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_i386_ghidra(self):
+        self.run_test("i386.pcode")
+
+    def test_mips_unicorn(self):
+        self.run_test("mips")
+
+    def test_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_mips_ghidra(self):
+        self.run_test("mips.pcode")
+
+    def test_mips64_unicorn(self):
+        self.run_test("mips64")
+
+    def test_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_mips64_ghidra(self):
+        self.run_test("mips64.pcode")
+
+    def test_mips64el_unicorn(self):
+        self.run_test("mips64el")
+
+    def test_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
+    def test_mips64el_ghidra(self):
+        self.run_test("mips64el.pcode")
+
+    def test_mipsel_unicorn(self):
+        self.run_test("mipsel")
+
+    def test_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_mipsel_ghidra(self):
+        self.run_test("mipsel.pcode")
+
+    def test_ppc_unicorn(self):
+        self.run_test("ppc")
+
+    def test_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    def test_ppc_ghidra(self):
+        self.run_test("ppc.pcode")
+
+    def test_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    def test_riscv64_ghidra(self):
+        self.run_test("riscv64.pcode")
+
+
+class CheckedWriteTests(ScriptIntegrationTest):
+    def run_test(self, kind):
+        self.command(f"python3 checked_heap/write/write.{kind}.py")
+
+    def test_aarch64_unicorn(self):
+        self.run_test("aarch64")
+
+    def test_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_aarch64_ghidra(self):
+        self.run_test("aarch64.pcode")
+
+    def test_amd64_unicorn(self):
+        self.run_test("amd64")
+
+    def test_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_amd64_ghidra(self):
+        self.run_test("amd64.pcode")
+
+    def test_armel_unicorn(self):
+        self.run_test("armel")
+
+    def test_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_armel_ghidra(self):
+        self.run_test("armel.pcode")
+
+    def test_armhf_unicorn(self):
+        self.run_test("armhf")
+
+    def test_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_armhf_ghidra(self):
+        self.run_test("armhf.pcode")
+
+    def test_i386_unicorn(self):
+        self.run_test("i386")
+
+    def test_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_i386_ghidra(self):
+        self.run_test("i386.pcode")
+
+    def test_mips_unicorn(self):
+        self.run_test("mips")
+
+    def test_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_mips_ghidra(self):
+        self.run_test("mips.pcode")
+
+    def test_mips64_unicorn(self):
+        self.run_test("mips64")
+
+    def test_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_mips64_ghidra(self):
+        self.run_test("mips64.pcode")
+
+    def test_mips64el_unicorn(self):
+        self.run_test("mips64el")
+
+    def test_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
+    def test_mips64el_ghidra(self):
+        self.run_test("mips64el.pcode")
+
+    def test_mipsel_unicorn(self):
+        self.run_test("mipsel")
+
+    def test_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_mipsel_ghidra(self):
+        self.run_test("mipsel.pcode")
+
+    def test_ppc_unicorn(self):
+        self.run_test("ppc")
+
+    def test_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    def test_ppc_ghidra(self):
+        self.run_test("ppc.pcode")
+
+    def test_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    def test_riscv64_ghidra(self):
+        self.run_test("riscv64.pcode")
+
+
+class CheckedUAFTests(ScriptIntegrationTest):
+    def run_test(self, kind):
+        self.command(f"python3 checked_heap/uaf/uaf.{kind}.py")
+
+    def test_aarch64_unicorn(self):
+        self.run_test("aarch64")
+
+    def test_aarch64_angr(self):
+        self.run_test("aarch64.angr")
+
+    def test_aarch64_panda(self):
+        self.run_test("aarch64.panda")
+
+    def test_aarch64_ghidra(self):
+        self.run_test("aarch64.pcode")
+
+    def test_amd64_unicorn(self):
+        self.run_test("amd64")
+
+    def test_amd64_angr(self):
+        self.run_test("amd64.angr")
+
+    def test_amd64_panda(self):
+        self.run_test("amd64.panda")
+
+    def test_amd64_ghidra(self):
+        self.run_test("amd64.pcode")
+
+    def test_armel_unicorn(self):
+        self.run_test("armel")
+
+    def test_armel_angr(self):
+        self.run_test("armel.angr")
+
+    def test_armel_panda(self):
+        self.run_test("armel.panda")
+
+    def test_armel_ghidra(self):
+        self.run_test("armel.pcode")
+
+    def test_armhf_unicorn(self):
+        self.run_test("armhf")
+
+    def test_armhf_angr(self):
+        self.run_test("armhf.angr")
+
+    def test_armhf_panda(self):
+        self.run_test("armhf.panda")
+
+    def test_armhf_ghidra(self):
+        self.run_test("armhf.pcode")
+
+    def test_i386_unicorn(self):
+        self.run_test("i386")
+
+    def test_i386_angr(self):
+        self.run_test("i386.angr")
+
+    def test_i386_panda(self):
+        self.run_test("i386.panda")
+
+    def test_i386_ghidra(self):
+        self.run_test("i386.pcode")
+
+    def test_mips_unicorn(self):
+        self.run_test("mips")
+
+    def test_mips_angr(self):
+        self.run_test("mips.angr")
+
+    def test_mips_panda(self):
+        self.run_test("mips.panda")
+
+    def test_mips_ghidra(self):
+        self.run_test("mips.pcode")
+
+    def test_mips64_unicorn(self):
+        self.run_test("mips64")
+
+    def test_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    def test_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    def test_mips64_ghidra(self):
+        self.run_test("mips64.pcode")
+
+    def test_mips64el_unicorn(self):
+        self.run_test("mips64el")
+
+    def test_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    def test_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
+    def test_mips64el_ghidra(self):
+        self.run_test("mips64el.pcode")
+
+    def test_mipsel_unicorn(self):
+        self.run_test("mipsel")
+
+    def test_mipsel_angr(self):
+        self.run_test("mipsel.angr")
+
+    def test_mipsel_panda(self):
+        self.run_test("mipsel.panda")
+
+    def test_mipsel_ghidra(self):
+        self.run_test("mipsel.pcode")
+
+    def test_ppc_unicorn(self):
+        self.run_test("ppc")
+
+    def test_ppc_angr(self):
+        self.run_test("ppc.angr")
+
+    def test_ppc_panda(self):
+        self.run_test("ppc.panda")
+
+    def test_ppc_ghidra(self):
+        self.run_test("ppc.pcode")
+
+    def test_riscv64_angr(self):
+        self.run_test("riscv64.angr")
+
+    def test_riscv64_ghidra(self):
+        self.run_test("riscv64.pcode")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.
