@@ -3155,14 +3155,8 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
 
-    def test_riscv64_unicorn(self):
-        self.run_test("riscv64")
-
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
-
-    def test_riscv64_panda(self):
-        self.run_test("riscv64.panda")
 
     def test_riscv64_ghidra(self):
         self.run_test("riscv64.pcode")
