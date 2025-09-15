@@ -10,34 +10,22 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Check Cached Debs
-        id: cache-loongarch64-check
-        uses: actions/cache/restore@v4
-        with:
-          path: toolchains/buildtools-loongarch64-linux-gnu.deb
-          key: ${{ runner.os }}-buildtools-loongarch64
-          lookup-only: true
-
       - name: Build LoongArch64 Toolchain
-        if: steps.cache-loongarch64-check.cache-hit != 'true'
         id: build-loongarch64
         run: |
-          GLIBC_EXTRA_ARGS=--disable-default-pie ./toolchains/compile_gcc.sh loongarch64-linux-gnu "$PWD/toolchains/buildtools-loongarch64-linux-gnu/usr"
+          GLIBC_EXTRA_ARGS=--disable-default-pie ./toolchains/compile_gcc.sh loongarch64-linux-gnu "/usr" "$PWD/toolchains/buildtools-loongarch64-linux-gnu"
 
       - name: Build LoongArch64 Deb
-        if: steps.cache-loongarch64-check.cache-hit != 'true'
         id: build-loongarch64-deb
         run: |
           dpkg --build toolchains/buildtools-loongarch64-linux-gnu
 
       - name: Test LoongArch64 Deb
-        if: steps.cache-loongarch64-check.cache-hit != 'true'
         run: |
-          apt-get install ./toolchains/buildtools-loongarch64-linux-gnu.deb
-          loongarch64-linux-gnu-gcc --version
+          echo -n '#include <stdio.h>\nint main() { printf("Hello, world!\\n"); }' > test.c
+          loongarch64-linux-gnu-gcc test.c -o test
 
       - name: Cache Debs
-        if: steps.cache-loongarch64-check.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: toolchains/buildtools-loongarch64-linux-gnu.deb
