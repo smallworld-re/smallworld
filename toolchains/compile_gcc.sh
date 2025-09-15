@@ -4,8 +4,9 @@
 # https://preshing.com/20141119/how-to-build-a-gcc-cross-compiler/
 
 # CLI parameters
-TARGET="$1" # Target architecture ID
-PREFIX="$2" # Directory prefix.  Defaults to ~/.local
+TARGET="$1"     # Target architecture ID
+PREFIX="$2"     # Directory prefix.  Must match final install location.
+ALT_PREFIX="$3" # Alternative directory prefix.  Prefix to default prefix
 if [ "$PREFIX" == "" ]; then
     PREFIX="$HOME/.local"
 fi
@@ -75,8 +76,6 @@ git checkout "v6.16" || exit 1
 popd || exit 1
 
 
-export PATH="$PREFIX/bin:$PATH"
-
 # Build binutils
 echo "Building binutils"
 rm -rf build-binutils || exit 1
@@ -86,6 +85,9 @@ pushd build-binutils || exit 1
 "$BINUTILS_SRC/configure" --prefix="$PREFIX" --target="$TARGET" --disable-multilib --disable-werror --disable-nls --disable-gdb $BINUTILS_EXTRA_ARGS || exit 1
 make -j $(nproc) || exit 1
 make install-strip || exit 1
+if [ "$ALT_PREFIX" != "" ]; then
+    make DESTDIR="$ALT_PREFIX" install-strip || exit 1
+fi
 
 popd || exit 1
 
@@ -98,6 +100,9 @@ pushd build-gcc || exit 1
 "$GCC_SRC/configure" --prefix="$PREFIX" --target="$TARGET" --enable-languages=c,c++ --disable-multilib --disable-nls $GCC_EXTRA_ARGS || exit 1
 make -j $(nproc) all-gcc || exit 1
 make install-strip-gcc || exit 1
+if [ "$ALT_PREFIX" != "" ]; then
+    make DESTDIR="$ALT_PREFIX" install-strip-gcc || exit 1
+fi
 
 popd || exit 1
 
@@ -105,6 +110,9 @@ popd || exit 1
 echo "Building kernel headers"
 pushd "$LINUX_SRC" || exit 1
 make ARCH="$ARCH" INSTALL_HDR_PATH="$PREFIX/$TARGET" headers_install || exit 1
+if [ "$ALT_PREFIX" != "" ]; then
+    make ARCH="$ARCH" INSTALL_HDR_PATH="$ALT_PREFIX/$PREFIX/$TARGET" headers_install || exit 1
+fi
 popd || exit 1
 
 # Build glibc headers
@@ -121,6 +129,13 @@ install csu/crt1.o csu/crti.o csu/crtn.o "$PREFIX/$TARGET/lib" || exit 1
 "$TARGET-gcc" -nostdlib -nostartfiles -shared -x c /dev/null -o "$PREFIX/$TARGET/lib/libc.so" || exit 1
 touch "$PREFIX/$TARGET/include/gnu/stubs.h" || exit 1
 
+if [ "$ALT_PREFIX" != "" ]; then
+    make DESTDIR="$ALT_PREFIX" install-bootstrap-headers=yes install-headers || exit 1
+    install csu/crt1.o csu/crti.o csu/crtn.o "$ALT_PREFIX/$PREFIX/$TARGET/lib" || exit 1
+    cp "$PREFIX/$TARGET/lib/libc.so" "$ALT_PREFIX/$PREFIX/$TARGET/lib/libc.so" || exit 1
+    touch "$ALT_PREFIX/$PREFIX/$TARGET/include/gnu/stubs.h" || exit 1
+fi
+
 popd || exit 1
 
 # Build libgcc
@@ -129,6 +144,9 @@ pushd build-gcc || exit 1
 
 make -j $(nproc) all-target-libgcc || exit 1
 make install-strip-target-libgcc || exit 1
+if [ "$ALT_PREFIX" != "" ]; then
+    make DESTDIR="$ALT_PREFIX" install-strip-target-libgcc || exit 1
+fi
 
 popd || exit 1
 
@@ -138,6 +156,9 @@ pushd build-glibc || exit 1
 
 make -j $(nproc) || exit 1
 make install || exit 1
+if [ "$ALT_PREFIX" != "" ]; then
+    make DESTDIR="$ALT_PREFIX" install || exit 1
+fi
 
 popd || exit 1
 
@@ -147,5 +168,8 @@ pushd build-gcc || exit 1
 
 make -j $(nproc) all-target-libstdc++-v3 || exit 1
 make install-target-libstdc++-v3 || exit 1
+if [ "$ALT_PREFIX" != "" ]; then
+    make DESTDIR="$ALT_PREFIX" install-target-libstdc++-v3 || exit 1
+fi
 
 popd || exit 1
