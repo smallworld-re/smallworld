@@ -22,7 +22,7 @@ jobs:
 
       - name: Test LoongArch64 Deb
         run: |
-          echo -n '#include <stdio.h>\nint main() { printf("Hello, world!\\n"); }' > test.c
+          echo -e '#include <stdio.h>\nint main() { printf("Hello, world!\\n"); }' > test.c
           loongarch64-linux-gnu-gcc test.c -o test
 
       - name: Cache Debs
