@@ -46,6 +46,9 @@ cpu.r10.set(0x01010101)
 
 # Push additional arguments onto the stack, and configure the stack pointer
 stack.push_integer(0x5555, 8, None)
+stack.write_bytes(
+    0x2500, b"\xFF\xFF\xFF\xFF"
+)  # ensure writing below sp won't modify sp
 
 # Leave the rest of the "stack frame" uninitialized
 sp = stack.get_pointer() - 116

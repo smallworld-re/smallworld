@@ -11,9 +11,6 @@ class X86Stack(stack.DescendingStack):
         platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
     )
 
-    def get_pointer(self) -> int:
-        return (self.address + self.size) - self.get_used()
-
     def get_alignment(self) -> int:
         return 4
 

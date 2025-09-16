@@ -7,9 +7,6 @@ from . import stack
 class XTensaStack(stack.DescendingStack):
     """A stack for an XTensa CPU"""
 
-    def get_pointer(self) -> int:
-        return (self.address + self.size) - self.get_used()
-
     def get_alignment(self) -> int:
         return 4
 

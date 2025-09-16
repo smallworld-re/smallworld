@@ -44,7 +44,9 @@ cpu.a7.set(0x01010101)
 
 # Push additional arguments onto the stack, and configure the stack pointer
 stack.push_integer(0x44444444, 4, None)
-
+stack.write_bytes(
+    0x2500, b"\xFF\xFF\xFF\xFF"
+)  # ensure writing below sp won't modify sp
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 

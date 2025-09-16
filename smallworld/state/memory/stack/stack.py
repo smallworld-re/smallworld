@@ -9,6 +9,10 @@ from .. import memory
 class Stack(memory.Memory):
     """A stack-like region of memory with convenient operations like push and pop."""
 
+    def __init__(self, address: int, size: int) -> None:
+        self.stack_pointer = address + size
+        super().__init__(address, size)
+
     @property
     @abc.abstractmethod
     def platform(self) -> platforms.Platform:
@@ -22,14 +26,13 @@ class Stack(memory.Memory):
             raise TypeError(f"{cls.__name__}.platform is not a Platform object")
         return cls.platform
 
-    @abc.abstractmethod
     def get_pointer(self) -> int:
         """Get the current stack pointer.
 
         Returns:
           The current value of the stack pointer.
         """
-        pass
+        return self.stack_pointer
 
     @abc.abstractmethod
     def get_alignment(self) -> int:
@@ -100,7 +103,7 @@ class Stack(memory.Memory):
             size: Size of requested stack, in bytes.
         """
 
-        def check(x):
+        def check(x: typing.Type[Stack]):
             if x.get_platform():
                 return (
                     x.get_platform().architecture == platform.architecture
@@ -119,8 +122,9 @@ class DescendingStack(Stack):
 
     def push(self, value: state.Value) -> int:
         self._is_safe(value)
-        offset = (self.get_capacity()) - self.get_used() - value.get_size()
+        offset = self.stack_pointer - self.address - value.get_size()
         self[offset] = value
+        self.stack_pointer -= value.get_size()
         return offset
 
 
