@@ -24,6 +24,7 @@ EM_X86_64 = 62  # AMD/Intel x86-64
 EM_XTENSA = 94  # Xtensa
 EM_AARCH64 = 183  # ARM v9, or AARCH64
 EM_RISCV = 243  # RISC-V
+EM_LOONGARCH = 258  # LoongArch
 
 # ARM-specific flag values
 EF_ARM_VFP_FLOAT = 0x400
@@ -308,6 +309,17 @@ class ElfExecutable(Executable):
                     "defaulting to ARM_V7A."
                 )
                 architecture = Architecture.ARM_V7A
+        elif elf.header.machine_type.value == EM_LOONGARCH:
+            if elf.header.identity_class.value == 1:
+                # 32-bit elf
+                raise ConfigurationError("LoongArch32 not supported")
+            elif elf.header.identity_class.value == 2:
+                # 64-bit elf
+                architecture = Architecture.LOONGARCH64
+            else:
+                raise ConfigurationError(
+                    f"Unknown value of ei_class: {hex(elf.header.identity_class.value)}"
+                )
         elif elf.header.machine_type.value == EM_MIPS:
             # Some kind of mips.
             # TODO: There are more parameters than just word size
