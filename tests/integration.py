@@ -2456,6 +2456,9 @@ class AbsLibraryModelTest(ScriptIntegrationTest):
     def test_i386(self):
         self.run_test("i386")
 
+    def test_la64(self):
+        self.run_test("la64")
+
     def test_mips(self):
         self.run_test("mips")
 

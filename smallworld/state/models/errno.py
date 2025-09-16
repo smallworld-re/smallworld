@@ -392,6 +392,12 @@ class I386ErrnoResolver(ErrnoResolver):
     # i386 uses generic errno
 
 
+class LoongArch64ErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.LOONGARCH64, Byteorder.LITTLE)
+    abi = ABI.SYSTEMV
+    # la64 uses generic errno
+
+
 class MIPSErrnoResolver(ErrnoResolver):
     abi = ABI.SYSTEMV
     # MIPS Absolutely doesn't use generic errno
