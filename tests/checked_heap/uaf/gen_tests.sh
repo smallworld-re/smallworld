@@ -16,3 +16,5 @@ sed -i '' -e 's/, address=0x400000//' uaf.armel.*
 sed -i '' -e 's/, address=0x400000//' uaf.mips64.*
 sed -i '' -e 's/, address=0x400000//' uaf.mips64el.*
 sed -i '' -e 's/, address=0x400000//' uaf.ppc.*
+sed -i '' -e '/cpu.pc.set(entrypoint)/a\
+cpu.t9.set(entrypoint)' uaf.mips64*

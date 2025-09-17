@@ -16,3 +16,5 @@ sed -i '' -e 's/, address=0x400000//' double_free.armel.*
 sed -i '' -e 's/, address=0x400000//' double_free.mips64.*
 sed -i '' -e 's/, address=0x400000//' double_free.mips64el.*
 sed -i '' -e 's/, address=0x400000//' double_free.ppc.*
+sed -i '' -e '/cpu.pc.set(entrypoint)/a\
+cpu.t9.set(entrypoint)' double_free.mips64*

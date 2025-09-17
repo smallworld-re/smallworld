@@ -16,3 +16,5 @@ sed -i '' -e 's/, address=0x400000//' write.armel.*
 sed -i '' -e 's/, address=0x400000//' write.mips64.*
 sed -i '' -e 's/, address=0x400000//' write.mips64el.*
 sed -i '' -e 's/, address=0x400000//' write.ppc.*
+sed -i '' -e '/cpu.pc.set(entrypoint)/a\
+cpu.t9.set(entrypoint)' write.mips64*

@@ -25,12 +25,15 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -71,7 +74,7 @@ code.update_symbol_value("free", free_model._address)
 emulator = smallworld.emulators.GhidraEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
-
+    
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

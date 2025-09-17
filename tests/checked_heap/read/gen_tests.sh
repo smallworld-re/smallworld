@@ -16,3 +16,5 @@ sed -i '' -e 's/, address=0x400000//' read.armel.*
 sed -i '' -e 's/, address=0x400000//' read.mips64.*
 sed -i '' -e 's/, address=0x400000//' read.mips64el.*
 sed -i '' -e 's/, address=0x400000//' read.ppc.*
+sed -i '' -e '/cpu.pc.set(entrypoint)/a\
+cpu.t9.set(entrypoint)' read.mips64*
