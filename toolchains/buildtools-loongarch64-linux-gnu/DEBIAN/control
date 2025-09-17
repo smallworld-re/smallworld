@@ -3,6 +3,7 @@ Version: 0.1
 Section: devel
 Architecture: amd64
 Maintainer: Alex Heinricher <alexander.heinricher@ll.mit.edu>
+Depends: libc6 (= 2.35-0ubuntu3.10)
 Description: C and C++ cross-compiler chain for loongarch64
  .
  WARNING: THIS PACKAGE IS FOR RESEARCH PURPOSES ONLY!
