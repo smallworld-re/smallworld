@@ -59,15 +59,6 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
       
-      - name: Fetch Extra Build Tools
-        if: steps.ac.outputs.changes_detected == 'false'
-        id: cache-loongarch64-fetch
-        uses: actions/cache/restore@v4
-        with:
-          path: toolchains/buildtools-loongarch64-linux-gnu.deb
-          key: ${{ runner.os }}-buildtools-loongarch64
-          fail-on-cache-miss: true
-          
       - name: Install Extra Build Tools
         run: |
           apt-get install ./toolchains/buildtools-*.deb
@@ -76,7 +67,7 @@ jobs:
         if: steps.ac.outputs.changes_detected == 'false'
         run: |
           cd tests
-          make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
+          make -j$(nproc)
           cd elf_core
           make -j$(nproc)
 

@@ -37,7 +37,8 @@ export BINUTILS_EXTRA_ARGS= ... # Any extra args needed to build binutils
 export GCC_EXTRA_ARGS= ...      # Any extra args needed to build gcc
 export GLIBC_EXTRA_ARGS= ...    # Any extra args needed to build glibc
 
-./compile_gcc.sh "$TARGET" "$PWD/buildtools-$TARGET/usr"
+./compile_gcc.sh "$TARGET" "/usr" "$PWD/buildtools-$TARGET"
+
 
 dpkg --build "buildtools-$TARGET"
 ```
