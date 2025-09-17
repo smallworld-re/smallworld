@@ -79,4 +79,4 @@ try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
 except ValueError as e:
-    assert str(e).startswith("Access freed memory at ")
+    assert str(e).startswith("Invalid Free at ")

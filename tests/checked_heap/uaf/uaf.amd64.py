@@ -73,10 +73,10 @@ code.update_symbol_value("free", free_model._address)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
-
+    
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
 except ValueError as e:
-    assert str(e).startswith("Access freed memory at ")
+    assert str(e).startswith("Invalid Free at ")

@@ -79,4 +79,5 @@ try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
 except ValueError as e:
-    assert str(e).startswith("Access uninitializeed bytes at ")
+    assert str(e).startswith("Invalid access at ")
+    assert str(e).endswith(" of size 1")
