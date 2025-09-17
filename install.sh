@@ -124,11 +124,25 @@ if [[ -f "$APT_DEP_FILE" ]]; then
   sudo apt-get clean
 fi
 
+# --------- SMALLWORLD BUILDTOOLS ---------- #
+RELEASE=`lsb_release -rs`
+if [[ $RELEASE == 22.04 ]]; then
+    find "$CODE_ROOT/toolchains" -name '*.deb' | xargs -I @ sudo apt-get install -y @
+    sudo apt-get clean
+elif [[ $RELEASE > 22.04 ]]; then
+    sudo apt-get -y install gcc-loongarch64-linux-gnu
+    sudo apt-get clean
+else
+    echo "***WARNING:*** CANNOT INSTALL SUPPLEMENTAL BUILD TOOLS ON UBUNTU $RELEASE!"
+    echo "Building the integration tests will fail."
+    echo "You can build your own versions of the debs manually."
+    echo "See the documentation in smallworld/toolchains/README.md"
+fi
+
 # -------- SMALLWORLD -------- #
 echo "Installing SmallWorld..."
 rm -rf "$CODE_ROOT/smallworld"
 git clone https://github.com/smallworld-re/smallworld.git "$CODE_ROOT/smallworld"
-
 
 # -------- SMALLWORLD PYTHON INSTALL -------- #
 cd "$CODE_ROOT/smallworld"
