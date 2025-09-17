@@ -177,6 +177,14 @@ class StateTests(unittest.TestCase):
         memory.write_bytes(0x1000, b"ABCDEFGH")
         self.assertEqual(memory.read_bytes(0x1000, 0x8), b"ABCDEFGH")
 
+        # test write overlapping segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[1] = state.BytesValue(b"fgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory[0].get_content(), b"ABC")
+        self.assertEqual(memory[1].get_content(), b"BCD")
+
         # test write out of bounds
         memory = state.memory.Memory(0x1000, 0x8)
         memory.write_bytes(0x1000, b"abcdefgh")

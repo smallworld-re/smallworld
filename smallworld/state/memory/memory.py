@@ -153,6 +153,12 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 next_segment_address += len(buffer)
                 remaining_length -= len(buffer)
 
+            # write to all overlapping segments
+            if segment_address < next_segment_address:
+                start_in_segment = max(segment_address, address)
+                remaining_length += next_segment_address - start_in_segment
+                next_segment_address = start_in_segment
+
             # overwrite existing segment
             if (
                 remaining_length > 0
