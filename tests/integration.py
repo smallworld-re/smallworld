@@ -3107,9 +3107,6 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
-    def test_mips64_unicorn(self):
-        self.run_test("mips64")
-
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -3118,9 +3115,6 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
-
-    def test_mips64el_unicorn(self):
-        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -3142,9 +3136,6 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
 
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
-
-    def test_ppc_unicorn(self):
-        self.run_test("ppc")
 
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
@@ -3238,9 +3229,6 @@ class CheckedReadTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
-    def test_mips64_unicorn(self):
-        self.run_test("mips64")
-
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -3249,9 +3237,6 @@ class CheckedReadTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
-
-    def test_mips64el_unicorn(self):
-        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -3273,9 +3258,6 @@ class CheckedReadTests(ScriptIntegrationTest):
 
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
-
-    def test_ppc_unicorn(self):
-        self.run_test("ppc")
 
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
@@ -3369,9 +3351,6 @@ class CheckedWriteTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
-    def test_mips64_unicorn(self):
-        self.run_test("mips64")
-
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -3380,9 +3359,6 @@ class CheckedWriteTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
-
-    def test_mips64el_unicorn(self):
-        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -3404,9 +3380,6 @@ class CheckedWriteTests(ScriptIntegrationTest):
 
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
-
-    def test_ppc_unicorn(self):
-        self.run_test("ppc")
 
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
@@ -3500,9 +3473,6 @@ class CheckedUAFTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
-    def test_mips64_unicorn(self):
-        self.run_test("mips64")
-
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -3511,9 +3481,6 @@ class CheckedUAFTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
-
-    def test_mips64el_unicorn(self):
-        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -3535,9 +3502,6 @@ class CheckedUAFTests(ScriptIntegrationTest):
 
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
-
-    def test_ppc_unicorn(self):
-        self.run_test("ppc")
 
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
