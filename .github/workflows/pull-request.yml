@@ -234,6 +234,10 @@ jobs:
           - testsuite: SyscallTests
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
+          - testsuite: CheckedDoubleFreeTests
+          - testsuite: CheckedReadTests
+          - testsuite: CheckedUAFTests
+          - testsuite: CheckedWriteTests
     steps:
         
       - name: Copy Repo
