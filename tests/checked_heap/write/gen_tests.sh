@@ -12,6 +12,9 @@ done
 
 rm write.riscv64.panda.py
 rm write.riscv64.py
+rm write.mips64.py
+rm write.mips64el.py
+rm write.ppc.py
 sed -i '' -e 's/, address=0x400000//' write.armel.*
 sed -i '' -e 's/, address=0x400000//' write.mips64.*
 sed -i '' -e 's/, address=0x400000//' write.mips64el.*

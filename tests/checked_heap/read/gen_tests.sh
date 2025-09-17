@@ -12,6 +12,9 @@ done
 
 rm read.riscv64.panda.py
 rm read.riscv64.py
+rm read.mips64.py
+rm read.mips64el.py
+rm read.ppc.py
 sed -i '' -e 's/, address=0x400000//' read.armel.*
 sed -i '' -e 's/, address=0x400000//' read.mips64.*
 sed -i '' -e 's/, address=0x400000//' read.mips64el.*

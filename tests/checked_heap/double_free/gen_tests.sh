@@ -12,6 +12,10 @@ done
 
 rm double_free.riscv64.panda.py
 rm double_free.riscv64.py
+rm double_free.mips64.py
+rm double_free.mips64el.py
+rm double_free.ppc.py
+
 sed -i '' -e 's/, address=0x400000//' double_free.armel.*
 sed -i '' -e 's/, address=0x400000//' double_free.mips64.*
 sed -i '' -e 's/, address=0x400000//' double_free.mips64el.*

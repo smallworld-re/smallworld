@@ -12,6 +12,9 @@ done
 
 rm uaf.riscv64.panda.py
 rm uaf.riscv64.py
+rm uaf.mips64.py
+rm uaf.mips64el.py
+rm uaf.ppc.py
 sed -i '' -e 's/, address=0x400000//' uaf.armel.*
 sed -i '' -e 's/, address=0x400000//' uaf.mips64.*
 sed -i '' -e 's/, address=0x400000//' uaf.mips64el.*
