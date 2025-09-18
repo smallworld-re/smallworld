@@ -337,6 +337,9 @@ class UnicornEmulator(
                 "This emulator cannot handle bitvector expressions"
             )
 
+        if name == "pc":
+            content = self._handle_thumb_interwork(content)
+
         (reg, base_reg, size, start_offset) = self._register(name)
         try:
             self.engine.reg_write(reg, content)
@@ -554,6 +557,21 @@ class UnicornEmulator(
 
         self._arm32_thumb_override = True
 
+    def clear_thumb(self) -> None:
+        """For ARM32 platforms, sets execution to start in ARM mode."""
+        if not self._check_arm32_platform():
+            raise exceptions.ConfigurationError(
+                "called set_thumb() on non-ARM32 system"
+            )
+
+        self._arm32_thumb_override = False
+        CPSR_THUMB_MODE_MASK = 0x20
+        cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
+        if cpsr & CPSR_THUMB_MODE_MASK:
+            self.engine.reg_write(
+                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr ^ CPSR_THUMB_MODE_MASK
+            )
+
     # Handle Thumb ISA exchange for ARM32
     def _handle_thumb_interwork(self, pc) -> int:
         if not self._check_arm32_platform():
@@ -563,7 +581,7 @@ class UnicornEmulator(
         # We use CPSR to determine if unicorn was previously in thumb
         # mode and set the low bit to 1 to maintain it. We also set
         # the mode of the disassembler.
-        if self.get_thumb():
+        if self.get_thumb() or pc & 1:
             pc |= 1
             self.disassembler.mode = capstone.CS_MODE_THUMB
         else:

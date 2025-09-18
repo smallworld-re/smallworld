@@ -769,22 +769,6 @@ class Machine(StatefulSet):
             for expr in self._constraints:
                 emulator.add_constraint(expr)
 
-        # set thumb mode flag
-        if isinstance(emulator, emulators.UnicornEmulator):
-            for cpu in self.get_cpus():
-                if (
-                    hasattr(cpu, "cpsr")
-                    and cpu.cpsr.get() is not None
-                    and cpu.cpsr.get() & 0x20
-                ):
-                    emulator.set_thumb()
-                if (
-                    hasattr(cpu, "psr")
-                    and cpu.psr.get() is not None
-                    and cpu.psr.get() & 0x20
-                ):
-                    emulator.set_thumb()
-
         return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
