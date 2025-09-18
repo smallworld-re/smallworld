@@ -23,8 +23,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        env:
+          bot_token: ""
+        if: ${{ env.bot_token != "" }}
         with:
           token: ${{ secrets.BOT_TOKEN }}
+
+      - uses: actions/checkout@v3
+        env:
+          secret: ${{ secrets.BOT_TOKEN }}
+        if: ${{ env.bot_token == "" }}
 
       - name: Install Lint Tools
         run: |
@@ -35,12 +43,18 @@ jobs:
           pip install $(grep mypy= constraints.txt)
 
       - name: Format
+        env:
+          bot_token: ""
+        if: ${{ env.bot_token != "" }}
         run: |
           isort . --profile black
           black ./
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
+        env: 
+          bot_token: ""
+        if: ${{ env.bot_token != "" }}
         with:
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
