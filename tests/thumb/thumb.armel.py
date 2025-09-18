@@ -5,7 +5,7 @@ from smallworld.state.cpus.arm import ARM
 from smallworld.state.state import Register
 
 # setup logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 THUMB_BLOCK_OFFSET = 0x10
 
