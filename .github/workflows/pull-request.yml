@@ -61,16 +61,12 @@ jobs:
       
       - name: Fetch Extra Build Tools
         if: steps.ac.outputs.changes_detected == 'false'
-        id: cache-loongarch64-fetch
-        uses: actions/cache/restore@v4
-        with:
-          path: toolchains/buildtools-loongarch64-linux-gnu.deb
-          key: ${{ runner.os }}-buildtools-loongarch64
-          fail-on-cache-miss: true
+        run: |
+          wget https://github.com/smallworld-re/buildtools/releases/latest/download/buildtools-loongarch64-linux-gnu.deb
           
       - name: Install Extra Build Tools
         run: |
-          apt-get install ./toolchains/buildtools-*.deb
+          apt-get install ./buildtools-*.deb
 
       - name: Build Artifacts
         if: steps.ac.outputs.changes_detected == 'false'
