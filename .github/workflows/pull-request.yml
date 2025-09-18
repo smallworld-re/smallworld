@@ -22,9 +22,19 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout (This Repo)
+        uses: actions/checkout@v3
+        env:
+          bot_token: ${{ secrets.BOT_TOKEN }}
+        if: ${{ env.bot_token != '' }}
         with:
           token: ${{ secrets.BOT_TOKEN }}
+
+      - name: Checkout (Fork Repo)
+        uses: actions/checkout@v3
+        env:
+          secret: ${{ secrets.BOT_TOKEN }}
+        if: ${{ env.bot_token == '' }}
 
       - name: Install Lint Tools
         run: |
@@ -35,18 +45,29 @@ jobs:
           pip install $(grep mypy= constraints.txt)
 
       - name: Format
+        env:
+          bot_token: ${{ secrets.BOT_TOKEN }}
+        if: ${{ env.bot_token != '' }}
         run: |
           isort . --profile black
           black ./
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
+        env: 
+          bot_token: ${{ secrets.BOT_TOKEN }}
+        if: ${{ env.bot_token != '' }}
         with:
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
 
+      - name: Changes Detected
+        if: steps.ac.outputs.changes_detected == 'true'
+        run: |
+            echo "Linters caused a commit.  Terminating run; tests will continue on next commit"
+            exit 1        
+
       - name: Lint
-        if: steps.ac.outputs.changes_detected == 'false'
         run: |
           isort --check --profile black .
           black --check ./
@@ -54,13 +75,11 @@ jobs:
           mypy --explicit-package-bases --ignore-missing-imports ./
 
       - name: Check Title
-        if: steps.ac.outputs.changes_detected == 'false'
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: bash .github/workflows/scripts/conventional.sh "$TITLE"
       
       - name: Fetch Extra Build Tools
-        if: steps.ac.outputs.changes_detected == 'false'
         run: |
           wget https://github.com/smallworld-re/buildtools/releases/latest/download/buildtools-loongarch64-linux-gnu.deb
           
@@ -69,7 +88,6 @@ jobs:
           apt-get install ./buildtools-*.deb
 
       - name: Build Artifacts
-        if: steps.ac.outputs.changes_detected == 'false'
         run: |
           cd tests
           make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
@@ -77,7 +95,6 @@ jobs:
           make -j$(nproc)
 
       - name: Save Repo
-        if: steps.ac.outputs.changes_detected == 'false'
         run: |
           cd ..
           tar cfz smallworld_${{ github.sha }}.tar.gz smallworld/
@@ -86,7 +103,6 @@ jobs:
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
-    if: needs.Lint.outputs.changes_detected == 'false'
     steps:
       - name: Copy Repo
         run: |
@@ -104,7 +120,6 @@ jobs:
   Integration-Test:
     runs-on: smallworld-arc
     needs: Lint
-    if: needs.Lint.outputs.changes_detected == 'false'
     strategy:
       max-parallel: 20
       matrix:
@@ -259,11 +274,11 @@ jobs:
         run: exit 1
 
       - name: All tests OK
-        if: needs.Lint.outputs.changes_detected == 'false' && !contains(needs.*.result, 'failure')
+        if: needs.Lint.outputs.changes_detected != 'true' && !contains(needs.*.result, 'failure')
         run: exit 0
 
       - name: Tests Failed
-        if: needs.Lint.outputs.changes_detected == 'false' && contains(needs.*.result, 'failure')
+        if: needs.Lint.outputs.changes_detected != 'true' && contains(needs.*.result, 'failure')
         run: exit 1
 
       - name: Cleanup
