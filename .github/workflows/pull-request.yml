@@ -22,14 +22,16 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout (This Repo)
+        uses: actions/checkout@v3
         env:
-          bot_token: ''
+          bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
         with:
           token: ${{ secrets.BOT_TOKEN }}
 
-      - uses: actions/checkout@v3
+      - name: Checkout (Fork Repo)
+        uses: actions/checkout@v3
         env:
           secret: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token == '' }}
@@ -44,7 +46,7 @@ jobs:
 
       - name: Format
         env:
-          bot_token: ''
+          bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
         run: |
           isort . --profile black
@@ -53,7 +55,7 @@ jobs:
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
         env: 
-          bot_token: ''
+          bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
         with:
           commit_message: "style: isort and black"
