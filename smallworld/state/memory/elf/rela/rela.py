@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import abc
+import typing
 
 from ..... import platforms, utils
 from .....exceptions import ConfigurationError
@@ -43,7 +44,7 @@ class ElfRelocator:
                 start = rela.offset - start
                 end = start + len(val)
 
-                contents = seg.get_content()
+                contents = typing.cast(bytes, seg.get_content())
                 contents = contents[0:start] + val + contents[end:]
                 seg.set_content(contents)
                 return

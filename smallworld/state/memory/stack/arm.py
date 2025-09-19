@@ -7,9 +7,6 @@ from . import stack
 class ARM32Stack(stack.DescendingStack):
     """A stack for an ARM 32-bit CPU"""
 
-    def get_pointer(self) -> int:
-        return (self.address + self.size) - self.get_used()
-
     def get_alignment(self) -> int:
         return 8
 

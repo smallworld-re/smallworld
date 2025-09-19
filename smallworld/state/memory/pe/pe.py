@@ -339,7 +339,7 @@ class PEExecutable(Executable):
             if imp.iat_address >= start and imp.iat_address < stop:
                 start = imp.iat_address - start
                 end = start + len(value_bytes)
-                contents = seg.get_content()
+                contents = typing.cast(bytes, seg.get_content())
                 contents = contents[0:start] + value_bytes + contents[end:]
                 seg.set_content(contents)
 

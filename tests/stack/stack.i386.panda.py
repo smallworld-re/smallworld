@@ -43,6 +43,9 @@ stack.push_integer(0x22222222, 4, None)  # Argument 3
 stack.push_integer(0x01010101, 4, None)  # Argument 2
 stack.push_integer(0x11111111, 4, None)  # Argument 1
 stack.push_integer(0x01010101, 4, None)  # Return address
+stack.write_bytes(
+    0x2500, b"\xFF\xFF\xFF\xFF"
+)  # ensure writing below sp won't modify sp
 
 # Configure the stack pointer
 rsp = stack.get_pointer()

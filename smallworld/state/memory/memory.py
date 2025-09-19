@@ -7,14 +7,20 @@ from ... import emulators, exceptions, platforms
 from .. import state
 
 
-class Memory(state.Stateful, dict):
+class Memory(state.Stateful, dict[int, state.Value]):
     """A memory region.
 
     A memory maps integer offsets (implicitly from the base ``address``)
     to ``Value`` objects.
     """
 
-    def __init__(self, address: int, size: int, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        address: int,
+        size: int,
+        *args,
+        **kwargs,
+    ) -> None:
         super().__init__(*args, **kwargs)
 
         self.address: int = address
@@ -115,22 +121,262 @@ class Memory(state.Stateful, dict):
         self[0] = value
 
     def write_bytes(self, address: int, data: bytes) -> None:
-        """Overwrite part of this memory region with specific bytes
+        """Overwrite part of this memory region with specific bytes.
+        This will fail if any sub-region of the existing memory is symbolic.
 
-        This will fail if the data you want to overwrite is in a symbolic sub-region.
+        Arguments:
+            address: The address to write to.
+            data: The bytes to write.
         """
 
-        for segment_offset, segment in self.items():
+        if address + len(data) > self.address + self.size:
+            raise exceptions.ConfigurationError(
+                f"Out of bounds: tried to read {len(data)} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
+            )
+
+        next_segment_address = address
+        remaining_length = len(data)
+
+        segment: state.Value
+        for segment_offset, segment in sorted(self.items()):
             segment_address = self.address + segment_offset
-            if address >= segment_address and address < segment_address + segment._size:
+
+            # fill gaps before/between existing segments
+            if next_segment_address < segment_address:
+                buffer = data[
+                    next_segment_address - address : segment_address - address
+                ]
+                self[next_segment_address - self.address] = state.BytesValue(
+                    buffer,
+                    None,
+                )
+                next_segment_address += len(buffer)
+                remaining_length -= len(buffer)
+
+            # write to all overlapping segments
+            if segment_address < next_segment_address:
+                start_in_segment = max(segment_address, address)
+                remaining_length += next_segment_address - start_in_segment
+                next_segment_address = start_in_segment
+
+            # overwrite existing segment
+            if (
+                remaining_length > 0
+                and segment_address <= next_segment_address
+                and next_segment_address < segment_address + segment.get_size()
+            ):
                 contents = segment.get_content()
+
+                # check for symbolic
                 if not isinstance(contents, bytes):
                     raise exceptions.SymbolicValueError(
-                        f"Tried to write {len(data)} bytes at {hex(address)}; data in {segment_address:x} - {segment_address + segment._size:x} is symbolic."
+                        f"Tried to write {len(data)} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
                     )
-                offset = address - segment_address
-                contents = contents[0:offset] + data + contents[offset + len(data) :]
+
+                offset_in_segment = next_segment_address - segment_address
+                length_in_segment = min(
+                    remaining_length, segment.get_size() - offset_in_segment
+                )
+                contents = (
+                    contents[:offset_in_segment]
+                    + data[
+                        next_segment_address
+                        - address : next_segment_address
+                        - address
+                        + length_in_segment
+                    ]
+                    + contents[offset_in_segment + length_in_segment :]
+                )
                 segment.set_content(contents)
+                next_segment_address += length_in_segment
+                remaining_length -= length_in_segment
+
+            # check if output complete
+            if remaining_length == 0:
+                break
+
+        # fill gap past end of existing segments
+        if next_segment_address != address + len(data):
+            self[next_segment_address - self.address] = state.BytesValue(
+                data[next_segment_address - address :], None
+            )
+
+    def read_bytes(self, address: int, size: int) -> bytes:
+        """Read part of this memory region.
+        This will fail if any sub-region of the memory requested is symbolic or uninitialized.
+
+        Arguments:
+            address: The address to read from.
+            size: The number of bytes to read.
+
+        Returns:
+            The bytes in the requested memory region.
+        """
+
+        if address + size > self.address + self.size:
+            raise exceptions.ConfigurationError(
+                f"Out of bounds: tried to read {size} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
+            )
+
+        out: bytes = b""
+        next_segment_address = address
+        remaining_length = size
+
+        segment: state.Value
+        for segment_offset, segment in sorted(self.items()):
+            contents = segment.get_content()
+            segment_address = self.address + segment_offset
+
+            # check for symbolic
+            if not isinstance(contents, bytes):
+                raise exceptions.SymbolicValueError(
+                    f"Tried to read {size} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
+                )
+
+            # read into output buffer
+            if (
+                segment_address <= next_segment_address
+                and next_segment_address < segment_address + segment.get_size()
+            ):
+                offset_in_segment = next_segment_address - segment_address
+                length_in_segment = min(
+                    remaining_length, segment.get_size() - offset_in_segment
+                )
+                out += contents[
+                    offset_in_segment : offset_in_segment + length_in_segment
+                ]
+                next_segment_address += length_in_segment
+                remaining_length -= length_in_segment
+
+            # check if output complete
+            if remaining_length == 0:
+                break
+
+        # next segment of requested region not found
+        if next_segment_address != address + size:
+            raise exceptions.ConfigurationError(
+                f"Tried to read {size} bytes at {hex(address)}. Data at {hex(next_segment_address)} is uninitialized."
+            )
+
+        return out
+
+    def write_int(
+        self,
+        address: int,
+        value: int,
+        size: typing.Literal[1, 2, 4],
+        endianness: platforms.Byteorder,
+    ) -> None:
+        """Write an integer to memory.
+        This will fail if any sub-region of the existing memory is symbolic.
+
+        Arguments:
+            address: The address to write to.
+            value: The integer value to write.
+            size: The size of the integer in bytes.
+            endianness: The byteorder of the platform.
+        """
+
+        self.write_bytes(
+            address, int.to_bytes(value, size, endianness.value, signed=False)
+        )
+
+    def read_int(
+        self,
+        address: int,
+        size: typing.Literal[1, 2, 4],
+        endianness: platforms.Byteorder,
+    ) -> int:
+        """Read and interpret as an integer.
+        This will fail if any sub-region of the memory requested is symbolic or uninitialized.
+
+        Arguments:
+            address: The address to read from.
+            size: The size of the integer in bytes.
+            endianness: The byteorder of the platform.
+
+        Returns:
+            The integer read from memory.
+        """
+
+        return int.from_bytes(
+            self.read_bytes(address, size),
+            endianness.value,
+            signed=False,
+        )
+
+    def get_ranges_initialized(self) -> list[range]:
+        out: list[range] = []
+
+        for segment_offset, segment in sorted(self.items()):
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size() - 1
+            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+                segment_start = out.pop().start
+            out.append(
+                range(
+                    segment_start,
+                    segment_end,
+                )
+            )
+
+        return out
+
+    def get_ranges_uninitialized(self) -> list[range]:
+        out: list[range] = []
+        next_segment_start = self.address
+
+        for segment_offset, segment in sorted(self.items()):
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size()
+            if next_segment_start != segment_start:
+                out.append(range(next_segment_start, segment_start - 1))
+            next_segment_start = segment_end
+
+        if next_segment_start != self.address + self.get_capacity():
+            out.append(
+                range(next_segment_start, self.address + self.get_capacity() - 1)
+            )
+
+        return out
+
+    def get_ranges_symbolic(self):
+        out: list[range] = []
+
+        for segment_offset, segment in sorted(self.items()):
+            if not isinstance(segment, state.SymbolicValue):
+                continue
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size() - 1
+            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+                segment_start = out.pop().start
+            out.append(
+                range(
+                    segment_start,
+                    segment_end,
+                )
+            )
+
+        return out
+
+    def get_ranges_concrete(self):
+        out: list[range] = []
+
+        for segment_offset, segment in sorted(self.items()):
+            if isinstance(segment, state.SymbolicValue):
+                continue
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size() - 1
+            if len(out) > 0 and out[-1].stop + 1 == segment_end:
+                segment_start = out.pop().start
+            out.append(
+                range(
+                    segment_start,
+                    segment_end,
+                )
+            )
+
+        return out
 
     def __hash__(self):
         return super(dict, self).__hash__()

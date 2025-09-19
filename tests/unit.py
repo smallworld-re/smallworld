@@ -136,6 +136,359 @@ class StateTests(unittest.TestCase):
         self.assertClaripyEqual(res_s, foo.get())
         self.assertClaripyEqual(bar_s, bar.get())
 
+    def test_memory_write_bytes(self):
+        # test write to entire segment
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abcdefgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"ABCDEFGH")
+
+        # test write to sub-segment
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abcdefgh", None)
+        memory.write_bytes(0x1003, b"DE")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcDEfgh")
+
+        # test write split over 2 segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abcd", None)
+        memory[4] = state.BytesValue(b"efgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"ABCDEFGH")
+
+        # test memory split over 3 segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[3] = state.BytesValue(b"de", None)
+        memory[5] = state.BytesValue(b"fgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"ABCDEFGH")
+
+        # test memory discontinuous
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[5] = state.BytesValue(b"fgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"ABCDEFGH")
+
+        # test memory discontinuous on end
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abcde", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"ABCDEFGH")
+
+        # test write overlapping segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[1] = state.BytesValue(b"fgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(memory[0].get_content(), b"ABC")
+        self.assertEqual(memory[1].get_content(), b"BCD")
+
+        # test write out of bounds
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh")
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.write_bytes(0x1000, b"abcdefghijklmnop"),
+        )
+
+        # test memory contains symbolic
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[3] = state.SymbolicValue(2, None, None, None)
+        memory[5] = state.BytesValue(b"fgh", None)
+        self.assertRaises(
+            exceptions.SymbolicValueError, lambda: memory.read_bytes(0x1000, 0x8)
+        )
+
+        # test to_bytes method
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[5] = state.BytesValue(b"fgh", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH")
+        self.assertEqual(
+            memory.to_bytes(byteorder=platforms.Byteorder.LITTLE), b"ABCDEFGH"
+        )
+
+    def test_memory_read_bytes(self):
+        # test read memory all in one segment
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcdefgh")
+
+        # test read memory in sub-segment
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh")
+        self.assertEqual(memory.read_bytes(0x1001, 0x4), b"bcde")
+
+        # test read memory split over 2 segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcd")
+        memory.write_bytes(0x1004, b"efgh")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcdefgh")
+
+        # test read memory split over 3 segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abc")
+        memory.write_bytes(0x1003, b"de")
+        memory.write_bytes(0x1005, b"fgh")
+        self.assertEqual(memory.read_bytes(0x1000, 0x8), b"abcdefgh")
+
+        # test read memory with unused segments and sub-segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"a")
+        memory.write_bytes(0x1001, b"bcd")
+        memory.write_bytes(0x1004, b"efg")
+        memory.write_bytes(0x1007, b"h")
+        self.assertEqual(memory.read_bytes(0x1002, 0x4), b"cdef")
+
+        # test read out of bounds
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh")
+        self.assertRaises(
+            exceptions.ConfigurationError, lambda: memory.read_bytes(0x1000, 0x10)
+        )
+
+        # test read memory discontinuous
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abc")
+        memory.write_bytes(0x1005, b"fgh")
+        self.assertRaises(
+            exceptions.ConfigurationError, lambda: memory.read_bytes(0x1000, 0x8)
+        )
+
+        # test read memory containing symbolic values
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abc")
+        memory[3] = state.SymbolicValue(2, None, None, None)
+        memory.write_bytes(0x1005, b"fgh")
+        self.assertRaises(
+            exceptions.SymbolicValueError, lambda: memory.read_bytes(0x1000, 0x8)
+        )
+
+    def test_memory_read_int(self):
+        addr = 0x1000
+        memory = state.memory.Memory(addr, 4)
+        memory.write_bytes(
+            addr,
+            int.to_bytes(0b11110000000011111111000000001111, 4, "big"),
+        )
+
+        self.assertEqual(memory.read_int(addr, 1, platforms.Byteorder.LITTLE), 240)
+        self.assertEqual(memory.read_int(addr, 1, platforms.Byteorder.BIG), 240)
+        self.assertEqual(memory.read_int(addr, 2, platforms.Byteorder.LITTLE), 4080)
+        self.assertEqual(memory.read_int(addr, 2, platforms.Byteorder.BIG), 61455)
+        self.assertEqual(
+            memory.read_int(addr, 4, platforms.Byteorder.LITTLE), 267390960
+        )
+        self.assertEqual(memory.read_int(addr, 4, platforms.Byteorder.BIG), 4027576335)
+
+    def test_memory_write_int(self):
+        addr = 0x1000
+        memory = state.memory.Memory(addr, 4)
+
+        memory.write_int(addr, 240, 1, platforms.Byteorder.LITTLE)
+        self.assertEqual(memory.read_bytes(addr, 1), b"\xf0")
+        memory.write_int(addr, 240, 1, platforms.Byteorder.BIG)
+        self.assertEqual(memory.read_bytes(addr, 1), b"\xf0")
+        memory.write_int(addr, 4080, 2, platforms.Byteorder.LITTLE)
+        self.assertEqual(memory.read_bytes(addr, 2), b"\xf0\x0f")
+        memory.write_int(addr, 4080, 2, platforms.Byteorder.BIG)
+        self.assertEqual(memory.read_bytes(addr, 2), b"\x0f\xf0")
+        memory.write_int(addr, 4027576335, 4, platforms.Byteorder.LITTLE)
+        self.assertEqual(memory.read_bytes(addr, 4), b"\x0f\xf0\x0f\xf0")
+        memory.write_int(addr, 4027576335, 4, platforms.Byteorder.BIG)
+        self.assertEqual(memory.read_bytes(addr, 4), b"\xf0\x0f\xf0\x0f")
+
+    def test_memory_ranges_initialized(self):
+        # empty memory has no initialized ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(memory.get_ranges_initialized(), [])
+
+        # single memory region
+        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [range(memory.address + 1, memory.address + 2)],
+        )
+
+        # non-contiguous initialized regions
+        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # contiguous and non-contiguous initialized regions
+        memory[3] = state.SymbolicValue(1, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # fully initialized
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_initialized(),
+            [range(memory.address, memory.address + 7)],
+        )
+
+    def test_memory_ranges_uninitialized(self):
+        # empty memory has no initialized ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [range(memory.address, memory.address + 7)],
+        )
+
+        # single memory region
+        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [
+                range(memory.address, memory.address),
+                range(memory.address + 3, memory.address + 7),
+            ],
+        )
+
+        # non-contiguous initialized regions
+        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [
+                range(memory.address, memory.address),
+                range(memory.address + 3, memory.address + 5),
+            ],
+        )
+
+        # contiguous and non-contiguous initialized regions
+        memory[3] = state.SymbolicValue(1, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [
+                range(memory.address, memory.address),
+                range(memory.address + 4, memory.address + 5),
+            ],
+        )
+
+        # fully initialized
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_uninitialized(),
+            [],
+        )
+
+    def test_memory_ranges_symbolic(self):
+        # empty memory has no symbolic ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(memory.get_ranges_symbolic(), [])
+
+        # single symbolic memory region
+        memory[1] = state.SymbolicValue(2, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [range(memory.address + 1, memory.address + 2)],
+        )
+
+        # non-contiguous symbolic regions
+        memory[6] = state.SymbolicValue(2, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # contiguous and non-contiguous symbolic regions
+        memory[3] = state.SymbolicValue(1, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # gaps filled with bytes values
+        memory.write_bytes(memory.address, b"\xFF")
+        memory.write_bytes(memory.address + 4, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # fully symbolic
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.SymbolicValue(8, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_symbolic(),
+            [range(memory.address, memory.address + 7)],
+        )
+
+    def test_memory_ranges_concrete(self):
+        # empty memory has no concrete ranges
+        memory = state.memory.Memory(0x1000, 0x8)
+        self.assertEqual(memory.get_ranges_concrete(), [])
+
+        # single concrete memory region
+        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [range(memory.address + 1, memory.address + 2)],
+        )
+
+        # non-contiguous concrete regions
+        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [
+                range(memory.address + 1, memory.address + 2),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # contiguous and non-contiguous concrete regions
+        memory.write_bytes(memory.address + 3, b"\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # gaps filled with symbolic values
+        memory[0] = state.SymbolicValue(1, None, None, None)
+        memory[4] = state.SymbolicValue(2, None, None, None)
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [
+                range(memory.address + 1, memory.address + 3),
+                range(memory.address + 6, memory.address + 7),
+            ],
+        )
+
+        # fully concrete initialized
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        self.assertEqual(
+            memory.get_ranges_concrete(),
+            [range(memory.address, memory.address + 7)],
+        )
+
 
 class UtilsTests(unittest.TestCase):
     def test_range_collection_add(self):

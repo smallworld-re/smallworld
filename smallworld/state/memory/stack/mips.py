@@ -7,9 +7,6 @@ from . import stack
 class MIPSStack(stack.DescendingStack):
     """A stack for a MIPS 32-bit CPU"""
 
-    def get_pointer(self) -> int:
-        return (self.address + self.size) - self.get_used()
-
     def get_alignment(self) -> int:
         return 4
 
