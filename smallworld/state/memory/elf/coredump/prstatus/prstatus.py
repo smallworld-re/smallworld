@@ -7,6 +7,8 @@ from ...... import exceptions, platforms, utils
 from .....cpus import CPU
 from .....state import FixedRegister
 
+ET_CORE = 4
+
 
 class PrStatus:
     """Class for extracting process information from a core dump
@@ -27,7 +29,7 @@ class PrStatus:
         raise NotImplementedError()
 
     def __init__(self, elf: lief.ELF.Binary):
-        assert elf.header.file_type == lief.ELF.E_TYPE.CORE
+        assert elf.header.file_type.value == ET_CORE
 
         self.platform = platforms.Platform(self.architecture, self.byteorder)
         self.platdef = platforms.PlatformDef.for_platform(self.platform)

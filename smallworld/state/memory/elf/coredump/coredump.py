@@ -1,8 +1,6 @@
 import logging
 import typing
 
-import lief
-
 from .....exceptions import ConfigurationError
 from .....platforms import Platform
 from ....cpus import CPU
@@ -10,6 +8,9 @@ from ..elf import ElfExecutable
 from .prstatus import PrStatus
 
 log = logging.getLogger(__name__)
+
+
+ET_CORE = 4
 
 
 class ElfCoreFile(ElfExecutable):
@@ -36,7 +37,7 @@ class ElfCoreFile(ElfExecutable):
         assert self._elf is not None
         parsed_elf = self._elf
 
-        if parsed_elf is None or parsed_elf.header.file_type != lief.ELF.E_TYPE.CORE:
+        if parsed_elf is None or parsed_elf.header.file_type.value != ET_CORE:
             raise ConfigurationError("This file is not an ELF core dump (ET_CORE).")
 
         assert self.platform is not None
