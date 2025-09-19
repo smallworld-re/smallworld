@@ -15,7 +15,6 @@ class AMD64ElfRelocator(ElfRelocator):
     byteorder = platforms.Byteorder.LITTLE
 
     def _compute_value(self, rela: ElfRela):
-        print(dir(rela.type))
         if (
             rela.type == R_X86_64_GLOB_DAT
             or rela.type == R_X86_64_JUMP_SLOT
