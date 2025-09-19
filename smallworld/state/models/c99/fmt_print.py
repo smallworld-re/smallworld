@@ -1,3 +1,4 @@
+import logging
 import re
 import struct
 import typing
@@ -6,6 +7,8 @@ from ....emulators import Emulator
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
 from .utils import _emu_strlen
+
+log = logging.getLogger(__name__)
 
 # Conversion specifiers:
 #
@@ -885,14 +888,14 @@ def parse_printf_format(model: CStdModel, fmt: str, emulator: Emulator) -> str:
                     try:
                         output += handler(output, varargs, m, emulator)
                     except FormatConversionError as e:
-                        print(f"Bad format conversion: {e.args[0]}")
-                        print(orig_fmt)
-                        print(" " * (len(orig_fmt) - len(fmt)) + "^")
+                        log.error(f"Bad format conversion: {e.args[0]}")
+                        log.error(orig_fmt)
+                        log.error(" " * (len(orig_fmt) - len(fmt)) + "^")
                         raise e
                     except Exception as e:
-                        print(f"Exception processing conversion: {type(e)}: {e}")
-                        print(orig_fmt)
-                        print(" " * (len(orig_fmt) - len(fmt)) + "^")
+                        log.error(f"Exception processing conversion: {type(e)}: {e}")
+                        log.error(orig_fmt)
+                        log.error(" " * (len(orig_fmt) - len(fmt)) + "^")
                         raise e
 
                     fmt = fmt[len(m.group(0)) :]
@@ -900,9 +903,9 @@ def parse_printf_format(model: CStdModel, fmt: str, emulator: Emulator) -> str:
                     break
 
             if not matched:
-                print("Bad format conversion: Unmatched conversion")
-                print(orig_fmt)
-                print(" " * (len(orig_fmt) - len(fmt)) + "^")
+                log.error("Bad format conversion: Unmatched conversion")
+                log.error(orig_fmt)
+                log.error(" " * (len(orig_fmt) - len(fmt)) + "^")
                 raise Exception("Bad format conversion")
 
         else:

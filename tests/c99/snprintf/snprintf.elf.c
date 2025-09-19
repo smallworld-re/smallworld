@@ -215,8 +215,8 @@ int main(int argc, char *argv[]) {
     TEST("%#.f", "4.", 4.0);
     // %F: Fixed-point notation, upper-case
     TEST("%F", "42.000000", 42.0);
-    TEST("%F", "INF", INFINITY);
     TEST("%F", "NAN", NAN);
+    TEST("%F", "INF", INFINITY);
     TEST("%16F", "       42.000000", 42.0);
     TEST("%-16F", "42.000000       ", 42.0);
     TEST("%016F", "000000042.000000", 42.0);

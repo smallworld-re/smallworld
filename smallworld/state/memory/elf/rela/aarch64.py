@@ -25,5 +25,5 @@ class AArch64ElfRelocator(ElfRelocator):
             return val.to_bytes(8, "little")
         else:
             raise ConfigurationError(
-                f"Unknown relocation type for {rela.symbol.name}: {rela.type}"
+                f"Unknown relocation type for {rela.symbol.name}: {hex(rela.type)}"
             )
