@@ -116,7 +116,7 @@ class CheckedBumpAllocator(Heap):
             self._shadow[offset + i] = 1
 
         self._allocations[offset] = value_size
-        self[offset] = value_size
+        self[offset] = value
         return self.address + offset
 
     def free(self, address: int) -> None:
