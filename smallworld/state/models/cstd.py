@@ -257,6 +257,7 @@ def get_argument(
         # SmallWorld already did the work of converting endianness.
         byteval = intval.to_bytes(8, "little")
         (floatval,) = struct.unpack("<d", byteval)
+        print(f"Double arg: {hex(intval)} -> {floatval}")
         return floatval
     else:
         raise exceptions.ConfigurationError(
