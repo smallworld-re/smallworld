@@ -245,6 +245,7 @@ jobs:
           - testsuite: SyscallTests
           - testsuite: SysVModelTests
           - testsuite: TraceExecutionTests
+          - testsuite: ThumbTests
           - testsuite: CheckedDoubleFreeTests
           - testsuite: CheckedReadTests
           - testsuite: CheckedUAFTests
