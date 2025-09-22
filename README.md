@@ -83,6 +83,8 @@ environment.
 pip install -e ".[development]" -c constraints.txt
 ```
 
+**TODO:** Add description of how to run the installer script
+
 #### Code Style
 
 Pre-commit hooks are available for automatic code formatting, linting, and type
