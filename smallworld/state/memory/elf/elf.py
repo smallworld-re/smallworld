@@ -173,64 +173,63 @@ class ElfExecutable(Executable):
 
         for phdr in elf.segments:
             log.debug(f"{phdr}")
-            if phdr.type == PT_LOAD:
+            phdr_type = phdr.type.value & 0xFFFFFFFF
+            if phdr_type == PT_LOAD:
                 # Loadable segment
                 # Map its data into memory
                 self._map_segment(phdr, image)
-            elif phdr.type == PT_DYNAMIC:
+            elif phdr_type == PT_DYNAMIC:
                 # Dynamic linking metadata.
                 # This ELF needs dynamic linking
                 log.info("Program includes dynamic linking metadata")
-            elif phdr.type == PT_INTERP:
+            elif phdr_type == PT_INTERP:
                 # Program interpreter
                 # This completely changes how program loading works.
                 # Whether you care is a different matter.
                 interp = image[phdr.file_offset : phdr.file_offset + phdr.physical_size]
                 log.info(f"Program specifies interpreter {interp!r}")
-            elif phdr.type == PT_NOTE:
+            elif phdr_type == PT_NOTE:
                 # Auxiliary information
                 # Possibly useful for comparing machine/OS type.
                 pass
-            elif phdr.type == PT_PHDR:
+            elif phdr_type == PT_PHDR:
                 # Program header self-reference
                 # Useful for the dynamic linker, but not for us
                 pass
-            elif phdr.type == PT_TLS:
+            elif phdr_type == PT_TLS:
                 # TLS Segment
                 # Your analysis is about to get nasty :(
                 log.info("Program includes thread-local storage")
-            elif phdr.type == PT_GNU_EH_FRAME:
+            elif phdr_type == PT_GNU_EH_FRAME:
                 # Exception handler frame.
                 # GCC puts one of these in everything.  Do we care?
                 pass
-            elif phdr.type == PT_GNU_STACK:
+            elif phdr_type == PT_GNU_STACK:
                 # Stack executability
                 # If this is missing, assume executable stack
                 log.info("Program specifies stack permissions")
-            elif phdr.type == PT_GNU_RELRO:
+            elif phdr_type == PT_GNU_RELRO:
                 # Read-only after relocation
                 # Only the dynamic linker should write this data.
                 log.info("Program specifies RELRO data")
-            elif phdr.type == PT_GNU_PROPERTY:
+            elif phdr_type == PT_GNU_PROPERTY:
                 # GNU property segment
                 # Contains extra metadata which I'm not sure anything uses
                 pass
-            elif phdr.type >= PT_LOOS and phdr.type <= PT_HIOS:
+            elif phdr_type >= PT_LOOS and phdr_type <= PT_HIOS:
                 # Unknown OS-specific program header
                 # Either this is a weird ISA that extends the generic GNU ABI,
                 # or this isn't a Linux ELF.
-                log.warn(f"Unknown OS-specific program header: {phdr.type:08x}")
-            elif phdr.type >= PT_LOPROC and phdr.type <= PT_HIPROC:
+                log.warn(f"Unknown OS-specific program header: {phdr_type:08x}")
+            elif phdr_type >= PT_LOPROC and phdr_type <= PT_HIPROC:
                 # Unknown machine-specific program header
                 # This is probably a non-Intel ISA.
                 # Most of these are harmless, serving to tell the RTLD
                 # where to find machine-specific metadata
-                log.warn(
-                    f"Unknown machine-specific program header: {phdr.type.value:08x}"
-                )
+                log.warn(f"Unknown machine-specific program header: {phdr_type:08x}")
             else:
                 # Unknown program header outside the allowed custom ranges
-                log.warn(f"Invalid program header: {phdr.type.value:08x}")
+                log.warn(f"Invalid program header: {phdr_type:08x}")
 
         # Compute the final total capacity
         for offset, value in self.items():
@@ -292,7 +291,7 @@ class ElfExecutable(Executable):
             architecture = Architecture.X86_32
         elif elf.header.machine_type.value == EM_ARM:
             # Some kind of arm32
-            flags = set(map(lambda x: x.value, elf.header.arm_flags_list))
+            flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
 
             if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
                 # This is either ARMv5T or some kind of ARMv6.
@@ -432,7 +431,7 @@ class ElfExecutable(Executable):
             raise ConfigurationError(
                 f"Expected segment of size {seg_size}, but got {len(seg_data)}"
             )
-        if (phdr.flags & PF_X) != 0:
+        if (phdr.flags.value & PF_X) != 0:
             # This is a code segment; add it to program bounds
             self.bounds.add_range((seg_addr, seg_addr + seg_size))
 
@@ -445,7 +444,7 @@ class ElfExecutable(Executable):
 
     def _extract_dtags(self, elf):
         for dt in elf.dynamic_entries:
-            self._dtags[dt.tag.value] = dt.value
+            self._dtags[dt.tag.value & 0xFFFFFFFF] = dt.value
 
     def _extract_symbols(self, elf):
         lief_to_elf = dict()
@@ -544,8 +543,14 @@ class ElfExecutable(Executable):
             if r.symbol is None:
                 continue
             sym = lief_to_elf[r.symbol]
+            # Lief royally screws up relocation entries
+            r_type = r.r_info(elf.header.identity_class)
+            if elf.header.identity_class.value == 1:
+                r_type &= 0xFF
+            else:
+                r_type &= 0xFFFFFFFF
             rela = ElfRela(
-                offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
+                offset=r.address + baseaddr, type=r_type, symbol=sym, addend=r.addend
             )
             sym.relas.append(rela)
             self._dynamic_relas.append(rela)
@@ -554,8 +559,17 @@ class ElfExecutable(Executable):
             if r.symbol is None:
                 continue
             sym = lief_to_elf[r.symbol]
+            # Lief royally screws up relocation entries
+            r_type = r.r_info(elf.header.identity_class)
+            if elf.header.identity_class.value == 1:
+                r_type &= 0xFF
+            else:
+                r_type &= 0xFFFFFFFF
             rela = ElfRela(
-                offset=r.address + baseaddr, type=r.type, symbol=sym, addend=r.addend
+                offset=r.address + baseaddr,
+                type=r.type & 0xFFFF,
+                symbol=sym,
+                addend=r.addend,
             )
             sym.relas.append(rela)
             self._static_relas.append(rela)

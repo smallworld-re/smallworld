@@ -30,5 +30,5 @@ class AMD64ElfRelocator(ElfRelocator):
             )
         else:
             raise ConfigurationError(
-                f"Invalid relocation type for {rela.symbol.name}: {rela.type}"
+                f"Invalid relocation type for {rela.symbol.name}: {hex(rela.type)}"
             )

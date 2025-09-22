@@ -119,8 +119,12 @@ machine.add(dead)
 cpu.t9.set(entrypoint)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
+#
+# NOTE: angr runs into a bug only on CI/CD
+# In one of the floating point checks, it fetches NaN
+# instead of Infinity.  It successfully fetches
+# Infinity the other five times.
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)
