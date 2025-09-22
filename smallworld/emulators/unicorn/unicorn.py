@@ -77,7 +77,6 @@ class UnicornEmulator(
             self.platdef.capstone_arch, self.platdef.capstone_mode
         )
         self.disassembler.detail = True
-        self._arm32_thumb_override = False
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
@@ -532,14 +531,10 @@ class UnicornEmulator(
         ]
 
     def get_thumb(self) -> bool:
-        """For ARM32 platforms, returns true if emulator is in Thumb mode."""
         if not self._check_arm32_platform():
             raise exceptions.ConfigurationError(
                 "called get_thumb() on non-ARM32 system"
             )
-
-        if self._arm32_thumb_override:
-            return True
 
         CPSR_THUMB_MODE_MASK = 0x20
         cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
@@ -548,26 +543,20 @@ class UnicornEmulator(
         else:
             return False
 
-    def set_thumb(self) -> None:
-        """For ARM32 platforms, sets execution to start in Thumb mode."""
+    def set_thumb(self, enabled=True) -> None:
         if not self._check_arm32_platform():
             raise exceptions.ConfigurationError(
                 "called set_thumb() on non-ARM32 system"
             )
 
-        self._arm32_thumb_override = True
-
-    def clear_thumb(self) -> None:
-        """For ARM32 platforms, sets execution to start in ARM mode."""
-        if not self._check_arm32_platform():
-            raise exceptions.ConfigurationError(
-                "called set_thumb() on non-ARM32 system"
-            )
-
-        self._arm32_thumb_override = False
         CPSR_THUMB_MODE_MASK = 0x20
         cpsr = self.engine.reg_read(unicorn.arm_const.UC_ARM_REG_CPSR)
-        if cpsr & CPSR_THUMB_MODE_MASK:
+
+        if enabled:
+            self.engine.reg_write(
+                unicorn.arm_const.UC_ARM_REG_CPSR, cpsr | CPSR_THUMB_MODE_MASK
+            )
+        elif cpsr & CPSR_THUMB_MODE_MASK:
             self.engine.reg_write(
                 unicorn.arm_const.UC_ARM_REG_CPSR, cpsr ^ CPSR_THUMB_MODE_MASK
             )
@@ -586,7 +575,6 @@ class UnicornEmulator(
             self.disassembler.mode = capstone.CS_MODE_THUMB
         else:
             self.disassembler.mode = capstone.CS_MODE_ARM
-        self._arm32_thumb_override = False
 
         return pc
 

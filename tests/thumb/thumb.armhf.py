@@ -58,7 +58,7 @@ for arch in [
 
     # test step_instruction starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb()
+    emulator.set_thumb(True)
     cpu.r0.set(0)
     for step in machine.step(emulator):
         pass
@@ -77,7 +77,7 @@ for arch in [
 
     # test step_block starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb()
+    emulator.set_thumb(True)
     cpu.r0.set(0)
     machine.apply(emulator)
     emulator.step_block()
@@ -94,7 +94,7 @@ for arch in [
 
     # test run starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb()
+    emulator.set_thumb(True)
     cpu.r0.set(0)
     machine.emulate(emulator)
     cpu.r0.extract(emulator)
@@ -103,7 +103,7 @@ for arch in [
     # test ISA persistance across emulator instances
     emulator2 = smallworld.emulators.UnicornEmulator(platform)
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb()
+    emulator.set_thumb(True)
     cpu.r0.set(0)
     next(machine.step(emulator))
     machine.extract(emulator)
@@ -114,7 +114,7 @@ for arch in [
 
     # test mode change Thumb->ARM
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator.set_thumb()
+    emulator.set_thumb(True)
     print(f"GET_THUMB_PRE1_{arch.name}={emulator.get_thumb()}")
     cpu.r0.set(0)
     machine.emulate(emulator)

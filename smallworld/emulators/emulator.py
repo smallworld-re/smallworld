@@ -453,6 +453,30 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         pass
 
+    def get_thumb(self) -> bool:
+        """For applicable platforms, checks if the CPU is in ARM or Thumb mode.
+
+        Returns:
+            True if in Thumb mode, otherwise False.
+
+        Raises:
+            ConfigurationError: if not using an ARM32 platform.
+            NotImplementedError: if not using a supported emulator.
+        """
+        raise NotImplementedError("get_thumb() is not supported for this emulator")
+
+    def set_thumb(self, enabled=True) -> None:
+        """For applicable platforms, set the CPU to Thumb or ARM mode.
+
+        Arguments:
+            enabled: True for Thumb mode, False for ARM mode.
+
+        Raises:
+            ConfigurationError: if not using an ARM32 platform.
+            NotImplementedError: if not using a supported emulator.
+        """
+        raise NotImplementedError("set_thumb() is not supported for this emulator")
+
     @abc.abstractmethod
     def __repr__(self) -> str:
         return ""
