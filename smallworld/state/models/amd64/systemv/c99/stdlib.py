@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class AMD64SysVAtol(Atol, AMD64SysVModel):
 
 
 class AMD64SysVAtoll(Atoll, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVBsearch(Bsearch, AMD64SysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "AMD64SysVAtoi",
     "AMD64SysVAtol",
     "AMD64SysVAtoll",
+    "AMD64SysVBsearch",
     "AMD64SysVCalloc",
     "AMD64SysVDiv",
     "AMD64SysVLDiv",
