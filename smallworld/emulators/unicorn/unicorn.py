@@ -730,33 +730,39 @@ class UnicornEmulator(
             msg = f"{prefix} due to read of unmapped memory"
             # actually this is a memory read error
             exc = UnicornEmulationMemoryReadError
-            details["unmapped_reads"] = get_unavailable_rw(i.reads)
+            if i is not None:
+                details["unmapped_reads"] = get_unavailable_rw(i.reads)
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
             # actually this is a memory read error
             exc = UnicornEmulationMemoryReadError
-            details["protected_reads"] = get_unavailable_rw(i.reads)
+            if i is not None:
+                details["protected_reads"] = get_unavailable_rw(i.reads)
         elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
             msg = f"{prefix} due to unaligned read"
             # actually this is a memory read error
             exc = UnicornEmulationMemoryReadError
-            details["unaligned_reads"] = get_unavailable_rw(i.reads)
+            if i is not None:
+                details["unaligned_reads"] = get_unavailable_rw(i.reads)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
             msg = f"{prefix} due to write to unmapped memory"
             # actually this is a memory write error
             exc = UnicornEmulationMemoryWriteError
-            details["unmapped_writes"] = get_unavailable_rw(i.writes)
+            if i is not None:
+                details["unmapped_writes"] = get_unavailable_rw(i.writes)
         elif error.errno == unicorn.UC_ERR_WRITE_PROT:
             msg = f"{prefix} due to write to mapped but protected memory"
             # actually this is a memory write error
             exc = UnicornEmulationMemoryWriteError
-            details["protected_writes"] = get_unavailable_rw(i.writes)
+            if i is not None:
+                details["protected_writes"] = get_unavailable_rw(i.writes)
         elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
             msg = f"{prefix} due to unaligned write"
             # actually this is a memory write error
             exc = UnicornEmulationMemoryWriteError
-            details["unaligned_writes"] = get_unavailable_rw(i.writes)
+            if i is not None:
+                details["unaligned_writes"] = get_unavailable_rw(i.writes)
 
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
             msg = f"{prefix} due to fetch of unmapped memory"
