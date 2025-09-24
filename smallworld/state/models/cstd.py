@@ -351,7 +351,7 @@ class CStdModel(Model):
 
     def model(self, emulator: emulators.Emulator):
         if self.imprecise and not self.allow_imprecise:
-            raise exceptions.ConfigurationError(
+            raise exceptions.ImpreciseModelError(
                 f"Invoked model for {self.name}, which is imprecise"
             )
 

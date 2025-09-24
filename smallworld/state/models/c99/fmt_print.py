@@ -3,6 +3,7 @@ import re
 import struct
 import typing
 
+from .... import exceptions
 from ....emulators import Emulator
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
@@ -337,7 +338,7 @@ def handle_double_arg(
     if length == "":
         val = varargs.get_next_argument(ArgumentType.DOUBLE, emulator)
     elif length == "L":
-        raise NotImplementedError("Type 'long double' not handled")
+        raise exceptions.UnsupportedModelError("Type 'long double' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
     assert isinstance(val, float)
@@ -370,7 +371,7 @@ def handle_sdecint(
     # which always has the '0' flag enabled.
     # This isn't implemented in python, which means we need to do it piecewise
     if precision != "":
-        raise NotImplementedError("TODO: Implemente precision for ints")
+        raise exceptions.UnsupportedModelError("TODO: Implemente precision for ints")
 
     # Handle length
     if length in ("hh", "h", ""):
@@ -383,9 +384,9 @@ def handle_sdecint(
     elif length in ("z", "Z"):
         val = varargs.get_next_argument(ArgumentType.SSIZE_T, emulator)
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -422,7 +423,7 @@ def handle_udecint(
     # which always has the '0' flag enabled.
     # This isn't implemented in python, which means we need to do it piecewise
     if precision != "":
-        raise NotImplementedError("TODO: Implemente precision for ints")
+        raise exceptions.UnsupportedModelError("TODO: Implemente precision for ints")
 
     # Handle length
     if length in ("hh", "h", ""):
@@ -435,9 +436,9 @@ def handle_udecint(
     elif length in ("z", "Z"):
         val = varargs.get_next_argument(ArgumentType.SIZE_T, emulator)
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
     assert isinstance(val, int)
@@ -473,7 +474,7 @@ def handle_uint(
     # which always has the '0' flag enabled.
     # This isn't implemented in python, which means we need to do it piecewise
     if precision != "":
-        raise NotImplementedError("TODO: Implemente precision for ints")
+        raise exceptions.UnsupportedModelError("TODO: Implemente precision for ints")
 
     # Handle length
     if length in ("hh", "h", ""):
@@ -486,9 +487,9 @@ def handle_uint(
     elif length in ("z", "Z"):
         val = varargs.get_next_argument(ArgumentType.SIZE_T, emulator)
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -663,7 +664,7 @@ def handle_hexfloat(
 ) -> str:
     # Python doesn't have an easy conversion for hex floats
     # And I am not writing one unless you absolutely need it.
-    raise NotImplementedError("Hexadecimal float conversion not supported")
+    raise exceptions.UnsupportedModelError("Hexadecimal float conversion not supported")
 
 
 def handle_char(
@@ -689,7 +690,7 @@ def handle_char(
     if length == "":
         val = varargs.get_next_argument(ArgumentType.UINT, emulator)
     elif length == "l":
-        raise NotImplementedError("Type 'wchar_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'wchar_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -732,7 +733,7 @@ def handle_str(
     if length == "":
         addr = varargs.get_next_argument(ArgumentType.POINTER, emulator)
     elif length == "l":
-        raise NotImplementedError("Type 'wchar_t *' not handled")
+        raise exceptions.UnsupportedModelError("Type 'wchar_t *' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -799,9 +800,9 @@ def handle_len(
         val = val & varargs._long_long_inv_mask
         width = 8
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -820,7 +821,7 @@ def handle_strerror(
 ) -> str:
     # This is weird.  It's a glibc extension, but gcc errors if you use it.
     # If you actually see this, please open a bug ticket.
-    raise NotImplementedError(
+    raise exceptions.UnsupportedModelError(
         "%m conversion (strerror) not implemented; if you see this, submit a ticket."
     )
 

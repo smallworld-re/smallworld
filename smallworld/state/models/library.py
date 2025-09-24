@@ -53,13 +53,21 @@ class ElfModelLibrary(Memory):
 
         # This should be stable in supported versions of python
         for _, model in self.models.items():
-            model.static_buffer_address = self.address + data_offset
-            self[data_offset] = BytesValue(b"\0" * model.static_space_required, None)
-            data_offset += model.static_space_required
+            if model.static_space_required > 0:
+                model.static_buffer_address = self.address + data_offset
+                self[data_offset] = BytesValue(
+                    b"\0" * model.static_space_required, None
+                )
+                data_offset += model.static_space_required
 
     @property
     @abc.abstractmethod
     def function_names(self) -> typing.List[str]:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def alt_names(self) -> typing.Dict[str, str]:
         raise NotImplementedError()
 
     def link(self, elf: ElfExecutable) -> None:
@@ -74,13 +82,18 @@ class ElfModelLibrary(Memory):
 
             if sym.name in self.models:
                 model = self.models[sym.name]
-                if model.imprecise and not model.allow_imprecise:
-                    log.warning(
-                        f"Harness requires {model.name}, which is imprecise and currently not whitecarded"
-                    )
-                if model.unsupported:
-                    log.warning(f"Harness requires {model.name}, which is unsupported")
-                elf.update_symbol_value(sym, model._address, rebase=True)
+            elif sym.name in self.alt_names:
+                model = self.models[self.alt_names[sym.name]]
+            else:
+                continue
+
+            if model.imprecise and not model.allow_imprecise:
+                log.warning(
+                    f"Harness requires {model.name}, which is imprecise and currently not whitecarded"
+                )
+            if model.unsupported:
+                log.warning(f"Harness requires {model.name}, which is unsupported")
+            elf.update_symbol_value(sym, model._address)
 
     def apply(self, emulator: Emulator) -> None:
         super().apply(emulator)

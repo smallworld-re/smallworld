@@ -223,7 +223,7 @@ class Bsearch(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Not easily possible; need to call a comparator function.
-        raise NotImplementedError(
+        raise exceptions.UnsupportedModelError(
             "bsearch uses a function pointer; not sure how to model"
         )
 
@@ -283,8 +283,8 @@ class Div(CStdModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError(
-            "{self.name}() has a unique, unsupported calling convention"
+        raise exceptions.UnsupportedModelError(
+            f"{self.name}() has a unique, unsupported calling convention"
         )
 
 
@@ -408,7 +408,7 @@ class Mblen(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError(f"{self.name} requires locale support")
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class Mbstowcs(CStdModel):
@@ -424,7 +424,7 @@ class Mbstowcs(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError(f"{self.name} requires locale support")
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class Mbtowc(CStdModel):
@@ -440,7 +440,7 @@ class Mbtowc(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError(f"{self.name} requires locale support")
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class QSort(CStdModel):
@@ -460,7 +460,7 @@ class QSort(CStdModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError(
+        raise exceptions.UnsupportedModelError(
             f"{self.name} uses a function pointer; not sure how to model"
         )
 
@@ -579,7 +579,7 @@ class Wcstombs(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError(f"{self.name} requires locale support")
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class Wctomb(CStdModel):
@@ -595,7 +595,7 @@ class Wctomb(CStdModel):
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError(f"{self.name} requires locale support")
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 __all__ = [
