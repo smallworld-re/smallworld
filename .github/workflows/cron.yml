@@ -12,7 +12,7 @@ jobs:
     runs-on: smallworld-arc
     steps:
       - name: Cleanup Shared
-        run: find /home/runner/_shared/* -mtime +3 -exec rm {} \;
+        run: find /home/runner/_shared -mindepth 1 -mtime +3 -exec rm {} \;
 
       - name: Install docker
         run: |
