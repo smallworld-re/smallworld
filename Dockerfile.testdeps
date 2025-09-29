@@ -8,4 +8,7 @@ WORKDIR /opt/smallworld/
 RUN pip install -e ".[development]" -c constraints.txt
 
 WORKDIR /opt/smallworld/tests
-RUN apt-get -y install $(cat ./dependencies/apt.txt) && apt-get clean
+RUN apt-get update -y && apt-get -y install $(cat ./dependencies/apt.txt) && apt-get clean
+
+RUN wget https://github.com/smallworld-re/buildtools/releases/latest/download/buildtools-loongarch64-linux-gnu.deb && \
+    apt-get install ./buildtools-*.deb
