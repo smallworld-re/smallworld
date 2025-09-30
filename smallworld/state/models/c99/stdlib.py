@@ -552,6 +552,9 @@ class System(CStdModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # This won't actually execute a subprocess
+    imprecise = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         ptr = self.get_arg1(emulator)

@@ -21,6 +21,7 @@ int main() {
     time_t t = time(NULL);
     const char *ct = ctime(&t);
     atexit(exit_handler);
+    system("/bin/true");
     evil(0, ct);   
  
     return *good;
