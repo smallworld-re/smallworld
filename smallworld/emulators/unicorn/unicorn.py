@@ -49,6 +49,7 @@ class EmulatorState(Enum):
     BLOCK = 4
     RUN = 5
     SETUP = 6
+    EXIT = 7
 
 
 class UnicornEmulator(
@@ -97,20 +98,33 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
-            # print(f"code callback addr={address:x}")
-            # We want to end on the instruction after
+            # Check single-step conditions.
+            #
+            # This callback gets invoked before the instruction is emulated.
+            # When single-stepping, we want to run through it once,
+            # and then stop emulation when it's run the second time.
+            #
+            # NOTE: Calling emu_stop() doesn't immediately stop emulation.
+            # Returning here prevents spurious instruction and function hooks.
+            # The memory read/write hooks also check for EXIT
+            # to ensure they don't get called twice on the same event.
             if self.state == EmulatorState.STEP:
+                self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
+                return
             if self.state == EmulatorState.START_STEP:
                 self.state = EmulatorState.STEP
 
+            # Check if we're out of bounds
             if not self._bounds.is_empty() and not self._bounds.contains_value(address):
+                self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 raise exceptions.EmulationBounds
 
             # check for if we've hit an exit point
             if address in self._exit_points:
                 logger.debug(f"stopping emulation at exit point {address:x}")
+                self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 raise exceptions.EmulationExitpoint
 
@@ -182,6 +196,14 @@ class UnicornEmulator(
 
         def mem_read_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_READ
+
+            if self.state == EmulatorState.EXIT:
+                # Spurious call during the end of a single-step
+                #
+                # It looks like the emulator may continue processing an instruction
+                # even after emu_stop() is called.
+                return
+
             orig_data = value.to_bytes(size, self.platform.byteorder.value)
             if self.all_reads_hook:
                 data = self.all_reads_hook(self, address, size, orig_data)
@@ -210,6 +232,14 @@ class UnicornEmulator(
 
         def mem_write_callback(uc, type, address, size, value, user_data):
             assert type == unicorn.UC_MEM_WRITE
+
+            if self.state == EmulatorState.EXIT:
+                # Spurious call during the end of a single-step
+                #
+                # It looks like the emulator may continue processing an instruction
+                # even after emu_stop() is called.
+                return
+
             if self.all_writes_hook:
                 self.all_writes_hook(
                     self,
@@ -249,6 +279,7 @@ class UnicornEmulator(
 
         def block_callback(uc, address, block_size, user_data):
             if self.state == EmulatorState.BLOCK:
+                self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
             if self.state == EmulatorState.START_BLOCK:
                 self.state = EmulatorState.BLOCK
