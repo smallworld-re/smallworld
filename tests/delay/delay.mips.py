@@ -47,19 +47,28 @@ def hook_memory_write(emu, addr, size, data):
 emulator.hook_memory_write(0x2000, 0x2004, hook_memory_write)
 
 
-def hook_instruction(emu):
-    print(f"Unexpected instruction at {hex(emu.read_register('pc'))}")
-    raise Exception(f"Unexpected instruction at {hex(emu.read_register('pc'))}")
+def hook_expected_instruction(emu):
+    pc = emu.read_register("pc")
+    print(f"Expected instruction at {hex(pc)}")
 
 
-emulator.hook_instruction(0x1018, hook_instruction)
+def hook_unexpected_instruction(emu):
+    pc = emu.read_register("pc")
+    raise Exception(f"Unexpected instruction at {hex(pc)}")
+
+
+# Branch
+emulator.hook_instruction(0x1010, hook_expected_instruction)
+# Delay slot
+emulator.hook_instruction(0x1014, hook_expected_instruction)
+# Instruction skipped by branch
+emulator.hook_instruction(0x1018, hook_unexpected_instruction)
 
 final_machine = machine.emulate(emulator)
 
 # idx = 0
 # for final_machine in machine.step(emulator):
 #    idx += 1
-#    print(final_machine.get_cpu().pc)
 #    if final_machine.get_cpu().pc.get() == exit_point:
 #        break
 #    if idx == 10:
