@@ -6,3 +6,4 @@ square:
     # it should expand to the exact same code
     # as the mips64 example
     mul $2,$4,$4
+    nop

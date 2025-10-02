@@ -24,3 +24,4 @@ rest:
     # Clean up the stack
     add     $68,%esp
     pop     %ebp
+    nop

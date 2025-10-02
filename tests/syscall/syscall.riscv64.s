@@ -4,3 +4,4 @@ test:
     li      a7, 66 
     ecall
     nop
+    nop

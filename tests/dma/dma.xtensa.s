@@ -15,3 +15,4 @@ divide:
     s32i    $a2, $a4, 0
     s32i    $a3, $a4, 4
     l32i    $a2, $a4, 8
+    nop

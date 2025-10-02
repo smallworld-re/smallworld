@@ -21,3 +21,4 @@ multi_arg:
     add %ecx, %eax
 
     pop %ebp
+    nop

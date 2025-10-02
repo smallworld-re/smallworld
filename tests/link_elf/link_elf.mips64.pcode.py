@@ -103,7 +103,7 @@ cpu.t9.set(entrypoint)
 emulator = smallworld.emulators.GhidraEmulator(platform)
 
 # Use code bounds from the ELF
-emulator.add_exit_point(0)
+machine.add_exit_point(0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 for bound in lib.bounds:
@@ -111,7 +111,7 @@ for bound in lib.bounds:
 
 # I happen to know that the code _actually_ stops
 # at main + 0x34
-emulator.add_exit_point(entrypoint + 0x84)
+machine.add_exit_point(entrypoint + 0x84)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

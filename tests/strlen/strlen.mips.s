@@ -20,3 +20,4 @@ strlen:
 main:
     bal     strlen
     nop                 # Delay slot
+    nop

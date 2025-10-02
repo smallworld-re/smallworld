@@ -24,3 +24,4 @@ mc91:
     ret 
 main:
     bl      mc91
+    nop

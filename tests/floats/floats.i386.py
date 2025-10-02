@@ -41,7 +41,7 @@ cpu.xmm1.set(arg2)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
+machine.add_exit_point(cpu.eip.get() + code.get_capacity() - 1)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

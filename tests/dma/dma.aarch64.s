@@ -10,3 +10,4 @@ divide:
     str     x1, [x2], 8
     ldr     x0, [x2]
 
+    nop

@@ -52,7 +52,7 @@ cpu.esp.set(stack.get_pointer())
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
+machine.add_exit_point(cpu.eip.get() + code.get_capacity() - 1)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

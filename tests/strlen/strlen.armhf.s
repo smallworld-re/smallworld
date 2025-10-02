@@ -15,3 +15,4 @@ strlen:
     bx      lr
 main:
     bl      strlen
+    nop

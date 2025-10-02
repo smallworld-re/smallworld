@@ -5,5 +5,5 @@ divide:
     stw     3,0(5)
     stw     4,4(5)
     lwz     3,8(5) 
-
     
+    nop

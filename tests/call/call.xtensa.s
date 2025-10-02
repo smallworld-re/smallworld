@@ -31,3 +31,4 @@ foo:
     addi    $a2, $a2, -1
     call0   bar
     addi    $a2, $a2, 1
+    nop

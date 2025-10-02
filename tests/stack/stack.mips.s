@@ -11,3 +11,4 @@ manyargs:
     # Load arg7 (sp+24), add to result
     lw $3,24($sp)
     addu $2,$2,$3
+    nop

@@ -14,3 +14,4 @@ test:
     
     # Clean up the stack
     pop     %ebp
+    nop

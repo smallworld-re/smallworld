@@ -9,3 +9,4 @@ test:
     movi    $a2, 0x4
     syscall
     nop
+    nop

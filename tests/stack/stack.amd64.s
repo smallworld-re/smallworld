@@ -4,3 +4,4 @@ BITS 64;
         add     rdi, rdx
         lea     rax, [rdi+r8]
         add     rax, QWORD [rsp+8]
+    nop

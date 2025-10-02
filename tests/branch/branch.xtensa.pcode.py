@@ -36,7 +36,7 @@ cpu.a2.set(int(sys.argv[1]))
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 3)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

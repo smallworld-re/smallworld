@@ -3,3 +3,4 @@
     xor     %eax,%eax
     cmp     $100,%edi
     sete    %al
+    nop

@@ -52,7 +52,7 @@ cpu.lr.set_label("old-lr")
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 4)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

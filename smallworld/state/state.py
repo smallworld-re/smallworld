@@ -760,6 +760,8 @@ class Machine(StatefulSet):
         return list(self._constraints)
 
     def apply(self, emulator: emulators.Emulator) -> None:
+        super().apply(emulator)
+
         for address in self._exit_points:
             emulator.add_exit_point(address)
         for start, end in self.get_bounds():
@@ -768,8 +770,6 @@ class Machine(StatefulSet):
         if isinstance(emulator, emulators.ConstrainedEmulator):
             for expr in self._constraints:
                 emulator.add_constraint(expr)
-
-        return super().apply(emulator)
 
     def extract(self, emulator: emulators.Emulator) -> None:
         self._exit_points = emulator.get_exit_points()

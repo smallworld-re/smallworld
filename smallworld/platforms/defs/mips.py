@@ -42,6 +42,7 @@ class MIPSO32PlatformDef(PlatformDef):
     conditional_branch_mnemonics = {
         # Conditional branch
         "beq",
+        "beqz",
         "bne",
         "bgez",
         "bgtz",
@@ -93,6 +94,15 @@ class MIPSO32PlatformDef(PlatformDef):
         "cmp.le.d",
         "cmp.le.ps",
     }
+
+    delay_slot_mnemonics = {
+        "b",
+        "bal",
+        "j",
+        "jr",
+        "jal",
+        "jalr",
+    } | conditional_branch_mnemonics
 
     pc_register = "pc"
     sp_register = "sp"

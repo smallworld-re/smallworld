@@ -14,3 +14,4 @@ foo:
     addi    3,3,-1
     bl      bar
     addi    3,3,1
+    nop

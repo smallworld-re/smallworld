@@ -6,3 +6,4 @@ manyargs:
     add 3,3,9
     lwz 10,24(1)
     add 3,3,10
+    nop

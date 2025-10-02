@@ -34,3 +34,4 @@ test:
     ld.d    $fp,$sp,32
     ld.d    $ra,$sp,40
     addi.d  $sp,$sp,48
+    nop

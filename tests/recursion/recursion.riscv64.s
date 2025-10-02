@@ -25,3 +25,4 @@ mc91:
     jr      ra
 main:
     jal     ra, mc91
+    nop

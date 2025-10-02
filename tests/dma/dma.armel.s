@@ -11,3 +11,4 @@ divide:
     stm     r2!, {r1}
     ldr     r0, [r2]
     
+    nop

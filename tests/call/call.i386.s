@@ -25,3 +25,4 @@ foo:
 
     add     $4,%esp
     pop     %ebp
+    nop

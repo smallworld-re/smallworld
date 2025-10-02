@@ -30,3 +30,4 @@ test:
     addiw   sp, sp, 64
     ld      ra, 0x0(sp)
     addi    sp, sp, 8
+    nop

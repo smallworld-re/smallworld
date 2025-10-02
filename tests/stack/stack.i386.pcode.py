@@ -53,7 +53,7 @@ cpu.esp.set(rsp)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
+machine.add_exit_point(cpu.eip.get() + code.get_capacity() - 1)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

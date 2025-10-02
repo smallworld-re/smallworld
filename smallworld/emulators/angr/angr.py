@@ -1451,6 +1451,16 @@ class AngrEmulator(
         return set(self.state.scratch.exit_points)
 
     def add_exit_point(self, address: int) -> None:
+        # Check that the exit point is in mapped memory
+        for start, end in self.get_memory_map():
+            if address >= start and address < end:
+                found = True
+                break
+        if not found:
+            raise exceptions.ConfigurationError(
+                f"Exit point {hex(address)} is outside mapped memory"
+            )
+
         if not self._initialized:
             self._exit_points.add(address)
         elif self._dirty and not self._linear:

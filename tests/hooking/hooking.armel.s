@@ -26,3 +26,4 @@ test:
     # Clean up the stack
     add sp, sp, #64
     pop {fp, lr}
+    nop

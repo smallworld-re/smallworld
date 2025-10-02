@@ -5,3 +5,4 @@ divide:
     sw      $a0,($t0)
     sw      $a1,4($t0)
     lw      $v0,8($t0)
+    nop

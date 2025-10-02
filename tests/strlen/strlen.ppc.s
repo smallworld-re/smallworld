@@ -17,3 +17,4 @@ strlen:
 
 main:
     bl      strlen
+    nop

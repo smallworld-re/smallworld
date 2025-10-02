@@ -42,3 +42,4 @@ mc91:
 main:
     bal     mc91
     nop                 # Delay slot
+    nop

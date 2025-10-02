@@ -4,3 +4,4 @@ BITS 64;
 ; If we can't run this, we can't run anything.
         imul    edi, edi
         mov     eax, edi
+        nop

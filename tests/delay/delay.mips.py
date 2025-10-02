@@ -1,4 +1,5 @@
 import logging
+import sys
 
 import smallworld
 
@@ -37,19 +38,33 @@ cpu.pc.set(code.address)
 # Emulate
 exit_point = cpu.pc.get() + code.get_capacity() - 4
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+machine.add_exit_point(exit_point)
+
+
+expected_writes = {0x1010: 1, 0x1024: 2, 0x1038: 1}
+actual_writes = dict()
 
 
 def hook_memory_write(emu, addr, size, data):
-    print("Hook!")
+    pc = emu.read_register("pc")
+    if pc not in actual_writes:
+        actual_writes[pc] = 1
+    else:
+        actual_writes[pc] += 1
 
 
 emulator.hook_memory_write(0x2000, 0x2004, hook_memory_write)
 
+expected_delay_slots = {0x1010: 1, 0x1024: 2, 0x102C: 1}
+actual_delay_slots = dict()
+
 
 def hook_expected_instruction(emu):
     pc = emu.read_register("pc")
-    print(f"Expected instruction at {hex(pc)}")
+    if pc not in actual_delay_slots:
+        actual_delay_slots[pc] = 1
+    else:
+        actual_delay_slots[pc] += 1
 
 
 def hook_unexpected_instruction(emu):
@@ -57,23 +72,70 @@ def hook_unexpected_instruction(emu):
     raise Exception(f"Unexpected instruction at {hex(pc)}")
 
 
-# Branch
+# Delay slot instructions
 emulator.hook_instruction(0x1010, hook_expected_instruction)
-# Delay slot
-emulator.hook_instruction(0x1014, hook_expected_instruction)
-# Instruction skipped by branch
+emulator.hook_instruction(0x1024, hook_expected_instruction)
+emulator.hook_instruction(0x102C, hook_expected_instruction)
+# Instructions skipped by branches
+emulator.hook_instruction(0x1014, hook_unexpected_instruction)
 emulator.hook_instruction(0x1018, hook_unexpected_instruction)
+emulator.hook_instruction(0x1030, hook_unexpected_instruction)
 
-final_machine = machine.emulate(emulator)
+# final_machine = machine.emulate(emulator)
 
-# idx = 0
-# for final_machine in machine.step(emulator):
-#    idx += 1
-#    if final_machine.get_cpu().pc.get() == exit_point:
-#        break
-#    if idx == 10:
-#        break
+try:
+    for final_machine in machine.step(emulator):
+        pass
+except smallworld.exceptions.EmulationStop:
+    pass
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+
+bad = False
+if cpu.v0.get() != 4:
+    print(f"Expected return value of 4, got {cpu.v0.get()}", file=sys.stderr)
+    bad = True
+
+for addr, count in expected_writes.items():
+    if addr not in actual_writes:
+        print(
+            f"Expected to see {count} writes at PC {hex(addr)}; saw none",
+            file=sys.stderr,
+        )
+        bad = True
+    elif count != actual_writes[addr]:
+        print(
+            f"Expected to see {count} writes at PC {hex(addr)}; saw {actual_writes[addr]}",
+            file=sys.stderr,
+        )
+        bad = True
+
+for addr, count in actual_writes.items():
+    if addr not in expected_writes:
+        print(f"Saw {count} unexpected writes at PC {hex(addr)}", file=sys.stderr)
+        bad = True
+
+for addr, count in expected_delay_slots.items():
+    if addr not in actual_delay_slots:
+        print(
+            f"Expected to see {count} delay slots at PC {hex(addr)}; saw none",
+            file=sys.stderr,
+        )
+        bad = True
+    elif count != actual_delay_slots[addr]:
+        print(
+            f"Expected to see {count} delay slots at PC {hex(addr)}; saw {actual_delay_slots[addr]}",
+            file=sys.stderr,
+        )
+        bad = True
+
+for addr, count in actual_delay_slots.items():
+    if addr not in expected_delay_slots:
+        print(f"Saw {count} unexpected delay slots at PC {hex(addr)}", file=sys.stderr)
+        bad = True
+
+if bad:
+    raise Exception("Test failed; see stderr for details")
+else:
+    print("Success!", file=sys.stderr)

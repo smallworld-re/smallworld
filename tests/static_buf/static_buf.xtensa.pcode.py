@@ -73,7 +73,7 @@ machine.add(foobar)
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
 # code capacity isn't an accurate lower bound
-emulator.add_exit_point(code.address + 0xA)
+machine.add_exit_point(code.address + 0xA)
 final_machine = machine.emulate(emulator)
 
 print(final_machine.get_cpu().a2)

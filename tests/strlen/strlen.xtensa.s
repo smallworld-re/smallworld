@@ -18,3 +18,4 @@ strlen:
 main:
     call0   strlen
 
+    nop

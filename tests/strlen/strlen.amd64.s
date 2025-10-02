@@ -16,3 +16,4 @@ strlen:
         ret
 main:
         call    strlen
+    nop

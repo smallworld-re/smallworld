@@ -7,3 +7,4 @@ test_syscall:
 	mov     eax, 0x1
 	syscall
     nop
+    nop

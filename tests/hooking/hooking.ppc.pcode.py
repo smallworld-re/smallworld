@@ -84,5 +84,5 @@ machine.add(puts)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(code.address + code.get_capacity())
+machine.add_exit_point(code.address + code.get_capacity() - 4)
 final_machine = machine.emulate(emulator)

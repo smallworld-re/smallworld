@@ -20,3 +20,4 @@ mc91:
         ret
 main:
         call    mc91
+        nop

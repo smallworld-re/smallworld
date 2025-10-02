@@ -39,3 +39,4 @@ test:
     ld      $fp,32($sp)
     ld      $gp,24($sp)
     daddiu   $sp,$sp,48
+    nop

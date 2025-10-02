@@ -14,3 +14,4 @@ foo:
         sub     x0, x0, 1
         bl      bar
         add     x0, x0, 1
+        nop

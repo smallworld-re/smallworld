@@ -37,7 +37,7 @@ cpu.rdi.set(int(sys.argv[1]))
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+machine.add_exit_point(cpu.rip.get() + code.get_capacity() - 1)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

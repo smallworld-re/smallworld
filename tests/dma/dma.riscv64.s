@@ -8,3 +8,4 @@ divide:
     sd      a0, 0x0(t0)
     sd      a1, 0x8(t0)
     ld      a0, 0x10(t0)
+    nop

@@ -105,7 +105,7 @@ machine.add(hdiv)
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 3)
 final_machine = machine.emulate(emulator)
 
 # read out the final state

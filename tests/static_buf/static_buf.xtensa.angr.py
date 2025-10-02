@@ -74,7 +74,7 @@ machine.add(foobar)
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
 # code capacity isn't an accurate lower bound
-emulator.add_exit_point(code.address + 0xA)
+machine.add_exit_point(code.address + 0xA)
 final_machine = machine.emulate(emulator)
 
 print(final_machine.get_cpu().a2)

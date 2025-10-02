@@ -35,3 +35,5 @@ test:
 
 .L2:
     addiu   $v0,$v0,1
+    sw      $v0,($t2)
+    nop
