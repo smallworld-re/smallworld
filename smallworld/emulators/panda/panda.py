@@ -605,12 +605,14 @@ class PandaEmulator(
             logger.debug("stopping emulation at exit point")
             raise exceptions.EmulationBounds
 
-    def run(self) -> None:
+    def run(self, suppress_startup_logs=False) -> None:
         self.check()
-        logger.info(f"starting emulation at {hex(self.pc)}")
+        if not suppress_startup_logs:
+            logger.info(f"starting emulation at {hex(self.pc)}")
         self.panda_thread.state = self.ThreadState.RUN
         self.signal_and_wait()
-        logger.info("emulation complete")
+        if not suppress_startup_logs:
+            logger.info("emulation complete")
 
     def signal_and_wait(self) -> None:
         logger.debug("Main signaling panda to run")

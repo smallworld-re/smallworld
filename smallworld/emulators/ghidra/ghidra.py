@@ -559,7 +559,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
     def step_block(self) -> None:
         raise NotImplementedError("Not sure how to step by block.")
 
-    def run(self) -> None:
+    def run(self, suppress_startup_logs=False) -> None:
         try:
             while True:
                 self.step_instruction()

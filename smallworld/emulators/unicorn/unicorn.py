@@ -686,13 +686,14 @@ class UnicornEmulator(
         except unicorn.UcError as e:
             self._error(e, "exec")
 
-    def run(self) -> None:
+    def run(self, suppress_startup_logs=False) -> None:
         self._check()
         self.state = EmulatorState.RUN
 
-        logger.info(
-            f"starting emulation at 0x{self.read_register('pc'):x}"
-        )  # until 0x{self._exit_point:x}")
+        if not suppress_startup_logs:
+            logger.info(
+                f"starting emulation at 0x{self.read_register('pc'):x}"
+            )  # until 0x{self._exit_point:x}")
 
         try:
             pc = self.read_register("pc")
@@ -703,7 +704,8 @@ class UnicornEmulator(
         except unicorn.UcError as e:
             self._error(e, "exec")
 
-        logger.info("emulation complete")
+        if not suppress_startup_logs:
+            logger.info("emulation complete")
 
     def _error(
         self, error: unicorn.UcError, typ: str

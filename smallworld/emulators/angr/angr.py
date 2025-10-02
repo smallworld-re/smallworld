@@ -1461,8 +1461,9 @@ class AngrEmulator(
     def step(self) -> None:
         self._step(True)
 
-    def run(self):
-        log.info("Starting angr run")
+    def run(self, suppress_startup_logs=False):
+        if not suppress_startup_logs:
+            log.info("Starting angr run")
         try:
             # Continue stepping as long as we have steps.
             while True:
@@ -1754,7 +1755,7 @@ class ConcreteAngrEmulator(AngrEmulator):
         raise NotImplementedError("Function hooking not supported inside a hook.")
 
     # Execution is not supported; this is not a complete emulator.
-    def run(self) -> None:
+    def run(self, suppress_startup_logs=False) -> None:
         raise NotImplementedError("Running not supported inside a hook.")
 
     def _step(self, single_insn: bool) -> None:
