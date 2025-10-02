@@ -1,8 +1,11 @@
 import logging
 import random
 import typing
+from functools import cmp_to_key
 
 import claripy
+
+from smallworld.state.models.funcptr import FunctionPointer
 
 from .... import emulators, exceptions
 from ...memory.heap import Heap
@@ -460,9 +463,38 @@ class QSort(CStdModel):
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise exceptions.UnsupportedModelError(
-            f"{self.name} uses a function pointer; not sure how to model"
-        )
+
+        base = self.get_arg1(emulator)
+        nmemb = self.get_arg2(emulator)
+        size = self.get_arg3(emulator)
+        compar = self.get_arg4(emulator)
+
+        assert isinstance(base, int)
+        assert isinstance(nmemb, int)
+        assert isinstance(size, int)
+        assert isinstance(compar, int)
+
+        compare_func_ptr = FunctionPointer(
+            compar,
+            0x104C4,
+            [ArgumentType.POINTER, ArgumentType.POINTER],
+            ArgumentType.INT,
+            self.platform,
+        )  # TODO: let function pointer determine exitpoint dynamically
+
+        # call comparison function
+        def cmp(elem_addr_a: int, elem_addr_b: int) -> int:
+            ret = compare_func_ptr.call(emulator, [elem_addr_a, elem_addr_b])
+            return ret
+
+        # sort, passing element ptrs to comparison function
+        elem_addrs = [base + i * size for i in range(0, nmemb)]
+        sorted_addrs = sorted(elem_addrs, key=cmp_to_key(cmp))
+        sorted_elems = [emulator.read_memory(addr, 4) for addr in sorted_addrs]
+        sorted_array = b"".join(sorted_elems)
+
+        # write sorted array to original buffer
+        emulator.write_memory(base, sorted_array)
 
 
 class Rand(CStdModel):
