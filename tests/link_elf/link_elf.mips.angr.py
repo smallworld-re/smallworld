@@ -88,14 +88,14 @@ emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
 
 # Use code bounds from the ELF
-machine.add_exit_point(0)
+emulator.add_exit_point(0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
 
 # I happen to know where the code _actually_ stops
-machine.add_exit_point(entrypoint + 0x74)
+emulator.add_exit_point(entrypoint + 0x74)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

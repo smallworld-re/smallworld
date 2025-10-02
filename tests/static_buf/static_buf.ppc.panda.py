@@ -72,7 +72,7 @@ machine.add(foobar)
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-machine.add_exit_point(code.address + code.get_capacity() - 4)
+emulator.add_exit_point(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 print(final_machine.get_cpu().r3)

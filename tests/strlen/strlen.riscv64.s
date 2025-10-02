@@ -11,4 +11,3 @@ strlen:
 .L3:
     mv      a0,t0
     jr      ra
-    nop

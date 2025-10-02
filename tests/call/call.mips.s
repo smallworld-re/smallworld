@@ -28,4 +28,3 @@ foo:
     bal     bar
     nop
     addi    $v0,$v0,1
-    nop

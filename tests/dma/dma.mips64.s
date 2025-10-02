@@ -5,4 +5,3 @@ divide:
     sd      $a0,($t0)
     sd      $a1,8($t0)
     ld      $v0,16($t0)
-    nop

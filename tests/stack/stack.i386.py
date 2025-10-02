@@ -53,7 +53,7 @@ cpu.esp.set(rsp)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-machine.add_exit_point(cpu.eip.get() + code.get_capacity() - 1)
+emulator.add_exit_point(cpu.eip.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state

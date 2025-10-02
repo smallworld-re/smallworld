@@ -45,12 +45,11 @@ class UnicornEmulationExecutionError(UnicornEmulationError):
 class EmulatorState(Enum):
     START_BLOCK = 1
     START_STEP = 2
-    DELAY_STEP = 3
-    STEP = 4
-    BLOCK = 5
-    RUN = 6
-    SETUP = 7
-    EXIT = 8
+    STEP = 3
+    BLOCK = 4
+    RUN = 5
+    SETUP = 6
+    EXIT = 7
 
 
 class UnicornEmulator(
@@ -99,20 +98,6 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
-            # Check if we're out of bounds
-            if not self._bounds.is_empty() and not self._bounds.contains_value(address):
-                logger.debug(f"Stopping emulation out of bounds at {address:x}")
-                self.state = EmulatorState.EXIT
-                self.engine.emu_stop()
-                raise exceptions.EmulationBounds
-
-            # check for if we've hit an exit point
-            if address in self._exit_points:
-                logger.debug(f"stopping emulation at exit point {address:x}")
-                self.state = EmulatorState.EXIT
-                self.engine.emu_stop()
-                raise exceptions.EmulationExitpoint
-
             # Check single-step conditions.
             #
             # This callback gets invoked before the instruction is emulated.
@@ -127,14 +112,21 @@ class UnicornEmulator(
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 return
-            if self.state == EmulatorState.DELAY_STEP:
-                self.state = EmulatorState.STEP
             if self.state == EmulatorState.START_STEP:
-                insn = self.current_instruction()
-                if insn.mnemonic in self.platdef.delay_slot_mnemonics:
-                    self.state = EmulatorState.DELAY_STEP
-                else:
-                    self.state = EmulatorState.STEP
+                self.state = EmulatorState.STEP
+
+            # Check if we're out of bounds
+            if not self._bounds.is_empty() and not self._bounds.contains_value(address):
+                self.state = EmulatorState.EXIT
+                self.engine.emu_stop()
+                raise exceptions.EmulationBounds
+
+            # check for if we've hit an exit point
+            if address in self._exit_points:
+                logger.debug(f"stopping emulation at exit point {address:x}")
+                self.state = EmulatorState.EXIT
+                self.engine.emu_stop()
+                raise exceptions.EmulationExitpoint
 
             # run instruciton hooks
             if self.all_instructions_hook:
@@ -633,11 +625,7 @@ class UnicornEmulator(
             logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, 0x0)
-            npc = self.read_register("pc")
-            if npc == pc:
-                print("Did not step; highly likely to be right before an exit point")
-                raise exceptions.EmulationExitpoint
+            self.engine.emu_start(pc, exit_point)
 
         except unicorn.UcError as e:
             if (
@@ -655,17 +643,18 @@ class UnicornEmulator(
         self._check()
         pc = self.read_register("pc")
         pc = self._handle_thumb_interwork(pc)
+        exit_point = list(self._exit_points)[0]
 
         disas = self.current_instruction()
         logger.info(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, exit_point)
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, exit_point)
         except unicorn.UcError as e:
             logger.warn(f"emulation stopped - reason: {e}")
             logger.warn("for more details, run emulation in single step mode")
@@ -679,9 +668,11 @@ class UnicornEmulator(
         )  # until 0x{self._exit_point:x}")
 
         try:
+            # unicorn requires one exit point so just use first
+            exit_point = list(self._exit_points)[0]
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, exit_point)
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:

@@ -21,4 +21,3 @@ BITS 64;
         test    al, al
         jne     .L3
         mov     eax, edi
-        nop

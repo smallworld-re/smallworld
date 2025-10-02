@@ -5,4 +5,3 @@ square:
     # and sign-extend it into the return register (3)
     mullw 3,3,3
     extsw 3,3
-    nop

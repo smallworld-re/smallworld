@@ -61,7 +61,7 @@ def hook(emulator):
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 4)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 # emulator.hook_instructions(hook)
 final_machine = machine.emulate(emulator)
 

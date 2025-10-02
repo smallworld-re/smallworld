@@ -5,7 +5,7 @@ import typing
 
 import claripy
 
-from .. import exceptions, platforms, utils
+from .. import platforms, utils
 
 
 class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
@@ -408,16 +408,6 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         Arguments:
             address: The address of the exit point.
         """
-        # Check that the exit point is in mapped memory.
-        found = False
-        for start, end in self.get_memory_map():
-            if address >= start and address < end:
-                found = True
-                break
-        if not found:
-            raise exceptions.ConfigurationError(
-                f"Exit point {hex(address)} is outside mapped memory"
-            )
 
         self._exit_points.add(address)
 

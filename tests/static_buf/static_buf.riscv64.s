@@ -16,4 +16,3 @@ test:
     # Clean up the stack
     ld      ra, 0x0(sp)
     addi    sp, sp, 8
-    nop

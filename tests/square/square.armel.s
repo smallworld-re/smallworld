@@ -5,4 +5,3 @@ square:
     # The assembler complains if I do this in one op
     mov r1, r0
     mul r0, r1, r0
-    nop

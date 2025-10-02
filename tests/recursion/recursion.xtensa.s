@@ -35,4 +35,3 @@ mc91:
 
 main:
     call0   mc91
-    nop

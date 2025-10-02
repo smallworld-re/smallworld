@@ -17,4 +17,3 @@ test:
     ld.d    $ra,$sp,40
     ld.d    $fp,$sp,32
     addi.d  $sp,$sp,48
-    nop

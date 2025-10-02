@@ -5,4 +5,3 @@ square:
     # to the return register ($2)
     mult $4,$4
     mflo $2
-    nop

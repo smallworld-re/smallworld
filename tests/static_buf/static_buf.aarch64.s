@@ -7,4 +7,3 @@ test:
     bl  foobar
     # return *ret
     ldr w0, [x0]
-    nop

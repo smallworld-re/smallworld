@@ -53,7 +53,7 @@ cpu.sp.set(sp)
 # emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 3)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 
 # read out the final state

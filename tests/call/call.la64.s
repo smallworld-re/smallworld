@@ -26,4 +26,3 @@ foo:
     ld.d    $fp,$sp,40
     addi.d  $sp,$sp,48
    
-    nop

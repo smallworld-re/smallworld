@@ -9,4 +9,3 @@ manyargs:
     add 3,3,9
     add 3,3,10
     extsw 3,3
-    nop

@@ -15,4 +15,3 @@
     .arm
 test:
     vadd.f64 d0,d0,d1
-    nop

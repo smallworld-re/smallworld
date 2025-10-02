@@ -5,5 +5,5 @@ divide:
     std     3,0(5)
     std     4,8(5)
     ld      3,16(5) 
+
     
-    nop

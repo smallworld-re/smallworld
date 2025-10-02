@@ -26,4 +26,3 @@ mc91:
     pop     {r7, pc}
 main:
     bl      mc91
-    nop

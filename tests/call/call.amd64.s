@@ -12,4 +12,3 @@ foo:
         sub     edi, 1
         call    bar
         add     eax, 1
-        nop

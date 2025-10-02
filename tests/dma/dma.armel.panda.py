@@ -102,7 +102,7 @@ machine.add(hdiv)
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 4)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 print(hex(cpu.pc.get() + code.get_capacity()))
 print(code.get_capacity())
 print(cpu.pc.get())

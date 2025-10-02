@@ -84,5 +84,5 @@ code.update_symbol_value("exit", exit_model._address)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-machine.add_exit_point(code.address + code.get_capacity() - 4)
+emulator.add_exit_point(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)

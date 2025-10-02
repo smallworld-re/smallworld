@@ -16,4 +16,3 @@ strlen:
 .L4:
     pop     %ebp
     
-    nop

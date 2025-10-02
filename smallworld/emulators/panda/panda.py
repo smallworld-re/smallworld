@@ -404,10 +404,9 @@ class PandaEmulator(
             self.run_main = False
 
     def read_register_content(self, name: str) -> int:
-        # If we are reading a "pc" reg, use the manager's notion of PC.
-        # QEMU thinks in blocks, so the register contained in self.cpu will be inaccurate.
+        # If we are reading a "pc" reg, refer to actual pc reg
         if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
-            return self.pc
+            return self.panda_thread.panda.arch.get_pc(self.cpu)
 
         if not self.panda_thread.machdef.check_panda_reg(name):
             raise exceptions.UnsupportedRegisterError(

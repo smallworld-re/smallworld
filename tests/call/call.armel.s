@@ -15,4 +15,3 @@ foo:
         sub     r0, r0, #1
         bl      bar
         add     r0, r0, #1
-        nop

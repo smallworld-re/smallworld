@@ -22,4 +22,3 @@ strlen:
     ret
 main:
     bl      strlen
-    nop

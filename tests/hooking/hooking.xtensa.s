@@ -22,5 +22,4 @@ test:
     # Read a string from stdin
     call0   gets
     # Write the string back to stdout
-    call0   puts
-    nop
+    call0   puts 

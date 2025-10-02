@@ -5,4 +5,3 @@
 square:
     imul    %edi, %edi
     mov     %edi, %eax
-    nop

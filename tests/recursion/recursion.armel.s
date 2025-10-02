@@ -25,4 +25,3 @@ mc91:
     pop     {fp, pc}
 main:
     bl      mc91 
-    nop

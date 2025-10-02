@@ -19,4 +19,3 @@ foo:
     jal     x1, bar
     addi    a0, a0, 1
  
-    nop

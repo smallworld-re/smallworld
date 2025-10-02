@@ -26,4 +26,3 @@ test:
     # Clean up the stack
     add sp, sp, 64
     ldp x29, x30, [sp], 32 
-    nop

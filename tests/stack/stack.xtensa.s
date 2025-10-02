@@ -8,4 +8,3 @@ manyargs:
     add     $a2, $a2, $a6
     add     $a2, $a2, $a3
     
-    nop

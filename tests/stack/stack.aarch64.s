@@ -10,4 +10,3 @@ multiargs:
     add w0, w0, w4
     add w0, w0, w6
     add w0, w0, w1
-    nop

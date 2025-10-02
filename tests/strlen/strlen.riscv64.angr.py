@@ -55,7 +55,7 @@ cpu.a0.set(saddr)
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-machine.add_exit_point(cpu.pc.get() + code.get_capacity() - 4)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 for x in emulator.mgr.active:
     print(x.regs.t0)

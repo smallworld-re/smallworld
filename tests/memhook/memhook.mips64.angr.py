@@ -91,5 +91,5 @@ code.update_symbol_value("exit", exit_model._address)
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-machine.add_exit_point(code.address + code.get_capacity() - 4)
+emulator.add_exit_point(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)

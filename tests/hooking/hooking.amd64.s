@@ -11,4 +11,3 @@ BITS 64;
         mov     rdi, rsp
         call    gets@PLT
         call    puts@PLT
-        nop

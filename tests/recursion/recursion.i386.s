@@ -36,4 +36,3 @@ main:
     # Remove the old return address, so we return here.
     pop     %eax
     call    mc91
-    nop
