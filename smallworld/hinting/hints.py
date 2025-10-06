@@ -444,12 +444,12 @@ class DefUseGraphHint(hinting.Hint):
 
 
 @dataclass(frozen=True)
-class BranchesHint(Hint):
+class BranchesHint(hinting.Hint):
     branches: typing.List[int]
 
 
 @dataclass(frozen=True)
-class CoverageFrontierHint(Hint):
+class CoverageFrontierHint(hinting.Hint):
     coverage_frontier: typing.List[int]
 
 
