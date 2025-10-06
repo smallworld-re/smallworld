@@ -645,7 +645,6 @@ class UnicornEmulator(
                 # probably we tried to execute call to code that's not mapped?
                 pass
             else:
-                # logger.warn(f"emulation stopped - reason: {e}")
                 # translate this unicorn error into something richer
                 self._error(e, "exec")
 
@@ -667,8 +666,6 @@ class UnicornEmulator(
             pc = self._handle_thumb_interwork(pc)
             self.engine.emu_start(pc, 0x0)
         except unicorn.UcError as e:
-            # logger.warn(f"emulation stopped - reason: {e}")
-            # logger.warn("for more details, run emulation in single step mode")
             self._error(e, "exec")
 
     def run(self) -> None:
@@ -686,8 +683,6 @@ class UnicornEmulator(
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:
-            # logger.warn(f"emulation stopped - reason: {e}")
-            # logger.warn("for more details, run emulation in single step mode")
             self._error(e, "exec")
 
         logger.info("emulation complete")
@@ -826,6 +821,8 @@ class UnicornEmulator(
             msg = f"{prefix} due cpu exception"
         else:
             msg = f"{prefix} due to unknown Unicorn error {error.errno}"
+
+        logger.warn(f"emulation stopped - reason: {error}")
 
         if i is None:
             logger.warn(
