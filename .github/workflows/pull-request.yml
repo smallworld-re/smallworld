@@ -214,10 +214,12 @@ jobs:
           - testsuite: C99TmpnamTests
           - testsuite: C99UngetcTests
           - testsuite: ColorizerTests
+          - testsuite: DelayTests
           - testsuite: DMATests
           - testsuite: DocumentationTests
           - testsuite: ElfTests
           - testsuite: ElfCoreTests
+          - testsuite: ExitpointTests
           - testsuite: FloatsTests
           - testsuite: FuzzTests
           - testsuite: LinkElfTests
