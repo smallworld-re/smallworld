@@ -1,5 +1,5 @@
 from analysis import Analysis
-from hinting import Hint, TraceExecutionHint, BranchesHint, CoverageFrontierHint
+from hinting import BranchesHint, CoverageFrontierHint, Hint, TraceExecutionHint
 
 
 class CoverageFrontier(Analysis):
