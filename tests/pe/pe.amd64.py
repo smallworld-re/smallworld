@@ -93,6 +93,6 @@ cpu.rip.set(code.address + 0x1550)
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(code.address + 0x1572)
-# final_machine = machine.emulate(emulator)
-for m in machine.step(emulator):
-    pass
+final_machine = machine.emulate(emulator)
+# for m in machine.step(emulator):
+#    pass
