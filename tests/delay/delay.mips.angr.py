@@ -38,7 +38,8 @@ cpu.pc.set(code.address)
 
 # Emulate
 exit_point = cpu.pc.get() + code.get_capacity()
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.AngrEmulator(platform)
+emulator.enable_linear()
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 expected_writes: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x1038: 1}
@@ -78,11 +79,7 @@ emulator.hook_instruction(0x1014, hook_unexpected_instruction)
 emulator.hook_instruction(0x1018, hook_unexpected_instruction)
 emulator.hook_instruction(0x1030, hook_unexpected_instruction)
 
-try:
-    for final_machine in machine.step(emulator):
-        pass
-except smallworld.exceptions.EmulationStop:
-    pass
+final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()

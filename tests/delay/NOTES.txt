@@ -1,0 +1,48 @@
+This specifically tests single-stepping through and hooking on
+delay slots.
+
+Delay slots pierce the ISA abstraction a bit.
+They are a manual version of superscalar processing,
+where one instruction is guaranteed to take
+enough time and to require sufficiently-isolated
+resources that it's possible to dispatch
+a second instruction that uses a different
+set of resources at the same time.
+
+In the most common example, a branch instruction allows
+an arithmetic instruction in its delay slot,
+since the ALU would otherwise be idle while the control unit
+is processing the branch.
+
+Logically, it appears as if the delay slot happens
+before the parent instruction.
+Physically, the two finish processing at the same time.
+
+Different emulators and IRs model this in different ways.
+
+QEMU (Unicorn and Panda) emulates the two instructions separately,
+and just overrides the control flow effects
+of the second instruction.
+
+- Panda will single-step through the parent and the delay slot separately
+- Unicorn will single-step through both instructions in one step
+- Instruction hooks on delay slots will fire on the correct instruction
+- Memory hooks triggered by delay slots will fire on the correct instruction
+
+Pcode (Ghidra) models the two instructions as a single unit.
+Single-stepping through the parent instruction will single-step
+through both, and any events that fire due to the delay slot
+appear to have fired due to the parent instruction
+
+- Will single-step through both instructions in one step
+- Instruction hooks on delay slots will not fire
+- Memory hooks triggered by delay slots will fire on the parent instruction
+
+VEX (angr) considers lifting a delay slot instruction
+without its slot as improper behavior, and will raise an exception.
+You must specifically lift a block that includes
+both the parent instruction and the delay slot.
+
+- Single-stepping is forbidden on ISAs with delay slots
+- Instruction hooks on delay slots will fire on the correct instruction
+- Memory hooks triggered by delay slots will fire on the correct instruction 

@@ -97,6 +97,15 @@ class MIPSN64PlatformDef(PlatformDef):
         "cmp.le.ps",
     }
 
+    delay_slot_mnemonics = {
+        "b",
+        "bal",
+        "j",
+        "jr",
+        "jal",
+        "jalr",
+    } | conditional_branch_mnemonics
+
     pc_register = "pc"
     sp_register = "sp"
 

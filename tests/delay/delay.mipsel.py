@@ -9,7 +9,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine

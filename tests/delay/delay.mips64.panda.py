@@ -9,7 +9,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -38,7 +38,7 @@ cpu.pc.set(code.address)
 
 # Emulate
 exit_point = cpu.pc.get() + code.get_capacity()
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.PandaEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 expected_writes: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x1038: 1}

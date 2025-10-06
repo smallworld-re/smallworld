@@ -1,0 +1,4 @@
+panda does not have any callbacks that allow catching
+unmapped exit points on all architectures.
+
+Waiting for panda-ng to see if there's support.

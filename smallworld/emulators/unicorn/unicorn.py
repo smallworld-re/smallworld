@@ -30,6 +30,10 @@ class UnicornEmulationError(exceptions.EmulationError):
         )
 
 
+class UnicornEmulationMemoryFetchError(UnicornEmulationError):
+    pass
+
+
 class UnicornEmulationMemoryReadError(UnicornEmulationError):
     pass
 
@@ -45,11 +49,12 @@ class UnicornEmulationExecutionError(UnicornEmulationError):
 class EmulatorState(Enum):
     START_BLOCK = 1
     START_STEP = 2
-    STEP = 3
-    BLOCK = 4
-    RUN = 5
-    SETUP = 6
-    EXIT = 7
+    DELAY_STEP = 3
+    STEP = 4
+    BLOCK = 5
+    RUN = 6
+    SETUP = 7
+    EXIT = 8
 
 
 class UnicornEmulator(
@@ -98,6 +103,19 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
+            # Check if we're out of bounds
+            if not self._bounds.is_empty() and not self._bounds.contains_value(address):
+                self.state = EmulatorState.EXIT
+                self.engine.emu_stop()
+                raise exceptions.EmulationBounds
+
+            # check for if we've hit an exit point
+            if address in self._exit_points:
+                logger.debug(f"stopping emulation at exit point {address:x}")
+                self.state = EmulatorState.EXIT
+                self.engine.emu_stop()
+                raise exceptions.EmulationExitpoint
+
             # Check single-step conditions.
             #
             # This callback gets invoked before the instruction is emulated.
@@ -112,21 +130,14 @@ class UnicornEmulator(
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 return
-            if self.state == EmulatorState.START_STEP:
+            if self.state == EmulatorState.DELAY_STEP:
                 self.state = EmulatorState.STEP
-
-            # Check if we're out of bounds
-            if not self._bounds.is_empty() and not self._bounds.contains_value(address):
-                self.state = EmulatorState.EXIT
-                self.engine.emu_stop()
-                raise exceptions.EmulationBounds
-
-            # check for if we've hit an exit point
-            if address in self._exit_points:
-                logger.debug(f"stopping emulation at exit point {address:x}")
-                self.state = EmulatorState.EXIT
-                self.engine.emu_stop()
-                raise exceptions.EmulationExitpoint
+            if self.state == EmulatorState.START_STEP:
+                insn = self.current_instruction()
+                if insn.mnemonic in self.platdef.delay_slot_mnemonics:
+                    self.state = EmulatorState.DELAY_STEP
+                else:
+                    self.state = EmulatorState.STEP
 
             # run instruciton hooks
             if self.all_instructions_hook:
@@ -614,9 +625,8 @@ class UnicornEmulator(
         self.state = EmulatorState.START_STEP
 
         pc = self.read_register("pc")
-        exit_point = list(self._exit_points)[0]
-        if pc == exit_point:
-            raise exceptions.EmulationBounds
+        if pc in self._exit_points:
+            raise exceptions.EmulationExitpoint
 
         pc = self._handle_thumb_interwork(pc)
 
@@ -625,7 +635,7 @@ class UnicornEmulator(
             logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, exit_point)
+            self.engine.emu_start(pc, 0x0)
 
         except unicorn.UcError as e:
             if (
@@ -635,7 +645,7 @@ class UnicornEmulator(
                 # probably we tried to execute call to code that's not mapped?
                 pass
             else:
-                logger.warn(f"emulation stopped - reason: {e}")
+                # logger.warn(f"emulation stopped - reason: {e}")
                 # translate this unicorn error into something richer
                 self._error(e, "exec")
 
@@ -643,21 +653,23 @@ class UnicornEmulator(
         self._check()
         pc = self.read_register("pc")
         pc = self._handle_thumb_interwork(pc)
-        exit_point = list(self._exit_points)[0]
+        if pc in self._exit_points:
+            raise exceptions.EmulationExitpoint
 
         disas = self.current_instruction()
         logger.info(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            self.engine.emu_start(pc, exit_point)
+            self.engine.emu_start(pc, 0x0)
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, exit_point)
+            self.engine.emu_start(pc, 0x0)
         except unicorn.UcError as e:
-            logger.warn(f"emulation stopped - reason: {e}")
-            logger.warn("for more details, run emulation in single step mode")
+            # logger.warn(f"emulation stopped - reason: {e}")
+            # logger.warn("for more details, run emulation in single step mode")
+            self._error(e, "exec")
 
     def run(self) -> None:
         self._check()
@@ -668,16 +680,14 @@ class UnicornEmulator(
         )  # until 0x{self._exit_point:x}")
 
         try:
-            # unicorn requires one exit point so just use first
-            exit_point = list(self._exit_points)[0]
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, exit_point)
+            self.engine.emu_start(pc, 0x0)
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:
-            logger.warn(f"emulation stopped - reason: {e}")
-            logger.warn("for more details, run emulation in single step mode")
+            # logger.warn(f"emulation stopped - reason: {e}")
+            # logger.warn("for more details, run emulation in single step mode")
             self._error(e, "exec")
 
         logger.info("emulation complete")
@@ -707,9 +717,6 @@ class UnicornEmulator(
             i = instructions.Instruction.from_capstone(insns[0])
         except:
             # looks like that code is not available
-            logger.warn(
-                f"FYI Unicorn rich exception processing unable to read code at pc=0x{pc:x} bc it is unavailable"
-            )
             i = None
 
         exc: typing.Type[exceptions.EmulationError] = exceptions.EmulationError
@@ -790,11 +797,23 @@ class UnicornEmulator(
             details["unaligned_writes"] = get_unavailable_rw(i.writes)
 
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
-            msg = f"{prefix} due to fetch of unmapped memory"
+            msg = f"{prefix} due to fetch of unmapped memory at"
+            exc = UnicornEmulationMemoryFetchError
+            details["pc"] = pc
+            if pc in self._exit_points:
+                # This is actually an exit point
+                return details
+            if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
+                # This is actually an out-of-bounds error
+                return details
         elif error.errno == unicorn.UC_ERR_FETCH_PROT:
             msg = f"{prefix} due to fetch of from mapped but protected memory"
+            exc = UnicornEmulationMemoryFetchError
+            details["pc"] = pc
         elif error.errno == unicorn.UC_ERR_FETCH_UNALIGNED:
             msg = f"{prefix} due to unaligned fetch"
+            exc = UnicornEmulationMemoryFetchError
+            details["pc"] = pc
 
         elif error.errno == unicorn.UC_ERR_NOMEM:
             msg = f"{prefix} due Out-Of-Memory"
@@ -808,6 +827,10 @@ class UnicornEmulator(
         else:
             msg = f"{prefix} due to unknown Unicorn error {error.errno}"
 
+        if i is None:
+            logger.warn(
+                f"FYI Unicorn rich exception processing unable to read code at pc=0x{pc:x} bc it is unavailable"
+            )
         raise exc(error, pc, msg + " " + details_str(details), details)
 
     def __repr__(self) -> str:
