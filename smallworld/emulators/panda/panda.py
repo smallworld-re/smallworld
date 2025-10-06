@@ -177,68 +177,6 @@ class PandaEmulator(
                         self.state = PandaEmulator.ThreadState.EXIT
                         self.signal_and_wait(exception=e)
 
-                    # Mimic a platform-specific "return" instruction.
-                    if (
-                        self.manager.platform.architecture
-                        == platforms.Architecture.X86_32
-                    ):
-                        # i386: pop a 4-byte value off the stack
-                        sp = self.manager.read_register("esp")
-                        ret = int.from_bytes(
-                            self.manager.read_memory(sp, 4),
-                            self.manager.platform.byteorder.value,
-                        )
-                        self.manager.write_register("esp", sp + 4)
-                    elif (
-                        self.manager.platform.architecture
-                        == platforms.Architecture.X86_64
-                    ):
-                        # amd64: pop an 8-byte value off the stack
-                        sp = self.manager.read_register("rsp")
-                        ret = int.from_bytes(
-                            self.manager.read_memory(sp, 8),
-                            self.manager.platform.byteorder.value,
-                        )
-                        self.manager.write_register("rsp", sp + 8)
-                    elif (
-                        self.manager.platform.architecture
-                        == platforms.Architecture.AARCH64
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.ARM_V5T
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.ARM_V6M
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.ARM_V6M_THUMB
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.ARM_V7A
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.ARM_V7M
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.ARM_V7R
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.POWERPC32
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.POWERPC64
-                    ):
-                        # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
-                        ret = self.manager.read_register("lr")
-                    elif (
-                        self.manager.platform.architecture
-                        == platforms.Architecture.MIPS32
-                        or self.manager.platform.architecture
-                        == platforms.Architecture.MIPS64
-                    ):
-                        # mips32 and mips64: branch to register 'ra'
-                        ret = self.manager.read_register("ra")
-                    else:
-                        logger.error(
-                            "Don't know how to return for {self.manager.platform.architecture}"
-                        )
-                        self.state = PandaEmulator.ThreadState.EXIT
-                        self.signal_and_wait()
-
-                    self.manager.write_register("pc", ret)
-
                 # Now, if we for some reason have a different pc
                 # then the one that is set for us, break out of this
                 # This would be from changing eip in a hook
@@ -605,14 +543,12 @@ class PandaEmulator(
             logger.debug("stopping emulation at exit point")
             raise exceptions.EmulationBounds
 
-    def run(self, suppress_startup_logs=False) -> None:
+    def run(self) -> None:
         self.check()
-        if not suppress_startup_logs:
-            logger.info(f"starting emulation at {hex(self.pc)}")
+        logger.info(f"starting emulation at {hex(self.pc)}")
         self.panda_thread.state = self.ThreadState.RUN
         self.signal_and_wait()
-        if not suppress_startup_logs:
-            logger.info("emulation complete")
+        logger.info("emulation complete")
 
     def signal_and_wait(self) -> None:
         logger.debug("Main signaling panda to run")
