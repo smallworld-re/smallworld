@@ -13,13 +13,11 @@ class FunctionPointer:
     def __init__(
         self,
         address: int,
-        exitpoint: int,
         argument_types: list[ArgumentType],
         return_type: ArgumentType,
         platform: smallworld.platforms.Platform,
     ):
         self.address = address
-        self.exitpoint = exitpoint  # TODO: determine exitpoint dynamically
         self.argument_types = argument_types
         self.return_type = return_type
         self.arch_model: CStdModel = utils.find_subclass(
@@ -33,25 +31,15 @@ class FunctionPointer:
             emulator.write_register("r1", args[1])
         emulator.write_register("pc", self.address)
 
-    def __emulate(self, emulator: emulators.Emulator):
-        # swap original exitpoint for this function's exitpoint
-        original_exitpoint = emulator._exit_points.pop()
-        emulator.add_exit_point(self.exitpoint)
+    def call(self, emulator: emulators.Emulator, args: list[int]) -> None:
+        if not isinstance(self.address, int):
+            raise exceptions.ConfigurationError(
+                "FunctionPointerValue set to non-integer value"
+            )
 
-        # resume emulation
-        logger.debug(
-            f"Resuming emulation as part of callback. Starting at {self.address:x}"
-        )
-        emulator.run(suppress_startup_logs=True)
-        logger.debug(
-            f"Emulation completed at {self.exitpoint:x}. Returning to callback"
-        )
+        self.__handle_args(emulator, args)
 
-        # restore original exitpoint
-        emulator._exit_points.discard(self.exitpoint)
-        emulator.add_exit_point(original_exitpoint)
-
-    def __extract_return_value(self, emulator: emulators.Emulator):
+    def get_return_value(self, emulator: emulators.Emulator):
         # TODO: handle ret value extraction
 
         if self.return_type in self.arch_model._four_byte_types:
@@ -68,17 +56,5 @@ class FunctionPointer:
             raise NotImplementedError(
                 f"No support for deserializing return type {self.return_type} in a function pointer model"
             )
-
-        return ret
-
-    def call(self, emulator: emulators.Emulator, args: list[int]) -> int:
-        if not isinstance(self.address, int):
-            raise exceptions.ConfigurationError(
-                "FunctionPointerValue set to non-integer value"
-            )
-
-        self.__handle_args(emulator, args)
-        self.__emulate(emulator)
-        ret = self.__extract_return_value(emulator)
 
         return ret

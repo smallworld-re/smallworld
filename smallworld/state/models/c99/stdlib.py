@@ -1,7 +1,6 @@
 import logging
 import random
 import typing
-from functools import cmp_to_key
 
 import claripy
 
@@ -461,40 +460,87 @@ class QSort(CStdModel):
     # Currently can't call function pointers from models
     unsupported = True
 
+    return_addr = 0
+
     def model(self, emulator: emulators.Emulator) -> None:
+        """This implementation uses Insertion sort as a state machine.
+        The model points the emulator at the comparison function and sets the
+        return address back to the model until the array has been fully sorted.
+        """
         super().model(emulator)
 
-        base = self.get_arg1(emulator)
-        nmemb = self.get_arg2(emulator)
-        size = self.get_arg3(emulator)
-        compar = self.get_arg4(emulator)
+        if not self.skip_return:
+            # initialize state machine
+            self.return_addr = emulator.read_register("lr")
+            emulator.write_register("lr", self._address)
 
-        assert isinstance(base, int)
-        assert isinstance(nmemb, int)
-        assert isinstance(size, int)
-        assert isinstance(compar, int)
+            # collect args
+            self.base = typing.cast(int, self.get_arg1(emulator))
+            self.nmemb = typing.cast(int, self.get_arg2(emulator))
+            self.size = typing.cast(int, self.get_arg3(emulator))
+            self.compar = typing.cast(int, self.get_arg4(emulator))
+            assert isinstance(self.base, int)
+            assert isinstance(self.nmemb, int)
+            assert isinstance(self.size, int)
+            assert isinstance(self.compar, int)
 
-        compare_func_ptr = FunctionPointer(
-            compar,
-            0x104C4,
-            [ArgumentType.POINTER, ArgumentType.POINTER],
-            ArgumentType.INT,
-            self.platform,
-        )  # TODO: let function pointer determine exitpoint dynamically
+            # comparison function pointer
+            self.compare_func_ptr = FunctionPointer(
+                self.compar,
+                [ArgumentType.POINTER, ArgumentType.POINTER],
+                ArgumentType.INT,
+                self.platform,
+            )
 
-        # call comparison function
-        def cmp(elem_addr_a: int, elem_addr_b: int) -> int:
-            ret = compare_func_ptr.call(emulator, [elem_addr_a, elem_addr_b])
-            return ret
+            # initialize sorting locals and comparison stack frame
+            self.i = 1
+            self.j = self.i
+            self.compare_func_ptr.call(
+                emulator,
+                [
+                    self.base + (self.j * self.size),
+                    self.base + (self.j - 1) * self.size,
+                ],
+            )
 
-        # sort, passing element ptrs to comparison function
-        elem_addrs = [base + i * size for i in range(0, nmemb)]
-        sorted_addrs = sorted(elem_addrs, key=cmp_to_key(cmp))
-        sorted_elems = [emulator.read_memory(addr, 4) for addr in sorted_addrs]
-        sorted_array = b"".join(sorted_elems)
+            # don't return out of model
+            self.skip_return = True
 
-        # write sorted array to original buffer
-        emulator.write_memory(base, sorted_array)
+        if self.skip_return:
+            # read emulator state
+            elem_addrs = [self.base + i * self.size for i in range(0, self.nmemb)]
+            current_array = [
+                emulator.read_memory(addr, self.size) for addr in elem_addrs
+            ]
+            ret = self.compare_func_ptr.get_return_value(emulator)
+
+            # swap elements
+            if ret < 0:
+                tmp = current_array[self.j]
+                current_array[self.j] = current_array[self.j - 1]
+                current_array[self.j - 1] = tmp
+                emulator.write_memory(self.base, b"".join(current_array))
+
+            # iterate
+            self.j -= 1
+            if self.j <= 0:
+                self.i += 1
+                self.j = self.i
+            self.compare_func_ptr.call(
+                emulator,
+                [
+                    self.base + (self.j * self.size),
+                    self.base + (self.j - 1) * self.size,
+                ],
+            )
+
+            # break if we're sorted
+            if self.i > self.nmemb:
+                emulator.write_register("lr", self.return_addr)
+                self.skip_return = False
+            else:
+                # return to this model
+                emulator.write_register("lr", self._address)
 
 
 class Rand(CStdModel):

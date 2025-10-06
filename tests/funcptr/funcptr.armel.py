@@ -45,20 +45,28 @@ cpu.sp.set(sp)
 CALLER_ADDR = 0x1046C
 QSORT_ADDR = 0x10340
 PRINTF_ADDR = 0x10328
-CALLEE_RET_ADDR = 0x10464
-MAIN_RET_ADDR = 0x105D0
 
 
 class CallerModel(smallworld.state.models.Model):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.NONE
+    return_addr = 0
 
     def model(self, emulator: smallworld.emulators.Emulator) -> None:
-        callee = emulator.read_register("r0")
-        FunctionPointer(callee, CALLEE_RET_ADDR, [], ArgumentType.VOID, platform).call(
-            emulator, []
-        )
+        if not self.skip_return:
+            # first call
+            self.return_addr = emulator.read_register("lr")
+            emulator.write_register("lr", self._address)
+
+            callee = emulator.read_register("r0")
+            fptr = FunctionPointer(callee, [], ArgumentType.VOID, platform)
+            fptr.call(emulator, [])
+            self.skip_return = True
+        else:
+            # returned to model
+            self.skip_return = False
+            emulator.write_register("lr", self.return_addr)
 
 
 caller = CallerModel(CALLER_ADDR)
@@ -76,6 +84,6 @@ machine.add(printf)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-machine.add_exit_point(MAIN_RET_ADDR)
+machine.add_exit_point(0x105D0)
 for step in machine.step(emulator):
     pass
