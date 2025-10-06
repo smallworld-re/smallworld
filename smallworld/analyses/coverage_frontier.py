@@ -20,7 +20,6 @@ class CoverageFrontier(Analysis):
         if isinstance(hint, TraceExecutionHint):
             lb = None
             for element in hint.trace:
-                # print(f"hint: {element}")
                 if lb is not None:
                     if lb.pc not in self.edges:
                         self.edges[lb.pc] = set([])
