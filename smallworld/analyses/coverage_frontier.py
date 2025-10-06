@@ -31,18 +31,18 @@ class CoverageFrontier(Analysis):
                     lb = element
 
     def run(self, machine: Machine) -> None:
-        hint = BranchesHint(
-            message="Branches encountered", branches=list(self.branches)
+        self.hinter.send(
+            BranchesHint(message="Branches encountered", branches=list(self.branches))
         )
-        self.hinter.send(hint)
         # analyze to get coverage frontier,
         # i.e., set of half-covered  conditionals
         coverage_frontier = set([])
         for branch in self.branches:
             if (len(self.edges[branch])) == 1:
                 coverage_frontier.add(branch)
-        hint = CoverageFrontierHint(
-            message="Coverage frontier (half-covered conditionals) for a set of execution traces",
-            coverage_frontier=list(coverage_frontier),
+        self.hinter.send(
+            CoverageFrontierHint(
+                message="Coverage frontier (half-covered conditionals) for a set of execution traces",
+                coverage_frontier=list(coverage_frontier),
+            )
         )
-        self.hinter.send(hint)
