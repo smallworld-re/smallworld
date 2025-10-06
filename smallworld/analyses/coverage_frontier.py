@@ -1,5 +1,6 @@
 from analysis import Analysis
 from hinting import BranchesHint, CoverageFrontierHint, Hint, TraceExecutionHint
+from smallworld.state.state import Machine
 
 
 class CoverageFrontier(Analysis):
@@ -29,7 +30,7 @@ class CoverageFrontier(Analysis):
                     self.branches.add(element.pc)
                     lb = element
 
-    def run(self, machine):
+    def run(self, machine: Machine) -> None:
         hint = BranchesHint(
             message="Branches encountered", branches=list(self.branches)
         )
