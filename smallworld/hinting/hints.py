@@ -443,6 +443,16 @@ class DefUseGraphHint(hinting.Hint):
     graph: nx.MultiDiGraph
 
 
+@dataclass(frozen=True)
+class BranchesHint(Hint):
+    branches: typing.List[int]
+
+
+@dataclass(frozen=True)
+class CoverageFrontierHint(Hint):
+    coverage_frontier: typing.List[int]
+
+
 __all__ = [
     "DynamicRegisterValueHint",
     "DynamicMemoryValueHint",
@@ -456,4 +466,6 @@ __all__ = [
     "ReachableCodeHint",
     "DefUseGraphHint",
     "TraceExecutionHint",
+    "BranchesHint",
+    "CoverageFrontierHint",
 ]

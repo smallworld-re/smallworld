@@ -7,6 +7,7 @@ from .field_detection import FieldDetectionAnalysis, ForcedFieldDetectionAnalysi
 from .forced_exec import ForcedExecution
 from .trace_execution import TraceExecution
 from .trace_execution_types import CmpInfo, TraceElement, TraceRes
+from .coverage_frontier import CoverageFrontier
 
 __all__ = __analysis__ + [
     "Colorizer",
@@ -19,4 +20,5 @@ __all__ = __analysis__ + [
     "TraceElement",
     "TraceRes",
     "CmpInfo",
+    "CoverageFrontier",
 ]
