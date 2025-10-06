@@ -1,5 +1,6 @@
 from analysis import Analysis
 from hinting import BranchesHint, CoverageFrontierHint, Hint, TraceExecutionHint
+
 from smallworld.state.state import Machine
 
 
