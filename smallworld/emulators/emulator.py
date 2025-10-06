@@ -441,7 +441,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         return self.step_instruction()
 
     @abc.abstractmethod
-    def run(self, suppress_startup_logs=False) -> None:
+    def run(self) -> None:
         """Run execution indefinitely.
 
         Emulation should stop if an exit point is reached or execution leaves

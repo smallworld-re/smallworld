@@ -100,7 +100,7 @@ class Model(Hook):
     """
 
     def __init__(self, address: int):
-        super().__init__(address=address, function=self.model)
+        super().__init__(address=address, function=self.run_model)
         self.static_buffer_address: typing.Optional[int] = None
 
     @property
@@ -177,6 +177,61 @@ class Model(Hook):
 
         """
         pass
+
+    skip_return = False
+
+    def run_model(self, emulator: emulators.Emulator) -> None:
+        self.model(emulator)
+
+        if self.skip_return or isinstance(emulator, emulators.AngrEmulator):
+            return
+
+        # Mimic a platform-specific "return" instruction.
+        if self.platform.architecture == platforms.Architecture.X86_32:
+            sp = emulator.read_register("esp")
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                ret = int.from_bytes(emulator.read_memory(sp, 4), "little")
+            elif self.platform.byteorder == platforms.Byteorder.BIG:
+                ret = int.from_bytes(emulator.read_memory(sp, 4), "big")
+            emulator.write_register("esp", sp + 4)
+        elif self.platform.architecture == platforms.Architecture.X86_64:
+            # amd64: pop an 8-byte value off the stack
+            sp = emulator.read_register("rsp")
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                ret = int.from_bytes(emulator.read_memory(sp, 8), "little")
+            elif self.platform.byteorder == platforms.Byteorder.BIG:
+                ret = int.from_bytes(emulator.read_memory(sp, 8), "big")
+            emulator.write_register("rsp", sp + 8)
+        elif (
+            self.platform.architecture == platforms.Architecture.AARCH64
+            or self.platform.architecture == platforms.Architecture.ARM_V5T
+            or self.platform.architecture == platforms.Architecture.ARM_V6M
+            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
+            or self.platform.architecture == platforms.Architecture.ARM_V7A
+            or self.platform.architecture == platforms.Architecture.ARM_V7M
+            or self.platform.architecture == platforms.Architecture.ARM_V7R
+            or self.platform.architecture == platforms.Architecture.POWERPC32
+            or self.platform.architecture == platforms.Architecture.POWERPC64
+        ):
+            # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+            ret = emulator.read_register("lr")
+        elif (
+            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV64
+        ):
+            # mips32, mips64, and riscv64: branch to register 'ra'
+            ret = emulator.read_register("ra")
+        elif self.platform.architecture == platforms.Architecture.XTENSA:
+            # xtensa: branch to register 'a0'
+            ret = emulator.read_register("a0")
+        else:
+            raise exceptions.ConfigurationError(
+                "Don't know how to return for {self.platform.architecture}"
+            )
+
+        emulator.write_register("pc", ret)
 
 
 __all__ = [
