@@ -68,19 +68,26 @@ for arch in [
     cpu.pc.set(code.address)
     cpu.r0.set(0)
     machine.apply(emulator)
-    emulator.step_block()
-    emulator.step_block()
-    emulator.step_block()
+    try:
+        emulator.step_block()
+        emulator.step_block()
+        emulator.step_block()
+    except smallworld.exceptions.EmulationStop:
+        pass
     cpu.r0.extract(emulator)
     print(f"BLOCK_{arch.name}={hex(cpu.r0.get())}")
 
     # test step_block starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
+    emulator = smallworld.emulators.UnicornEmulator(platform)
     emulator.set_thumb(True)
     cpu.r0.set(0)
     machine.apply(emulator)
-    emulator.step_block()
-    emulator.step_block()
+    try:
+        emulator.step_block()
+        emulator.step_block()
+    except smallworld.exceptions.EmulationStop:
+        pass
     cpu.r0.extract(emulator)
     print(f"BLOCK_{arch.name}={hex(cpu.r0.get())}")
 
