@@ -61,6 +61,9 @@ class PlatformDef(metaclass=abc.ABCMeta):
         """Set of comparison mnemonics"""
         raise NotImplementedError()
 
+    delay_slot_mnemonics: typing.Set[str] = set()
+    """Set of delay slot mnemonics"""
+
     @property
     @abc.abstractmethod
     def pc_register(self) -> str:

@@ -113,7 +113,7 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     strategy:
-      max-parallel: 20
+      max-parallel: 60
       matrix:
         include:
           - testsuite: BlockTests
@@ -206,10 +206,12 @@ jobs:
           - testsuite: C99TmpnamTests
           - testsuite: C99UngetcTests
           - testsuite: ColorizerTests
+          - testsuite: DelayTests
           - testsuite: DMATests
           - testsuite: DocumentationTests
           - testsuite: ElfTests
           - testsuite: ElfCoreTests
+          - testsuite: ExitpointTests
           - testsuite: FloatsTests
           - testsuite: FuzzTests
           - testsuite: LinkElfTests

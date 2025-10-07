@@ -830,7 +830,7 @@ class Machine(StatefulSet):
                 machine_copy.extract(emulator)
                 yield machine_copy
 
-            except exceptions.EmulationBounds:
+            except exceptions.EmulationStop:
                 print(
                     "emulation complete; encountered exit point or went out of bounds"
                 )
