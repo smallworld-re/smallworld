@@ -34,9 +34,6 @@ jobs:
         run: |
           docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
           
-      - name: Cleanup Harbor
-        run: docker image prune -a --force --filter "until=72h"
-        
       - name: Build Deps
         run: |
           docker build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
