@@ -79,7 +79,6 @@ for arch in [
 
     # test step_block starting with Thumb
     cpu.pc.set(code.address + THUMB_BLOCK_OFFSET)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
     emulator.set_thumb(True)
     cpu.r0.set(0)
     machine.apply(emulator)

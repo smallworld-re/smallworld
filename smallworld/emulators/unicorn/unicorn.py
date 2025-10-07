@@ -290,6 +290,16 @@ class UnicornEmulator(
 
         def block_callback(uc, address, block_size, user_data):
             if self.state == EmulatorState.BLOCK:
+                if address != self.read_register("pc"):
+                    # If a THUMB block jumps to an ARM block,
+                    # the reported PC will be the address of the jump,
+                    # not the address of the current block.
+                    # The rest of the registers behave as if the jump had happened.
+                    # On arm32, this includes flipping execution modes on a `blx` instruction.
+                    #
+                    # Manually updating PC from the address supplied
+                    # in this callback fixes the problem.
+                    self.write_register("pc", address)
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
             if self.state == EmulatorState.START_BLOCK:
