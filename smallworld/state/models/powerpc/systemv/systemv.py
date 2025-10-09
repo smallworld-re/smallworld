@@ -72,22 +72,37 @@ class PowerPCSysVModel(CStdModel):
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return a four-byte type"""
         emulator.write_register("r3", val & self._int_inv_mask)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("r3")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return an eight-byte type"""
         lo = val & self._int_inv_mask
         hi = val >> 32 & self._int_inv_mask
 
         emulator.write_register("r3", hi)
         emulator.write_register("r4", lo)
 
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        hi = emulator.read_register("r3")
+        lo = emulator.read_register("r4")
+
+        return lo + (hi << 32)
+
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
+        """Return a float"""
         # NOTE: powerpc promotes floats to doubles
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("f1", intval)
 
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
+        """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("f1", intval)
