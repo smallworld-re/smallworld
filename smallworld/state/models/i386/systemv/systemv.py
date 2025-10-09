@@ -3,7 +3,7 @@ from ...cstd import ArgumentType, CStdModel
 
 
 class I386SysVModel(CStdModel):
-    """Base class for C models using the AMD64 System V ABI"""
+    """Base class for C models using the I386 System V ABI"""
 
     platform = platforms.Platform(
         platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
@@ -54,6 +54,10 @@ class I386SysVModel(CStdModel):
         """Return a four-byte type"""
         emulator.write_register("eax", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("eax")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         hi = (val >> 32) & self._int_inv_mask
@@ -61,6 +65,13 @@ class I386SysVModel(CStdModel):
 
         emulator.write_register("eax", lo)
         emulator.write_register("edx", hi)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        lo = emulator.read_register("eax")
+        hi = emulator.read_register("edx")
+
+        return lo + (hi << 32)
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
