@@ -267,6 +267,66 @@ def get_argument(
         )
 
 
+def set_argument(
+    model: "CStdModel",
+    index: int,
+    emulator: emulators.Emulator,
+    value: int,
+):
+    # Get an argument out of a CStdModel or VariadicContext
+    sp = model.platdef.sp_register
+    on_stack = model._on_stack[index]
+    arg_offset = model._arg_offset[index]
+    kind = model.argument_types[index]
+
+    if kind in model._four_byte_types:
+        # Four byte integer
+        if on_stack:
+            # Stored on the stack; write to memory
+            addr = emulator.read_register(sp) + arg_offset
+            if model.platform.byteorder == Byteorder.BIG:
+                as_bytes = int.to_bytes(value, 4, "big")
+            else:
+                as_bytes = int.to_bytes(value, 4, "little")
+            emulator.write_memory(addr, as_bytes)
+        else:
+            # Stored in a register
+            emulator.write_register(model._four_byte_arg_regs[arg_offset], value)
+
+    elif kind in model._eight_byte_types:
+        # Eight byte integer
+        if on_stack:
+            # Stored on the stack; write to memory
+            addr = emulator.read_register(sp) + arg_offset
+            if model.platform.byteorder == Byteorder.BIG:
+                as_bytes = int.to_bytes(value, 8, "big")
+            else:
+                as_bytes = int.to_bytes(value, 8, "little")
+            emulator.write_memory(addr, as_bytes)
+        elif model._eight_byte_reg_size == 2:
+            # Stored in a register pair
+            lo = value & model._int_inv_mask
+            hi = (value >> 32) & model._int_inv_mask
+            if model.platform.byteorder == Byteorder.BIG:
+                tmp = lo
+                lo = hi
+                hi = tmp
+            emulator.write_register(model._eight_byte_arg_regs[arg_offset], lo)
+            emulator.write_register(model._eight_byte_arg_regs[arg_offset + 1], hi)
+        else:
+            # Stored in a single register
+            emulator.write_register(model._eight_byte_arg_regs[arg_offset], value)
+
+    elif kind == ArgumentType.FLOAT:
+        pass  # TODO
+    elif kind == ArgumentType.DOUBLE:
+        pass  # TODO
+    else:
+        raise exceptions.ConfigurationError(
+            f"{model.name} argument {index} has unknown type {kind}"
+        )
+
+
 class CStdModel(Model):
     """Base class for C standard function models
 
@@ -361,8 +421,18 @@ class CStdModel(Model):
         raise NotImplementedError()
 
     @abc.abstractmethod
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -374,6 +444,17 @@ class CStdModel(Model):
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         raise NotImplementedError()
+
+    # TODO
+    # @abc.abstractmethod
+    # def _read_return_float(self, emulator: emulators.Emulator, val: float) -> None:
+    #     """Return a float"""
+    #     raise NotImplementedError()
+
+    # @abc.abstractmethod
+    # def _read_return_double(self, emulator: emulators.Emulator, val: float) -> None:
+    #     """Return a double"""
+    #     raise NotImplementedError()
 
     def get_arg1(self, emulator: emulators.Emulator) -> typing.Union[int, float]:
         """Fetch the first argument from the emulator"""
@@ -470,6 +551,44 @@ class CStdModel(Model):
             raise exceptions.ConfigurationError(
                 f"{self.name} returning unhandled type {self.return_type}"
             )
+
+    def get_return_value(self, emulator: emulators.Emulator):
+        """Get return value, according to the appropriate return type"""
+        if self.return_type == ArgumentType.VOID:
+            # We're void.
+            return None
+
+        if self.return_type == ArgumentType.FLOAT:
+            # We're a float. TODO
+            return
+
+        if self.return_type == ArgumentType.DOUBLE:
+            # We're a double. TODO
+            return
+
+        if self.return_type in self._four_byte_types:
+            ret = self._read_return_4_byte(emulator)
+            if (
+                self.return_type in signed_int_types
+                and (ret & self._int_sign_mask) != 0
+            ):
+                ret = (ret ^ self._int_inv_mask) + 1
+                ret *= -1
+            return ret
+
+        if self.return_type in self._eight_byte_types:
+            ret = self._read_return_8_byte(emulator)
+            if (
+                self.return_type in signed_int_types
+                and (ret & self._long_long_sign_mask) != 0
+            ):
+                ret = (ret ^ self._long_long_inv_mask) + 1
+                ret *= -1
+            return ret
+
+        raise exceptions.ConfigurationError(
+            f"{self.name} cannot read unhandled return type {self.return_type}"
+        )
 
     def read_integer(
         self, address: int, kind: ArgumentType, emulator: emulators.Emulator

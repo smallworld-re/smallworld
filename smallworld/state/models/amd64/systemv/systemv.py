@@ -61,9 +61,17 @@ class AMD64SysVModel(CStdModel):
         """Return a four-byte type"""
         emulator.write_register("eax", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("eax")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("rax", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("rax")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
