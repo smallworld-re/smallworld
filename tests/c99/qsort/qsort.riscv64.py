@@ -3,11 +3,11 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.RISCV64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -47,12 +49,13 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-# qsort model
 qsort_model = smallworld.state.models.Model.lookup(
     "qsort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
 machine.add(qsort_model)
 qsort_model.allow_imprecise = True
+
+# Relocate qsort
 code.update_symbol_value("qsort", qsort_model._address)
 
 
@@ -82,7 +85,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

@@ -3179,14 +3179,19 @@ class C99PutcTests(NoArgLibraryModelTest):
     function = "putc"
 
 
+class C99PutcharTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "putchar"
+
+
 class C99PutsTests(NoArgLibraryModelTest):
     library = "c99"
     function = "puts"
 
 
-class C99PutcharTests(NoArgLibraryModelTest):
+class C99QSortTests(NoArgLibraryModelTest):
     library = "c99"
-    function = "putchar"
+    function = "qsort"
 
 
 class C99FreadTests(OneArgLibraryModelTest):

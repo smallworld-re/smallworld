@@ -5,7 +5,7 @@ from ...cstd import ArgumentType, CStdModel
 
 
 class MIPS64ELSysVModel(CStdModel):
-    """Base class for C models using the AArch64 System V ABI"""
+    """Base class for C models using the MIPS64 System V ABI"""
 
     platform = platforms.Platform(
         platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
@@ -79,9 +79,17 @@ class MIPS64ELSysVModel(CStdModel):
             val |= self._int_signext_mask
         emulator.write_register("v0", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("v0")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("v0", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("v0")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""

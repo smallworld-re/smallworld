@@ -66,9 +66,17 @@ class LoongArch64SysVModel(CStdModel):
             val |= self._int_signext_mask
         emulator.write_register("a0", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("a0")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("a0", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("a0")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""

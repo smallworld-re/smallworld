@@ -100,7 +100,7 @@ class Model(Hook):
     """
 
     def __init__(self, address: int):
-        super().__init__(address=address, function=self.run_model)
+        super().__init__(address=address, function=self.run)
         self.static_buffer_address: typing.Optional[int] = None
 
     @property
@@ -178,30 +178,29 @@ class Model(Hook):
         """
         pass
 
-    skip_return = False
+    def get_return_address(self, emulator: emulators.Emulator, pop=False) -> int:
+        """Read this model's return address, or pop the return address from the stack."""
 
-    def run_model(self, emulator: emulators.Emulator) -> None:
-        self.model(emulator)
-
-        if self.skip_return or isinstance(emulator, emulators.AngrEmulator):
-            return
-
-        # Mimic a platform-specific "return" instruction.
         if self.platform.architecture == platforms.Architecture.X86_32:
+            # i386: read a 4-byte value from the stack
             sp = emulator.read_register("esp")
             if self.platform.byteorder == platforms.Byteorder.LITTLE:
                 ret = int.from_bytes(emulator.read_memory(sp, 4), "little")
             elif self.platform.byteorder == platforms.Byteorder.BIG:
                 ret = int.from_bytes(emulator.read_memory(sp, 4), "big")
-            emulator.write_register("esp", sp + 4)
+            if pop:
+                emulator.write_register("esp", sp + 4)
+            return ret
         elif self.platform.architecture == platforms.Architecture.X86_64:
-            # amd64: pop an 8-byte value off the stack
+            # amd64: read an 8-byte value from the stack
             sp = emulator.read_register("rsp")
             if self.platform.byteorder == platforms.Byteorder.LITTLE:
                 ret = int.from_bytes(emulator.read_memory(sp, 8), "little")
             elif self.platform.byteorder == platforms.Byteorder.BIG:
                 ret = int.from_bytes(emulator.read_memory(sp, 8), "big")
-            emulator.write_register("rsp", sp + 8)
+            if pop:
+                emulator.write_register("rsp", sp + 8)
+            return ret
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64
             or self.platform.architecture == platforms.Architecture.ARM_V5T
@@ -214,7 +213,7 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.POWERPC64
         ):
             # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
-            ret = emulator.read_register("lr")
+            return emulator.read_register("lr")
         elif (
             self.platform.architecture == platforms.Architecture.LOONGARCH64
             or self.platform.architecture == platforms.Architecture.MIPS32
@@ -222,15 +221,82 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.RISCV64
         ):
             # mips32, mips64, and riscv64: branch to register 'ra'
-            ret = emulator.read_register("ra")
+            return emulator.read_register("ra")
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
-            ret = emulator.read_register("a0")
+            return emulator.read_register("a0")
+
+        raise exceptions.ConfigurationError(
+            "Don't know how to return for {self.platform.architecture}"
+        )
+
+    def set_return_address(
+        self, emulator: emulators.Emulator, address: int, push=False
+    ) -> None:
+        """Overwrite the return address of this model, or push a return address to the stack."""
+
+        if self.platform.architecture == platforms.Architecture.X86_32:
+            # i386: overwrite a 4-byte value on the stack
+            sp = emulator.read_register("esp")
+            if push:
+                sp -= 4
+                emulator.write_register("esp", sp)
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                as_bytes = int.to_bytes(address, 4, "little")
+            elif self.platform.byteorder == platforms.Byteorder.BIG:
+                as_bytes = int.to_bytes(address, 4, "big")
+            emulator.write_memory(sp, as_bytes)
+        elif self.platform.architecture == platforms.Architecture.X86_64:
+            # amd64: overwrite an 8-byte value on the stack
+            sp = emulator.read_register("rsp")
+            if push:
+                sp -= 8
+                emulator.write_register("rsp", sp)
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                as_bytes = int.to_bytes(address, 8, "little")
+            elif self.platform.byteorder == platforms.Byteorder.BIG:
+                as_bytes = int.to_bytes(address, 8, "big")
+            emulator.write_memory(sp, as_bytes)
+        elif (
+            self.platform.architecture == platforms.Architecture.AARCH64
+            or self.platform.architecture == platforms.Architecture.ARM_V5T
+            or self.platform.architecture == platforms.Architecture.ARM_V6M
+            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
+            or self.platform.architecture == platforms.Architecture.ARM_V7A
+            or self.platform.architecture == platforms.Architecture.ARM_V7M
+            or self.platform.architecture == platforms.Architecture.ARM_V7R
+            or self.platform.architecture == platforms.Architecture.POWERPC32
+            or self.platform.architecture == platforms.Architecture.POWERPC64
+        ):
+            # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+            emulator.write_register("lr", address)
+        elif (
+            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV64
+        ):
+            # mips32, mips64, and riscv64: branch to register 'ra'
+            emulator.write_register("ra", address)
+        elif self.platform.architecture == platforms.Architecture.XTENSA:
+            # xtensa: branch to register 'a0'
+            emulator.write_register("a0", address)
         else:
             raise exceptions.ConfigurationError(
                 "Don't know how to return for {self.platform.architecture}"
             )
 
+    skip_return = False
+
+    def run(self, emulator: emulators.Emulator) -> None:
+        """Run a model and mimic return"""
+
+        self.model(emulator)
+
+        if self.skip_return or isinstance(emulator, emulators.AngrEmulator):
+            return
+
+        ret = self.get_return_address(emulator, pop=True)
         emulator.write_register("pc", ret)
 
 

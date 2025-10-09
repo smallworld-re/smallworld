@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -54,6 +56,14 @@ qsort_model = smallworld.state.models.Model.lookup(
 machine.add(qsort_model)
 qsort_model.allow_imprecise = True
 code.update_symbol_value("qsort", qsort_model._address)
+
+# memcpy model
+memcpy_model = smallworld.state.models.Model.lookup(
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
+code.update_symbol_value("memcpy", memcpy_model._address)
 
 
 # Create a type of exception only I will generate

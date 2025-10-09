@@ -57,21 +57,36 @@ class ArmELSysVModel(CStdModel):
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return a four-byte type"""
         emulator.write_register("r0", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("r0")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return an eight-byte type"""
         lo = val & self._int_inv_mask
         hi = val >> 32 & self._int_inv_mask
 
         emulator.write_register("r0", lo)
         emulator.write_register("r1", hi)
 
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        lo = emulator.read_register("r0")
+        hi = emulator.read_register("r1")
+
+        return lo + (hi << 32)
+
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
+        """Return a float"""
         data = struct.pack("<f", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("r0", intval)
 
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
+        """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
 

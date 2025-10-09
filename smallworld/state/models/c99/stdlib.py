@@ -470,9 +470,9 @@ class QSort(CStdModel):
         super().model(emulator)
 
         if not self.skip_return:
-            # initialize state machine
-            self.return_addr = emulator.read_register("lr")
-            emulator.write_register("lr", self._address)
+            # overwrite return address to point to this model
+            self.return_addr = self.get_return_address(emulator)
+            self.set_return_address(emulator, self._address)
 
             # collect args
             self.base = typing.cast(int, self.get_arg1(emulator))
@@ -492,7 +492,7 @@ class QSort(CStdModel):
                 self.platform,
             )
 
-            # initialize sorting locals and comparison stack frame
+            # initialize sorting variables and comparison stack frame
             self.i = 1
             self.j = self.i
             self.compare_func_ptr.call(
@@ -503,29 +503,39 @@ class QSort(CStdModel):
                 ],
             )
 
-            # don't return out of model
+            # return back to this model
             self.skip_return = True
+            return
 
         if self.skip_return:
-            # read emulator state
+            # read array and last call's return value
             elem_addrs = [self.base + i * self.size for i in range(0, self.nmemb)]
             current_array = [
                 emulator.read_memory(addr, self.size) for addr in elem_addrs
             ]
             ret = self.compare_func_ptr.get_return_value(emulator)
 
-            # swap elements
+            # conditionally swap elements and overwrite array
             if ret < 0:
                 tmp = current_array[self.j]
                 current_array[self.j] = current_array[self.j - 1]
                 current_array[self.j - 1] = tmp
                 emulator.write_memory(self.base, b"".join(current_array))
 
-            # iterate
+            # advance sorting variables
             self.j -= 1
             if self.j <= 0:
                 self.i += 1
                 self.j = self.i
+
+            # break if we're sorted
+            if self.i == self.nmemb:
+                self.set_return_address(emulator, self.return_addr)
+                self.skip_return = False
+                return
+
+            # call comparison function and return to this model
+            self.set_return_address(emulator, self._address, push=True)
             self.compare_func_ptr.call(
                 emulator,
                 [
@@ -533,14 +543,6 @@ class QSort(CStdModel):
                     self.base + (self.j - 1) * self.size,
                 ],
             )
-
-            # break if we're sorted
-            if self.i > self.nmemb:
-                emulator.write_register("lr", self.return_addr)
-                self.skip_return = False
-            else:
-                # return to this model
-                emulator.write_register("lr", self._address)
 
 
 class Rand(CStdModel):
