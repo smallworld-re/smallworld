@@ -72,6 +72,10 @@
           pkgs = nixpkgs.legacyPackages.${system};
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" workspace.deps.all;
+          crossTargets = [
+            "loongarch64-linux"
+          ];
+          crossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) crossTargets;
         in
         {
           default = pkgs.mkShell {
@@ -79,7 +83,7 @@
               virtualenv
               pkgs.uv
               pkgs.z3
-            ];
+            ] ++ crossTargetCCs;
             env = {
               UV_NO_SYNC = "1";
               UV_PYTHON = pythonSet.python.interpreter;
