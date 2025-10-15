@@ -1,5 +1,5 @@
 Harnessing a Simple Program
----------------------------
+===========================
 
 In this quick tutorial you will be guided through the steps to harness a very
 simple snippet of binary code. Here it is, weighing in at only two lines of x86
