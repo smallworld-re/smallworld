@@ -2,8 +2,14 @@ Contributing
 ============
 
 We'd love to have people contribute to SmallWorld.
-It's a fully open-source project, and we welcome
+It's a fully open-source project, and we welcome bug reports and
 pull requests on `GitHub <https://github.com/smallworld-re/smallworld>`_.
+
+Bug Reports
+-----------
+
+To file a bug report, please use the SmallWorld 
+`issue page <https://github.com/smallworld-re/smallworld/issues>`_.
 
 Contribution Lifecycle
 ----------------------
