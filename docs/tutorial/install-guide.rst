@@ -1,4 +1,5 @@
 .. _installation:
+
 Installation Guide
 ==================
 
@@ -26,7 +27,7 @@ requires more dependencies.  See "Complete Installation" for details.
 Basic Install from PyPI
 ***********************
 
-SmallWorld is available as a `pip <https://pypi.org/project/smallworld-re/>`_ package.
+SmallWorld is available as a `pip package <https://pypi.org/project/smallworld-re/>`_ package.
 
 It can be installed using
 
