@@ -93,8 +93,15 @@
         }
       );
 
-      packages = forAllSystems (system: {
-        default = pythonSets.${system}.mkVirtualEnv "smallworld-re-env" workspace.deps.default;
+      packages = forAllSystems (system:
+        let
+          pythonSet = pythonSets.${system}.overrideScope editableOverlay;
+        in
+      {
+        default = {
+          venv = pythonSet.mkVirtualEnv "smallworld-re-env" workspace.deps.default;
+          package = pythonSet.smallworld-re;
+        };
       });
     };
 }
