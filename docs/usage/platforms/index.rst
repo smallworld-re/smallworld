@@ -1,0 +1,6 @@
+Platforms
+====================
+
+.. toctree::
+    platforms
+    support

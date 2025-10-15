@@ -7,10 +7,12 @@ you'd like to run it and analyze those runs to understand what that code does
 or if it has bugs, then you should try SmallWorld!
 
 .. toctree::
-   :maxdepth: 2
    :caption: Contents:
+   :titlesonly:
+   :maxdepth: 2
 
    tutorial/index
    usage/index
    reference/index
+   contributing
    about

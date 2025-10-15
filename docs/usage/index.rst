@@ -2,10 +2,10 @@ Using SmallWorld
 ================
 
 .. toctree::
+    :titlesonly:
 
-    state
-    emulators
+    platforms/index
+    state/index
+    emulators/index
     hinting
     analyses
-    platforms
-    models/models
