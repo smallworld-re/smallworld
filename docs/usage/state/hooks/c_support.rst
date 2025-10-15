@@ -17,7 +17,7 @@ We are planning to have at least stub models for the following API standards:
 - Win32
 
 ABI Support
-===========
+-----------
 
 SmallWorld currently provides basic C calling convention definitions for the following ABIs:
 
@@ -53,17 +53,17 @@ The System V i386 calling convention uses the x87 registers
 to return floating-point values.  None of our emulators support this.
 
 Function Support by Header
-==========================
+--------------------------
 
 The following tables present the current status of the function models.
 They are grouped by API standard, and then by header file.
 
 The options for the "support" field mean the following:
 
-- **Full:** Model is complete.
-- **Imprecise:** Model missing critical behavior.  Will raise an exception unless otherwise configured.
-- **N/I:** Not implemented, but planned.
-- **None:** Not modeled.  Will raise an exception.
+- --Full:-- Model is complete.
+- --Imprecise:-- Model missing critical behavior.  Will raise an exception unless otherwise configured.
+- --N/I:-- Not implemented, but planned.
+- --None:-- Not modeled.  Will raise an exception.
 
 .. csv-table:: C99: string.h
     :file: c99_string.csv
