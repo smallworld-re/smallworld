@@ -32,6 +32,7 @@ dev-dependencies = [
     "jupyterlab>=4.4.9",
     "mypy>=1.7.1",
     "notebook>=7.4.7",
+    "pandare",
     "pip-tools>=7.3.0",
     "pre-commit>=3.5.0",
     "sphinx>=7.1.2",
@@ -52,3 +53,6 @@ include = ["smallworld*"]
 
 [tool.uv.extra-build-dependencies]
 "bitarray-2.8.3" = ["setuptools"]
+
+[tool.uv.sources]
+pandare = { url = "https://github.com/panda-re/panda/releases/download/v1.8.57/pandare-1.8.57-py3-none-any.whl" }
