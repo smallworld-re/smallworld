@@ -1,3 +1,5 @@
+.. _emulators_interface:
+
 Common Emulator Interface
 =========================
 
@@ -19,8 +21,13 @@ Common Emulator Interface
 Available Emulators
 -------------------
 
-All emulators are subclasses of ``Emulator``,
-namely ``AngrEmulator``, ``GhidraEmulator``, ``PandaEmulator``, and ``UnicornEmulator``.
+All emulators are subclasses of ``Emulator``:
+
+    * ``AngrEmulator``: Interface for the :ref:`angr <angr>` backend.
+    * ``GhidraEmulator``: Interface for the :ref:`ghidra <ghidra>` backend.
+    * ``PandaEmulator``: Interface for the :ref:`panda <panda>` backend.
+    * ``UnicornEmulator``: Interface for the :ref:`unicorn <unicorn>` backend.
+
 These all take a single ``Platform`` object as an argument to their constructor.
 
 While this interface works hard to unify behavior across emulators,
@@ -123,7 +130,7 @@ and is converted to and from guest byte order automatically.
    by the :ref:`state` interface. It's only a concern
    when interacting directly with an ``Emulator``.
 
-   See the docs for :ref:`angr` for details.
+   See the docs for the :ref:`angr backend <angr>` for details.
 
 Emulators may also support a concept of labels (see :ref:`values` for details),
 which may be accessed via ``Emulator.read_register_label()``
@@ -298,13 +305,13 @@ using ``FunctionHookable.hook_function()``.
 This takes the address of the instruction,
 and a callback of the form ``callback(Emulator) -> None``.
 
-The emulator will not execute the bound instruction;
+The emulator will not execute the replaced instruction;
 instead, it will execute the callback,
 and then mimic a platform-appropriate "return" operation,
 as if the instruction were the start of a larger function that then returned.
 
 .. caution::
-   Even though the bound instruction gets skipped,
+   Even though the replaced instruction gets skipped,
    it must still be in mapped memory.
 
 Only one function model can be registered for  a specific instruction.

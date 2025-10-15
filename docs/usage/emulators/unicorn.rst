@@ -104,7 +104,7 @@ Interacting with Unicorn
 ------------------------
 
 .. note::
-   --Understanding this section is not necessary to write a normal harness.--
+   **Understanding this section is not necessary to write a normal harness.**
    
    The features described here are completely abstracted
    behind the ``UnicornEmulator`` interface, and are only useful

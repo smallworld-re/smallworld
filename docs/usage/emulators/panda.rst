@@ -120,8 +120,8 @@ Interacting with Panda
    --Understanding this section is not necessary to write a normal harness.--
    
    The features described here are completely abstracted
-   behind the ``UnicornEmulator`` interface, and are only useful
-   if you want to leverage Unicorn for analysis.
+   behind the ``PandaEmulator`` interface, and are only useful
+   if you want to leverage Panda for analysis.
    
    This section describes how to access the relevant objects,
    and any caveats regarding their access.

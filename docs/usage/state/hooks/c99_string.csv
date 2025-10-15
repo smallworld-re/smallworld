@@ -9,7 +9,7 @@ strcmp,     Full,
 strcoll,    Imprecise,  Relies on locale; prototype model.
 strcpy,     Full,
 strcspn,    Full,
-strerror,   None,       Needs platform-specific lookup table.,
+strerror,   None,       Needs platform-specific lookup table.
 strlen,     Full,
 strncmp,    Full,
 strncpy,    Full,

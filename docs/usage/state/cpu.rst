@@ -4,7 +4,9 @@ The CPU Object
 ==============
 
 SmallWorld's ``CPU`` objects are responsible for storing register state.
-Harnesses specify an initial CPU when 
+Harnesses specify an initial CPU when building out a ``Machine``,
+and can access the ``CPU`` in an extracted ``Machine``
+to read back the current register state. 
 
 CPUs are platform-specific, as each platform has its own set of registers.
 
@@ -12,8 +14,8 @@ Registers are exposed as properties of a ``CPU`` object for ease of access.
 
 .. note::
    Currently, SmallWorld only allows a single ``CPU`` object per machine.
-   In the future, it may support multi-processor systems,
-   but none of the emulators currently have meaningful multi-processor support.
+   Currently, only Ghidra has meaningful multi-core support,
+   and it's not exposed through SmallWorld.
 
 Registers
 ---------
@@ -24,7 +26,7 @@ and specifies its name and its width in bytes.
 A ``Register``'s contents can be accessed using
 ``Register.get()`` or ``Register.set()``.
 
-A register starts with no contents.
+A ``Register`` starts with no contents.
 Concrete emulators will interpret this as a value of zero,
 while symbolic executors will interpret this as uninitialized data.
 

@@ -57,42 +57,13 @@ To perform a basic installation, run the following commands:
 Complete Installation
 ---------------------
 
-Using all of SmallWorld's features requires installing some native packages.
+Using the full set of SmallWorld's features,
+or setting up a complete development environment,
+requires a large number of native dependencies. 
 
-.. note::
-   SmallWorld uses specific versions of a number of tools.
-   Complete installation may run into problems
-   if you have conflicting versions of those tools installed.
+.. warning::
+   
+   SmallWorld is actively in the process of reworking
+   its complete installation process.
 
-.. caution::
-   SmallWorld's full development environment is only tested for Ubuntu 22.04 on an amd64 processor:
-
-   * Many of the optional dependencies require Linux, amd64, or both.
-   * Some of the optional tools are binary distributions which may be bound to Ubuntu 22.04.
-   * For some very strange reason, Ubuntu 22.04 on arm64
-     is missing a number of cross-compiler packages needed to build the integration tests.
-
-Complete Install via Script
-***************************
-
-The easiest way to perform a complete installation
-is to use the script provided in the SmallWorld repository.
-This will install SmallWorld in a fresh virtual environment
-in ``$HOME/code/venv``.  It requires sudo access
-to install packages and to modify a few dependencies.
-
-To clone the source code, run
-
-.. code-block:: bash
-
-   git clone git@github.com:smallworld-re/smallworld.git
-
-To perform a complete installation, run
-
-.. code-block:: bash
-
-   cd smallworld
-   ./install.sh
-
-The install script is the authoritative source
-for dependencies and the full installation procedure.
+   Please forgive our appearance while we work to improve this space.

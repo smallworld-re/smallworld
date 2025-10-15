@@ -6,15 +6,17 @@ that allow inspection or modeling of various events during emulation.
 
 All event handler classes have a way to specify
 a callback that will fire on the relevant event.
+That callback accesses the current machine state
+through the :ref:`emulator <emulators_interface>` interface.
 
 Registering an event handler involves constructing the handler,
-and adding it to a ``Machine``. 
+and adding it to a ``Machine``.
 
 .. note::
    SmallWorld emulators can handle a few more events that
    do not yet have corresponding event handler objects.
 
-   See the relevant documentation for details.
+   See the :ref:`relevant documentation <emulators_interface>` for details.
 
 Instruction Hooks
 -----------------
@@ -32,7 +34,6 @@ Unless the callback specifically modifies emulator state,
 a ``Hook`` has no impact on execution.
 
 A ``Hook`` will only trigger if emulation executes the exact specified program counter.
-(This is rarely a problem.)
 
 A ``Machine`` can only contain one ``Hook`` for a given program counter.
 Adding more will raise an exception when the machine is applied to an emulator.
@@ -49,6 +50,52 @@ using PDB (``PDBBreakpoint``) or an interactive Python shell (``PythonShellBreak
 
    The different emulators all handle these a bit differently.
    See the docs for specific backends for more information.
+
+The following is an example of a harness using a ``Hook``
+to detect when a specific instruction gets called::
+
+    from smallworld.emulators import UnicornEmulator
+    from smallworld.state import CPU, Executable, Machine
+    from smallworld.platforms import Architecture, Byteorder, Platform
+    from smallworld.state.models import Hook
+    
+    machine = Machine()
+
+    # Set up the CPU
+    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+    cpu = CPU.for_platform(platform)
+    machine.add(cpu)
+    
+    # Load a piece of code.
+    # Assume this will execute a loop
+    # that passes the first instruction ten times.
+    exe_path = "/fake/exe/path.bin"
+    code = Executable.from_filepath(exe_path, address=0x1000)
+    machine.add(code)
+
+    # Set the machine to start emulating at the start of the code.
+    # Assume this is the correct entry point.
+    cpu.pc.set(code.address)
+
+    # Specify execution bounds
+    machine.add_bound(code.address, code.address + code.get_capacity())
+
+    # Set up an instruction hook on the first instruction.
+    seen = 0
+    def instruction_hook(emu):
+        global seen
+        seen += 1
+
+    hook = Hook(code.address, instruction_hook)
+    machine.add(hook)
+
+    # Create an emulator and emulate
+    emu = UnicornEmulator(platform)
+    machine.apply(emu)
+    emu.run()
+
+    # Print the number of times the hook fired
+    print(seen) # 10
 
 Function Models
 ---------------
@@ -103,6 +150,54 @@ or to an unused address if the function is not within the loaded image.
 Currently, there is no way to configure the "return" behavior,
 making it difficult to mimic more exotic calling conventions
 using ``Model``.
+    
+The following example uses a pre-provided function model
+to capture the behavior of ``puts()``::
+
+    from smallworld.emulators import UnicornEmulator
+    from smallworld.state import CPU, Executable, Machine
+    from smallworld.state.memory.stack import Stack
+    from smallworld.platforms import ABI, Architecture, Byteorder, Platform
+    from smallworld.state.models import Model
+    
+    machine = Machine()
+
+    # Set up the CPU
+    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+    cpu = CPU.for_platform(platform)
+    machine.add(cpu)
+    
+    # Load a piece of code.
+    # Assume that the function `puts()` exists at offset 0x1000,
+    # and will get called to print "Hello, world!"
+    exe_path = "/fake/exe/path.bin"
+    code = Executable.from_filepath(exe_path, address=0x1000)
+    machine.add(code)
+
+    # Set the machine to start emulating at the start of the code.
+    # Assume this is the correct entry point.
+    cpu.pc.set(code.address)
+
+
+    # Specify execution bounds
+    machine.add_bound(code.address, code.address + code.get_capacity())
+
+    # Set up an execution stack
+    stack = Stack.for_platform(platform, 0x8000, 0x4000)
+    machine.add(stack)
+    stack.push_integer(0xffffffff, 8, "")
+    sp = stack.get_pointer()
+    cpu.rsp.set(sp)
+
+    # Add a model for puts
+    puts = Model.lookup("puts", platform, ABI.SYSTEMV, code.address + 0x1000)
+    machine.add(hook)
+
+    # Create an emulator and emulate
+    emu = UnicornEmulator(platform)
+    machine.apply(emu)
+    emu.run()  # Prints "Hello, world!" to stdout.
+
 
 MMIO Models
 -----------
@@ -145,3 +240,65 @@ will have undefined behavior.
 ``on_write()`` cannot modify the value written back to memory;
 it's recommended it record any modified value to a property of the ``MemoryMappedModel`` object,
 and use that value to modify any future reads via ``on_read()``.
+
+The following is an example of using an ``MemoryMappedModel`` 
+to capture reads and writes to a certain location::
+
+    from smallworld.emulators import UnicornEmulator
+    from smallworld.state import CPU, Executable, Machine
+    from smallworld.platforms import Architecture, Byteorder, Platform
+    from smallworld.state.models import MMIOModel
+    
+    machine = Machine()
+
+    # Set up the CPU
+    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+    cpu = CPU.for_platform(platform)
+    machine.add(cpu)
+    
+    # Load a piece of code.
+    # Assume this will read and write to a global 4-byte int at offset 0x1000
+    exe_path = "/fake/exe/path.bin"
+    code = Executable.from_filepath(exe_path, address=0x1000)
+    machine.add(code)
+
+    # Set the machine to start emulating at the start of the code.
+    # Assume this is the correct entry point.
+    cpu.pc.set(code.address)
+
+    # Specify execution bounds
+    machine.add_bound(code.address, code.address + code.get_capacity())
+
+    # Set up a MemoryMappedModel to capture writes to our target location.
+    class MyIntModel(MemoryMappedModel):
+        def __init__(self, address: int, size: int):
+            super().__init__(address, size)
+            self.curr_value = 0
+        
+        def on_read(self, emu, addr, size, content):
+            # Ignore reads
+            pass
+
+        def on_write(self, emu, addr, size, content):
+            # Capture a modification to our int.
+            if addr >= self.address and addr + size <= self.address + self.size:
+                # This is a valid write.
+                # It needs to handle partial writes.
+                curr_data = bytearray(self.curr_value.to_bytes(self.size, "little"))
+                curr_data[address:address + size] = content
+                self.curr_value = int.from_bytes(curr_data, "little")
+            else:
+                # Odd access.  Either someone is using a very ham-fisted vector operation,
+                # or we were wrong about the layout of memory.
+                raise Exception(f"Unexpected write to tracked variable [{hex(addr)} - {hex(addr + size)}]")
+
+    myint = MyIntModel(code.address + 0x1000, 4)
+    machine.add(myint)
+
+    # Create an emulator and emulate
+    emu = UnicornEmulator(platform)
+    machine.apply(emu)
+    emu.run()
+
+    # Print the final value of our variable
+    print(myint.curr_value)

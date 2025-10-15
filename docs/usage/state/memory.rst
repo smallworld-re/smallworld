@@ -17,7 +17,11 @@ from starting offset to ``Value`` objects holding the actual data.
 
 See :ref:`values` for more information on ``Value`` objects in general
 
-All ``Memory`` objects support accessor methods to modify contents
+The most precise mechanism for laying out a memory region
+is to treat the ``Memory`` object as a ``Dict[int, Value]``,
+mapping an offset into the ``Memory`` object to a ``Value``.
+
+All ``Memory`` objects also support accessor methods to modify contents
 without having to manually manipulate the ``Value`` mapping.
 
 ``Memory.read_bytes()`` extracts a sequence of bytes
@@ -35,6 +39,8 @@ or if part of the existing contents is symbolic.
 
 ``Memory.read_int()`` and ``Memory.write_int()`` perform the same operations,
 but with the output/input provided as integers.
+
+Some sub-classes may support additional helpers beyond this set.
 
 Unstructured Memory
 -------------------
@@ -65,6 +71,21 @@ It provides helpers to push data onto the stack,
 which will insert the correct ``Value`` and advance
 the stack pointer.  The harness can access
 the current stack pointer via ``Stack.get_pointer()``.
+
+``Stack`` exposes a number of methods for pushing data.
+
+``Stack.push()`` takes a pre-build ``Value`` object.
+
+``Stack.push_bytes()`` takes a ``bytes`` object, 
+and a string label to apply to the pushed data.
+
+``Stack.push_int()`` takes an integer value, a size in bytes, 
+and a string label to apply to the pushed data.
+
+There are separate ``Stack`` subclasses for each supported platform.
+This is to support different growth direction and alignment
+requirements, as well as future work to add helpers
+that construct call frames or initial program environments.
 
 The following is an example of setting up a call to ``main`` using a ``Stack``::
 
@@ -144,11 +165,6 @@ The following is an example of setting up a call to ``main`` using a ``Stack``::
     # Emulate
     emulator = UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
-      
-There are separate ``Stack`` subclasses for each supported platform.
-This is to support different growth direction and alignment
-requirements, as well as future work to add helpers
-that construct call frames or initial program environments.
 
 Heaps
 -----
@@ -170,7 +186,8 @@ SmallWorld currently provides ``BumpAllocator``,
 which is a simple linear allocator with no free support,
 and ``CheckedBumpAllocator``, which adds invalid access detection.
 
-The following is an example of using a ``Heap`` to store global data::
+The following is an example of using a ``Heap`` 
+to store data passed into the harness by reference::
     
     from smallworld.platforms import Architecture, Byteorder, Platform
     from smallworld.state import Machine
@@ -260,17 +277,18 @@ These are structured binary files that provide
 a large amount of information to a program loader:
 
 - Specify platform details to ensure compatibility.
-- Specify how to lay out memory image for this program or library.
+- Specify how to lay out the memory image for this program or library.
 - Provide initial data for parts of memory that have initial data.
 - Provide an entry point address, if the image is executable
 - Provide relocation information, if the image is position-independent.
 - Provide information about required libraries and other runtime linking requirements.
 - Provide information on imported and exported symbols.
+- Provide runtime-specific information, such as the location of initializer routines.
 
 Currently, SmallWorld supports the following formats:
 
-- --ELF--: Used by Linux (and many other platforms) for executables and shared objects.
-- --PE32+--: Used by Windows (and a few other platforms) for executables and DLLs.
+- **ELF**: Used by Linux (and many other platforms) for executables and shared objects.
+- **PE32+**: Used by Windows (and a few other platforms) for executables and DLLs.
 
 Such objects should be instantiated using helpers on ``Executable``,
 namely ``Executable.from_elf()`` and ``Executable.from_pe()``
@@ -295,7 +313,7 @@ namely ``Executable.from_elf()`` and ``Executable.from_pe()``
    set of metadata from a fully-linked ELF.
 
 Platform Verification
-^^^^^^^^^^^^^^^^^^^^^
+*********************
 
 Object file representations indicate to a certain resolution
 which platform the code inside them is compatible with.
@@ -311,7 +329,7 @@ The derived platform will be available at the ``platform`` attribute
 of the resulting object.
 
 Load Address
-^^^^^^^^^^^^
+************
 
 Object files can specify a base address for their memory image,
 or allow the program loader to determine one at runtime.
@@ -321,21 +339,39 @@ parameter to ``Executable.from_elf()`` or ``Executable.from_pe()``.
 
 This works differently for ELF and PE files:
 
-- --ELF:-- ELF files that specify a load address generally must be loaded at that address.
+- **ELF:** ELF files that specify a load address generally must be loaded at that address.
   If not, the harness must provide an address.  If both or neither specify a load address,
-  the initializer will raise an exception.
-- --PE32+:-- PE files nearly always specify a load address that is nearly always optional.
-  The harness may specify a load address, otherwise the initalizer will default to the
+  the parser will raise an exception.
+- **PE32+:** PE files nearly always specify a load address that is nearly always optional.
+  The harness may specify a load address, otherwise the parser will default to the
   load address in the file.
 
 Memory Layout
-^^^^^^^^^^^^^
+*************
 
 Once successfully loaded, an object file representation
 will act as a ``Memory`` object with one ``Value`` per allocated segment
 in the specified memory image.
 
 This will properly handle both file-backed and zero-initialized (BSS) segments.
+
+.. caution::
+
+   SmallWorld's object file loaders build a memory image
+   as it exists raw from the object file.
+   It does not duplicate any runtime initialization.
+
+   The problem is that certain libraries are relatively unusable
+   without runtime initialization.  Glibc relies on runtime initializers
+   to populate data structures for thread-local storage, the heap, the locale subsystem,
+   and a host of other critical subsystems.
+   Manually piecing together the data structures for the entire ptmalloc heap
+   will require a harness of extraordinary complexity.
+
+   SmallWorld provides two alternatives:
+
+   * Using function models to approximate the impacted functions in Python.
+   * Starting emulation from a core dump. 
 
 .. note::
    PE32+ files have overlapping initialized segments.
@@ -351,7 +387,7 @@ This will properly handle both file-backed and zero-initialized (BSS) segments.
 
 
 Entry Point
-^^^^^^^^^^^
+***********
 
 Object file representations present the entrypoint
 specified in the file via the ``entrypoint`` property.
@@ -361,10 +397,10 @@ specified in the file via the ``entrypoint`` property.
    to runtime initializers that are a) extremely difficult to micro-execute,
    and b) very rarely interesting.
 
-   See --separate tutorial-- on how to find and exercise ``main()`` on Windows and Linux. 
+   See :ref:`program_loading` on how to find and exercise ``main()`` on Windows and Linux. 
 
 Bounds
-^^^^^^
+******
 
 Object file representations derive execution bounds 
 for the loaded image based on the locations of the executable segments.
@@ -380,7 +416,7 @@ The list of ranges will be exposed via the ``bounds`` property of the ``Executab
    or to leave execution unconstrained.
 
 Linking and Loading
-^^^^^^^^^^^^^^^^^^^
+*******************
 
 Aside from laying out memory, the other major responsibility
 of an object file is to provide the metadata needed for runtime linking.
@@ -389,12 +425,14 @@ These concepts work almost completely differently for ELF and PE32+ files,
 and so are presented separately.
 
 .. caution::
+
    As a micro-execution framework, SmallWorld's linker and loader models are optional.
    An ``Executable`` can be included in a harness with some or all of its symbols
    left undefined.
 
-   This will almost certainly result in an emulation error,
-   which may be slightly difficult to diagnose.
+   Accessing an undefined symbol will have very platform-specific
+   and somewhat difficult-to-diagnose undefined behavior.
+
 
 PE32+ Relocations
 ^^^^^^^^^^^^^^^^^
@@ -490,6 +528,14 @@ symbol with that name in the first ELF.
    whichever symbol matches first is the one that will stick.
 
 .. caution::
+   SmallWorld's ELF linker is currently very basic.
+
+   It will work for common dynamically-linked programs and libraries,
+   but the full set of features available for runtime linking
+   is absurdly complicated.  Please inform the Smallworld team 
+   if you need a feature we don't yet model.
+
+.. caution::
    Some platforms define a "copy" relocation.
    Whereas most relocations compute some value from the symbol and write that into the image
    copy relocations compute an address based off the symbol, dereference that,
@@ -504,7 +550,9 @@ symbol with that name in the first ELF.
    to specify the ultimate value, instead of an address pointing to the ultimate value.
 
    It is currently up to the harness author to identify when a symbol is referenced
-   by a copy relocation.
+   by a copy relocation. 
+
+The following is an example of a program that exercises ELF linking 
   
 
 Core Dump Loader
@@ -521,5 +569,4 @@ at the moment the core dump was created.
 While core dumps are usually created when a program irretrievably fails,
 manually-created core dumps are an amazing way to harness a complex process.
 
-.. warning::
-   TODO: Create tutorial for creating and harnessing with a manual core dump
+See :ref:`coredump_loading` for a tutorial on building a harness around a core dump.

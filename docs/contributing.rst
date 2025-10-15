@@ -1,5 +1,5 @@
-Contributing to SmallWorld
-==========================
+Contributing
+============
 
 We'd love to have people contribute to SmallWorld.
 It's a fully open-source project, and we welcome

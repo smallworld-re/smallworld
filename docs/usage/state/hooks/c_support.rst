@@ -60,10 +60,10 @@ They are grouped by API standard, and then by header file.
 
 The options for the "support" field mean the following:
 
-- --Full:-- Model is complete.
-- --Imprecise:-- Model missing critical behavior.  Will raise an exception unless otherwise configured.
-- --N/I:-- Not implemented, but planned.
-- --None:-- Not modeled.  Will raise an exception.
+- **Full:** Model is complete.
+- **Imprecise:** Model missing critical behavior.  Will raise an exception unless otherwise configured.
+- **N/I:** Not implemented, but planned.
+- **None:** Not modeled.  Will raise an exception.
 
 .. csv-table:: C99: string.h
     :file: c99_string.csv

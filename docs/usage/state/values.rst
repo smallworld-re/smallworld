@@ -23,8 +23,8 @@ A ``Value`` can have a label.  This allows harness authors to attach semantic me
 to a particular ``Value``.  
 
 Concrete emulators do not consider labels.
-An ``Analysis`` based on a dynamic emulator can use them to mark interesting data,
-but it otherwise has no meaning.
+An ``Analysis`` based on a dynamic emulator can use a label to mark interesting data for analysis,
+but it otherwise has no meaning, and will be invalidated as soon as emulation begins.
 
 Symbolic executors use labels to create bound and unbound variables.
 When a ``Value`` with a label is loaded into a symbolic executor,

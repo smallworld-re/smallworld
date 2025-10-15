@@ -3,10 +3,20 @@
 Describing a Platform
 =====================
 
+SmallWorld harnesses and analyses need to make basic assumptions
+about the machine language, hardware features, and basic
+software interfaces they expect the target code to use;
+a harness may need to specify which ISA to emulate,
+which byte order data should get laid out in,
+and which calling conventions library models should expect.
+
+This is captured using the enumerations 
+``Architecture``, ``Byteorder``, and ``ABI``.
+
 Architecture and Byteorder
 --------------------------
 
-The core SmallWorld ``Platform`` contains the minimum information necessary
+The core SmallWorld ``Platform`` class captures the minimum information necessary
 to identify an emulation environment, namely architecture and byteorder.
 
 An ``Architecture`` primarily identifies the machine language being interpreted.
@@ -19,6 +29,7 @@ It can also encode machine state extensions or optional features of a platform.
    declared as supported or unsupported by emulators.
    SmallWorld's ``Architecture`` enumeration covers the few major,
    easily-identifiable cases we've encountered, but is by no means complete.
+
 
 Some platforms can be functionally equivalent, but store numbers and code
 in different byteorders.  A ``Byteorder`` specifies whether
@@ -41,8 +52,8 @@ ABI
 Architecture and byteorder are sufficient for exercising a single, unified piece of code.
 However, most architectures don't specify how functions, code modules, and privilege levels interact.
 
-An ``ABI`` represents an interface contract, specifying how a program interacts with libraries, the OS,
-and the system at large.  
+An Application Binary Interface, or ``ABI`` represents a software contract,
+specifying how a program interacts with libraries, the OS, and the system at large.  
 
 Basic SmallWorld harnesses don't need to specify an ABI.
 Most of the features of an ABI are either handled directly by the harness,

@@ -67,7 +67,8 @@ Exit Points and Bounds
 ----------------------
 
 ``AngrEmulator`` supports exit points and bounds normally.
-It will treat execution of unmapped memory as an out-of-bounds access.
+It will treat execution of unmapped memory as an out-of-bounds access,
+and halt gracefully.
 
 Accessing Registers
 -------------------
@@ -160,11 +161,10 @@ as ``write_register_label()``.
     behave differenly.
 
     angr uses a different memory backend to store code and data.
-    Storing significant amounts (more than a few MB or so) of code as data
-    causes angr to become unusably slow.
-
-    This may also come up as a limitation for harnesses
-    that need to load very large amounts of data, such as large embedded device images.
+    Instruction fetches against memory managed by the "data" memory backend
+    are inefficient to the point of being unusable
+    in some relatively common edge cases,
+    so it's important to load code as code.
 
 .. caution::
    
@@ -173,8 +173,10 @@ as ``write_register_label()``.
    if emulation is started or stepped, or can be triggered
    manually by calling ``AngrEmulator.initialize()``.
 
-   Once execution begins, ``write_code()`` becomes identical to 
-   to ``write_data()``, with all the same performance caveats.
+   Once initialzation has happened,
+   ``write_code()`` will switch to using the "data"
+   memory backend, with all the performance caveats
+   that entails.  Please load your code up front if at all possible.
 
 Event Handlers
 --------------
@@ -203,7 +205,7 @@ Interacting with Angr
 ---------------------
 
 .. note::
-   --Understanding this section is not necessary to write a normal harness.--
+   **Understanding this section is not necessary to write a normal harness.**
 
    The features described here are completely abstracted
    behind the AngrEmulator interface, and are only useful
@@ -246,7 +248,7 @@ and allows custom modifications to those structures.
       ``AngrEmulator`` stores the data temporarily.
 
    3. The harness triggers ``initialize()``,
-      either by calling ``run()`, ``step()``, or ``step_block()``,
+      either by calling ``run()``, ``step()``, or ``step_block()``,
       or by calling ``initialize()`` directly.
 
    4. ``AngrEmulator`` initializes ``proj``,
