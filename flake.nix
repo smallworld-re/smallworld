@@ -21,6 +21,10 @@
       inputs.uv2nix.follows = "uv2nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    panda = {
+      url = "github:panda-re/panda/v1.8.57";
+    };
   };
 
   outputs =
@@ -29,6 +33,7 @@
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
+      panda,
       ...
     }:
     let
@@ -83,6 +88,7 @@
               virtualenv
               pkgs.uv
               pkgs.z3
+              panda.packages.${system}.default
             ] ++ crossTargetCCs;
             env = {
               UV_NO_SYNC = "1";
