@@ -152,11 +152,24 @@
       {
         default = pythonSet.smallworld-re;
         venv = virtualenv;
-        dockerImage = pkgs.dockerTools.buildLayeredImage {
+        dockerImage = pkgs.dockerTools.buildImage {
           name = "smallworld-re";
           tag = "latest";
+          copyToRoot = pkgs.buildEnv {
+            name = "smallworld-root";
+            paths = [
+              pkgs.dockerTools.usrBinEnv
+              pkgs.dockerTools.binSh
+              pkgs.dockerTools.caCertificates
+              pkgs.dockerTools.fakeNss
+              pkgs.aflplusplus
+              # panda.packages.${system}.default
+              virtualenv
+            ];
+            pathsToLink = ["/bin" "/etc" "/var"];
+          };
           config = {
-            Cmd = ["${virtualenv}/bin/python"];
+            Cmd = ["/bin/sh"];
           };
         };
       });
