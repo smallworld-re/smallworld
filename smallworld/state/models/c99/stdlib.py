@@ -456,10 +456,6 @@ class QSort(CStdModel):
         ArgumentType.POINTER,
     ]
     return_type = ArgumentType.VOID
-
-    # Currently can't call function pointers from models
-    unsupported = True
-
     return_addr = 0
 
     def model(self, emulator: emulators.Emulator) -> None:
@@ -470,9 +466,8 @@ class QSort(CStdModel):
         super().model(emulator)
 
         if not self.skip_return:
-            # overwrite return address to point to this model
+            # store address to return to after model is done
             self.return_addr = self.get_return_address(emulator)
-            self.set_return_address(emulator, self._address)
 
             # collect args
             self.base = typing.cast(int, self.get_arg1(emulator))
@@ -501,6 +496,7 @@ class QSort(CStdModel):
                     self.base + (self.j * self.size),
                     self.base + (self.j - 1) * self.size,
                 ],
+                self._address,
             )
 
             # return back to this model
@@ -535,13 +531,13 @@ class QSort(CStdModel):
                 return
 
             # call comparison function and return to this model
-            self.set_return_address(emulator, self._address, push=True)
             self.compare_func_ptr.call(
                 emulator,
                 [
                     self.base + (self.j * self.size),
                     self.base + (self.j - 1) * self.size,
                 ],
+                self._address,
             )
 
 

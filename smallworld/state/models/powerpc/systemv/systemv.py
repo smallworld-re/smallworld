@@ -1,12 +1,10 @@
 import struct
 
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class PowerPCSysVModel(CStdModel):
-    """Base class for C models using the PowerPC System-V ABI"""
-
+class PowerPCSysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
     )
@@ -101,8 +99,29 @@ class PowerPCSysVModel(CStdModel):
         intval = int.from_bytes(data, "little")
         emulator.write_register("f1", intval)
 
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
+        # NOTE: powerpc promotes floats to doubles
+        intval = emulator.read_register("f1")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<d", data)
+        return unpacked
+
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("f1", intval)
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        intval = emulator.read_register("f1")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<d", data)
+        return unpacked
+
+
+class PowerPCSysVModel(PowerPCSysVCallingContext, CStdModel):
+    """Base class for C models using the PowerPC System-V ABI"""
+
+    pass
