@@ -62,7 +62,7 @@ class AngrEmulator(
     version = "0.0"
 
     def __init__(self, platform: platforms.Platform, preinit=None, init=None):
-        # Initializaed bit; tells us if angr state is initialized
+        # Initialized bit; tells us if angr state is initialized
         self._initialized: bool = False
 
         # Dirty bit; tells us if we can modify self.state
@@ -73,6 +73,10 @@ class AngrEmulator(
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
+
+        # Memory protection bit; tells us if we should error on unmapped accesses
+        # This is public; it can be changed freely
+        self.error_on_unmapped: bool = False
 
         # The platform definition;
         # Holds global info about the platform
@@ -846,6 +850,20 @@ class AngrEmulator(
                     return False
                 read_end = read_start + read_size
 
+                # Use this point to implement memory map checking
+                if (
+                    self._error_on_unmapped
+                    and len(
+                        state.scratch.memory_map.get_missing_ranges(
+                            read_start, read_end
+                        )
+                    )
+                    > 0
+                ):
+                    raise exceptions.EmulationError(
+                        f"Read of unmapped memory at {hex(read_start)}"
+                    )
+
                 rng = range(start, end)
                 access_rng = range(read_start, read_end)
                 return (
@@ -1097,6 +1115,20 @@ class AngrEmulator(
                     # Populate concrete value back to the inspect struct
                     state.inspect.mem_write_length = write_size
                 write_end = write_start + write_size
+
+                # Use this point to implement memory map checking
+                if (
+                    self._error_on_unmapped
+                    and len(
+                        state.scratch.memory_map.get_missing_ranges(
+                            write_start, write_end
+                        )
+                    )
+                    > 0
+                ):
+                    raise exceptions.EmulationError(
+                        f"Read of unmapped memory at {hex(write_start)}"
+                    )
 
                 rng = range(start, end)
                 access_rng = range(write_start, write_end)
