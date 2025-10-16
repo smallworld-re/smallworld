@@ -11,3 +11,4 @@ build/
 venv/
 core.*
 /result
+unicornafl-flake/result

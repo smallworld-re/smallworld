@@ -23,7 +23,7 @@
     };
 
     unicornafl = {
-      url = "path:unicornafl";
+      url = "path:unicornafl-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -68,7 +68,7 @@
           hacks = pkgs.callPackage pyproject-nix.build.hacks {};
           additional = final: prev: {
             unicornafl = hacks.nixpkgsPrebuilt {
-              from = unicornafl.packages.${system}.default;
+              from = (unicornafl.lib.${system}.pythonPackage python.pkgs);
             };
           };
         in

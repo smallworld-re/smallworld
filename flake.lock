@@ -150,11 +150,11 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "path": "unicornafl",
+        "path": "unicornafl-flake",
         "type": "path"
       },
       "original": {
-        "path": "unicornafl",
+        "path": "unicornafl-flake",
         "type": "path"
       },
       "parent": []
