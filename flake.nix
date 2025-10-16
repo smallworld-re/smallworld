@@ -47,6 +47,9 @@
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
 
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
+      deps = workspace.deps.all // {
+        unicornafl = [];
+      };
 
       overlay = workspace.mkPyprojectOverlay {
         sourcePreference = "wheel";
@@ -82,6 +85,22 @@
           )
       );
 
+      virtualEnvDev = forAllSystems (
+        system:
+        let
+          pythonSet = pythonSets.${system}.overrideScope editableOverlay;
+          venv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" deps;
+        in venv
+      );
+
+      virtualEnvProd = forAllSystems (
+        system:
+        let
+          pythonSet = pythonSets.${system};
+          venv = pythonSet.mkVirtualEnv "smallworld-re-env" deps;
+        in venv
+      );
+
     in
     {
       devShells = forAllSystems (
@@ -89,9 +108,7 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
-          virtualenv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" (workspace.deps.all // {
-            unicornafl = [];
-          });
+          virtualenv = virtualEnvDev.${system};
           crossTargets = [
             "loongarch64-linux"
           ];
@@ -128,20 +145,18 @@
 
       packages = forAllSystems (system:
         let
-          pythonSet = pythonSets.${system}.overrideScope editableOverlay;
+          pythonSet = pythonSets.${system};
           pkgs = nixpkgs.legacyPackages.${system};
-          virtualenv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" (workspace.deps.all // {
-            unicornafl = [];
-          });
+          virtualenv = virtualEnvProd.${system};
         in
-      rec {
+      {
         default = pythonSet.smallworld-re;
         venv = virtualenv;
         dockerImage = pkgs.dockerTools.buildLayeredImage {
           name = "smallworld-re";
           tag = "latest";
           config = {
-            Cmd = ["${venv}/bin/python3"];
+            Cmd = ["${virtualenv}/bin/python"];
           };
         };
       });
