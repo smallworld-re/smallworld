@@ -3683,6 +3683,14 @@ class CheckedUAFTests(ScriptIntegrationTest):
         self.run_test("riscv64.pcode")
 
 
+class FunctionPointerTests(ScriptIntegrationTest):
+    def run_test(self, kind):
+        self.command(f"python3 funcptr/funcptr.{kind}.py")
+
+    def test_armel_unicorn(self):
+        self.run_test("armel")
+
+
 class DocumentationTests(unittest.TestCase):
     def test_documentation_build(self):
         """Make sure that the documentation builds without error.

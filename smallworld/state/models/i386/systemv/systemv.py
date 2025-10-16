@@ -1,10 +1,8 @@
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class I386SysVModel(CStdModel):
-    """Base class for C models using the I386 System V ABI"""
-
+class I386SysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
     )
@@ -77,6 +75,20 @@ class I386SysVModel(CStdModel):
         """Return a float"""
         raise NotImplementedError("i386 System-V uses x87 registers to return floats")
 
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
+        raise NotImplementedError("i386 System-V uses x87 registers to return floats")
+
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         raise NotImplementedError("i386 System-V uses x87 registers to return doubles")
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        raise NotImplementedError("i386 System-V uses x87 registers to return floats")
+
+
+class I386SysVModel(I386SysVCallingContext, CStdModel):
+    """Base class for C models using the I386 System V ABI"""
+
+    pass
