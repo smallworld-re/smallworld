@@ -22,9 +22,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    panda = {
-      url = "github:panda-re/panda/v1.8.57";
+    unicornafl = {
+      url = "path:unicornafl";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # panda = {
+    #   url = "github:panda-re/panda/v1.8.57";
+    # };
   };
 
   outputs =
@@ -33,7 +38,8 @@
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
-      panda,
+      unicornafl,
+      # panda,
       ...
     }:
     let
@@ -56,6 +62,12 @@
           pkgs = nixpkgs.legacyPackages.${system};
           python = pkgs.python312;
           overrides = pkgs.callPackage ./overrides.nix { inherit python; };
+          hacks = pkgs.callPackage pyproject-nix.build.hacks {};
+          additional = final: prev: {
+            unicornafl = hacks.nixpkgsPrebuilt {
+              from = unicornafl.packages.${system}.default;
+            };
+          };
         in
         (pkgs.callPackage pyproject-nix.build.packages {
           inherit python;
@@ -65,6 +77,7 @@
               pyproject-build-systems.overlays.wheel
               overlay
               overrides
+              additional
             ]
           )
       );
@@ -76,7 +89,9 @@
         let
           pkgs = nixpkgs.legacyPackages.${system};
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
-          virtualenv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" workspace.deps.all;
+          virtualenv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" (workspace.deps.all // {
+            unicornafl = [];
+          });
           crossTargets = [
             "loongarch64-linux"
           ];
@@ -88,7 +103,15 @@
               virtualenv
               pkgs.uv
               pkgs.z3
-              panda.packages.${system}.default
+              pkgs.aflplusplus
+              # (panda.packages.${system}.default.overrideAttrs (old:
+              # let
+              #   oldDeps = panda.packages.x86_64-linux.default.buildInputs;
+              #   filtered = builtins.filter (p: p.name != "libosi") oldDeps;
+              # in
+              # {
+              #   buildInputs = filtered;
+              # }))
             ] ++ crossTargetCCs;
             env = {
               UV_NO_SYNC = "1";
@@ -106,11 +129,18 @@
       packages = forAllSystems (system:
         let
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
+          pkgs = nixpkgs.legacyPackages.${system};
         in
-      {
+      rec {
         default = {
           venv = pythonSet.mkVirtualEnv "smallworld-re-env" workspace.deps.default;
           package = pythonSet.smallworld-re;
+        };
+        dockerImage = pkgs.dockerTools.buildImage {
+          name = "smallworld-re";
+          config = {
+            Cmd = ["${default.venv}/bin/python3"];
+          };
         };
       });
     };

@@ -31,4 +31,8 @@ in
     });
   });
 
+  unicornafl = prev.unicornafl.overrideAttrs (old: {
+    nativeBuildInputs = (old.nativeBuildInputs or []) ++ [pkgs.unicorn];
+  });
+
 } // mappedBuildSystemOverrides

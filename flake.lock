@@ -1,18 +1,35 @@
 {
   "nodes": {
-    "libosi-src": {
-      "flake": false,
+    "crane": {
       "locked": {
-        "lastModified": 1693574302,
-        "narHash": "sha256-rHbfp1llyVEvHw+sz+rCmx9DrR/e1nnJYRidhPM3jZY=",
-        "owner": "panda-re",
-        "repo": "libosi",
-        "rev": "c68bafdb7e2a4d83128ae6ba0f5f70e28318eda0",
+        "lastModified": 1759893430,
+        "narHash": "sha256-yAy4otLYm9iZ+NtQwTMEbqHwswSFUbhn7x826RR6djw=",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "rev": "1979a2524cb8c801520bd94c38bb3d5692419d93",
         "type": "github"
       },
       "original": {
-        "owner": "panda-re",
-        "repo": "libosi",
+        "owner": "ipetkov",
+        "repo": "crane",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
         "type": "github"
       }
     },
@@ -29,40 +46,6 @@
         "owner": "nixos",
         "ref": "nixos-unstable",
         "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1699725108,
-        "narHash": "sha256-NTiPW4jRC+9puakU4Vi8WpFEirhp92kTOSThuZke+FA=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "911ad1e67f458b6bcf0278fa85e33bb9924fed7e",
-        "type": "github"
-      },
-      "original": {
-        "id": "nixpkgs",
-        "type": "indirect"
-      }
-    },
-    "panda": {
-      "inputs": {
-        "libosi-src": "libosi-src",
-        "nixpkgs": "nixpkgs_2"
-      },
-      "locked": {
-        "lastModified": 1737487331,
-        "narHash": "sha256-TZFJNbPYO5kN1eD22Wsc75Pj/aNt/m3knnGpPnNK6TY=",
-        "owner": "panda-re",
-        "repo": "panda",
-        "rev": "03850093d92d2b4d56615eab006b97fe50091b95",
-        "type": "github"
-      },
-      "original": {
-        "owner": "panda-re",
-        "ref": "v1.8.57",
-        "repo": "panda",
         "type": "github"
       }
     },
@@ -115,10 +98,66 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
-        "panda": "panda",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
+        "unicornafl": "unicornafl",
         "uv2nix": "uv2nix"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "unicornafl",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1760495781,
+        "narHash": "sha256-3OGPAQNJswy6L4VJyX3U9/z7fwgPFvK6zQtB2NHBV0Y=",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "11e0852a2aa3a65955db5824262d76933750e299",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "unicornafl": {
+      "inputs": {
+        "crane": "crane",
+        "flake-utils": "flake-utils",
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "rust-overlay": "rust-overlay"
+      },
+      "locked": {
+        "lastModified": 1,
+        "narHash": "sha256-i83hWVgLb7Av9n9Q/EJX4enBqpUrZCirPQV7cl13/V4=",
+        "path": "unicornafl",
+        "type": "path"
+      },
+      "original": {
+        "path": "unicornafl",
+        "type": "path"
       }
     },
     "uv2nix": {
