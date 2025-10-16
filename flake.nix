@@ -2,7 +2,7 @@
   description = "smallworld-re";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";

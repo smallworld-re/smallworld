@@ -35,16 +35,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1760284886,
-        "narHash": "sha256-TK9Kr0BYBQ/1P5kAsnNQhmWWKgmZXwUQr4ZMjCzWf2c=",
+        "lastModified": 1760533177,
+        "narHash": "sha256-OwM1sFustLHx+xmTymhucZuNhtq98fHIbfO8Swm5L8A=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "cf3f5c4def3c7b5f1fc012b3d839575dbe552d43",
+        "rev": "35f590344ff791e6b1d6d6b8f3523467c9217caf",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
-        "ref": "nixos-unstable",
+        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -150,15 +150,14 @@
         "rust-overlay": "rust-overlay"
       },
       "locked": {
-        "lastModified": 1,
-        "narHash": "sha256-i83hWVgLb7Av9n9Q/EJX4enBqpUrZCirPQV7cl13/V4=",
         "path": "unicornafl",
         "type": "path"
       },
       "original": {
         "path": "unicornafl",
         "type": "path"
-      }
+      },
+      "parent": []
     },
     "uv2nix": {
       "inputs": {
