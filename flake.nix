@@ -27,9 +27,9 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # panda = {
-    #   url = "github:panda-re/panda/v1.8.57";
-    # };
+    panda = {
+      url = "github:lluchs/panda/flake";
+    };
   };
 
   outputs =
@@ -39,7 +39,7 @@
       uv2nix,
       pyproject-build-systems,
       unicornafl,
-      # panda,
+      panda,
       ...
     }:
     let
@@ -121,14 +121,7 @@
               pkgs.uv
               pkgs.z3
               pkgs.aflplusplus
-              # (panda.packages.${system}.default.overrideAttrs (old:
-              # let
-              #   oldDeps = panda.packages.x86_64-linux.default.buildInputs;
-              #   filtered = builtins.filter (p: p.name != "libosi") oldDeps;
-              # in
-              # {
-              #   buildInputs = filtered;
-              # }))
+              panda.packages.${system}.default
             ] ++ crossTargetCCs;
             env = {
               UV_NO_SYNC = "1";
@@ -163,7 +156,7 @@
               pkgs.dockerTools.caCertificates
               pkgs.dockerTools.fakeNss
               pkgs.aflplusplus
-              # panda.packages.${system}.default
+              panda.packages.${system}.default
               virtualenv
             ];
             pathsToLink = ["/bin" "/etc" "/var"];

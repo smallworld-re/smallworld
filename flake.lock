@@ -33,6 +33,37 @@
         "type": "github"
       }
     },
+    "libosi-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1693574302,
+        "narHash": "sha256-rHbfp1llyVEvHw+sz+rCmx9DrR/e1nnJYRidhPM3jZY=",
+        "owner": "panda-re",
+        "repo": "libosi",
+        "rev": "c68bafdb7e2a4d83128ae6ba0f5f70e28318eda0",
+        "type": "github"
+      },
+      "original": {
+        "owner": "panda-re",
+        "repo": "libosi",
+        "type": "github"
+      }
+    },
+    "nix-filter": {
+      "locked": {
+        "lastModified": 1757882181,
+        "narHash": "sha256-+cCxYIh2UNalTz364p+QYmWHs0P+6wDhiWR4jDIKQIU=",
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "rev": "59c44d1909c72441144b93cf0f054be7fe764de5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1760533177,
@@ -47,6 +78,71 @@
         "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
+      }
+    },
+    "nixpkgs-wireshark": {
+      "locked": {
+        "lastModified": 1654613154,
+        "narHash": "sha256-Kqpik8NNIzErNoeiQc6FS9F7RMVuG9ykZzVkL+Z7nXg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e93823409f9e6b8e878edf060b430a14353a28f9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e93823409f9e6b8e878edf060b430a14353a28f9",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1699725108,
+        "narHash": "sha256-NTiPW4jRC+9puakU4Vi8WpFEirhp92kTOSThuZke+FA=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "911ad1e67f458b6bcf0278fa85e33bb9924fed7e",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "type": "indirect"
+      }
+    },
+    "panda": {
+      "inputs": {
+        "libosi-src": "libosi-src",
+        "nix-filter": "nix-filter",
+        "nixpkgs": "nixpkgs_2",
+        "nixpkgs-wireshark": "nixpkgs-wireshark",
+        "panda-config": "panda-config"
+      },
+      "locked": {
+        "lastModified": 1733842737,
+        "narHash": "sha256-SBWvtlGH6Gldeg3J6YMEhG7ipwgZ2f3YdmNaV6Hunrc=",
+        "owner": "lluchs",
+        "repo": "panda",
+        "rev": "43be8ff883275b81cdf2ba7d09fa6096d3951138",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lluchs",
+        "ref": "flake",
+        "repo": "panda",
+        "type": "github"
+      }
+    },
+    "panda-config": {
+      "flake": false,
+      "locked": {
+        "narHash": "sha256-d6xi4mKdjkX2JFicDIv5niSzpyI0m/Hnm8GGAIU04kY=",
+        "type": "file",
+        "url": "file:/dev/null"
+      },
+      "original": {
+        "type": "file",
+        "url": "file:/dev/null"
       }
     },
     "pyproject-build-systems": {
@@ -98,6 +194,7 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
+        "panda": "panda",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "unicornafl": "unicornafl",
