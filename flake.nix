@@ -130,16 +130,18 @@
         let
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           pkgs = nixpkgs.legacyPackages.${system};
+          virtualenv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" (workspace.deps.all // {
+            unicornafl = [];
+          });
         in
       rec {
-        default = {
-          venv = pythonSet.mkVirtualEnv "smallworld-re-env" workspace.deps.default;
-          package = pythonSet.smallworld-re;
-        };
-        dockerImage = pkgs.dockerTools.buildImage {
+        default = pythonSet.smallworld-re;
+        venv = virtualenv;
+        dockerImage = pkgs.dockerTools.buildLayeredImage {
           name = "smallworld-re";
+          tag = "latest";
           config = {
-            Cmd = ["${default.venv}/bin/python3"];
+            Cmd = ["${venv}/bin/python3"];
           };
         };
       });
