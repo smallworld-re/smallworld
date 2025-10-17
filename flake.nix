@@ -184,11 +184,13 @@
               pkgs.z3
               pkgs.aflplusplus
               pandaWithLibs.${system}
+              pkgs.ghidra
             ] ++ crossTargetCCs;
             env = {
               UV_NO_SYNC = "1";
               UV_PYTHON = pythonSet.python.interpreter;
               UV_PYTHON_DOWNLOADS = "never";
+              GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
             };
             shellHook = ''
               unset PYTHONPATH
@@ -224,6 +226,7 @@
               pkgs.aflplusplus
               fixedPanda
               virtualenv
+              pkgs.ghidra
             ];
             pathsToLink = ["/bin" "/etc" "/var"];
           };
