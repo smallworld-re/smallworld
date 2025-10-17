@@ -4,8 +4,8 @@ import typing
 from enum import Enum
 
 import smallworld
-from smallworld.state.models.armel.systemv.systemv import ArmELSysVModel
-from smallworld.state.models.cstd import ArgumentType
+from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVModel
+from smallworld.state.models.cstd import ArgumentType, CStdModel
 from smallworld.state.models.funcptr import FunctionPointer
 
 # Set up logging and hinting
@@ -13,7 +13,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -31,7 +31,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -65,7 +67,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(ArmELSysVModel):
+class TestModel(ArmHFSysVModel, CStdModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV
@@ -251,7 +253,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

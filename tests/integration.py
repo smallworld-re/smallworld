@@ -4063,8 +4063,41 @@ class FunctionPointerTests(ScriptIntegrationTest):
     def run_test(self, kind):
         self.command(f"python3 funcptr/funcptr.{kind}.py")
 
-    def test_armel_unicorn(self):
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_armel(self):
         self.run_test("armel")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_la64(self):
+        self.run_test("la64")
+
+    # def test_mips(self):
+    #     self.run_test("mips")
+
+    # def test_mips64(self):
+    #     self.run_test("mips64")
+
+    # def test_mips64el(self):
+    #     self.run_test("mips64el")
+
+    # def test_mipsel(self):
+    #     self.run_test("mipsel")
+
+    def test_ppc(self):
+        self.run_test("ppc")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
 
 class DocumentationTests(unittest.TestCase):
