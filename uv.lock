@@ -1739,26 +1739,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pandare"
-version = "1.8.57"
-source = { url = "https://github.com/panda-re/panda/releases/download/v1.8.57/pandare-1.8.57-py3-none-any.whl" }
-dependencies = [
-    { name = "cffi" },
-    { name = "colorama" },
-    { name = "protobuf" },
-]
-wheels = [
-    { url = "https://github.com/panda-re/panda/releases/download/v1.8.57/pandare-1.8.57-py3-none-any.whl", hash = "sha256:0945b8fc0a4505aad264ec8d90200ce3b600c6a9c0da5c425750ff5b7954e3ac" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cffi", specifier = ">=1.14.3" },
-    { name = "colorama" },
-    { name = "protobuf", specifier = ">=4.25.1" },
-]
-
-[[package]]
 name = "pandocfilters"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2532,7 +2512,6 @@ dev = [
     { name = "jupyterlab" },
     { name = "mypy" },
     { name = "notebook" },
-    { name = "pandare" },
     { name = "pip-tools" },
     { name = "pre-commit" },
     { name = "sphinx" },
@@ -2559,7 +2538,6 @@ dev = [
     { name = "jupyterlab", specifier = ">=4.4.9" },
     { name = "mypy", specifier = ">=1.7.1" },
     { name = "notebook", specifier = ">=7.4.7" },
-    { name = "pandare", url = "https://github.com/panda-re/panda/releases/download/v1.8.57/pandare-1.8.57-py3-none-any.whl" },
     { name = "pip-tools", specifier = ">=7.3.0" },
     { name = "pre-commit", specifier = ">=3.5.0" },
     { name = "sphinx", specifier = ">=7.1.2" },

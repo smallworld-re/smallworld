@@ -49,6 +49,8 @@
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
       deps = workspace.deps.all // {
         unicornafl = [];
+        pypanda = [];
+        colorama = [];
       };
 
       overlay = workspace.mkPyprojectOverlay {
@@ -70,6 +72,10 @@
             unicornafl = hacks.nixpkgsPrebuilt {
               from = (unicornafl.lib.${system}.pythonPackage python.pkgs);
             };
+            pypanda = hacks.nixpkgsPrebuilt {
+              from = (pypandaBuilder pandaWithLibs.${system}) python.pkgs;
+            };
+            colorama = hacks.nixpkgsPrebuilt { from = python.pkgs.colorama; };
           };
         in
         (pkgs.callPackage pyproject-nix.build.packages {
@@ -120,6 +126,42 @@
           };
         in pandaFixed
       );
+
+      pypandaBuilder = pandaPkg: ps: ps.buildPythonPackage {
+        pname = "pandare";
+        version = "1.8";
+        format = "setuptools";
+        src = "${panda}/panda/python/core";
+
+        propagatedBuildInputs = with ps; [
+          cffi
+          protobuf
+          colorama
+        ];
+
+        nativeBuildInputs = [
+          ps.setuptools_scm
+        ];
+
+        buildInputs = [ pandaPkg ];
+
+        postPatch = ''
+          substituteInPlace setup.py \
+            --replace 'install_requires=parse_requirements("requirements.txt"),' ""
+          substituteInPlace pandare/utils.py \
+            --replace '/usr/local/bin/' '${pandaPkg}'
+          substituteInPlace pandare/panda.py \
+            --replace 'self.plugin_path = plugin_path' "self.plugin_path = plugin_path or pjoin('${pandaPkg}', 'lib/panda', arch)" \
+            --replace 'if libpanda_path:' 'if True:' \
+            --replace '= libpanda_path' "= libpanda_path or pjoin('${pandaPkg}', 'bin', f'libpanda-{arch}.so')" \
+            --replace 'realpath(pjoin(self.get_build_dir(), "pc-bios"))' "pjoin('${pandaPkg}', 'share/panda')"
+
+          # Use auto-generated files from separate derivation above.
+          rm create_panda_datatypes.py
+          rm -r pandare/{include,autogen}
+          cp -rt pandare "${pandaPkg}"/lib/panda/python/{include,autogen,plog_pb2.py}
+        '';
+      };
 
     in
     {
