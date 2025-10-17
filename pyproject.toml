@@ -40,9 +40,6 @@ dev = [
     "timeout-decorator>=0.5.0",
 ]
 
-[project.scripts]
-smallworld = "smallworld.__main__:main"
-
 [tool.setuptools]
 include-package-data = true
 zip-safe = false
