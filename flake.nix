@@ -118,10 +118,11 @@
             phases = ["installPhase"];
             installPhase = ''
               cp -R ${oldPanda} $out
+              chmod -R +w $out
               mkdir -pv $out/lib
-              chmod +w $out/lib
               cp $out/bin/*.so $out/lib/
-              chmod -w $out/lib
+              touch $out/share/panda/mips_bios.bin
+              touch $out/share/panda/mipsel_bios.bin
             '';
           };
         in pandaFixed
