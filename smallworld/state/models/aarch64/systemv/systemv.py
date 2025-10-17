@@ -95,7 +95,7 @@ class AArch64SysVCallingContext(CStdCallingContext):
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
         intval = emulator.read_register("d0")
-        data = int.to_bytes(intval, self._float_stack_size, "little")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked
 

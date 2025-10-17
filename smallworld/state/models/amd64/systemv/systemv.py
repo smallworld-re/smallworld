@@ -52,7 +52,7 @@ class AMD64SysVCallingContext(CStdCallingContext):
     _double_reg_size = 1
     _four_byte_stack_size = 8
     _eight_byte_stack_size = 8
-    _float_stack_size = 8
+    _float_stack_size = 4
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
@@ -93,7 +93,7 @@ class AMD64SysVCallingContext(CStdCallingContext):
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
         intval = emulator.read_register("xmm0")
-        data = int.to_bytes(intval, self._float_stack_size, "little")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked
 

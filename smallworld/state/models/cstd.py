@@ -61,7 +61,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     return_type: ArgumentType = ArgumentType.VOID
 
     def __init__(self):
-        self.platdef = PlatformDef.for_platform(self.platform)
+        self.platdef: PlatformDef = PlatformDef.for_platform(self.platform)
 
         self._int_reg_offset = 0
         self._fp_reg_offset = 0
@@ -383,6 +383,19 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         arg_offset = self._arg_offset[index]
         kind = self.argument_types[index]
 
+        if value < 0 and isinstance(value, int):
+            # Negative value; need to find 2s-compliment if it's an int
+            value *= -1
+            if self.return_type in self._four_byte_types:
+                value = ((value ^ self._int_inv_mask) + 1) & self._int_inv_mask
+            elif self.return_type in self._eight_byte_types:
+                value = (
+                    (value ^ self._long_long_inv_mask) + 1
+                ) & self._long_long_inv_mask
+            else:
+                # Unsigned type; why are you passing a negative?
+                raise exceptions.ConfigurationError("Tried to pass a signed value")
+
         if kind in self._four_byte_types:
             if not isinstance(value, int):
                 raise ConfigurationError(
@@ -435,10 +448,11 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 raise ConfigurationError(
                     f"Expected 4-byte float value for argument {index}."
                 )
-            as_bytes = struct.pack("<f", value)
             if self.platform.byteorder == Byteorder.BIG:
+                as_bytes = struct.pack(">f", value)
                 as_int = int.from_bytes(as_bytes, "big")
             else:
+                as_bytes = struct.pack("<f", value)
                 as_int = int.from_bytes(as_bytes, "little")
 
             # Four-byte float

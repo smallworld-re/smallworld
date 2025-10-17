@@ -66,7 +66,9 @@ class LoongArch64SysVCallingContext(CStdCallingContext):
 
     def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
         """Read a four-byte returned value"""
-        return emulator.read_register("a0")
+        ret = emulator.read_register("a0")
+        ret &= self._int_inv_mask  # undo sign extension.
+        return ret
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
@@ -98,7 +100,7 @@ class LoongArch64SysVCallingContext(CStdCallingContext):
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
         intval = emulator.read_register("fa0")
-        data = int.to_bytes(intval, self._float_stack_size, "little")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked
 
