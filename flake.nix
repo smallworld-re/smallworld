@@ -181,5 +181,14 @@
           };
         };
       });
+
+      formatter = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          inherit (pkgs) nixfmt-rfc-style;
+        in
+        nixfmt-rfc-style
+      );
     };
 }
