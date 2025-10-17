@@ -101,6 +101,19 @@
         in venv
       );
 
+      pandaWithLibs = forAllSystems (
+        system:
+        let
+          oldPanda = panda.packages.${system}.default;
+          pandaFixed = oldPanda.overrideAttrs (old: {
+            postInstall = old.postInstall + ''
+              mkdir -pv $out/lib
+              cp $out/bin/libpanda*.so $out/lib/
+            '';
+          });
+        in pandaFixed
+      );
+
     in
     {
       devShells = forAllSystems (
@@ -121,7 +134,7 @@
               pkgs.uv
               pkgs.z3
               pkgs.aflplusplus
-              panda.packages.${system}.default
+              pandaWithLibs.${system}
             ] ++ crossTargetCCs;
             env = {
               UV_NO_SYNC = "1";
@@ -141,10 +154,12 @@
           pythonSet = pythonSets.${system};
           pkgs = nixpkgs.legacyPackages.${system};
           virtualenv = virtualEnvProd.${system};
+          fixedPanda = pandaWithLibs.${system};
         in
       {
         default = pythonSet.smallworld-re;
         venv = virtualenv;
+        panda = fixedPanda;
         dockerImage = pkgs.dockerTools.buildImage {
           name = "smallworld-re";
           tag = "latest";
@@ -156,7 +171,7 @@
               pkgs.dockerTools.caCertificates
               pkgs.dockerTools.fakeNss
               pkgs.aflplusplus
-              panda.packages.${system}.default
+              fixedPanda
               virtualenv
             ];
             pathsToLink = ["/bin" "/etc" "/var"];
