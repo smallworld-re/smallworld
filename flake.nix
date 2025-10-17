@@ -105,12 +105,19 @@
         system:
         let
           oldPanda = panda.packages.${system}.default;
-          pandaFixed = oldPanda.overrideAttrs (old: {
-            postInstall = old.postInstall + ''
+          pkgs = nixpkgs.legacyPackages.${system};
+          pandaFixed = pkgs.stdenv.mkDerivation {
+            name = oldPanda.name;
+            buildInputs = [oldPanda];
+            phases = ["installPhase"];
+            installPhase = ''
+              cp -R ${oldPanda} $out
               mkdir -pv $out/lib
-              cp $out/bin/libpanda*.so $out/lib/
+              chmod +w $out/lib
+              cp $out/bin/*.so $out/lib/
+              chmod -w $out/lib
             '';
-          });
+          };
         in pandaFixed
       );
 
@@ -154,12 +161,14 @@
           pythonSet = pythonSets.${system};
           pkgs = nixpkgs.legacyPackages.${system};
           virtualenv = virtualEnvProd.${system};
+          upstreamPanda = panda.packages.${system}.default;
           fixedPanda = pandaWithLibs.${system};
         in
       {
         default = pythonSet.smallworld-re;
         venv = virtualenv;
         panda = fixedPanda;
+        upstreamPanda = upstreamPanda;
         dockerImage = pkgs.dockerTools.buildImage {
           name = "smallworld-re";
           tag = "latest";
