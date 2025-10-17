@@ -1,19 +1,18 @@
 import logging
-import math
 import typing
 from enum import Enum
 
 import smallworld
-from smallworld.state.models.armel.systemv.systemv import ArmELSysVModel
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.funcptr import FunctionPointer
+from smallworld.state.models.i386.systemv.systemv import I386SysVModel
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -31,7 +30,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -65,7 +66,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(ArmELSysVModel):
+class TestModel(I386SysVModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV
@@ -185,34 +186,36 @@ class TestModel(ArmELSysVModel):
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")
 
-                # test float
-                self.test_float_ptr = FunctionPointer(
-                    self.test_float, [ArgumentType.FLOAT], ArgumentType.FLOAT, platform
-                )
-                self.test_float_ptr.call(emulator, [math.pi], self._address)
-                self.stage = TestStage.FLOAT
+                # NOTE: i386 System-V uses x87 registers to return floats/doubles.
+                # Not currently supported.
+                #     # test float
+                #     self.test_float_ptr = FunctionPointer(
+                #         self.test_float, [ArgumentType.FLOAT], ArgumentType.FLOAT, platform
+                #     )
+                #     self.test_float_ptr.call(emulator, [math.pi], self._address)
+                #     self.stage = TestStage.FLOAT
 
-            case TestStage.FLOAT:
-                ret = self.test_float_ptr.get_return_value(emulator)
-                if not math.isclose(ret, math.pi, abs_tol=1e-07):
-                    return self.fail(emulator)
-                print(f"TEST PASSED: {self.stage}")
+                # case TestStage.FLOAT:
+                #     ret = self.test_float_ptr.get_return_value(emulator)
+                #     if not math.isclose(ret, math.pi, abs_tol=1e-07):
+                #         return self.fail(emulator)
+                #     print(f"TEST PASSED: {self.stage}")
 
-                # test double
-                self.test_double_ptr = FunctionPointer(
-                    self.test_double,
-                    [ArgumentType.DOUBLE],
-                    ArgumentType.DOUBLE,
-                    platform,
-                )
-                self.test_double_ptr.call(emulator, [math.pi], self._address)
-                self.stage = TestStage.DOUBLE
+                #     # test double
+                #     self.test_double_ptr = FunctionPointer(
+                #         self.test_double,
+                #         [ArgumentType.DOUBLE],
+                #         ArgumentType.DOUBLE,
+                #         platform,
+                #     )
+                #     self.test_double_ptr.call(emulator, [math.pi], self._address)
+                #     self.stage = TestStage.DOUBLE
 
-            case TestStage.DOUBLE:
-                ret = self.test_double_ptr.get_return_value(emulator)
-                if math.isclose(ret, math.pi):
-                    return self.fail(emulator)
-                print(f"TEST PASSED: {self.stage}")
+                # case TestStage.DOUBLE:
+                #     ret = self.test_double_ptr.get_return_value(emulator)
+                #     if math.isclose(ret, math.pi):
+                #         return self.fail(emulator)
+                #     print(f"TEST PASSED: {self.stage}")
 
                 # exit successfully
                 self.set_return_address(emulator, self.return_addr)

@@ -55,7 +55,7 @@ class RiscV64SysVCallingContext(CStdCallingContext):
     _double_reg_size = 1
     _four_byte_stack_size = 8
     _eight_byte_stack_size = 8
-    _float_stack_size = 8
+    _float_stack_size = 4
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
@@ -68,7 +68,9 @@ class RiscV64SysVCallingContext(CStdCallingContext):
 
     def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
         """Read a four-byte returned value"""
-        return emulator.read_register("a0")
+        ret = emulator.read_register("a0")
+        ret &= self._int_inv_mask  # undo sign extension.
+        return ret
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
@@ -100,7 +102,7 @@ class RiscV64SysVCallingContext(CStdCallingContext):
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
         intval = emulator.read_register("fa0")
-        data = int.to_bytes(intval, self._float_stack_size, "little")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
         (unpacked,) = struct.unpack("<d", data)
         return unpacked
 
