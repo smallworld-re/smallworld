@@ -1158,7 +1158,9 @@ class Tmpnam(StdioModel):
         assert isinstance(ptr, int)
 
         if ptr == 0:
-            raise NotImplementedError("Using tmpnam internal buffer not supported")
+            raise exceptions.UnsupportedModelError(
+                "Using tmpnam internal buffer not supported"
+            )
 
         name = self._generate_tmpnam().encode("utf-8")
 
@@ -1175,9 +1177,12 @@ class Vfprintf(StdioModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 class Vfscanf(StdioModel):
@@ -1188,9 +1193,12 @@ class Vfscanf(StdioModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 class Vprintf(StdioModel):
@@ -1201,9 +1209,12 @@ class Vprintf(StdioModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 class Vscanf(StdioModel):
@@ -1214,9 +1225,12 @@ class Vscanf(StdioModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 class Vsnprintf(StdioModel):
@@ -1227,9 +1241,12 @@ class Vsnprintf(StdioModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 class Vsprintf(StdioModel):
@@ -1240,9 +1257,12 @@ class Vsprintf(StdioModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 class Vsscanf(StdioModel):
@@ -1253,9 +1273,12 @@ class Vsscanf(StdioModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # No model for va_list
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires va_list support")
 
 
 __all__ = [

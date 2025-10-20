@@ -78,6 +78,21 @@ class ScriptIntegrationTest(unittest.TestCase):
                 f"string does not contain `{match}`:\n\n{output.strip()}"
             )
 
+    def assertStringsAbsent(self, output: str, *strings) -> None:
+        """Assert that all lines contain none of these strings.
+
+        Arguments:
+            outputs: The output to check
+            strings: One or more strings to match
+
+        Raises:
+            `AssertionError` if any line in `output` matches any string in `strings`.
+        """
+        for line in output.split("\n"):
+            for string in strings:
+                if string in line:
+                    raise AssertionError(f"Line contains {string}:\n\n{output.strip()}")
+
     def assertLineContainsStrings(self, output: str, *strings) -> None:
         """Assert that any line contains all of these strings.
 
@@ -2699,6 +2714,20 @@ class NoArgLibraryModelTest(AbsLibraryModelTest):
         self.command(
             f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
         )
+
+
+class C99LibcTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "libc"
+
+    def run_test(self, arch):
+        _, stderr = self.command(
+            f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+        )
+
+        self.assertLineContainsStrings(stderr, "Harness requires atexit")
+        self.assertLineContainsStrings(stderr, "Harness requires vprintf")
+        self.assertStringsAbsent(stderr, "Harness requires system")
 
 
 class C99AbsTests(NoArgLibraryModelTest):

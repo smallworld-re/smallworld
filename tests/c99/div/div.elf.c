@@ -1,5 +1,6 @@
-#include <string.h>
+#include <stdlib.h>
 
 int main(int argc, char *argv[]) {
-    return 0;
+    div_t res = div(argc, 5);
+    return res.quot + res.rem;
 }
