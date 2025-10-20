@@ -8,13 +8,24 @@ assembly.
 .. literalinclude:: ../../tests/square/square.amd64.s
   :language: NASM
 
-This example can be found in the ``tests`` directory of the repository, in the
-file ``square.amd64.s``. There are a number of other small assembly examples there
-along with it. There is also a ``Makefile`` in that directory and you will have
-to run ``make`` there in order to generate the binary code used in this and
-other tutorials involving those tests. Once you have run ``make``, the
-corresponding binary, which we will analyze in this tutorial, will be in the
-file ``square.amd64.bin``.
+This example can be found in ``tests/square/square.amd64.s``.
+The ``tests`` directory includes a number of example programs
+that make up our integration test suite, along with a ``Makefile``.
+You will need to run the following command in order to generate the binary code
+used in this and other tutorials::
+
+    cd smallworld/tests
+    make square/square.amd64.bin
+
+.. note::
+    
+    You must have ``nasm`` installed to make this test.
+    You can run ``make all`` to build all tests for all architectures,
+    but this requires a number of other cross-compilers to complete.
+
+Once you have run ``make``, the corresponding binary,
+which we will analyze in this tutorial, will be in the
+file ``tests/square/square.amd64.bin``.
 
 A reasonable first step in harnessing is to run SmallWorld's basic harness
 script which assumes nothing about the code: ``basic_harness.py`` (which also
@@ -32,7 +43,7 @@ output). **Hinting** is a SmallWorld concept. Hints are described in detail in
 a code harness. You can read more about analyses in :ref:`analyses`.
 
 Next in the script, a cpu state is created. This is another SmallWorld concept
-described in :ref:`state` in detail. You can think of it as a place to set up
+described in :ref:`cpu` in detail. You can think of it as a place to set up
 registers and memory (which have convenient stack and heap abstractions) with
 specific values in a way that is agnostic to details about any particular
 dynamic analysis employing a specific emulator or engine. So, the same

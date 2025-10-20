@@ -3,4 +3,6 @@
 Loading an ELF or PE
 ====================
 
-.. warning:: coming soon - tutorial about loading programs from object files
+In this tutorial, you will be guided through the steps to harness
+code contained in an ELF or PE object file.
+

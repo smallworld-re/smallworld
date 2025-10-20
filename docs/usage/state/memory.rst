@@ -1,3 +1,5 @@
+.. _memory:
+
 Memory Objects
 ==============
 

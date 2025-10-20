@@ -1,3 +1,5 @@
+.. _machine:
+
 The Machine Object
 ==================
 
