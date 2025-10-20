@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -39,13 +39,15 @@ machine.add(stack)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
-cpu.sp.set(sp)
+cpu.rsp.set(sp)
 
 # First test: read unmapped memory
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
-    cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
+    cpu.rip.set(entrypoint)
+    emulator = smallworld.emulators.AngrEmulator(platform)
+    emulator.enable_linear()
+    emulator.error_on_unmapped = True
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory read")
 except smallworld.exceptions.EmulationReadUnmappedFailure:
@@ -54,8 +56,10 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 # Second test: write unmapped memory
 try:
     entrypoint = code.get_symbol_value("write_unmapped")
-    cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
+    cpu.rip.set(entrypoint)
+    emulator = smallworld.emulators.AngrEmulator(platform)
+    emulator.enable_linear()
+    emulator.error_on_unmapped = True
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory write")
 except smallworld.exceptions.EmulationWriteUnmappedFailure:
@@ -64,8 +68,10 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 # Third test: fetch unmapped memory
 try:
     entrypoint = code.get_symbol_value("fetch_unmapped")
-    cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
+    cpu.rip.set(entrypoint)
+    emulator = smallworld.emulators.AngrEmulator(platform)
+    emulator.enable_linear()
+    emulator.error_on_unmapped = True
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory fetch")
 except smallworld.exceptions.EmulationFetchUnmappedFailure:

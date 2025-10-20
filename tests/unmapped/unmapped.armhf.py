@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -26,7 +26,7 @@ filename = (
 )
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
+        f, platform=platform, address=0x4000000
     )
     machine.add(code)
 

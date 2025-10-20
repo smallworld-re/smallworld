@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -25,9 +25,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # NOTE: We purposefully don't add bounds.
@@ -45,7 +43,9 @@ cpu.sp.set(sp)
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator = smallworld.emulators.AngrEmulator(platform)
+    emulator.enable_linear()
+    emulator.error_on_unmapped = True
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory read")
 except smallworld.exceptions.EmulationReadUnmappedFailure:
@@ -55,7 +55,9 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator = smallworld.emulators.AngrEmulator(platform)
+    emulator.enable_linear()
+    emulator.error_on_unmapped = True
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory write")
 except smallworld.exceptions.EmulationWriteUnmappedFailure:
@@ -65,7 +67,9 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator = smallworld.emulators.AngrEmulator(platform)
+    emulator.enable_linear()
+    emulator.error_on_unmapped = True
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory fetch")
 except smallworld.exceptions.EmulationFetchUnmappedFailure:

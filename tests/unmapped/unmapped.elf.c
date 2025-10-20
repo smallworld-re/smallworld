@@ -10,7 +10,7 @@ void write_unmapped() {
     *unmapped = 42;
 }
 
-void call_unmapped() {
+void fetch_unmapped() {
     void (*unmapped)(void) = (void *)(size_t)0xdead;
     unmapped();
 }

@@ -243,6 +243,50 @@ class AngrEmulator(
         if self.init:
             self.init(self)
 
+        # Configure the state with default memory access breakpoints.
+        # These pick up
+        def sym_read_callback(state):
+            addr = state.inspect.mem_read_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_read_length
+            if (
+                self.error_on_unmapped
+                and len(
+                    state.scratch.memory_map.get_missing_ranges((addr, addr + size))
+                )
+                > 0
+            ):
+                raise exceptions.EmulationReadUnmappedFailure(
+                    "Read of unmapped memory", state._ip.concrete_value, address=addr
+                )
+
+        self.state.inspect.b("mem_read", when=angr.BP_BEFORE, action=sym_read_callback)
+
+        def sym_write_callback(state):
+            addr = state.inspect.mem_write_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_write_length
+            if size is None:
+                # This really shouldn't be None, but what do I know?
+                # Use the write expression's size as a placeholder
+                size = state.inspect.mem_write_expr.size() // 8
+            if (
+                self.error_on_unmapped
+                and len(
+                    state.scratch.memory_map.get_missing_ranges((addr, addr + size))
+                )
+                > 0
+            ):
+                raise exceptions.EmulationWriteUnmappedFailure(
+                    "Write of unmapped memory", state._ip.concrete_value, address=addr
+                )
+
+        self.state.inspect.b(
+            "mem_write", when=angr.BP_BEFORE, action=sym_write_callback
+        )
+
         # Mark this emulator as initialized
         self._initialized = True
 
@@ -1334,6 +1378,16 @@ class AngrEmulator(
             num_inst = 1
         else:
             num_inst = None
+
+        if self.error_on_unmapped:
+            # Test for unmapped instruction fetches if desired.
+            for state in self.mgr.active:
+                ip = state._ip.concrete_value
+                if not state.scratch.memory_map.contains_value(ip):
+                    raise exceptions.EmulationFetchUnmappedFailure(
+                        "Fetched unmapped memory", ip, address=ip
+                    )
+
         self.mgr.step(
             num_inst=num_inst,
             successor_func=self.machdef.successors,
@@ -1376,7 +1430,10 @@ class AngrEmulator(
                 and not self.state.scratch.bounds.contains_value(ip)
             ):
                 return True
-            if not self.state.scratch.memory_map.contains_value(ip):
+            if (
+                not self.error_on_unmapped
+                and not self.state.scratch.memory_map.contains_value(ip)
+            ):
                 return True
             if ip in self.state.scratch.exit_points:
                 return True

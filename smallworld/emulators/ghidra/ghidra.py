@@ -308,6 +308,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
             addr = int.from_bytes(addr_bytes, "little")
 
+        if not self._memory_map.contains_value(addr):
+            raise exceptions.EmulationReadUnmappedFailure(
+                "Read of unmapped data", self.read_register("pc"), address=addr
+            )
+
         # Dereference the address to get the original data
         addr_space = self.machdef.language.getDefaultSpace()
         addr_addr = addr_space.getAddress(addr)
@@ -379,6 +384,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
             addr = int.from_bytes(addr_bytes, "little")
 
+        if not self._memory_map.contains_value(addr):
+            raise exceptions.EmulationWriteUnmappedFailure(
+                "Write of unmapped data", self.read_register("pc"), address=addr
+            )
+
         if self._mem_writes_hook is not None:
             self._mem_writes_hook(self, addr, len(data), data)
 
@@ -429,6 +439,11 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Step!
         pc = self.read_register_content(self.platdef.pc_register)
+        if not self._memory_map.contains_value(pc):
+            raise exceptions.EmulationFetchUnmappedFailure(
+                "Fetched unmapped memory", pc, address=pc
+            )
+
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
 
@@ -495,8 +510,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint()
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
-            raise exceptions.EmulationBounds()
-        if not self._memory_map.is_empty() and not self._memory_map.contains_value(pc):
             raise exceptions.EmulationBounds()
 
     def step_block(self) -> None:

@@ -99,6 +99,18 @@ class EmulationMemoryFailure(EmulationFailure):
         self.address = address
         self.operands = operands
 
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        msg = self.args[0]
+        if self.address is not None:
+            return f"{msg} pc={hex(self.pc)} address={hex(self.address)}"
+        elif self.operands is not None:
+            return f"{msg} pc={hex(self.pc)} operands=[{', '.join(map(lambda x: f'{x[0].expr_string()}: {hex(x[1])}', self.operands))}]"
+        else:
+            return msg
+
 
 class EmulationReadFailure(EmulationMemoryFailure):
     """Raised if something went wrong reading memory"""

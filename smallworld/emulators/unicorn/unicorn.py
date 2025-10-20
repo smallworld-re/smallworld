@@ -640,7 +640,7 @@ class UnicornEmulator(
 
         pc = self._handle_thumb_interwork(pc)
 
-        if pc not in self.function_hooks:
+        if pc not in self.function_hooks and self.memory_map.contains_value(pc):
             disas = self.current_instruction()
             logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
@@ -727,6 +727,7 @@ class UnicornEmulator(
         exc: exceptions.EmulationError = exceptions.EmulationError(
             "Completely unknown Unicorn error"
         )
+        operands: typing.List[typing.Any] = []
 
         if typ == "mem":
             prefix = "Failed memory access"
@@ -746,9 +747,6 @@ class UnicornEmulator(
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out
-
-        details: typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]] = {}
-        operands: typing.List[typing.Any]
 
         def details_str(details):
             for k, v in details.items():
@@ -774,14 +772,14 @@ class UnicornEmulator(
             msg = f"{prefix} due to read of unmapped memory"
             # actually this is a memory read error
             if i is not None:
-                operands = i.reads
+                operands = get_unavailable_rw(i.reads)
             exc = exceptions.EmulationReadUnmappedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
             # actually this is a memory read error
             if i is not None:
-                operands = i.reads
+                operands = get_unavailable_rw(i.reads)
             exc = exceptions.EmulationReadProtectedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
@@ -815,11 +813,10 @@ class UnicornEmulator(
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
             msg = f"{prefix} due to fetch of unmapped memory at"
             if pc in self._exit_points:
-                # This is actually an exit point
-                return details
+                raise exceptions.EmulationStop
             if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
                 # This is actually an out-of-bounds error
-                return details
+                raise exceptions.EmulationBounds
             exc = exceptions.EmulationFetchUnmappedFailure(msg, pc, address=pc)
 
         elif error.errno == unicorn.UC_ERR_FETCH_PROT:
@@ -836,7 +833,6 @@ class UnicornEmulator(
 
         elif error.errno == unicorn.UC_ERR_INSN_INVALID:
             msg = f"{prefix} due invalid instruction"
-            details = {"pc": pc, "instr": str(i)}
             exc = exceptions.EmulationExecInvalidFailure(msg, pc, i)
 
         elif error.errno == unicorn.UC_ERR_RESOURCE:
