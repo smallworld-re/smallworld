@@ -187,9 +187,9 @@
         in
         {
           default = pkgs.mkShell {
-            packages = inputs ++ [
+            packages = [
               virtualenv
-            ];
+            ] ++ inputs;
             env = {
               inherit GHIDRA_INSTALL_DIR;
               UV_NO_SYNC = "1";
