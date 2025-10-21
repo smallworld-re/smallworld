@@ -1,7 +1,5 @@
-import copy
 import logging
 import sys
-import typing
 
 import smallworld
 from smallworld import hinting
