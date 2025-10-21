@@ -1,89 +1,140 @@
 Harnessing a Simple Program
-===========================
+---------------------------
 
-In this quick tutorial you will be guided through the steps to harness a very
-simple snippet of binary code. Here it is, weighing in at only two lines of x86
-assembly.
+In this quick tutorial you will be guided through the steps to harness
+a very simple snippet of binary code. Here it is, weighing in at only
+two lines of x86 assembly.
 
 .. literalinclude:: ../../tests/square/square.amd64.s
   :language: NASM
 
-This example can be found in ``tests/square/square.amd64.s``.
-The ``tests`` directory includes a number of example programs
-that make up our integration test suite, along with a ``Makefile``.
-You will need to run the following command in order to generate the binary code
-used in this and other tutorials::
+The source for this example can be found in the ``tests`` directory of
+the repository, in the file ``square.amd64.s``. There are a number of
+other small assembly examples there along with it. There is also a
+``Makefile`` in that directory and you will have to run ``make`` there
+in order to generate the binary code used in this and other tutorials
+involving those tests. Once you have run ``make``, the corresponding
+binary, which we will harness in this tutorial, will be in the file
+``square.amd64.bin``.
 
-    cd smallworld/tests
-    make square/square.amd64.bin
-
-.. note::
-    
-    You must have ``nasm`` installed to make this test.
-    You can run ``make all`` to build all tests for all architectures,
-    but this requires a number of other cross-compilers to complete.
-
-Once you have run ``make``, the corresponding binary,
-which we will analyze in this tutorial, will be in the
-file ``tests/square/square.amd64.bin``.
-
-A reasonable first step in harnessing is to run SmallWorld's basic harness
-script which assumes nothing about the code: ``basic_harness.py`` (which also
-lives in the ``examples`` directory). That script is fairly simple, so let's have
-a look at it.
+A reasonable first step in harnessing is to run SmallWorld's basic
+harness script which assumes nothing about the code, and tries to run
+it a bunch of times to see what it can deduce. That script,
+``basic_harness.py``, lives in the ``examples`` directory. It is
+fairly simple, so let's have a look at it.
 
 .. literalinclude:: ../../examples/basic_harness.py
   :language: Python
 
-After the imports, the script sets up logging and hinting. Logging is probably
-self-explanatory (change level to ``logging.DEBUG`` to get lots of low-level
-output). **Hinting** is a SmallWorld concept. Hints are described in detail in
-:ref:`hinting` but the basic idea is that SmallWorld includes various
-**analyses** that are intended to provide hints that can guide the creation of
-a code harness. You can read more about analyses in :ref:`analyses`.
+After the imports, the script sets up logging. Logging is probably
+self-explanatory (change level to ``logging.DEBUG`` to get lots of
+low-level output).
 
-Next in the script, a cpu state is created. This is another SmallWorld concept
-described in :ref:`cpu` in detail. You can think of it as a place to set up
-registers and memory (which have convenient stack and heap abstractions) with
-specific values in a way that is agnostic to details about any particular
-dynamic analysis employing a specific emulator or engine. So, the same
-``state`` could be applied to a Unicorn emulator or a angr engine or ...
+Next, the script asserts an appropriate **platform**. This is a
+SmallWorld concept which, essentially, establishes various aspects of
+the CPU that will be used to execute instructions. The platform is
+used, in this script, to actually create the virutal CPU SmallWorld
+will use with this code:
+``cpu = smallworld.state.cpus.CPU.for_platform(platform)``
+Note: `platform` is also used by other parts of SmallWorld, such as
+its analyses, to know endianness, register widths and names, etc.
 
-In the script, we employ an **initializer** to zero out all the registers in
-the state and then load the binary code from a file and map it into the state.
+The cpu **state** is yet another SmallWorld concept (it is explained in
+:ref:`state`). You can think of it as a place to set up registers and
+memory (which comes with convenient stack and heap abstractions) with
+specific initial values in a way that is agnostic to details about any
+particular dynamic analysis employing a particular emulator or
+engine. Thus, the same state could be applied to a Unicorn
+emulator or a angr engine or a PANDA engine or ...
 
-Finally, the script runs various analyses on the code and cpu state in order to
-help explicate how it might be better harnessed. This is the last line in the
-script ``smallworld.analyze(state)`` and it is what will generate hints.
+The script next loads the code from the file ``square.amd64.bin`` and
+sets its base address to 0x1000, with the lines
 
-Note that all of this setup performed is entirely generic; this script assumes
-nothing about the binary to be harnessed. To run the script we just put the
-binary at the end of the commandline ``python3 basic_harnesss.py square.amd64.bin``.
+.. code-block:: python
+    code = smallworld.state.memory.code.Executable.from_filepath(
+        sys.argv[1], address=0x1000
+    )
+
+Then, the script sets the instruction address at which to start
+dynamic analysis with ``cpu.pc.set(code.address)`` and also defines an
+exit point for an emulator to know when to stop with
+``machine.add_exit_point(code.address + code.get_capacity())``.
+
+Once created, ``code`` and ``cpu`` are added to the SmallWorld
+``machine``. This is another SmallWorld construct; the **machine**
+represents all initial analysis state including register contents
+specific to the included cpu and any memory contents.
+
+Next, hinting is set up. **Hinting** is also a SmallWorld
+concept. Hints are described in detail in :ref:`hinting` but the basic
+idea is that SmallWorld includes various analyses that are intended to
+provide hints that can guide the creation of a code harness. Hints can
+be read by a human or consumed by other, higher-level analyses. You
+can read more about this in :ref:`analyses`.  Here, we create a hinter
+and arrange for the method ``collect_hints`` to be called when either
+a ``DynamicRegisterValueHint`` or a
+``DynamicRegisterValueSummaryHint`` is generated by some
+analysis. That method just prints out the hint.
+
+The `basic_harness.py` script employs an analysis called the
+*colorizer* which is a kind of poor person's dynamic taint
+analysis. Registers are initialized with large random values and
+data flows are inferred when those values are observed being used by
+subsequent instructions. This can tell us lots of things, but, here,
+it will tell us simply what register(s) are inputs for this code.
+
+The colorizer runs code with random intial state. This means the code
+can run differently (follow a different path) each time. Each run is a
+`micro-execution` (inspired by the paper "Micro execution" [1]). This
+script performs ten micro executions, randomizing uninitialzed
+registers before each with the code
+
+.. code-block:: python
+    seed = 123456
+    cs = ColorizerSummary(hinter)
+    for i in range(10):
+        c = Colorizer(hinter, num_insns=10, exec_id=i)
+        perturbed_machine = randomize_uninitialized(machine, seed + i, [])
+        c.run(perturbed_machine)
+    cs.run(None)
+
+The `ColorizerSummary` analysis summarizes hints across
+microexecutions. It "runs" after all the colorizer micro-executions
+and catches all hints output by other analyses connected to the same
+hinter.
+
+Note that all of the setup performed is entirely generic; this script
+assumes nothing about the binary to be harnessed. To run the script we
+just provide a single argument, the binary, to get the commandline
+``python3 basic_harnesss.py square.amd64.bin``.
 
 Here is what that outputs
 
 .. command-output:: python3 examples/basic_harness.py tests/square/square.amd64.bin
     :cwd: ../../
 
-We get back one hint per attempt at executing ``square.amd64.bin``.  The hint is
-generated by an analysis called ``input_colorizer`` which attempts to determine
-what registers and instructions are using input values by setting them to
-random values and then observing when those values are used by instructions.
-This is an ``InputUseHint`` and if we know how to interpret it, it tells us
-that the register ``edi`` is an input to this snippet of code and should really
-be set explicitly. We can now create a new script ``square.amd64.py`` which harnesses
-``square.amd64.bin`` perfectly.
+The output contains a lot of hints but we'll look at the *Summary*
+ones, which are hints that were emitted by multiple micro-executions.
+A `read-def-summary` hint corresponds to a "color" or random value in
+a register that is used by an instruction that was not seen
+before. This means it is an input to this block of code. There is only
+one such hint output by `basic_harness.py`:
+
+.. command-output:: python3 examples/basic_harness.py tests/square/square.amd64.bin 2>&1 | grep read-def-summary
+    :cwd: ../../
+
+The out tells us that the register ``edi`` is an input to this
+snippet of code and should really be set explicitly. We can now create
+a new script ``square.amd64.py`` which harnesses ``square.amd64.bin``
+perfectly, exposing ``edi`` as a command-line argument.
 		    
 .. literalinclude:: ../../tests/square/square.amd64.py
   :language: Python
 
-To the ``basic_harness.py`` we have added a line to set the initial value of
-``edi`` via the commandline, a new line which simply emulates, and a final line
-to read out the result which is in the register ``eax``.
+And here is what it looks like to run that script, setting ``edi`` to
+42 initially.
 
-Here is what running that new harness looks like
-
-.. command-output:: python3 square.amd64.py 42
+.. command-output:: python3 ../tests/square/square.amd64.py 42
     :cwd: ../../tests/square/
 
 Since ``42*42=1764`` which is ``0x6e4`` we have harnessed
