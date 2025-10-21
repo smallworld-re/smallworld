@@ -9,6 +9,8 @@
 dist/
 build/
 venv/
+.venv/
+.venv-imperative/
 core.*
 /result
 unicornafl-flake/result

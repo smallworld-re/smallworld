@@ -176,26 +176,50 @@
             "loongarch64-linux"
           ];
           crossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) crossTargets;
+          inputs = [
+            pkgs.uv
+            pkgs.z3
+            pkgs.aflplusplus
+            pandaWithLibs.${system}
+            pkgs.ghidra
+          ] ++ crossTargetCCs;
+          GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
         in
         {
           default = pkgs.mkShell {
-            packages = [
+            packages = inputs ++ [
               virtualenv
-              pkgs.uv
-              pkgs.z3
-              pkgs.aflplusplus
-              pandaWithLibs.${system}
-              pkgs.ghidra
-            ] ++ crossTargetCCs;
+            ];
             env = {
+              inherit GHIDRA_INSTALL_DIR;
               UV_NO_SYNC = "1";
               UV_PYTHON = pythonSet.python.interpreter;
               UV_PYTHON_DOWNLOADS = "never";
-              GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
             };
             shellHook = ''
               unset PYTHONPATH
               export REPO_ROOT=$(git rev-parse --show-toplevel)
+            '';
+          };
+          imperative = pkgs.mkShell {
+            packages = inputs ++ [
+              pkgs.python3
+              pkgs.python3Packages.pip
+              pkgs.python3Packages.setuptools
+            ];
+            env = {
+              inherit GHIDRA_INSTALL_DIR;
+            };
+            shellHook = ''
+              # imperative virtualenv setup
+              mkdir -p .venv-imperative
+              export VIRTUAL_ENV=$(pwd)/.venv-imperative
+              export UV_PROJECT_ENVIRONMENT=$VIRTUAL_ENV
+              export PIP_PREFIX=$(pwd)/.venv-imperative/pip_packages
+              export PYTHONPATH="$PIP_PREFIX/${pkgs.python3.sitePackages}:$PYTHONPATH"
+              export PATH="$PIP_PREFIX/bin:$VIRTUAL_ENV/bin:$PATH"
+              unset SOURCE_DATE_EPOCH
+              uv venv -q
             '';
           };
         }
