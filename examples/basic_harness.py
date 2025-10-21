@@ -38,8 +38,10 @@ machine.add_exit_point(code.address + code.get_capacity())
 machine.add(code)
 machine.add(cpu)
 
+
 def collect_hints(hint):
     logger.info(hint)
+
 
 hinter = hinting.Hinter()
 hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
