@@ -43,7 +43,7 @@ ifdef LOONGARCH_SYSROOT
 endif
 
 %.aarch64.so: %.so.c
-	aarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.aarch64.so
+	aarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.aarch64.so
 
 %.aarch64.elf: %.elf.c
 	aarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.aarch64.elf
@@ -59,7 +59,7 @@ endif
 	rm $*.aarch64.o
 
 %.amd64.so: %.so.c
-	gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
+	gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.amd64.so
 
 %.amd64.elf: %.elf.c
 	gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
@@ -72,7 +72,7 @@ endif
 
 
 %.amd64.dll: %.dll.c
-	x86_64-w64-mingw32-gcc -shared $*.dll.c -o $*.amd64.dll
+	x86_64-w64-mingw32-gcc -fPIC -shared $*.dll.c -o $*.amd64.dll
 
 %.amd64.elf: %.amd64.elf.s
 	as $*.amd64.elf.s -o $*.amd64.elf.o
@@ -83,7 +83,7 @@ endif
 	nasm $*.amd64.s -o $*.amd64.bin
 
 %.armel.so: %.so.c
-	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.so.c -shared -o $*.armel.so
+	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.so.c -fPIC -shared -o $*.armel.so
 
 %.armel.elf: %.elf.c
 	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.elf.c -o $*.armel.elf
@@ -99,7 +99,7 @@ endif
 	rm $*.armel.o
 
 %.armhf.so: %.so.c
-	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.so.c -shared -o $*.armhf.so
+	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.so.c -fPIC -shared -o $*.armhf.so
 
 %.armhf.elf: %.elf.c
 	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.elf.c -o $*.armhf.elf
@@ -115,7 +115,7 @@ endif
 	rm $*.armhf.o
 
 %.i386.so: %.so.c
-	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.i386.so
+	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.i386.so
 
 %.i386.elf: %.elf.c
 	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.i386.elf
@@ -124,7 +124,7 @@ endif
 	i686-w64-mingw32-gcc $*.pe.c $*.i386.dll -o $*.i386.pe
 
 %.i386.dll: %.dll.c
-	i686-w64-mingw32-gcc -shared $*.dll.c -o $*.i386.dll
+	i686-w64-mingw32-gcc -fPIC -shared $*.dll.c -o $*.i386.dll
 
 %.i386.pe: %.pe.c
 	i686-w64-mingw32-gcc $*.pe.c -o $*.i386.pe
@@ -140,7 +140,7 @@ endif
 	rm $*.i386.o
 
 %.la64.so: %.so.c
-	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -fPIC -shared -o $*.la64.so
 
 %.la64.elf: %.elf.c
 	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.elf.c -o $*.la64.elf
@@ -156,7 +156,7 @@ endif
 	rm $*.la64.o
 
 %.mips.so: %.so.c
-	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips.so
+	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.mips.so
 
 %.mips.elf: %.elf.c
 	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.mips.elf
@@ -172,7 +172,7 @@ endif
 	rm $*.mips.o
 
 %.mipsel.so: %.so.c
-	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mipsel.so
+	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.mipsel.so
 
 %.mipsel.elf: %.elf.c
 	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.mipsel.elf
@@ -188,7 +188,7 @@ endif
 	rm $*.mipsel.o
 
 %.mips64.so: %.so.c
-	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips64.so
+	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.mips64.so
 
 %.mips64.elf: %.elf.c
 	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64.elf
@@ -204,7 +204,7 @@ endif
 	rm $*.mips64.o
 
 %.mips64el.so: %.so.c
-	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips64el.so
+	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.mips64el.so
 
 %.mips64el.elf: %.elf.c
 	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64el.elf
@@ -220,7 +220,7 @@ endif
 	rm $*.mips64el.o
 
 %.ppc.so: %.so.c
-	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.ppc.so
+	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.ppc.so
 
 %.ppc.elf: %.elf.c
 	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.ppc.elf
@@ -236,7 +236,7 @@ endif
 	rm $*.ppc.o
 
 %.ppc64.so: %.so.c
-	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.ppc64.so
+	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.ppc64.so
 
 %.ppc64.elf: %.elf.c
 	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.ppc64.elf
@@ -252,7 +252,7 @@ endif
 	rm $*.ppc64.o
 
 %.riscv64.so: %.so.c
-	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.riscv64.so
+	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -fPIC -shared -o $*.riscv64.so
 
 %.riscv64.elf: %.elf.c
 	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.riscv64.elf

@@ -33,9 +33,32 @@ but ``basic_harness.py`` defines no other memory.
 To successfully harness, we need to create an execution stack, and add it to our harness.
 Details of this interface can be found in :ref:`memory`.
 
+.. code-block:: python
+
+    # Stack needs the following parameters:
+    # 
+    # - The target platform; determines a few behaviors.
+    # - The start address, here set to 0x2000
+    # - The size, here set to 0x4000
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    machine.add(stack)
+
 From the assembly, we know that our input is eight bytes wide,
 and starts eight bytes after the stack pointer.
-We need to push that value onto the stack, and set ``rsp`` appropriately.
+We need to push that value onto the stack, and set ``rsp`` appropriately:
+
+.. code-block:: python
+
+    # Push our argument value onto the stack
+    stack.push_integer(0x44444444, 8, None) 
+
+    # Push a fake return value onto the stack,
+    # accounting for the 8-byte gap
+    stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+
+    # Configure the stack pointer
+    sp = stack.get_pointer()
+    cpu.rsp.set(sp)
 
 We can create the script ``tests/stack.amd64.py`` to perform these changes:
 

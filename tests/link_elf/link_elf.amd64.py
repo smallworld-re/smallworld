@@ -43,6 +43,10 @@ with open(libname, "rb") as f:
     )
     machine.add(lib)
 
+lib.link_elf(lib)
+code.link_elf(code)
+lib.link_elf(lib, all_syms=True)
+code.link_elf(code, all_syms=True)
 code.link_elf(lib)
 
 # Load and add code from lib.
