@@ -1,8 +1,8 @@
 Harnessing a Simple Program
 ---------------------------
 
-In this quick tutorial you will be guided through the steps to harness
-a very simple snippet of binary code. Here it is, weighing in at only
+In this tutorial you will be guided through the steps to harness a
+very simple snippet of binary code. Here it is, weighing in at only
 two lines of x86 assembly.
 
 .. literalinclude:: ../../tests/square/square.amd64.s
@@ -51,6 +51,7 @@ The script next loads the code from the file ``square.amd64.bin`` and
 sets its base address to 0x1000, with the lines
 
 .. code-block:: python
+		
     code = smallworld.state.memory.code.Executable.from_filepath(
         sys.argv[1], address=0x1000
     )
@@ -85,11 +86,12 @@ it will tell us simply what register(s) are inputs for this code.
 
 The colorizer runs code with random intial state. This means the code
 can run differently (follow a different path) each time. Each run is a
-`micro-execution` (inspired by the paper "Micro execution" [1]). This
+`micro execution` (inspired by the paper "Micro execution" [#A]_). This
 script performs ten micro executions, randomizing uninitialzed
 registers before each with the code
 
 .. code-block:: python
+		
     seed = 123456
     cs = ColorizerSummary(hinter)
     for i in range(10):
@@ -99,7 +101,7 @@ registers before each with the code
     cs.run(None)
 
 The `ColorizerSummary` analysis summarizes hints across
-microexecutions. It "runs" after all the colorizer micro-executions
+micro executions. It "runs" after all the colorizer micro executions
 and catches all hints output by other analyses connected to the same
 hinter.
 
@@ -113,29 +115,35 @@ Here is what that outputs
 .. command-output:: python3 examples/basic_harness.py tests/square/square.amd64.bin
     :cwd: ../../
 
-The output contains a lot of hints but we'll look at the *Summary*
-ones, which are hints that were emitted by multiple micro-executions.
-A `read-def-summary` hint corresponds to a "color" or random value in
-a register that is used by an instruction that was not seen
-before. This means it is an input to this block of code. There is only
-one such hint output by `basic_harness.py`:
+The output contains a lot of hints but we only need to look at the
+*Summary* ones, which are hints that were emitted by multiple
+micro executions. This is the final three lines in that output.  A
+`read-def-summary` hint corresponds to a "color" or random value in a
+register that is used by an instruction that was not seen before. This
+means it is an input to this block of code. There is only one such
+hint output by `basic_harness.py`
 
-.. command-output:: python3 examples/basic_harness.py tests/square/square.amd64.bin 2>&1 | grep read-def-summary
-    :cwd: ../../
+::
+   
+    [+] DynamicRegisterValueSummaryHint(message='read-def-summary', pc=4096, color=1, size=4, use=True, new=True, count=10, num_micro_executions=10, reg_name='edi')
 
 The out tells us that the register ``edi`` is an input to this
 snippet of code and should really be set explicitly. We can now create
 a new script ``square.amd64.py`` which harnesses ``square.amd64.bin``
 perfectly, exposing ``edi`` as a command-line argument.
-		    
+
 .. literalinclude:: ../../tests/square/square.amd64.py
   :language: Python
 
 And here is what it looks like to run that script, setting ``edi`` to
 42 initially.
 
-.. command-output:: python3 ../tests/square/square.amd64.py 42
+.. command-output:: python3 ../../tests/square/square.amd64.py 42
     :cwd: ../../tests/square/
 
 Since ``42*42=1764`` which is ``0x6e4`` we have harnessed
 ``square.amd64.bin`` completely.
+
+.. rubric:: Footnotes
+
+.. [#A] "Micro execution", Patrice Godefroid, Proceedings of the 36th International Conference on Software Engineering, 2014.
