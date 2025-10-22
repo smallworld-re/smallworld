@@ -356,6 +356,8 @@ class AMD64(AMD64BasePlatformDef):
         "xmm14": RegisterAliasDef(name="xmm14", parent="ymm14", size=16, offset=0),
         "ymm15": RegisterDef(name="ymm15", size=32),
         "xmm15": RegisterAliasDef(name="xmm15", parent="ymm15", size=16, offset=0),
+        "fsbase": RegisterDef(name="fsbase", size=64), # MSR 0xC0000100
+        "gsbase": RegisterDef(name="gsbase", size=64), # MSR 0xC0000101
     }
 
 
