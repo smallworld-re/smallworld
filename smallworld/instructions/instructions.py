@@ -180,7 +180,7 @@ class Instruction(metaclass=abc.ABCMeta):
         try:
             return utils.find_subclass(
                 cls,
-                check=lambda x: x.arch == arch and x.mode == mode,
+                check=lambda x: x.cs_arch == arch and x.cs_mode == mode,
                 instruction=raw,
                 address=address,
             )
