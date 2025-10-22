@@ -43,9 +43,12 @@ class MetadataMixin(metaclass=abc.ABCMeta):
         return ""
 
 
+T = typing.TypeVar("T")
+
+
 def find_subclass(
-    cls: typing.Type[typing.Any],
-    check: typing.Callable[[typing.Type[typing.Any]], bool],
+    cls: typing.Type[T],
+    check: typing.Callable[[typing.Type[T]], bool],
     *args,
     **kwargs,
 ):
@@ -68,9 +71,9 @@ def find_subclass(
     Raises:
         ValueError: If no subclass of cls matches the criteria
     """
-    class_stack: typing.List[typing.Type[typing.Any]] = [cls]
+    class_stack: typing.List[typing.Type[T]] = [cls]
     while len(class_stack) > 0:
-        impl: typing.Type[typing.Any] = class_stack.pop(-1)
+        impl: typing.Type[T] = class_stack.pop(-1)
 
         if not inspect.isabstract(impl) and check(impl):
             return impl(*args, **kwargs)
