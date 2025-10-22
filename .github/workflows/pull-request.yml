@@ -2,7 +2,7 @@ name: Pull Request
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopen, edited]
+    types: [opened, synchronize, reopened, edited]
 
 env:
   REGISTRY: harbor.harbor.svc.cluster.local
