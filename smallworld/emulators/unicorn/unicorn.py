@@ -337,7 +337,7 @@ class UnicornEmulator(
         if name == "pc":
             name = self.platdef.pc_register
 
-        is_msr = (name == "fsbase") or (name == "gsbase")            
+        is_msr = (name == "fsbase") or (name == "gsbase")
         uc_const = self.machdef.uc_reg(name)
         reg = self.platdef.registers[name]
 
@@ -722,7 +722,7 @@ class UnicornEmulator(
         pc = self.read_register("pc")
 
         try:
-            # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.            
+            # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.
             code = bytes(self.engine.mem_read(pc, 16))
             # on arm32, update disassembler for ARM vs Thumb
             _ = self._handle_thumb_interwork(pc)
@@ -730,7 +730,7 @@ class UnicornEmulator(
             i = instructions.Instruction.from_capstone(insns[0])
         except:
             # looks like that code is not available
-            i = None        
+            i = None
 
         exc: typing.Type[exceptions.EmulationError] = exceptions.EmulationError
 
