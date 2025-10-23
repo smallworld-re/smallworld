@@ -1,5 +1,7 @@
 import capstone
 
+from smallworld import platforms
+
 from .bsid import BSIDMemoryReferenceOperand
 from .instructions import Instruction, MemoryReferenceOperand
 
@@ -16,3 +18,33 @@ class ARMInstruction(Instruction):
             offset=operand.value.mem.disp,
             size=4,
         )
+
+
+class ARMV5TInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV6MInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV7AInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV7MInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV7RInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+    )

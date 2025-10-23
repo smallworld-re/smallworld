@@ -2,6 +2,8 @@ import typing
 
 import capstone
 
+from smallworld import platforms
+
 from .bsid import BSIDMemoryReferenceOperand
 from .instructions import Instruction, MemoryReferenceOperand, Operand, RegisterOperand
 
@@ -12,6 +14,9 @@ class x86Instruction(Instruction):
     cs_arch = capstone.CS_ARCH_X86
     cs_mode = capstone.CS_MODE_32
     sp = "esp"
+    platform = platforms.Platform(
+        platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+    )
 
     def _memory_reference(self, base, index, scale, offset, size):
         return BSIDMemoryReferenceOperand(
@@ -98,3 +103,6 @@ class AMD64Instruction(x86Instruction):
     cs_mode = capstone.CS_MODE_64
     sp = "rsp"
     word_size = 8
+    platform = platforms.Platform(
+        platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+    )

@@ -9,5 +9,4 @@
 dist/
 build/
 venv/
-.venv
 core.*
