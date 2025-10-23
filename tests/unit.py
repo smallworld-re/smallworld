@@ -1,5 +1,6 @@
 import logging
 import os
+import setuptools
 import signal
 import subprocess
 import typing
@@ -307,14 +308,14 @@ class StateTests(unittest.TestCase):
         self.assertEqual(memory.get_ranges_initialized(), [])
 
         # single memory region
-        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        memory.write_bytes(memory.address + 1, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_initialized(),
             [range(memory.address + 1, memory.address + 2)],
         )
 
         # non-contiguous initialized regions
-        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        memory.write_bytes(memory.address + 6, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_initialized(),
             [
@@ -335,7 +336,7 @@ class StateTests(unittest.TestCase):
 
         # fully initialized
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        memory.write_bytes(memory.address, b"\xff\xff\xff\xff\xff\xff\xff\xff")
         self.assertEqual(
             memory.get_ranges_initialized(),
             [range(memory.address, memory.address + 7)],
@@ -350,7 +351,7 @@ class StateTests(unittest.TestCase):
         )
 
         # single memory region
-        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        memory.write_bytes(memory.address + 1, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_uninitialized(),
             [
@@ -360,7 +361,7 @@ class StateTests(unittest.TestCase):
         )
 
         # non-contiguous initialized regions
-        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        memory.write_bytes(memory.address + 6, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_uninitialized(),
             [
@@ -381,7 +382,7 @@ class StateTests(unittest.TestCase):
 
         # fully initialized
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        memory.write_bytes(memory.address, b"\xff\xff\xff\xff\xff\xff\xff\xff")
         self.assertEqual(
             memory.get_ranges_uninitialized(),
             [],
@@ -420,8 +421,8 @@ class StateTests(unittest.TestCase):
         )
 
         # gaps filled with bytes values
-        memory.write_bytes(memory.address, b"\xFF")
-        memory.write_bytes(memory.address + 4, b"\xFF\xFF")
+        memory.write_bytes(memory.address, b"\xff")
+        memory.write_bytes(memory.address + 4, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_symbolic(),
             [
@@ -444,14 +445,14 @@ class StateTests(unittest.TestCase):
         self.assertEqual(memory.get_ranges_concrete(), [])
 
         # single concrete memory region
-        memory.write_bytes(memory.address + 1, b"\xFF\xFF")
+        memory.write_bytes(memory.address + 1, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_concrete(),
             [range(memory.address + 1, memory.address + 2)],
         )
 
         # non-contiguous concrete regions
-        memory.write_bytes(memory.address + 6, b"\xFF\xFF")
+        memory.write_bytes(memory.address + 6, b"\xff\xff")
         self.assertEqual(
             memory.get_ranges_concrete(),
             [
@@ -461,7 +462,7 @@ class StateTests(unittest.TestCase):
         )
 
         # contiguous and non-contiguous concrete regions
-        memory.write_bytes(memory.address + 3, b"\xFF")
+        memory.write_bytes(memory.address + 3, b"\xff")
         self.assertEqual(
             memory.get_ranges_concrete(),
             [
@@ -483,7 +484,7 @@ class StateTests(unittest.TestCase):
 
         # fully concrete initialized
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(memory.address, b"\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF")
+        memory.write_bytes(memory.address, b"\xff\xff\xff\xff\xff\xff\xff\xff")
         self.assertEqual(
             memory.get_ranges_concrete(),
             [range(memory.address, memory.address + 7)],
