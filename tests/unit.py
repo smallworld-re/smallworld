@@ -192,6 +192,10 @@ class StateTests(unittest.TestCase):
             exceptions.ConfigurationError,
             lambda: memory.write_bytes(0x1000, b"abcdefghijklmnop"),
         )
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.write_bytes(0x500, b"abcdefghijklmnop"),
+        )
 
         # test memory contains symbolic
         memory = state.memory.Memory(0x1000, 0x8)
@@ -256,6 +260,10 @@ class StateTests(unittest.TestCase):
         memory.write_bytes(0x1005, b"fgh")
         self.assertRaises(
             exceptions.ConfigurationError, lambda: memory.read_bytes(0x1000, 0x8)
+        )
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.read_bytes(0x500, 0x8),
         )
 
         # test read memory containing symbolic values
