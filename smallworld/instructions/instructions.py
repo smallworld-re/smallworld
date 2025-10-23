@@ -4,6 +4,8 @@ import typing
 
 import capstone
 
+from smallworld.platforms.platforms import Platform
+
 from .. import emulators, utils
 
 logger = logging.getLogger(__name__)
@@ -132,6 +134,12 @@ class Instruction(metaclass=abc.ABCMeta):
         """Capstone mode ID"""
         return 0
 
+    @property
+    @abc.abstractmethod
+    def platform(self) -> Platform:
+        """Platform"""
+        raise NotImplementedError()
+
     @classmethod
     def from_capstone(cls, instruction: capstone.CsInsn):
         """Construct from an existing Capstone instruction.
@@ -175,17 +183,17 @@ class Instruction(metaclass=abc.ABCMeta):
             raise ValueError(f"No instruction format for {arch}")
 
     @classmethod
-    def from_bytes(cls, raw: bytes, address: int, arch: str, mode: str):
+    def from_bytes(cls, raw: bytes, address: int, platform: Platform):
         """Construct from a byte string."""
         try:
             return utils.find_subclass(
                 cls,
-                check=lambda x: x.cs_arch == arch and x.cs_mode == mode,
+                check=lambda x: x.platform == platform,
                 instruction=raw,
                 address=address,
             )
         except ValueError:
-            raise ValueError(f"No instruction format for {arch}:{mode}")
+            raise ValueError(f"No instruction format for {platform}")
 
     @abc.abstractmethod
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
