@@ -181,6 +181,7 @@
             pkgs.aflplusplus
             pandaWithLibs.${system}
             pkgs.ghidra
+            pkgs.jdk
           ] ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
