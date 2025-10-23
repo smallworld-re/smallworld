@@ -110,7 +110,7 @@
       pandaWithLibs = forAllSystems (
         system:
         let
-          oldPanda = panda.packages.${system}.default;
+          oldPanda = (panda.packages.${system}.pkgsWithConfig { targetList = ["x86_64-softmmu" "i386-softmmu" "arm-softmmu" "aarch64-softmmu" "ppc-softmmu" "mips-softmmu" "mipsel-softmmu" "mips64-softmmu" "mips64el-softmmu"]; }).panda;
           pkgs = nixpkgs.legacyPackages.${system};
           pandaFixed = pkgs.stdenv.mkDerivation {
             name = oldPanda.name;
