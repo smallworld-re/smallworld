@@ -1,6 +1,4 @@
 import logging
-import sys
-
 import smallworld
 
 # Set up logging and hinting
@@ -53,6 +51,14 @@ gsm.write_bytes(gs_mem_base, the_bytes)
 
 cpu.gsbase.set(gs_mem_base)
 
+# NOTE!  If you set fs or gs registers then all of this fails.  Not
+# sure why.  This is even if you set them to 0.  Which is odd, since
+# if you read their values after emulating, they both appear to be
+# zero.
+#
+# cpu.fs.set(0) # <- don't do this!
+# cpu.gs.set(0) # <- and don't do this!
+
 machine.add(fsm)
 machine.add(gsm)
 
@@ -66,23 +72,33 @@ machine.apply(emulator)
 final_machine = machine.emulate(emulator)
 cpu = final_machine.get_cpu()
 
+def prc(lab, v,sz):
+    print(lab+": ", end="")
+    for i in range(sz):
+        a = v & 0xff
+        print(chr(a), end="")
+        v = v >> 8
+    print("")
+        
 rax = cpu.rax.get()
+prc("rax", rax, 8)
 lsb_rax = rax & 0xFF
-ind = the_bytes.index(lsb_rax)
-
-print(f"Here's where in fs segment lsb of rax is: {ind}.")
-if ind == 0x28:
-    print("... which is correct.  Looks like fs:[0x28] address is working properly.")
-else:
-    print("... which is incorrect. Looks like fs:[0x28] address is not working right.")
-
+ind_fs = the_bytes.index(lsb_rax)
 
 rbx = cpu.rbx.get()
+prc("rbx", rbx,8)
 lsb_rbx = rbx & 0xFF
-ind = the_bytes.index(lsb_rbx)
+ind_gs = the_bytes.index(lsb_rbx)
 
-print(f"Here's where in gs segment lsb of rbx is: {ind}.")
-if ind == 0x13:
-    print("... which is correct.  Looks like gs:[0x13] address is working properly.")
+print(f"Here's where in fs segment lsb of rax is: {ind_fs}.", end="")
+if ind_fs == 0x28:
+    print(" ... which is correct.  Looks like fs:[0x28] address is working properly.")
 else:
-    print("... which is incorrect. Looks like gs:[0x13] address is not working right.")
+    print(" ... which is incorrect. Looks like fs:[0x28] address is not working right.")
+
+
+print(f"Here's where in gs segment lsb of rbx is: {ind_gs}.", end="")
+if ind_gs == 0x13:
+    print(" ... which is correct.  Looks like gs:[0x13] address is working properly.")
+else:
+    print(" ... which is incorrect. Looks like gs:[0x13] address is not working right.")
