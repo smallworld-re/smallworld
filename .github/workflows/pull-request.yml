@@ -10,7 +10,7 @@ env:
   SCRATCH: /home/runner/_shared
 
 concurrency:
-  group: pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+  group: pr-${{ github.event.pull_request.number }}
   # cancel-in-progress: true
 
 jobs:
