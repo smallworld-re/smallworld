@@ -23,6 +23,8 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 )
 machine.add(code)
 
+breakpoint()
+
 # create a stack and push a value
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x1000)
 machine.add(stack)
@@ -45,6 +47,9 @@ cpu.rsp.set(stack.get_pointer())
 cpu.edi.set(0x1)
 cpu.rsi.set(arg1)
 cpu.rdx.set(len(data) - 1)
+
+cpu.pc.set(code.address)
+
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)

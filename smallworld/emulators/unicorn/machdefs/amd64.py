@@ -209,6 +209,8 @@ class AMD64AVX2MachineDef(AMD64MachineDef):
                 "xmm14": unicorn.x86_const.UC_X86_REG_XMM14,
                 "ymm15": unicorn.x86_const.UC_X86_REG_YMM15,
                 "xmm15": unicorn.x86_const.UC_X86_REG_XMM15,
+                "fsbase": 0xC0000100,
+                "gsbase": 0xC0000101,
             }
         )
 
