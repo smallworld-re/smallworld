@@ -30,7 +30,6 @@ jobs:
           nix develop -c python3 unit.py -v
   Integration-Test:
       runs-on: smallworld-arc
-      needs: Lint
       strategy:
         max-parallel: 60
         matrix:
