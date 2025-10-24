@@ -1,12 +1,12 @@
 import logging
 import os
-import setuptools
 import signal
 import subprocess
 import typing
 import unittest
 
 import claripy
+import setuptools
 
 from smallworld import emulators, exceptions, platforms, state, utils
 
