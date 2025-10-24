@@ -96,25 +96,13 @@
         "type": "github"
       }
     },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1760965567,
-        "narHash": "sha256-0JDOal5P7xzzAibvD0yTE3ptyvoVOAL0rcELmDdtSKg=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "cb82756ecc37fa623f8cf3e88854f9bf7f64af93",
-        "type": "github"
-      },
-      "original": {
-        "id": "nixpkgs",
-        "type": "indirect"
-      }
-    },
     "panda": {
       "inputs": {
         "libosi-src": "libosi-src",
         "nix-filter": "nix-filter",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": [
+          "pandaPkgs"
+        ],
         "nixpkgs-wireshark": "nixpkgs-wireshark"
       },
       "locked": {
@@ -129,6 +117,22 @@
         "owner": "lluchs",
         "ref": "flake",
         "repo": "panda",
+        "type": "github"
+      }
+    },
+    "pandaPkgs": {
+      "locked": {
+        "lastModified": 1699725108,
+        "narHash": "sha256-NTiPW4jRC+9puakU4Vi8WpFEirhp92kTOSThuZke+FA=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "911ad1e67f458b6bcf0278fa85e33bb9924fed7e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "911ad1e67f458b6bcf0278fa85e33bb9924fed7e",
         "type": "github"
       }
     },
@@ -182,6 +186,7 @@
       "inputs": {
         "nixpkgs": "nixpkgs",
         "panda": "panda",
+        "pandaPkgs": "pandaPkgs",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "unicornafl": "unicornafl",

@@ -27,8 +27,13 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    pandaPkgs = {
+      url = "github:nixos/nixpkgs?rev=911ad1e67f458b6bcf0278fa85e33bb9924fed7e";
+    };
+    
     panda = {
       url = "github:lluchs/panda/flake";
+      inputs.nixpkgs.follows = "pandaPkgs";
     };
   };
 
