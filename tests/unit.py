@@ -6,7 +6,6 @@ import typing
 import unittest
 
 import claripy
-import setuptools
 
 from smallworld import emulators, exceptions, platforms, state, utils
 
