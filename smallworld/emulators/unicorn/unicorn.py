@@ -324,18 +324,20 @@ class UnicornEmulator(
             return False
         return True
 
-    def _register(self, name: str) -> typing.Tuple[typing.Any, str, int, int]:
+    def _register(self, name: str) -> typing.Tuple[typing.Any, str, int, int, bool]:
         # Translate register name into the tuple
-        # (u, b, o, s)
+        # (u, b, o, s, is_msr)
         # u is the unicorn reg number
         # b is the name of full-width base register this is or is part of
         # o is start offset within full-width base register
         # s is size in bytes
+        # is_msr will be true if this is a model-specific reg, in which case u will be the id for that
         name = name.lower()
         # support some generic register references
         if name == "pc":
             name = self.platdef.pc_register
 
+        is_msr = (name == "fsbase") or (name == "gsbase")
         uc_const = self.machdef.uc_reg(name)
         reg = self.platdef.registers[name]
 
@@ -346,21 +348,24 @@ class UnicornEmulator(
             parent = reg.name
             offset = 0
 
-        return (uc_const, parent, reg.size, offset)
+        return (uc_const, parent, reg.size, offset, is_msr)
 
     def read_register_content(self, name: str) -> int:
-        (reg, _, _, _) = self._register(name)
+        (reg, _, _, _, is_msr) = self._register(name)
         if reg == 0:
             raise exceptions.UnsupportedRegisterError(
                 "Unicorn does not support register {name} for {self.platform}"
             )
         try:
-            return self.engine.reg_read(reg)
+            if is_msr:
+                return self.engine.msr_read(reg)
+            else:
+                return self.engine.reg_read(reg)
         except Exception as e:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
     def read_register_label(self, name: str) -> typing.Optional[str]:
-        (_, base_reg, size, offset) = self._register(name)
+        (_, base_reg, size, offset, _) = self._register(name)
         if base_reg in self.label:
             # we'll return a string repr of set of labels on all byte offsets
             # for this register
@@ -391,9 +396,12 @@ class UnicornEmulator(
         if name == "pc":
             content = self._handle_thumb_interwork(content)
 
-        (reg, base_reg, size, start_offset) = self._register(name)
+        (reg, base_reg, size, start_offset, is_msr) = self._register(name)
         try:
-            self.engine.reg_write(reg, content)
+            if is_msr:
+                self.engine.msr_write(reg, content)
+            else:
+                self.engine.reg_write(reg, content)
         except Exception as e:
             raise exceptions.AnalysisError(f"Failed writing {name} (id: {reg})") from e
         # keep track of which bytes in this register have been initialized
@@ -408,7 +416,7 @@ class UnicornEmulator(
     ) -> None:
         if label is None:
             return
-        (_, base_reg, size, offset) = self._register(name)
+        (_, base_reg, size, offset, _) = self._register(name)
         if base_reg not in self.label:
             self.label[base_reg] = {}
         for i in range(offset, offset + size):
@@ -555,7 +563,7 @@ class UnicornEmulator(
     def _check(self) -> None:
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
-        (_, base_name, size, offset) = self._register("pc")
+        (_, base_name, size, offset, _) = self._register("pc")
         if (
             base_name in self.initialized_registers
             and len(self.initialized_registers[base_name]) == size

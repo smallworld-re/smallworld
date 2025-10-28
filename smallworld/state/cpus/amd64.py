@@ -323,6 +323,13 @@ class AMD64(cpu.CPU):
         self.mm7 = state.RegisterAlias("mm7", self.fpr7, 8, 0)
         self.add(self.mm7)
 
+        # this is msr 0xC0000100
+        self.fsbase = state.Register("fsbase", 64)
+        self.add(self.fsbase)
+        # this is msr 0xC0000101
+        self.gsbase = state.Register("gsbase", 64)
+        self.add(self.gsbase)
+
 
 class AMD64AVX2(AMD64):
     """AMD64 CPU supporting up to AVX2

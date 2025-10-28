@@ -451,7 +451,8 @@ class BranchesHint(hinting.Hint):
 @dataclass(frozen=True)
 class CoverageFrontierHint(hinting.Hint):
     coverage_frontier: typing.List[int]
-
+    edges: typing.List[typing.Tuple[int, typing.List[int]]]
+    branches: typing.List[int]
 
 __all__ = [
     "DynamicRegisterValueHint",
