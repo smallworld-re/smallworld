@@ -118,6 +118,7 @@ class TraceExecution(analysis.Analysis):
                 before_cb(self.emulator, pc, te)
             try:
                 i += 1
+                # logger.info(cs_insn)
                 self.emulator.step()
             except smallworld.exceptions.EmulationBounds:
                 # this one really isnt an error of any kind; we

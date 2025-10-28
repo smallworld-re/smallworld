@@ -89,7 +89,7 @@ def randomize_uninitialized(
             # we'd like to randomize anything uninitialized...
             pass
     # if logger.getEffectiveLevel() >= logging.DEBUG:
-    logger.info(f"digest of changes made to machine: {m.hexdigest()}")
+    logger.debug(f"digest of changes made to machine: {m.hexdigest()}")
 
     logger.setLevel(logging.INFO)
 
