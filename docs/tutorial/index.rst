@@ -11,9 +11,7 @@ about some of the concepts in smallworld.
     install-guide
     harnessing-a-simple-program
     mapping-memory
-    elf-loading
-    pe-loading
-    coredump-loading
+    program-loading/index
     local-types-and-the-heap
     modeling-and-hooking
     analyses

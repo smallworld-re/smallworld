@@ -571,4 +571,4 @@ at the moment the core dump was created.
 While core dumps are usually created when a program irretrievably fails,
 manually-created core dumps are an amazing way to harness a complex process.
 
-See :ref:`coredump_loading` for a tutorial on building a harness around a core dump.
+See :ref:`tutorial_coredump` for a tutorial on building a harness around a core dump.

@@ -1,3 +1,5 @@
+.. _tutorial_basic:
+
 Harnessing a Simple Program
 ---------------------------
 
