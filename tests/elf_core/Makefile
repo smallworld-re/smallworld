@@ -8,7 +8,7 @@ CREATE_CORE=./create_core.sh
 # when run through qemu-user.
 # (currently, the only offender is riscv64).
 
-SCRIPTS=$(wildcard *.py)
+SCRIPTS=$(filter-out %.actuate.py,$(wildcard *.py))
 CORES=$(patsubst %.py,%.elf.core,$(SCRIPTS))
 REGS=$(patsubst %.py,%.elf.registers,$(SCRIPTS))
 $(info $(SCRIPTS))
