@@ -4,6 +4,16 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
+    xtensa-gcc-src = {
+      url = "http://launchpadlibrarian.net/533672386/gcc-xtensa-lx106_10.3.0-1ubuntu1+8ubuntu1_amd64.deb";
+      flake = false;
+    };
+
+    xtensa-binutils-src = {
+      url = "http://launchpadlibrarian.net/590268499/binutils-xtensa-lx106_2.38-3ubuntu1+4build1_amd64.deb";
+      flake = false;
+    };
+
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -45,6 +55,8 @@
       pyproject-build-systems,
       unicornafl,
       panda,
+      xtensa-gcc-src,
+      xtensa-binutils-src,
       ...
     }:
     let
@@ -169,6 +181,50 @@
         '';
       };
 
+      xtensa = forAllSystems (system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          unpackDeb = ''
+            mkdir -pv deb-out
+            ${pkgs.lib.getExe' pkgs.dpkg "dpkg-deb"} -x $src deb-out
+          '';
+          gcc = pkgs.stdenv.mkDerivation {
+            name = "xtensa-gcc";
+            src = xtensa-gcc-src;
+            nativeBuildInputs = with pkgs; [
+              autoPatchelfHook
+            ];
+            buildInputs = with pkgs; [
+              libmpc
+              zlib
+              gmp
+              glib
+            ];
+            unpackCmd = unpackDeb;
+            buildPhase = ''
+              mkdir -pv $out
+              cp -r ./usr/. $out/
+            '';
+          };
+          binutils = pkgs.stdenv.mkDerivation {
+            name = "xtensa-binutils";
+            src = xtensa-binutils-src;
+            nativeBuildInputs = with pkgs; [
+              autoPatchelfHook
+            ];
+            buildInputs = with pkgs; [
+              zlib
+            ];
+            unpackCmd = unpackDeb;
+            buildPhase = ''
+              mkdir -pv $out
+              cp -r ./usr/. $out/
+            '';
+          };
+        in {
+          inherit gcc binutils;
+      });
+
     in
     rec {
       devShells = forAllSystems (
@@ -187,6 +243,8 @@
             pandaWithLibs.${system}
             pkgs.ghidra
             pkgs.jdk
+            xtensa.${system}.gcc
+            xtensa.${system}.binutils
           ] ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
@@ -232,8 +290,11 @@
           virtualenv = virtualEnvProd.${system};
           upstreamPanda = panda.packages.${system}.default;
           fixedPanda = pandaWithLibs.${system};
+          xtensaGcc = xtensa.${system}.gcc;
+          xtensaBinutils = xtensa.${system}.binutils;
         in
       {
+        inherit xtensaGcc xtensaBinutils;
         default = pythonSet.smallworld-re;
         venv = virtualenv;
         panda = fixedPanda;
