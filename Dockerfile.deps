@@ -61,11 +61,11 @@ RUN rm -rf /opt/afl
 
 # Install Panda
 WORKDIR /opt/panda
-RUN wget 'https://github.com/panda-re/panda/releases/download/v1.8.57/pandare_22.04.deb'
-RUN wget 'https://github.com/panda-re/panda/releases/download/v1.8.57/pandare-1.8.57-py3-none-any.whl'
+RUN wget 'https://github.com/panda-re/qemu/releases/download/pandav0.0.47/pandare_22.04.deb'
+RUN wget 'https://github.com/panda-re/panda-ng/releases/download/v0.0.32/pandare2-0.0.32-py3-none-any.whl'
 RUN apt-get -y install ./pandare_22.04.deb && rm pandare_22.04.deb
-RUN python3 -m pip install pandare-1.8.57-py3-none-any.whl
-RUN python3 -c "import pandare"
+RUN python3 -m pip install colorama pandare2-0.0.32-py3-none-any.whl
+RUN python3 -c "import pandare2"
 
 # Fix bug in Panda; it needs this file for mips64 to work
 RUN touch /usr/local/share/panda/mips_bios.bin
