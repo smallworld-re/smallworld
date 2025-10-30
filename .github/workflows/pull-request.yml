@@ -37,12 +37,6 @@ jobs:
         if: ${{ env.bot_token == '' }}
 
       - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - name: Add missing deps
-        run: |
-          sudo apt update -y
-          sudo apt install -y xz-utils
-      - uses: DeterminateSystems/magic-nix-cache-action@main
 
       - name: Format
         env:
@@ -79,17 +73,28 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Build Artifacts
+        run: |
+          cd tests
+          nix develop -c bash make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
+          cd tests/elf_core
+          nix develop -c bash make -j$(nproc)
+
+      - name: Save Repo
+        run: |
+          cd ..
+          tar cfz smallworld_${{ github.sha }}.tar.gz smallworld/
+          mv smallworld_${{ github.sha }}.tar.gz $SCRATCH
+
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
     steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - name: Add missing deps
+      - name: Copy Repo
         run: |
-          sudo apt update -y
-          sudo apt install -y xz-utils
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - uses: actions/checkout@v4
       - name: Run Unit Tests
         run: |
           cd tests
@@ -230,13 +235,11 @@ jobs:
             - testsuite: CheckedUAFTests
             - testsuite: CheckedWriteTests
       steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/nix-installer-action@main
-      - name: Add missing deps
+      - name: Copy Repo
         run: |
-          sudo apt update -y
-          sudo apt install -y xz-utils
-      - uses: DeterminateSystems/magic-nix-cache-action@main
+          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
+          tar xf smallworld_${{ github.sha }}.tar.gz
+      - uses: actions/checkout@v4
       - name: Run Integration Tests
         run: |
           cd tests
