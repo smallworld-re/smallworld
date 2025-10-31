@@ -76,9 +76,9 @@ jobs:
       - name: Build Artifacts
         run: |
           cd tests
-          nix develop -c bash make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
+          nix develop -c make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
           cd tests/elf_core
-          nix develop -c bash make -j$(nproc)
+          nix develop -c make -j$(nproc)
 
       - name: Save Repo
         run: |
