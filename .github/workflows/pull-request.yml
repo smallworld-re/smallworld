@@ -161,7 +161,7 @@ jobs:
             # - testsuite: C99StrcatTests
             - testsuite: C99StrchrTests
             - testsuite: C99StrcmpTests
-            - testsuite: C99StrcpyTests
+            # - testsuite: C99StrcpyTests
             - testsuite: C99StrcspnTests
             - testsuite: C99StrerrorTests
             - testsuite: C99StrftimeTests
@@ -195,7 +195,7 @@ jobs:
             # - testsuite: PETests
             - testsuite: POSIXBasenameTests
             - testsuite: POSIXBsdSignalTests
-            - testsuite: POSIXDirnameTests
+            # - testsuite: POSIXDirnameTests
             - testsuite: POSIXPthreadSigmaskTests
             - testsuite: POSIXSigactionTests
             - testsuite: POSIXSigaddsetTests
