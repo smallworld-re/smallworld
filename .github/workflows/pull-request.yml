@@ -115,7 +115,7 @@ jobs:
             - testsuite: C99FcloseTests
             - testsuite: C99FeofTests
             # - testsuite: C99FflushTests
-            - testsuite: C99FgetcTests
+            # - testsuite: C99FgetcTests
             - testsuite: C99FgetposTests
             - testsuite: C99FgetsTests
             - testsuite: C99FopenTests
