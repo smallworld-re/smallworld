@@ -243,10 +243,11 @@
             pandaWithLibs.${system}
             pkgs.ghidra
             pkgs.jdk
-            xtensa.${system}.gcc
-            xtensa.${system}.binutils
-            pkgs.nasm
-          ] ++ crossTargetCCs;
+            ];
+          #   xtensa.${system}.gcc
+          #   xtensa.${system}.binutils
+          #   pkgs.nasm
+          # ] ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
