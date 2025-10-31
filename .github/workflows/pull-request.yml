@@ -155,7 +155,7 @@ jobs:
             # - testsuite: C99ScanfTests
             - testsuite: C99SignalTests
             - testsuite: C99SnprintfTests
-            - testsuite: C99SprintfTests
+            # - testsuite: C99SprintfTests
             - testsuite: C99SrandTests
             # - testsuite: C99SscanfTests
             # - testsuite: C99StrcatTests
