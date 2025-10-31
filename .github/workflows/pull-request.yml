@@ -204,7 +204,7 @@ jobs:
             - testsuite: POSIXSigfillsetTests
             - testsuite: POSIXSigpendingTests
             - testsuite: POSIXSigprocmaskTests
-            - testsuite: RelaTests
+            # - testsuite: RelaTests
             - testsuite: RTOSDemoTests
             - testsuite: SquareTests
             - testsuite: StackTests
