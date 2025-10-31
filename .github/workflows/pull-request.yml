@@ -78,10 +78,6 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
-      - name: Copy Repo
-        run: |
-          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
-          tar xf smallworld_${{ github.sha }}.tar.gz
       - uses: actions/checkout@v4
       - name: Run Unit Tests
         run: |
