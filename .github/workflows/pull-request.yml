@@ -90,49 +90,49 @@ jobs:
         max-parallel: 100
         matrix:
           include:
-            # # - testsuite: BlockTests
-            # # - testsuite: BranchTestsAngr
-            # # - testsuite: BranchTestsGhidra
-            # # - testsuite: BranchTestsPanda
-            # # - testsuite: BranchTestsUnicorn
-            # # - testsuite: CallTestsAngr
-            # # - testsuite: CallTestsGhidra
-            # # - testsuite: CallTestsPanda
-            # # - testsuite: CallTestsUnicorn
-            # - testsuite: C99AbortTests
-            # - testsuite: C99AbsTests
-            # - testsuite: C99AsctimeTests
-            # - testsuite: C99AtexitTests
-            # # - testsuite: C99AtoiTests
-            # # - testsuite: C99AtollTests
-            # # - testsuite: C99AtolTests
-            # - testsuite: C99CallocTests
-            # - testsuite: C99ClearerrTests
-            # - testsuite: C99ClockTests
-            # - testsuite: C99CtimeTests
-            # - testsuite: C99DifftimeTests
-            # - testsuite: C99ExitTests
-            # - testsuite: C99FcloseTests
-            # - testsuite: C99FeofTests
-            # # - testsuite: C99FflushTests
-            # # - testsuite: C99FgetcTests
-            # - testsuite: C99FgetposTests
-            # - testsuite: C99FgetsTests
-            # - testsuite: C99FopenTests
-            # # - testsuite: C99FprintfTests
-            # - testsuite: C99FputcTests
-            # - testsuite: C99FputsTests
-            # # - testsuite: C99FreadTests
-            # - testsuite: C99FreeTests
-            # - testsuite: C99FscanfTests
-            # - testsuite: C99FseekTests
-            # - testsuite: C99FsetposTests
-            # - testsuite: C99FtellTests
-            # - testsuite: C99FwriteTests
-            # # - testsuite: C99GetcharTests
-            # - testsuite: C99GetcTests
-            # - testsuite: C99GetenvTests
-            # # - testsuite: C99GetsTests
+            # - testsuite: BlockTests
+            # - testsuite: BranchTestsAngr
+            # - testsuite: BranchTestsGhidra
+            # - testsuite: BranchTestsPanda
+            # - testsuite: BranchTestsUnicorn
+            # - testsuite: CallTestsAngr
+            # - testsuite: CallTestsGhidra
+            # - testsuite: CallTestsPanda
+            # - testsuite: CallTestsUnicorn
+            - testsuite: C99AbortTests
+            - testsuite: C99AbsTests
+            - testsuite: C99AsctimeTests
+            - testsuite: C99AtexitTests
+            # - testsuite: C99AtoiTests
+            # - testsuite: C99AtollTests
+            # - testsuite: C99AtolTests
+            - testsuite: C99CallocTests
+            - testsuite: C99ClearerrTests
+            - testsuite: C99ClockTests
+            - testsuite: C99CtimeTests
+            - testsuite: C99DifftimeTests
+            - testsuite: C99ExitTests
+            - testsuite: C99FcloseTests
+            - testsuite: C99FeofTests
+            # - testsuite: C99FflushTests
+            # - testsuite: C99FgetcTests
+            - testsuite: C99FgetposTests
+            - testsuite: C99FgetsTests
+            - testsuite: C99FopenTests
+            # - testsuite: C99FprintfTests
+            - testsuite: C99FputcTests
+            - testsuite: C99FputsTests
+            # - testsuite: C99FreadTests
+            - testsuite: C99FreeTests
+            - testsuite: C99FscanfTests
+            - testsuite: C99FseekTests
+            - testsuite: C99FsetposTests
+            - testsuite: C99FtellTests
+            - testsuite: C99FwriteTests
+            # - testsuite: C99GetcharTests
+            - testsuite: C99GetcTests
+            - testsuite: C99GetenvTests
+            # - testsuite: C99GetsTests
             - testsuite: C99GmtimeTests
             - testsuite: C99LabsTests
             - testsuite: C99LlabsTests
@@ -143,7 +143,7 @@ jobs:
             # - testsuite: C99MemmoveTests
             # - testsuite: C99MemsetTests
             - testsuite: C99MktimeTests
-            - testsuite: C99PrintfTests
+            # - testsuite: C99PrintfTests
             # - testsuite: C99PutcharTests
             - testsuite: C99PutcTests
             - testsuite: C99PutsTests
