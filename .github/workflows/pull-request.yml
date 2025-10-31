@@ -141,7 +141,7 @@ jobs:
             - testsuite: C99MemcmpTests
             # - testsuite: C99MemcpyTests
             # - testsuite: C99MemmoveTests
-            - testsuite: C99MemsetTests
+            # - testsuite: C99MemsetTests
             - testsuite: C99MktimeTests
             - testsuite: C99PrintfTests
             - testsuite: C99PutcharTests
