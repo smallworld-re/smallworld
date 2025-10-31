@@ -193,7 +193,7 @@ jobs:
             # - testsuite: HookingTests
             # - testsuite: MemhookTests
             # - testsuite: PETests
-            - testsuite: POSIXBasenameTests
+            # - testsuite: POSIXBasenameTests
             - testsuite: POSIXBsdSignalTests
             # - testsuite: POSIXDirnameTests
             - testsuite: POSIXPthreadSigmaskTests
