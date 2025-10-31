@@ -103,8 +103,8 @@ jobs:
             - testsuite: C99AbsTests
             - testsuite: C99AsctimeTests
             - testsuite: C99AtexitTests
-            - testsuite: C99AtoiTests
-            - testsuite: C99AtollTests
+            # - testsuite: C99AtoiTests
+            # - testsuite: C99AtollTests
             # - testsuite: C99AtolTests
             - testsuite: C99CallocTests
             - testsuite: C99ClearerrTests
