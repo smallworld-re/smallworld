@@ -140,7 +140,7 @@ endif
 	rm $*.i386.o
 
 %.la64.so: %.so.c
-	loongarch64-llinux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
 
 %.la64.elf: %.elf.c
 	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.elf.c -o $*.la64.elf
