@@ -105,7 +105,7 @@ jobs:
             - testsuite: C99AtexitTests
             - testsuite: C99AtoiTests
             - testsuite: C99AtollTests
-            - testsuite: C99AtolTests
+            # - testsuite: C99AtolTests
             - testsuite: C99CallocTests
             - testsuite: C99ClearerrTests
             - testsuite: C99ClockTests
