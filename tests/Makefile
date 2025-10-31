@@ -140,19 +140,19 @@ endif
 	rm $*.i386.o
 
 %.la64.so: %.so.c
-	loongarch64-unknown-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
+	loongarch64-llinux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
 
 %.la64.elf: %.elf.c
-	loongarch64-unknown-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.elf.c -o $*.la64.elf
+	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.elf.c -o $*.la64.elf
 
 %.la64.elf: %.la64.elf.s
-	loongarch64-unknown-linux-gnu-as $*.la64.elf.s -o $*.la64.elf.o
-	loongarch64-unknown-linux-gnu-ld $*.la64.elf.o -o $*.la64.elf
+	loongarch64-linux-gnu-as $*.la64.elf.s -o $*.la64.elf.o
+	loongarch64-linux-gnu-ld $*.la64.elf.o -o $*.la64.elf
 	rm $*.la64.elf.o
 
 %.la64.bin: %.la64.s
-	loongarch64-unknown-linux-gnu-as $*.la64.s -o $*.la64.o
-	loongarch64-unknown-linux-gnu-objcopy -O binary -j .text $*.la64.o $*.la64.bin
+	loongarch64-linux-gnu-as $*.la64.s -o $*.la64.o
+	loongarch64-linux-gnu-objcopy -O binary -j .text $*.la64.o $*.la64.bin
 	rm $*.la64.o
 
 %.mips.so: %.so.c
