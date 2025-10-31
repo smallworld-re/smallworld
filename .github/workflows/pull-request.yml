@@ -230,3 +230,23 @@ jobs:
         run: |
           cd tests
           nix develop -c python3 integration.py -v ${{ matrix.testsuite }}
+  Results:
+    runs-on: smallworld-arc
+    needs: [Lint, Unit-Test, Integration-Test]
+    if: always()
+    steps:
+      - name: Formatter committed – new run will verify
+        if: needs.Lint.outputs.changes_detected == 'true'
+        run: exit 1
+
+      - name: All tests OK
+        if: needs.Lint.outputs.changes_detected != 'true' && !contains(needs.*.result, 'failure')
+        run: exit 0
+
+      - name: Tests Failed
+        if: needs.Lint.outputs.changes_detected != 'true' && contains(needs.*.result, 'failure')
+        run: exit 1
+
+      - name: Cleanup
+        run: rm $SCRATCH/smallworld_${{ github.sha }}.tar.gz
+      
