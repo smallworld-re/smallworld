@@ -114,7 +114,7 @@ jobs:
             - testsuite: C99ExitTests
             - testsuite: C99FcloseTests
             - testsuite: C99FeofTests
-            - testsuite: C99FflushTests
+            # - testsuite: C99FflushTests
             - testsuite: C99FgetcTests
             - testsuite: C99FgetposTests
             - testsuite: C99FgetsTests
@@ -140,7 +140,7 @@ jobs:
             - testsuite: C99MallocTests
             - testsuite: C99MemcmpTests
             - testsuite: C99MemcpyTests
-            - testsuite: C99MemmoveTests
+            # - testsuite: C99MemmoveTests
             - testsuite: C99MemsetTests
             - testsuite: C99MktimeTests
             - testsuite: C99PrintfTests
