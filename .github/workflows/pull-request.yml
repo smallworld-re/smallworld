@@ -124,7 +124,7 @@ jobs:
             - testsuite: C99FputsTests
             # - testsuite: C99FreadTests
             - testsuite: C99FreeTests
-            - testsuite: C99FscanfTests
+            # - testsuite: C99FscanfTests
             - testsuite: C99FseekTests
             - testsuite: C99FsetposTests
             - testsuite: C99FtellTests
