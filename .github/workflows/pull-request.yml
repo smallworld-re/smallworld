@@ -73,18 +73,6 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
-      - name: Build Artifacts
-        run: |
-          cd tests
-          nix develop -c make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
-          cd tests/elf_core
-          nix develop -c make -j$(nproc)
-
-      - name: Save Repo
-        run: |
-          cd ..
-          tar cfz smallworld_${{ github.sha }}.tar.gz smallworld/
-          mv smallworld_${{ github.sha }}.tar.gz $SCRATCH
 
   Unit-Test:
     runs-on: smallworld-arc
@@ -235,11 +223,13 @@ jobs:
             - testsuite: CheckedUAFTests
             - testsuite: CheckedWriteTests
       steps:
-      - name: Copy Repo
-        run: |
-          cp $SCRATCH/smallworld_${{ github.sha }}.tar.gz .
-          tar xf smallworld_${{ github.sha }}.tar.gz
       - uses: actions/checkout@v4
+      - name: Build Artifacts
+        run: |
+          cd tests
+          nix develop -c make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
+          cd elf_core
+          nix develop -c make -j$(nproc)
       - name: Run Integration Tests
         run: |
           cd tests
