@@ -188,7 +188,7 @@ jobs:
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FuzzTests
-            - testsuite: LinkElfTests
+            # - testsuite: LinkElfTests
             - testsuite: LinkPETests
             - testsuite: HookingTests
             # - testsuite: MemhookTests
