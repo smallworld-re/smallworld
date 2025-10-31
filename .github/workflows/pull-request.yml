@@ -133,26 +133,26 @@ jobs:
             # - testsuite: C99GetcTests
             # - testsuite: C99GetenvTests
             # # - testsuite: C99GetsTests
-            # - testsuite: C99GmtimeTests
-            # - testsuite: C99LabsTests
-            # - testsuite: C99LlabsTests
-            # - testsuite: C99LocaltimeTests
-            # - testsuite: C99MallocTests
-            # - testsuite: C99MemcmpTests
-            # # - testsuite: C99MemcpyTests
-            # # - testsuite: C99MemmoveTests
-            # # - testsuite: C99MemsetTests
-            # - testsuite: C99MktimeTests
-            # - testsuite: C99PrintfTests
-            # - testsuite: C99PutcharTests
-            # - testsuite: C99PutcTests
-            # - testsuite: C99PutsTests
-            # - testsuite: C99RandTests
-            # - testsuite: C99ReallocTests
-            # - testsuite: C99RemoveTests
+            - testsuite: C99GmtimeTests
+            - testsuite: C99LabsTests
+            - testsuite: C99LlabsTests
+            - testsuite: C99LocaltimeTests
+            - testsuite: C99MallocTests
+            - testsuite: C99MemcmpTests
+            # - testsuite: C99MemcpyTests
+            # - testsuite: C99MemmoveTests
+            # - testsuite: C99MemsetTests
+            - testsuite: C99MktimeTests
+            - testsuite: C99PrintfTests
+            - testsuite: C99PutcharTests
+            - testsuite: C99PutcTests
+            - testsuite: C99PutsTests
+            - testsuite: C99RandTests
+            - testsuite: C99ReallocTests
+            - testsuite: C99RemoveTests
             - testsuite: C99RenameTests
             - testsuite: C99RewindTests
-            - testsuite: C99ScanfTests
+            # - testsuite: C99ScanfTests
             - testsuite: C99SignalTests
             - testsuite: C99SnprintfTests
             - testsuite: C99SprintfTests
