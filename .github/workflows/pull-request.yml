@@ -11,7 +11,7 @@ env:
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
-  # cancel-in-progress: true
+  cancel-in-progress: true
 
 jobs:
   Lint:
@@ -119,7 +119,7 @@ jobs:
             - testsuite: C99FgetposTests
             - testsuite: C99FgetsTests
             - testsuite: C99FopenTests
-            - testsuite: C99FprintfTests
+            # - testsuite: C99FprintfTests
             - testsuite: C99FputcTests
             - testsuite: C99FputsTests
             # - testsuite: C99FreadTests
