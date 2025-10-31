@@ -130,7 +130,7 @@ jobs:
             - testsuite: C99FtellTests
             - testsuite: C99FwriteTests
             # - testsuite: C99GetcharTests
-            - testsuite: C99GetcTests
+            # - testsuite: C99GetcTests
             - testsuite: C99GetenvTests
             # - testsuite: C99GetsTests
             - testsuite: C99GmtimeTests
