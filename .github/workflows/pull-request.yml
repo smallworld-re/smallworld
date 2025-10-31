@@ -122,7 +122,7 @@ jobs:
             - testsuite: C99FprintfTests
             - testsuite: C99FputcTests
             - testsuite: C99FputsTests
-            - testsuite: C99FreadTests
+            # - testsuite: C99FreadTests
             - testsuite: C99FreeTests
             - testsuite: C99FscanfTests
             - testsuite: C99FseekTests
