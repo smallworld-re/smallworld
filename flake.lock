@@ -190,9 +190,7 @@
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "unicornafl": "unicornafl",
-        "uv2nix": "uv2nix",
-        "xtensa-binutils-src": "xtensa-binutils-src",
-        "xtensa-gcc-src": "xtensa-gcc-src"
+        "uv2nix": "uv2nix"
       }
     },
     "rust-overlay": {
@@ -271,30 +269,6 @@
         "owner": "pyproject-nix",
         "repo": "uv2nix",
         "type": "github"
-      }
-    },
-    "xtensa-binutils-src": {
-      "flake": false,
-      "locked": {
-        "narHash": "sha256-/tp7eZiWOu/a/pSoLNkoFp+25lLfHdw1seNdIjJX/q4=",
-        "type": "file",
-        "url": "http://launchpadlibrarian.net/590268499/binutils-xtensa-lx106_2.38-3ubuntu1%2B4build1_amd64.deb"
-      },
-      "original": {
-        "type": "file",
-        "url": "http://launchpadlibrarian.net/590268499/binutils-xtensa-lx106_2.38-3ubuntu1%2B4build1_amd64.deb"
-      }
-    },
-    "xtensa-gcc-src": {
-      "flake": false,
-      "locked": {
-        "narHash": "sha256-yYZhD5cMF4CSSNZ5uEQDV5+lXJZ2t9rXSprtobir8C0=",
-        "type": "file",
-        "url": "http://launchpadlibrarian.net/533672386/gcc-xtensa-lx106_10.3.0-1ubuntu1%2B8ubuntu1_amd64.deb"
-      },
-      "original": {
-        "type": "file",
-        "url": "http://launchpadlibrarian.net/533672386/gcc-xtensa-lx106_10.3.0-1ubuntu1%2B8ubuntu1_amd64.deb"
       }
     }
   },
