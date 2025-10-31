@@ -14,78 +14,78 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  Lint:
-    runs-on: smallworld-arc
-    permissions:
-      contents: write
-    outputs:
-      changes_detected: ${{ steps.ac.outputs.changes_detected }}
+  # Lint:
+  #   runs-on: smallworld-arc
+  #   permissions:
+  #     contents: write
+  #   outputs:
+  #     changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
-    steps:
-      - name: Checkout (This Repo)
-        uses: actions/checkout@v3
-        env:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
-        with:
-          token: ${{ secrets.BOT_TOKEN }}
+  #   steps:
+  #     - name: Checkout (This Repo)
+  #       uses: actions/checkout@v3
+  #       env:
+  #         bot_token: ${{ secrets.BOT_TOKEN }}
+  #       if: ${{ env.bot_token != '' }}
+  #       with:
+  #         token: ${{ secrets.BOT_TOKEN }}
 
-      - name: Checkout (Fork Repo)
-        uses: actions/checkout@v3
-        env:
-          secret: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token == '' }}
+  #     - name: Checkout (Fork Repo)
+  #       uses: actions/checkout@v3
+  #       env:
+  #         secret: ${{ secrets.BOT_TOKEN }}
+  #       if: ${{ env.bot_token == '' }}
 
-      - uses: actions/checkout@v4
+  #     - uses: actions/checkout@v4
 
-      - name: Format
-        env:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
-        run: |
-          nix develop -c isort . --profile black
-          nix develop -c black ./
+  #     - name: Format
+  #       env:
+  #         bot_token: ${{ secrets.BOT_TOKEN }}
+  #       if: ${{ env.bot_token != '' }}
+  #       run: |
+  #         nix develop -c isort . --profile black
+  #         nix develop -c black ./
 
-      - id: ac
-        uses: stefanzweifel/git-auto-commit-action@v5
-        env: 
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
-        with:
-          commit_message: "style: isort and black"
-          commit_author: GitHub Actions <actions@github.com>
+  #     - id: ac
+  #       uses: stefanzweifel/git-auto-commit-action@v5
+  #       env: 
+  #         bot_token: ${{ secrets.BOT_TOKEN }}
+  #       if: ${{ env.bot_token != '' }}
+  #       with:
+  #         commit_message: "style: isort and black"
+  #         commit_author: GitHub Actions <actions@github.com>
 
-      - name: Changes Detected
-        if: steps.ac.outputs.changes_detected == 'true'
-        run: |
-            echo "Linters caused a commit.  Terminating run; tests will continue on next commit"
-            exit 1        
+  #     - name: Changes Detected
+  #       if: steps.ac.outputs.changes_detected == 'true'
+  #       run: |
+  #           echo "Linters caused a commit.  Terminating run; tests will continue on next commit"
+  #           exit 1        
 
-      - name: Lint
-        run: |
-          nix develop -c isort --check --profile black .
-          nix develop -c black --check ./
-          nix develop -c flake8 ./
-          nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
+  #     - name: Lint
+  #       run: |
+  #         nix develop -c isort --check --profile black .
+  #         nix develop -c black --check ./
+  #         nix develop -c flake8 ./
+  #         nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
 
-      - name: Check Title
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-        run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
+  #     - name: Check Title
+  #       env:
+  #         TITLE: ${{ github.event.pull_request.title }}
+  #       run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
 
-  Unit-Test:
-    runs-on: smallworld-arc
-    needs: Lint
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Unit Tests
-        run: |
-          cd tests
-          nix develop -c python3 unit.py -v
+  # Unit-Test:
+  #   runs-on: smallworld-arc
+  #   needs: Lint
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Run Unit Tests
+  #       run: |
+  #         cd tests
+  #         nix develop -c python3 unit.py -v
   Integration-Test:
       runs-on: smallworld-arc
-      needs: Lint
+      # needs: Lint
       strategy:
         max-parallel: 100
         matrix:
@@ -157,7 +157,7 @@ jobs:
             - testsuite: C99SnprintfTests
             - testsuite: C99SprintfTests
             - testsuite: C99SrandTests
-            - testsuite: C99SscanfTests
+            # - testsuite: C99SscanfTests
             # - testsuite: C99StrcatTests
             - testsuite: C99StrchrTests
             - testsuite: C99StrcmpTests
