@@ -246,7 +246,4 @@ jobs:
       - name: Tests Failed
         if: needs.Lint.outputs.changes_detected != 'true' && contains(needs.*.result, 'failure')
         run: exit 1
-
-      - name: Cleanup
-        run: rm $SCRATCH/smallworld_${{ github.sha }}.tar.gz
       
