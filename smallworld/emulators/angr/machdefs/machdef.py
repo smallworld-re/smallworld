@@ -85,6 +85,8 @@ class AngrMachineDef:
         if state.project is None:
             raise exceptions.ConfigurationError("Angr state had no project.")
 
+        assert hasattr(state.scratch, "exit_points")
+
         # Inject exit points here.
         if "extra_stop_points" in kwargs:
             exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])

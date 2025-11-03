@@ -183,6 +183,8 @@ class i386MachineDef(AngrMachineDef):
         # VEX doesn't correctly model SYSENTER and SYSEXIT
 
         # Inject exit points here.
+        assert hasattr(state.scratch, "exit_points")
+
         if "extra_stop_points" in kwargs:
             exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
             del kwargs["extra_stop_points"]

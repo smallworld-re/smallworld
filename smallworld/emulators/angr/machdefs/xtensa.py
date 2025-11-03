@@ -211,6 +211,8 @@ class XTensaMachineDef(GhidraMachineDef):
         # xtensa includes a _LOT_ of custom pcode operations.
 
         # Inject exit points here.
+        assert hasattr(state.scratch, "exit_points")
+
         if "extra_stop_points" in kwargs:
             exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
             del kwargs["extra_stop_points"]
