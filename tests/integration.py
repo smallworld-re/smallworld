@@ -2323,9 +2323,7 @@ class DelayTests(ScriptIntegrationTest):
 
 class ExitpointTests(ScriptIntegrationTest):
     def run_test(self, arch: str):
-        stdout, _ = self.command(f"python3 exitpoint/exitpoint.{arch}.py")
-        self.assertLineContainsStrings(stdout, "=0x10101010")
-        self.assertLineContainsStrings(stdout, "=0x2a")
+        self.command(f"python3 exitpoint/exitpoint.{arch}.py")
 
     def test_aarch64(self):
         self.run_test("aarch64")

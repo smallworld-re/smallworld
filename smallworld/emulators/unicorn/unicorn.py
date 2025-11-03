@@ -813,7 +813,7 @@ class UnicornEmulator(
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
             msg = f"{prefix} due to fetch of unmapped memory at"
             if pc in self._exit_points:
-                raise exceptions.EmulationStop
+                raise exceptions.EmulationExitpoint
             if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
                 # This is actually an out-of-bounds error
                 raise exceptions.EmulationBounds
