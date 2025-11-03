@@ -2034,19 +2034,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyhidra"
-version = "1.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jpype1" },
-    { name = "packaging" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/87/7f/1de83b2299371f013196d044cfc95d48116a4067f4ff9d5197eb509dc9f5/pyhidra-1.3.0.tar.gz", hash = "sha256:1fae93db37000b7b12d8011500d9367a904fafb09476190e519f61b013d440e4", size = 47568, upload-time = "2024-10-04T16:25:19.26Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0b/71/42b696a1e5a81f12a27898b1f83f16b5109f3702e884248d75238e4ab92e/pyhidra-1.3.0-py3-none-any.whl", hash = "sha256:768b5199cf94bafe33bfa64c836380c976dad68db937e1feefb5b5e8f8035c73", size = 56999, upload-time = "2024-10-04T16:25:17.754Z" },
-]
-
-[[package]]
 name = "pyparsing"
 version = "3.2.5"
 source = { registry = "https://pypi.org/simple" }
@@ -2513,7 +2500,6 @@ dependencies = [
     { name = "jsons" },
     { name = "lief" },
     { name = "pyghidra" },
-    { name = "pyhidra" },
     { name = "pypcode" },
     { name = "setuptools" },
     { name = "unicorn" },
@@ -2541,7 +2527,6 @@ requires-dist = [
     { name = "jsons", specifier = "==1.6.3" },
     { name = "lief", specifier = "==0.17.0" },
     { name = "pyghidra", specifier = ">=2.2.0" },
-    { name = "pyhidra", specifier = "==1.3.0" },
     { name = "pypcode", specifier = "==3.0" },
     { name = "setuptools", specifier = ">=80.9.0" },
     { name = "unicorn", specifier = "==2.0.1.post1" },
