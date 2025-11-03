@@ -179,6 +179,10 @@ jobs:
             - testsuite: C99TmpfileTests
             - testsuite: C99TmpnamTests
             - testsuite: C99UngetcTests
+            - testsuite: CheckedDoubleFreeTests
+            # - testsuite: CheckedReadTests
+            - testsuite: CheckedUAFTests
+            - testsuite: CheckedWriteTests
             - testsuite: ColorizerTests
             - testsuite: DelayTests
             - testsuite: DMATests
@@ -214,10 +218,7 @@ jobs:
             - testsuite: SysVModelTests
             - testsuite: TraceExecutionTests
             - testsuite: ThumbTests
-            - testsuite: CheckedDoubleFreeTests
-            # - testsuite: CheckedReadTests
-            - testsuite: CheckedUAFTests
-            - testsuite: CheckedWriteTests
+            - testsuite: UnmappedTests
       steps:
       - uses: actions/checkout@v4
       - name: Build Artifacts
