@@ -215,7 +215,7 @@ jobs:
             - testsuite: TraceExecutionTests
             - testsuite: ThumbTests
             - testsuite: CheckedDoubleFreeTests
-            # - testsuite: CheckedReadTests
+            - testsuite: CheckedReadTests
             - testsuite: CheckedUAFTests
             - testsuite: CheckedWriteTests
       steps:
