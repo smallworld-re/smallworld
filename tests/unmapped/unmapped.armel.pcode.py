@@ -29,7 +29,6 @@ with open(filename, "rb") as f:
     machine.add(code)
 
 # NOTE: We purposefully don't add bounds.
-machine.add_exit_point(0)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)

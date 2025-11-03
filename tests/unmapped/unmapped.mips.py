@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -38,13 +38,14 @@ machine.add(stack)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
+# Add spurious exit point
+machine.add_exit_point(0)
+
 # First test: read unmapped memory
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.AngrEmulator(platform)
-    emulator.enable_linear()
-    emulator.error_on_unmapped = True
+    emulator = smallworld.emulators.UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory read")
 except smallworld.exceptions.EmulationReadUnmappedFailure:
@@ -54,9 +55,7 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.AngrEmulator(platform)
-    emulator.enable_linear()
-    emulator.error_on_unmapped = True
+    emulator = smallworld.emulators.UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory write")
 except smallworld.exceptions.EmulationWriteUnmappedFailure:
@@ -66,9 +65,7 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
-    emulator = smallworld.emulators.AngrEmulator(platform)
-    emulator.enable_linear()
-    emulator.error_on_unmapped = True
+    emulator = smallworld.emulators.UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory fetch")
 except smallworld.exceptions.EmulationFetchUnmappedFailure:

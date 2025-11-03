@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -42,6 +42,8 @@ cpu.sp.set(sp)
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
+    # mips64 ABI madness; t9 used to derive global pointer
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
     emulator.error_on_unmapped = True
@@ -54,6 +56,8 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
+    # mips64 ABI madness; t9 used to derive global pointer
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
     emulator.error_on_unmapped = True
@@ -66,6 +70,8 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
+    # mips64 ABI madness; t9 used to derive global pointer
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
     emulator.error_on_unmapped = True

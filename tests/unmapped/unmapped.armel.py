@@ -29,6 +29,7 @@ with open(filename, "rb") as f:
     machine.add(code)
 
 # NOTE: We purposefully don't add bounds.
+# Set spurious exit point, since Unicorn requires one
 machine.add_exit_point(0)
 
 # Create a stack and add it to the state

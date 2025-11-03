@@ -1356,7 +1356,12 @@ class AngrEmulator(
         self._dirty = True
         if self._linear:
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
-                disas = self.state.block(opt_level=0).disassembly
+                try:
+                    disas = self.state.block(opt_level=0).disassembly
+                except angr.errors.SimEngineError:
+                    # Only happens if the Pcode disassembler fails
+                    disas = None
+
                 if disas is not None and len(disas.insns) > 0:
                     log.info(f"Stepping through {disas.insns[0]}")
                 else:

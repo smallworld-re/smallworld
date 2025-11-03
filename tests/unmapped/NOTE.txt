@@ -1,0 +1,2 @@
+Panda does not handle unmapped accesses gracefully.
+This may be fixed in panda-ng
