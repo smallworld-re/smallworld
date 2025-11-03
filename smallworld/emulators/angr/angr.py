@@ -896,7 +896,7 @@ class AngrEmulator(
 
                 # Use this point to implement memory map checking
                 if (
-                    self._error_on_unmapped
+                    self.error_on_unmapped
                     and len(
                         state.scratch.memory_map.get_missing_ranges(
                             read_start, read_end
@@ -1162,7 +1162,7 @@ class AngrEmulator(
 
                 # Use this point to implement memory map checking
                 if (
-                    self._error_on_unmapped
+                    self.error_on_unmapped
                     and len(
                         state.scratch.memory_map.get_missing_ranges(
                             write_start, write_end
