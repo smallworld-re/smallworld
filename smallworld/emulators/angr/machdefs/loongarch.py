@@ -256,7 +256,12 @@ class LoongArchMachineDef(GhidraMachineDef):
     }
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
-        # xtensa includes a _LOT_ of custom pcode operations.
+        # Inject exit points here.
+        if "extra_stop_points" in kwargs:
+            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
+            del kwargs["extra_stop_points"]
+        else:
+            exit_points = state.scratch.exit_points
 
         # Fetch or compute the IR block for our state
         if "irsb" in kwargs and kwargs["irsb"] is not None:
@@ -268,7 +273,7 @@ class LoongArchMachineDef(GhidraMachineDef):
 
             # Compute the block from the state.
             # Pray to the Powers that kwargs are compatible.
-            irsb = state.block(**kwargs).vex
+            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
 
         i = 0
         while i < len(irsb._ops):
