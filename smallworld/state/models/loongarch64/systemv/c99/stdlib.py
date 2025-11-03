@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class LoongArch64SysVAtol(Atol, LoongArch64SysVModel):
 
 
 class LoongArch64SysVAtoll(Atoll, LoongArch64SysVModel):
+    pass
+
+
+class LoongArch64SysVBsearch(Bsearch, LoongArch64SysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "LoongArch64SysVAtoi",
     "LoongArch64SysVAtol",
     "LoongArch64SysVAtoll",
+    "LoongArch64SysVBsearch",
     "LoongArch64SysVCalloc",
     "LoongArch64SysVDiv",
     "LoongArch64SysVLDiv",

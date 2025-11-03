@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class ArmELSysVAtol(Atol, ArmELSysVModel):
 
 
 class ArmELSysVAtoll(Atoll, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVBsearch(Bsearch, ArmELSysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "ArmELSysVAtoi",
     "ArmELSysVAtol",
     "ArmELSysVAtoll",
+    "ArmELSysVBsearch",
     "ArmELSysVCalloc",
     "ArmELSysVDiv",
     "ArmELSysVLDiv",

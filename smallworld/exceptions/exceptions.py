@@ -11,6 +11,12 @@ class ConfigurationError(Error):
     pass
 
 
+class ImpreciseModelError(ConfigurationError):
+    """Raised when a non-whitecarded imprecise function model is called"""
+
+    pass
+
+
 class EmulationError(Error):
     """Raised when emulation fails."""
 
@@ -200,6 +206,12 @@ class EmulationException(EmulationError):
         return f"{self.__class__.__name__}({self.exception})"
 
 
+class UnsupportedModelError(EmulationError):
+    """Raised when a model of an unsupported function gets called"""
+
+    pass
+
+
 class AnalysisError(Error):
     """Some kind of error in analysis."""
 
@@ -212,6 +224,7 @@ __all__ = [
     "EmulationBounds",
     "EmulationExitpoint",
     "EmulationException",
+    "ImpreciseModelError",
     "SymbolicValueError",
     "UnsatError",
     "EmulationFailure",
@@ -231,6 +244,7 @@ __all__ = [
     "EmulationFetchUnmappedFailure",
     "EmulationFetchProtectedFailure",
     "EmulationFetchUnalignedFailure",
+    "UnsupportedModelError",
     "UnsupportedRegisterError",
     "AnalysisError",
 ]

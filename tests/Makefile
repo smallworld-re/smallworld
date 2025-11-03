@@ -23,7 +23,7 @@ MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
 MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
 MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
-TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS) $(CPES) $(CDLLS)
+TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS) $(CDLLS) $(CPES)
 
 NASM_SOURCES := $(wildcard *.amd64.s)
 NASM_TARGETS := $(NASM_SOURCES:.s=.bin)

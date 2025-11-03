@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class ArmHFSysVAtol(Atol, ArmHFSysVModel):
 
 
 class ArmHFSysVAtoll(Atoll, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVBsearch(Bsearch, ArmHFSysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "ArmHFSysVAtoi",
     "ArmHFSysVAtol",
     "ArmHFSysVAtoll",
+    "ArmHFSysVBsearch",
     "ArmHFSysVCalloc",
     "ArmHFSysVDiv",
     "ArmHFSysVLDiv",

@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class I386SysVAtol(Atol, I386SysVModel):
 
 
 class I386SysVAtoll(Atoll, I386SysVModel):
+    pass
+
+
+class I386SysVBsearch(Bsearch, I386SysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "I386SysVAtoi",
     "I386SysVAtol",
     "I386SysVAtoll",
+    "I386SysVBsearch",
     "I386SysVCalloc",
     "I386SysVDiv",
     "I386SysVLDiv",

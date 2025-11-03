@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class RiscV64SysVAtol(Atol, RiscV64SysVModel):
 
 
 class RiscV64SysVAtoll(Atoll, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVBsearch(Bsearch, RiscV64SysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "RiscV64SysVAtoi",
     "RiscV64SysVAtol",
     "RiscV64SysVAtoll",
+    "RiscV64SysVBsearch",
     "RiscV64SysVCalloc",
     "RiscV64SysVDiv",
     "RiscV64SysVLDiv",
