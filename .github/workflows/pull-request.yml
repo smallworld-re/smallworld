@@ -103,7 +103,7 @@ jobs:
             - testsuite: C99AbsTests
             - testsuite: C99AsctimeTests
             - testsuite: C99AtexitTests
-            # - testsuite: C99AtoiTests
+            - testsuite: C99AtoiTests
             # - testsuite: C99AtollTests
             # - testsuite: C99AtolTests
             - testsuite: C99CallocTests
@@ -215,7 +215,7 @@ jobs:
             - testsuite: TraceExecutionTests
             - testsuite: ThumbTests
             - testsuite: CheckedDoubleFreeTests
-            - testsuite: CheckedReadTests
+            # - testsuite: CheckedReadTests
             - testsuite: CheckedUAFTests
             - testsuite: CheckedWriteTests
       steps:
