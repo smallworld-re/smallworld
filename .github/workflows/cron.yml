@@ -36,7 +36,7 @@ jobs:
 
       - name: Build CI
         run: |
-          docker build -f Dockerfile.ci --network host --build-arg NIX_CACHE_PUBKEY=${{ secrets.NIX_CACHE_PUBKEY }} -t $REGISTRY/smallworld/smallworld_ci:${{ github.sha }} .
+          docker build -f Dockerfile --network host --build-arg NIX_CACHE_PUBKEY=${{ secrets.NIX_CACHE_PUBKEY }} -t $REGISTRY/smallworld/smallworld_ci:${{ github.sha }} .
 
       - name: Tag CI
         run: |
