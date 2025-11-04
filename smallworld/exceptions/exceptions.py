@@ -1,6 +1,6 @@
 import typing
 
-# NOTE: If extending Exception, all positional and keyword args must get passed up to Exception.__init__().
+# NOTE: If extending Exception, all positional args must get passed up to Exception.__init__().
 #
 # This is an artifact of how Exception gets processed for deepcopy and pickle.
 # only arguments to the constructor passed to the superclass constructor will get passed
@@ -13,6 +13,8 @@ import typing
 
 class Error(Exception):
     """Common base class for all exceptions."""
+
+    pass
 
 
 class ConfigurationError(Error):
@@ -72,8 +74,8 @@ class UnsatError(EmulationError):
 class EmulationFailure(EmulationError):
     """Raised if the code being emulated faults somehow"""
 
-    def __init__(self, msg: str, pc: int, *args, **kwargs):
-        super().__init__(msg, pc, *args, **kwargs)
+    def __init__(self, msg: str, pc: int, *args):
+        super().__init__(msg, pc, *args)
         self.pc = pc
 
 
@@ -92,9 +94,8 @@ class EmulationExecInvalidFailure(EmulationExecFailure):
         pc: int,
         instruction: typing.Optional[typing.Any],
         *args,
-        **kwargs,
     ):
-        super().__init__(msg, pc, instruction, *args, **kwargs)
+        super().__init__(msg, pc, instruction, *args)
         self.instruction = instruction
 
 
@@ -118,9 +119,8 @@ class EmulationMemoryFailure(EmulationFailure):
         *args,
         operands: typing.Optional[typing.List[typing.Any]] = None,
         address: typing.Optional[int] = None,
-        **kwargs,
     ):
-        super().__init__(msg, pc, *args, operands=operands, address=address, **kwargs)
+        super().__init__(msg, pc, *args)
         self.address = address
         self.operands = operands
 
