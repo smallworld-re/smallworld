@@ -103,9 +103,9 @@ jobs:
             - testsuite: C99AbsTests
             - testsuite: C99AsctimeTests
             - testsuite: C99AtexitTests
-            # - testsuite: C99AtoiTests
-            # - testsuite: C99AtollTests
-            # - testsuite: C99AtolTests
+            - testsuite: C99AtoiTests
+            - testsuite: C99AtollTests
+            - testsuite: C99AtolTests
             - testsuite: C99CallocTests
             - testsuite: C99ClearerrTests
             - testsuite: C99ClockTests
@@ -114,37 +114,37 @@ jobs:
             - testsuite: C99ExitTests
             - testsuite: C99FcloseTests
             - testsuite: C99FeofTests
-            # - testsuite: C99FflushTests
-            # - testsuite: C99FgetcTests
+            - testsuite: C99FflushTests
+            - testsuite: C99FgetcTests
             - testsuite: C99FgetposTests
-            # - testsuite: C99FgetsTests
+            - testsuite: C99FgetsTests
             - testsuite: C99FopenTests
-            # - testsuite: C99FprintfTests
+            - testsuite: C99FprintfTests
             - testsuite: C99FputcTests
             - testsuite: C99FputsTests
-            # - testsuite: C99FreadTests
+            - testsuite: C99FreadTests
             - testsuite: C99FreeTests
-            # - testsuite: C99FscanfTests
+            - testsuite: C99FscanfTests
             - testsuite: C99FseekTests
             - testsuite: C99FsetposTests
             - testsuite: C99FtellTests
             - testsuite: C99FwriteTests
-            # - testsuite: C99GetcharTests
-            # - testsuite: C99GetcTests
+            - testsuite: C99GetcharTests
+            - testsuite: C99GetcTests
             - testsuite: C99GetenvTests
-            # - testsuite: C99GetsTests
+            - testsuite: C99GetsTests
             - testsuite: C99GmtimeTests
             - testsuite: C99LabsTests
             - testsuite: C99LlabsTests
             - testsuite: C99LocaltimeTests
             - testsuite: C99MallocTests
             - testsuite: C99MemcmpTests
-            # - testsuite: C99MemcpyTests
-            # - testsuite: C99MemmoveTests
-            # - testsuite: C99MemsetTests
+            - testsuite: C99MemcpyTests
+            - testsuite: C99MemmoveTests
+            - testsuite: C99MemsetTests
             - testsuite: C99MktimeTests
             # - testsuite: C99PrintfTests
-            # - testsuite: C99PutcharTests
+            - testsuite: C99PutcharTests
             - testsuite: C99PutcTests
             - testsuite: C99PutsTests
             - testsuite: C99RandTests
@@ -152,21 +152,21 @@ jobs:
             - testsuite: C99RemoveTests
             - testsuite: C99RenameTests
             - testsuite: C99RewindTests
-            # - testsuite: C99ScanfTests
+            - testsuite: C99ScanfTests
             - testsuite: C99SignalTests
-            # - testsuite: C99SnprintfTests
-            # - testsuite: C99SprintfTests
+            - testsuite: C99SnprintfTests
+            - testsuite: C99SprintfTests
             - testsuite: C99SrandTests
-            # - testsuite: C99SscanfTests
-            # - testsuite: C99StrcatTests
+            - testsuite: C99SscanfTests
+            - testsuite: C99StrcatTests
             - testsuite: C99StrchrTests
             - testsuite: C99StrcmpTests
-            # - testsuite: C99StrcpyTests
+            - testsuite: C99StrcpyTests
             - testsuite: C99StrcspnTests
             - testsuite: C99StrerrorTests
             - testsuite: C99StrftimeTests
             - testsuite: C99StrlenTests
-            # - testsuite: C99StrncatTests
+            - testsuite: C99StrncatTests
             - testsuite: C99StrncmpTests
             - testsuite: C99StrncpyTests
             - testsuite: C99StrpbrkTests
@@ -188,14 +188,14 @@ jobs:
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FuzzTests
-            # - testsuite: LinkElfTests
+            - testsuite: LinkElfTests
             - testsuite: LinkPETests
             - testsuite: HookingTests
             - testsuite: MemhookTests
             - testsuite: PETests
-            # - testsuite: POSIXBasenameTests
+            - testsuite: POSIXBasenameTests
             - testsuite: POSIXBsdSignalTests
-            # - testsuite: POSIXDirnameTests
+            - testsuite: POSIXDirnameTests
             - testsuite: POSIXPthreadSigmaskTests
             - testsuite: POSIXSigactionTests
             - testsuite: POSIXSigaddsetTests
@@ -204,7 +204,7 @@ jobs:
             - testsuite: POSIXSigfillsetTests
             - testsuite: POSIXSigpendingTests
             - testsuite: POSIXSigprocmaskTests
-            # - testsuite: RelaTests
+            - testsuite: RelaTests
             - testsuite: RTOSDemoTests
             - testsuite: SquareTests
             - testsuite: StackTests
@@ -215,7 +215,7 @@ jobs:
             - testsuite: TraceExecutionTests
             - testsuite: ThumbTests
             - testsuite: CheckedDoubleFreeTests
-            # - testsuite: CheckedReadTests
+            - testsuite: CheckedReadTests
             - testsuite: CheckedUAFTests
             - testsuite: CheckedWriteTests
       steps:
