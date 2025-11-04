@@ -20,6 +20,8 @@ class DetailedCalledProcessError(Exception):
 
 
 class ScriptIntegrationTest(unittest.TestCase):
+    maxDiff = None
+
     def command(
         self,
         cmd: str,

@@ -30,7 +30,7 @@ NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
 
 PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu xtensa-lx106-elf)
 
-GENERAL_CFLAGS := $(CFLAGS) -g -fno-stack-protector -fno-builtin -Wno-deprecated-declarations
+GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-stack-protector -fno-builtin -Wno-deprecated-declarations
 
 # Custom start offset for MIPS64 and MIPS64EL
 # Panda currently runs binaries in the physical address space.
@@ -59,10 +59,10 @@ endif
 	rm $*.aarch64.o
 
 %.amd64.so: %.so.c
-	gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
+	x86_64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
 
 %.amd64.elf: %.elf.c
-	gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
+	x86_64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
 
 %.amd64.pe: %.pe.c %.amd64.dll
 	x86_64-w64-mingw32-gcc $*.pe.c $*.amd64.dll -o $*.amd64.pe
@@ -75,8 +75,8 @@ endif
 	x86_64-w64-mingw32-gcc -shared $*.dll.c -o $*.amd64.dll
 
 %.amd64.elf: %.amd64.elf.s
-	as $*.amd64.elf.s -o $*.amd64.elf.o
-	ld $*.amd64.elf.o -o $*.amd64.elf
+	x86_64-linux-gnu-as $*.amd64.elf.s -o $*.amd64.elf.o
+	x86_64-linux-gnu-ld $*.amd64.elf.o -o $*.amd64.elf
 	rm $*.amd64.elf.o
 
 %.amd64.bin: %.amd64.s
