@@ -123,7 +123,6 @@ cpu.t9.set(entrypoint)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x2000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
