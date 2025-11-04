@@ -51,7 +51,13 @@
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
 
-      workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
+      root = ./.;
+      rootSet = nixpkgs.lib.fileset.gitTracked root;
+      excludeSet = nixpkgs.lib.fileset.unions [./flake.nix ./flake.lock];
+      fileset = nixpkgs.lib.fileset.difference rootSet excludeSet;
+      rootString =  builtins.unsafeDiscardStringContext (nixpkgs.lib.fileset.toSource { inherit fileset root; });
+      rootPath = /. + rootString;
+      workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
       deps = workspace.deps.all // {
         unicornafl = [];
         pypanda = [];
