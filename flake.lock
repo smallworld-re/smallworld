@@ -15,6 +15,26 @@
         "type": "github"
       }
     },
+    "deb2nix": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1761930602,
+        "narHash": "sha256-ac6dOnWg0aLkFM5oCX18E5ewZMxqgpbF6GUaXKpQG30=",
+        "owner": "kylesferrazza",
+        "repo": "deb2nix",
+        "rev": "257c466f65f7a1053f6c9c29b1cf392cb8bf1c53",
+        "type": "gitlab"
+      },
+      "original": {
+        "owner": "kylesferrazza",
+        "repo": "deb2nix",
+        "type": "gitlab"
+      }
+    },
     "flake-utils": {
       "inputs": {
         "systems": "systems"
@@ -184,6 +204,7 @@
     },
     "root": {
       "inputs": {
+        "deb2nix": "deb2nix",
         "nixpkgs": "nixpkgs",
         "panda": "panda",
         "pandaPkgs": "pandaPkgs",
