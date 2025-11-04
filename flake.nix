@@ -4,6 +4,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
+    deb2nix = {
+      url = "gitlab:kylesferrazza/deb2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -35,6 +40,7 @@
   outputs =
     {
       nixpkgs,
+      deb2nix,
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
@@ -237,7 +243,9 @@
             pkgs.ghidra
             pkgs.jdk
             pkgs.stdenv.cc
-            # pkgs.nasm
+            pkgs.nasm
+            pkgs.pkgsCross.loongarch64-linux.stdenv.cc
+            pkgs.pkgsCross.aarch64-multiplatform.stdenv.cc
           ]
           ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
