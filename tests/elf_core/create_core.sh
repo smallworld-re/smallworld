@@ -14,6 +14,8 @@ sysroot="/usr/$platform-linux-gnu"
 if [ "$platform" = "amd64" ]; then
     sysroot="/lib/x86_64-linux-gnu"
     qemu_bin="qemu-x86_64"
+    library_path="/lib/x86_64-linux-gnu"
+    export LD_LIBRARY_PATH="$library_path"
 elif [ "$platform" = "armel" ]; then
     sysroot="/usr/arm-linux-gnueabi"
     qemu_bin="qemu-arm"
@@ -33,6 +35,7 @@ elif [ "$platform" = "ppc64" ]; then
 fi
 
 echo "foobar" | "$qemu_bin" -L "$sysroot" "$1"
+export LD_LIBRARY_PATH=""
 
 find . -name 'core.*' | xargs -I @ rm @
 find . -name "qemu_$1*.core" | xargs -I @ mv @ "$1.core"
