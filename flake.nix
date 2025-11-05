@@ -183,7 +183,16 @@
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
           crossTargets = [
-            "loongarch64-linux"
+            # "aarch64-multiplatform"
+            # "arm-embedded"
+            # "armhf-embedded"
+            # "mips-linux-gnu"
+            # "mipsel-linux-gnu"
+            # "mips64-linux-gnuabi64"
+            # "mips64el-linux-gnuabi64"
+            # "riscv64"
+            # "ppc64"
+            # "loongarch64-linux"
           ];
           crossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) crossTargets;
           inputs = [
@@ -192,11 +201,8 @@
             pandaWithLibs.${system}
             pkgs.ghidra
             pkgs.jdk
-            ];
-          #   xtensa.${system}.gcc
-          #   xtensa.${system}.binutils
-          #   pkgs.nasm
-          # ] ++ crossTargetCCs;
+            # pkgs.nasm
+          ] ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
