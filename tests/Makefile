@@ -1,305 +1,324 @@
-.PHONY: all build clean check
-.DEFAULT_GOAL=all
+# This is a templated Makefile.
+# Instead of explicitly writing out rules for every possible target,
+# it uses formulaic parameter variables to duplicate
+# the same set of rules for each architecture.
 
-SOURCES := $(wildcard */*.s) $(wildcard */*/*.s)
-BINSOURCES := $(filter-out %.elf.s,$(SOURCES))
-ELFSOURCES := $(filter %.elf.s,$(SOURCES))
+# ***********************
+# *** Function Macros ***
+# ***********************
 
-CSOURCES := $(wildcard */*.c) $(wildcard */*/*.c)
-CELFSOURCES := $(filter %.elf.c,$(CSOURCES))
-CSOSOURCES := $(filter %.so.c,$(CSOURCES))
-CPESOURCES := $(filter %.pe.c,$(CSOURCES))
-CDLLSOURCES := $(filter %.dll.c,$(CSOURCES))
+# String to-lower macro
+lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(subst G,g,$(subst H,h,$(subst I,i,$(subst J,j,$(subst K,k,$(subst L,l,$(subst M,m,$(subst N,n,$(subst O,o,$(subst P,p,$(subst Q,q,$(subst R,r,$(subst S,s,$(subst T,t,$(subst U,u,$(subst V,v,$(subst W,w,$(subst X,x,$(subst Y,y,$(subst Z,z,$1))))))))))))))))))))))))))
 
-BINS := $(patsubst %.s,%.bin,$(BINSOURCES))
-ELFS := $(patsubst %.s,%,$(ELFSOURCES))
+# ****************************
+# *** Command Declarations ***
+# ****************************
 
-CELFS := $(patsubst %.elf.c,%.aarch64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.amd64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.armhf.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.i386.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.la64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mipsel.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.mips64el.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.ppc64.elf,$(CELFSOURCES)) $(patsubst %.elf.c,%.riscv64.elf,$(CELFSOURCES))
-CSOS := $(patsubst %.so.c,%.aarch64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.amd64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.armhf.so,$(CSOSOURCES)) $(patsubst %.so.c,%.i386.so,$(CSOSOURCES)) $(patsubst %.so.c,%.la64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mipsel.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.mips64el.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc.so,$(CSOSOURCES)) $(patsubst %.so.c,%.ppc64.so,$(CSOSOURCES)) $(patsubst %.so.c,%.riscv64.so,$(CSOSOURCES))
-CPES := $(patsubst %.pe.c,%.amd64.pe,$(CPESOURCES)) $(patsubst %.pe.c,%.i386.pe,$(CPESOURCES))
-CDLLS := $(patsubst %.dll.c,%.amd64.dll,$(CDLLSOURCES)) $(patsubst %.dll.c,%.i386.dll,$(CDLLSOURCES))
+# Command Prefixes
 
-MIPSEL_BINS := $(patsubst %.mips.bin,%.mipsel.bin,$(filter %.mips.bin,$(BINS)))
-MIPSEL_ELFS := $(patsubst %.mips.elf,%.mipsel.elf,$(filter %.mips.elf,$(ELFS)))
-MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(BINS)))
-MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
-TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS) $(CELFS) $(CSOS) $(CDLLS) $(CPES)
+AARCH64_ID := aarch64-unknown-linux-gnu
+AMD64_ID := x86_64-linux-gnu
+AMD64_MINGW_ID := x86_64-w64-mingw32
+ARMEL_ID := arm-linux-gnueabi
+ARMHF_ID := arm-linux-gnueabihf
+I386_ID := i686-linux-gnu
+I386_MINGW_ID := i386-w64-mingw32
+LA64_ID := loongarch64-linux-gnu
+MIPS_ID := mips-linux-gnu
+MIPSEL_ID := mipsel-linux-gnu
+MIPS64_ID := mips64-linux-gnuabi64
+MIPS64EL_ID := mips64el-linux-gnuabi64
+PPC_ID := powerpc-linux-gnu
+PPC64_ID := powerpc64-linux-gnu
+RISCV64_ID := riscv64-linux-gnu
+XTENSA_ID := xtensa-lx106-elf
 
-NASM_SOURCES := $(wildcard *.amd64.s)
-NASM_TARGETS := $(NASM_SOURCES:.s=.bin)
+# Assembler Commands for Assembly
 
-PREREQS := $(patsubst %,%.prereq,aarch64-unknown-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu xtensa-lx106-elf)
+AARCH64_ASM_AS := $(AARCH64_ID)-as 
+AMD64_ASM_AS := nasm 
+ARMEL_ASM_AS := $(ARMEL_ID)-as 
+ARMHF_ASM_AS := $(ARMHF_ID)-as 
+I386_ASM_AS := $(I386_ID)-as 
+LA64_ASM_AS := $(LA64_ID)-as 
+MIPS_ASM_AS := $(MIPS_ID)-as 
+MIPSEL_ASM_AS := $(MIPSEL_ID)-as 
+MIPS64_ASM_AS := $(MIPS64_ID)-as 
+MIPS64EL_ASM_AS := $(MIPS64EL_ID)-as 
+PPC_ASM_AS := $(PPC_ID)-as 
+PPC64_ASM_AS := $(PPC64_ID)-as 
+RISCV64_ASM_AS := $(RISCV64_ID)-as 
+XTENSA_ASM_AS := $(XTENSA_ID)-as 
 
-GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-stack-protector -fno-builtin -Wno-deprecated-declarations
+# Assembler Commands for ELF
 
-# Custom start offset for MIPS64 and MIPS64EL
+AARCH64_ELF_AS := $(AARCH64_ID)-as 
+AMD64_ELF_AS := $(AMD64_ID)-as
+ARMEL_ELF_AS := $(ARMEL_ID)-as 
+ARMHF_ELF_AS := $(ARMHF_ID)-as 
+I386_ELF_AS := $(I386_ID)-as 
+LA64_ELF_AS := $(LA64_ID)-as 
+MIPS_ELF_AS := $(MIPS_ID)-as 
+MIPSEL_ELF_AS := $(MIPSEL_ID)-as 
+MIPS64_ELF_AS := $(MIPS64_ID)-as 
+MIPS64EL_ELF_AS := $(MIPS64EL_ID)-as 
+PPC_ELF_AS := $(PPC_ID)-as 
+PPC64_ELF_AS := $(PPC64_ID)-as 
+RISCV64_ELF_AS := $(RISCV64_ID)-as 
+XTENSA_ELF_AS := $(XTENSA_ID)-as 
+
+# Objcopy Commands
+
+AARCH64_OBJCOPY := $(AARCH64_ID)-objcopy
+# NASM doesn't produce a .o; we can skip this
+AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
+ARMEL_OBJCOPY := $(ARMEL_ID)-objcopy 
+ARMHF_OBJCOPY := $(ARMHF_ID)-objcopy 
+I386_OBJCOPY := $(I386_ID)-objcopy 
+LA64_OBJCOPY := $(LA64_ID)-objcopy 
+MIPS_OBJCOPY := $(MIPS_ID)-objcopy 
+MIPSEL_OBJCOPY := $(MIPSEL_ID)-objcopy 
+MIPS64_OBJCOPY := $(MIPS64_ID)-objcopy 
+MIPS64EL_OBJCOPY := $(MIPS64EL_ID)-objcopy 
+PPC_OBJCOPY := $(PPC_ID)-objcopy 
+PPC64_OBJCOPY := $(PPC64_ID)-objcopy 
+RISCV64_OBJCOPY := $(RISCV64_ID)-objcopy 
+XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy 
+
+# Linker Commands
+
+AARCH64_LD := $(AARCH64_ID)-ld 
+AMD64_LD := $(AMD64_ID)-ld 
+ARMEL_LD := $(ARMEL_ID)-ld 
+ARMHF_LD := $(ARMHF_ID)-ld 
+I386_LD := $(I386_ID)-ld 
+LA64_LD := $(LA64_ID)-ld 
+MIPS_LD := $(MIPS_ID)-ld 
+MIPSEL_LD := $(MIPSEL_ID)-ld 
+MIPS64_LD := $(MIPS64_ID)-ld 
+MIPS64EL_LD := $(MIPS64EL_ID)-ld 
+PPC_LD := $(PPC_ID)-ld 
+PPC64_LD := $(PPC64_ID)-ld 
+RISCV64_LD := $(RISCV64_ID)-ld 
+XTENSA_LD := $(XTENSA_ID)-ld 
+
+# C compiler commands
+
+AARCH64_CC := $(AARCH64_ID)-gcc 
+AMD64_CC := $(AMD64_ID)-gcc 
+AMD64_MINGW_CC := $(AMD64_MINGW_ID)-gcc 
+ARMEL_CC := $(ARMEL_ID)-gcc 
+ARMHF_CC := $(ARMHF_ID)-gcc 
+I386_CC := $(I386_ID)-gcc 
+I386_MINGW_CC := $(AMD64_MINGW_ID)-gcc 
+LA64_CC := $(LA64_ID)-gcc 
+MIPS_CC := $(MIPS_ID)-gcc 
+MIPSEL_CC := $(MIPSEL_ID)-gcc 
+MIPS64_CC := $(MIPS64_ID)-gcc 
+MIPS64EL_CC := $(MIPS64EL_ID)-gcc 
+PPC_CC := $(PPC_ID)-gcc 
+PPC64_CC := $(PPC64_ID)-gcc 
+RISCV64_CC := $(RISCV64_ID)-gcc 
+XTENSA_CC := $(XTENSA_ID)-gcc
+
+# *************************
+# *** Flag Declarations ***
+# *************************
+
+# Base address for mips64 and mips64el ELFs
 # Panda currently runs binaries in the physical address space.
-# mips64 GCC uses a starting address that's inside
-# the mips64 MMIO regions.
-MIPS64_ELF_START=0x800000
+# mips64 ld uses a starting address that's inside the mips64 MMIO regions.
+MIPS64_ELF_START := 0x800000
+
+# as flags
+GENERAL_ASFLAGS := $(ASFLAGS)
+XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
+
+# objcopy flags
+GENERAL_OBJCOPYFLAGS := $(OBJCOPYFLAGS)
+
+# ld flags
+GENERAL_LDFLAGS := $(LDFLAGS)
+MIPS64_LDFLAGS := -Ttext-segment=$(MIPS64_ELF_START) 
+MIPS64EL_LDFLAGS := -Ttext-segment=$(MIPS64_ELF_START) 
+
+# C flags
+GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
+ARMEL_CFLAGS := -marm
+ARMHF_CFLAGS := -marm
+MIPS64_CFLAGS := -Wl,-Ttext-segment=$(MIPS64_ELF_START) 
+MIPS64EL_CFLAGS := -Wl,-Ttext-segment=$(MIPS64_ELF_START)
+
+# ***************************
+# *** Template Parameters ***
+# ***************************
+
+# Arch-specific extensions.
+AARCH64_EXT := aarch64
+AMD64_EXT := amd64
+AMD64_MINGW_EXT := amd64
+ARMEL_EXT := armel
+ARMHF_EXT := armhf
+I386_EXT := i386
+I386_MINGW_EXT := i386
+LA64_EXT := la64
+MIPS_EXT := mips
+MIPSEL_EXT := mipsel
+MIPS64_EXT := mips64
+MIPS64EL_EXT := mips64el
+PPC_EXT := ppc
+PPC64_EXT := ppc64
+RISCV64_EXT := riscv64
+XTENSA_EXT := xtensa
+
+# Arch-specific source extensions
+AARCH64_SRC_EXT := $(AARCH64_EXT)
+AMD64_SRC_EXT := $(AMD64_EXT)
+ARMEL_SRC_EXT := $(ARMEL_EXT)
+ARMHF_SRC_EXT := $(ARMHF_EXT)
+I386_SRC_EXT := $(I386_EXT)
+LA64_SRC_EXT := $(LA64_EXT)
+MIPS_SRC_EXT := $(MIPS_EXT)
+# NOTE: mipsel uses mips source
+MIPSEL_SRC_EXT := $(MIPS_EXT)
+MIPS64_SRC_EXT := $(MIPS64_EXT)
+# NOTE: mips64el uses mips64 source
+MIPS64EL_SRC_EXT := $(MIPS64_EXT)
+PPC_SRC_EXT := $(PPC_EXT)
+PPC64_SRC_EXT := $(PPC64_EXT)
+RISCV64_SRC_EXT := $(RISCV64_EXT)
+XTENSA_SRC_EXT := $(XTENSA_EXT)
+
+# **********************
+# *** Rule Templates ***
+# **********************
+
+# Assembly template
+# Builds .bin and .elf files from assembly source
 
-ifdef LOONGARCH_SYSROOT
-    LOONGARCH64_CFLAGS=--sysroot $(LOONGARCH64_SYSROOT)
-endif
+define ASM_TEMPLATE
 
-%.aarch64.so: %.so.c
-	aarch64-unknown-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.aarch64.so
+$(1)_ASM_BIN_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).s)
+$(1)_ASM_ELF_SRCS := $$(wildcard */*.$$($(1)_SRC_EXT).elf.s)
 
-%.aarch64.elf: %.elf.c
-	aarch64-unknown-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.aarch64.elf
+$(1)_ASM_BINS := $$(patsubst %.$$($(1)_SRC_EXT).s,%.$$($(1)_EXT).bin,$$($(1)_ASM_BIN_SRCS))
+$(1)_ASM_ELFS := $$(patsubst %.$$($(1)_SRC_EXT).elf.s,%.$$($(1)_EXT).elf,$$($(1)_ASM_ELF_SRCS))
 
-%.aarch64.elf: %.aarch64.elf.s
-	aarch64-unknown-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
-	aarch64-unknown-linux-gnu-ld $*.aarch64.elf.o -o $*.aarch64.elf
-	rm $*.aarch64.elf.o
+%.$$($(1)_EXT).elf : %.$$($(1)_SRC_EXT).elf.s
+	$$($(1)_ELF_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -o $$*.$$($(1)_EXT).o
+	$$($(1)_LD) $$(GENERAL_LDFLAGS) $$($(1)_LDFLAGS) $$*.$$($(1)_EXT).o -o $$@
+	rm $$*.$$($(1)_EXT).o
 
-%.aarch64.bin: %.aarch64.s
-	aarch64-unknown-linux-gnu-as $*.aarch64.s -o $*.aarch64.o
-	aarch64-unknown-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
-	rm $*.aarch64.o
+%.$$($(1)_EXT).bin : %.$$($(1)_SRC_EXT).s
+	$$($(1)_ASM_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -o $$*.$$($(1)_EXT).o
+	$$($(1)_OBJCOPY) $$(GENERAL_OBJCOPYFLAGS) $$($(1)_OBJCOPYFLAGS) -O binary -j .text $$*.$$($(1)_EXT).o $$@
+	rm $$*.$$($(1)_EXT).o
 
-%.amd64.so: %.so.c
-	gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
+endef
 
-%.amd64.elf: %.elf.c
-	gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
+# Linux C template
+# Builds .elf and .so files from C source
 
-%.amd64.pe: %.pe.c %.amd64.dll
-	x86_64-w64-mingw32-gcc $*.pe.c $*.amd64.dll -o $*.amd64.pe
+C_ELF_SRCS := $(wildcard */*.elf.c) $(wildcard */*/*.elf.c)
+C_SO_SRCS := $(wildcard */*.so.c) $(wildcard */*/*.so.c)
 
-%.amd64.pe: %.pe.c
-	x86_64-w64-mingw32-gcc $*.pe.c -o $*.amd64.pe
+define C_ELF_TEMPLATE
 
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
+$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
-%.amd64.dll: %.dll.c
-	x86_64-w64-mingw32-gcc -shared $*.dll.c -o $*.amd64.dll
+%.$$($(1)_EXT).so : %.so.c
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -shared -o $$@ $$<
 
-%.amd64.elf: %.amd64.elf.s
-	as $*.amd64.elf.s -o $*.amd64.elf.o
-	ld $*.amd64.elf.o -o $*.amd64.elf
-	rm $*.amd64.elf.o
+%.$$($(1)_EXT).elf : %.elf.c
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
 
-%.amd64.bin: %.amd64.s
-	nasm $*.amd64.s -o $*.amd64.bin
+endef
 
-%.armel.so: %.so.c
-	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.so.c -shared -o $*.armel.so
+# MinGW C template
+# Builds .pe and .dll files from C source
 
-%.armel.elf: %.elf.c
-	arm-linux-gnueabi-gcc $(GENERAL_CFLAGS) -marm $*.elf.c -o $*.armel.elf
+C_PE_SRCS := $(wildcard *.pe.c) $(wildcard */*/*.pe.c)
+C_DLL_SRCS := $(wildcard *.dll.c) $(wildcard */*/*.dll.c)
 
-%.armel.elf: %.armel.elf.s
-	arm-linux-gnueabi-as $*.armel.elf.s -o $*.armel.elf.o
-	arm-linux-gnueabi-ld $*.armel.elf.o -o $*.armel.elf
-	rm $*.armel.elf.o
+define C_PE_TEMPLATE
 
-%.armel.bin: %.armel.s
-	arm-linux-gnueabi-as $*.armel.s -o $*.armel.o
-	arm-linux-gnueabi-objcopy -O binary -j .text $*.armel.o $*.armel.bin
-	rm $*.armel.o
+$(1)_C_PES := $$(patsubst %.pe.c,%.$$($(1)_EXT).pe,$$(C_PE_SRCS))
+$(1)_C_DLLS := $$(patsubst %.dll.c,%.$$($(1)_EXT).dll,$$(C_DLL_SRCS))
 
-%.armhf.so: %.so.c
-	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.so.c -shared -o $*.armhf.so
+%.$$($(1)_EXT).pe : %.pe.c %.$$($(1)_EXT).dll
+	$$($(1)_CC) $^ -o $@
 
-%.armhf.elf: %.elf.c
-	arm-linux-gnueabihf-gcc $(GENERAL_CFLAGS) -marm $*.elf.c -o $*.armhf.elf
+%.$$($(1)_EXT).dll : %.dll.c
+	$$($(1)_CC) -shared $< -o $@
 
-%.armhf.elf: %.armhf.elf.s
-	arm-linux-gnueabihf-as $*.armhf.elf.s -o $*.armhf.elf.o
-	arm-linux-gnueabihf-ld $*.armhf.elf.o -o $*.armhf.elf
-	rm $*.armhf.elf.o
+%.$$($(1)_EXT).pe : %.pe.c
+	$$($(1)_CC) $< -o $@
 
-%.armhf.bin: %.armhf.s
-	arm-linux-gnueabihf-as $*.armhf.s -o $*.armhf.o
-	arm-linux-gnueabihf-objcopy -O binary -j .text $*.armhf.o $*.armhf.bin
-	rm $*.armhf.o
+endef
 
-%.i386.so: %.so.c
-	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.i386.so
+# Build phony targets to build everything for the architecture
 
-%.i386.elf: %.elf.c
-	i686-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.i386.elf
+define GENERAL_TEMPLATE
 
-%.i386.pe: %.pe.c %.i386.dll
-	i686-w64-mingw32-gcc $*.pe.c $*.i386.dll -o $*.i386.pe
+$(1)_TARGET := $$(call lc,$(1))
 
-%.i386.dll: %.dll.c
-	i686-w64-mingw32-gcc -shared $*.dll.c -o $*.i386.dll
+.PHONY : $$($(1)_TARGET)
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
-%.i386.pe: %.pe.c
-	i686-w64-mingw32-gcc $*.pe.c -o $*.i386.pe
+.PHONY : $$($(1)_TARGET)-clean
+$$($(1)_TARGET)-clean :
+	find . -name '*.$$($(1)_EXT).o' -type f -delete
+	find . -name '*.$$($(1)_EXT).bin' -type f -delete
+	find . -name '*.$$($(1)_EXT).elf' -type f -delete
+	find . -name '*.$$($(1)_EXT).so' -type f -delete
+	find . -name '*.$$($(1)_EXT).pe' -type f -delete
+	find . -name '*.$$($(1)_EXT).dll' -type f -delete
 
-%.i386.elf: %.i386.elf.s
-	i686-linux-gnu-as $*.i386.elf.s -o $*.i386.elf.o
-	i686-linux-gnu-ld $*.i386.elf.o -o $*.i386.elf
-	rm $*.i386.elf.o
+endef 
 
-%.i386.bin: %.i386.s
-	i686-linux-gnu-as $*.i386.s -o $*.i386.o
-	i686-linux-gnu-objcopy -O binary -j .text $*.i386.o $*.i386.bin
-	rm $*.i386.o
+# *****************************
+# *** Actuate the Templates ***
+# *****************************
 
-%.la64.so: %.so.c
-	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.so.c -shared -o $*.la64.so
+# List of all platforms
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
 
-%.la64.elf: %.elf.c
-	loongarch64-linux-gnu-gcc $(GENERAL_CFLAGS) $(LOONGARCH64_CFLAGS) $*.elf.c -o $*.la64.elf
-
-%.la64.elf: %.la64.elf.s
-	loongarch64-linux-gnu-as $*.la64.elf.s -o $*.la64.elf.o
-	loongarch64-linux-gnu-ld $*.la64.elf.o -o $*.la64.elf
-	rm $*.la64.elf.o
-
-%.la64.bin: %.la64.s
-	loongarch64-linux-gnu-as $*.la64.s -o $*.la64.o
-	loongarch64-linux-gnu-objcopy -O binary -j .text $*.la64.o $*.la64.bin
-	rm $*.la64.o
+# List of platforms that support assembly
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
 
-%.mips.so: %.so.c
-	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips.so
+# List of platforms that support ELF
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
-%.mips.elf: %.elf.c
-	mips-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.mips.elf
-
-%.mips.elf: %.mips.elf.s
-	mips-linux-gnu-as $*.mips.elf.s -o $*.mips.elf.o
-	mips-linux-gnu-ld $*.mips.elf.o -o $*.mips.elf
-	rm $*.mips.elf.o
-
-%.mips.bin: %.mips.s
-	mips-linux-gnu-as $*.mips.s -o $*.mips.o
-	mips-linux-gnu-objcopy -O binary -j .text $*.mips.o $*.mips.bin
-	rm $*.mips.o
-
-%.mipsel.so: %.so.c
-	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mipsel.so
-
-%.mipsel.elf: %.elf.c
-	mipsel-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.mipsel.elf
-
-%.mipsel.elf: %.mips.elf.s
-	mipsel-linux-gnu-as $*.mips.elf.s -o $*.mipsel.elf.o
-	mipsel-linux-gnu-ld $*.mipsel.elf.o -o $*.mipsel.elf
-	rm $*.mipsel.elf.o
+# List of platforms that support PE
+C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
 
-%.mipsel.bin: %.mips.s
-	mipsel-linux-gnu-as $*.mips.s -o $*.mipsel.o
-	mipsel-linux-gnu-objcopy -O binary -j .text $*.mipsel.o $*.mipsel.bin
-	rm $*.mipsel.o
 
-%.mips64.so: %.so.c
-	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips64.so
+# Populate the ASM templates
+$(foreach platform,$(ASM_PLATFORMS),$(eval $(call ASM_TEMPLATE,$(platform))))
 
-%.mips64.elf: %.elf.c
-	mips64-linux-gnuabi64-gcc $(GENERAL_CFLAGS) -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64.elf
+# Populate the C ELF templates
+$(foreach platform,$(C_ELF_PLATFORMS),$(eval $(call C_ELF_TEMPLATE,$(platform))))
 
-%.mips64.elf: %.mips64.elf.s
-	mips64-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64.elf.o
-	mips64-linux-gnuabi64-ld -Ttext-segment=$(MIPS64_ELF_START) $*.mips64.elf.o -o $*.mips64.elf
-	rm $*.mips64.elf.o
+# Populate the C PE templates
+$(foreach platform,$(C_PE_PLATFORMS),$(eval $(call C_PE_TEMPLATE,$(platform))))
 
-%.mips64.bin: %.mips64.s
-	mips64-linux-gnuabi64-as $*.mips64.s -o $*.mips64.o
-	mips64-linux-gnuabi64-objcopy -O binary -j .text $*.mips64.o $*.mips64.bin
-	rm $*.mips64.o
+# Populate the general templates
+$(foreach platform,$(PLATFORMS),$(eval $(call GENERAL_TEMPLATE,$(platform))))
 
-%.mips64el.so: %.so.c
-	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.mips64el.so
+# **********************
+# *** Global Targets ***
+# **********************
 
-%.mips64el.elf: %.elf.c
-	mips64el-linux-gnuabi64-gcc $(GENERAL_CFLAGS) -Wl,-Ttext-segment=$(MIPS64_ELF_START) $*.elf.c -o $*.mips64el.elf
+.DEFAULT_GOAL := all
+.PHONY : all
+all : $(foreach platform,$(PLATFORMS),$(call lc,$(platform)))
 
-%.mips64el.elf: %.mips64.elf.s
-	mips64el-linux-gnuabi64-as $*.mips64.elf.s -o $*.mips64el.elf.o
-	mips64el-linux-gnuabi64-ld -Ttext-segment=$(MIPS64_ELF_START) $*.mips64el.elf.o -o $*.mips64el.elf
-	rm $*.mips64el.elf.o
-
-%.mips64el.bin: %.mips64.s
-	mips64el-linux-gnuabi64-as $*.mips64.s -o $*.mips64el.o
-	mips64el-linux-gnuabi64-objcopy -O binary -j .text $*.mips64el.o $*.mips64el.bin
-	rm $*.mips64el.o
-
-%.ppc.so: %.so.c
-	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.ppc.so
-
-%.ppc.elf: %.elf.c
-	powerpc-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.ppc.elf
-
-%.ppc.elf: %.ppc.elf.s
-	powerpc-linux-gnu-as $*.ppc.elf.s -o $*.ppc.elf.o
-	powerpc-linux-gnu-ld $*.ppc.elf.o -o $*.ppc.elf
-	rm $*.ppc.elf.o
-
-%.ppc.bin: %.ppc.s
-	powerpc-linux-gnu-as $*.ppc.s -o $*.ppc.o
-	powerpc-linux-gnu-objcopy -O binary -j .text $*.ppc.o $*.ppc.bin
-	rm $*.ppc.o
-
-%.ppc64.so: %.so.c
-	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.ppc64.so
-
-%.ppc64.elf: %.elf.c
-	powerpc64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.ppc64.elf
-
-%.ppc64.elf: %.ppc64.elf.s
-	powerpc64-linux-gnu-as $*.ppc64.elf.s -o $*.ppc64.elf.o
-	powerpc64-linux-gnu-ld $*.ppc64.elf.o -o $*.ppc64.elf
-	rm $*.ppc64.elf.o
-
-%.ppc64.bin: %.ppc64.s
-	powerpc64-linux-gnu-as $*.ppc64.s -o $*.ppc64.o
-	powerpc64-linux-gnu-objcopy -O binary -j .text $*.ppc64.o $*.ppc64.bin
-	rm $*.ppc64.o
-
-%.riscv64.so: %.so.c
-	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.riscv64.so
-
-%.riscv64.elf: %.elf.c
-	riscv64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.riscv64.elf
-
-%.riscv64.elf: %.riscv64.elf.s
-	riscv64-linux-gnu-as $*.riscv64.elf.s -o $*.riscv64.elf.o
-	riscv64-linux-gnu-ld $*.riscv64.elf.o -o $*.riscv64.elf
-	rm $*.riscv64.elf.o
-
-%.riscv64.bin: %.riscv64.s
-	riscv64-linux-gnu-as $*.riscv64.s -o $*.riscv64.o
-	riscv64-linux-gnu-objcopy -O binary -j .text $*.riscv64.o $*.riscv64.bin
-	rm $*.riscv64.o
-
-%.xtensa.bin: %.xtensa.s
-	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.s -o $*.xtensa.o
-	xtensa-lx106-elf-objcopy -O binary -j .text $*.xtensa.o $*.xtensa.bin
-	rm $*.xtensa.o    
-
-%.xtensa.elf: %.xtensa.elf.s
-	xtensa-lx106-elf-as --no-transform --target-align --text-section-literals $*.xtensa.elf.s -o $*.xtensa.elf.o
-	xtensa-lx106-elf-ld $*.xtensa.elf.o -o $*.xtensa.elf
-	rm $*.xtensa.elf.o    
-
-all: prereqs build
-
-build: ${TARGETS}
-
-clean:
+.PHONY : clean
+clean : 
 	find . -name '*.bin' -type f -delete
 	find . -name '*.elf' -type f -delete
 	find . -name '*.o' -type f -delete
 	find . -name '*.so' -type f -delete
 	find . -name '*.pe' -type f -delete
 	find . -name '*.dll' -type f -delete
-
-nasm: $(NASM_TARGETS)
-
-%.prereq:
-	@which $*-gcc > /dev/null || (echo 'missing $*-gcc; on Ubuntu, install with `apt-get install gcc-$*`' || false)
-	@which $*-as > /dev/null || (echo 'missing $*-as; on Ubuntu, install with `apt-get install binutils-$*`' || false)
-	@which $*-objcopy > /dev/null || (echo 'missing $*-objcopy; on Ubuntu, install with `apt-get install binutils-$*`' || false)
-
-prereqs: ${PREREQS}
-
-check: ${TARGETS}
-	for i in ${TARGETS}; do \
-		echo $$i; \
-		cstool x64 `xxd -p -c 0 $$i`; \
-	done

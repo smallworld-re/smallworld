@@ -148,9 +148,13 @@ machine.add(dead)
 # TL;DR: To call main(), t9 must equal main.
 cpu.t9.set(entrypoint)
 
+# Add an exit point
+exitpoint = 0x7FFFFFF8
+machine.add_exit_point(exitpoint)
+cpu.ra.set(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x20000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
