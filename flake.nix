@@ -183,7 +183,7 @@
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
           crossTargets = [
-            # "aarch64-multiplatform"
+            "aarch64-multiplatform"
             # "arm-embedded"
             # "armhf-embedded"
             # "mips-linux-gnu"

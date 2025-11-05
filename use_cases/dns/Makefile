@@ -30,7 +30,7 @@ ALL_CFLAGS = $(CFLAGS) $(GEN_CFLAGS) $(DEBUG_CFLAGS) $(INCLUDES) $(SAN_CFLAGS)
 PLATFORMS = AARCH64 AMD64 ARMEL ARMHF I386 MIPS MIPSEL MIPS64 MIPS64EL PPC
 
 # Platform-specific clang target
-AARCH64_TARGET = --target=aarch64-linux-gnu
+AARCH64_TARGET = --target=aarch64-unknown-linux-gnu
 AMD64_TARGET =
 ARMEL_TARGET = --target=arm-linux-gnueabi
 ARMHF_TARGET = --target=arm-linux-gnueabihf
@@ -45,7 +45,7 @@ PPC_TARGET = --target=powerpc-linux-gnu
 # Selecting a target for clang doesn't select
 # a target-appropriate linker toolchain; it always uses gcc.
 AMD64_LINK = gcc 
-AARCH64_LINK = aarch64-linux-gnu-gcc
+AARCH64_LINK = aarch64-unknown-linux-gnu-gcc
 ARMEL_LINK = arm-linux-gnueabi-gcc
 ARMHF_LINK = arm-linux-gnueabihf-gcc
 I386_LINK = i686-linux-gnu-gcc
