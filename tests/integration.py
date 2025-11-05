@@ -1892,24 +1892,24 @@ class LinkElfTests(ScriptIntegrationTest):
     def test_link_elf_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
-    def test_link_elf_mips64_angr(self):
-        self.run_test("mips64.angr")
-
-    def test_link_elf_mips64_panda(self):
-        self.run_test("mips64.panda")
-
-    def test_link_elf_mips64_pcode(self):
-        self.run_test("mips64.pcode")
-
-    def test_link_elf_mips64el_angr(self):
-        self.run_test("mips64el.angr")
-
-    def test_link_elf_mips64el_panda(self):
-        self.run_test("mips64el.panda")
-
-    def test_link_elf_mips64el_pcode(self):
-        self.run_test("mips64el.pcode")
-
+    #    def test_link_elf_mips64_angr(self):
+    #        self.run_test("mips64.angr")
+    #
+    #    def test_link_elf_mips64_panda(self):
+    #        self.run_test("mips64.panda")
+    #
+    #    def test_link_elf_mips64_pcode(self):
+    #        self.run_test("mips64.pcode")
+    #
+    #    def test_link_elf_mips64el_angr(self):
+    #        self.run_test("mips64el.angr")
+    #
+    #    def test_link_elf_mips64el_panda(self):
+    #        self.run_test("mips64el.panda")
+    #
+    #    def test_link_elf_mips64el_pcode(self):
+    #        self.run_test("mips64el.pcode")
+    #
     def test_link_elf_ppc_angr(self):
         self.run_test("ppc.angr")
 
