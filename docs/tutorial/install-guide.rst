@@ -7,7 +7,7 @@ Prerequisites
 -------------
 
 SmallWorld is supported by `Python <https://www.python.org/downloads/>`_
-(>=3.10) on both Windows and Linux and is installed with `pip
+(>=3.10) on Linux and is installed with `pip
 <https://pip.pypa.io/en/stable/>`_. Both Python and pip must be installed on
 your system before attempting to install SmallWorld.
 
