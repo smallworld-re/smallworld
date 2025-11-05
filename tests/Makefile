@@ -59,10 +59,10 @@ endif
 	rm $*.aarch64.o
 
 %.amd64.so: %.so.c
-	x86_64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
+	gcc $(GENERAL_CFLAGS) $*.so.c -shared -o $*.amd64.so
 
 %.amd64.elf: %.elf.c
-	x86_64-linux-gnu-gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
+	gcc $(GENERAL_CFLAGS) $*.elf.c -o $*.amd64.elf
 
 %.amd64.pe: %.pe.c %.amd64.dll
 	x86_64-w64-mingw32-gcc $*.pe.c $*.amd64.dll -o $*.amd64.pe
@@ -75,8 +75,8 @@ endif
 	x86_64-w64-mingw32-gcc -shared $*.dll.c -o $*.amd64.dll
 
 %.amd64.elf: %.amd64.elf.s
-	x86_64-linux-gnu-as $*.amd64.elf.s -o $*.amd64.elf.o
-	x86_64-linux-gnu-ld $*.amd64.elf.o -o $*.amd64.elf
+	as $*.amd64.elf.s -o $*.amd64.elf.o
+	ld $*.amd64.elf.o -o $*.amd64.elf
 	rm $*.amd64.elf.o
 
 %.amd64.bin: %.amd64.s

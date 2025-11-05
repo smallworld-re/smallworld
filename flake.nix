@@ -201,6 +201,7 @@
             pandaWithLibs.${system}
             pkgs.ghidra
             pkgs.jdk
+            pkgs.stdenv.cc
             # pkgs.nasm
           ] ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
