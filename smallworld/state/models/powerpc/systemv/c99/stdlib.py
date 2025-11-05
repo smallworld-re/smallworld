@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class PowerPCSysVAtol(Atol, PowerPCSysVModel):
 
 
 class PowerPCSysVAtoll(Atoll, PowerPCSysVModel):
+    pass
+
+
+class PowerPCSysVBsearch(Bsearch, PowerPCSysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "PowerPCSysVAtoi",
     "PowerPCSysVAtol",
     "PowerPCSysVAtoll",
+    "PowerPCSysVBsearch",
     "PowerPCSysVCalloc",
     "PowerPCSysVDiv",
     "PowerPCSysVLDiv",

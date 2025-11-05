@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class MIPS64SysVAtol(Atol, MIPS64SysVModel):
 
 
 class MIPS64SysVAtoll(Atoll, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVBsearch(Bsearch, MIPS64SysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "MIPS64SysVAtoi",
     "MIPS64SysVAtol",
     "MIPS64SysVAtoll",
+    "MIPS64SysVBsearch",
     "MIPS64SysVCalloc",
     "MIPS64SysVDiv",
     "MIPS64SysVLDiv",

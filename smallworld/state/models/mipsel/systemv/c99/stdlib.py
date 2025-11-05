@@ -6,6 +6,7 @@ from ....c99 import (
     Atoi,
     Atol,
     Atoll,
+    Bsearch,
     Calloc,
     Div,
     Exit,
@@ -55,6 +56,10 @@ class MIPSELSysVAtol(Atol, MIPSELSysVModel):
 
 
 class MIPSELSysVAtoll(Atoll, MIPSELSysVModel):
+    pass
+
+
+class MIPSELSysVBsearch(Bsearch, MIPSELSysVModel):
     pass
 
 
@@ -146,6 +151,7 @@ __all__ = [
     "MIPSELSysVAtoi",
     "MIPSELSysVAtol",
     "MIPSELSysVAtoll",
+    "MIPSELSysVBsearch",
     "MIPSELSysVCalloc",
     "MIPSELSysVDiv",
     "MIPSELSysVLDiv",

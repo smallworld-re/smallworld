@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.LOONGARCH64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -36,48 +36,41 @@ cpu.pc.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a string onto the stack
-string = "".encode("utf-8")
-string += b"\0"
-string += b"\0" * (16 - (len(string) % 16))
-
-stack.push_bytes(string, None)
-str_addr = stack.get_pointer()
-
-# Push argv
-stack.push_integer(0, 8, None)  # NULL terminator
-stack.push_integer(str_addr, 8, None)  # pointer to string
-stack.push_integer(0x10101010, 8, None)  # Bogus pointer to argv[0]
-argv = stack.get_pointer()
-
 # Push a return address onto the stack
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
-
-# Set argument registers
-cpu.a0.set(2)
-cpu.a1.set(argv)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure the heap
+heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
+machine.add(heap)
+
+# Configure libc
+libc = smallworld.state.models.c99.C99Libc(
+    0x10000, platform, smallworld.platforms.ABI.SYSTEMV, allow_imprecise={"system"}
 )
-machine.add(printf_model)
-printf_model.allow_imprecise = True
+libc.link(code)
+machine.add(libc)
 
-# Relocate puts
-code.update_symbol_value("printf", printf_model._address)
+# Sanity check the library model
+bad = False
+data_start = 0
+prev_model = None
+for _, model in libc.models.items():
+    if model.static_space_required > 0:
+        if model.static_buffer_address is None:
+            print(f"No buffer assigned for {model.name}")
+            bad = True
+        elif model.static_buffer_address < data_start:
+            print(
+                f"ERROR: {model.name} had a static buffer overlapping another function"
+            )
+            bad = True
 
-puts_model = smallworld.state.models.Model.lookup(
-    "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(puts_model)
-puts_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("puts", puts_model._address)
+if bad:
+    quit(1)
 
 
 # Create a type of exception only I will generate
@@ -85,7 +78,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure exitss by dereferencing 0xdead.
+# We signal failure abss by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -105,26 +98,11 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 dead = DeadModel()
 machine.add(dead)
 
-# UTTER AND TOTAL MADNESS
-# MIPS relies on a "Global Pointer" register
-# to find its place in a position-independent binary.
-# In MIPS64, this is computed by relying on
-# the fact that dynamic function calls use
-# the t9 register to store the address of the target function.
-#
-# The function prologue sets gp to t9 plus a constant,
-# creating an address that's... not in the ELF image...?
-# Position-independent references then subtract
-# larger-than-strictly-necessary offsets
-# from gp to compute the desired address.
-#
-# TL;DR: To call main(), t9 must equal main.
-cpu.t9.set(entrypoint)
-
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
+emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
-except FailExitException:
+except smallworld.exceptions.ImpreciseModelError:
     pass
