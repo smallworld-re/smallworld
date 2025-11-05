@@ -22,7 +22,7 @@ AMD64_MINGW_ID := x86_64-w64-mingw32
 ARMEL_ID := arm-linux-gnueabi
 ARMHF_ID := arm-linux-gnueabihf
 I386_ID := i686-linux-gnu
-I386_MINGW_ID := i386-w64-mingw32
+I386_MINGW_ID := i686-w64-mingw32
 LA64_ID := loongarch64-linux-gnu
 MIPS_ID := mips-linux-gnu
 MIPSEL_ID := mipsel-linux-gnu
@@ -110,7 +110,7 @@ AMD64_MINGW_CC := $(AMD64_MINGW_ID)-gcc
 ARMEL_CC := $(ARMEL_ID)-gcc 
 ARMHF_CC := $(ARMHF_ID)-gcc 
 I386_CC := $(I386_ID)-gcc 
-I386_MINGW_CC := $(AMD64_MINGW_ID)-gcc 
+I386_MINGW_CC := $(I386_MINGW_ID)-gcc 
 LA64_CC := $(LA64_ID)-gcc 
 MIPS_CC := $(MIPS_ID)-gcc 
 MIPSEL_CC := $(MIPSEL_ID)-gcc 
@@ -238,8 +238,8 @@ endef
 # MinGW C template
 # Builds .pe and .dll files from C source
 
-C_PE_SRCS := $(wildcard *.pe.c) $(wildcard */*/*.pe.c)
-C_DLL_SRCS := $(wildcard *.dll.c) $(wildcard */*/*.dll.c)
+C_PE_SRCS := $(wildcard */*.pe.c) $(wildcard */*/*.pe.c)
+C_DLL_SRCS := $(wildcard */*.dll.c) $(wildcard */*/*.dll.c)
 
 define C_PE_TEMPLATE
 
@@ -247,13 +247,13 @@ $(1)_C_PES := $$(patsubst %.pe.c,%.$$($(1)_EXT).pe,$$(C_PE_SRCS))
 $(1)_C_DLLS := $$(patsubst %.dll.c,%.$$($(1)_EXT).dll,$$(C_DLL_SRCS))
 
 %.$$($(1)_EXT).pe : %.pe.c %.$$($(1)_EXT).dll
-	$$($(1)_CC) $^ -o $@
+	$$($(1)_CC) $$^ -o $$@
 
 %.$$($(1)_EXT).dll : %.dll.c
-	$$($(1)_CC) -shared $< -o $@
+	$$($(1)_CC) -shared $$< -o $$@
 
 %.$$($(1)_EXT).pe : %.pe.c
-	$$($(1)_CC) $< -o $@
+	$$($(1)_CC) $$< -o $$@
 
 endef
 
