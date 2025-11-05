@@ -37,22 +37,43 @@ with open(filename, "rb") as f:
 entrypoint = code.get_symbol_value("main")
 cpu.eip.set(entrypoint)
 
+# Define a fake exit point for test 1
+exitpoint = 0x10101010
+
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-stack.push_integer(0x10101010, 4, None)
+stack.push_integer(exitpoint, 4, None)
 
 cpu.esp.set(stack.get_pointer())
 
 # Use code bounds from the ELF
-machine.add_exit_point(0x10101010)
+machine.add_exit_point(exitpoint)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
+
+# Test 1: Return to unmapped exit point
+emulator = smallworld.emulators.GhidraEmulator(platform)
+final_machine = machine.emulate(emulator)
+final_cpu = final_machine.get_cpu()
+
+if final_cpu.pc.get() != exitpoint:
+    raise ValueError(f"Expected PC to be {hex(exitpoint)}, got {final_cpu.pc}")
+if final_cpu.eax.get() != 42:
+    raise ValueError(f"Expected eax to be 0x2a, got {final_cpu.eax}")
+print("Test 1 SUCCESS")
+
+# Test 2: Exit point in middle of code
+exitpoint = entrypoint + code.get_symbol_size("main") - 1
+machine.add_exit_point(exitpoint)
 
 emulator = smallworld.emulators.GhidraEmulator(platform)
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()
 
-print(final_cpu.eip)
-print(final_cpu.eax)
+if final_cpu.pc.get() != exitpoint:
+    raise ValueError(f"Expected PC to be {hex(exitpoint)}, got {final_cpu.pc}")
+if final_cpu.eax.get() != 42:
+    raise ValueError(f"Expected eax to be 0x2a, got {final_cpu.eax}")
+print("Test 2 SUCCESS")

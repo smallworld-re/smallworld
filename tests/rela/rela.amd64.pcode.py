@@ -39,7 +39,7 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x400
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+stack.push_integer(0x7FFFFFF8, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -81,6 +81,10 @@ machine.add(puts)
 
 # Relocate puts
 code.update_symbol_value("puts", puts._address)
+
+# Configure an exit point
+exit_point = 0x7FFFFFF8
+machine.add_exit_point(exit_point)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)

@@ -49,7 +49,7 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
         return cls(**dict)
 
-    def __repr__(self) -> str:
+    def expr_string(self) -> str:
         string = ""
 
         if self.base:
@@ -64,4 +64,8 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if self.offset:
             string = f"{string}+{self.offset:x}"
 
+        return string
+
+    def __repr__(self) -> str:
+        string = self.expr_string()
         return f"{self.__class__.__name__}({string})"

@@ -597,9 +597,9 @@ class PandaEmulator(
             return i
 
     def check(self) -> None:
-        if len(self._exit_points) == 0:
+        if len(self._exit_points) == 0 and self._bounds.is_empty():
             raise exceptions.ConfigurationError(
-                "at least one exit point must be set, emulation cannot start"
+                "At least one exit point or bound must be set."
             )
         if self.panda_thread.state == self.ThreadState.EXIT:
             logger.debug("stopping emulation at exit point")
