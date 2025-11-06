@@ -62,7 +62,7 @@ class AngrEmulator(
     version = "0.0"
 
     def __init__(self, platform: platforms.Platform, preinit=None, init=None):
-        # Initializaed bit; tells us if angr state is initialized
+        # Initialized bit; tells us if angr state is initialized
         self._initialized: bool = False
 
         # Dirty bit; tells us if we can modify self.state
@@ -73,6 +73,10 @@ class AngrEmulator(
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
+
+        # Memory protection bit; tells us if we should error on unmapped accesses
+        # This is public; it can be changed freely
+        self.error_on_unmapped: bool = False
 
         # The platform definition;
         # Holds global info about the platform
@@ -238,6 +242,50 @@ class AngrEmulator(
         # If we have an init runner, run it.
         if self.init:
             self.init(self)
+
+        # Configure the state with default memory access breakpoints.
+        # These pick up
+        def sym_read_callback(state):
+            addr = state.inspect.mem_read_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_read_length
+            if (
+                self.error_on_unmapped
+                and len(
+                    state.scratch.memory_map.get_missing_ranges((addr, addr + size))
+                )
+                > 0
+            ):
+                raise exceptions.EmulationReadUnmappedFailure(
+                    "Read of unmapped memory", state._ip.concrete_value, address=addr
+                )
+
+        self.state.inspect.b("mem_read", when=angr.BP_BEFORE, action=sym_read_callback)
+
+        def sym_write_callback(state):
+            addr = state.inspect.mem_write_address
+            if not isinstance(addr, int):
+                addr = addr.concrete_value
+            size = state.inspect.mem_write_length
+            if size is None:
+                # This really shouldn't be None, but what do I know?
+                # Use the write expression's size as a placeholder
+                size = state.inspect.mem_write_expr.size() // 8
+            if (
+                self.error_on_unmapped
+                and len(
+                    state.scratch.memory_map.get_missing_ranges((addr, addr + size))
+                )
+                > 0
+            ):
+                raise exceptions.EmulationWriteUnmappedFailure(
+                    "Write of unmapped memory", state._ip.concrete_value, address=addr
+                )
+
+        self.state.inspect.b(
+            "mem_write", when=angr.BP_BEFORE, action=sym_write_callback
+        )
 
         # Mark this emulator as initialized
         self._initialized = True
@@ -846,6 +894,20 @@ class AngrEmulator(
                     return False
                 read_end = read_start + read_size
 
+                # Use this point to implement memory map checking
+                if (
+                    self.error_on_unmapped
+                    and len(
+                        state.scratch.memory_map.get_missing_ranges(
+                            read_start, read_end
+                        )
+                    )
+                    > 0
+                ):
+                    raise exceptions.EmulationError(
+                        f"Read of unmapped memory at {hex(read_start)}"
+                    )
+
                 rng = range(start, end)
                 access_rng = range(read_start, read_end)
                 return (
@@ -1098,6 +1160,20 @@ class AngrEmulator(
                     state.inspect.mem_write_length = write_size
                 write_end = write_start + write_size
 
+                # Use this point to implement memory map checking
+                if (
+                    self.error_on_unmapped
+                    and len(
+                        state.scratch.memory_map.get_missing_ranges(
+                            write_start, write_end
+                        )
+                    )
+                    > 0
+                ):
+                    raise exceptions.EmulationError(
+                        f"Read of unmapped memory at {hex(write_start)}"
+                    )
+
                 rng = range(start, end)
                 access_rng = range(write_start, write_end)
                 return (
@@ -1280,7 +1356,12 @@ class AngrEmulator(
         self._dirty = True
         if self._linear:
             if self.state._ip.concrete_value not in self.state.scratch.func_bps:
-                disas = self.state.block(opt_level=0).disassembly
+                try:
+                    disas = self.state.block(opt_level=0).disassembly
+                except angr.errors.SimEngineError:
+                    # Only happens if the Pcode disassembler fails
+                    disas = None
+
                 if disas is not None and len(disas.insns) > 0:
                     log.info(f"Stepping through {disas.insns[0]}")
                 else:
@@ -1302,6 +1383,16 @@ class AngrEmulator(
             num_inst = 1
         else:
             num_inst = None
+
+        if self.error_on_unmapped:
+            # Test for unmapped instruction fetches if desired.
+            for state in self.mgr.active:
+                ip = state._ip.concrete_value
+                if not state.scratch.memory_map.contains_value(ip):
+                    raise exceptions.EmulationFetchUnmappedFailure(
+                        "Fetched unmapped memory", ip, address=ip
+                    )
+
         self.mgr.step(
             num_inst=num_inst,
             successor_func=self.machdef.successors,
@@ -1344,7 +1435,10 @@ class AngrEmulator(
                 and not self.state.scratch.bounds.contains_value(ip)
             ):
                 return True
-            if not self.state.scratch.memory_map.contains_value(ip):
+            if (
+                not self.error_on_unmapped
+                and not self.state.scratch.memory_map.contains_value(ip)
+            ):
                 return True
             if ip in self.state.scratch.exit_points:
                 return True

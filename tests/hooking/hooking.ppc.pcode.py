@@ -31,6 +31,9 @@ machine.add(code)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
+# PowerPC keeps scratch space above the starting stack pointer
+stack.push_integer(0, 8, "Scratch space")
+
 # Set the instruction pointer to the code entrypoint
 cpu.pc.set(code.address + 8)
 

@@ -62,6 +62,10 @@ class FooModel(smallworld.state.models.mmio.MemoryMappedModel):
         print(f"{self.name}: write {size} bytes at {hex(addr)}")
 
 
+# Ensure that the entire page is mapped
+backing = smallworld.state.memory.Memory(0x1000, 0x1000)
+machine.add(backing)
+
 foo = FooModel("foo", 0x1000, 8)
 machine.add(foo)
 
