@@ -23,4 +23,4 @@ COPY . /opt/smallworld
 WORKDIR /opt/smallworld
 
 # Build flake
-RUN nix develop -c echo
+# RUN nix develop -c echo
