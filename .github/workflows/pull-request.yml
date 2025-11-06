@@ -11,7 +11,7 @@ env:
   USER: root
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
-  # cancel-in-progress: true
+  cancel-in-progress: true
 
 jobs:
   Lint:
@@ -95,7 +95,7 @@ jobs:
       runs-on: smallworld-arc
       needs: Lint
       strategy:
-        max-parallel: 100
+        max-parallel: 20
         matrix:
           include:
             - testsuite: BlockTests
