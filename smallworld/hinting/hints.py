@@ -454,6 +454,7 @@ class CoverageFrontierHint(hinting.Hint):
     edges: typing.List[typing.Tuple[int, typing.List[int]]]
     branches: typing.List[int]
 
+
 __all__ = [
     "DynamicRegisterValueHint",
     "DynamicMemoryValueHint",
