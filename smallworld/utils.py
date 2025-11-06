@@ -1,11 +1,10 @@
 from __future__ import annotations
 
+import abc
 import inspect
 import io
 import typing
 from collections.abc import Iterable
-
-import abc
 
 
 class MetadataMixin(metaclass=abc.ABCMeta):
