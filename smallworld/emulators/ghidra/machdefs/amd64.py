@@ -182,4 +182,6 @@ class AMD64MachineDef(GhidraMachineDef):
         "xmm14": "xmm14",
         "ymm15": "ymm15",
         "xmm15": "xmm15",
+        "fsbase": None,
+        "gsbase": None,
     }
