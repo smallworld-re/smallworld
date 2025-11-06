@@ -51,7 +51,7 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x400
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+stack.push_integer(0x7FFFFFF8, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -98,6 +98,11 @@ code.update_symbol_value("puts", puts._address)
 # This is similar to MIPS64's Global Pointer,
 # but it's easier to compute; it's .got + 0x8000
 cpu.r2.set(0x10027F00)
+
+# Configure an exit point
+exit_point = 0x7FFFFFF8
+machine.add_exit_point(exit_point)
+cpu.lr.set(exit_point)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)

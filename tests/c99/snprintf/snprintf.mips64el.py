@@ -125,7 +125,6 @@ cpu.t9.set(entrypoint)
 # instead of Infinity.  It successfully fetches
 # Infinity the other five times.
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

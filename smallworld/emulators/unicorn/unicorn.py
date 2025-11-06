@@ -574,10 +574,10 @@ class UnicornEmulator(
             raise exceptions.ConfigurationError(
                 "pc not initialized, emulation cannot start"
             )
-        # 2. an exit point is also required
-        if len(self._exit_points) == 0:
+        # 2. an exit point or bound is also required
+        if len(self._exit_points) == 0 and self._bounds.is_empty():
             raise exceptions.ConfigurationError(
-                "at least one exit point must be set, emulation cannot start"
+                "at least one exit point or bound must be set, emulation cannot start"
             )
 
     def _check_arm32_platform(self):
@@ -648,7 +648,7 @@ class UnicornEmulator(
 
         pc = self._handle_thumb_interwork(pc)
 
-        if pc not in self.function_hooks:
+        if pc not in self.function_hooks and self.memory_map.contains_value(pc):
             disas = self.current_instruction()
             logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
@@ -732,14 +732,15 @@ class UnicornEmulator(
             # looks like that code is not available
             i = None
 
-        exc: typing.Type[exceptions.EmulationError] = exceptions.EmulationError
+        exc: exceptions.EmulationError = exceptions.EmulationError(
+            "Completely unknown Unicorn error"
+        )
+        operands: typing.List[typing.Any] = []
 
         if typ == "mem":
             prefix = "Failed memory access"
-            exc = UnicornEmulationMemoryReadError
         if typ == "exec":
             prefix = "Quit emulation"
-            exc = UnicornEmulationExecutionError
         else:
             prefix = "Unexpected Unicorn error"
 
@@ -754,8 +755,6 @@ class UnicornEmulator(
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out
-
-        details: typing.Dict[typing.Union[str, int], typing.Union[str, int, bytes]] = {}
 
         def details_str(details):
             for k, v in details.items():
@@ -780,71 +779,81 @@ class UnicornEmulator(
         if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
             msg = f"{prefix} due to read of unmapped memory"
             # actually this is a memory read error
-            exc = UnicornEmulationMemoryReadError
             if i is not None:
-                details["unmapped_reads"] = get_unavailable_rw(i.reads)
+                operands = get_unavailable_rw(i.reads)
+            exc = exceptions.EmulationReadUnmappedFailure(msg, pc, operands=operands)
+
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
             # actually this is a memory read error
-            exc = UnicornEmulationMemoryReadError
             if i is not None:
-                details["protected_reads"] = get_unavailable_rw(i.reads)
+                operands = get_unavailable_rw(i.reads)
+            exc = exceptions.EmulationReadProtectedFailure(msg, pc, operands=operands)
+
         elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
             msg = f"{prefix} due to unaligned read"
             # actually this is a memory read error
-            exc = UnicornEmulationMemoryReadError
             if i is not None:
-                details["unaligned_reads"] = get_unavailable_rw(i.reads)
+                operands = get_unavailable_rw(i.reads)
+            exc = exceptions.EmulationReadUnalignedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
             msg = f"{prefix} due to write to unmapped memory"
             # actually this is a memory write error
-            exc = UnicornEmulationMemoryWriteError
             if i is not None:
-                details["unmapped_writes"] = get_unavailable_rw(i.writes)
+                operands = get_unavailable_rw(i.writes)
+            exc = exceptions.EmulationWriteUnmappedFailure(msg, pc, operands=operands)
+
         elif error.errno == unicorn.UC_ERR_WRITE_PROT:
             msg = f"{prefix} due to write to mapped but protected memory"
             # actually this is a memory write error
-            exc = UnicornEmulationMemoryWriteError
             if i is not None:
-                details["protected_writes"] = get_unavailable_rw(i.writes)
+                operands = get_unavailable_rw(i.writes)
+            exc = exceptions.EmulationWriteProtectedFailure(msg, pc, operands=operands)
+
         elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
             msg = f"{prefix} due to unaligned write"
             # actually this is a memory write error
-            exc = UnicornEmulationMemoryWriteError
             if i is not None:
-                details["unaligned_writes"] = get_unavailable_rw(i.writes)
+                operands = get_unavailable_rw(i.writes)
+            exc = exceptions.EmulationWriteUnalignedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
             msg = f"{prefix} due to fetch of unmapped memory at"
-            exc = UnicornEmulationMemoryFetchError
-            details["pc"] = pc
             if pc in self._exit_points:
-                # This is actually an exit point
-                return details
+                raise exceptions.EmulationExitpoint
             if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
                 # This is actually an out-of-bounds error
-                return details
+                raise exceptions.EmulationBounds
+            exc = exceptions.EmulationFetchUnmappedFailure(msg, pc, address=pc)
+
         elif error.errno == unicorn.UC_ERR_FETCH_PROT:
             msg = f"{prefix} due to fetch of from mapped but protected memory"
-            exc = UnicornEmulationMemoryFetchError
-            details["pc"] = pc
+            exc = exceptions.EmulationFetchProtectedFailure(msg, pc, address=pc)
+
         elif error.errno == unicorn.UC_ERR_FETCH_UNALIGNED:
             msg = f"{prefix} due to unaligned fetch"
-            exc = UnicornEmulationMemoryFetchError
-            details["pc"] = pc
+            exc = exceptions.EmulationFetchUnalignedFailure(msg, pc, address=pc)
 
         elif error.errno == unicorn.UC_ERR_NOMEM:
             msg = f"{prefix} due Out-Of-Memory"
+            exc = exceptions.EmulationError(msg)
+
         elif error.errno == unicorn.UC_ERR_INSN_INVALID:
             msg = f"{prefix} due invalid instruction"
-            details = {"pc": pc, "instr": str(i)}
+            exc = exceptions.EmulationExecInvalidFailure(msg, pc, i)
+
         elif error.errno == unicorn.UC_ERR_RESOURCE:
             msg = f"{prefix} due insufficient resources"
+            exc = exceptions.EmulationError(msg)
+
         elif error.errno == unicorn.UC_ERR_EXCEPTION:
             msg = f"{prefix} due cpu exception"
+            exc = exceptions.EmulationError(msg)
+
         else:
             msg = f"{prefix} due to unknown Unicorn error {error.errno}"
+            exc = exceptions.EmulationError(msg)
 
         logger.warn(f"emulation stopped - reason: {error}")
 
@@ -852,7 +861,7 @@ class UnicornEmulator(
             logger.warn(
                 f"FYI Unicorn rich exception processing unable to read code at pc=0x{pc:x} bc it is unavailable"
             )
-        raise exc(error, pc, msg + " " + details_str(details), details)
+        raise exc from error
 
     def __repr__(self) -> str:
         return f"UnicornEmulator(platform={self.platform})"

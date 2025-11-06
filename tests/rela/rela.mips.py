@@ -39,8 +39,8 @@ machine.add(stack)
 
 # Push argument save slots onto the stack
 # MIPS saves its args above the base pointer.
-stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 2")
-stack.push_integer(0xFFFFFFFF, 4, "Arg Slot 1")
+stack.push_integer(0x7FFFFFF8, 4, "Arg Slot 2")
+stack.push_integer(0x7FFFFFF8, 4, "Arg Slot 1")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -83,7 +83,11 @@ machine.add(puts)
 # Relocate puts
 code.update_symbol_value("puts", puts._address)
 
+# Configure an exit point
+exit_point = 0x7FFFFFF8
+machine.add_exit_point(exit_point)
+cpu.ra.set(exit_point)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 88)
 machine.emulate(emulator)

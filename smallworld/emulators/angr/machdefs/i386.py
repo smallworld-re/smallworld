@@ -182,6 +182,16 @@ class i386MachineDef(AngrMachineDef):
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         # VEX doesn't correctly model SYSENTER and SYSEXIT
 
+        # Inject exit points here.
+        assert hasattr(state.scratch, "exit_points")
+
+        if "extra_stop_points" in kwargs:
+            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
+            del kwargs["extra_stop_points"]
+        else:
+            print("Default exit points")
+            exit_points = state.scratch.exit_points
+
         # Fetch or compute the IR block for our state
         if "irsb" in kwargs and kwargs["irsb"] is not None:
             # Someone's already specified an IR block.
@@ -191,13 +201,13 @@ class i386MachineDef(AngrMachineDef):
 
             # Compute the block from the state
             # Pray to the Powers that kwargs are compatible.
-            irsb = state.block(**kwargs).vex
+            irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
 
         if irsb.jumpkind == "Ijk_NoDecode":
             # VEX is stumped regarding this instruction.
             # Unfortunately, this also means basic block detection failed.
             irsb = None
-            disas = state.block(**kwargs).disassembly
+            disas = state.block(extra_stop_points=exit_points, **kwargs).disassembly
             good_bytes = b""
             for insn in disas.insns:
                 if insn.mnemonic == "sysexit":
@@ -213,7 +223,7 @@ class i386MachineDef(AngrMachineDef):
 
         # Turn the crank on the engine
         try:
-            return super().successors(state, **kwargs)
+            return super().successors(state, extra_stop_points=exit_points, **kwargs)
         except angr.errors.SimIRSBNoDecodeError as e:
             print(f"Bad IRSB:\n{irsb}")
             raise e

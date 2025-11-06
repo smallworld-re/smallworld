@@ -33,26 +33,16 @@ jobs:
       - name: Login to registry
         run: |
           docker login "$REGISTRY" -u "${{ secrets.REGISTRY_USER }}" -p "${{ secrets.REGISTRY_PASSWORD }}"
-          
-      - name: Build Deps
-        run: |
-          docker build -f Dockerfile.deps --network host -t $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} .
 
-      - name: Tag Deps
+      - name: Build CI
         run: |
-          docker tag $REGISTRY/smallworld/smallworld_deps:${{ github.sha }} $REGISTRY/smallworld/smallworld_deps:latest
-      
-      - name: Build Testdeps
-        run: |
-          docker build -f Dockerfile.testdeps --network host -t $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} .
-          
-      - name: Tag Testdeps
-        run: |
-          docker tag $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }} $REGISTRY/smallworld/smallworld_testdeps:latest
+          docker build -f Dockerfile --network host --build-arg NIX_CACHE_PUBKEY=${{ secrets.NIX_CACHE_PUBKEY }} -t $REGISTRY/smallworld/smallworld_ci:${{ github.sha }} .
 
-      - name: Save Containers
+      - name: Tag CI
         run: |
-          docker push $REGISTRY/smallworld/smallworld_deps:${{ github.sha }}
-          docker push $REGISTRY/smallworld/smallworld_deps:latest
-          docker push $REGISTRY/smallworld/smallworld_testdeps:${{ github.sha }}
-          docker push $REGISTRY/smallworld/smallworld_testdeps:latest
+          docker tag $REGISTRY/smallworld/smallworld_ci:${{ github.sha }} $REGISTRY/smallworld/smallworld_ci:latest
+
+      - name: Push to Registry
+        run: |
+          docker push $REGISTRY/smallworld/smallworld_ci:${{ github.sha }}
+          docker push $REGISTRY/smallworld/smallworld_ci:latest
