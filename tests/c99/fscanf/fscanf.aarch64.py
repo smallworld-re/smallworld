@@ -134,9 +134,13 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 dead = DeadModel()
 machine.add(dead)
 
+# Add an exit point
+exitpoint = 0x7FFFFFF8
+machine.add_exit_point(exitpoint)
+cpu.lr.set(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
