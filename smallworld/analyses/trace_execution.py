@@ -106,6 +106,15 @@ class TraceExecution(analysis.Analysis):
         trace = []
         while True:
             pc = self.emulator.read_register("pc")
+            # happens that pc may have been set to a value out of
+            # bounds by prev instruction.  If so, we'll get here and
+            # should detect that.
+            if (
+                not self.emulator._bounds.is_empty()
+                and not self.emulator._bounds.contains_value(pc)
+            ):
+                emu_result = TraceRes.ER_BOUNDS
+                break
             cs_insn = get_insn(pc)
             (cmp_info, imm_info) = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
@@ -118,9 +127,12 @@ class TraceExecution(analysis.Analysis):
                 before_cb(self.emulator, pc, te)
             try:
                 i += 1
-                # logger.info(cs_insn)
+                logger.debug(cs_insn)
                 self.emulator.step()
-            except smallworld.exceptions.EmulationBounds:
+            except (
+                smallworld.exceptions.EmulationBounds,
+                smallworld.exceptions.EmulationExitpoint,
+            ):
                 # this one really isnt an error of any kind; we
                 # encountered code we were not supposed to execute
                 emu_result = TraceRes.ER_BOUNDS
