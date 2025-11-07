@@ -152,7 +152,7 @@
         ];
 
         nativeBuildInputs = [
-          ps.setuptools_scm
+          ps.setuptools-scm
         ];
 
         buildInputs = [ pandaPkg ];
