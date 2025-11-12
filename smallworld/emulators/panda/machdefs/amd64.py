@@ -142,6 +142,7 @@ class AMD64MachineDef(PandaMachineDef):
         "ymm14",
         "ymm15",
     }
+    _registers_msr = {"fsbase", "gsbase"}
     _registers_pc = {"pc": "rip", "eip": "eip", "ip": None}
     _registers_absent = {"dil", "sil", "spl", "bpl", "cr8"}
 
@@ -161,3 +162,4 @@ class AMD64MachineDef(PandaMachineDef):
     _registers = _registers | {i: None for i in _registers_ymm}
     _registers = _registers | {i: j for i, j in _registers_pc.items()}
     _registers = _registers | {i: None for i in _registers_absent}
+    _registers = _registers | {i: None for i in _registers_msr}
