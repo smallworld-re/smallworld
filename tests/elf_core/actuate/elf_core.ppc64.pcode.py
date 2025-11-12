@@ -1,4 +1,5 @@
 import logging
+import pathlib
 
 import smallworld
 
@@ -6,13 +7,15 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
-# NOTE: Core dumps resolve as arm v7a.  Sorry.
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.POWERPC64, smallworld.platforms.Byteorder.BIG
 )
-coreplatform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
+# We don't technically support the ppc64 ABI, but the ppc32 ABI is close
+# Please don't try this at home.
+hookplatform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
 )
+
 
 # Create a machine
 machine = smallworld.state.Machine()
@@ -22,16 +25,16 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add core file into the state
+filepath = pathlib.Path(__file__).resolve()
 filename = (
-    __file__.replace(".actuate.py", ".elf.core")
+    filepath.name.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
     .replace(".pcode", "")
 )
+filename = (filepath.parent.parent / filename).as_posix()
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf_core(
-        f, platform=coreplatform
-    )
+    code = smallworld.state.memory.code.Executable.from_elf_core(f, platform=platform)
     machine.add(code)
     code.populate_cpu(cpu)
 
@@ -46,23 +49,22 @@ code_offset = (cpu.pc.get() - code.address) & 0xFFFFFFFFFFFFF000
 code[code_offset] = orig[0x0]
 
 # Replace the instruction bytes at pc with a nop
-nop = b"\xd5\x03\x20\x1f"
+nop = b"\x60\x00\x00\x00"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
 # puts address recovered from manual RE
-puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x37C
+puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x5C0
 puts = smallworld.state.models.Model.lookup(
-    "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
+    "puts", hookplatform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
 machine.add(puts)
 
 # Add an exit point
-# This is the ultimate return address
-machine.add_exit_point(cpu.pc.get() + 0x14)
+machine.add_exit_point(cpu.pc.get() + 0x2C)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
+emulator = smallworld.emulators.GhidraEmulator(platform)
+# Extracting the machine afterward takes forever.
 machine.apply(emulator)
 emulator.run()
