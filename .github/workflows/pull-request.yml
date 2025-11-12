@@ -8,10 +8,10 @@ env:
   REGISTRY: harbor.harbor.svc.cluster.local
   TZ: UTC
   SCRATCH: /home/runner/_shared
-
+  USER: root
 concurrency:
-  group: pr-${{ github.event.pull_request.number }}
-  # cancel-in-progress: true
+  group: pr-${{ github.event.pull_request.number }}-{{ github.sha }}
+  cancel-in-progress: true
 
 jobs:
   Lint:
@@ -22,6 +22,10 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
+      - uses: cachix/cachix-action@v15
+        with:
+          name: smallworld
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - name: Checkout (This Repo)
         uses: actions/checkout@v3
         env:
@@ -78,6 +82,10 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
+      - uses: cachix/cachix-action@v15
+        with:
+          name: smallworld
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - uses: actions/checkout@v4
       - name: Run Unit Tests
         run: |
@@ -87,7 +95,7 @@ jobs:
       runs-on: smallworld-arc
       needs: Lint
       strategy:
-        max-parallel: 100
+        max-parallel: 3
         matrix:
           include:
             - testsuite: BlockTests
@@ -220,6 +228,10 @@ jobs:
             - testsuite: ThumbTests
             - testsuite: UnmappedTests
       steps:
+      - uses: cachix/cachix-action@v15
+        with:
+          name: smallworld
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - uses: actions/checkout@v4
       - name: Build Artifacts
         run: |
