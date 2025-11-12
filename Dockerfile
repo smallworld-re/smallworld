@@ -10,7 +10,9 @@ RUN wget https://github.com/smallworld-re/buildtools/releases/latest/download/bu
 # Install nix
 RUN curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --determinate --no-confirm
 ENV PATH="${PATH}:/nix/var/nix/profiles/default/bin"
-RUN echo "download-buffer-size = 536870912" >> /etc/nix/nix.conf
+RUN echo "substituters = http://${NIX_CACHE_HOST}:${NIX_CACHE_PORT} https://cache.nixos.org" >> /etc/nix/nix.conf && \
+    echo "trusted-public-keys = ${NIX_CACHE_HOST}=${NIX_CACHE_PUBKEY} cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=" >> /etc/nix/nix.conf && \
+    echo "download-buffer-size = 536870912" >> /etc/nix/nix.conf
 
 # Copy smallworld
 COPY . /opt/smallworld
