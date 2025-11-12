@@ -95,7 +95,7 @@ jobs:
       runs-on: smallworld-arc
       needs: Lint
       strategy:
-        max-parallel: 60
+        max-parallel: 40
         matrix:
           include:
             - testsuite: BlockTests
