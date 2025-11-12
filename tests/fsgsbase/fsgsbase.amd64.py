@@ -1,4 +1,5 @@
 import logging
+
 import smallworld
 
 # Set up logging and hinting
@@ -72,21 +73,23 @@ machine.apply(emulator)
 final_machine = machine.emulate(emulator)
 cpu = final_machine.get_cpu()
 
-def prc(lab, v,sz):
-    print(lab+": ", end="")
+
+def prc(lab, v, sz):
+    print(lab + ": ", end="")
     for i in range(sz):
-        a = v & 0xff
+        a = v & 0xFF
         print(chr(a), end="")
         v = v >> 8
     print("")
-        
+
+
 rax = cpu.rax.get()
 prc("rax", rax, 8)
 lsb_rax = rax & 0xFF
 ind_fs = the_bytes.index(lsb_rax)
 
 rbx = cpu.rbx.get()
-prc("rbx", rbx,8)
+prc("rbx", rbx, 8)
 lsb_rbx = rbx & 0xFF
 ind_gs = the_bytes.index(lsb_rbx)
 
