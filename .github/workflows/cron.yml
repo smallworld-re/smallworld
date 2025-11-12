@@ -59,4 +59,4 @@ jobs:
       - uses: DeterminateSystems/determinate-nix-action@v3
       - uses: DeterminateSystems/update-flake-lock@main
         with:
-          pr-title: "Update Nix flake inputs"
+          pr-title: "chore: update nix flake inputs"
