@@ -3,7 +3,7 @@ name = "smallworld-re"
 version = "2.0.2"
 description = "An emulation stack tracking library"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = "3.10.7"
+requires-python = "==3.10.7"
 license = { file = "LICENSE.txt" }
 authors = [
    { name = "MIT Lincoln Laboratory" }, 
