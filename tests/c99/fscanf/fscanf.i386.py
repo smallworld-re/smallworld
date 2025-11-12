@@ -39,7 +39,7 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x400
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+stack.push_integer(0x7FFFFFF8, 4, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -134,9 +134,12 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 dead = DeadModel()
 machine.add(dead)
 
+# Add an exit point
+exitpoint = 0x7FFFFFF8
+machine.add_exit_point(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)
 except FailExitException:

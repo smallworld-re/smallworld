@@ -294,19 +294,25 @@ class CStdModel(Model):
     with Debian support (sorry, hppa), it works.
     """
 
+    # Flag indicating this model is unsupported.
+    #
+    # This function includes a behavior SmallWorld
+    # can't handle.  It will always fail.
+    #
+    # Setting this flag won't do anything,
+    # other than causing some operations to print warnings.
+    # The model itself should raise an exception
+    unsupported = False
+
     # Flag indicating this model is imprecise.
     #
     # Most models are assumed to be approximations,
     # but this model definitely doesn't capture
     # a critical behavior.
     #
-    # By default, these models should raise an exception if called.
-    # The user can accept the risk and run a placeholde version
+    # By default, these models will raise an exception if called.
+    # The user can accept the risk and run a placeholder version
     # by setting the attribute "allow_imprecise" to True.
-    #
-    # Authors probably shouldn't rely on this flag
-    # to mark truly-unimplemented models;
-    # just raise an exception yourself.
     imprecise = False
 
     @property
@@ -345,7 +351,7 @@ class CStdModel(Model):
 
     def model(self, emulator: emulators.Emulator):
         if self.imprecise and not self.allow_imprecise:
-            raise exceptions.ConfigurationError(
+            raise exceptions.ImpreciseModelError(
                 f"Invoked model for {self.name}, which is imprecise"
             )
 

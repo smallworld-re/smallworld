@@ -10,4 +10,3 @@ strlen:
     j       .L2
 .L3:
     mv      a0,t0
-    jr      ra

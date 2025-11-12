@@ -2,6 +2,7 @@ import abc
 import re
 import struct
 
+from .... import exceptions
 from ....emulators import Emulator
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
@@ -289,9 +290,9 @@ def handle_sint(
         intval &= varargs._long_long_inv_mask
         width = 8
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -376,9 +377,9 @@ def handle_uint(
         intval &= varargs._long_long_inv_mask
         width = 8
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -499,7 +500,7 @@ def handle_float(
     elif length == "l":
         byteval = struct.pack(f"{endian}d", floatval)
     elif length == "L":
-        raise NotImplementedError("long doubles not handled")
+        raise exceptions.UnsupportedModelError("long doubles not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -520,7 +521,7 @@ def handle_char(
     length = m.group(3)
 
     if length == "l":
-        raise NotImplementedError("wchar_t not handled")
+        raise exceptions.UnsupportedModelError("wchar_t not handled")
     elif length != "":
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -557,7 +558,7 @@ def handle_string(
     length = m.group(3)
 
     if length == "l":
-        raise NotImplementedError("wchar_t not handled")
+        raise exceptions.UnsupportedModelError("wchar_t not handled")
     elif length != "":
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -610,7 +611,7 @@ def handle_constrained(
     conversion = m.group(4)
 
     if length == "l":
-        raise NotImplementedError("wchar_t not handled")
+        raise exceptions.UnsupportedModelError("wchar_t not handled")
     elif length != "":
         raise FormatConversionError(f"Unknown type specifier {length}")
 
@@ -740,9 +741,9 @@ def handle_length(
         intval &= varargs._long_long_inv_mask
         width = 8
     elif length == "j":
-        raise NotImplementedError("Type 'intmax_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'intmax_t' not handled")
     elif length == "t":
-        raise NotImplementedError("Type 'ptrdiff_t' not handled")
+        raise exceptions.UnsupportedModelError("Type 'ptrdiff_t' not handled")
     else:
         raise FormatConversionError(f"Unknown type specifier {length}")
 

@@ -1,9 +1,30 @@
+import typing
+
+# NOTE: If extending Exception, all positional args must get passed up to Exception.__init__().
+#
+# This is an artifact of how Exception gets processed for deepcopy and pickle.
+# only arguments to the constructor passed to the superclass constructor will get passed
+# when the copy's constructor is called.
+# failing to pass them will make your exception uncopyable and unpickleable.
+#
+# You could also override the pickle hooks yourself,
+# but the superclass constructor is safer.
+
+
 class Error(Exception):
     """Common base class for all exceptions."""
+
+    pass
 
 
 class ConfigurationError(Error):
     """Raised when there is a problem with configuration."""
+
+    pass
+
+
+class ImpreciseModelError(ConfigurationError):
+    """Raised when a non-whitecarded imprecise function model is called"""
 
     pass
 
@@ -50,6 +71,144 @@ class UnsatError(EmulationError):
     pass
 
 
+class EmulationFailure(EmulationError):
+    """Raised if the code being emulated faults somehow"""
+
+    def __init__(self, msg: str, pc: int, *args):
+        super().__init__(msg, pc, *args)
+        self.pc = pc
+
+
+class EmulationExecFailure(EmulationFailure):
+    """Raised if the current instruction failed to execute"""
+
+    pass
+
+
+class EmulationExecInvalidFailure(EmulationExecFailure):
+    """Raised if the current instruction is invalid for this platform"""
+
+    def __init__(
+        self,
+        msg: str,
+        pc: int,
+        instruction: typing.Optional[typing.Any],
+        *args,
+    ):
+        super().__init__(msg, pc, instruction, *args)
+        self.instruction = instruction
+
+
+class EmulationExecExceptionFailure(EmulationExecFailure):
+    """Raised if the current instruction raised an unhandled trap, interrupt, or exception.
+
+    The way different emulators report this is inconsistent.
+    The number reported is NOT a platform-specific trap number.
+    """
+
+    pass
+
+
+class EmulationMemoryFailure(EmulationFailure):
+    """Raised if something went wrong accessing memory"""
+
+    def __init__(
+        self,
+        msg: str,
+        pc: int,
+        *args,
+        operands: typing.Optional[typing.List[typing.Any]] = None,
+        address: typing.Optional[int] = None,
+    ):
+        super().__init__(msg, pc, *args)
+        self.address = address
+        self.operands = operands
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def __repr__(self) -> str:
+        msg = self.args[0]
+        if self.address is not None:
+            return f"{msg} pc={hex(self.pc)} address={hex(self.address)}"
+        elif self.operands is not None:
+            return f"{msg} pc={hex(self.pc)} operands=[{', '.join(map(lambda x: f'{x[0].expr_string()}: {hex(x[1])}', self.operands))}]"
+        else:
+            return msg
+
+
+class EmulationReadFailure(EmulationMemoryFailure):
+    """Raised if something went wrong reading memory"""
+
+    pass
+
+
+class EmulationReadUnmappedFailure(EmulationReadFailure):
+    """Raised if the current instruction tried to read unmapped memory"""
+
+    pass
+
+
+class EmulationReadProtectedFailure(EmulationReadFailure):
+    """Raised if the current instruction tried to read read-protected memory"""
+
+    pass
+
+
+class EmulationReadUnalignedFailure(EmulationReadFailure):
+    """Raised if the current instruction tried to read an unaligned address"""
+
+    pass
+
+
+class EmulationWriteFailure(EmulationMemoryFailure):
+    """Raised if something went wrong writing memory"""
+
+    pass
+
+
+class EmulationWriteUnmappedFailure(EmulationWriteFailure):
+    """Raised if the current instruction tried to write to unmapped memory"""
+
+    pass
+
+
+class EmulationWriteProtectedFailure(EmulationWriteFailure):
+    """Raised if the current instruction tried to write to write-protected memory"""
+
+    pass
+
+
+class EmulationWriteUnalignedFailure(EmulationWriteFailure):
+    """Raised if the current instruction tried to write to an unaligned address"""
+
+    pass
+
+
+class EmulationFetchFailure(EmulationMemoryFailure):
+    """Raised if something went wrong fetching an instruction"""
+
+    pass
+
+
+class EmulationFetchUnmappedFailure(EmulationFetchFailure):
+    """Raised if an instruction fetch hit unmapped memory"""
+
+    pass
+
+
+class EmulationFetchProtectedFailure(EmulationFetchFailure):
+    """Raised if an instruction fetch hit exec-protected memory"""
+
+    pass
+
+
+class EmulationFetchUnalignedFailure(EmulationFetchFailure):
+    """Raised if an instruction fetch was for an unaligned address"""
+
+    pass
+
+
 class EmulationException(EmulationError):
     """Raised when the underlying emulator fails.
 
@@ -60,10 +219,17 @@ class EmulationException(EmulationError):
     """
 
     def __init__(self, exception: Exception):
+        super().__init__(exception)
         self.exception = exception
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.exception})"
+
+
+class UnsupportedModelError(EmulationError):
+    """Raised when a model of an unsupported function gets called"""
+
+    pass
 
 
 class AnalysisError(Error):
@@ -78,8 +244,27 @@ __all__ = [
     "EmulationBounds",
     "EmulationExitpoint",
     "EmulationException",
+    "ImpreciseModelError",
     "SymbolicValueError",
     "UnsatError",
+    "EmulationFailure",
+    "EmulationExecFailure",
+    "EmulationExecInvalidFailure",
+    "EmulationExecExceptionFailure",
+    "EmulationMemoryFailure",
+    "EmulationReadFailure",
+    "EmulationReadUnmappedFailure",
+    "EmulationReadProtectedFailure",
+    "EmulationReadUnalignedFailure",
+    "EmulationWriteFailure",
+    "EmulationWriteUnmappedFailure",
+    "EmulationWriteProtectedFailure",
+    "EmulationWriteUnalignedFailure",
+    "EmulationFetchFailure",
+    "EmulationFetchUnmappedFailure",
+    "EmulationFetchProtectedFailure",
+    "EmulationFetchUnalignedFailure",
+    "UnsupportedModelError",
     "UnsupportedRegisterError",
     "AnalysisError",
 ]

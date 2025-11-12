@@ -10,16 +10,16 @@ MIPS64EL_BINS := $(patsubst %.mips64.bin,%.mips64el.bin,$(filter %.mips64.bin,$(
 MIPS64EL_ELFS := $(patsubst %.mips64.elf,%.mips64el.elf,$(filter %.mips64.elf,$(ELFS)))
 TARGETS := $(BINS) $(MIPSEL_BINS) $(MIPS64EL_BINS) $(ELFS) $(MIPSEL_ELFS) $(MIPS64EL_ELFS)
 
-PREREQS := $(patsubst %,%.prereq,aarch64-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu xtensa-lx106-elf)
+PREREQS := $(patsubst %,%.prereq,aarch64-unknown-linux-gnu arm-linux-gnueabi arm-linux-gnueabihf mips-linux-gnu mipsel-linux-gnu mips64-linux-gnuabi64 mips64el-linux-gnuabi64 powerpc-linux-gnu powerpc64-linux-gnu riscv64-linux-gnu xtensa-lx106-elf)
 
 %.aarch64.elf: %.aarch64.elf.s
-	aarch64-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
-	aarch64-linux-gnu-ld $*.aarch64.elf.o -o $*.aarch64.elf
+	aarch64-unknown-linux-gnu-as $*.aarch64.elf.s -o $*.aarch64.elf.o
+	aarch64-unknown-linux-gnu-ld $*.aarch64.elf.o -o $*.aarch64.elf
 	rm $*.aarch64.elf.o
 
 %.aarch64.bin: %.aarch64.s
-	aarch64-linux-gnu-as $*.aarch64.s -o $*.aarch64.o
-	aarch64-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
+	aarch64-unknown-linux-gnu-as $*.aarch64.s -o $*.aarch64.o
+	aarch64-unknown-linux-gnu-objcopy -O binary -j .text $*.aarch64.o $*.aarch64.bin
 	rm $*.aarch64.o
 
 %.amd64.elf: %.amd64.elf.s

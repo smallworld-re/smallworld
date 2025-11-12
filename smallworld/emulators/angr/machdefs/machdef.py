@@ -84,7 +84,19 @@ class AngrMachineDef:
         """
         if state.project is None:
             raise exceptions.ConfigurationError("Angr state had no project.")
-        return state.project.factory.successors(state, **kwargs)
+
+        assert hasattr(state.scratch, "exit_points")
+
+        # Inject exit points here.
+        if "extra_stop_points" in kwargs:
+            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
+            del kwargs["extra_stop_points"]
+        else:
+            exit_points = state.scratch.exit_points
+
+        return state.project.factory.successors(
+            state, extra_stop_points=exit_points, **kwargs
+        )
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

@@ -148,8 +148,6 @@ class Atoi(CStdModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
-    size_mask = 0xFFFFFFFF
-
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # TODO: Support other locales for atoi
@@ -161,7 +159,6 @@ class Atoi(CStdModel):
 
         data = emulator.read_memory(ptr, n)
         text = data.decode("utf-8").strip()
-        print(f"Converting {text} ({len(text)})")
 
         for i in range(0, len(text)):
             if not text[i].isnumeric() and text[i] != "-":
@@ -173,8 +170,19 @@ class Atoi(CStdModel):
             self.set_return_value(emulator, 0)
             return
 
+        if self.return_type == ArgumentType.INT:
+            size_mask = self._int_inv_mask
+        elif self.return_type == ArgumentType.LONG:
+            size_mask = self._long_inv_mask
+        elif self.return_type == ArgumentType.LONGLONG:
+            size_mask = self._long_long_inv_mask
+        else:
+            raise exceptions.ConfigurationError(
+                f"Unexpected return type {self.return_type}"
+            )
+
         # TODO: Not entirely sure if this is how truncation will work.
-        newval = int(text) & self.size_mask
+        newval = int(text) & size_mask
         self.set_return_value(emulator, newval)
 
 
@@ -185,8 +193,6 @@ class Atol(Atoi):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.LONG
 
-    size_mask = 0xFFFFFFFFFFFFFFFF
-
 
 class Atoll(Atoi):
     name = "atoll"
@@ -194,8 +200,6 @@ class Atoll(Atoi):
     # long long atoll(const char *str);
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.LONGLONG
-
-    size_mask = 0xFFFFFFFFFFFFFFFF
 
 
 class Bsearch(CStdModel):
@@ -213,10 +217,13 @@ class Bsearch(CStdModel):
     ]
     return_type = ArgumentType.POINTER
 
+    # Currently can't call function pointers from models
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Not easily possible; need to call a comparator function.
-        raise NotImplementedError(
+        raise exceptions.UnsupportedModelError(
             "bsearch uses a function pointer; not sure how to model"
         )
 
@@ -261,12 +268,24 @@ class Div(CStdModel):
 
     # div_t result(int dividend, int divisor);
     argument_types = [ArgumentType.INT, ArgumentType.INT]
-    # FIXME: Figure out how different platforms return structs by value
+    return_type = ArgumentType.VOID
+
+    # div, ldiv, and lldiv basically disobey the ABI.
+    #
+    # It returns a non-static buffer by stealing
+    # stack space from the caller.
+    #
+    # This would be fine, but different platforms
+    # use different mechanisms for the theft.
+    #
+    # I am not touching that drama.
+    unsupported = True
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        # div_t result(int dividend, int divisor);
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(
+            f"{self.name}() has a unique, unsupported calling convention"
+        )
 
 
 class LDiv(Div):
@@ -274,7 +293,6 @@ class LDiv(Div):
 
     # ldiv_t result(long dividend, long divisor);
     argument_types = [ArgumentType.LONG, ArgumentType.LONG]
-    # FIXME: Figure out how different platforms return structs by value
 
 
 class LLDiv(Div):
@@ -282,7 +300,6 @@ class LLDiv(Div):
 
     # lldiv_t result(long long dividend, long long divisor);
     argument_types = [ArgumentType.LONGLONG, ArgumentType.LONGLONG]
-    # FIXME: Figure out how different platforms return structs by value
 
 
 class Exit(CStdModel):
@@ -385,10 +402,13 @@ class Mblen(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.INT
 
+    # Alternate encodings not supported
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class Mbstowcs(CStdModel):
@@ -398,10 +418,13 @@ class Mbstowcs(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.SIZE_T
 
+    # Alternate encodings not supported
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class Mbtowc(CStdModel):
@@ -411,10 +434,13 @@ class Mbtowc(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.INT
 
+    # Alternate encodings not supported
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class QSort(CStdModel):
@@ -429,11 +455,13 @@ class QSort(CStdModel):
     ]
     return_type = ArgumentType.VOID
 
+    # Currently can't call function pointers from models
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        # Not easily possible; need to call a comparator function.
-        raise NotImplementedError(
-            "qsort uses a function pointer; not sure how to model"
+        raise exceptions.UnsupportedModelError(
+            f"{self.name} uses a function pointer; not sure how to model"
         )
 
 
@@ -524,6 +552,9 @@ class System(CStdModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.INT
 
+    # This won't actually execute a subprocess
+    imprecise = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         ptr = self.get_arg1(emulator)
@@ -545,10 +576,13 @@ class Wcstombs(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.SIZE_T
 
+    # Alternate encodings not supported
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 class Wctomb(CStdModel):
@@ -558,10 +592,13 @@ class Wctomb(CStdModel):
     argument_types = [ArgumentType.POINTER, ArgumentType.UINT]
     return_type = ArgumentType.INT
 
+    # Alternate encodings not supported
+    unsupported = True
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         # Depends the locale.
-        raise NotImplementedError()
+        raise exceptions.UnsupportedModelError(f"{self.name} requires locale support")
 
 
 __all__ = [
@@ -574,6 +611,7 @@ __all__ = [
     "Atoi",
     "Atol",
     "Atoll",
+    "Bsearch",
     "Calloc",
     "Div",
     "LDiv",

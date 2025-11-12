@@ -298,15 +298,27 @@ class GhidraEmulator(AbstractGhidraEmulator):
             addr_range = AddressRangeImpl(start_addr, end_addr)
             self._emu.addAccessBreakpoint(addr_range, self._emu.AccessKind.W)
 
-    def _process_read_breakpoint(self, addr_var: Varnode, out_var: Varnode) -> None:
+    def _process_read_breakpoint(
+        self, addr_var: Varnode, out_var: Varnode, direct=False
+    ) -> None:
         state = self._thread.getState()
 
         # Get the address out of the emulator
-        addr_bytes = state.getVar(addr_var, PcodeExecutorStatePiece.Reason.INSPECT)
-        if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr = int.from_bytes(addr_bytes, "big")
-        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr = int.from_bytes(addr_bytes, "little")
+        if direct:
+            # This is referencing a fixed address
+            addr = addr_var.getAddress().getOffset()
+        else:
+            # This is referencing an address stored in a varnode
+            addr_bytes = state.getVar(addr_var, PcodeExecutorStatePiece.Reason.INSPECT)
+            if self.platform.byteorder is platforms.Byteorder.BIG:
+                addr = int.from_bytes(addr_bytes, "big")
+            elif self.platform.byteorder is platforms.Byteorder.LITTLE:
+                addr = int.from_bytes(addr_bytes, "little")
+
+        if not self._memory_map.contains_value(addr):
+            raise exceptions.EmulationReadUnmappedFailure(
+                "Read of unmapped data", self.read_register("pc"), address=addr
+            )
 
         # Dereference the address to get the original data
         addr_space = self.machdef.language.getDefaultSpace()
@@ -369,15 +381,27 @@ class GhidraEmulator(AbstractGhidraEmulator):
             self._mem_reads_hook = None
             self._update_access_breakpoints()
 
-    def _process_write_breakpoint(self, addr_var: Varnode, data_var: Varnode) -> None:
+    def _process_write_breakpoint(
+        self, addr_var: Varnode, data_var: Varnode, direct=False
+    ) -> None:
         state = self._thread.getState()
-        addr_bytes = state.getVar(addr_var, PcodeExecutorStatePiece.Reason.INSPECT)
         data = state.getVar(data_var, PcodeExecutorStatePiece.Reason.INSPECT)
 
-        if self.platform.byteorder is platforms.Byteorder.BIG:
-            addr = int.from_bytes(addr_bytes, "big")
-        elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            addr = int.from_bytes(addr_bytes, "little")
+        if direct:
+            # This is referencing a fixed address.
+            addr = addr_var.getAddress().getOffset()
+        else:
+            # This is referencing an address stored in a varnode.
+            addr_bytes = state.getVar(addr_var, PcodeExecutorStatePiece.Reason.INSPECT)
+            if self.platform.byteorder is platforms.Byteorder.BIG:
+                addr = int.from_bytes(addr_bytes, "big")
+            elif self.platform.byteorder is platforms.Byteorder.LITTLE:
+                addr = int.from_bytes(addr_bytes, "little")
+
+        if not self._memory_map.contains_value(addr):
+            raise exceptions.EmulationWriteUnmappedFailure(
+                "Write of unmapped data", self.read_register("pc"), address=addr
+            )
 
         if self._mem_writes_hook is not None:
             self._mem_writes_hook(self, addr, len(data), data)
@@ -429,6 +453,12 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Step!
         pc = self.read_register_content(self.platdef.pc_register)
+        log.info(f"Stepping through {hex(pc)}")
+        if not self._memory_map.contains_value(pc):
+            raise exceptions.EmulationFetchUnmappedFailure(
+                "Fetched unmapped memory", pc, address=pc
+            )
+
         pc_addr = self.machdef.language.getDefaultSpace().getAddress(pc)
         self._thread.overrideCounter(pc_addr)
 
@@ -488,6 +518,35 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     # running the op normally will clobber a custom value
                     # produced by a hook.
                     skip = True
+                elif opcode == op.COPY:
+                    # This is a COPY opcode.
+                    # It's used if copying directly between two varnodes,
+                    # without having to compute an address.
+                    # It could be a
+                    addr_space = self.machdef.language.getDefaultSpace()
+
+                    in_var = op.getInputs()[0]
+                    out_var = op.getOutput()
+
+                    in_space = in_var.getAddress().getAddressSpace()
+                    out_space = out_var.getAddress().getAddressSpace()
+
+                    if in_space == addr_space and out_space == addr_space:
+                        # This is a read and write in a single opcode.
+                        # Can't quite handle it; neither can most ISAs.
+                        raise NotImplementedError(
+                            f"RAM-to-RAM copy from {in_var} to {out_var}"
+                        )
+                    elif in_space == addr_space:
+                        # This is a read from memory
+                        self._process_read_breakpoint(in_var, out_var, direct=True)
+                        skip = True
+                    elif out_space == addr_space:
+                        # This is a write to memory
+                        self._process_write_breakpoint(out_var, in_var, direct=True)
+                        skip = True
+
+                    # This is not a memory access.  No need to break
 
         # Check exit points and bounds
         pc = self.read_register_content(self.platdef.pc_register)
@@ -495,8 +554,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if pc in self._exit_points:
             raise exceptions.EmulationExitpoint()
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
-            raise exceptions.EmulationBounds()
-        if not self._memory_map.is_empty() and not self._memory_map.contains_value(pc):
             raise exceptions.EmulationBounds()
 
     def step_block(self) -> None:
