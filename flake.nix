@@ -28,7 +28,7 @@
     };
 
     pandaPkgs = {
-      url = "github:nixos/nixpkgs?rev=911ad1e67f458b6bcf0278fa85e33bb9924fed7e";
+      url = "github:NixOS/nixpkgs?rev=e93823409f9e6b8e878edf060b430a14353a28f9";
     };
     
     panda = {
