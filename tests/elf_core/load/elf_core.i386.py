@@ -1,4 +1,5 @@
 import logging
+import pathlib
 
 import smallworld
 
@@ -18,24 +19,21 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add core file into the state
+filepath = pathlib.Path(__file__).resolve()
 filename = (
-    __file__.replace(".py", ".elf.core")
+    filepath.name.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
     .replace(".pcode", "")
 )
+filename = (filepath.parent.parent / filename).as_posix()
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf_core(f, platform=platform)
     machine.add(code)
     code.populate_cpu(cpu)
 
 # Load register ground truth
-filename = (
-    __file__.replace(".py", ".elf.registers")
-    .replace(".angr", "")
-    .replace(".panda", "")
-    .replace(".pcode", "")
-)
+filename = filename.replace(".core", ".registers")
 
 expected_regs = dict()
 
