@@ -7,7 +7,7 @@ from ..hinting import BranchesHint, CoverageFrontierHint, Hint, TraceExecutionHi
 from .analysis import Analysis
 from .trace_execution_types import TraceElement
 
-Edges = typing.NewType("Edges", typing.Dict[int, typing.Any])  # typing.Dict[int,int]])
+Edges = typing.NewType("Edges", typing.Dict[int, typing.Any])
 
 
 def compute_coverage_frontier(
