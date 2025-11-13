@@ -1,7 +1,15 @@
 import sys
 import typing
 
-from .. import hinting
+from ..hinting import (
+    DynamicMemoryValueHint,
+    DynamicMemoryValueSummaryHint,
+    DynamicRegisterValueHint,
+    DynamicRegisterValueSummaryHint,
+    EmulationException,
+    MemoryUnavailableHint,
+    MemoryUnavailableSummaryHint,
+)
 from . import analysis
 
 # goal here is to summarize across multiple micro execution if two
@@ -11,7 +19,7 @@ from . import analysis
 
 
 def compute_dv_key(hint):
-    if type(hint) is hinting.DynamicRegisterValueHint:
+    if type(hint) is DynamicRegisterValueHint:
         return (
             ("type", "reg"),
             ("pc", hint.pc),
@@ -20,7 +28,7 @@ def compute_dv_key(hint):
             ("new", hint.new),
             ("reg_name", hint.reg_name),
         )
-    elif type(hint) is hinting.DynamicMemoryValueHint:
+    elif type(hint) is DynamicMemoryValueHint:
         return (
             ("type", "mem"),
             ("pc", hint.pc),
@@ -32,7 +40,7 @@ def compute_dv_key(hint):
             ("scale", hint.scale),
             ("offset", hint.offset),
         )
-    elif type(hint) is hinting.MemoryUnavailableHint:
+    elif type(hint) is MemoryUnavailableHint:
         return (
             ("type", "mem_unavail"),
             ("pc", hint.pc),
@@ -43,16 +51,16 @@ def compute_dv_key(hint):
             ("scale", hint.scale),
             ("offset", hint.offset),
         )
-    elif type(hint) is hinting.EmulationException:
+    elif type(hint) is EmulationException:
         return (("type", "emu_fail"), ("pc", hint.pc), ("exception", hint.exception))
 
     else:
         # should never happen
         assert (
-            (type(hint) is hinting.DynamicRegisterValueHint)
-            or (type(hint) is hinting.DynamicMemoryValueHint)
-            or (type(hint) is hinting.MemoryUnavailableHint)
-            or (type(hint) is hinting.EmulationException)
+            (type(hint) is DynamicRegisterValueHint)
+            or (type(hint) is DynamicMemoryValueHint)
+            or (type(hint) is MemoryUnavailableHint)
+            or (type(hint) is EmulationException)
         )
 
 
@@ -65,10 +73,10 @@ class ColorizerSummary(analysis.Analysis):
         super().__init__(*args, **kwargs)
         self.hint_list = []
         self.exec_ids = set([])
-        self.hinter.register(hinting.DynamicRegisterValueHint, self.collect_hints)
-        self.hinter.register(hinting.DynamicMemoryValueHint, self.collect_hints)
-        self.hinter.register(hinting.MemoryUnavailableHint, self.collect_hints)
-        self.hinter.register(hinting.EmulationException, self.collect_hints)
+        self.hinter.register(DynamicRegisterValueHint, self.collect_hints)
+        self.hinter.register(DynamicMemoryValueHint, self.collect_hints)
+        self.hinter.register(MemoryUnavailableHint, self.collect_hints)
+        self.hinter.register(EmulationException, self.collect_hints)
 
     def collect_hints(self, hint):
         self.hint_list.append(hint)
@@ -111,12 +119,22 @@ class ColorizerSummary(analysis.Analysis):
         # start off by collecting set of all such classes
         all_hint_keys = set([])
         hk_exemplar = {}
+        hk_dynvals = {}
+        hk_addresses = {}
         for hint in self.hint_list:
             hk = compute_dv_key(hint)
             all_hint_keys.add(hk)
             # keep one exemplar for each equivalence class
             if hk not in hk_exemplar:
                 hk_exemplar[hk] = hint
+            # collect dynamic values for this kind of hint
+            # and addresses
+            if type(hint) is DynamicMemoryValueHint:
+                if hk not in hk_dynvals:
+                    hk_dynvals[hk] = []
+                    hk_addresses[hk] = []
+                hk_dynvals[hk].append(hint.dynamic_value)
+                hk_addresses[hk].append(hint.address)
 
         hint_keys_sorted = sorted(list(all_hint_keys))
 
@@ -142,9 +160,9 @@ class ColorizerSummary(analysis.Analysis):
 
         for hk in hint_keys_sorted:
             hint = hk_exemplar[hk]
-            if type(hint) is hinting.DynamicRegisterValueHint:
+            if type(hint) is DynamicRegisterValueHint:
                 self.hinter.send(
-                    hinting.DynamicRegisterValueSummaryHint(
+                    DynamicRegisterValueSummaryHint(
                         pc=hint.pc,
                         reg_name=hint.reg_name,
                         color=color2truecolor[hint.color],
@@ -156,9 +174,9 @@ class ColorizerSummary(analysis.Analysis):
                         message=hint.message + "-summary",
                     )
                 )
-            if type(hint) is hinting.DynamicMemoryValueHint:
+            if type(hint) is DynamicMemoryValueHint:
                 self.hinter.send(
-                    hinting.DynamicMemoryValueSummaryHint(
+                    DynamicMemoryValueSummaryHint(
                         pc=hint.pc,
                         size=hint.size,
                         base=hint.base,
@@ -166,6 +184,8 @@ class ColorizerSummary(analysis.Analysis):
                         scale=hint.scale,
                         offset=hint.offset,
                         color=color2truecolor[hint.color],
+                        dynamic_values=hk_dynvals[hk],
+                        addresses=hk_addresses[hk],
                         use=hint.use,
                         new=hint.new,
                         message=hint.message + "-summary",
@@ -173,9 +193,9 @@ class ColorizerSummary(analysis.Analysis):
                         num_micro_executions=len(self.exec_ids),
                     )
                 )
-            if type(hint) is hinting.MemoryUnavailableHint:
+            if type(hint) is MemoryUnavailableHint:
                 self.hinter.send(
-                    hinting.MemoryUnavailableSummaryHint(
+                    MemoryUnavailableSummaryHint(
                         is_read=hint.is_read,
                         size=hint.size,
                         base_reg_name=hint.base_reg_name,

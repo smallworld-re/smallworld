@@ -184,6 +184,13 @@ class Colorizer(analysis.Analysis):
             return operand.size
         return 0
 
+    def htime(self):
+        if not (hasattr(self, "time_mon")):
+            self.time_mon = 1
+        else:
+            self.time_mon += 1
+        return self.time_mon
+
     def run(self, machine: state.Machine) -> None:
         # collect hints for each microexecution, in a list of lists
 
@@ -386,6 +393,7 @@ class Colorizer(analysis.Analysis):
         pc = insn.address
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
+                time=self.htime(),
                 reg_name=operand.name,
                 size=size,
                 color=color,
@@ -405,6 +413,7 @@ class Colorizer(analysis.Analysis):
             if operand.index is not None:
                 index_name = operand.index
             return hinting.DynamicMemoryValueHint(
+                time=self.htime(),
                 address=operand.address(emu),
                 base=base_name,
                 index=index_name,

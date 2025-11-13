@@ -360,6 +360,7 @@ class DynamicValueHint(hinting.Hint):
 
     # instruction: typing.Any
     pc: int
+    time: int
     instruction_num: int
     exec_id: int
     dynamic_value: int
@@ -422,6 +423,8 @@ class DynamicValueSummaryHint(hinting.Hint):
     use: bool
     new: bool
     count: int
+    dynamic_values: typing.List[int]
+    addresses: typing.List[int]
     num_micro_executions: int
 
 
@@ -453,6 +456,7 @@ class CoverageFrontierHint(hinting.Hint):
     coverage_frontier: typing.List[int]
     edges: typing.List[typing.Tuple[int, typing.List[int]]]
     branches: typing.List[int]
+
 
 __all__ = [
     "DynamicRegisterValueHint",
