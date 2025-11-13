@@ -129,7 +129,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
             data: The bytes to write.
         """
 
-        if address + len(data) > self.address + self.size:
+        if (address < self.address) or (address + len(data) > self.address + self.size):
             raise exceptions.ConfigurationError(
                 f"Out of bounds: tried to read {len(data)} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
             )
@@ -213,7 +213,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
             The bytes in the requested memory region.
         """
 
-        if address + size > self.address + self.size:
+        if (address < self.address) or (address + size > self.address + self.size):
             raise exceptions.ConfigurationError(
                 f"Out of bounds: tried to read {size} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
             )

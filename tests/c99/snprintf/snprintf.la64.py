@@ -105,7 +105,6 @@ machine.add(dead)
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
-emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

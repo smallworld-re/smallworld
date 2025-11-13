@@ -796,7 +796,7 @@ class Machine(StatefulSet):
 
         try:
             emulator.run()
-        except exceptions.EmulationBounds:
+        except exceptions.EmulationStop:
             pass
 
         machine_copy = copy.deepcopy(self)

@@ -47,6 +47,10 @@ class PatchedObjectFactory(AngrObjectFactory):
                         (start, stop) = r
                         max_size = min(max_size, stop - ip)
 
+                for exit_point in state.scratch.exit_points:
+                    if exit_point >= ip and exit_point < ip + max_size:
+                        max_size = exit_point - ip
+
             if max_size == 0:
                 log.warn(f"Empty block at {state._ip}")
             max_size = min(max_size, 4096)

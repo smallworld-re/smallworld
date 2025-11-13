@@ -70,6 +70,10 @@ class FooModel(smallworld.state.models.mmio.MemoryMappedModel):
         print(f"{self.name}: write {size} bytes at {hex(addr)}")
 
 
+# Ensure that the entire page is mapped
+backing = smallworld.state.memory.Memory(0x1000, 0x1000)
+machine.add(backing)
+
 foo = FooModel("foo", 0x1000, 8)
 machine.add(foo)
 
@@ -87,6 +91,22 @@ exit_model = smallworld.state.models.Model.lookup(
 )
 machine.add(exit_model)
 code.update_symbol_value("exit", exit_model._address)
+
+# UTTER AND TOTAL MADNESS
+# MIPS relies on a "Global Pointer" register
+# to find its place in a position-independent binary.
+# In MIPS64, this is computed by relying on
+# the fact that dynamic function calls use
+# the t9 register to store the address of the target function.
+#
+# The function prologue sets gp to t9 plus a constant,
+# creating an address that's... not in the ELF image...?
+# Position-independent references then subtract
+# larger-than-strictly-necessary offsets
+# from gp to compute the desired address.
+#
+# TL;DR: To call main(), t9 must equal main.
+cpu.t9.set(entrypoint)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
