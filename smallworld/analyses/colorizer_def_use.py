@@ -53,9 +53,6 @@ class DefUseGraph(nx.MultiDiGraph):
 class DefUseNode:
     pc: int
 
-    # def __init__(self: typing.Any, pc: int):
-    #     self.pc = pc
-
 
 @dataclass
 class InstructionNode(DefUseNode):
@@ -68,9 +65,6 @@ class InstructionNode(DefUseNode):
 @dataclass
 class ColorNode(DefUseNode):
     color: int
-
-    # def __init__(self: typing.Any, pc: int, color: int):
-    #     super().__init__(pc)
 
     def __str__(self: typing.Any):
         return f"ColorNode(pc={self.pc:x},color={self.color}"
@@ -86,12 +80,6 @@ class Info:
 class RegisterInfo(Info):
     register: RegisterDef
 
-    # def __init__(
-    #     self: typing.Any, register: RegisterDef, color: int, dynvals: typing.List[int]
-    # ):
-    #     super().__init__(color, dynvals)
-    #     self.register = register
-
     def __str__(self: typing.Any):
         return (
             "RegisterInfo(\n"
@@ -106,19 +94,6 @@ class MemoryLvalInfo(Info):
     bsid: BSIDMemoryReferenceOperand
     size: int
     addresses: typing.List[int]
-
-    # def __init__(
-    #     self: typing.Any,
-    #     bsid: BSIDMemoryReferenceOperand,
-    #     size: int,
-    #     color: int,
-    #     dynvals: typing.List[int],
-    #     addresses: typing.List[int],
-    # ):
-    #     super().__init__(color, dynvals)
-    #     self.bsid = bsid
-    #     self.size = size
-    #     self.addresses = addresses
 
     def __str__(self: typing.Any):
         return (
