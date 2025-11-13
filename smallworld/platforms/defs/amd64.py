@@ -316,6 +316,9 @@ class AMD64BasePlatformDef(PlatformDef):
         "mm5": RegisterAliasDef(name="mm5", parent="fpr5", size=8, offset=0),
         "mm6": RegisterAliasDef(name="mm6", parent="fpr6", size=8, offset=0),
         "mm7": RegisterAliasDef(name="mm7", parent="fpr7", size=8, offset=0),
+        # MSRs
+        "fsbase": RegisterDef(name="fsbase", size=64),  # MSR 0xC0000100
+        "gsbase": RegisterDef(name="gsbase", size=64),  # MSR 0xC0000101
     }
 
 
@@ -356,8 +359,6 @@ class AMD64(AMD64BasePlatformDef):
         "xmm14": RegisterAliasDef(name="xmm14", parent="ymm14", size=16, offset=0),
         "ymm15": RegisterDef(name="ymm15", size=32),
         "xmm15": RegisterAliasDef(name="xmm15", parent="ymm15", size=16, offset=0),
-        "fsbase": RegisterDef(name="fsbase", size=64),  # MSR 0xC0000100
-        "gsbase": RegisterDef(name="gsbase", size=64),  # MSR 0xC0000101
     }
 
 
