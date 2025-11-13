@@ -19,6 +19,6 @@ once execution is complete.  This provides two key benefits:
    values
    machine
    cpu
-   memory
+   memory/index
    hooks/hooks
    hooks/c_support

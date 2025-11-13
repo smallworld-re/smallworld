@@ -14,7 +14,7 @@ Registers are exposed as properties of a ``CPU`` object for ease of access.
 
 .. note::
    Currently, SmallWorld only allows a single ``CPU`` object per machine.
-   Currently, only Ghidra has meaningful multi-core support,
+   Currently, only Ghidra has meaningful multi-threaded support,
    and it's not exposed through SmallWorld.
 
 Registers
@@ -42,7 +42,9 @@ A ``Register``'s label can be accessed using
 ``Register.get_label()`` and ``Register.set_label()``.  
 See :ref:`values` for more about how labels work.
 
-The following is an example of setting the contents on a ``Register``::
+The following is an example of setting the contents on a ``Register``
+
+.. code-block:: python
 
     from smallworld.state import CPU
     from smallworld.platforms import Architecture, Byteorder, Platform
@@ -69,7 +71,9 @@ Accessing a label on a ``RegisterAlias`` will access
 the label for the entire parent ``Register``;
 there is no way to specify a partial label on a ``Register``.
 
-The following is an example of setting the contents on a ``Register`` and an associated ``RegisterAlias``::
+The following is an example of setting the contents on a ``Register`` and an associated ``RegisterAlias``
+
+.. code-block:: python
 
     from smallworld.state import CPU
     from smallworld.platforms import Architecture, Byteorder, Platform

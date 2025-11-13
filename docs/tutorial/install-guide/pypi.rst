@@ -1,7 +1,14 @@
-.. _installation:
+.. _installation_pypi:
 
-Installation Guide
-==================
+Minimal Install with PyPI
+=========================
+
+SmallWorld can be installed solely as a Python project.
+This will provide access to the Unicorn and angr emulation features immediately,
+as well as Ghidra with a tiny bit of work.
+
+This is sufficient to write and test emulation harnesses.
+Fuzzing with SmallWorld will require the Nix or Docker installation.
 
 Prerequisites
 -------------
@@ -15,17 +22,8 @@ your system before attempting to install SmallWorld.
    SmallWorld is very particular about the versions of its pip dependencies.
    Please install in a `virtual environment <https://docs.python.org/3/library/venv.html>`_.
 
-Basic Installation
-------------------
-
-SmallWorld can be installed solely as a Python project.
-This will provide access to the Unicorn and angr emulation features.
-
-Ghidra and Panda emulation, plus fuzzing with ``unicornafl``,
-requires more dependencies.  See "Complete Installation" for details.
-
 Basic Install from PyPI
-***********************
+-----------------------
 
 SmallWorld is available as a `pip package <https://pypi.org/project/smallworld-re/>`_ package.
 
@@ -36,7 +34,7 @@ It can be installed using
     pip install smallworld-re
 
 Basic Install from Source
-*************************
+-------------------------
 
 SmallWorld source is available from  `from GitHub
 <https://github.com/smallworld-re/smallworld>`_
@@ -54,37 +52,18 @@ To perform a basic installation, run the following commands:
     cd smallworld
     python3 -m pip install -e . -c constraints.txt
 
-Complete Installation
+
+
+Adding Ghidra Support
 ---------------------
 
-Some of SmallWorld's features rely on native features
-that cannot be reliably installed via package manager.
+.. warning::
 
-The following features require extra installation steps:
+   The installation procedure for ``pyghidra`` does not appear to be stable,
+   and the docs inside of Ghidra itself are wrong as of this writing.
 
-- User-mode emulation with Ghidra requires Ghidra
-- Full-system emulation with Panda requires Panda
-- Fuzzing support requires AFL++ and unicornafl.
-- The example programs require a bevy of cross-compilers
-
-We recommend the following workflows:
-
-- For analysis and harness authoring, we recommend a partial extension of the basic install, 
-  or the nix mutable environment
-- For fuzzing, we recommend using the nix mutable environment, or the docker container
-- For development, we recommend the nix immutable environment 
-
-Extending a basic installation
-******************************
-
-
-
-We recommend developing a harness using the basic emulators,
-then converting it to a fuzzing harness and exercising it
-using either nix or docker.
-
-Installing Ghidra
-^^^^^^^^^^^^^^^^^
+   This procedure works for Ghidra 11.3.2, but will not be actively tested
+   by SmallWorld moving forward.
 
 As a prerequisite, you will need Ghidra 11.3.2 or later installed,
 as well as an appropriate Java JDK.
@@ -98,12 +77,25 @@ execute the follwing in your SmallWorld environment:
 
     python3 -m pip install --no-index -f "$GHIDRA_INSTALL_DIR/Ghidra/Features/PyGhidra/pypkg/dist" pyghidra
 
-Installing build tools
-^^^^^^^^^^^^^^^^^^^^^^
 
-Building examples for seventeen platforms requires a lot of cross-compilers.
-Currently, the Makefile isn't smart enough to skip missing dependencies
-gracefully.  This may change in the future.
+Compiling Example Binaries
+--------------------------
+
+.. warning::
+
+   A number of the examples, particularly ``elf_core``,
+   are bound to a specific compiler version.
+   For reproducability, they are bound to the compilers
+   provided in the Nix environment.
+
+   The binaries will compile outside of that environment,
+   but the harnesses will fail.
+
+Prerequisites
+*************
+
+The big challenge for building examples for seventeen platforms
+is installing seventeen cross-compiler toolchains.
 
 **Ubuntu 24.04 or later:**
 
@@ -187,79 +179,49 @@ They require the following extra tools:
 - User-mode QEMU (tested with version 6.2.0).
 - Multiarch GDB
 
-Using nix
-*********
+Building
+********
 
-.. warning::
-
-    This feature is still under development;
-    it's not yet available in this version of SmallWorld.
-
-Nix is a tool for building reproducible system environments.
-It sacrificies the flexibility of installing SmallWorld
-into an existing environment for the ability
-to install the complete set of features safely and reliably.
-
-Nix is conceptually similar to a virtualenv;
-activating the environment opens a new shell with 
-a full SmallWorld environment pre-populated.
-
-Any native executables or libraries you have installed
-will still be available, but nix will override the python environment.
-
-SmallWorld offers two nix environments:
-
-- The "mutable" environment, suitable for SmallWorld users
-- The "immutable" environment, suitable for SmallWorld developers
-
-Nix mutable environment
-^^^^^^^^^^^^^^^^^^^^^^^
-
-The mutable environment is designed for users;
-it will present you with a Python venv that's pre-populated
-with SmallWorld and all of its dependencies.
-
-The following command will open a nix shell
-with the mutable environment configured:
+To build all examples, execute the following:
 
 .. code-block:: bash
 
-    cd smallworld
-    nix develop.#mutable
+   cd smallworld/tests
+   make -j $(nproc)
+   ulimit -c unlimited
+   make -C elf_core/Makefile
 
-You can access ``pip`` using ``uv pip`` as the base command,
-and are free to install your own packages.
-These will not modify the SmallWorld installation,
-and will persist if you close and reopen the nix shell.
-
-Nix immutable environment
-^^^^^^^^^^^^^^^^^^^^^^^^^
-The immutable environment is designed for 
-developers working on SmallWorld.
-It offers more features for tracking
-changes to the SmallWorld environment,
-at the cost of some flexibility.
-
-The following command will open a nix shell
-with the immutable environment configured:
+You can also build binaries for specific platforms using the following,
+in case you only want a few programs, or if you only have a subset of the cross compilers:
 
 .. code-block:: bash
-    
-    cd smallworld
-    nix develop
 
-The only difference here is that you must use ``uv`` to manage the environment.
-Changes to your python environment are tracked by ``uv``,
-and will automatically update ``pyproject.toml``,
-as well as the nix configuration in order to track native libraries.
+   cd smallworld/tests
+   make -j $PLATFORM
 
-Nix .drv deployment
-^^^^^^^^^^^^^^^^^^^
+``$PLATFORM`` should be one of the following:
+
+    - ``aarch64``: aarch64 assembly and ELF examples
+    - ``amd64``: amd64 assembly and ELF examples
+    - ``amd64_mingw``: amd64 PE examples, built using mingw
+    - ``armel``: armv5t assembly and ELF examples
+    - ``armhf``: armv7a assembly and ELF examples
+    - ``i386``: x86 assembly and ELF examples
+    - ``i386_mingw``: x86 PE examples, built using mingw
+    - ``la64``: loongarch64 assembly and ELF examples
+    - ``mips``: mips32r2 big endian assembly and ELF examples
+    - ``mipsel``: mips32r2 little endian assembly and ELF examples
+    - ``mips64``: mips64r2 big endian assembly and ELF examples
+    - ``mips64el``: mips64r2 little endian assembly and ELF examples
+    - ``ppc``: powerpc32 assembly and ELF examples
+    - ``ppc64``: powerpc64 assembly and ELF examples
+    - ``riscv64``: riscv64 assembly and ELF examples
+    - ``xtensa``: xtensa assembly and ELF examples
 
 .. warning::
-    TODO: Figure out how this works
 
-Using docker
-************
-
-
+   Not all compilers have the same names on different platforms.
+   If your toolchain follows the Linux naming convention,
+   you can override the variable ``${PLATFORM}_PREFIX``,
+   where ``PLATFORM`` is the platform string in all caps.
+   

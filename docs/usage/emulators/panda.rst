@@ -5,8 +5,6 @@ Panda Backend
 
 Panda provides a full-system concrete emulator based on QEMU.
 
-
-
 .. warning::
    SmallWorld is actively working on switching to an updated version of Panda.
    These features are subject to change.
@@ -93,7 +91,6 @@ Accessing Memory
 Setting labels on memory has no effect on ``PandaEmulator``,
 and labels are not preserved once execution begins.
 
-
 .. note::
    The SmallWorld interface does not offer any mechanism to access
    the physical address space underlying the virtual address space.
@@ -117,7 +114,7 @@ Interacting with Panda
 ----------------------
 
 .. note::
-   --Understanding this section is not necessary to write a normal harness.--
+   **Understanding this section is not necessary to write a normal harness.**
    
    The features described here are completely abstracted
    behind the ``PandaEmulator`` interface, and are only useful

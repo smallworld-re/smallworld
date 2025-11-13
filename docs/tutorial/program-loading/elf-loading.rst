@@ -111,7 +111,7 @@ Here, we are fine defining all code in the ELF as in-bounds:
 Putting it all together
 -----------------------
 
-Combined, this can be found in the script ``elf.amd64.py``:
+Combined, this can be found in the script ``tests/elf/elf.amd64.py``:
 
 .. literalinclude:: ../../../tests/elf/elf.amd64.py
     :language: Python

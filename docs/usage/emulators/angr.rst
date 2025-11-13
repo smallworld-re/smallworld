@@ -111,15 +111,15 @@ This allows for an extremely powerful form of data tagging::
 Mapping Memory
 --------------
 
-``AngrEmulator`` only uses the memory map to enforce execution boundaries.
-The memory map works on a byte resolution.
+``AngrEmulator`` optionally enforces memory mapping.
 
 angr itself does not enforce memory mapping,
 and a number of the techniques it uses to operate in the face
 of partially-initialized state rely on being able to co-opt unused memory.
 
 Harnesses and analyses that want to be notified of accesses outside of mapped memory
-should use the memory access event handlers.
+can set the ``error_on_unmapped`` property to ``True``.
+This will cause the emulator to raise standard exceptions on unmapped acceses. 
 
 .. caution::
 
@@ -134,7 +134,7 @@ should use the memory access event handlers.
    would be forced to abort, but it does have limitations.
 
    For one, it makes ``AngrEmulator`` unsuited to the standard harnessing loop,
-   since it will continue exploring even after it encounters uninitialized state.
+   since it doesn't error immediately upon encountering uninitialized state.
 
    For another, the default concretization strategy is weak
    if applied to particularly complicated address expressions,
@@ -209,7 +209,7 @@ Interacting with Angr
 
    The features described here are completely abstracted
    behind the AngrEmulator interface, and are only useful
-   if you want to leverage angr for analysis.
+   if you want to leverage angr itself for analysis.
    
    This section describes how to access the relevant objects,
    and any caveats regarding their access.

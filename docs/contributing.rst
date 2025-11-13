@@ -67,18 +67,13 @@ These can be installed as pre-commit hooks.  To enable, run:
 This will force you to address linter, bug checker, and typechecker errors before committing.
 The CI/CD process will reject a PR that doesn't pass the linter checks.
 
-.. caution::
-   
-   Rarely, a branch may pass linting locally, but fail when linted on CI/CD.
-   Contact the SmallWorld team if this happens.
-
 Testing
 -------
 
 SmallWorld includes both unit tests to exercise basic non-emulation features,
 and integration tests to exercise the emulators themselves.
 
-The rules: 
+Our Philosophy: 
 
     1. If you add a feature, add a test case.
     2. If you find a bug, fix it, and add a test case.
@@ -121,7 +116,7 @@ By now, there are plenty of examples to copy from.
 
    Do not try to run the complete integration test suite locally.
    
-   As of this writing, there are over 1800 test scripts,
+   As of this writing, there are over two thousand test scripts,
    which ``integration.py`` does not parallelize.
    It can take over a day for the test suite to run manually.
 

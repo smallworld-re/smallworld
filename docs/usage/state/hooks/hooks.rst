@@ -52,7 +52,9 @@ using PDB (``PDBBreakpoint``) or an interactive Python shell (``PythonShellBreak
    See the docs for specific backends for more information.
 
 The following is an example of a harness using a ``Hook``
-to detect when a specific instruction gets called::
+to detect when a specific instruction gets called:
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
@@ -152,7 +154,9 @@ making it difficult to mimic more exotic calling conventions
 using ``Model``.
     
 The following example uses a pre-provided function model
-to capture the behavior of ``puts()``::
+to capture the behavior of ``puts()``:
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
@@ -242,7 +246,9 @@ it's recommended it record any modified value to a property of the ``MemoryMappe
 and use that value to modify any future reads via ``on_read()``.
 
 The following is an example of using an ``MemoryMappedModel`` 
-to capture reads and writes to a certain location::
+to capture reads and writes to a certain location:
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine

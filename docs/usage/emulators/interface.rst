@@ -234,6 +234,7 @@ this has the exact same effect on machine state as ``Emulator.write_memory()``.
 However, some emulators, namely angr, load code differently from data.
 See the docs for specific backends.
 
+
 Event Handlers
 --------------
 
@@ -359,7 +360,9 @@ the data passed to any pending callbacks.
    including bytes outside the hooked region.
 
 .. caution::
-   A hooked memory region must be mapped.
+   A hooked memory region must be mapped,
+   or the access will trigger an exception
+   before it triggers the callback.
 
 Memory Writes
 *************
@@ -399,7 +402,9 @@ and make it available to a corresponding read callback.
    including bytes outside the hooked region.
 
 .. caution::
-   A hooked memory region must be mapped.
+   A hooked memory region must be mapped,
+   or the access will trigger an exception
+   before it triggers the callback.
 
 System Calls
 ************

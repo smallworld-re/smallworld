@@ -60,14 +60,11 @@ and the labels are not preserved after execution starts.
 Mapping Memory
 --------------
 
-``GhidraEmulator`` only uses the memory map to enforce execution boundaries.
+``GhidraEmulator`` enforces its memory map.
+Accesses to unmapped memory will produce an exception,
+reporting either an unmapped "read", "write", or "fetch" (for an unmapped program counter.) 
+
 The memory map works on a byte resolution.
-
-Ghidra itself does not enforce memory mapping;
-it treats the entire address space as a flat region initialized to zero.
-
-Harnesses and analyses that want to be notified of accesses outside of mapped memory
-should use the memory access event handlers.
 
 Accessing Memory
 ----------------
@@ -102,7 +99,7 @@ Interacting with Ghidra
 -----------------------
 
 .. note::
-   --Understanding this section is not necessary to write a normal harness.--
+   **Understanding this section is not necessary to write a normal harness.**
 
    The features described here are completely abstracted
    behind the ``GhidraEmulator`` interface, and are only useful

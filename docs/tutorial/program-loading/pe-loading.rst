@@ -161,8 +161,8 @@ Putting it all together
 Using what we now know about the PE loader and our particular executable,
 we can build a complete harness in ``pe.amd64.py``.
 This will load our file, as well as set up the main stack,
-and hook ``puts()``.  See :ref:`tutorial_hooking` for a more complete guide on how
-to hook a function, and see the tutorial below for how to
+and hook ``puts()``.  See :ref:`this tutorial <tutorial_hooking_pe>` for a more complete guide on how
+to hook a function, and :ref:`this tutorial <tutorial_pe_linking>` for how to
 handle external function references in a PE file.
 
 .. literalinclude:: ../../../tests/pe/pe.amd64.py

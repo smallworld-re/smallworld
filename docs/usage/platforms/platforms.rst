@@ -81,5 +81,5 @@ The following is an example of accessing a ``PlatformDef``::
     print(platdef.pc_register)  # rip
     print(platdef.sp_register)  # rsp
 
-See the documentation for PlatformDef for a full description of the information it contains.
+See the documentation for ``PlatformDef`` for a full description of the information it contains.
 

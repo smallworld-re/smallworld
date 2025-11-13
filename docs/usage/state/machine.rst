@@ -16,7 +16,10 @@ State objects are loaded into a ``Machine`` by reference,
 meaning you can create a part of the machine state,
 register it with the machine, and then continue to modify it.
 
-The following is a basic example of adding a CPU to a machine::
+The following is a basic example of adding a CPU to a machine
+
+
+.. code-block:: python
 
     from smallworld.state import CPU, Machine
     from smallworld.platforms import Architecture, Byteorder, Platform
@@ -66,7 +69,9 @@ This will overwrite most of the contents of the current machine, with the follow
 
 
 The following code uses ``Machine.apply()`` to provision an emulator,
-and ``Machine.extract()`` to read back results::
+and ``Machine.extract()`` to read back results
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
@@ -141,12 +146,14 @@ generating a new ``Machine`` after each instruction.
    to control code exploration in this case.
 
 ``Machine.analyze()`` passes the machine into an ``Analysis`` object
-for analysis.  See the :ref:`analysis tutorial <analyses>` for more information.
+for analysis.  See the docs on :ref:`analyses <analyses>` for more information.
 
 ``Machine.fuzz()`` leverages ``unicornafl`` to fuzz the harness.
 See the :ref:`fuzzing tutorial <fuzzing>` for more information.
 
-The following is the apply/extract example rewritten to use ``Machine.emulate()``::
+The following is the apply/extract example rewritten to use ``Machine.emulate()``
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
@@ -196,7 +203,9 @@ or detecting a call to a non-existent library.
    The :ref:`panda backend <panda>` doesn't allow exit points on unmapped memory.
    This will likely be fixed with the next major update.
 
-The following is an example of specifying an exit point on a false return::
+The following is an example of specifying an exit point on a false return
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
@@ -255,7 +264,10 @@ Emulation will still stop if the program leaves mapped memory
 or tries to execute an invalid instruction.
     
 The following example constrains a program's execution using bounds alone.
-This is useful if you don't know exactly where 
+This is useful if you don't know exactly where a program will exit,
+but do know what parts of memory are code that you want to explore:
+
+.. code-block:: python
 
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine

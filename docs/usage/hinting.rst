@@ -34,7 +34,9 @@ that will fire if a specific class of hint is sent.
 The callback will be of the form ``callback(Hint) -> None``.
 
 The following is a basic example of a two dependent analyses
-that communicate via a hinter::
+that communicate via a hinter:
+
+.. code-block:: python
 
     from smallworld.hinting import Hint, Hinter
     from smallworld.analysis import Analyses

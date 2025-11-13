@@ -135,7 +135,7 @@ is extremely straightforward, but must be done explicitly in a harness:
 
 .. code-block:: python
 
-    code.populate_cpu(cpu)
+    code.populate_cpu(cpu) 
 
 Avoiding the trap
 -----------------
@@ -147,7 +147,7 @@ the program to begin with.
 There are two possible approaches to solve this.
 
 Stepping past the trap
-----------------------
+**********************
 
 If the trapping instruction was part of the original program,
 and we know we will never pass this point again,
@@ -177,7 +177,7 @@ We could repair the program counter thusly:
     cpu.rip.set(entrypoint)
 
 Removing the trap
------------------
+*****************
 
 If we expect to encounter this code again,
 or if we had to replace an existing instruction in the program
@@ -209,9 +209,9 @@ bytes accessors from the ``Memory`` class to perform our modification quickly:
 Putting it all together
 -----------------------
 
-Combined, this can be found in the script ``elf_core.amd64.actuate.py``:
+Combined, this can be found in the script ``actuate/elf_core.amd64.py``:
 
-.. literalinclude:: ../../../tests/elf_core/elf_core.amd64.actuate.py
+.. literalinclude:: ../../../tests/elf_core/actuate/elf_core.amd64.py
     :language: Python
 
 Aside from loading the core dump and patching bytes,
@@ -220,14 +220,17 @@ we may have the process memory, but we don't have a system call model.
 
 Here is what running the harness looks like:
 
-.. command-output:: python3 elf_core.amd64.actuate.py
-    :cwd: ../../../tests/elf_core
+.. command-output:: python3 elf_core.amd64.py
+    :cwd: ../../../tests/elf_core/actuate
 
 Handling missing segments
 -------------------------
 
 As mentioned above, Linux won't dump file-backed read-only segments;
 it assumes you already have the data.
+
+(There is theoretically way to enable these segments in dumps,
+but it may be blocked by other security policies.)
 
 If this happens, we can replace the data by loading the executable
 segment out of our original binary:
@@ -246,5 +249,17 @@ segment out of our original binary:
 
 When tested, this wasn't the case for amd64 binaries,
 but it was the case for all other architectures.
-See any other example ``elf_core.$ARCH.actuate.py`` for examples of this working.
+See any other example ``elf_core_actuate.$ARCH.py`` for examples of this working.
 
+Known Limitations
+-----------------
+
+On some platforms, core dumps exercise features that not all emulators support.
+
+- amd64 core dumps include the ``rflags`` register, which angr doesn't represent directly
+- i386 core dumps include the ``eflags`` register, which angr doesn't represent directly
+- i386 core dumps include segment registers, which require complex setup for Panda and Unicorn
+
+Additionally, extracting the full machine state from Ghidra or angr can take a while.
+If you don't need the final machine state,
+use ``Machine.apply()`` paired with ``emulator.run()``.

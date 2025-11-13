@@ -1,278 +1,5 @@
-.. _memory:
-
-Memory Objects
-==============
-
-SmallWorld represents ``Memory`` objects as fixed-length sparse arrays of bytes.
-Each ``Memory`` object includes a start address, a size, and an indication of the byte order.
-
-.. caution::
-   SmallWorld will allow you to add overlapping ``Memory`` objects to a harness.
-   The results will be unpredictable, as the order in which they're applied
-   is not guaranteed.
-
-Values in Memory
-----------------
-
-Data within the ``Memory`` object is stored as a mapping
-from starting offset to ``Value`` objects holding the actual data.
-
-See :ref:`values` for more information on ``Value`` objects in general
-
-The most precise mechanism for laying out a memory region
-is to treat the ``Memory`` object as a ``Dict[int, Value]``,
-mapping an offset into the ``Memory`` object to a ``Value``.
-
-All ``Memory`` objects also support accessor methods to modify contents
-without having to manually manipulate the ``Value`` mapping.
-
-``Memory.read_bytes()`` extracts a sequence of bytes
-from a ``Memory`` object.  It takes the absolute starting address of the byte sequence,
-and its size in bytes. It returns a ``bytes`` object,
-and raises an exception if the requested range is outside the
-boundaries of the ``Memory`` object, if part of the range is symbolic,
-or part of the range is uninitialized.
-
-``Memory.write_bytes()`` modifies a sequence of bytes
-in a ``Memory`` object.  It takes the absolute starting address of the range to modify,
-and a ``bytes`` object containing the data to overwrite.
-It will raise an exception if the requested sequence is outside the boundaries of the ``Memory`` object,
-or if part of the existing contents is symbolic.
-
-``Memory.read_int()`` and ``Memory.write_int()`` perform the same operations,
-but with the output/input provided as integers.
-
-Some sub-classes may support additional helpers beyond this set.
-
-Unstructured Memory
--------------------
-
-A ``Memory`` object can represent unstructured memory.
-This is useful if it's not clear how a piece of memory gets allocated in the program,
-or if you simply don't care how the memory gets allocated.
-The harness is responsible for creating and placing ``Value`` objects
-to initialize data within the range covered by the ``Memory`` object.
-
-
-The ``RawMemory`` class is a variant of ``Memory``
-that simplifies loading a single concrete byte string that fills the entire region.
-
-``RawMemory`` provides helpers for initializing an object directly from a file,
-namely ``RawMemory.from_file()``, which uses a file handle,
-and ``RawMemory.from_filepath()``, which uses a path string.
-
-Execution Stacks
-----------------
-
-A ``Stack`` object is a specialized ``Memory`` object
-dedicated to representing an execution stack.
-
-In addition to start address and size,
-a ``Stack`` maintains a notion of a stack pointer.
-It provides helpers to push data onto the stack,
-which will insert the correct ``Value`` and advance
-the stack pointer.  The harness can access
-the current stack pointer via ``Stack.get_pointer()``.
-
-``Stack`` exposes a number of methods for pushing data.
-
-``Stack.push()`` takes a pre-build ``Value`` object.
-
-``Stack.push_bytes()`` takes a ``bytes`` object, 
-and a string label to apply to the pushed data.
-
-``Stack.push_int()`` takes an integer value, a size in bytes, 
-and a string label to apply to the pushed data.
-
-There are separate ``Stack`` subclasses for each supported platform.
-This is to support different growth direction and alignment
-requirements, as well as future work to add helpers
-that construct call frames or initial program environments.
-
-The following is an example of setting up a call to ``main`` using a ``Stack``::
-
-    from smallworld.platforms import Architecture, Byteorder, Platform
-    from smallworld.state import Machine
-    from smallworld.state.cpus import CPU
-    from smallworld.state.memory.code import Executable
-    from smallworld.state.memory.stack import Stack
-
-    # Define the platform
-    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
-    
-    # Create the machine
-    machine = Machine()
-
-    # Create the CPU
-    cpu = CPU.for_platform(platform)
-    machine.add(cpu)
-
-    # Load some code.
-    # Assume this is an ELF that defines a main() function.
-    bin_path = "/path/to/fake.elf"
-    with open(filename, "rb") as f:
-        code = Executable.from_elf(bin_path, address=0x40000000, platform=platform)
-        machine.add(code)
-
-    # Transfer bounds from code to machine.
-    for bound in code.bounds:
-        machine.add_bound(bound[0], bound[1])
-
-    # Set the entrypoint to main()
-    entrypoint = code.get_symbol_value('main')
-    cpu.rip.set(entrypoint)
-
-    # Create the stack
-    stack = Stack.for_platform(platform, 0x7fff0000, 0x10000)
-    machine.add(stack)
-    
-    # Push arguments onto the stack
-    arg1_string = b"Hello, world!\0"
-    stack.push_bytes(arg1_string, None)
-
-    arg1_addr = stack.get_pointer()
-    
-    arg0_string = b"./fake.elf\0"
-    stack.push_bytes(arg0_string, None)
-
-    arg0_addr = stack.get_pointer()
-
-    # Push padding to align the stack pointer to 16 bytes.
-    padding = b"\0" - (16 - ((len(arg0_string) + len(arg1_string)) % 16))
-    stack.push_bytes(padding)
-    
-    # Push the argv addresses onto the stack
-    stack.push_integer(0, 8, None)          # NULL terminator
-    stack.push_integer(arg1_addr, 8, None)  # Address of argv[1]
-    stack.push_integer(arg0_addr, 8, None)  # Address of argv[0]
-
-    argv_addr = stack.get_pointer()
-
-    # Push argc and argv onto the stack
-    stack.push_integer(argv_addr, 8, None)
-    stack.push_integer(2, 8, None)
-
-    # Push a fake return address onto the stack
-    stack.push_integer(0x10101010, 8, None)
-    machine.add_exit_point(0x10101010)
-
-    # Configure the stack pointer
-    sp = stack.get_pointer()
-    cpu.rsp.set(sp)
-
-    # Set argument registers
-    cpu.rdi.set(2)          # argc
-    cpu.rsi.set(argv_addr)  # argv
-
-    # Emulate
-    emulator = UnicornEmulator(platform)
-    final_machine = machine.emulate(emulator)
-
-Heaps
------
-
-A ``Heap`` is a specialized ``Memory`` object
-that represents a dynamically-allocated region of memory.
-
-A ``Heap`` can be manipulated by allocation.
-It can take a raw ``Value`` using ``Heap.allocate()``,
-or a primitive type using ``Heap.allocate_integer()``,
-``Heap.allocate_bytes()``, or ``Heap.allocate_ctype()``.
-
-The interface also supports freeing
-an allocation using ``Heap.free()``,
-although this doesn't have an impact on all implementations.
-
-``Heap`` itself is an abstract class.
-SmallWorld currently provides ``BumpAllocator``,
-which is a simple linear allocator with no free support,
-and ``CheckedBumpAllocator``, which adds invalid access detection.
-
-The following is an example of using a ``Heap`` 
-to store data passed into the harness by reference::
-    
-    from smallworld.platforms import Architecture, Byteorder, Platform
-    from smallworld.state import Machine
-    from smallworld.state.cpus import CPU
-    from smallworld.state.memory.code import Executable
-    from smallworld.state.memory.heap import BumpAllocator
-    from smallworld.state.memory.heap import Stack
-
-    # Define the platform
-    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
-    
-    # Create the machine
-    machine = Machine()
-
-    # Create the CPU
-    cpu = CPU.for_platform(platform)
-    machine.add(cpu)
-
-    # Load some code.
-    # Assume this is an ELF that defines a function
-    # void needs_memory(int -arg);
-    bin_path = "/path/to/fake.elf"
-    with open(filename, "rb") as f:
-        code = Executable.from_elf(bin_path, address=0x40000000, platform=platform)
-        machine.add(code)
-
-    # Transfer bounds from code to machine.
-    for bound in code.bounds:
-        machine.add_bound(bound[0], bound[1])
-
-    # Set the entrypoint to needs_memory()
-    entrypoint = code.get_symbol_value('needs_memory')
-    cpu.rip.set(entrypoint)
-
-    # Create a heap
-    heap = BumpAllocator(0x2000, 0x1000)
-    machine.add(heap)
-    
-    # Allocate an integer argument on the heap
-    arg_address = heap.allocate_integer(42, 4, None)
-    
-    # Create a stack
-    stack = Stack.for_platform(platform)
-    machine.add(stack)
-
-    # Push a fake return address onto the stack
-    stack.push_integer(0x10101010, 8, None)
-    machine.add_exit_point(0x10101010)
-    
-    # Configure the stack pointer
-    sp = stack.get_pointer()
-    cpu.rsp.set(sp)
-
-    # Configure the argument to the target function
-    cpu.rdi.set(arg_address)
-    
-    # Emulate
-    emulator = UnicornEmulator(platform)
-    final_machine = machine.emulate(emulator)
-
-Executables
------------
-
-An ``Executable`` is a subclass of ``Memory`` representing some form of code.
-
-The basic ``Executable`` class represents unstructured code, such as a RAM dump or shell code.
-It should be initialized using ``Executable.from_file()`` or ``Executable.from_filepath()``
-
-.. caution::
-   Some emulators and platforms handle code differently from data.
-   Using an ``Exectuable`` instead of a more general ``Memory`` subclass
-   is how a harness communicates this split to the emulator.
-
-   - angr uses a different memory backend for code than it does for data.
-     Specifying large (more than tens of MBs) of memory as data
-     will make the execution engine unusably slow.
-   - Ghidra and Panda can model architectures
-     that use different address spaces when accessing code
-     and data.  We don't support any yet, but this will be the mechanism for controlling
-     which address space your memory lands in. 
-
 Object File Loaders
--------------------
+===================
 
 Subclasses of ``Executable`` support loading object files.
 These are structured binary files that provide
@@ -315,7 +42,7 @@ namely ``Executable.from_elf()`` and ``Executable.from_pe()``
    set of metadata from a fully-linked ELF.
 
 Platform Verification
-*********************
+---------------------
 
 Object file representations indicate to a certain resolution
 which platform the code inside them is compatible with.
@@ -331,7 +58,7 @@ The derived platform will be available at the ``platform`` attribute
 of the resulting object.
 
 Load Address
-************
+------------
 
 Object files can specify a base address for their memory image,
 or allow the program loader to determine one at runtime.
@@ -349,7 +76,7 @@ This works differently for ELF and PE files:
   load address in the file.
 
 Memory Layout
-*************
+-------------
 
 Once successfully loaded, an object file representation
 will act as a ``Memory`` object with one ``Value`` per allocated segment
@@ -389,7 +116,7 @@ This will properly handle both file-backed and zero-initialized (BSS) segments.
 
 
 Entry Point
-***********
+-----------
 
 Object file representations present the entrypoint
 specified in the file via the ``entrypoint`` property.
@@ -399,10 +126,11 @@ specified in the file via the ``entrypoint`` property.
    to runtime initializers that are a) extremely difficult to micro-execute,
    and b) very rarely interesting.
 
-   See :ref:`program_loading` on how to find and exercise ``main()`` on Windows and Linux. 
+   See tutorials on how to harness an :ref:`ELF <tutorial_elf>`
+   or a :ref:`PE <tutorial_pe>` starting at ``main``.
 
 Bounds
-******
+------
 
 Object file representations derive execution bounds 
 for the loaded image based on the locations of the executable segments.
@@ -418,7 +146,7 @@ The list of ranges will be exposed via the ``bounds`` property of the ``Executab
    or to leave execution unconstrained.
 
 Linking and Loading
-*******************
+-------------------
 
 Aside from laying out memory, the other major responsibility
 of an object file is to provide the metadata needed for runtime linking.
@@ -437,7 +165,7 @@ and so are presented separately.
 
 
 PE32+ Relocations
-^^^^^^^^^^^^^^^^^
+*****************
 
 PE32+ files have a concept of relocations,
 but they are exclusively used to adjust a program if loaded at a non-standard load address.
@@ -445,7 +173,7 @@ but they are exclusively used to adjust a program if loaded at a non-standard lo
 SmallWorld handles these opaquely when the ``Executable`` gets initialized.
 
 PE32+ Imports and Exports
-^^^^^^^^^^^^^^^^^^^^^^^^^
+*************************
 
 PE32+ runtime linking is (usually) extremely simple.
 
@@ -476,8 +204,12 @@ any imports in the first PE that have corresponding exports in the second PE.
    PE32+ exports may actually be "forwarded", i.e.: alias an export in another DLL.
    SmallWorld currently does not support this feature.
 
+See :ref:`tutorial_pe` for a tutorial on building a harness that loads a PE,
+and :ref:`tutorial_pe_linking` for a tutorial on building a harness
+that loads and links multiple PEs. 
+
 ELF Symbols and Relocations
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+***************************
 
 ELF files represent all cross-references as symbols,
 essentially named variables within the file metadata.
@@ -554,8 +286,10 @@ symbol with that name in the first ELF.
    It is currently up to the harness author to identify when a symbol is referenced
    by a copy relocation. 
 
-The following is an example of a program that exercises ELF linking 
-  
+ 
+See :ref:`tutorial_elf` for a tutorial on building a harness that loads an ELF,
+and :ref:`tutorial_elf_linking` for a tutorial on building a harness
+that loads and links multiple ELFs. 
 
 Core Dump Loader
 ----------------
