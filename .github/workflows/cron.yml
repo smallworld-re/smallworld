@@ -48,17 +48,13 @@ jobs:
           docker push $REGISTRY/smallworld/smallworld_ci:latest
 
   Update-Flake:
-    runs-on: smallworld-arc
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       id-token: write
       issues: write
       pull-requests: write
-    steps:
-      - name: Install
-        run: |
-          apt-get update -y
-          apt-get install nodejs npm
+      steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/determinate-nix-action@v3
       - uses: DeterminateSystems/update-flake-lock@main
