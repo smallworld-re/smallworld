@@ -1,4 +1,4 @@
-.. _platforms:
+.. _platforms_support:
 
 Supported Platforms
 ===================
@@ -20,14 +20,14 @@ The entries mean the following:
     :stub-columns: 1
 
 Specific Emulator Notes
-=======================
+-----------------------
 
 - angr is strictly a user-space emulator.  It models very few, if any, privileged features of a processor.
 - Ghidra's language models are written more for static analysis than execution, so the fidelity of the various ISA models varies drastically.  Usually, they are user-space only, and may only implement approximations of certain complex instructions.
 - Unicorn is a user-space emulator running on top of a full-system emulator (QEMU).  Privileged options may have unexpected effects or even crash the emulator.  Advanced users familiar with unicorn can unlock the full-system emulation features, but this is not supported directly by SmallWorld.
 
 Specific ISA Notes
-==================
+------------------
 
 **arm32 Unicorn:** Unicorn only has one arm32 model.
 It appears to support up to arm-v7 application code, 
@@ -48,7 +48,7 @@ so some things like the syscall convention are something of a guess.
 and some proprietary extensions introduced by the manufacturer.
 Our emulation support depends on Ghidra's hardware model,
 which only handles part of the open ISA options.  
-In particular, it does _not_ handle all options and extensions used by the esp32 series of SoCs.
+In particular, it does not handle all options and extensions used by the esp32 series of SoCs.
 You will run into untranslatable instruction errors.
 
 **Register Windows:** Some ISAs - SPARC64 and some Xtensa variants -
@@ -60,7 +60,7 @@ than they have windows.  Currently, only angr and ghidra support the relevant IS
 until that changes, SmallWorld cannot support windowed ISAs.
 
 Floating Point and Vector Support
-=================================
+---------------------------------
 
 Support for specific scalar and vector 
 floating point subsystems is much more variable, and largely untested.
