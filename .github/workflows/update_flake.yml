@@ -1,0 +1,21 @@
+name: Update Flake
+on:
+  schedule:
+    - cron: "00 5 * * MON"
+  workflow_dispatch:
+
+jobs:
+  Update-Flake:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/determinate-nix-action@v3
+      - uses: DeterminateSystems/update-flake-lock@main
+        with:
+          pr-title: "chore: update nix flake inputs"
+          token: ${{ secrets.PR_TOKEN }}
