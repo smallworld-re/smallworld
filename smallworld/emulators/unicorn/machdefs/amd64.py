@@ -166,6 +166,9 @@ class AMD64MachineDef(UnicornMachineDef):
             "mm5": unicorn.x86_const.UC_X86_REG_MM5,
             "mm6": unicorn.x86_const.UC_X86_REG_MM6,
             "mm7": unicorn.x86_const.UC_X86_REG_MM7,
+            # MSRs
+            "fsbase": 0xC0000100,
+            "gsbase": 0xC0000101,
         }
 
 
