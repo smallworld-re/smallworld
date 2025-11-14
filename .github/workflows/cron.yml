@@ -60,3 +60,4 @@ jobs:
       - uses: DeterminateSystems/update-flake-lock@main
         with:
           pr-title: "chore: update nix flake inputs"
+          token: ${{ secrets.PR_TOKEN }}
