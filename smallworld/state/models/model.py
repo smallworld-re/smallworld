@@ -100,8 +100,36 @@ class Model(Hook):
     """
 
     def __init__(self, address: int):
-        super().__init__(address=address, function=self.model)
+        super().__init__(address=address, function=self.run)
         self.static_buffer_address: typing.Optional[int] = None
+
+        # Set this to True to bypass the "imprecise" flag.
+        self.allow_imprecise = False
+
+    # Flag indicating this model is unsupported.
+    #
+    # This function includes a behavior SmallWorld
+    # can't handle.  It will always fail.
+    #
+    # Setting this flag won't do anything,
+    # other than causing some operations to print warnings.
+    # The model itself should raise an exception
+    unsupported = False
+
+    # Flag indicating this model is imprecise.
+    #
+    # Most models are assumed to be approximations,
+    # but this model definitely doesn't capture
+    # a critical behavior.
+    #
+    # By default, these models should raise an exception if called.
+    # The user can accept the risk and run a placeholde version
+    # by setting the attribute "allow_imprecise" to True.
+    #
+    # Authors probably shouldn't rely on this flag
+    # to mark truly-unimplemented models;
+    # just raise an exception yourself.
+    imprecise = False
 
     @property
     @abc.abstractmethod
@@ -176,7 +204,75 @@ class Model(Hook):
         modeling the semantics of the modeled functions appropriately.
 
         """
-        pass
+        if self.imprecise and not self.allow_imprecise:
+            raise exceptions.ConfigurationError(
+                f"Invoked model for {self.name}, which is imprecise"
+            )
+
+    def get_return_address(self, emulator: emulators.Emulator, pop=False) -> int:
+        """Read this model's return address, or pop the return address from the stack."""
+
+        if self.platform.architecture == platforms.Architecture.X86_32:
+            # i386: read a 4-byte value from the stack
+            sp = emulator.read_register("esp")
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                ret = int.from_bytes(emulator.read_memory(sp, 4), "little")
+            elif self.platform.byteorder == platforms.Byteorder.BIG:
+                ret = int.from_bytes(emulator.read_memory(sp, 4), "big")
+            if pop:
+                emulator.write_register("esp", sp + 4)
+            return ret
+        elif self.platform.architecture == platforms.Architecture.X86_64:
+            # amd64: read an 8-byte value from the stack
+            sp = emulator.read_register("rsp")
+            if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                ret = int.from_bytes(emulator.read_memory(sp, 8), "little")
+            elif self.platform.byteorder == platforms.Byteorder.BIG:
+                ret = int.from_bytes(emulator.read_memory(sp, 8), "big")
+            if pop:
+                emulator.write_register("rsp", sp + 8)
+            return ret
+        elif (
+            self.platform.architecture == platforms.Architecture.AARCH64
+            or self.platform.architecture == platforms.Architecture.ARM_V5T
+            or self.platform.architecture == platforms.Architecture.ARM_V6M
+            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
+            or self.platform.architecture == platforms.Architecture.ARM_V7A
+            or self.platform.architecture == platforms.Architecture.ARM_V7M
+            or self.platform.architecture == platforms.Architecture.ARM_V7R
+            or self.platform.architecture == platforms.Architecture.POWERPC32
+            or self.platform.architecture == platforms.Architecture.POWERPC64
+        ):
+            # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
+            return emulator.read_register("lr")
+        elif (
+            self.platform.architecture == platforms.Architecture.LOONGARCH64
+            or self.platform.architecture == platforms.Architecture.MIPS32
+            or self.platform.architecture == platforms.Architecture.MIPS64
+            or self.platform.architecture == platforms.Architecture.RISCV64
+        ):
+            # mips32, mips64, and riscv64: branch to register 'ra'
+            return emulator.read_register("ra")
+        elif self.platform.architecture == platforms.Architecture.XTENSA:
+            # xtensa: branch to register 'a0'
+            return emulator.read_register("a0")
+
+        raise exceptions.ConfigurationError(
+            "Don't know how to return for {self.platform.architecture}"
+        )
+
+    skip_return = False
+
+    def run(self, emulator: emulators.Emulator) -> None:
+        """Run a model and mimic return"""
+
+        self.model(emulator)
+
+        if self.skip_return or isinstance(emulator, emulators.AngrEmulator):
+            return
+
+        ret = self.get_return_address(emulator, pop=True)
+        emulator.write_register("pc", ret)
 
 
 __all__ = [
