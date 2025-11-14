@@ -1,4 +1,4 @@
-name: Cron Jobs
+name: Build Container
 on:
   schedule:
     - cron: "00 3 * * *"
@@ -46,3 +46,4 @@ jobs:
         run: |
           docker push $REGISTRY/smallworld/smallworld_ci:${{ github.sha }}
           docker push $REGISTRY/smallworld/smallworld_ci:latest
+

@@ -10,7 +10,7 @@ env:
   SCRATCH: /home/runner/_shared
   USER: root
 concurrency:
-  group: pr-${{ github.event.pull_request.number }}-{{ github.sha }}
+  group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -95,7 +95,6 @@ jobs:
       runs-on: smallworld-arc
       needs: Lint
       strategy:
-        max-parallel: 50
         matrix:
           include:
             - testsuite: BlockTests
@@ -199,6 +198,7 @@ jobs:
             - testsuite: ElfCoreTests
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
+            - testsuite: FsgsbaseTests
             - testsuite: FuzzTests
             - testsuite: LinkElfTests
             - testsuite: LinkPETests

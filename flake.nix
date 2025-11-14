@@ -22,11 +22,6 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    unicornafl = {
-      url = "path:unicornafl-flake";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     pandaPkgs = {
       url = "github:nixos/nixpkgs?rev=911ad1e67f458b6bcf0278fa85e33bb9924fed7e";
     };
@@ -43,7 +38,6 @@
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
-      unicornafl,
       panda,
       ...
     }:
@@ -79,9 +73,10 @@
           python = pkgs.python312;
           overrides = pkgs.callPackage ./overrides.nix { inherit python; };
           hacks = pkgs.callPackage pyproject-nix.build.hacks {};
+          mkUnicornafl = pkgs.callPackage ./unicornafl-build {};
           additional = final: prev: {
             unicornafl = hacks.nixpkgsPrebuilt {
-              from = (unicornafl.lib.${system}.pythonPackage python.pkgs);
+              from = (mkUnicornafl python.pkgs);
             };
             pypanda = hacks.nixpkgsPrebuilt {
               from = (pypandaBuilder pandaWithLibs.${system}) python.pkgs;
@@ -152,7 +147,7 @@
         ];
 
         nativeBuildInputs = [
-          ps.setuptools_scm
+          ps.setuptools-scm
         ];
 
         buildInputs = [ pandaPkg ];
