@@ -55,6 +55,10 @@ jobs:
       issues: write
       pull-requests: write
     steps:
+      - name: Install
+        run: |
+          apt-get update -y
+          apt-get install nodejs npm
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/determinate-nix-action@v3
       - uses: DeterminateSystems/update-flake-lock@main
