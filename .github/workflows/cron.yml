@@ -54,7 +54,7 @@ jobs:
       id-token: write
       issues: write
       pull-requests: write
-      steps:
+    steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/determinate-nix-action@v3
       - uses: DeterminateSystems/update-flake-lock@main
