@@ -25,7 +25,7 @@
     pandaPkgs = {
       url = "github:nixos/nixpkgs?rev=911ad1e67f458b6bcf0278fa85e33bb9924fed7e";
     };
-    
+
     panda = {
       url = "github:lluchs/panda/flake";
       inputs.nixpkgs.follows = "pandaPkgs";
@@ -47,15 +47,20 @@
 
       root = ./.;
       rootSet = nixpkgs.lib.fileset.gitTracked root;
-      excludeSet = nixpkgs.lib.fileset.unions [./flake.nix ./flake.lock];
+      excludeSet = nixpkgs.lib.fileset.unions [
+        ./flake.nix
+        ./flake.lock
+      ];
       fileset = nixpkgs.lib.fileset.difference rootSet excludeSet;
-      rootString =  builtins.unsafeDiscardStringContext (nixpkgs.lib.fileset.toSource { inherit fileset root; });
+      rootString = builtins.unsafeDiscardStringContext (
+        nixpkgs.lib.fileset.toSource { inherit fileset root; }
+      );
       rootPath = /. + rootString;
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
       deps = workspace.deps.all // {
-        unicornafl = [];
-        pypanda = [];
-        colorama = [];
+        unicornafl = [ ];
+        pypanda = [ ];
+        colorama = [ ];
       };
 
       overlay = workspace.mkPyprojectOverlay {
@@ -72,8 +77,8 @@
           pkgs = nixpkgs.legacyPackages.${system};
           python = pkgs.python312;
           overrides = pkgs.callPackage ./overrides.nix { inherit python; };
-          hacks = pkgs.callPackage pyproject-nix.build.hacks {};
-          mkUnicornafl = pkgs.callPackage ./unicornafl-build {};
+          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
+          mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
           additional = final: prev: {
             unicornafl = hacks.nixpkgsPrebuilt {
               from = (mkUnicornafl python.pkgs);
@@ -102,7 +107,8 @@
         let
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           venv = pythonSet.mkVirtualEnv "smallworld-re-dev-env" deps;
-        in venv
+        in
+        venv
       );
 
       virtualEnvProd = forAllSystems (
@@ -110,18 +116,32 @@
         let
           pythonSet = pythonSets.${system};
           venv = pythonSet.mkVirtualEnv "smallworld-re-env" deps;
-        in venv
+        in
+        venv
       );
 
       pandaWithLibs = forAllSystems (
         system:
         let
-          oldPanda = (panda.packages.${system}.pkgsWithConfig { targetList = ["x86_64-softmmu" "i386-softmmu" "arm-softmmu" "aarch64-softmmu" "ppc-softmmu" "mips-softmmu" "mipsel-softmmu" "mips64-softmmu" "mips64el-softmmu"]; }).panda;
+          oldPanda =
+            (panda.packages.${system}.pkgsWithConfig {
+              targetList = [
+                "x86_64-softmmu"
+                "i386-softmmu"
+                "arm-softmmu"
+                "aarch64-softmmu"
+                "ppc-softmmu"
+                "mips-softmmu"
+                "mipsel-softmmu"
+                "mips64-softmmu"
+                "mips64el-softmmu"
+              ];
+            }).panda;
           pkgs = nixpkgs.legacyPackages.${system};
           pandaFixed = pkgs.stdenv.mkDerivation {
             name = oldPanda.name;
-            buildInputs = [oldPanda];
-            phases = ["installPhase"];
+            buildInputs = [ oldPanda ];
+            phases = [ "installPhase" ];
             installPhase = ''
               cp -R ${oldPanda} $out
               chmod -R +w $out
@@ -131,44 +151,47 @@
               touch $out/share/panda/mipsel_bios.bin
             '';
           };
-        in pandaFixed
+        in
+        pandaFixed
       );
 
-      pypandaBuilder = pandaPkg: ps: ps.buildPythonPackage {
-        pname = "pandare";
-        version = "1.8";
-        format = "setuptools";
-        src = "${panda}/panda/python/core";
+      pypandaBuilder =
+        pandaPkg: ps:
+        ps.buildPythonPackage {
+          pname = "pandare";
+          version = "1.8";
+          format = "setuptools";
+          src = "${panda}/panda/python/core";
 
-        propagatedBuildInputs = with ps; [
-          cffi
-          protobuf
-          colorama
-        ];
+          propagatedBuildInputs = with ps; [
+            cffi
+            protobuf
+            colorama
+          ];
 
-        nativeBuildInputs = [
-          ps.setuptools-scm
-        ];
+          nativeBuildInputs = [
+            ps.setuptools-scm
+          ];
 
-        buildInputs = [ pandaPkg ];
+          buildInputs = [ pandaPkg ];
 
-        postPatch = ''
-          substituteInPlace setup.py \
-            --replace 'install_requires=parse_requirements("requirements.txt"),' ""
-          substituteInPlace pandare/utils.py \
-            --replace '/usr/local/bin/' '${pandaPkg}'
-          substituteInPlace pandare/panda.py \
-            --replace 'self.plugin_path = plugin_path' "self.plugin_path = plugin_path or pjoin('${pandaPkg}', 'lib/panda', arch)" \
-            --replace 'if libpanda_path:' 'if True:' \
-            --replace '= libpanda_path' "= libpanda_path or pjoin('${pandaPkg}', 'bin', f'libpanda-{arch}.so')" \
-            --replace 'realpath(pjoin(self.get_build_dir(), "pc-bios"))' "pjoin('${pandaPkg}', 'share/panda')"
+          postPatch = ''
+            substituteInPlace setup.py \
+              --replace 'install_requires=parse_requirements("requirements.txt"),' ""
+            substituteInPlace pandare/utils.py \
+              --replace '/usr/local/bin/' '${pandaPkg}'
+            substituteInPlace pandare/panda.py \
+              --replace 'self.plugin_path = plugin_path' "self.plugin_path = plugin_path or pjoin('${pandaPkg}', 'lib/panda', arch)" \
+              --replace 'if libpanda_path:' 'if True:' \
+              --replace '= libpanda_path' "= libpanda_path or pjoin('${pandaPkg}', 'bin', f'libpanda-{arch}.so')" \
+              --replace 'realpath(pjoin(self.get_build_dir(), "pc-bios"))' "pjoin('${pandaPkg}', 'share/panda')"
 
-          # Use auto-generated files from separate derivation above.
-          rm create_panda_datatypes.py
-          rm -r pandare/{include,autogen}
-          cp -rt pandare "${pandaPkg}"/lib/panda/python/{include,autogen,plog_pb2.py}
-        '';
-      };
+            # Use auto-generated files from separate derivation above.
+            rm create_panda_datatypes.py
+            rm -r pandare/{include,autogen}
+            cp -rt pandare "${pandaPkg}"/lib/panda/python/{include,autogen,plog_pb2.py}
+          '';
+        };
     in
     rec {
       devShells = forAllSystems (
@@ -198,7 +221,8 @@
             pkgs.jdk
             pkgs.stdenv.cc
             # pkgs.nasm
-          ] ++ crossTargetCCs;
+          ]
+          ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
@@ -207,7 +231,10 @@
             packages = [
               virtualenv
               pkgs.uv
-            ] ++ inputs;
+              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt-tree
+            ]
+            ++ inputs;
             env = {
               inherit GHIDRA_INSTALL_DIR;
               UV_NO_SYNC = "1";
@@ -225,7 +252,8 @@
               pythonSet.python
               pythonSet.pip
               pythonSet.setuptools
-            ] ++ inputs;
+            ]
+            ++ inputs;
             env = {
               inherit GHIDRA_INSTALL_DIR;
             };
@@ -237,41 +265,67 @@
         }
       );
 
-      packages = forAllSystems (system:
+      packages = forAllSystems (
+        system:
         let
           pythonSet = pythonSets.${system};
           pkgs = nixpkgs.legacyPackages.${system};
           virtualenv = virtualEnvProd.${system};
           upstreamPanda = panda.packages.${system}.default;
           fixedPanda = pandaWithLibs.${system};
+
+          printInputsRecursive = pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
+            import subprocess
+            import json
+            s = subprocess.check_output(['nix', 'flake', 'archive', '--json'])
+            obj = json.loads(s)
+
+
+            def print_node(node):
+                path = node.get("path")
+                if path:
+                    print(path)
+                inputs = node.get("inputs")
+                for input_name, input_node in inputs.items():
+                    print_node(input_node)
+
+
+            print_node(obj)
+          '';
         in
-      {
-        default = pythonSet.smallworld-re;
-        venv = virtualenv;
-        panda = fixedPanda;
-        upstreamPanda = upstreamPanda;
-        dockerImage = pkgs.dockerTools.buildImage {
-          name = "smallworld-re";
-          tag = "latest";
-          copyToRoot = pkgs.buildEnv {
-            name = "smallworld-root";
-            paths = [
-              pkgs.dockerTools.usrBinEnv
-              pkgs.dockerTools.binSh
-              pkgs.dockerTools.caCertificates
-              pkgs.dockerTools.fakeNss
-              pkgs.aflplusplus
-              fixedPanda
-              virtualenv
-              pkgs.ghidra
-            ];
-            pathsToLink = ["/bin" "/etc" "/var"];
+        {
+          inherit printInputsRecursive;
+          default = pythonSet.smallworld-re;
+          venv = virtualenv;
+          panda = fixedPanda;
+          upstreamPanda = upstreamPanda;
+          dockerImage = pkgs.dockerTools.buildImage {
+            name = "smallworld-re";
+            tag = "latest";
+            copyToRoot = pkgs.buildEnv {
+              name = "smallworld-root";
+              paths = [
+                pkgs.dockerTools.usrBinEnv
+                pkgs.dockerTools.binSh
+                pkgs.dockerTools.caCertificates
+                pkgs.dockerTools.fakeNss
+                pkgs.aflplusplus
+                fixedPanda
+                virtualenv
+                pkgs.ghidra
+              ];
+              pathsToLink = [
+                "/bin"
+                "/etc"
+                "/var"
+              ];
+            };
+            config = {
+              Cmd = [ "/bin/sh" ];
+            };
           };
-          config = {
-            Cmd = ["/bin/sh"];
-          };
-        };
-      });
+        }
+      );
 
       formatter = forAllSystems (
         system:
