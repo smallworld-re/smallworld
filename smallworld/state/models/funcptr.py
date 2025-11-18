@@ -1,7 +1,7 @@
 import logging
 
 import smallworld
-from smallworld import emulators, exceptions, utils
+from smallworld import emulators, exceptions
 from smallworld.state.models.cstd import ArgumentType, CStdCallingContext
 
 logger = logging.getLogger(__name__)
@@ -20,9 +20,7 @@ class FunctionPointer:
         self.address = address
         self.argument_types = argument_types
         self.return_type = return_type
-        self.context: CStdCallingContext = utils.find_subclass(
-            CStdCallingContext, lambda x: x.platform == platform
-        )
+        self.context = CStdCallingContext.for_platform(platform)
         self.context.set_argument_types(argument_types)
         self.context.return_type = self.return_type
 

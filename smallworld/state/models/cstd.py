@@ -4,7 +4,7 @@ import logging
 import struct
 import typing
 
-from smallworld import platforms
+from smallworld import platforms, utils
 from smallworld.exceptions.exceptions import ConfigurationError
 
 from ... import emulators, exceptions
@@ -83,6 +83,26 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     def abi(self) -> platforms.ABI:
         """The ABI for which this model is defined."""
         pass
+
+    @classmethod
+    def for_platform(cls, platform: platforms.Platform):
+        """Find the appropriate CStdCallingContext for your architecture
+
+        Arguments:
+            platform: The platform you want
+
+        Returns:
+            An instance of the appropriate CStdCallingContext
+
+        Raises:
+            ValueError: If no CStdCallingContext subclass matches your request
+        """
+        try:
+            return utils.find_subclass(cls, lambda x: x.platform == platform)
+        except:
+            raise ValueError(
+                f"No CStdCallingContext for {platform.architecture}:{platform.byteorder}"
+            )
 
     # *** Integer arithmetic constants ***
     #
