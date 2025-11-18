@@ -52,7 +52,9 @@
         ./.python-version
         ./smallworld
       ];
-      rootString = builtins.unsafeDiscardStringContext (nixpkgs.lib.fileset.toSource { inherit fileset root; });
+      rootString = builtins.unsafeDiscardStringContext (
+        nixpkgs.lib.fileset.toSource { inherit fileset root; }
+      );
       rootPath = (/. + rootString);
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
       deps = workspace.deps.all // {
