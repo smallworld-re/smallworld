@@ -231,6 +231,8 @@
             packages = [
               virtualenv
               pkgs.uv
+              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt-tree
             ]
             ++ inputs;
             env = {

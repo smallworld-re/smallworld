@@ -45,6 +45,7 @@ jobs:
         run: |
           nix develop -c isort . --profile black
           nix develop -c black ./
+          nix develop -c treefmt -f nixfmt --no-cache
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -67,6 +68,7 @@ jobs:
           nix develop -c black --check ./
           nix develop -c flake8 ./
           nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
+          nix develop -c treefmt -f nixfmt --ci
 
       - name: Check Title
         env:
