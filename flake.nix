@@ -271,8 +271,28 @@
           virtualenv = virtualEnvProd.${system};
           upstreamPanda = panda.packages.${system}.default;
           fixedPanda = pandaWithLibs.${system};
+
+          printInputsRecursive = pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
+            import subprocess
+            import json
+            s = subprocess.check_output(['nix', 'flake', 'archive', '--json'])
+            obj = json.loads(s)
+
+
+            def print_node(node):
+                path = node.get("path")
+                if path:
+                    print(path)
+                inputs = node.get("inputs")
+                for input_name, input_node in inputs.items():
+                    print_node(input_node)
+
+
+            print_node(obj)
+          '';
         in
         {
+          inherit printInputsRecursive;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           panda = fixedPanda;
