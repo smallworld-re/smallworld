@@ -8,9 +8,10 @@ about some of the concepts in smallworld.
 .. toctree::
 
     smallworld-at-a-glance
-    quick-install-guide
+    install-guide
     harnessing-a-simple-program
     mapping-memory
+    program-loading/index
     local-types-and-the-heap
     modeling-and-hooking
     analyses

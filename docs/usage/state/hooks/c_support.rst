@@ -17,7 +17,7 @@ We are planning to have at least stub models for the following API standards:
 - Win32
 
 ABI Support
-===========
+-----------
 
 SmallWorld currently provides basic C calling convention definitions for the following ABIs:
 
@@ -53,7 +53,7 @@ The System V i386 calling convention uses the x87 registers
 to return floating-point values.  None of our emulators support this.
 
 Function Support by Header
-==========================
+--------------------------
 
 The following tables present the current status of the function models.
 They are grouped by API standard, and then by header file.

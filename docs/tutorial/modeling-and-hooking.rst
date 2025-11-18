@@ -1,3 +1,5 @@
+.. _tutorial_hooking:
+
 Modeling and Hooking
 --------------------
 
