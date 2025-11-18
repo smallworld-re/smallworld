@@ -26,7 +26,7 @@ jobs:
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - name: Checkout (This Repo)
+      - name: Checkout
         uses: actions/checkout@v3
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
@@ -34,13 +34,6 @@ jobs:
         with:
           token: ${{ secrets.BOT_TOKEN }}
 
-      - name: Checkout (Fork Repo)
-        uses: actions/checkout@v3
-        env:
-          secret: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token == '' }}
-
-      - uses: actions/checkout@v4
 
       - name: Format
         env:
