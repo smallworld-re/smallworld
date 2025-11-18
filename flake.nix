@@ -46,16 +46,16 @@
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
 
       root = ./.;
-      rootSet = nixpkgs.lib.fileset.gitTracked root;
-      excludeSet = nixpkgs.lib.fileset.unions [
-        ./flake.nix
-        ./flake.lock
+      fileset = nixpkgs.lib.fileset.unions [
+        ./pyproject.toml
+        ./uv.lock
+        ./.python-version
+        ./smallworld
       ];
-      fileset = nixpkgs.lib.fileset.difference rootSet excludeSet;
       rootString = builtins.unsafeDiscardStringContext (
         nixpkgs.lib.fileset.toSource { inherit fileset root; }
       );
-      rootPath = /. + rootString;
+      rootPath = (/. + rootString);
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
       deps = workspace.deps.all // {
         unicornafl = [ ];
