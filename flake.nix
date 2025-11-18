@@ -327,6 +327,8 @@
         }
       );
 
+      pythonSet = forAllSystems (system: pythonSets.${system});
+
       formatter = forAllSystems (
         system:
         let
