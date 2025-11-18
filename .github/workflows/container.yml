@@ -26,8 +26,9 @@ jobs:
           cat <<'EOF' | tee /etc/docker/daemon.json
           {
             "insecure-registries": [
-              "harbor.harbor.svc.cluster.local:80", 
-              "harbor.harbor.svc.cluster.local"
+              "harbor.harbor.svc.cluster.local",
+              "harbor.harbor.svc.cluster.local:80",
+              "harbor.harbor.svc.cluster.local:443"
             ]
           }
           EOF
