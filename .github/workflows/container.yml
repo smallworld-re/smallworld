@@ -6,6 +6,7 @@ on:
 
 env:
   REGISTRY: harbor.harbor.svc.cluster.local
+  DOCKER_BUILDKIT: 0
 
 jobs:
   Build-Container:
