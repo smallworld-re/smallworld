@@ -6,14 +6,14 @@ from enum import Enum
 import smallworld
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.funcptr import FunctionPointer
-from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVModel
+from smallworld.state.models.mips64el.systemv.systemv import MIPS64ELSysVModel
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.RISCV64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -31,9 +31,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -67,7 +65,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(RiscV64SysVModel):
+class TestModel(MIPS64ELSysVModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV
@@ -138,7 +136,6 @@ class TestModel(RiscV64SysVModel):
 
             case TestStage.INT32:
                 ret = self.test_int32_ptr.get_return_value(emulator)
-                print(ret)
                 if ret != -12345:
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")
@@ -197,6 +194,7 @@ class TestModel(RiscV64SysVModel):
 
             case TestStage.FLOAT:
                 ret = self.test_float_ptr.get_return_value(emulator)
+                print(ret)
                 if not math.isclose(ret, math.pi, abs_tol=1e-07):
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")

@@ -213,7 +213,7 @@ class TestModel(I386SysVModel):
 
                 # case TestStage.DOUBLE:
                 #     ret = self.test_double_ptr.get_return_value(emulator)
-                #     if math.isclose(ret, math.pi):
+                #     if not math.isclose(ret, math.pi):
                 #         return self.fail(emulator)
                 #     print(f"TEST PASSED: {self.stage}")
 

@@ -6,14 +6,14 @@ from enum import Enum
 import smallworld
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.funcptr import FunctionPointer
-from smallworld.state.models.powerpc.systemv.systemv import PowerPCSysVModel
+from smallworld.state.models.mipsel.systemv.systemv import MIPSELSysVModel
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
+    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -65,7 +65,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(PowerPCSysVModel):
+class TestModel(MIPSELSysVModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV

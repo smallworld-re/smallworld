@@ -4,16 +4,16 @@ import typing
 from enum import Enum
 
 import smallworld
-from smallworld.state.models.armhf.systemv.systemv import ArmHFSysVModel
-from smallworld.state.models.cstd import ArgumentType, CStdModel
+from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.funcptr import FunctionPointer
+from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVModel
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.RISCV64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -67,7 +67,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(ArmHFSysVModel, CStdModel):
+class TestModel(RiscV64SysVModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV
@@ -138,6 +138,7 @@ class TestModel(ArmHFSysVModel, CStdModel):
 
             case TestStage.INT32:
                 ret = self.test_int32_ptr.get_return_value(emulator)
+                print(ret)
                 if ret != -12345:
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")
@@ -212,7 +213,7 @@ class TestModel(ArmHFSysVModel, CStdModel):
 
             case TestStage.DOUBLE:
                 ret = self.test_double_ptr.get_return_value(emulator)
-                if math.isclose(ret, math.pi):
+                if not math.isclose(ret, math.pi):
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")
 

@@ -197,6 +197,7 @@ jobs:
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FsgsbaseTests
+            - testsuite: FunctionPointerTests
             - testsuite: FuzzTests
             - testsuite: LinkElfTests
             - testsuite: LinkPETests

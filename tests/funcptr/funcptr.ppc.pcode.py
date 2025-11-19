@@ -4,16 +4,16 @@ import typing
 from enum import Enum
 
 import smallworld
-from smallworld.state.models.armel.systemv.systemv import ArmELSysVModel
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.funcptr import FunctionPointer
+from smallworld.state.models.powerpc.systemv.systemv import PowerPCSysVModel
 
 # Set up logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -65,7 +65,7 @@ class TestStage(Enum):
     DOUBLE = 7
 
 
-class TestModel(ArmELSysVModel):
+class TestModel(PowerPCSysVModel):
     name = "caller"
     platform = platform
     abi = smallworld.platforms.ABI.SYSTEMV
@@ -251,7 +251,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

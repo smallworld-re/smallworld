@@ -469,10 +469,16 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                     f"Expected 4-byte float value for argument {index}."
                 )
             if self.platform.byteorder == Byteorder.BIG:
-                as_bytes = struct.pack(">f", value)
+                if self._floats_are_doubles:
+                    as_bytes = struct.pack(">d", value)
+                else:
+                    as_bytes = struct.pack(">f", value)
                 as_int = int.from_bytes(as_bytes, "big")
             else:
-                as_bytes = struct.pack("<f", value)
+                if self._floats_are_doubles:
+                    as_bytes = struct.pack("<d", value)
+                else:
+                    as_bytes = struct.pack("<f", value)
                 as_int = int.from_bytes(as_bytes, "little")
 
             # Four-byte float
@@ -492,7 +498,41 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 raise ConfigurationError(
                     f"Expected 8-byte float value for argument {index}."
                 )
-            pass  # TODO
+            if self.platform.byteorder == Byteorder.BIG:
+                as_bytes = struct.pack(">d", value)
+                as_int = int.from_bytes(as_bytes, "big")
+            else:
+                as_bytes = struct.pack("<d", value)
+                as_int = int.from_bytes(as_bytes, "little")
+
+            # Eight-byte double float
+            if on_stack:
+                # Stored on the stack
+                addr = emulator.read_register(sp) + arg_offset
+                emulator.write_memory(addr, as_bytes)
+            else:
+                if self._soft_float:
+                    # Soft-float ABI; treated as an eight-byte int
+                    reg_array = self._eight_byte_arg_regs
+                    n_regs = self._eight_byte_reg_size
+                else:
+                    # Hard-float ABI; stored in FPU registers
+                    reg_array = self._double_arg_regs
+                    n_regs = self._double_reg_size
+
+                if n_regs == 2:
+                    # Register pair.  Possible for both soft and hard floats.
+                    lo = as_int & self._int_inv_mask
+                    hi = (as_int >> 32) & self._int_inv_mask
+                    if self.platform.byteorder == Byteorder.BIG:
+                        tmp = lo
+                        lo = hi
+                        hi = tmp
+                    emulator.write_register(reg_array[arg_offset], lo)
+                    emulator.write_register(reg_array[arg_offset + 1], hi)
+                else:
+                    # Single register
+                    emulator.write_register(reg_array[arg_offset], as_int)
         else:
             raise exceptions.ConfigurationError(
                 f"Argument {index} has unknown type {kind}"

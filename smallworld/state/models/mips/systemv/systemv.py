@@ -68,8 +68,8 @@ class MIPSSysVCallingContext(CStdCallingContext):
 
     def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
         """Read an eight-byte returned value"""
-        lo = emulator.read_register("v0")
-        hi = emulator.read_register("v1")
+        hi = emulator.read_register("v0")
+        lo = emulator.read_register("v1")
 
         return lo + (hi << 32)
 
