@@ -224,7 +224,12 @@
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
           buildUbuntuPackage = deb2nix.buildUbuntuPackage.${system};
-          gccForTriple = { triple, sha256, gccVersion ? "11" }:
+          gccForTriple =
+            {
+              triple,
+              sha256,
+              gccVersion ? "11",
+            }:
             let
               gcc = buildUbuntuPackage {
                 packageName = "gcc-${triple}";
@@ -234,10 +239,16 @@
                   "binutils-${triple}"
                   "libisl23"
                   "libcc1-0"
-                ] ++ (if gccVersion != "" then [
-                  "gcc-${gccVersion}-${triple}"
-                  "cpp-${gccVersion}-${triple}"
-                ] else []);
+                ]
+                ++ (
+                  if gccVersion != "" then
+                    [
+                      "gcc-${gccVersion}-${triple}"
+                      "cpp-${gccVersion}-${triple}"
+                    ]
+                  else
+                    [ ]
+                );
                 buildInputs = with pkgs; [
                   zlib
                   zstd
@@ -251,7 +262,7 @@
                 '';
               };
             in
-              gcc;
+            gcc;
           ubuTriples = [
             # {
             #   triple = "aarch64-linux-gnu";
@@ -318,7 +329,8 @@
             pkgs.nasm
             pkgs.pkgsCross.loongarch64-linux.stdenv.cc
             pkgs.pkgsCross.aarch64-multiplatform.stdenv.cc
-          ] ++ crossTargetCCs;
+          ]
+          ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
