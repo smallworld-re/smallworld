@@ -14,7 +14,7 @@
     {
       self,
       nixpkgs,
-      nixpkgs-esp-dev
+      nixpkgs-esp-dev,
     }:
     let
       inherit (nixpkgs) lib;
@@ -41,7 +41,7 @@
             "mingw32"
           ];
           nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
-          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" {};
+          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
         in
         {
           default = pkgs.stdenv.mkDerivation {
