@@ -70,6 +70,11 @@ jobs:
           nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
           nix develop -c treefmt -f nixfmt --ci
 
+      - name: Build Tests
+        run: |
+          cd tests
+          nix build
+          
       - name: Check Title
         env:
           TITLE: ${{ github.event.pull_request.title }}
