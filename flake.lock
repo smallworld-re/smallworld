@@ -1,36 +1,23 @@
 {
   "nodes": {
-    "crane": {
-      "locked": {
-        "lastModified": 1759893430,
-        "narHash": "sha256-yAy4otLYm9iZ+NtQwTMEbqHwswSFUbhn7x826RR6djw=",
-        "owner": "ipetkov",
-        "repo": "crane",
-        "rev": "1979a2524cb8c801520bd94c38bb3d5692419d93",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ipetkov",
-        "repo": "crane",
-        "type": "github"
-      }
-    },
-    "flake-utils": {
+    "deb2nix": {
       "inputs": {
-        "systems": "systems"
+        "nixpkgs": [
+          "nixpkgs"
+        ]
       },
       "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
+        "lastModified": 1762371332,
+        "narHash": "sha256-/5h5uwBPHyAzu07llUE5xBputs/gvxilvG6i0p2lm34=",
+        "owner": "kylesferrazza",
+        "repo": "deb2nix",
+        "rev": "083be9cc5b1a0ee5d02b9f841560d97ea4ce9121",
+        "type": "gitlab"
       },
       "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "type": "github"
+        "owner": "kylesferrazza",
+        "repo": "deb2nix",
+        "type": "gitlab"
       }
     },
     "libosi-src": {
