@@ -23,14 +23,14 @@ ARMEL_ID := arm-linux-gnueabi
 ARMHF_ID := arm-linux-gnueabihf
 I386_ID := i686-linux-gnu
 I386_MINGW_ID := i686-w64-mingw32
-LA64_ID := loongarch64-linux-gnu
-MIPS_ID := mips-linux-gnu
-MIPSEL_ID := mipsel-linux-gnu
-MIPS64_ID := mips64-linux-gnuabi64
-MIPS64EL_ID := mips64el-linux-gnuabi64
+LA64_ID := loongarch64-unknown-linux-gnu
+MIPS_ID := mips-unknown-linux-gnu
+MIPSEL_ID := mipsel-unknown-linux-gnu
+MIPS64_ID := mips64-unknown-linux-gnuabi64
+MIPS64EL_ID := mips64el-unknown-linux-gnuabi64
 PPC_ID := powerpc-linux-gnu
 PPC64_ID := powerpc64-linux-gnuabielfv2
-RISCV64_ID := riscv64-linux-gnu
+RISCV64_ID := riscv64-unknown-linux-gnu
 XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly

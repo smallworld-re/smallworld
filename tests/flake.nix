@@ -65,26 +65,26 @@
             triple = "i686-linux-gnu";
             sha256 = "sha256-t3o4ydz0n74yNZ9eoHavcZ08Jcy+ATNEl1NkFTkAoog=";
           }
-          {
-            triple = "mips-linux-gnu";
-            gccVersion = "10";
-            sha256 = "sha256-HmGGi3SgrNf6YXKtJ99K8T7JGt3XK9Hayw7+KSqVhbk=";
-          }
-          {
-            triple = "mipsel-linux-gnu";
-            gccVersion = "10";
-            sha256 = "sha256-cJNg7VUr4qY02w7YTqQ1E3BXD0kgLbfNfed+BHthuWI=";
-          }
-          {
-            triple = "mips64-linux-gnuabi64";
-            gccVersion = "10";
-            sha256 = "sha256-TP7wqY9t2wAr8SI6lsnGdYaHsMHb4bRGbOoQJWPfnts=";
-          }
-          {
-            triple = "mips64el-linux-gnuabi64";
-            gccVersion = "10";
-            sha256 = "sha256-mHU1J6BjUaB0y3SiDV0j3iN4eTwtCRd3Aqe7mzO0N7o=";
-          }
+          # {
+          #   triple = "mips-linux-gnu";
+          #   gccVersion = "10";
+          #   sha256 = "sha256-HmGGi3SgrNf6YXKtJ99K8T7JGt3XK9Hayw7+KSqVhbk=";
+          # }
+          # {
+          #   triple = "mipsel-linux-gnu";
+          #   gccVersion = "10";
+          #   sha256 = "sha256-cJNg7VUr4qY02w7YTqQ1E3BXD0kgLbfNfed+BHthuWI=";
+          # }
+          # {
+          #   triple = "mips64-linux-gnuabi64";
+          #   gccVersion = "10";
+          #   sha256 = "sha256-TP7wqY9t2wAr8SI6lsnGdYaHsMHb4bRGbOoQJWPfnts=";
+          # }
+          # {
+          #   triple = "mips64el-linux-gnuabi64";
+          #   gccVersion = "10";
+          #   sha256 = "sha256-mHU1J6BjUaB0y3SiDV0j3iN4eTwtCRd3Aqe7mzO0N7o=";
+          # }
           {
             triple = "powerpc-linux-gnu";
             sha256 = "sha256-bv4HgcvNNk6DWeJgpJxvWJTwEN1hZ3PXZ0sxrgpC6/Q=";
@@ -93,17 +93,30 @@
             triple = "powerpc64-linux-gnu";
             sha256 = "sha256-4Q9aGhRFI+Xxz3sX/BP24GsjrmjGEiveMBKUn1NJFog=";
           }
-          {
-            triple = "riscv64-linux-gnu";
-            sha256 = "sha256-nPalS4dgHcfJG9MJ1Qk6HuUXRBi2gnfMJqzXmuGBtKo=";
-          }
+          # {
+          #   triple = "riscv64-linux-gnu";
+          #   sha256 = "sha256-nPalS4dgHcfJG9MJ1Qk6HuUXRBi2gnfMJqzXmuGBtKo=";
+          # }
           {
             triple = "xtensa-lx106";
             gccVersion = "";
             sha256 = "sha256-K/wMMP9F8hL01be3jKtalgxbrBilulnwqftbUU7j/vg=";
           }
         ];
-        crossTargetCCs = map gccForTriple ubuTriples;
+        ubuntuCrossTargetCCs = map gccForTriple ubuTriples;
+        nixCrossTargets = [
+            "aarch64-multiplatform"
+            "arm-embedded"
+            "armhf-embedded"
+            "mips-linux-gnu"
+            "mipsel-linux-gnu"
+            "mips64-linux-gnuabi64"
+            "mips64el-linux-gnuabi64"
+            "riscv64"
+            "ppc64"
+            "loongarch64-linux"
+        ];
+        nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
       in
       {
         default = pkgs.stdenv.mkDerivation
@@ -112,9 +125,7 @@
           src = ./.;
           buildInputs = [
             pkgs.nasm
-            pkgs.pkgsCross.loongarch64-linux.stdenv.cc
-            pkgs.pkgsCross.aarch64-multiplatform.stdenv.cc
-          ] ++ crossTargetCCs;
+          ] ++ ubuntuCrossTargetCCs ++ nixCrossTargetCCs;
           buildPhase = ''
             make aarch64
             make amd64
