@@ -37,6 +37,8 @@
             "ppc32"
             "ppc64"
             "loongarch64-linux"
+            "mingwW64"
+            "mingw32"
           ];
           nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
           xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" {};
@@ -68,8 +70,8 @@
               make ppc64
               make riscv64
               make xtensa
-              # make amd64_mingw
-              # make i386_mingw
+              make amd64_mingw
+              make i386_mingw
             '';
             installPhase = ''
               mkdir -p $out
