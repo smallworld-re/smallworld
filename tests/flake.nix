@@ -14,6 +14,7 @@
     {
       self,
       nixpkgs,
+      nixpkgs-esp-dev
     }:
     let
       inherit (nixpkgs) lib;
@@ -38,6 +39,7 @@
             "loongarch64-linux"
           ];
           nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
+          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" {};
         in
         {
           default = pkgs.stdenv.mkDerivation {
@@ -48,14 +50,15 @@
               # get the compilers that aren't in pkgsCross
               # nixpkgs.legacyPackages.x86_64-linux.stdenv.cc
               pkgs.gcc
+              xtensaGcc
             ]
             ++ nixCrossTargetCCs;
             buildPhase = ''
               make aarch64
               make amd64
-              make armel
+              # make armel
               make armhf
-              make i386
+              # make i386
               make la64
               make mips
               make mipsel
@@ -65,8 +68,8 @@
               make ppc64
               make riscv64
               make xtensa
-              make amd64_mingw
-              make i386_mingw
+              # make amd64_mingw
+              # make i386_mingw
             '';
             installPhase = ''
               mkdir -p $out
