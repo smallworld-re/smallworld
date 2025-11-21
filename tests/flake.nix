@@ -43,7 +43,8 @@
               # get the compilers that aren't in pkgsCross
               # nixpkgs.legacyPackages.x86_64-linux.stdenv.cc
               pkgs.gcc
-            ] ++ nixCrossTargetCCs;
+            ]
+            ++ nixCrossTargetCCs;
             buildPhase = ''
               make aarch64
               make amd64
