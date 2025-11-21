@@ -130,6 +130,7 @@
             "mips64-linux-gnuabi64"
             "mips64el-linux-gnuabi64"
             "riscv64"
+            "ppc32"
             "ppc64"
             "loongarch64-linux"
           ];
