@@ -17,19 +17,19 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 # Command Prefixes
 
 AARCH64_ID := aarch64-unknown-linux-gnu
-AMD64_ID := x86_64-linux-gnu
+# AMD64_ID := x86_64-linux-gnu
 AMD64_MINGW_ID := x86_64-w64-mingw32
-ARMEL_ID := arm-linux-gnueabi
-ARMHF_ID := arm-linux-gnueabihf
-I386_ID := i686-linux-gnu
+ARMEL_ID := armv7l-unknown-linux-gnueabihf
+ARMHF_ID := armv7l-unknown-linux-gnueabihf
+I386_ID := i686-unknown-linux-gnu
 I386_MINGW_ID := i686-w64-mingw32
 LA64_ID := loongarch64-unknown-linux-gnu
 MIPS_ID := mips-unknown-linux-gnu
 MIPSEL_ID := mipsel-unknown-linux-gnu
 MIPS64_ID := mips64-unknown-linux-gnuabi64
 MIPS64EL_ID := mips64el-unknown-linux-gnuabi64
-PPC_ID := powerpc-linux-gnu
-PPC64_ID := powerpc64-linux-gnuabielfv2
+PPC_ID := powerpc-unknown-linux-gnu
+PPC64_ID := powerpc64-unknown-linux-gnuabielfv2
 RISCV64_ID := riscv64-unknown-linux-gnu
 XTENSA_ID := xtensa-lx106-elf
 
@@ -37,7 +37,7 @@ XTENSA_ID := xtensa-lx106-elf
 
 AARCH64_ASM_AS := $(AARCH64_ID)-as 
 AMD64_ASM_AS := nasm 
-ARMEL_ASM_AS := $(ARMEL_ID)-as 
+ARMEL_ASM_AS := $(ARMEL_ID)-as
 ARMHF_ASM_AS := $(ARMHF_ID)-as 
 I386_ASM_AS := $(I386_ID)-as 
 LA64_ASM_AS := $(LA64_ID)-as 
@@ -53,8 +53,8 @@ XTENSA_ASM_AS := $(XTENSA_ID)-as
 # Assembler Commands for ELF
 
 AARCH64_ELF_AS := $(AARCH64_ID)-as 
-AMD64_ELF_AS := $(AMD64_ID)-as
-ARMEL_ELF_AS := $(ARMEL_ID)-as 
+AMD64_ELF_AS := as
+ARMEL_ELF_AS := $(ARMEL_ID)-as
 ARMHF_ELF_AS := $(ARMHF_ID)-as 
 I386_ELF_AS := $(I386_ID)-as 
 LA64_ELF_AS := $(LA64_ID)-as 
@@ -88,7 +88,7 @@ XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 # Linker Commands
 
 AARCH64_LD := $(AARCH64_ID)-ld 
-AMD64_LD := $(AMD64_ID)-ld 
+AMD64_LD := ld 
 ARMEL_LD := $(ARMEL_ID)-ld 
 ARMHF_LD := $(ARMHF_ID)-ld 
 I386_LD := $(I386_ID)-ld 
@@ -105,9 +105,9 @@ XTENSA_LD := $(XTENSA_ID)-ld
 # C compiler commands
 
 AARCH64_CC := $(AARCH64_ID)-gcc 
-AMD64_CC := $(AMD64_ID)-gcc 
+AMD64_CC := gcc 
 AMD64_MINGW_CC := $(AMD64_MINGW_ID)-gcc 
-ARMEL_CC := $(ARMEL_ID)-gcc 
+ARMEL_CC := $(ARMEL_ID)-gcc
 ARMHF_CC := $(ARMHF_ID)-gcc 
 I386_CC := $(I386_ID)-gcc 
 I386_MINGW_CC := $(I386_MINGW_ID)-gcc 
@@ -144,7 +144,7 @@ MIPS64EL_LDFLAGS := -Ttext-segment=$(MIPS64_ELF_START)
 
 # C flags
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
-ARMEL_CFLAGS := -marm
+ARMEL_CFLAGS := -marm -mfloat-abi=soft
 ARMHF_CFLAGS := -marm
 MIPS64_CFLAGS := -Wl,-Ttext-segment=$(MIPS64_ELF_START) 
 MIPS64EL_CFLAGS := -Wl,-Ttext-segment=$(MIPS64_ELF_START)
