@@ -35,11 +35,11 @@ class MIPSELSysVCallingContext(CStdCallingContext):
     _four_byte_arg_regs = ["a0", "a1", "a2", "a3"]
     _eight_byte_arg_regs = ["a0", "a1", "a2", "a3"]
 
-    _soft_float = True
+    _soft_float = False
     _variadic_soft_float = True
     _floats_are_doubles = False
-    _float_arg_regs = []
-    _double_arg_regs = []
+    _float_arg_regs = ["f12", "f14"]
+    _double_arg_regs = ["f12", "f13", "f14", "f15"]
 
     _init_stack_offset = 16
     _align_stack = True

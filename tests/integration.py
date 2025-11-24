@@ -4081,8 +4081,8 @@ class FunctionPointerTests(ScriptIntegrationTest):
     def test_la64(self):
         self.run_test("la64.pcode")
 
-    # def test_mips(self):
-    #     self.run_test("mips.pcode")
+    def test_mips(self):
+        self.run_test("mips.pcode")
 
     # def test_mips64(self):
     #     self.run_test("mips64.pcode")
@@ -4090,8 +4090,8 @@ class FunctionPointerTests(ScriptIntegrationTest):
     # def test_mips64el(self):
     #     self.run_test("mips64el.pcode")
 
-    # def test_mipsel(self):
-    #     self.run_test("mipsel.pcode")
+    def test_mipsel(self):
+        self.run_test("mipsel.pcode")
 
     def test_ppc(self):
         self.run_test("ppc.pcode")
