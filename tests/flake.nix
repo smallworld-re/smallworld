@@ -54,7 +54,7 @@
             ];
             buildPhase = ''
               make aarch64
-              # make amd64
+              make amd64
               make armel
               make armhf
               make i386

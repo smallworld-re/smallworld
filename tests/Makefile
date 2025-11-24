@@ -36,7 +36,7 @@ XTENSA_ID := xtensa-lx106-elf
 # Assembler Commands for Assembly
 
 AARCH64_ASM_AS := zig build-obj -target $(AARCH64_ID) 
-AMD64_ASM_AS := nasm
+AMD64_ASM_AS := ./nasm_wrapper.sh
 ARMEL_ASM_AS := zig build-obj -target $(ARMEL_ID)
 ARMHF_ASM_AS := zig build-obj -target $(ARMHF_ID)
 I386_ASM_AS := zig build-obj -target $(I386_ID)
