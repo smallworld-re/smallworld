@@ -18,11 +18,11 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 
 AARCH64_ID := aarch64-linux-gnu
 AMD64_ID := x86_64-linux-gnu
-AMD64_MINGW_ID := x86_64-w64-mingw32
+AMD64_MINGW_ID := x86_64-windows-gnu
 ARMEL_ID := arm-linux-gnueabi
 ARMHF_ID := arm-linux-gnueabihf
 I386_ID := x86-linux-gnu
-I386_MINGW_ID := i686-w64-mingw32
+I386_MINGW_ID := x86-windows-gnu
 LA64_ID := loongarch64-linux-gnu
 MIPS_ID := mips-linux.1.1.82-gnueabi
 MIPSEL_ID := mipsel-linux.1.1.82-gnueabi

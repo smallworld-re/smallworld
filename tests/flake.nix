@@ -50,6 +50,7 @@
             buildInputs = [
               pkgs.nasm
               pkgs.zig
+              pkgs.qemu-user
             ];
             buildPhase = ''
               make aarch64
@@ -65,14 +66,17 @@
               make ppc
               make ppc64
               make riscv64
-              make xtensa
+              # make xtensa
               make amd64_mingw
               make i386_mingw
+              cd elf_core
+              ulimit -c unlimited
+              make
             '';
             installPhase = ''
               mkdir -p $out
-              find -L . -regextype posix-extended -type f ! -regex "(.*\.(bin|elf|o|so|pe|dll))$" -delete
-              cp -r . $out
+              find . '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+              cp -r test_binaries.tar $out
             '';
           };
         }

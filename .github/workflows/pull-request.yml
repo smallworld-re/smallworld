@@ -239,9 +239,8 @@ jobs:
       - name: Build Artifacts
         run: |
           cd tests
-          nix develop -c make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
-          cd elf_core
-          nix develop -c make -j$(nproc)
+          nix build
+          tar xvf result/test_binaries.tar
       - name: Run Integration Tests
         run: |
           cd tests
