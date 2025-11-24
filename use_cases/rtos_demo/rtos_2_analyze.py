@@ -29,7 +29,7 @@ emulator.enable_linear()
 
 # Entry point / exit point
 entry_point = code.get_symbol_value("smallworld_bug")
-exit_point = 0x102368  # End of smallworld_bug, found via reverse engineering
+exit_point = 0x103DD0  # End of smallworld_bug, found via reverse engineering
 cpu.pc.set(entry_point)
 emulator.add_exit_point(exit_point)
 
