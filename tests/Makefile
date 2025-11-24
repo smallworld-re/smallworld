@@ -16,110 +16,110 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 
 # Command Prefixes
 
-AARCH64_ID := aarch64-unknown-linux-gnu
-# AMD64_ID := x86_64-linux-gnu
+AARCH64_ID := aarch64-linux-gnu
+AMD64_ID := x86_64-linux-gnu
 AMD64_MINGW_ID := x86_64-w64-mingw32
-ARMEL_ID := armv7l-unknown-linux-gnueabihf
-ARMHF_ID := armv7l-unknown-linux-gnueabihf
-I386_ID := i686-unknown-linux-gnu
+ARMEL_ID := arm-linux-gnueabi
+ARMHF_ID := arm-linux-gnueabihf
+I386_ID := x86-linux-gnu
 I386_MINGW_ID := i686-w64-mingw32
-LA64_ID := loongarch64-unknown-linux-gnu
-MIPS_ID := mips-unknown-linux-gnu
-MIPSEL_ID := mipsel-unknown-linux-gnu
-MIPS64_ID := mips64-unknown-linux-gnuabi64
-MIPS64EL_ID := mips64el-unknown-linux-gnuabi64
-PPC_ID := powerpc-unknown-linux-gnu
-PPC64_ID := powerpc64-unknown-linux-gnuabielfv2
-RISCV64_ID := riscv64-unknown-linux-gnu
+LA64_ID := loongarch64-linux-gnu
+MIPS_ID := mips-linux.1.1.82-gnueabi
+MIPSEL_ID := mipsel-linux.1.1.82-gnueabi
+MIPS64_ID := mips64-linux-gnuabi64
+MIPS64EL_ID := mips64el-linux-gnuabi64
+PPC_ID := powerpc-linux.1.3.45-gnueabi
+PPC64_ID := powerpc64-linux-gnu
+RISCV64_ID := riscv64-linux-gnu
 XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly
 
-AARCH64_ASM_AS := $(AARCH64_ID)-as 
-AMD64_ASM_AS := nasm 
-ARMEL_ASM_AS := $(ARMEL_ID)-as
-ARMHF_ASM_AS := $(ARMHF_ID)-as 
-I386_ASM_AS := $(I386_ID)-as 
-LA64_ASM_AS := $(LA64_ID)-as 
-MIPS_ASM_AS := $(MIPS_ID)-as 
-MIPSEL_ASM_AS := $(MIPSEL_ID)-as 
-MIPS64_ASM_AS := $(MIPS64_ID)-as 
-MIPS64EL_ASM_AS := $(MIPS64EL_ID)-as 
-PPC_ASM_AS := $(PPC_ID)-as 
-PPC64_ASM_AS := $(PPC64_ID)-as 
-RISCV64_ASM_AS := $(RISCV64_ID)-as 
-XTENSA_ASM_AS := $(XTENSA_ID)-as 
+AARCH64_ASM_AS := zig build-obj -target $(AARCH64_ID) 
+AMD64_ASM_AS := nasm
+ARMEL_ASM_AS := zig build-obj -target $(ARMEL_ID)
+ARMHF_ASM_AS := zig build-obj -target $(ARMHF_ID)
+I386_ASM_AS := zig build-obj -target $(I386_ID)
+LA64_ASM_AS := zig build-obj -target $(LA64_ID)
+MIPS_ASM_AS := zig build-obj -target $(MIPS_ID)
+MIPSEL_ASM_AS := zig build-obj -target $(MIPSEL_ID)
+MIPS64_ASM_AS := zig build-obj -target $(MIPS64_ID)
+MIPS64EL_ASM_AS := zig build-obj -target $(MIPS64EL_ID)
+PPC_ASM_AS := zig build-obj -target $(PPC_ID)
+PPC64_ASM_AS := zig build-obj -target $(PPC64_ID)
+RISCV64_ASM_AS := zig build-obj -target $(RISCV64_ID)
+XTENSA_ASM_AS := zig build-obj -target $(XTENSA_ID)
 
 # Assembler Commands for ELF
 
-AARCH64_ELF_AS := $(AARCH64_ID)-as 
-AMD64_ELF_AS := as
-ARMEL_ELF_AS := $(ARMEL_ID)-as
-ARMHF_ELF_AS := $(ARMHF_ID)-as 
-I386_ELF_AS := $(I386_ID)-as 
-LA64_ELF_AS := $(LA64_ID)-as 
-MIPS_ELF_AS := $(MIPS_ID)-as 
-MIPSEL_ELF_AS := $(MIPSEL_ID)-as 
-MIPS64_ELF_AS := $(MIPS64_ID)-as 
-MIPS64EL_ELF_AS := $(MIPS64EL_ID)-as 
-PPC_ELF_AS := $(PPC_ID)-as 
-PPC64_ELF_AS := $(PPC64_ID)-as 
-RISCV64_ELF_AS := $(RISCV64_ID)-as 
-XTENSA_ELF_AS := $(XTENSA_ID)-as 
+AARCH64_ELF_AS := zig build-obj -target $(AARCH64_ID) 
+AMD64_ELF_AS := zig build-obj -target $(AMD64_ID)
+ARMEL_ELF_AS := zig build-obj -target $(ARMEL_ID)
+ARMHF_ELF_AS := zig build-obj -target $(ARMHF_ID) 
+I386_ELF_AS := zig build-obj -target $(I386_ID) 
+LA64_ELF_AS := zig build-obj -target $(LA64_ID) 
+MIPS_ELF_AS := zig build-obj -target $(MIPS_ID) 
+MIPSEL_ELF_AS := zig build-obj -target $(MIPSEL_ID) 
+MIPS64_ELF_AS := zig build-obj -target $(MIPS64_ID) 
+MIPS64EL_ELF_AS := zig build-obj -target $(MIPS64EL_ID) 
+PPC_ELF_AS := zig build-obj -target $(PPC_ID)
+PPC64_ELF_AS := zig build-obj -target $(PPC64_ID) 
+RISCV64_ELF_AS := zig build-obj -target $(RISCV64_ID) 
+XTENSA_ELF_AS := zig build-obj -target $(XTENSA_ID)
 
 # Objcopy Commands
 
-AARCH64_OBJCOPY := $(AARCH64_ID)-objcopy
+AARCH64_OBJCOPY := bash -c 'cp -- $$4 $$5'
 # NASM doesn't produce a .o; we can skip this
 AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
-ARMEL_OBJCOPY := $(ARMEL_ID)-objcopy 
-ARMHF_OBJCOPY := $(ARMHF_ID)-objcopy 
-I386_OBJCOPY := $(I386_ID)-objcopy 
-LA64_OBJCOPY := $(LA64_ID)-objcopy 
-MIPS_OBJCOPY := $(MIPS_ID)-objcopy 
-MIPSEL_OBJCOPY := $(MIPSEL_ID)-objcopy 
-MIPS64_OBJCOPY := $(MIPS64_ID)-objcopy 
-MIPS64EL_OBJCOPY := $(MIPS64EL_ID)-objcopy 
-PPC_OBJCOPY := $(PPC_ID)-objcopy 
-PPC64_OBJCOPY := $(PPC64_ID)-objcopy 
-RISCV64_OBJCOPY := $(RISCV64_ID)-objcopy 
-XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy 
+ARMEL_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+ARMHF_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+I386_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+LA64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+MIPS_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+MIPSEL_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+MIPS64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+MIPS64EL_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+PPC_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+PPC64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+RISCV64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+XTENSA_OBJCOPY := bash -c 'cp -- $$4 $$5' 
 
 # Linker Commands
 
-AARCH64_LD := $(AARCH64_ID)-ld 
-AMD64_LD := ld 
-ARMEL_LD := $(ARMEL_ID)-ld 
-ARMHF_LD := $(ARMHF_ID)-ld 
-I386_LD := $(I386_ID)-ld 
-LA64_LD := $(LA64_ID)-ld 
-MIPS_LD := $(MIPS_ID)-ld 
-MIPSEL_LD := $(MIPSEL_ID)-ld 
-MIPS64_LD := $(MIPS64_ID)-ld 
-MIPS64EL_LD := $(MIPS64EL_ID)-ld 
-PPC_LD := $(PPC_ID)-ld 
-PPC64_LD := $(PPC64_ID)-ld 
-RISCV64_LD := $(RISCV64_ID)-ld 
-XTENSA_LD := $(XTENSA_ID)-ld 
+AARCH64_LD := zig build-exe -target $(AARCH64_ID) 
+AMD64_LD := zig build-exe -target $(AMD64_ID)
+ARMEL_LD := zig build-exe -target $(ARMEL_ID) 
+ARMHF_LD := zig build-exe -target $(ARMHF_ID) 
+I386_LD := zig build-exe -target $(I386_ID) 
+LA64_LD := zig build-exe -target $(LA64_ID) 
+MIPS_LD := zig build-exe -target $(MIPS_ID)
+MIPSEL_LD := zig build-exe -target $(MIPSEL_ID) 
+MIPS64_LD := zig build-exe -target $(MIPS64_ID) 
+MIPS64EL_LD := zig build-exe -target $(MIPS64EL_ID) 
+PPC_LD := zig build-exe -target $(PPC_ID) 
+PPC64_LD := zig build-exe -target $(PPC64_ID) 
+RISCV64_LD := zig build-exe -target $(RISCV64_ID) 
+XTENSA_LD := zig build-exe -target $(XTENSA_ID) 
 
 # C compiler commands
 
-AARCH64_CC := $(AARCH64_ID)-gcc 
-AMD64_CC := gcc 
-AMD64_MINGW_CC := $(AMD64_MINGW_ID)-gcc 
-ARMEL_CC := $(ARMEL_ID)-gcc
-ARMHF_CC := $(ARMHF_ID)-gcc 
-I386_CC := $(I386_ID)-gcc 
-I386_MINGW_CC := $(I386_MINGW_ID)-gcc 
-LA64_CC := $(LA64_ID)-gcc 
-MIPS_CC := $(MIPS_ID)-gcc 
-MIPSEL_CC := $(MIPSEL_ID)-gcc 
-MIPS64_CC := $(MIPS64_ID)-gcc 
-MIPS64EL_CC := $(MIPS64EL_ID)-gcc 
-PPC_CC := $(PPC_ID)-gcc 
-PPC64_CC := $(PPC64_ID)-gcc 
-RISCV64_CC := $(RISCV64_ID)-gcc 
-XTENSA_CC := $(XTENSA_ID)-gcc
+AARCH64_CC := zig cc -target $(AARCH64_ID) 
+AMD64_CC := zig cc -target $(AMD64_ID)  
+AMD64_MINGW_CC := zig cc -target $(AMD64_MINGW_ID) 
+ARMEL_CC := zig cc -target $(ARMEL_ID)
+ARMHF_CC := zig cc -target $(ARMHF_ID) 
+I386_CC := zig cc -target $(I386_ID) 
+I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
+LA64_CC := zig cc -target $(LA64_ID) 
+MIPS_CC := zig cc -target $(MIPS_ID) 
+MIPSEL_CC := zig cc -target $(MIPSEL_ID) 
+MIPS64_CC := zig cc -target $(MIPS64_ID) 
+MIPS64EL_CC := zig cc -target $(MIPS64EL_ID) 
+PPC_CC := zig cc -target $(PPC_ID) 
+PPC64_CC := zig cc -target $(PPC64_ID) 
+RISCV64_CC := zig cc -target $(RISCV64_ID)
+XTENSA_CC := zig cc -target $(XTENSA_ID)
 
 # *************************
 # *** Flag Declarations ***
@@ -205,12 +205,12 @@ $(1)_ASM_BINS := $$(patsubst %.$$($(1)_SRC_EXT).s,%.$$($(1)_EXT).bin,$$($(1)_ASM
 $(1)_ASM_ELFS := $$(patsubst %.$$($(1)_SRC_EXT).elf.s,%.$$($(1)_EXT).elf,$$($(1)_ASM_ELF_SRCS))
 
 %.$$($(1)_EXT).elf : %.$$($(1)_SRC_EXT).elf.s
-	$$($(1)_ELF_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -o $$*.$$($(1)_EXT).o
-	$$($(1)_LD) $$(GENERAL_LDFLAGS) $$($(1)_LDFLAGS) $$*.$$($(1)_EXT).o -o $$@
+	$$($(1)_ELF_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -femit-bin=$$*.$$($(1)_EXT).o
+	$$($(1)_LD) $$(GENERAL_LDFLAGS) $$($(1)_LDFLAGS) $$*.$$($(1)_EXT).o -femit-bin=$$@
 	rm $$*.$$($(1)_EXT).o
 
 %.$$($(1)_EXT).bin : %.$$($(1)_SRC_EXT).s
-	$$($(1)_ASM_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -o $$*.$$($(1)_EXT).o
+	$$($(1)_ASM_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -femit-bin=$$*.$$($(1)_EXT).o
 	$$($(1)_OBJCOPY) $$(GENERAL_OBJCOPYFLAGS) $$($(1)_OBJCOPYFLAGS) -O binary -j .text $$*.$$($(1)_EXT).o $$@
 	rm $$*.$$($(1)_EXT).o
 

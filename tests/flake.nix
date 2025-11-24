@@ -49,23 +49,19 @@
             src = ./.;
             buildInputs = [
               pkgs.nasm
-              # get the compilers that aren't in pkgsCross
-              # nixpkgs.legacyPackages.x86_64-linux.stdenv.cc
-              pkgs.gcc
-              xtensaGcc
-            ]
-            ++ nixCrossTargetCCs;
+              pkgs.zig
+            ];
             buildPhase = ''
               make aarch64
-              make amd64
-              # make armel
+              # make amd64
+              make armel
               make armhf
-              # make i386
+              make i386
               make la64
               make mips
               make mipsel
-              make mips64
-              make mips64el
+              # make mips64
+              # make mips64el
               make ppc
               make ppc64
               make riscv64
