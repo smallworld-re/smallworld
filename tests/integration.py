@@ -3488,7 +3488,7 @@ class RTOSDemoTests(ScriptIntegrationTest):
 
     def test_rtos_exploit(self):
         stdout = self.run_test("rtos_4_exploit.py")
-        self.assertLineContainsStrings(stdout, "PC: 0x1027c4")
+        self.assertLineContainsStrings(stdout, "PC: 0x10422c")
         self.assertLineContainsStrings(stdout, "Reached stop_udp: True")
 
 
