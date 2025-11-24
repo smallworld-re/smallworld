@@ -194,7 +194,6 @@ class TestModel(MIPSELSysVModel):
 
             case TestStage.FLOAT:
                 ret = self.test_float_ptr.get_return_value(emulator)
-                print(ret)
                 if not math.isclose(ret, math.pi, abs_tol=1e-07):
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")
@@ -211,7 +210,7 @@ class TestModel(MIPSELSysVModel):
 
             case TestStage.DOUBLE:
                 ret = self.test_double_ptr.get_return_value(emulator)
-                if math.isclose(ret, math.pi):
+                if not math.isclose(ret, math.pi):
                     return self.fail(emulator)
                 print(f"TEST PASSED: {self.stage}")
 
