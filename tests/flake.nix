@@ -53,9 +53,9 @@
               pkgs.qemu-user
               # pkgs.breakpointHook
             ];
-            preBuild = ''
-              export HOME=$(mktemp -d)
-            '';
+            env = {
+              ZIG_GLOBAL_CACHE_DIR = "$TMPDIR/zig-cache";
+            };
             buildPhase = ''
               make aarch64
               make amd64
