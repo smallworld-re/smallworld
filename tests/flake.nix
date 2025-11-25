@@ -25,23 +25,23 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          nixCrossTargets = [
-            "aarch64-multiplatform"
-            "arm-embedded"
-            "armv7l-hf-multiplatform"
-            "mips-linux-gnu"
-            "mipsel-linux-gnu"
-            "mips64-linux-gnuabi64"
-            "mips64el-linux-gnuabi64"
-            "riscv64"
-            "ppc32"
-            "ppc64"
-            "loongarch64-linux"
-            "mingwW64"
-            "mingw32"
-          ];
-          nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
-          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
+          # nixCrossTargets = [
+          #   "aarch64-multiplatform"
+          #   "arm-embedded"
+          #   "armv7l-hf-multiplatform"
+          #   "mips-linux-gnu"
+          #   "mipsel-linux-gnu"
+          #   "mips64-linux-gnuabi64"
+          #   "mips64el-linux-gnuabi64"
+          #   "riscv64"
+          #   "ppc32"
+          #   "ppc64"
+          #   "loongarch64-linux"
+          #   "mingwW64"
+          #   "mingw32"
+          # ];
+          # nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
+          # xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
         in
         {
           default = pkgs.stdenv.mkDerivation {
@@ -51,7 +51,7 @@
               pkgs.nasm
               pkgs.zig
               pkgs.qemu-user
-              pkgs.breakpointHook
+              # pkgs.breakpointHook
             ];
             preBuild = ''
               export HOME=$TMPDIR
