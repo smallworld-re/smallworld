@@ -51,7 +51,11 @@
               pkgs.nasm
               pkgs.zig
               pkgs.qemu-user
+              pkgs.breakpointHook
             ];
+            preBuild = ''
+              export HOME=$TMPDIR
+            '';
             buildPhase = ''
               make aarch64
               make amd64
@@ -69,9 +73,9 @@
               # make xtensa
               make amd64_mingw
               make i386_mingw
-              cd elf_core
-              ulimit -c unlimited
-              make
+              # cd elf_core
+              # ulimit -c unlimited
+              # make
             '';
             installPhase = ''
               mkdir -p $out
