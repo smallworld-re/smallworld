@@ -125,12 +125,6 @@ XTENSA_CC := zig cc -target $(XTENSA_ID)
 # *** Flag Declarations ***
 # *************************
 
-# Base address for mips64 and mips64el ELFs
-# Panda currently runs binaries in the physical address space.
-# mips64 ld uses a starting address that's inside the mips64 MMIO regions.
-MIPS64_ELF_START := 0x800000
-
-# as flags
 GENERAL_ASFLAGS := $(ASFLAGS)
 XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
 
@@ -139,15 +133,15 @@ GENERAL_OBJCOPYFLAGS := $(OBJCOPYFLAGS)
 
 # ld flags
 GENERAL_LDFLAGS := $(LDFLAGS)
-MIPS64_LDFLAGS := -Ttext-segment=$(MIPS64_ELF_START) 
-MIPS64EL_LDFLAGS := -Ttext-segment=$(MIPS64_ELF_START) 
+MIPS64_LDFLAGS := -T mips_linkerscript.ld 
+MIPS64EL_LDFLAGS := -T mips_linkerscript.ld 
 
 # C flags
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
 ARMEL_CFLAGS := -marm -mfloat-abi=soft
 ARMHF_CFLAGS := -marm
-MIPS64_CFLAGS := -Wl,-Ttext-segment=$(MIPS64_ELF_START) 
-MIPS64EL_CFLAGS := -Wl,-Ttext-segment=$(MIPS64_ELF_START)
+MIPS64_CFLAGS := -T mips_linkerscript.ld 
+MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 
 # ***************************
 # *** Template Parameters ***
