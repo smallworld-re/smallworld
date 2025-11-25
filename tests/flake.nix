@@ -51,7 +51,7 @@
               pkgs.nasm
               pkgs.zig
               pkgs.qemu-user
-              pkgs.breakpointHook
+              # pkgs.breakpointHook
             ];
             preBuild = ''
               export HOME=$(mktemp -d)
