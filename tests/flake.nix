@@ -54,7 +54,7 @@
               # pkgs.breakpointHook
             ];
             preBuild = ''
-              export HOME=$(mktemp -d)
+              export HOME=$TMPDIR
             '';
             buildPhase = ''
               make aarch64
