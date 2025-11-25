@@ -51,10 +51,10 @@
               pkgs.nasm
               pkgs.zig
               pkgs.qemu-user
-              pkgs.breakpointHook
+              # pkgs.breakpointHook
             ];
             preBuild = ''
-              export HOME=$TMPDIR
+              export HOME=$(mktemp -d)
             '';
             buildPhase = ''
               make aarch64
@@ -65,7 +65,7 @@
               make la64
               make mips
               make mipsel
-              # make mips64
+              make mips64
               # make mips64el
               make ppc
               make ppc64
