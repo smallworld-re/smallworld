@@ -41,7 +41,7 @@
           #   "mingw32"
           # ];
           # nixCrossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) nixCrossTargets;
-          # xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
+          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
         in
         {
           default = pkgs.stdenv.mkDerivation {
@@ -51,28 +51,14 @@
               pkgs.nasm
               pkgs.zig
               pkgs.qemu-user
+              xtensaGcc
               # pkgs.breakpointHook
             ];
             env = {
               ZIG_GLOBAL_CACHE_DIR = "$TMPDIR/zig-cache";
             };
             buildPhase = ''
-              make aarch64
-              make amd64
-              make armel
-              make armhf
-              make i386
-              make la64
-              make mips
-              make mipsel
-              make mips64
-              make mips64el
-              make ppc
-              make ppc64
-              make riscv64
-              # make xtensa
-              make amd64_mingw
-              make i386_mingw
+              make
               # cd elf_core
               # ulimit -c unlimited
               # make

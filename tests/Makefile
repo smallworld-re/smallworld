@@ -48,7 +48,7 @@ MIPS64EL_ASM_AS := zig build-obj -target $(MIPS64EL_ID)
 PPC_ASM_AS := zig build-obj -target $(PPC_ID)
 PPC64_ASM_AS := zig build-obj -target $(PPC64_ID)
 RISCV64_ASM_AS := zig build-obj -target $(RISCV64_ID)
-XTENSA_ASM_AS := zig build-obj -target $(XTENSA_ID)
+XTENSA_ASM_AS := ./xtensa_wrapper.sh
 
 # Assembler Commands for ELF
 
@@ -65,7 +65,7 @@ MIPS64EL_ELF_AS := zig build-obj -target $(MIPS64EL_ID)
 PPC_ELF_AS := zig build-obj -target $(PPC_ID)
 PPC64_ELF_AS := zig build-obj -target $(PPC64_ID) 
 RISCV64_ELF_AS := zig build-obj -target $(RISCV64_ID) 
-XTENSA_ELF_AS := zig build-obj -target $(XTENSA_ID)
+XTENSA_ELF_AS := ./xtensa_wrapper.sh
 
 # Objcopy Commands
 
@@ -83,7 +83,7 @@ MIPS64EL_OBJCOPY := zig objcopy
 PPC_OBJCOPY := zig objcopy
 PPC64_OBJCOPY := zig objcopy
 RISCV64_OBJCOPY := zig objcopy
-XTENSA_OBJCOPY := zig objcopy
+XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 
 # Linker Commands
 
@@ -100,7 +100,7 @@ MIPS64EL_LD := zig build-exe -target $(MIPS64EL_ID)
 PPC_LD := zig build-exe -target $(PPC_ID) 
 PPC64_LD := zig build-exe -target $(PPC64_ID) 
 RISCV64_LD := zig build-exe -target $(RISCV64_ID) 
-XTENSA_LD := zig build-exe -target $(XTENSA_ID) 
+XTENSA_LD := ./xtensa_ld_wrapper.sh 
 
 # C compiler commands
 
@@ -119,7 +119,7 @@ MIPS64EL_CC := zig cc -target $(MIPS64EL_ID)
 PPC_CC := zig cc -target $(PPC_ID) 
 PPC64_CC := zig cc -target $(PPC64_ID) 
 RISCV64_CC := zig cc -target $(RISCV64_ID)
-XTENSA_CC := zig cc -target $(XTENSA_ID)
+XTENSA_CC := $(XTENSA_ID)-gcc
 
 # *************************
 # *** Flag Declarations ***
