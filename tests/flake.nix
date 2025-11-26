@@ -66,7 +66,7 @@
               make mips
               make mipsel
               make mips64
-              # make mips64el
+              make mips64el
               make ppc
               make ppc64
               make riscv64
