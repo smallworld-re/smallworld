@@ -93,7 +93,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd tests
-          nix develop -c python3 unit.py -v
+          nix develop .. -c python3 unit.py -v
   Integration-Test:
       runs-on: smallworld-arc
       needs: Lint
@@ -244,7 +244,7 @@ jobs:
       - name: Run Integration Tests
         run: |
           cd tests
-          nix develop -c python3 integration.py -v ${{ matrix.testsuite }}
+          nix develop .. -c python3 integration.py -v ${{ matrix.testsuite }}
   Results:
     runs-on: smallworld-arc
     needs: [Lint, Unit-Test, Integration-Test]
