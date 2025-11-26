@@ -69,21 +69,21 @@ XTENSA_ELF_AS := zig build-obj -target $(XTENSA_ID)
 
 # Objcopy Commands
 
-AARCH64_OBJCOPY := bash -c 'cp -- $$4 $$5'
+AARCH64_OBJCOPY := zig objcopy
 # NASM doesn't produce a .o; we can skip this
 AMD64_OBJCOPY := bash -c 'cp -- $$4 $$5'
-ARMEL_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-ARMHF_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-I386_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-LA64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-MIPS_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-MIPSEL_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-MIPS64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-MIPS64EL_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-PPC_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-PPC64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-RISCV64_OBJCOPY := bash -c 'cp -- $$4 $$5' 
-XTENSA_OBJCOPY := bash -c 'cp -- $$4 $$5' 
+ARMEL_OBJCOPY := zig objcopy
+ARMHF_OBJCOPY := zig objcopy
+I386_OBJCOPY := zig objcopy
+LA64_OBJCOPY := zig objcopy
+MIPS_OBJCOPY := zig objcopy
+MIPSEL_OBJCOPY := zig objcopy
+MIPS64_OBJCOPY := zig objcopy
+MIPS64EL_OBJCOPY := zig objcopy
+PPC_OBJCOPY := zig objcopy
+PPC64_OBJCOPY := zig objcopy
+RISCV64_OBJCOPY := zig objcopy
+XTENSA_OBJCOPY := zig objcopy
 
 # Linker Commands
 
