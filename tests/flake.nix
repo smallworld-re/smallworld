@@ -52,19 +52,24 @@
               pkgs.zig
               pkgs.qemu-user
               xtensaGcc
-              # pkgs.breakpointHook
+              pkgs.breakpointHook
+              pkgs.pkgsCross.ppc32.glibc
+              pkgs.pkgsCross.ppc64.glibc
+              pkgs.pkgsCross.mips64-linux-gnuabi64.glibc
+              pkgs.pkgsCross.mips64el-linux-gnuabi64.glibc
             ];
             env = {
               ZIG_GLOBAL_CACHE_DIR = "$TMPDIR/zig-cache";
             };
             buildPhase = ''
-              make
+              make -j$(nproc)
               # cd elf_core
               # ulimit -c unlimited
               # make
             '';
             installPhase = ''
               mkdir -p $out
+              rm -r '$TMPDIR'
               find . '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' ')' -print0 | tar -cvf test_binaries.tar --null -T -
               cp -r test_binaries.tar $out
             '';
