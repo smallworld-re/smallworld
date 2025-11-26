@@ -75,6 +75,10 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Test Build Artifacts
+        run: |
+          cd tests
+          nix build
 
   Unit-Test:
     runs-on: smallworld-arc
