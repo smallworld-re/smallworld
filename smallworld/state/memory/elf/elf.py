@@ -479,7 +479,7 @@ class ElfExecutable(Executable):
                 name=s.name,
                 type=s.type.value,
                 bind=s.binding.value,
-                visibility=s.visibility.value,
+                visibility=s.visibility,
                 shndx=s.shndx,
                 value=s.value,
                 size=s.size,
