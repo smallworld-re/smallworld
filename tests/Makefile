@@ -210,9 +210,7 @@ $(1)_ASM_BINS := $$(patsubst %.$$($(1)_SRC_EXT).s,%.$$($(1)_EXT).bin,$$($(1)_ASM
 $(1)_ASM_ELFS := $$(patsubst %.$$($(1)_SRC_EXT).elf.s,%.$$($(1)_EXT).elf,$$($(1)_ASM_ELF_SRCS))
 
 %.$$($(1)_EXT).elf : %.$$($(1)_SRC_EXT).elf.s
-	$$($(1)_ELF_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -femit-bin=$$*.$$($(1)_EXT).o
-	$$($(1)_LD) $$(GENERAL_LDFLAGS) $$($(1)_LDFLAGS) $$*.$$($(1)_EXT).o -femit-bin=$$@
-	rm $$*.$$($(1)_EXT).o
+	$$($(1)_ELF_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -femit-bin=$$@
 
 %.$$($(1)_EXT).bin : %.$$($(1)_SRC_EXT).s
 	$$($(1)_ASM_AS) $$(GENERAL_ASFLAGS) $$($(1)_ASFLAGS) $$< -femit-bin=$$*.$$($(1)_EXT).o
