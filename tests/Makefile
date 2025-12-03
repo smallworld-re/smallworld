@@ -137,11 +137,23 @@ MIPS64_LDFLAGS := -T mips_linkerscript.ld
 MIPS64EL_LDFLAGS := -T mips_linkerscript.ld 
 
 # C flags
-GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
+GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
 ARMEL_CFLAGS := -marm -mfloat-abi=soft
 ARMHF_CFLAGS := -marm
 MIPS64_CFLAGS := -T mips_linkerscript.ld 
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
+
+# ELF Executable C flags
+AARCH64_ELF_CFLAGS := -pie
+AMD64_ELF_CFLAGS := -pie
+ARMHF_ELF_CFLAGS := -pie
+I386_ELF_CFLAGS := -pie
+PPC_ELF_CFLAGS := -pie
+PPC64_ELF_CFLAGS := -pie
+RISCV64_ELF_CFLAGS := -pie
+XTENSA_ELF_CFLAGS := -pie
+
+
 
 # ***************************
 # *** Template Parameters ***
@@ -225,7 +237,7 @@ $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -shared -o $$@ $$<
 
 %.$$($(1)_EXT).elf : %.elf.c
-	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$<
 
 endef
 

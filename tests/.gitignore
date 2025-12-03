@@ -4,3 +4,6 @@
 *.so
 *.pe
 *.dll
+*.pdb
+*.lib
+result
