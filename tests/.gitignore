@@ -6,4 +6,5 @@
 *.dll
 *.pdb
 *.lib
+$TMPDIR
 result

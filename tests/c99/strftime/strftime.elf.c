@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
     };
     char buf[0x1000];
     strftime(buf, 0xfff, fmt, &st);
-   
+ 
     if(strcmp(expected, buf)) {
         exit(1);
     }
