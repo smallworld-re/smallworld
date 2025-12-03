@@ -43,7 +43,7 @@ cpu.r8.set(0x33333333)
 stack.push_integer(0x44444444, 8, None)
 stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 stack.write_bytes(
-    0x2500, b"\xFF\xFF\xFF\xFF"
+    0x2500, b"\xff\xff\xff\xff"
 )  # ensure writing below sp won't modify sp
 
 # Configure the stack pointer

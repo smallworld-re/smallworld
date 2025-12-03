@@ -43,7 +43,7 @@ cpu.sp.set(sp)
 
 # Input buffer
 buffer_memory_address = 0x1000
-input_bytes = b"8x88888\xE18\x17\xF3\x1Faaa"
+input_bytes = b"8x88888\xe18\x17\xf3\x1faaa"
 # input_bytes = b"\x7F8888888=.3a"
 buffer_memory = smallworld.state.memory.Memory(buffer_memory_address, len(input_bytes))
 buffer_memory[0] = smallworld.state.BytesValue(input_bytes, "input_buffer")
