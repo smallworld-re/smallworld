@@ -52,7 +52,7 @@
               pkgs.zig
               pkgs.qemu-user
               xtensaGcc
-              pkgs.breakpointHook
+              #pkgs.breakpointHook
               pkgs.pkgsCross.ppc32.glibc
               pkgs.pkgsCross.ppc64.glibc
               pkgs.pkgsCross.mips64-linux-gnuabi64.glibc
