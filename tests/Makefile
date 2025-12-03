@@ -35,36 +35,36 @@ XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly
 
-AARCH64_ASM_AS := zig build-obj -target $(AARCH64_ID) 
+AARCH64_ASM_AS := zig build-exe -target $(AARCH64_ID) 
 AMD64_ASM_AS := ./nasm_wrapper.sh
-ARMEL_ASM_AS := zig build-obj -target $(ARMEL_ID)
-ARMHF_ASM_AS := zig build-obj -target $(ARMHF_ID)
-I386_ASM_AS := zig build-obj -target $(I386_ID)
-LA64_ASM_AS := zig build-obj -target $(LA64_ID)
-MIPS_ASM_AS := zig build-obj -target $(MIPS_ID)
-MIPSEL_ASM_AS := zig build-obj -target $(MIPSEL_ID)
-MIPS64_ASM_AS := zig build-obj -target $(MIPS64_ID)
-MIPS64EL_ASM_AS := zig build-obj -target $(MIPS64EL_ID)
-PPC_ASM_AS := zig build-obj -target $(PPC_ID)
-PPC64_ASM_AS := zig build-obj -target $(PPC64_ID)
-RISCV64_ASM_AS := zig build-obj -target $(RISCV64_ID)
+ARMEL_ASM_AS := zig build-exe -target $(ARMEL_ID)
+ARMHF_ASM_AS := zig build-exe -target $(ARMHF_ID)
+I386_ASM_AS := zig build-exe -target $(I386_ID)
+LA64_ASM_AS := zig build-exe -target $(LA64_ID)
+MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
+MIPSEL_ASM_AS := zig build-exe -target $(MIPSEL_ID)
+MIPS64_ASM_AS := zig build-exe -target $(MIPS64_ID)
+MIPS64EL_ASM_AS := zig build-exe -target $(MIPS64EL_ID)
+PPC_ASM_AS := zig build-exe -target $(PPC_ID)
+PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
+RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
 XTENSA_ASM_AS := ./xtensa_wrapper.sh
 
 # Assembler Commands for ELF
 
-AARCH64_ELF_AS := zig build-obj -target $(AARCH64_ID) 
-AMD64_ELF_AS := zig build-obj -target $(AMD64_ID)
-ARMEL_ELF_AS := zig build-obj -target $(ARMEL_ID)
-ARMHF_ELF_AS := zig build-obj -target $(ARMHF_ID) 
-I386_ELF_AS := zig build-obj -target $(I386_ID) 
-LA64_ELF_AS := zig build-obj -target $(LA64_ID) 
-MIPS_ELF_AS := zig build-obj -target $(MIPS_ID) 
-MIPSEL_ELF_AS := zig build-obj -target $(MIPSEL_ID) 
-MIPS64_ELF_AS := zig build-obj -target $(MIPS64_ID) 
-MIPS64EL_ELF_AS := zig build-obj -target $(MIPS64EL_ID) 
-PPC_ELF_AS := zig build-obj -target $(PPC_ID)
-PPC64_ELF_AS := zig build-obj -target $(PPC64_ID) 
-RISCV64_ELF_AS := zig build-obj -target $(RISCV64_ID) 
+AARCH64_ELF_AS := zig build-exe -target $(AARCH64_ID) 
+AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
+ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
+ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
+I386_ELF_AS := zig build-exe -target $(I386_ID) 
+LA64_ELF_AS := zig build-exe -target $(LA64_ID) 
+MIPS_ELF_AS := zig build-exe -target $(MIPS_ID) 
+MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID) 
+MIPS64_ELF_AS := zig build-exe -target $(MIPS64_ID) 
+MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID) 
+PPC_ELF_AS := zig build-exe -target $(PPC_ID)
+PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
+RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
 XTENSA_ELF_AS := ./xtensa_wrapper.sh
 
 # Objcopy Commands

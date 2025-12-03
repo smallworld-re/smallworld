@@ -3514,10 +3514,11 @@ class ThumbTests(ScriptIntegrationTest):
                 stderr, "single step at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
             )
             self.assertLineContainsStrings(
-                stderr, "single step at 0x1010: <CsInsn 0x1010 [0121]: movs r1, #1>"
+                stderr,
+                "single step at 0x1010: <CsInsn 0x1010 [4ff00101]: mov.w r1, #1>",
             )
             self.assertLineContainsStrings(
-                stderr, "single step at 0x101c: <CsInsn 0x101c [0110a0e3]: mov r1, #1>"
+                stderr, "single step at 0x1020: <CsInsn 0x1020 [0110a0e3]: mov r1, #1>"
             )
             # check program result for step_block starting in ARM mode
             self.assertLineContainsStrings(stdout, f"BLOCK_{arch.name}=0x6")
@@ -3528,10 +3529,10 @@ class ThumbTests(ScriptIntegrationTest):
                 stderr, "step block at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
             )
             self.assertLineContainsStrings(
-                stderr, "step block at 0x1010: <CsInsn 0x1010 [0121]: movs r1, #1>"
+                stderr, "step block at 0x1010: <CsInsn 0x1010 [4ff00101]: mov.w r1, #1>"
             )
             self.assertLineContainsStrings(
-                stderr, "step block at 0x101c: <CsInsn 0x101c [0110a0e3]: mov r1, #1>"
+                stderr, "step block at 0x1020: <CsInsn 0x1020 [0110a0e3]: mov r1, #1>"
             )
             # check program result for run starting in ARM mode
             self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x6")

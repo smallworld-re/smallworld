@@ -559,6 +559,7 @@ class UnicornEmulator(
             raise AssertionError("invalid state")
         for i in self.disassembler.disasm(code, pc):
             return i
+        raise ValueError(f"No valid instruction at {hex(pc)}")
 
     def _check(self) -> None:
         # check if it's ok to begin emulating
