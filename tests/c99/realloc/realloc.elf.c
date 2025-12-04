@@ -13,5 +13,5 @@ int main() {
     if(buf[63] == 'f') {
         return *good;
     }
-    return 0;
+    exit(1);
 }
