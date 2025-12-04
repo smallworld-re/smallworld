@@ -48,7 +48,7 @@ cpu.a7.set(0x01010101)
 stack.push_integer(0x5555, 4, None)
 stack.push_integer(0x01010101, 4, None)
 stack.write_bytes(
-    0x2500, b"\xFF\xFF\xFF\xFF"
+    0x2500, b"\xff\xff\xff\xff"
 )  # ensure writing below sp won't modify sp
 
 sp = stack.get_pointer()

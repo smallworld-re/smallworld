@@ -53,7 +53,6 @@ class GetsModel(smallworld.state.models.Model):
     abi = smallworld.platforms.ABI.NONE
 
     def model(self, emulator: smallworld.emulators.Emulator) -> None:
-        global in_bytes
         in_bytes = input().encode("utf-8")
         s = emulator.read_register("rdi")
         v = in_bytes + b"\0"
@@ -82,7 +81,6 @@ class PutsModel(smallworld.state.models.Model):
         # are guaranteed to be symbolic.
         #
         # Thus, we must step one byte at a time.
-        global in_bytes
         s = emulator.read_register("rdi")
         b = emulator.read_memory_symbolic(s, 1)
         v = claripy.BVV(b"")
