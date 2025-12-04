@@ -3562,6 +3562,19 @@ class ColorizerTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
 
+class FsgsbaseTests(ScriptIntegrationTest):
+    def test1(self):
+        stdout, stderr = self.command("python fsgsbase/fsgsbase.amd64.py")
+        self.assertLineContainsStrings(
+            stdout,
+            "Here's where in fs segment lsb of rax is: 40. ... which is correct.  Looks like fs:[0x28] address is working properly.",
+        )
+        self.assertLineContainsStrings(
+            stdout,
+            "Here's where in gs segment lsb of rbx is: 19. ... which is correct.  Looks like gs:[0x13] address is working properly.",
+        )
+
+
 class RTOSDemoTests(ScriptIntegrationTest):
     def _rtos_demo_dir(self):
         return os.path.join(
