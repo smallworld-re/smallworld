@@ -539,7 +539,6 @@ class ElfExecutable(Executable):
 
         for r in list(elf.dynamic_relocations) + list(elf.pltgot_relocations):
             # Build a rela, and tie it to its symbol
-            # TODO: some relas have no symbols.  Live with it.
             if r.symbol is None:
                 continue
             sym = lief_to_elf[r.symbol]
@@ -558,7 +557,6 @@ class ElfExecutable(Executable):
         for r in elf.object_relocations:
             if r.symbol is None:
                 continue
-            sym = lief_to_elf[r.symbol]
             # Lief royally screws up relocation entries
             r_type = r.r_info(elf.header.identity_class)
             if elf.header.identity_class.value == 1:
@@ -573,6 +571,10 @@ class ElfExecutable(Executable):
             )
             sym.relas.append(rela)
             self._static_relas.append(rela)
+
+        # Any rela tied to the NULL symbol needs to be relocated
+        null_sym = self._dynamic_symbols[0]
+        self.update_symbol_value(null_sym, 0, rebase=False)
 
     def _get_symbols(
         self, name: typing.Union[str, int], dynamic: bool

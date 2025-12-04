@@ -58,8 +58,8 @@ ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
 LA64_ELF_AS := zig build-exe -target $(LA64_ID) 
-MIPS_ELF_AS := zig build-exe -target $(MIPS_ID) 
-MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID) 
+MIPS_ELF_AS := zig build-exe -target $(MIPS_ID)
+MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID)
 MIPS64_ELF_AS := zig build-exe -target $(MIPS64_ID) 
 MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID) 
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
@@ -84,23 +84,6 @@ PPC_OBJCOPY := zig objcopy
 PPC64_OBJCOPY := zig objcopy
 RISCV64_OBJCOPY := zig objcopy
 XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
-
-# Linker Commands
-
-AARCH64_LD := zig build-exe -target $(AARCH64_ID) 
-AMD64_LD := zig build-exe -target $(AMD64_ID)
-ARMEL_LD := zig build-exe -target $(ARMEL_ID) 
-ARMHF_LD := zig build-exe -target $(ARMHF_ID) 
-I386_LD := zig build-exe -target $(I386_ID) 
-LA64_LD := zig build-exe -target $(LA64_ID) 
-MIPS_LD := zig build-exe -target $(MIPS_ID)
-MIPSEL_LD := zig build-exe -target $(MIPSEL_ID) 
-MIPS64_LD := zig build-exe -target $(MIPS64_ID) 
-MIPS64EL_LD := zig build-exe -target $(MIPS64EL_ID) 
-PPC_LD := zig build-exe -target $(PPC_ID) 
-PPC64_LD := zig build-exe -target $(PPC64_ID) 
-RISCV64_LD := zig build-exe -target $(RISCV64_ID) 
-XTENSA_LD := ./xtensa_ld_wrapper.sh 
 
 # C compiler commands
 
@@ -151,8 +134,6 @@ I386_ELF_CFLAGS := -pie
 PPC64_ELF_CFLAGS := -pie
 RISCV64_ELF_CFLAGS := -pie
 XTENSA_ELF_CFLAGS := -pie
-
-
 
 # ***************************
 # *** Template Parameters ***

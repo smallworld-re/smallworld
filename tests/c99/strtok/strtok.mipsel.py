@@ -25,9 +25,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -67,6 +65,15 @@ strtok_model.allow_imprecise = True
 
 # Relocate puts
 code.update_symbol_value("strtok", strtok_model._address)
+
+memcpy_model = smallworld.state.models.Model.lookup(
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
+
+# Relocate puts
+code.update_symbol_value("memcpy", memcpy_model._address)
 
 
 # Create a type of exception only I will generate

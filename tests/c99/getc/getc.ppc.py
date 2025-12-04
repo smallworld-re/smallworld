@@ -66,11 +66,11 @@ getc_model.allow_imprecise = True
 code.update_symbol_value("getc", getc_model._address)
 
 # Create a fake stdin
-# powerpc copies the address from libc, so we just need to write into the symbol.
-filestar = 0x47492A00
-stdin_addr = code.get_symbol_value("stdin")
+fake_stdin = smallworld.state.memory.Memory(0x20000, 8)
+fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 8, None, False)
+machine.add(fake_stdin)
 
-code.write_bytes(stdin_addr, filestar.to_bytes(4, "big"))
+code.update_symbol_value("stdin", fake_stdin.address)
 
 
 # Create a type of exception only I will generate

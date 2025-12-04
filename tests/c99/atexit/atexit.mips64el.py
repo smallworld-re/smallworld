@@ -65,7 +65,7 @@ machine.add(atexit_model)
 atexit_model.allow_imprecise = True
 
 # Relocate puts
-code.update_symbol_value("__cxa_atexit", atexit_model._address)
+code.update_symbol_value("atexit", atexit_model._address)
 
 
 # Create a type of exception only I will generate

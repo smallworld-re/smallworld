@@ -92,7 +92,7 @@
         }\
     } while(0)
 
-int main(int argc, char *argv[]) {
+int main() {
 
     char *quit = (char *)(size_t)0xdead;
     int res = 0;

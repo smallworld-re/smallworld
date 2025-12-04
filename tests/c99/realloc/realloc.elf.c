@@ -5,7 +5,7 @@
 // I insist that it doesn't.
 void *(*my_realloc)(void *, size_t) = realloc;
 
-int main(int argc, char *argv[]) {
+int main() {
     char *good = (char *)(size_t)0xdead;
     char *buf = my_realloc(NULL, 64);
     buf[63] = 'f';

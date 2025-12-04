@@ -78,7 +78,7 @@
         puts(""); \
     } while(0)
 
-int main(int argc, char *argv[]) {
+int main() {
     char buf[128];
     char *good = (char *)(size_t)0xdead;
     int bad = 0;
