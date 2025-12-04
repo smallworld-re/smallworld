@@ -30,7 +30,11 @@ Shad = typing.Dict[int, typing.Tuple[int, bool, int]]
 
 
 def randomize_uninitialized(
-    machine: state.Machine, seed: int = 123456, extra_regs: typing.List[str] = []
+    machine: state.Machine,
+    seed: int = 123456,
+    extra_regs: typing.List[str] = [],
+    bss_start: typing.Optional[int] = None,
+    bss_size: typing.Optional[int] = None,
 ) -> state.Machine:
     """Consider all parts of the machine that can be written to (registers
     + memory regions). Write random values to any bytes in those machine
@@ -53,7 +57,6 @@ def randomize_uninitialized(
     random.seed(seed)
     logger.setLevel(logging.DEBUG)
 
-    # if logger.getEffectiveLevel() >= logging.DEBUG:
     m = hashlib.md5()
     platform = machine.get_platform()
     machine_copy = copy.deepcopy(machine)
@@ -76,20 +79,38 @@ def randomize_uninitialized(
                 # this means reg is uninitialized; ok to randomize
                 v = random.randint(0, (1 << (8 * reg.size)) - 1)
                 reg.set(v)
-                # logger.info(f"randomize_uninitialized setting {reg}")
-                # if logger.getEffectiveLevel() >= logging.DEBUG:
                 m.update(str(v).encode("utf-8"))
 
-    for el in machine_copy:
-        if isinstance(m, state.memory.Memory):
-            if isinstance(m, state.memory.Executable):
-                # nothing to randomize here
-                continue
-            # To come, I guess
-            # we'd like to randomize anything uninitialized...
-            pass
-    # if logger.getEffectiveLevel() >= logging.DEBUG:
-    logger.info(f"digest of changes made to machine: {m.hexdigest()}")
+    for mem in machine_copy:
+        if not isinstance(mem, state.memory.Memory):
+            continue
+
+        def rand_mem(mem, start, size):
+            bytz = random.randbytes(size)
+            mem.write_bytes(start, bytz)
+            m.update(bytz)
+
+        if isinstance(mem, state.memory.code.Executable):
+            # nothing to randomize here except maybe bss
+            if (bss_start is not None) and (bss_size is not None):
+                for seg_start, bv in mem.items():
+                    seg_end = seg_start + bv.get_size()
+                    logger.info(f"bss_start={bss_start:x} seg_start={seg_start:x}")
+                    logger.info(f"bss_end={bss_start + bss_size:x} seg_end={seg_end:x}")
+                    if (bss_start >= seg_start) and (bss_start + bss_size <= seg_end):
+                        logger.info(
+                            f"bss in elf segment {seg_start:x}..{seg_end:x}. perturbing it."
+                        )
+                        rand_mem(mem, mem.address + bss_start, bss_size)
+
+        elif isinstance(mem, state.memory.Memory):
+            for mem_rng in mem.get_ranges_uninitialized():
+                logger.info(
+                    f"memory({mem}) type({type(mem)}) has uninitialized range {mem_rng}: perturbing it."
+                )
+                rand_mem(mem, mem_rng.start, len(mem_rng))
+
+    logger.debug(f"digest of changes made to machine: {m.hexdigest()}")
 
     logger.setLevel(logging.INFO)
 
@@ -162,6 +183,13 @@ class Colorizer(analysis.Analysis):
             # memory operand knows its size
             return operand.size
         return 0
+
+    def htime(self):
+        if not (hasattr(self, "time_mon")):
+            self.time_mon = 1
+        else:
+            self.time_mon += 1
+        return self.time_mon
 
     def run(self, machine: state.Machine) -> None:
         # collect hints for each microexecution, in a list of lists
@@ -365,6 +393,7 @@ class Colorizer(analysis.Analysis):
         pc = insn.address
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
+                time=self.htime(),
                 reg_name=operand.name,
                 size=size,
                 color=color,
@@ -384,6 +413,7 @@ class Colorizer(analysis.Analysis):
             if operand.index is not None:
                 index_name = operand.index
             return hinting.DynamicMemoryValueHint(
+                time=self.htime(),
                 address=operand.address(emu),
                 base=base_name,
                 index=index_name,
