@@ -25,13 +25,13 @@ elif [ "$platform" = "armhf" ]; then
 elif [ "$platform" = "i386" ]; then
     sysroot="/usr/i686-linux-gnu"
 elif [ "$platform" = "mips64" ]; then
-    sysroot="/usr/mips64-linux-gnuabi64"
+    sysroot="/nix/store/5czdjjxnb4xdp8276394jp26lgxcafqw-glibc-mips64-unknown-linux-gnuabi64-2.40-66"
 elif [ "$platform" = "mips64el" ]; then
-    sysroot="/usr/mips64el-linux-gnuabi64"
+    sysroot="/nix/store/rv485ps0r9sasp4d28y2brjv7r9i931s-glibc-mips64el-unknown-linux-gnuabi64-2.40-66"
 elif [ "$platform" = "ppc" ]; then
-    sysroot="/usr/powerpc-linux-gnu"
+    sysroot="/nix/store/aw79r8rbw2hxsd5snhkgglkn8rhkqyri-glibc-powerpc-unknown-linux-gnu-2.40-66"
 elif [ "$platform" = "ppc64" ]; then
-    sysroot="/usr/powerpc64-linux-gnu"
+    sysroot="/nix/store/mnqgddwqgv42xy32mcas50bsv55p5gld-glibc-powerpc64-unknown-linux-gnuabielfv2-2.40-66"
 fi
 
 echo "foobar" | "$qemu_bin" -L "$sysroot" "$1"

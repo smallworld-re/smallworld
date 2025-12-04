@@ -479,7 +479,7 @@ class ElfExecutable(Executable):
                 name=s.name,
                 type=s.type.value,
                 bind=s.binding.value,
-                visibility=s.visibility.value,
+                visibility=s.visibility,
                 shndx=s.shndx,
                 value=s.value,
                 size=s.size,
@@ -660,28 +660,35 @@ class ElfExecutable(Executable):
         """
 
         if isinstance(name, ElfSymbol):
-            sym = name
+            syms = [name]
         else:
             syms = self._get_symbols(name, dynamic)
-            if len(syms) > 1:
-                raise ConfigurationError(f"Multiple syms named {name}")
-            sym = syms[0]
+            for sym in syms:
+                if (
+                    sym.value != syms[0].value
+                    or sym.size != syms[0].size
+                    or sym.baseaddr != syms[0].baseaddr
+                ):
+                    raise ConfigurationError(f"Conflicting symbols for {name}")
 
         if rebase:
             # Value provided is absolute; rebase it to the symbol's base address
-            value -= sym.baseaddr
+            value -= syms[0].baseaddr
 
         # Update the value
-        sym.value = value
+        for sym in syms:
+            sym.value = value
 
         # Mark this symbol as defined
-        sym.defined = True
+        for sym in syms:
+            sym.defined = True
 
         if self._relocator is not None:
-            for rela in sym.relas:
-                # Relocate!
-                log.info(f"Relocating {rela}")
-                self._relocator.relocate(self, rela)
+            for sym in syms:
+                for rela in sym.relas:
+                    # Relocate!
+                    log.info(f"Relocating {rela}")
+                    self._relocator.relocate(self, rela)
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 

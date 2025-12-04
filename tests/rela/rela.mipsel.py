@@ -32,6 +32,7 @@ with open(filename, "rb") as f:
 entrypoint = code.get_symbol_value("main")
 print(f"Entrypoint {hex(entrypoint)}")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
