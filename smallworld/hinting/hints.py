@@ -424,7 +424,6 @@ class DynamicValueSummaryHint(hinting.Hint):
     new: bool
     count: int
     dynamic_values: typing.List[int]
-    addresses: typing.List[int]
     num_micro_executions: int
 
 
@@ -434,6 +433,7 @@ class DynamicMemoryValueSummaryHint(DynamicValueSummaryHint):
     index: str
     scale: int
     offset: int
+    addresses: typing.List[int]
 
 
 @dataclass(frozen=True)
@@ -445,6 +445,12 @@ class DynamicRegisterValueSummaryHint(DynamicValueSummaryHint):
 class DefUseGraphHint(hinting.Hint):
     graph: nx.MultiDiGraph
 
+    # note this is just for logging purposes
+    def to_json(self):
+        return {            
+            "graph": jsons.dump(self.graph)
+        }
+        
 
 @dataclass(frozen=True)
 class BranchesHint(hinting.Hint):

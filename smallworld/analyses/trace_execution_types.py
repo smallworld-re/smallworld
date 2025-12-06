@@ -3,9 +3,9 @@ import typing
 from dataclasses import dataclass
 from enum import Enum
 
-from smallworld.instructions import Operand
+from smallworld.instructions import RegisterOperand, BSIDMemoryReferenceOperand
 
-CmpInfo = typing.Tuple[str, Operand, int]
+CmpInfo = typing.Union[RegisterOperand, BSIDMemoryReferenceOperand, int]
 
 
 class TraceRes(Enum):

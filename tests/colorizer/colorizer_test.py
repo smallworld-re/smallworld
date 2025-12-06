@@ -6,7 +6,7 @@ import sys
 
 import smallworld
 from smallworld import hinting
-from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
+from smallworld.analyses import Colorizer, ColorizerReadWrite
 from smallworld.analyses.colorizer import randomize_uninitialized
 from smallworld.hinting.hints import (
     DefUseGraphHint,
@@ -15,14 +15,26 @@ from smallworld.hinting.hints import (
     MemoryUnavailableSummaryHint,
     TraceExecutionHint,
 )
+from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+from smallworld.analyses.colorizer_read_write import MemoryLvalInfo, MemLvalDvKey, RegisterInfo
+from smallworld.platforms.defs.platformdef import PlatformDef
+
+
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.DEBUG)
+
+logger = logging.getLogger(__name__)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
+
+pdef = PlatformDef.for_platform(platform)
+
+
 
 # create a machine
 machine = smallworld.state.Machine()
@@ -47,8 +59,8 @@ cpu.rsp.set(rsp)
 # these values are from
 # md5sum trace_executor/ahme-x86_64
 # 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64
-entry_point = 0x2189
-exit_point = 0x2291
+entry_point = 0x2159
+exit_point = 0x225a
 
 cpu.rip.set(entry_point)
 machine.add(cpu)
@@ -74,22 +86,24 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
     global machine
 
     hints = []
-    print(
+    logger.info(
         f"\ntest: num_micro_exec={num_micro_exec} num_insns={num_insns} buflen={buflen} fortytwos={fortytwos} seed={seed}"
     )
 
     hinter = hinting.Hinter()
     hinter.register(TraceExecutionHint, collect_hints)
-    hinter.register(MemoryUnavailableSummaryHint, collect_hints)
-    hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
-    hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
-    hinter.register(DefUseGraphHint, collect_hints)
+    # hinter.register(MemoryUnavailableSummaryHint, collect_hints)
+    # hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
+    # hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
+    # hinter.register(DefUseGraphHint, collect_hints)
+    crw = ColorizerReadWrite(hinter)
     analyses = [
-        ColorizerSummary(hinter),
-        ColorizerDefUse(hinter),
+        # ColorizerSummary(hinter),
+        crw
     ]
 
     for i in range(num_micro_exec):
+        logger.info(f"\nmicro exec number {i}")
         c = Colorizer(hinter, num_insns=num_insns, exec_id=i)
 
         machine_copy = copy.deepcopy(machine)
@@ -101,9 +115,11 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
         random.seed(seed + i)
         bytz = random.randbytes(buflen)
         if fortytwos:
-            for i in range(buflen):
+            for j in range(buflen):
                 if random.random() > 0.5:
-                    bytz = bytz[: i - 1] + b"\x2a" + bytz[i + 1 :]
+                    bytz = bytz[: j] + b"\x2a" + bytz[j + 1 :]
+        for j in range(buflen):
+            logger.info(f"buf[{j}] = {bytz[j]:x}")
         buf = heap.allocate_bytes(bytz, "buf")
         # arg 1 of foo is addr of buffer
         cpu.rdi.set_content(buf)
@@ -116,6 +132,18 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
         c.run(perturbed_machine)
 
     smallworld.analyze(perturbed_machine, analyses)
+    print("--------------------------")
+    res = crw.graph.derive(0x219c,True,pdef.registers['rax'])
+    print(res)
+    print("--------------------------")
+    res = crw.graph.derive(0x2183,True,BSIDMemoryReferenceOperand(base='rbp', index=None, scale=1, offset=-0x18))    
+    print(res)
+    print("--------------------------")
+    res = crw.graph.derive(0x216e,True,BSIDMemoryReferenceOperand(base='rbp', index=None, scale=1, offset=-0x1c))    
+    print(res)
+
+    
+
     return hints
 
 
@@ -127,8 +155,8 @@ if __name__ == "__main__":
         fortytwos = sys.argv[4] == "True"
         seed = int(sys.argv[5])
     except:
-        print("Error in one or more args")
-        print(
+        logger.info("Error in one or more args")
+        logger.info(
             """Usage: colorizer_test.py num_insns buflen fortytwos seed
 num_micro_exec  How many micro executions.
 num_insns:       How many (max) instructions to execute from entry for each micro exec.

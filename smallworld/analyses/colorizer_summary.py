@@ -89,7 +89,7 @@ class ColorizerSummary(analysis.Analysis):
         # values or values computed from those. This means they don't
         # correspond across micro-executions. We need them to do so if
         # we are to summarize.
-        #
+        # 
         truecolors = set([])
         dvh2truecolor = {}
         color2truecolor = {}
@@ -97,7 +97,7 @@ class ColorizerSummary(analysis.Analysis):
             if hasattr(hint, "color"):
                 if hint.new:
                     # This is a hint with a "new" color meaning the
-                    # hint time is when the color was first
+                    # hint was generated when the color was first
                     # observed. If we are trying to match up such new
                     # colors across micro executions, we do so by
                     # matching up the dv keys for them at this
@@ -127,14 +127,14 @@ class ColorizerSummary(analysis.Analysis):
             # keep one exemplar for each equivalence class
             if hk not in hk_exemplar:
                 hk_exemplar[hk] = hint
-            # collect dynamic values for this kind of hint
-            # and addresses
+            # collect dynamic values and addresses for mem hints
+            if hk not in hk_dynvals:
+                hk_dynvals[hk] = set([])
+            hk_dynvals[hk].add(hint.dynamic_value)                
             if type(hint) is DynamicMemoryValueHint:
-                if hk not in hk_dynvals:
-                    hk_dynvals[hk] = []
-                    hk_addresses[hk] = []
-                hk_dynvals[hk].append(hint.dynamic_value)
-                hk_addresses[hk].append(hint.address)
+                if hk not in hk_addresses:
+                    hk_addresses[hk] = set([])
+                hk_addresses[hk].add(hint.address)
 
         hint_keys_sorted = sorted(list(all_hint_keys))
 
@@ -164,13 +164,14 @@ class ColorizerSummary(analysis.Analysis):
                 self.hinter.send(
                     DynamicRegisterValueSummaryHint(
                         pc=hint.pc,
-                        reg_name=hint.reg_name,
                         color=color2truecolor[hint.color],
                         size=hint.size,
                         use=hint.use,
                         new=hint.new,
                         count=hk_c[hk],
-                        num_micro_executions=len(self.exec_ids),
+                        dynamic_values=list(hk_dynvals[hk]),
+                        num_micro_executions=len(self.exec_ids),                        
+                        reg_name=hint.reg_name,
                         message=hint.message + "-summary",
                     )
                 )
@@ -178,19 +179,19 @@ class ColorizerSummary(analysis.Analysis):
                 self.hinter.send(
                     DynamicMemoryValueSummaryHint(
                         pc=hint.pc,
+                        color=color2truecolor[hint.color],
                         size=hint.size,
+                        use=hint.use,
+                        new=hint.new,
+                        count=hk_c[hk],
+                        dynamic_values=list(hk_dynvals[hk]),
+                        num_micro_executions=len(self.exec_ids),                    
                         base=hint.base,
                         index=hint.index,
                         scale=hint.scale,
                         offset=hint.offset,
-                        color=color2truecolor[hint.color],
-                        dynamic_values=hk_dynvals[hk],
-                        addresses=hk_addresses[hk],
-                        use=hint.use,
-                        new=hint.new,
+                        addresses=list(hk_addresses[hk]),
                         message=hint.message + "-summary",
-                        count=hk_c[hk],
-                        num_micro_executions=len(self.exec_ids),
                     )
                 )
             if type(hint) is MemoryUnavailableHint:

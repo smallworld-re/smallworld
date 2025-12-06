@@ -22,7 +22,10 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         self.index = index
         self.scale = scale
         self.offset = offset
+        if self.base == "None" or self.index == "None" or self.scale == "None" or self.offset == "None":
+            breakpoint()
 
+        
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
         if self.base is not None:
@@ -42,6 +45,10 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             "offset": self.offset,
         }
 
+    def to_dict(self) -> dict:
+        breakpoint()
+        return self.to_json()
+        
     @classmethod
     def from_json(cls, dict):
         if any(k not in dict for k in ("base", "index", "scale", "offset")):
@@ -52,19 +59,28 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
     def expr_string(self) -> str:
         string = ""
 
-        if self.base:
-            string = f"{self.base}"
-
-        if self.index:
-            if self.scale:
+        # not sure why these things are strings sometimes but they are
+        def nn(x):
+            if x is not None and x != "None":
+                return True
+            return False
+        
+        if nn(self.base):
+            string = self.base
+        if nn(self.index):
+            if nn(self.scale):
                 string = f"{string}+{self.scale}*{self.index}"
             else:
                 string = f"{string}+{self.index}"
-
-        if self.offset:
+        if self.offset < 0:
+            string = f"{string}{self.offset:x}"                
+        elif self.offset > 0:
             string = f"{string}+{self.offset:x}"
-
-        return string
+                
+        if "None" in string:
+            breakpoint()
+            
+        return f"[{string}]"
 
     def __repr__(self) -> str:
         string = self.expr_string()

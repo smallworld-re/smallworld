@@ -21,13 +21,14 @@ from .trace_execution import TraceExecution, TraceExecutionCBPoint
 logger = logging.getLogger(__name__)
 
 
-MIN_ACCEPTABLE_COLOR_INT = 0x20
+MIN_ACCEPTABLE_COLOR_INT = 0x80
 BAD_COLOR = (2**64) - 1
 
 Colors = typing.Dict[int, typing.Tuple[Operand, int, Instruction, int]]
 
 Shad = typing.Dict[int, typing.Tuple[int, bool, int]]
-
+            
+    
 
 def randomize_uninitialized(
     machine: state.Machine,
@@ -53,16 +54,24 @@ def randomize_uninitialized(
     Note that, for a register, it is either set or not.  We can't tell
     if, say edx part of rdx has been set.
 
+    NOTE: If we want a seed to determine the specific random values
+    chosen for regs and mem bytes, then we need to arrange for any
+    iterators over things to do so in a repeatable way.  For instance,
+    we need to get register names and sort them then randomize them in
+    that order.  Similarly, we do things to make sure we are
+    randomizing memory objects or the segments within them in same
+    order every time.
+
+
     """
+    
     random.seed(seed)
-    logger.setLevel(logging.DEBUG)
 
     m = hashlib.md5()
     platform = machine.get_platform()
     machine_copy = copy.deepcopy(machine)
+
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    reg_names = list(pdefs.registers.keys())
-    reg_names.sort()
 
     def get_reg(machine, reg_name):
         cpu = machine.get_cpu()
@@ -72,6 +81,8 @@ def randomize_uninitialized(
                     return x
         return None
 
+    reg_names = list(pdefs.registers.keys())
+    reg_names.sort()
     for name in reg_names:
         if (name in pdefs.general_purpose_registers) or (name in extra_regs):
             reg = get_reg(machine_copy, name)
@@ -80,12 +91,21 @@ def randomize_uninitialized(
                 v = random.randint(0, (1 << (8 * reg.size)) - 1)
                 reg.set(v)
                 m.update(str(v).encode("utf-8"))
+                logger.info(f"randomize_unitialized: reg{name} randomized to {v:x}")
 
+    mems = {}
+    memsk = []
     for mem in machine_copy:
-        if not isinstance(mem, state.memory.Memory):
-            continue
+        if isinstance(mem, state.memory.Memory):
+            mems[str(mem)] = mem
+            memsk.append(str(mem))
+    memsk.sort()
 
-        def rand_mem(mem, start, size):
+    for mk in memsk:
+
+        mem = mems[mk]
+        
+        def randomize_mem(mem, start, size):
             bytz = random.randbytes(size)
             mem.write_bytes(start, bytz)
             m.update(bytz)
@@ -93,26 +113,37 @@ def randomize_uninitialized(
         if isinstance(mem, state.memory.code.Executable):
             # nothing to randomize here except maybe bss
             if (bss_start is not None) and (bss_size is not None):
+                # see above about reg_names; same deal
+                segstarts = []
                 for seg_start, bv in mem.items():
+                    segstarts.append(seg_start)
+                segstarts.sort()
+                for seg_start in segstarts:
+                    bv = mem[seg_start]
                     seg_end = seg_start + bv.get_size()
                     logger.info(f"bss_start={bss_start:x} seg_start={seg_start:x}")
                     logger.info(f"bss_end={bss_start + bss_size:x} seg_end={seg_end:x}")
                     if (bss_start >= seg_start) and (bss_start + bss_size <= seg_end):
                         logger.info(
-                            f"bss in elf segment {seg_start:x}..{seg_end:x}. perturbing it."
+                            f"randomize_unitialized: bss in elf segment {seg_start:x}..{seg_end:x}. perturbing it."
                         )
-                        rand_mem(mem, mem.address + bss_start, bss_size)
+                        randomize_mem(mem, mem.address + bss_start, bss_size)
 
         elif isinstance(mem, state.memory.Memory):
+
+            mem_rngs = []
             for mem_rng in mem.get_ranges_uninitialized():
+                mem_rngs.append(mem_rng)
+            mem_rngs.sort()
+            
+            for mem_rng in mem_rngs:
                 logger.info(
-                    f"memory({mem}) type({type(mem)}) has uninitialized range {mem_rng}: perturbing it."
+                    f"randomize_unitialized: memory({mem}) type({type(mem)}) has uninitialized range {mem_rng}: perturbing it."
                 )
-                rand_mem(mem, mem_rng.start, len(mem_rng))
+                randomize_mem(mem, mem_rng.start, len(mem_rng))
 
-    logger.debug(f"digest of changes made to machine: {m.hexdigest()}")
+    logger.info(f"seed={seed} digest of changes made to machine: {m.hexdigest()}")
 
-    logger.setLevel(logging.INFO)
 
     return machine_copy
 
@@ -202,6 +233,9 @@ class Colorizer(analysis.Analysis):
         def check_rws(emu, pc, te, is_read):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
+            # if pc == 0x21b1 and is_read:
+            #     logger.info(f"pc={pc:x} before eax={emu.read_register('eax'):x} ecx={emu.read_register('ecx'):x}") 
+            #     breakpoint()
             if is_read:
                 operand_list = sw_insn.reads
                 lab = "read"
@@ -210,7 +244,7 @@ class Colorizer(analysis.Analysis):
                 lab = "write"
             rws = []
             for operand in operand_list:
-                logger.debug(f"pc={pc:x} {lab}_operand={operand}")
+                # logger.debug(f"pc={pc:x} {lab}_operand={operand}")
                 if type(operand) is RegisterOperand and operand.name == "rflags":
                     continue
                 sz = self._operand_size(operand)
@@ -291,6 +325,9 @@ class Colorizer(analysis.Analysis):
         # this concrete value can be an int (if it came from a register)
         # or bytes (if it came from memory read)
         # we want these in a common format so that we can see them as colors
+        # if size < 2:
+        #     # let's please just have colors that are at least 2 bytes 
+        #     return BAD_COLOR
         the_bytes: bytes = b""
         if type(concrete_value) is int:
             if concrete_value < MIN_ACCEPTABLE_COLOR_INT:
