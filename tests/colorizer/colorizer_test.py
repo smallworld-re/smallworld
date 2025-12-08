@@ -61,7 +61,6 @@ hints = []
 
 
 def collect_hints(hint):
-    global hints
     hints.append(hint)
 
 
@@ -74,7 +73,6 @@ def collect_hints(hint):
 # seed:           seed for RNG
 def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
     global hints
-    global machine
 
     hints = []
     logger.info(

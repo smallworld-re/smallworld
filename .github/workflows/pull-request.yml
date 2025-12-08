@@ -26,7 +26,7 @@ jobs:
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - name: Checkout (This Repo)
+      - name: Checkout
         uses: actions/checkout@v3
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
@@ -34,13 +34,9 @@ jobs:
         with:
           token: ${{ secrets.BOT_TOKEN }}
 
-      - name: Checkout (Fork Repo)
-        uses: actions/checkout@v3
-        env:
-          secret: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token == '' }}
-
-      - uses: actions/checkout@v4
+      - name: Cache inputs
+        run: |
+          nix run .#printInputsRecursive | cachix push smallworld
 
       - name: Format
         env:
@@ -49,6 +45,7 @@ jobs:
         run: |
           nix develop -c isort . --profile black
           nix develop -c black ./
+          nix develop -c treefmt -f nixfmt --no-cache
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -71,6 +68,7 @@ jobs:
           nix develop -c black --check ./
           nix develop -c flake8 ./
           nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
+          nix develop -c treefmt -f nixfmt --ci
 
       - name: Check Title
         env:
