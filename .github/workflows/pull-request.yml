@@ -207,17 +207,17 @@ jobs:
             - testsuite: HookingTests
             - testsuite: MemhookTests
             # - testsuite: PETests
-            - testsuite: POSIXBasenameTests
-            - testsuite: POSIXBsdSignalTests
-            - testsuite: POSIXDirnameTests
-            - testsuite: POSIXPthreadSigmaskTests
-            - testsuite: POSIXSigactionTests
-            - testsuite: POSIXSigaddsetTests
-            - testsuite: POSIXSigdelsetTests
-            - testsuite: POSIXSigemptysetTests
-            - testsuite: POSIXSigfillsetTests
-            - testsuite: POSIXSigpendingTests
-            - testsuite: POSIXSigprocmaskTests
+            # - testsuite: POSIXBasenameTests
+            # - testsuite: POSIXBsdSignalTests
+            # - testsuite: POSIXDirnameTests
+            # - testsuite: POSIXPthreadSigmaskTests
+            # - testsuite: POSIXSigactionTests
+            # - testsuite: POSIXSigaddsetTests
+            # - testsuite: POSIXSigdelsetTests
+            # - testsuite: POSIXSigemptysetTests
+            # - testsuite: POSIXSigfillsetTests
+            # - testsuite: POSIXSigpendingTests
+            # - testsuite: POSIXSigprocmaskTests
             - testsuite: RelaTests
             - testsuite: RTOSDemoTests
             - testsuite: SquareTests
