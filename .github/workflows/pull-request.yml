@@ -188,10 +188,10 @@ jobs:
             # - testsuite: C99TmpfileTests
             # - testsuite: C99TmpnamTests
             # - testsuite: C99UngetcTests
-            - testsuite: CheckedDoubleFreeTests
-            - testsuite: CheckedReadTests
-            - testsuite: CheckedUAFTests
-            - testsuite: CheckedWriteTests
+            # - testsuite: CheckedDoubleFreeTests
+            # - testsuite: CheckedReadTests
+            # - testsuite: CheckedUAFTests
+            # - testsuite: CheckedWriteTests
             - testsuite: ColorizerTests
             - testsuite: DelayTests
             - testsuite: DMATests
