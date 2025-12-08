@@ -134,7 +134,10 @@ class UnicornEmulator(
                 self.state = EmulatorState.STEP
             if self.state == EmulatorState.START_STEP:
                 insn = self.current_instruction()
-                if insn.mnemonic in self.platdef.delay_slot_mnemonics:
+                if (
+                    insn is not None
+                    and insn.mnemonic in self.platdef.delay_slot_mnemonics
+                ):
                     self.state = EmulatorState.DELAY_STEP
                 else:
                     self.state = EmulatorState.STEP
@@ -559,7 +562,6 @@ class UnicornEmulator(
             raise AssertionError("invalid state")
         for i in self.disassembler.disasm(code, pc):
             return i
-        raise ValueError(f"No valid instruction at {hex(pc)}")
 
     def _check(self) -> None:
         # check if it's ok to begin emulating

@@ -79,6 +79,15 @@ strcmp_model.allow_imprecise = True
 # Relocate strcmp
 code.update_symbol_value("strcmp", strcmp_model._address)
 
+exit_model = smallworld.state.models.Model.lookup(
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10014
+)
+machine.add(exit_model)
+exit_model.allow_imprecise = True
+
+# Relocate exit
+code.update_symbol_value("exit", exit_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -125,7 +134,15 @@ cpu.t9.set(entrypoint)
 emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x20000)
 try:
-    machine.emulate(emulator)
+    # machine.emulate(emulator)
+    machine.apply(emulator)
+    print(emulator.read_memory(0x82FC50, 8))
+    while True:
+        emulator.step()
+        print("Step")
+        print(hex(emulator.read_register("pc")))
+        print(hex(emulator.read_register("gp")))
+        print(hex(emulator.read_register("t9")))
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass

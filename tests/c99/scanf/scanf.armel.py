@@ -106,6 +106,15 @@ strlen_model.allow_imprecise = True
 # Relocate strlen
 code.update_symbol_value("strlen", strlen_model._address)
 
+exit_model = smallworld.state.models.Model.lookup(
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10020
+)
+machine.add(exit_model)
+exit_model.allow_imprecise = True
+
+# Relocate exit
+code.update_symbol_value("exit", exit_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):

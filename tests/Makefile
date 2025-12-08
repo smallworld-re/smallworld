@@ -125,6 +125,7 @@ ARMEL_CFLAGS := -marm -mfloat-abi=soft
 ARMHF_CFLAGS := -marm
 MIPS64_CFLAGS := -T mips_linkerscript.ld 
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
+PPC_CFLAGS := -mfloat-abi=hard
 
 # ELF Executable C flags
 AARCH64_ELF_CFLAGS := -pie

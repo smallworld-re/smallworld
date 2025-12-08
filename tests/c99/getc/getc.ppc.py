@@ -66,8 +66,8 @@ getc_model.allow_imprecise = True
 code.update_symbol_value("getc", getc_model._address)
 
 # Create a fake stdin
-fake_stdin = smallworld.state.memory.Memory(0x20000, 8)
-fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 8, None, False)
+fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdin)
 
 code.update_symbol_value("stdin", fake_stdin.address)

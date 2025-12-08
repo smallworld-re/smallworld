@@ -69,8 +69,8 @@ code.update_symbol_value("fflush", fflush_model._address)
 
 # Create a fake stdout
 # i386 references the copy in libc, so we need to make our own
-fake_stdout = smallworld.state.memory.Memory(0x20000, 8)
-fake_stdout[0] = smallworld.state.IntegerValue(0x47492A00, 8, None, False)
+fake_stdout = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdout[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdout)
 
 code.update_symbol_value("stdout", fake_stdout.address)
@@ -105,7 +105,9 @@ machine.add(dead)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
-    machine.emulate(emulator)
+    # machine.emulate(emulator)
+    for m in machine.step(emulator):
+        print(m.get_cpu().pc)
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass

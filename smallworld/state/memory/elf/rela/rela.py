@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import abc
-import typing
 
 from ..... import platforms, utils
-from .....exceptions import ConfigurationError
 from .. import elf
 from ..structs import ElfRela
 
@@ -31,26 +29,12 @@ class ElfRelocator:
         raise NotImplementedError("This is an abstract method.")
 
     @abc.abstractmethod
-    def _compute_value(self, rela: ElfRela) -> bytes:
+    def _compute_value(self, rela: ElfRela, elf: elf.ElfExecutable) -> bytes:
         raise NotImplementedError("This is an abstract method.")
 
     def relocate(self, elf: elf.ElfExecutable, rela: ElfRela) -> None:
-        val = self._compute_value(rela)
-        for off, seg in elf.items():
-            start = off + elf.address
-            stop = start + seg.get_size()
-
-            if rela.offset >= start and rela.offset < stop:
-                start = rela.offset - start
-                end = start + len(val)
-
-                contents = typing.cast(bytes, seg.get_content())
-                contents = contents[0:start] + val + contents[end:]
-                seg.set_content(contents)
-                return
-        raise ConfigurationError(
-            f"No segment in ELF loaded at {hex(elf.address)} covers address {hex(rela.offset)}"
-        )
+        val = self._compute_value(rela, elf)
+        elf.write_bytes(rela.offset, val)
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

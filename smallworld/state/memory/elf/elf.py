@@ -531,7 +531,13 @@ class ElfExecutable(Executable):
 
                 for s in list(elf.dynamic_symbols)[gotsym:]:
                     sym = lief_to_elf[s]
-                    rela = ElfRela(offset=gotoff, type=rela_type, symbol=sym, addend=0)
+                    rela = ElfRela(
+                        is_rela=False,
+                        offset=gotoff,
+                        type=rela_type,
+                        symbol=sym,
+                        addend=0,
+                    )
                     sym.relas.append(rela)
                     self._dynamic_relas.append(rela)
 
@@ -549,7 +555,11 @@ class ElfExecutable(Executable):
             else:
                 r_type &= 0xFFFFFFFF
             rela = ElfRela(
-                offset=r.address + baseaddr, type=r_type, symbol=sym, addend=r.addend
+                is_rela=r.is_rela,
+                offset=r.address + baseaddr,
+                type=r_type,
+                symbol=sym,
+                addend=r.addend,
             )
             sym.relas.append(rela)
             self._dynamic_relas.append(rela)
@@ -557,6 +567,7 @@ class ElfExecutable(Executable):
         for r in elf.object_relocations:
             if r.symbol is None:
                 continue
+            sym = lief_to_elf[r.symbol]
             # Lief royally screws up relocation entries
             r_type = r.r_info(elf.header.identity_class)
             if elf.header.identity_class.value == 1:
@@ -564,6 +575,7 @@ class ElfExecutable(Executable):
             else:
                 r_type &= 0xFFFFFFFF
             rela = ElfRela(
+                is_rela=r.is_rela,
                 offset=r.address + baseaddr,
                 type=r.type & 0xFFFF,
                 symbol=sym,

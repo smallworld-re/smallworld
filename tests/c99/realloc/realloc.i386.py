@@ -101,6 +101,8 @@ try:
     # machine.emulate(emulator)
     for m in machine.step(emulator):
         print(m.get_cpu().pc)
+        print(m.get_cpu().eax)
+        print(m.get_cpu().ebx)
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass
