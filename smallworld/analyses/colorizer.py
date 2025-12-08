@@ -27,8 +27,7 @@ BAD_COLOR = (2**64) - 1
 Colors = typing.Dict[int, typing.Tuple[Operand, int, Instruction, int]]
 
 Shad = typing.Dict[int, typing.Tuple[int, bool, int]]
-            
-    
+
 
 def randomize_uninitialized(
     machine: state.Machine,
@@ -64,7 +63,7 @@ def randomize_uninitialized(
 
 
     """
-    
+
     random.seed(seed)
 
     m = hashlib.md5()
@@ -102,9 +101,8 @@ def randomize_uninitialized(
     memsk.sort()
 
     for mk in memsk:
-
         mem = mems[mk]
-        
+
         def randomize_mem(mem, start, size):
             bytz = random.randbytes(size)
             mem.write_bytes(start, bytz)
@@ -130,12 +128,11 @@ def randomize_uninitialized(
                         randomize_mem(mem, mem.address + bss_start, bss_size)
 
         elif isinstance(mem, state.memory.Memory):
-
             mem_rngs = []
             for mem_rng in mem.get_ranges_uninitialized():
                 mem_rngs.append(mem_rng)
             mem_rngs.sort()
-            
+
             for mem_rng in mem_rngs:
                 logger.info(
                     f"randomize_unitialized: memory({mem}) type({type(mem)}) has uninitialized range {mem_rng}: perturbing it."
@@ -143,7 +140,6 @@ def randomize_uninitialized(
                 randomize_mem(mem, mem_rng.start, len(mem_rng))
 
     logger.info(f"seed={seed} digest of changes made to machine: {m.hexdigest()}")
-
 
     return machine_copy
 
@@ -234,14 +230,14 @@ class Colorizer(analysis.Analysis):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
             # if pc == 0x21b1 and is_read:
-            #     logger.info(f"pc={pc:x} before eax={emu.read_register('eax'):x} ecx={emu.read_register('ecx'):x}") 
+            #     logger.info(f"pc={pc:x} before eax={emu.read_register('eax'):x} ecx={emu.read_register('ecx'):x}")
             #     breakpoint()
             if is_read:
                 operand_list = sw_insn.reads
-                lab = "read"
+                # lab = "read"
             else:
                 operand_list = sw_insn.writes
-                lab = "write"
+                # lab = "write"
             rws = []
             for operand in operand_list:
                 # logger.debug(f"pc={pc:x} {lab}_operand={operand}")
@@ -326,7 +322,7 @@ class Colorizer(analysis.Analysis):
         # or bytes (if it came from memory read)
         # we want these in a common format so that we can see them as colors
         # if size < 2:
-        #     # let's please just have colors that are at least 2 bytes 
+        #     # let's please just have colors that are at least 2 bytes
         #     return BAD_COLOR
         the_bytes: bytes = b""
         if type(concrete_value) is int:

@@ -9,18 +9,10 @@ from smallworld import hinting
 from smallworld.analyses import Colorizer, ColorizerReadWrite
 from smallworld.analyses.colorizer import randomize_uninitialized
 from smallworld.hinting.hints import (
-    DefUseGraphHint,
-    DynamicMemoryValueSummaryHint,
-    DynamicRegisterValueSummaryHint,
-    MemoryUnavailableSummaryHint,
     TraceExecutionHint,
 )
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
-
-from smallworld.analyses.colorizer_read_write import MemoryLvalInfo, MemLvalDvKey, RegisterInfo
 from smallworld.platforms.defs.platformdef import PlatformDef
-
-
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.DEBUG)
@@ -33,7 +25,6 @@ platform = smallworld.platforms.Platform(
 )
 
 pdef = PlatformDef.for_platform(platform)
-
 
 
 # create a machine
@@ -60,7 +51,7 @@ cpu.rsp.set(rsp)
 # md5sum trace_executor/ahme-x86_64
 # 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64
 entry_point = 0x2159
-exit_point = 0x225a
+exit_point = 0x225A
 
 cpu.rip.set(entry_point)
 machine.add(cpu)
@@ -117,7 +108,7 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
         if fortytwos:
             for j in range(buflen):
                 if random.random() > 0.5:
-                    bytz = bytz[: j] + b"\x2a" + bytz[j + 1 :]
+                    bytz = bytz[:j] + b"\x2a" + bytz[j + 1 :]
         for j in range(buflen):
             logger.info(f"buf[{j}] = {bytz[j]:x}")
         buf = heap.allocate_bytes(bytz, "buf")
@@ -133,16 +124,22 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
 
     smallworld.analyze(perturbed_machine, analyses)
     print("--------------------------")
-    res = crw.graph.derive(0x219c,True,pdef.registers['rax'])
+    res = crw.graph.derive(0x219C, True, pdef.registers["rax"])
     print(res)
     print("--------------------------")
-    res = crw.graph.derive(0x2183,True,BSIDMemoryReferenceOperand(base='rbp', index=None, scale=1, offset=-0x18))    
+    res = crw.graph.derive(
+        0x2183,
+        True,
+        BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x18),
+    )
     print(res)
     print("--------------------------")
-    res = crw.graph.derive(0x216e,True,BSIDMemoryReferenceOperand(base='rbp', index=None, scale=1, offset=-0x1c))    
+    res = crw.graph.derive(
+        0x216E,
+        True,
+        BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x1C),
+    )
     print(res)
-
-    
 
     return hints
 

@@ -3,7 +3,7 @@ import typing
 from dataclasses import dataclass
 from enum import Enum
 
-from smallworld.instructions import RegisterOperand, BSIDMemoryReferenceOperand
+from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
 CmpInfo = typing.Union[RegisterOperand, BSIDMemoryReferenceOperand, int]
 

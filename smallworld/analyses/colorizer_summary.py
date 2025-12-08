@@ -89,7 +89,7 @@ class ColorizerSummary(analysis.Analysis):
         # values or values computed from those. This means they don't
         # correspond across micro-executions. We need them to do so if
         # we are to summarize.
-        # 
+        #
         truecolors = set([])
         dvh2truecolor = {}
         color2truecolor = {}
@@ -130,7 +130,7 @@ class ColorizerSummary(analysis.Analysis):
             # collect dynamic values and addresses for mem hints
             if hk not in hk_dynvals:
                 hk_dynvals[hk] = set([])
-            hk_dynvals[hk].add(hint.dynamic_value)                
+            hk_dynvals[hk].add(hint.dynamic_value)
             if type(hint) is DynamicMemoryValueHint:
                 if hk not in hk_addresses:
                     hk_addresses[hk] = set([])
@@ -170,7 +170,7 @@ class ColorizerSummary(analysis.Analysis):
                         new=hint.new,
                         count=hk_c[hk],
                         dynamic_values=list(hk_dynvals[hk]),
-                        num_micro_executions=len(self.exec_ids),                        
+                        num_micro_executions=len(self.exec_ids),
                         reg_name=hint.reg_name,
                         message=hint.message + "-summary",
                     )
@@ -185,7 +185,7 @@ class ColorizerSummary(analysis.Analysis):
                         new=hint.new,
                         count=hk_c[hk],
                         dynamic_values=list(hk_dynvals[hk]),
-                        num_micro_executions=len(self.exec_ids),                    
+                        num_micro_executions=len(self.exec_ids),
                         base=hint.base,
                         index=hint.index,
                         scale=hint.scale,

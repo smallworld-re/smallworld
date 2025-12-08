@@ -447,10 +447,8 @@ class DefUseGraphHint(hinting.Hint):
 
     # note this is just for logging purposes
     def to_json(self):
-        return {            
-            "graph": jsons.dump(self.graph)
-        }
-        
+        return {"graph": jsons.dump(self.graph)}
+
 
 @dataclass(frozen=True)
 class BranchesHint(hinting.Hint):

@@ -22,10 +22,14 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         self.index = index
         self.scale = scale
         self.offset = offset
-        if self.base == "None" or self.index == "None" or self.scale == "None" or self.offset == "None":
+        if (
+            self.base == "None"
+            or self.index == "None"
+            or self.scale == "None"
+            or self.offset == "None"
+        ):
             breakpoint()
 
-        
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
         if self.base is not None:
@@ -48,7 +52,7 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
     def to_dict(self) -> dict:
         breakpoint()
         return self.to_json()
-        
+
     @classmethod
     def from_json(cls, dict):
         if any(k not in dict for k in ("base", "index", "scale", "offset")):
@@ -64,8 +68,8 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             if x is not None and x != "None":
                 return True
             return False
-        
-        if nn(self.base):
+
+        if self.base is not None and self.base != "None":
             string = self.base
         if nn(self.index):
             if nn(self.scale):
@@ -73,13 +77,13 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             else:
                 string = f"{string}+{self.index}"
         if self.offset < 0:
-            string = f"{string}{self.offset:x}"                
+            string = f"{string}{self.offset:x}"
         elif self.offset > 0:
             string = f"{string}+{self.offset:x}"
-                
+
         if "None" in string:
             breakpoint()
-            
+
         return f"[{string}]"
 
     def __repr__(self) -> str:
