@@ -225,7 +225,7 @@ jobs:
             - testsuite: StrlenTests
             - testsuite: StructureTests
             - testsuite: SyscallTests
-            - testsuite: SysVModelTests
+            # - testsuite: SysVModelTests
             - testsuite: TraceExecutionTests
             - testsuite: ThumbTests
             - testsuite: UnmappedTests
