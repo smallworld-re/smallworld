@@ -9,8 +9,15 @@ from smallworld.hinting.hints import (
 )
 
 if __name__ == "__main__":
-    # test(num_insn, buflen, create_heap, fortytwos randomize_regs, seed):
-    hints = test(5, 100, 12, True, 1234)
+    # test(num_insn, buflen, create_heap, fortytwos randomize_regs, seed)
+    #
+    # buflen == 100, i.e., NOT 12 so we don't get to logic that
+    # involves y in foo function (which is what is "harnessed"
+    #
+    # Also, buflen bigger than min color 0x20 thus we *will* actually
+    # get derivation for buflen back to esi (2nd arg to foo).
+    #
+    hints = test(5, 100, 77, True, 1234)
 
     # collect all pcs in any trace
     # also tds which is set of digests for a trace

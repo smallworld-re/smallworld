@@ -10,7 +10,10 @@ from smallworld.hinting.hints import (
 
 if __name__ == "__main__":
     # test(num_insn, buflen, create_heap, fortytwos randomize_regs, seed):
-    hints = test(5, 100, 12, True, 1234)
+    # buflen != 12 but bigger than 0x20
+    # so this should *have* derivations back to esi (2nd arg to foo)
+    # AND it should reach test against y which derives back to
+    hints = test(5, 100, 77, True, 1234)
 
     # collect all pcs in any trace
     # also tds which is set of digests for a trace
