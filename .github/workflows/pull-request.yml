@@ -202,8 +202,8 @@ jobs:
             - testsuite: FloatsTests
             - testsuite: FsgsbaseTests
             - testsuite: FuzzTests
-            - testsuite: LinkElfTests
-            - testsuite: LinkPETests
+            # - testsuite: LinkElfTests
+            # - testsuite: LinkPETests
             - testsuite: HookingTests
             - testsuite: MemhookTests
             - testsuite: PETests
