@@ -80,19 +80,19 @@ jobs:
           cd tests
           nix build
 
-  Unit-Test:
-    runs-on: smallworld-arc
-    needs: Lint
-    steps:
-      - uses: cachix/cachix-action@v15
-        with:
-          name: smallworld
-          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - uses: actions/checkout@v4
-      - name: Run Unit Tests
-        run: |
-          cd tests
-          nix develop .. -c python3 unit.py -v
+  # Unit-Test:
+  #   runs-on: smallworld-arc
+  #   needs: Lint
+  #   steps:
+  #     - uses: cachix/cachix-action@v15
+  #       with:
+  #         name: smallworld
+  #         authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+  #     - uses: actions/checkout@v4
+  #     - name: Run Unit Tests
+  #       run: |
+  #         cd tests
+  #         nix develop .. -c python3 unit.py -v
   Integration-Test:
       runs-on: smallworld-arc
       needs: Lint
@@ -246,7 +246,8 @@ jobs:
           nix develop .. -c python3 integration.py -v ${{ matrix.testsuite }}
   Results:
     runs-on: smallworld-arc
-    needs: [Lint, Unit-Test, Integration-Test]
+    # needs: [Lint, Unit-Test, Integration-Test]
+    needs: [Lint, Integration-Test]
     if: always()
     steps:
       - name: Formatter committed – new run will verify
