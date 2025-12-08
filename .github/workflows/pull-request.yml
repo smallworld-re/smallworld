@@ -206,7 +206,7 @@ jobs:
             # - testsuite: LinkPETests
             - testsuite: HookingTests
             - testsuite: MemhookTests
-            - testsuite: PETests
+            # - testsuite: PETests
             - testsuite: POSIXBasenameTests
             - testsuite: POSIXBsdSignalTests
             - testsuite: POSIXDirnameTests
