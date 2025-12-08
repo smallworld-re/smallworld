@@ -16,21 +16,21 @@ lc = $(subst A,a,$(subst B,b,$(subst C,c,$(subst D,d,$(subst E,e,$(subst F,f,$(s
 
 # Command Prefixes
 
-AARCH64_ID := aarch64-linux-gnu
-AMD64_ID := x86_64-linux-gnu
-AMD64_MINGW_ID := x86_64-windows-gnu
-ARMEL_ID := arm-linux-gnueabi
-ARMHF_ID := arm-linux-gnueabihf
-I386_ID := x86-linux-gnu
-I386_MINGW_ID := x86-windows-gnu
-LA64_ID := loongarch64-linux-gnu
-MIPS_ID := mips-linux.1.1.82-gnueabi
-MIPSEL_ID := mipsel-linux.1.1.82-gnueabi
-MIPS64_ID := mips64-linux-gnuabi64
-MIPS64EL_ID := mips64el-linux-gnuabi64
-PPC_ID := powerpc-linux.1.3.45-gnueabi
-PPC64_ID := powerpc64-linux-gnu
-RISCV64_ID := riscv64-linux-gnu
+AARCH64_ID := aarch64-linux-gnu.2.40
+AMD64_ID := x86_64-linux-gnu.2.40
+AMD64_MINGW_ID := x86_64-windows-gnu.2.40
+ARMEL_ID := arm-linux-gnueabi.2.40
+ARMHF_ID := arm-linux-gnueabihf.2.40
+I386_ID := x86-linux-gnu.2.40
+I386_MINGW_ID := x86-windows-gnu.2.40
+LA64_ID := loongarch64-linux-gnu.2.40
+MIPS_ID := mips-linux.1.1.82-gnueabi.2.40
+MIPSEL_ID := mipsel-linux.1.1.82-gnueabi.2.40
+MIPS64_ID := mips64-linux.2.3.48-gnuabi64.2.40
+MIPS64EL_ID := mips64el-linux.2.3.48-gnuabi64.2.40
+PPC_ID := powerpc-linux.1.3.45-gnueabi.2.40
+PPC64_ID := powerpc64-linux-gnu.2.40
+RISCV64_ID := riscv64-linux-gnu.2.40
 XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly
@@ -307,3 +307,4 @@ clean :
 	find . -name '*.so' -type f -delete
 	find . -name '*.pe' -type f -delete
 	find . -name '*.dll' -type f -delete
+	rm -rf tmp/
