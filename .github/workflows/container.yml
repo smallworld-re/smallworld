@@ -47,5 +47,5 @@ jobs:
         with:
           push: true
           tags: |
-            $REGISTRY/smallworld/smallworld_ci:${{ github.sha }}
-            $REGISTRY/smallworld/smallworld_ci:latest
+            ${{ env.REGISTRY }}/smallworld/smallworld_ci:${{ github.sha }}
+            ${{ env.REGISTRY }}/smallworld/smallworld_ci:latest
