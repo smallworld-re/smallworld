@@ -67,9 +67,6 @@ sprintf_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("sprintf", sprintf_model._address)
 
-# Relocate puts
-code.update_symbol_value("sprintf", sprintf_model._address)
-
 puts_model = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
 )

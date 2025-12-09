@@ -134,15 +134,7 @@ cpu.t9.set(entrypoint)
 emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x20000)
 try:
-    # machine.emulate(emulator)
-    machine.apply(emulator)
-    print(emulator.read_memory(0x82FC50, 8))
-    while True:
-        emulator.step()
-        print("Step")
-        print(hex(emulator.read_register("pc")))
-        print(hex(emulator.read_register("gp")))
-        print(hex(emulator.read_register("t9")))
+    machine.emulate(emulator)
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass
