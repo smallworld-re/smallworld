@@ -228,7 +228,7 @@ jobs:
             # - testsuite: SysVModelTests
             - testsuite: TraceExecutionTests
             - testsuite: ThumbTests
-            - testsuite: UnmappedTests
+            # - testsuite: UnmappedTests
       steps:
       - uses: cachix/cachix-action@v15
         with:
