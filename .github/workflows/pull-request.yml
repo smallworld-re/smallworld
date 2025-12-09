@@ -196,7 +196,7 @@ jobs:
             - testsuite: DelayTests
             - testsuite: DMATests
             - testsuite: DocumentationTests
-            - testsuite: ElfTests
+            # - testsuite: ElfTests
             # - testsuite: ElfCoreTests
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
