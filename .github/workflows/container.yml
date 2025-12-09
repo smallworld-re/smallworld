@@ -43,7 +43,9 @@ jobs:
           docker tag $REGISTRY/smallworld/smallworld_ci:${{ github.sha }} $REGISTRY/smallworld/smallworld_ci:latest
 
       - name: Push to Registry
-        run: |
-          docker push $REGISTRY/smallworld/smallworld_ci:${{ github.sha }}
-          docker push $REGISTRY/smallworld/smallworld_ci:latest
-
+        uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: |
+            $REGISTRY/smallworld/smallworld_ci:${{ github.sha }}
+            $REGISTRY/smallworld/smallworld_ci:latest
