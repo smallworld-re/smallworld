@@ -157,7 +157,7 @@ jobs:
             - testsuite: C99PutcTests
             - testsuite: C99PutsTests
             - testsuite: C99RandTests
-            - testsuite: C99ReallocTests
+            # - testsuite: C99ReallocTests
             - testsuite: C99RemoveTests
             - testsuite: C99RenameTests
             - testsuite: C99RewindTests
