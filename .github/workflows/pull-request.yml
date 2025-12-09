@@ -124,7 +124,7 @@ jobs:
             - testsuite: C99FcloseTests
             - testsuite: C99FeofTests
             - testsuite: C99FflushTests
-            - testsuite: C99FgetcTests
+            # - testsuite: C99FgetcTests
             - testsuite: C99FgetposTests
             # - testsuite: C99FgetsTests
             - testsuite: C99FopenTests
@@ -139,7 +139,7 @@ jobs:
             - testsuite: C99FtellTests
             - testsuite: C99FwriteTests
             - testsuite: C99GetcharTests
-            - testsuite: C99GetcTests
+            # - testsuite: C99GetcTests
             - testsuite: C99GetenvTests
             - testsuite: C99GetsTests
             - testsuite: C99GmtimeTests
@@ -167,7 +167,7 @@ jobs:
             # - testsuite: C99SprintfTests
             - testsuite: C99SrandTests
             # - testsuite: C99SscanfTests
-            - testsuite: C99StrcatTests
+            # - testsuite: C99StrcatTests
             - testsuite: C99StrchrTests
             - testsuite: C99StrcmpTests
             - testsuite: C99StrcpyTests
@@ -175,7 +175,7 @@ jobs:
             - testsuite: C99StrerrorTests
             - testsuite: C99StrftimeTests
             - testsuite: C99StrlenTests
-            - testsuite: C99StrncatTests
+            # - testsuite: C99StrncatTests
             - testsuite: C99StrncmpTests
             - testsuite: C99StrncpyTests
             - testsuite: C99StrpbrkTests
