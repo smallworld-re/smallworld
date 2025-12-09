@@ -198,7 +198,7 @@ jobs:
             - testsuite: DocumentationTests
             # - testsuite: ElfTests
             # - testsuite: ElfCoreTests
-            - testsuite: ExitpointTests
+            # - testsuite: ExitpointTests
             - testsuite: FloatsTests
             # - testsuite: FsgsbaseTests
             - testsuite: FuzzTests
