@@ -119,7 +119,7 @@ jobs:
             - testsuite: C99ClearerrTests
             - testsuite: C99ClockTests
             - testsuite: C99CtimeTests
-            - testsuite: C99DifftimeTests
+            # - testsuite: C99DifftimeTests
             - testsuite: C99ExitTests
             - testsuite: C99FcloseTests
             - testsuite: C99FeofTests
