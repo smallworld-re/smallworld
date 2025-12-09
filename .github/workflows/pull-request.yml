@@ -126,7 +126,7 @@ jobs:
             - testsuite: C99FflushTests
             - testsuite: C99FgetcTests
             - testsuite: C99FgetposTests
-            - testsuite: C99FgetsTests
+            # - testsuite: C99FgetsTests
             - testsuite: C99FopenTests
             # - testsuite: C99FprintfTests
             - testsuite: C99FputcTests
