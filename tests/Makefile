@@ -228,7 +228,7 @@ $(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
 $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
 %.$$($(1)_EXT).so : %.so.c
-	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -shared -o $$@ $$<
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -shared -o $$@ $$<
 
 %.$$($(1)_EXT).elf : %.elf.c
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<

@@ -1,11 +1,14 @@
 Using SmallWorld
 ================
 
-.. toctree::
+The following docs provide detailed usage information
+for the various SmallWorld interfaces.
 
-    state
-    emulators
+.. toctree::
+    :titlesonly:
+
+    platforms/index
+    state/index
+    emulators/index
     hinting
     analyses
-    platforms
-    models/models
