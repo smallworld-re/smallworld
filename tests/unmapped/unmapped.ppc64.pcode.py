@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # NOTE: We purposefully don't add bounds.
@@ -50,7 +52,7 @@ cpu.sp.set(sp)
 
 # First test: read unmapped memory
 try:
-    entrypoint = 0x10000684
+    entrypoint = 0x4104F8
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.GhidraEmulator(platform)
     final_machine = machine.emulate(emulator)
@@ -60,7 +62,7 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 
 # Second test: write unmapped memory
 try:
-    entrypoint = 0x100006C4
+    entrypoint = 0x41051C
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.GhidraEmulator(platform)
     final_machine = machine.emulate(emulator)
@@ -70,19 +72,10 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 
 # Third test: fetch unmapped memory
 try:
-    entrypoint = 0x10000704
+    entrypoint = 0x410544
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.GhidraEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory fetch")
-except smallworld.exceptions.EmulationReadUnmappedFailure:
-    # Yes, you read this right.
-    #
-    # Thanks to the whole "function pointers are structs" thing,
-    # calling a bad function pointer will give you a read error
-    # before it gives a fetch error.
-    #
-    # I could probably do some megahacks to mimic
-    # an actual fetch failure, but I think this is going
-    # to be a more realistic case.
+except smallworld.exceptions.EmulationFetchUnmappedFailure:
     pass

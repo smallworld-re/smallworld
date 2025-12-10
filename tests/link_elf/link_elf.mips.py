@@ -84,18 +84,19 @@ cpu.sp.set(sp)
 cpu.a0.set(2)
 cpu.a1.set(argv)
 
+# set an exitpoint.
+exitpoint = entrypoint + code.get_symbol_size("main")
+cpu.ra.set(exitpoint)
+machine.add_exit_point(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 
 # Use code bounds from the ELF
-emulator.add_exit_point(0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
-
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x74)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

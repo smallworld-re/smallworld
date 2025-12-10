@@ -21,11 +21,13 @@ class ArmElfRelocator(ElfRelocator):
             or rela.type == R_ARM_ABS32
         ):
             # Different semantics, all behave the same
-            if rela.is_rela:
-                addend = rela.addend
+            if rela.type == R_ARM_RELATIVE or rela.type == R_ARM_ABS32:
+                if rela.is_rela:
+                    addend = rela.addend
+                else:
+                    addend = elf.read_int(rela.offset, 4, self.byteorder)
             else:
                 addend = 0
-                # addend = elf.read_int(rela.offset, 4, self.byteorder)
 
             val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(4, "little")

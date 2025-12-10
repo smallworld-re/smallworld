@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -44,7 +44,7 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 # Configure the heap
-heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x20000, 0x1000, 16)
+heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x200000, 0x1000, 16)
 machine.add(heap)
 
 malloc_model = smallworld.state.models.Model.lookup(

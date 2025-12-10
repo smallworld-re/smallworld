@@ -25,9 +25,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -46,7 +44,7 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 # Configure the heap
-heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x20000, 0x1000, 16)
+heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x200000, 0x1000, 16)
 machine.add(heap)
 
 malloc_model = smallworld.state.models.Model.lookup(

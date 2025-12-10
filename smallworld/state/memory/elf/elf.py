@@ -293,10 +293,26 @@ class ElfExecutable(Executable):
             # Some kind of arm32
             flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
 
+            # NOTE: ELF stopped numbering ARM version numbers at 5.
+            # This would be fine, except v6 and v7 are absolutely not
+            # binary compatible with v5.
             if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
                 # This is either ARMv5T or some kind of ARMv6.
-                # We're currently assuming v5T, but this isn't always correct.
-                architecture = Architecture.ARM_V5T
+                # We're currently assuming v5T,
+                # unless the user specifically asks for v6.
+                if (
+                    self.platform is not None
+                    and self.platform.architecture is Architecture.ARM_V6M
+                ):
+                    architecture = Architecture.ARM_V6M
+                elif (
+                    self.platform is not None
+                    and self.platform.architecture is Architecture.ARM_V5T
+                ):
+                    architecture = Architecture.ARM_V5T
+                else:
+                    log.warning("Ambiguous ARM ABI version; assuming v5t")
+                    architecture = Architecture.ARM_V5T
             elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
                 # This is ARMv7a, as built by gcc.
                 architecture = Architecture.ARM_V7A
@@ -584,9 +600,10 @@ class ElfExecutable(Executable):
             sym.relas.append(rela)
             self._static_relas.append(rela)
 
-        # Any rela tied to the NULL symbol needs to be relocated
-        null_sym = self._dynamic_symbols[0]
-        self.update_symbol_value(null_sym, 0, rebase=False)
+        if len(self._dynamic_symbols) > 0:
+            # Any rela tied to the NULL symbol needs to be relocated
+            null_sym = self._dynamic_symbols[0]
+            self.update_symbol_value(null_sym, 0, rebase=False)
 
     def _get_symbols(
         self, name: typing.Union[str, int], dynamic: bool

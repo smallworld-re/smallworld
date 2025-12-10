@@ -76,6 +76,11 @@ machine.add(puts)
 # Relocate puts
 code.update_symbol_value("puts", puts._address)
 
+# Configure an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+machine.add_exit_point(exitpoint)
+cpu.ra.set(exitpoint)
+
 # UTTER AND TOTAL MADNESS
 # MIPS relies on a "Global Pointer" register
 # to find its place in a position-independent binary.
@@ -94,5 +99,4 @@ cpu.t9.set(entrypoint)
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(entrypoint + 100)
 machine.emulate(emulator)

@@ -71,10 +71,10 @@ machine.add(backing)
 foo = FooModel("foo", 0x1000, 8)
 machine.add(foo)
 
-bar = FooModel("bar", 0x1010, 8)
+bar = FooModel("bar", 0x100C, 8)
 machine.add(bar)
 
-baz = FooModel("baz", 0x1020, 8)
+baz = FooModel("baz", 0x101C, 8)
 machine.add(baz)
 
 qux = FooModel("qux", 0x1034, 1)
@@ -89,4 +89,7 @@ code.update_symbol_value("exit", exit_model._address)
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
 emulator.add_exit_point(code.address + code.get_capacity())
-final_machine = machine.emulate(emulator)
+# final_machine = machine.emulate(emulator)
+for m in machine.step(emulator):
+    print(m.get_cpu().pc)
+    print(m.get_cpu().eax)

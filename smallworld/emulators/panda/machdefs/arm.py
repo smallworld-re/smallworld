@@ -270,6 +270,14 @@ class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     cpu = "pxa255"
 
 
+# TODO: I have no idea which board to use.
+# I'm hoping that v6m code is compatible with a v7m-ish machine.
+class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+    arch = Architecture.ARM_V6M
+    byteorder = Byteorder.LITTLE
+    cpu = "cortex-a9"
+
+
 # TODO: Something's very weird with Panda's Arm 7 models.
 # cortex-a9 should be an A-series, but it looks more like an M-series.
 # cortex-m4 looks like an M-series, but aborts; I suspect we're missing configuration.

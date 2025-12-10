@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Load and add code from lib.
@@ -33,7 +35,7 @@ with open(filename, "rb") as f:
 
 # Set entrypoint from RE.
 # PowerPC64 be tripping.
-entrypoint = 0x10000684
+entrypoint = 0x4104B0
 cpu.pc.set(entrypoint)
 
 # Define a fake exit point for test 1
@@ -49,7 +51,7 @@ cpu.sp.set(stack.get_pointer())
 cpu.lr.set(exitpoint)
 
 # Set r2; it's used as some kind of global pointer
-cpu.r2.set(0)
+cpu.r12.set(0)
 
 # Use code bounds from the ELF
 machine.add_exit_point(exitpoint)

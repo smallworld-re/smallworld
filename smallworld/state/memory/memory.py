@@ -137,6 +137,11 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 f"Out of bounds: tried to read {len(data)} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
             )
 
+        if len(self) == 0:
+            # No existing data.
+            value = state.BytesValue(data, None)
+            self[address - self.address] = value
+
         segment: state.Value
         gap_start = 0
         for segment_offset, segment in sorted(self.items()):
@@ -145,7 +150,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
             gap_end = segment_start
 
-            if data_start < gap_end and gap_start < data_end:
+            if data_start <= gap_end and gap_start <= data_end:
                 # Part of data possibly falls into the gap between segments.
                 part_start = max(data_start, gap_start)
                 part_end = min(data_end, gap_end)
@@ -157,12 +162,12 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
             gap_start = segment_end
 
-            if segment_start > data_end:
+            if segment_start >= data_end:
                 # This segment is after the range we want to update.
                 # We will never have to write anything else.
                 break
 
-            if data_start < segment_end and segment_start < data_end:
+            if data_start < segment_end and segment_start <= data_end:
                 # Part of data lands in this segment
                 part_start = max(data_start, segment_start)
                 part_end = min(data_end, segment_end)
@@ -170,7 +175,10 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 part = data[part_start - data_start : part_end - data_start]
 
                 contents = segment.get_content()
-                assert isinstance(contents, bytes)
+                if not isinstance(contents, bytes):
+                    raise exceptions.SymbolicValueError(
+                        f"Tried to write {len(data)} bytes at {hex(address)}.  Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
+                    )
 
                 prefix = contents[: part_start - segment_start]
                 suffix = contents[part_end - segment_start :]
@@ -178,12 +186,12 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 segment.set_content(prefix + part + suffix)
 
         gap_end = self.address + self.size
-        if data_start < gap_end and gap_start < data_end:
+        if data_start <= gap_end and gap_start <= data_end:
             # Part of the data goes past the last segment.
             part_start = max(data_start, gap_start)
             part_end = min(data_end, gap_end)
 
-            part = data[part_start - data_start : part_end - data_end]
+            part = data[part_start - data_start : part_end - data_start]
 
             if len(part) > 0:
                 value = state.BytesValue(part, None)

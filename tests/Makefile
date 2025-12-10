@@ -24,8 +24,8 @@ ARMHF_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
 LA64_ID := loongarch64-linux-gnu.2.40
-MIPS_ID := mips-linux.1.1.82-gnueabi.2.40
-MIPSEL_ID := mipsel-linux.1.1.82-gnueabi.2.40
+MIPS_ID := mips-linux-gnueabihf.2.40
+MIPSEL_ID := mipsel-linux-gnueabihf.2.40
 MIPS64_ID := mips64-linux.2.3.48-gnuabi64.2.40
 MIPS64EL_ID := mips64el-linux.2.3.48-gnuabi64.2.40
 PPC_ID := powerpc-linux.1.3.45-gnueabi.2.40
@@ -48,7 +48,7 @@ MIPS64EL_ASM_AS := zig build-exe -target $(MIPS64EL_ID)
 PPC_ASM_AS := zig build-exe -target $(PPC_ID)
 PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
 RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
-XTENSA_ASM_AS := ./xtensa_wrapper.sh
+XTENSA_ASM_AS := ./xtensa_asm_wrapper.sh
 
 # Assembler Commands for ELF
 
@@ -65,7 +65,7 @@ MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID)
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
 PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
 RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
-XTENSA_ELF_AS := ./xtensa_wrapper.sh
+XTENSA_ELF_AS := ./xtensa_elf_wrapper.sh
 
 # Objcopy Commands
 
@@ -123,6 +123,8 @@ MIPS64EL_LDFLAGS := -T mips_linkerscript.ld
 GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
 ARMEL_CFLAGS := -marm -mfloat-abi=soft
 ARMHF_CFLAGS := -marm
+MIPS_CFLAGS := -mfloat-abi=hard
+MIPSEL_CFLAGS := -mfloat-abi=hard
 MIPS64_CFLAGS := -T mips_linkerscript.ld 
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 PPC_CFLAGS := -mfloat-abi=hard

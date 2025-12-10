@@ -33,6 +33,7 @@ with open(filename, "rb") as f:
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -46,7 +47,7 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 # Configure the heap
-heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x20000, 0x1000, 16)
+heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x200000, 0x1000, 16)
 machine.add(heap)
 
 malloc_model = smallworld.state.models.Model.lookup(
