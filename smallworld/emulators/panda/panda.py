@@ -9,6 +9,7 @@ from enum import Enum
 import capstone
 import claripy
 import pandare2
+import os
 
 from ... import exceptions, platforms, utils
 from .. import emulator, hookable
@@ -100,6 +101,8 @@ class PandaEmulator(
 
         def run(self):
             panda_args = self.get_panda_args_from_machdef()
+            if os.environ.get('SMALLWORLD_PANDA_DEBUG', 'no').lower().startswith('y'):
+                panda_args += ['-d', 'in_asm,int,cpu,op,exec,nochain,op_plugin', '-D', f'./smallworld-panda-{self.machdef.panda_arch}-debug.log']
 
             self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
