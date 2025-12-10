@@ -38,7 +38,7 @@ def randomize_uninitialized(
 ) -> state.Machine:
     """Consider all parts of the machine that can be written to (registers
     + memory regions). Write random values to any bytes in those machine
-    parts which are currently uninitialized. So this only works if we
+       parts which are currently uninitialized. So this only works if we
     have a way to tell if registers or memory have not been initialized.
 
     Randomize all general purpose regs (plus regs in list of
