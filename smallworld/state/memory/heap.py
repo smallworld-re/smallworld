@@ -149,7 +149,7 @@ class CheckedBumpAllocator(Heap):
             elif shadow_byte == 2:
                 raise ValueError(f"Access freed memory at {hex(address + i)}")
 
-        return bytes
+        return content
 
     def apply(self, emulator: typing.Any) -> None:
         super().apply(emulator)
