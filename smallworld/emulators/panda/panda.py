@@ -105,18 +105,21 @@ class PandaEmulator(
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
+                logger.debug("cb_after_machine_init(cpu={})".format(cpu))
                 logger.debug("Panda: setting up state")
                 self.setup_state(cpu)
                 self.signal_and_wait()
 
             @self.panda.cb_insn_translate
             def should_run_on_insn(env, pc):
+                #logger.debug("cb_insn_translate(cpu={}, pc={:#x})".format(env, pc))
                 return True
 
             @self.panda.cb_insn_exec
             def on_insn(cpu, pc):
                 # PowerPC pc move pc to end of instr
                 # so we need to do some stuff to fix that
+                logger.debug("cb_insn_exec(cpu={}, pc={:#x})".format(cpu, pc))
                 self.update_state(cpu, pc)
 
                 if pc in self.manager._exit_points:
@@ -240,8 +243,8 @@ class PandaEmulator(
                 # Now, if we for some reason have a different pc
                 # then the one that is set for us, break out of this
                 # This would be from changing eip in a hook
-                # print(f"Panda: {pc}, {self.manager.pc}")
-                # print(self.manager.read_register('pc'))
+                # logger.debug(f"Panda: {pc}, {self.manager.pc}")
+                # logger.debug(self.manager.read_register('pc'))
                 # if self.manager.read_register("pc") != pc:
                 if self.manager.pc != pc:
                     self.panda.libpanda.cpu_loop_exit_noexc(cpu)
@@ -257,6 +260,7 @@ class PandaEmulator(
             # Used for stepping over blocks
             @self.panda.cb_start_block_exec(enabled=True)
             def on_block(cpu, tb):
+                logger.debug("cb_start_block_exec(cpu={}, tb={})".format(cpu, tb))
                 self.update_state(cpu, tb.pc)
                 if (
                     self.state == PandaEmulator.ThreadState.BLOCK
@@ -269,6 +273,7 @@ class PandaEmulator(
             # Used for hooking mem reads
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
+                logger.debug("cb_virt_mem_before_read(cpu={}, pc={:#x}, addr={:#x}, size={:#x})".format(cpu, pc, addr, size))
                 logger.debug(f"\ton_read: {addr}")
                 orig_data = self.panda.virtual_memory_read(self.manager.cpu, addr, size)
                 try:
@@ -296,6 +301,7 @@ class PandaEmulator(
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
+                logger.debug("cb_virt_mem_before_write(cpu={}, pc={:#x}, addr={:#x}, size={:#x}, buf={})".format(cpu, pc, addr, size, buf))
                 logger.debug(f"\ton_write: {hex(addr)}")
                 byte_val = bytes([buf[i] for i in range(size)])
                 try:
@@ -316,6 +322,7 @@ class PandaEmulator(
 
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
+                logger.debug("cb_before_handle_interrupt(cpu={}, intno={})".format(cpu, intno))
                 logger.debug(f"\ton_interrupt: {intno}")
                 try:
                     # First if all interrupts are hooked, run that function
@@ -334,6 +341,7 @@ class PandaEmulator(
 
             # @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
+                logger.debug("cb_before_handle_exception(cpu={}, exception_index={})".format(cpu, exception_index))
                 logger.error(
                     f"Panda for help: you are hitting an exception at {exception_index}."
                 )
