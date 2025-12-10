@@ -43,10 +43,6 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-# Configure the heap
-heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
-machine.add(heap)
-
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
@@ -66,7 +62,7 @@ getc_model.allow_imprecise = True
 code.update_symbol_value("getc", getc_model._address)
 
 # Create a fake stdin
-fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdin)
 

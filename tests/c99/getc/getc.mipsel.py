@@ -68,7 +68,7 @@ code.update_symbol_value("getc", getc_model._address)
 
 # Create a fake stdin
 # mips references the copy in libc, so we need to make our own
-fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdin)
 

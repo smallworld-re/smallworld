@@ -65,8 +65,17 @@ fgetc_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("fgetc", fgetc_model._address)
 
+printf_model = smallworld.state.models.Model.lookup(
+    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(printf_model)
+printf_model.allow_imprecise = True
+
+# Relocate puts
+code.update_symbol_value("printf", fgetc_model._address)
+
 # Create a fake stdin
-fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdin)
 
