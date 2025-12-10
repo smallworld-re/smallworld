@@ -8,11 +8,6 @@ jobs:
   Build-RTOS:
     runs-on: smallworld-arc
     steps:
-      - name: Install docker
-        run: |
-          apt-get update -y
-          apt-get install -y docker
-
       - uses: actions/checkout@v3
 
       - name: Build RTOS binary
