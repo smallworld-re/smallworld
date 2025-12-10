@@ -8,7 +8,7 @@ from enum import Enum
 
 import capstone
 import claripy
-import pandare
+import pandare2
 
 from ... import exceptions, platforms, utils
 from .. import emulator, hookable
@@ -101,7 +101,7 @@ class PandaEmulator(
         def run(self):
             panda_args = self.get_panda_args_from_machdef()
 
-            self.panda = pandare.Panda(self.machdef.panda_arch, extra_args=panda_args)
+            self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
             @self.panda.cb_after_machine_init
             def setup(cpu):
@@ -117,8 +117,6 @@ class PandaEmulator(
             def on_insn(cpu, pc):
                 # PowerPC pc move pc to end of instr
                 # so we need to do some stuff to fix that
-                if self.machdef.panda_arch == "ppc":
-                    pc = pc - 4  # DONT BLAME ME, BLAME ALEX H AND ME :)
                 self.update_state(cpu, pc)
 
                 if pc in self.manager._exit_points:
@@ -334,7 +332,7 @@ class PandaEmulator(
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
 
-            @self.panda.cb_before_handle_exception(enabled=True)
+            # @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
                 logger.error(
                     f"Panda for help: you are hitting an exception at {exception_index}."

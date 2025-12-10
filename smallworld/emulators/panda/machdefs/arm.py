@@ -267,7 +267,7 @@ class ARMMachineMixinVFP:
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
-    cpu = "pxa255"
+    cpu = "arm926"
 
 
 # TODO: Something's very weird with Panda's Arm 7 models.
