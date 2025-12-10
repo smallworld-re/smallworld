@@ -90,7 +90,7 @@ def randomize_uninitialized(
                 v = random.randint(0, (1 << (8 * reg.size)) - 1)
                 reg.set(v)
                 m.update(str(v).encode("utf-8"))
-                logger.info(f"randomize_unitialized: reg{name} randomized to {v:x}")
+                logger.debug(f"randomize_unitialized: reg{name} randomized to {v:x}")
 
     mems = {}
     memsk = []
@@ -119,10 +119,12 @@ def randomize_uninitialized(
                 for seg_start in segstarts:
                     bv = mem[seg_start]
                     seg_end = seg_start + bv.get_size()
-                    logger.info(f"bss_start={bss_start:x} seg_start={seg_start:x}")
-                    logger.info(f"bss_end={bss_start + bss_size:x} seg_end={seg_end:x}")
+                    logger.debug(f"bss_start={bss_start:x} seg_start={seg_start:x}")
+                    logger.debug(
+                        f"bss_end={bss_start + bss_size:x} seg_end={seg_end:x}"
+                    )
                     if (bss_start >= seg_start) and (bss_start + bss_size <= seg_end):
-                        logger.info(
+                        logger.debug(
                             f"randomize_unitialized: bss in elf segment {seg_start:x}..{seg_end:x}. perturbing it."
                         )
                         randomize_mem(mem, mem.address + bss_start, bss_size)
@@ -134,7 +136,7 @@ def randomize_uninitialized(
             mem_rngs.sort()
 
             for mem_rng in mem_rngs:
-                logger.info(
+                logger.debug(
                     f"randomize_unitialized: memory({mem}) type({type(mem)}) has uninitialized range {mem_rng}: perturbing it."
                 )
                 randomize_mem(mem, mem_rng.start, len(mem_rng))
@@ -182,6 +184,7 @@ class Colorizer(analysis.Analysis):
         *args,
         exec_id: int,
         num_insns: int = 200,
+        debug: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -190,6 +193,7 @@ class Colorizer(analysis.Analysis):
         self.colors: Colors = {}
         self.shadow_register: typing.Dict[str, Shad] = {}
         self.shadow_memory: Shad = {}
+        self.debug = debug
         # self.edge: typing.Dict[int, typing.Dict[int, typing.Tuple[str, int, int]]] = {}
 
     def _get_instr_at_pc(self, emu, pc: int) -> capstone.CsInsn:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from ..hinting import DynamicMemoryValueHint, DynamicRegisterValueHint
 from ..instructions.bsid import BSIDMemoryReferenceOperand
-from ..platforms.defs.platformdef import RegisterDef
+from ..platforms.defs.platformdef import RegisterAliasDef, RegisterDef
 from . import analysis
 
 logger = logging.getLogger(__name__)
@@ -24,10 +24,10 @@ class RegisterInfo(Info):
 
     def __str__(self: typing.Any):
         return (
-            "RegisterInfo(\n"
-            + f"register={self.register},\n"
-            + f"color={self.color},\n"
-            + f"\ndynvals={[d for d in self.dynvals]})"
+            "RegisterInfo("
+            + f"register={self.register},"
+            + f"color={self.color},"
+            + f"dynvals={[d for d in self.dynvals]})"
         )
 
     def short_str(self):
@@ -45,12 +45,12 @@ class MemoryLvalInfo(Info):
 
     def __str__(self: typing.Any):
         return (
-            "MemoryLvalInfo(\n"
-            + f"bsid={self.bsid},\n"
-            + f"size={self.size},\n"
-            + f"color={self.color},\n"
-            + f"\ndynvals={[d for d in self.dynvals]},\n"
-            + f"\naddresses={[hex(a) for a in self.addresses]})"
+            "(MemoryLvalInfo(,"
+            + f"bsid={self.bsid},"
+            + f"size={self.size},"
+            + f"color={self.color},"
+            + f"dynvals={[d for d in self.dynvals]},"
+            + f"addresses={[hex(a) for a in self.addresses]}))"
         )
 
     def short_str(self):
@@ -137,7 +137,6 @@ class MemLvalDvKey(DvKey):
         return hash(self.__str__())
 
 
-
 def dvk_info_match(dvk: DvKey, rw: typing.Union[ReadInfo, WriteInfo]):
     if type(dvk) is RegDvKey and type(rw.info) is RegisterInfo:
         if dvk.name == rw.info.register.name and dvk.new == rw.info.is_new:
@@ -175,7 +174,7 @@ class WRNode:
     writes: typing.List[WriteInfo]
 
     def __str__(self):
-        return f"0x{self.pc:x} reads={self.reads} writes={self.writes}"
+        return f"(0x{self.pc:x},reads={self.reads},writes={self.writes})"
 
 
 # src or dst in a WRGraph edge
@@ -212,8 +211,10 @@ class WRGraph:
         self.wr_nodes[pc] = wr_node
         return self.wr_nodes[pc]
 
-    def __get_or_add_rw_from_dvk(self, dvk: DvKey):
-        node = self.__find_node__(dvk.pc)
+    def get_or_add_rw_from_dvk(self, dvk: DvKey):
+        node = self.__get_or_create_node__(dvk.pc)
+        if node is None:
+            breakpoint()
         if dvk.read:
             for ri in node.reads:
                 if dvk_info_match(dvk, ri):
@@ -230,10 +231,10 @@ class WRGraph:
             return wi
 
     def add_edge(self, firstobs: DvKey, read: DvKey):
-        logger.info(f"add_edge {firstobs} {read}")
+        # logger.info(f"add_edge {firstobs} {read}")
         # find read/write parts of nodes or add them
-        srcrwi = self.__get_or_add_rw_from_dvk(firstobs)
-        dstri = self.__get_or_add_rw_from_dvk(read)
+        srcrwi = self.get_or_add_rw_from_dvk(firstobs)
+        dstri = self.get_or_add_rw_from_dvk(read)
         src = SrcDst(firstobs.pc, srcrwi)
         dst = SrcDst(read.pc, dstri)
         if src not in self.out_edges:
@@ -251,10 +252,11 @@ class WRGraph:
     ):
         # traverses the write-read graph following edges backwards,
         # starting with value at a pc, to identify all inputs
-        print(f"derive({pc:x}, {is_read}, {val})")
 
         def der_read(n: WRNode, dst: SrcDst):
-            print(f"der_read({n},{dst.wr})")
+            # print("der_read")
+            # print(f"    n = {n}")
+            # print(f"    dst = {dst.wr}")
             if dst.wr.info.is_new:
                 # this should be something with NO in-edges since its
                 # a new read, thus an input
@@ -270,11 +272,16 @@ class WRGraph:
             return der
 
         def der_write(n: WRNode, src: SrcDst):
-            print(f"der_write({n},{src.wr}")
+            # print("der_write")
+            # print(f"     n = {n}")
+            # print(f"     src = {src.wr}")
             # we dont have any writes in our graph that *arent* new
             assert src.wr.info.is_new is True
             der: typing.Set[Info] = set([])
             for ri in n.reads:
+                if ri.info.is_new:
+                    # there won't be any in-edges -- just add it
+                    der = der | set([ri.info])
                 for dst in self.in_edges:
                     if dst.pc == n.pc:
                         if (type(dst.wr) is ReadInfo) and dst.wr == ri:
@@ -288,6 +295,7 @@ class WRGraph:
                 and val == rw.info.bsid
             ) or (
                 type(val) is RegisterDef
+                or type(val) is RegisterAliasDef
                 and type(rw.info) is RegisterInfo
                 and val.name == rw.info.register.name
             ):
@@ -298,7 +306,7 @@ class WRGraph:
         if node is None:
             return set([])
         if is_read:
-            der: typing.Set[Info]= set([])
+            der: typing.Set[Info] = set([])
             for read in node.reads:
                 if vmatch(val, read):
                     for dst in self.in_edges:
@@ -392,7 +400,9 @@ class ColorizerReadWrite(analysis.Analysis):
         dvkey2rawcolors = {}
         # this will be normalized "colors"
         dvk2num = {}
-        for exec_id in range(0, self.max_exec_id + 1):
+        exec_ids = list(self.hints.keys())
+        exec_ids.sort()
+        for exec_id in exec_ids:
             rawcolor2dvkey[exec_id] = {}
             dvkey2rawcolors[exec_id] = {}
 
@@ -403,17 +413,25 @@ class ColorizerReadWrite(analysis.Analysis):
                     dvk = compute_dv_key(hint)
                     if dvk not in dvk2num:
                         dvk2num[dvk] = len(dvk2num)
+                    if exec_id not in rawcolor2dvkey:
+                        rawcolor2dvkey[exec_id] = {}
                     if hint.color not in rawcolor2dvkey:
                         rawcolor2dvkey[exec_id][hint.color] = dvk
-                    if dvk not in dvkey2rawcolors:
+                    if exec_id not in dvkey2rawcolors:
+                        dvkey2rawcolors[exec_id] = {}
+                    if dvk not in dvkey2rawcolors[exec_id]:
                         dvkey2rawcolors[exec_id][dvk] = set([])
                     dvkey2rawcolors[exec_id][dvk].add(hint.color)
 
         # now collect "edges" which go from a newly defined color
         # (which could be a read or a write) to a use (read) of it
-        for exec_id in range(0, self.max_exec_id + 1):
+        for exec_id in exec_ids:
             for hint in self.hints[exec_id]:
-                if not hint.new:
+                if hint.new:
+                    firstobskey = compute_dv_key(hint)
+                    firstobskey.color = dvk2num[firstobskey]
+                    self.graph.get_or_add_rw_from_dvk(firstobskey)
+                else:
                     if hint.use:
                         # A color flow, i.e. a use of a previously
                         # introduced color.
