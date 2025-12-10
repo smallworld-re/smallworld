@@ -360,7 +360,11 @@ class UnicornEmulator(
             if is_msr:
                 return self.engine.msr_read(reg)
             else:
-                return self.engine.reg_read(reg)
+                val = self.engine.reg_read(reg)
+                if name == "rip" or name == "eip":
+                    # on x86, rip should be the *next* instruction
+                    val += (self.current_instruction()).size
+                return val
         except Exception as e:
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
