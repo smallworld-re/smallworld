@@ -203,10 +203,10 @@ jobs:
             - testsuite: FsgsbaseTests
             - testsuite: FuzzTests
             - testsuite: LinkElfTests
-            # - testsuite: LinkPETests
+            - testsuite: LinkPETests
             - testsuite: HookingTests
             - testsuite: MemhookTests
-            # - testsuite: PETests
+            - testsuite: PETests
             - testsuite: POSIXBasenameTests
             - testsuite: POSIXBsdSignalTests
             - testsuite: POSIXDirnameTests
