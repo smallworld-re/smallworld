@@ -233,7 +233,7 @@ class PandaEmulator(
                         ret = self.manager.read_register("ra")
                     else:
                         logger.error(
-                            "Don't know how to return for {self.manager.platform.architecture}"
+                            f"Don't know how to return for {self.manager.platform.architecture}"
                         )
                         self.state = PandaEmulator.ThreadState.EXIT
                         self.signal_and_wait()
@@ -293,7 +293,7 @@ class PandaEmulator(
                     self.signal_and_wait()
                 except Exception as e:
                     logger.exception(
-                        "Exception running read hook at {pc:x}, from {addr:x}"
+                        f"Exception running read hook at {pc:x}, from {addr:x}"
                     )
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
@@ -315,7 +315,7 @@ class PandaEmulator(
                     self.signal_and_wait()
                 except Exception as e:
                     logger.exception(
-                        "Exception running read hook at {pc:x}, from {addr:x}"
+                        f"Exception running read hook at {pc:x}, from {addr:x}"
                     )
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
@@ -335,7 +335,7 @@ class PandaEmulator(
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
                 except Exception as e:
-                    logger.exception("Exception running interrupt hook for {intno}")
+                    logger.exception(f"Exception running interrupt hook for {intno}")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
 
