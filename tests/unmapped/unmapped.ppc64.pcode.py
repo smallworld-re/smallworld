@@ -52,7 +52,7 @@ cpu.sp.set(sp)
 
 # First test: read unmapped memory
 try:
-    entrypoint = 0x4104F8
+    entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.GhidraEmulator(platform)
     final_machine = machine.emulate(emulator)
@@ -62,7 +62,7 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 
 # Second test: write unmapped memory
 try:
-    entrypoint = 0x41051C
+    entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.GhidraEmulator(platform)
     final_machine = machine.emulate(emulator)
@@ -72,7 +72,7 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 
 # Third test: fetch unmapped memory
 try:
-    entrypoint = 0x410544
+    entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.GhidraEmulator(platform)
     final_machine = machine.emulate(emulator)

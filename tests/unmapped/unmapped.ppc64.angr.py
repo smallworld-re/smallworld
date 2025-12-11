@@ -43,16 +43,9 @@ stack.push_bytes(b"\0" * 32, None)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-# NOTE: Entrypoints encoded manually.
-#
-# PowerPC's function symbols aren't direct pointers to the code,
-# they're pointers to function pointer structs.
-# Because IBM decided that function pointers
-# needed to be 24-byte structs, not just single addresses.
-
 # First test: read unmapped memory
 try:
-    entrypoint = 0x4104F8
+    entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
@@ -64,7 +57,7 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 
 # Second test: write unmapped memory
 try:
-    entrypoint = 0x41051C
+    entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
@@ -76,7 +69,7 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 
 # Third test: fetch unmapped memory
 try:
-    entrypoint = 0x410544
+    entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
