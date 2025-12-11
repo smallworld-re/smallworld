@@ -4005,8 +4005,8 @@ class CheckedUAFTests(ScriptIntegrationTest):
     def test_armhf_ghidra(self):
         self.run_test("armhf.pcode")
 
-    # def test_i386_unicorn(self):
-    #     self.run_test("i386")
+    def test_i386_unicorn(self):
+        self.run_test("i386")
 
     def test_i386_angr(self):
         self.run_test("i386.angr")
@@ -4014,8 +4014,8 @@ class CheckedUAFTests(ScriptIntegrationTest):
     def test_i386_panda(self):
         self.run_test("i386.panda")
 
-    # def test_i386_ghidra(self):
-    #     self.run_test("i386.pcode")
+    def test_i386_ghidra(self):
+        self.run_test("i386.pcode")
 
     def test_mips_unicorn(self):
         self.run_test("mips")
