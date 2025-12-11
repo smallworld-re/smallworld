@@ -360,6 +360,7 @@ class DynamicValueHint(hinting.Hint):
 
     # instruction: typing.Any
     pc: int
+    time: int
     instruction_num: int
     exec_id: int
     dynamic_value: int
@@ -422,6 +423,7 @@ class DynamicValueSummaryHint(hinting.Hint):
     use: bool
     new: bool
     count: int
+    dynamic_values: typing.List[int]
     num_micro_executions: int
 
 
@@ -431,6 +433,7 @@ class DynamicMemoryValueSummaryHint(DynamicValueSummaryHint):
     index: str
     scale: int
     offset: int
+    addresses: typing.List[int]
 
 
 @dataclass(frozen=True)
@@ -442,6 +445,10 @@ class DynamicRegisterValueSummaryHint(DynamicValueSummaryHint):
 class DefUseGraphHint(hinting.Hint):
     graph: nx.MultiDiGraph
 
+    # note this is just for logging purposes
+    def to_json(self):
+        return {"graph": jsons.dump(self.graph)}
+
 
 @dataclass(frozen=True)
 class BranchesHint(hinting.Hint):
@@ -451,6 +458,8 @@ class BranchesHint(hinting.Hint):
 @dataclass(frozen=True)
 class CoverageFrontierHint(hinting.Hint):
     coverage_frontier: typing.List[int]
+    edges: typing.List[typing.Tuple[int, typing.List[int]]]
+    branches: typing.List[int]
 
 
 __all__ = [

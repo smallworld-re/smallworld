@@ -1,7 +1,7 @@
 import abc
 import typing
 
-import smallworld.emulators
+from smallworld.emulators import Emulator
 
 from .. import state
 from . import memory
@@ -131,7 +131,7 @@ class CheckedBumpAllocator(Heap):
 
     def check_access(
         self,
-        emulator: smallworld.emulators.Emulator,
+        emulator: Emulator,
         address: int,
         size: int,
         content: bytes,

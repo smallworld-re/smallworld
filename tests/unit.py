@@ -858,12 +858,13 @@ class UnicornMachdefTests(unittest.TestCase):
                 emu.read_register(reg)
             except exceptions.UnsupportedRegisterError:
                 continue
-            except:
+            except Exception as e:
+                print(f" {reg} {e}")
                 bad_regs.add(reg)
         self.assertEqual(
             len(bad_regs),
             0,
-            msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
+            msg=f"Unicorn did not handle the following registers for {platform}: {bad_regs}",
         )
 
     def test_unicorn_aarch64(self):

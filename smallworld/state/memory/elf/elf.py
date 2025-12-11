@@ -181,13 +181,13 @@ class ElfExecutable(Executable):
             elif phdr_type == PT_DYNAMIC:
                 # Dynamic linking metadata.
                 # This ELF needs dynamic linking
-                log.info("Program includes dynamic linking metadata")
+                log.debug("Program includes dynamic linking metadata")
             elif phdr_type == PT_INTERP:
                 # Program interpreter
                 # This completely changes how program loading works.
                 # Whether you care is a different matter.
                 interp = image[phdr.file_offset : phdr.file_offset + phdr.physical_size]
-                log.info(f"Program specifies interpreter {interp!r}")
+                log.debug(f"Program specifies interpreter {interp!r}")
             elif phdr_type == PT_NOTE:
                 # Auxiliary information
                 # Possibly useful for comparing machine/OS type.
@@ -199,7 +199,7 @@ class ElfExecutable(Executable):
             elif phdr_type == PT_TLS:
                 # TLS Segment
                 # Your analysis is about to get nasty :(
-                log.info("Program includes thread-local storage")
+                log.debug("Program includes thread-local storage")
             elif phdr_type == PT_GNU_EH_FRAME:
                 # Exception handler frame.
                 # GCC puts one of these in everything.  Do we care?
@@ -207,11 +207,11 @@ class ElfExecutable(Executable):
             elif phdr_type == PT_GNU_STACK:
                 # Stack executability
                 # If this is missing, assume executable stack
-                log.info("Program specifies stack permissions")
+                log.debug("Program specifies stack permissions")
             elif phdr_type == PT_GNU_RELRO:
                 # Read-only after relocation
                 # Only the dynamic linker should write this data.
-                log.info("Program specifies RELRO data")
+                log.debug("Program specifies RELRO data")
             elif phdr_type == PT_GNU_PROPERTY:
                 # GNU property segment
                 # Contains extra metadata which I'm not sure anything uses
@@ -390,7 +390,7 @@ class ElfExecutable(Executable):
                 # File base is defined.
                 # We (probably) cannot move the image without problems.
                 raise ConfigurationError("Base address defined for fixed-position ELF")
-        log.info(f"Address: {self.address:x}")
+        log.debug(f"Address: {self.address:x}")
 
     def _rebase_file(self, val: int):
         # Rebase an offset from file-relative to image-relative
@@ -680,7 +680,7 @@ class ElfExecutable(Executable):
         if self._relocator is not None:
             for rela in sym.relas:
                 # Relocate!
-                log.info(f"Relocating {rela}")
+                log.debug(f"Relocating {rela}")
                 self._relocator.relocate(self, rela)
         else:
             log.error(f"No platform defined; cannot relocate {name}!")

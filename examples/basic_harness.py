@@ -5,7 +5,7 @@ import typing
 
 import smallworld
 from smallworld import hinting
-from smallworld.analyses import Colorizer, ColorizerDefUse, ColorizerSummary
+from smallworld.analyses import Colorizer, ColorizerReadWrite, ColorizerSummary
 from smallworld.analyses.colorizer import randomize_uninitialized
 
 # setup logging and hinting
@@ -39,7 +39,7 @@ hinter = hinting.Hinter()
 
 analyses: typing.List[smallworld.analyses.Analysis] = [
     ColorizerSummary(hinter),
-    ColorizerDefUse(hinter),
+    ColorizerReadWrite(hinter),
 ]
 
 seed = 123456

@@ -1,7 +1,7 @@
 from .analysis import *  # noqa: F401, F403
 from .analysis import __all__ as __analysis__
 from .colorizer import Colorizer
-from .colorizer_def_use import ColorizerDefUse
+from .colorizer_read_write import ColorizerReadWrite
 from .colorizer_summary import ColorizerSummary
 from .coverage_frontier import CoverageFrontier
 from .field_detection import FieldDetectionAnalysis, ForcedFieldDetectionAnalysis
@@ -12,7 +12,7 @@ from .trace_execution_types import CmpInfo, TraceElement, TraceRes
 __all__ = __analysis__ + [
     "Colorizer",
     "ColorizerSummary",
-    "ColorizerDefUse",
+    "ColorizerReadWrite",
     "FieldDetectionAnalysis",
     "ForcedFieldDetectionAnalysis",
     "ForcedExecution",

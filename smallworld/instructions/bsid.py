@@ -22,6 +22,13 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         self.index = index
         self.scale = scale
         self.offset = offset
+        if (
+            self.base == "None"
+            or self.index == "None"
+            or self.scale == "None"
+            or self.offset == "None"
+        ):
+            breakpoint()
 
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
@@ -42,6 +49,10 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             "offset": self.offset,
         }
 
+    def to_dict(self) -> dict:
+        breakpoint()
+        return self.to_json()
+
     @classmethod
     def from_json(cls, dict):
         if any(k not in dict for k in ("base", "index", "scale", "offset")):
@@ -52,20 +63,51 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
     def expr_string(self) -> str:
         string = ""
 
-        if self.base:
-            string = f"{self.base}"
+        # not sure why these things are strings sometimes but they are
+        def nn(x):
+            if x is not None and x != "None":
+                return True
+            return False
 
-        if self.index:
-            if self.scale:
+        if self.base is not None and self.base != "None":
+            string = self.base
+        if nn(self.index):
+            if nn(self.scale):
                 string = f"{string}+{self.scale}*{self.index}"
             else:
                 string = f"{string}+{self.index}"
-
-        if self.offset:
+        if self.offset < 0:
+            string = f"{string}{self.offset:x}"
+        elif self.offset > 0:
             string = f"{string}+{self.offset:x}"
 
-        return string
+        if "None" in string:
+            breakpoint()
+
+        return f"[{string}]"
 
     def __repr__(self) -> str:
         string = self.expr_string()
         return f"{self.__class__.__name__}({string})"
+
+
+class x86BSIDMemoryReferenceOperand(BSIDMemoryReferenceOperand):
+    def address(self, emulator: emulators.Emulator) -> int:
+        a = super().address(emulator)
+        if self.base == "rip" or self.base == "eip":
+            # fixup for rip-relative
+            try:
+                instr_len = 0
+                try:
+                    instr_len = emulator.current_instruction().size()  # type: ignore
+                except:
+                    # we are here if the `emulator` is not sw unicorn
+                    # wrapper which knows how to compute current
+                    # instruction len
+                    pass
+                a += instr_len
+
+            except:
+                # that failed god knows why
+                pass
+        return a
