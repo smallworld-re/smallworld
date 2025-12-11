@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 class Info:
     color: typing.Optional[int]
     is_new: bool
-    dynvals: typing.List[int]
+    # dynvals: typing.List[int]
 
 
 @dataclass
@@ -26,31 +26,32 @@ class RegisterInfo(Info):
         return (
             "RegisterInfo("
             + f"register={self.register},"
-            + f"color={self.color},"
-            + f"dynvals={[d for d in self.dynvals]})"
+            + f"color={self.color}"
+            # + f"dynvals={[d for d in self.dynvals]})"
         )
 
     def short_str(self):
         return f"{self.register.name}"
 
     def __hash__(self):
-        return hash((self.color, self.is_new, tuple(self.dynvals), self.register))
+        # return hash((self.color, self.is_new, tuple(self.dynvals), self.register))
+        return hash((self.color, self.is_new, self.register))
 
 
 @dataclass
 class MemoryLvalInfo(Info):
     bsid: BSIDMemoryReferenceOperand
     size: int
-    addresses: typing.List[int]
+    # addresses: typing.List[int]
 
     def __str__(self: typing.Any):
         return (
             "(MemoryLvalInfo(,"
             + f"bsid={self.bsid},"
             + f"size={self.size},"
-            + f"color={self.color},"
-            + f"dynvals={[d for d in self.dynvals]},"
-            + f"addresses={[hex(a) for a in self.addresses]}))"
+            + f"color={self.color}"
+            # + f"dynvals={[d for d in self.dynvals]},"
+            # + f"addresses={[hex(a) for a in self.addresses]}))"
         )
 
     def short_str(self):
@@ -61,10 +62,10 @@ class MemoryLvalInfo(Info):
             (
                 self.color,
                 self.is_new,
-                tuple(self.dynvals),
+                # tuple(self.dynvals),
                 self.bsid,
                 self.size,
-                tuple(self.addresses),
+                # tuple(self.addresses),
             )
         )
 
@@ -152,17 +153,17 @@ def dvk_to_info(dvk: DvKey):
         return RegisterInfo(
             color=dvk.color,
             is_new=dvk.new,
-            dynvals=[],
+            # dynvals=[],
             register=RegisterDef(dvk.name, dvk.size),
         )
     elif type(dvk) is MemLvalDvKey:
         return MemoryLvalInfo(
             color=dvk.color,
             is_new=dvk.new,
-            dynvals=[],
+            # dynvals=[],
             bsid=dvk.bsid,
             size=dvk.size,
-            addresses=[],
+            # addresses=[],
         )
     assert 1 == 0
 

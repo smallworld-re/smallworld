@@ -6,9 +6,11 @@ import sys
 
 import smallworld
 from smallworld import hinting
-from smallworld.analyses import Colorizer, ColorizerReadWrite
+from smallworld.analyses import Colorizer, ColorizerReadWrite, ColorizerSummary
 from smallworld.analyses.colorizer import randomize_uninitialized
 from smallworld.hinting.hints import (
+    DynamicMemoryValueSummaryHint,
+    DynamicRegisterValueSummaryHint,
     TraceExecutionHint,
 )
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
@@ -23,9 +25,6 @@ logger = logging.getLogger(__name__)
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
-
-pdef = PlatformDef.for_platform(platform)
-
 
 # create a machine
 machine = smallworld.state.Machine()
@@ -46,10 +45,6 @@ machine.add(stack)
 rsp = stack.get_pointer()
 cpu.rsp.set(rsp)
 
-# set the instruction pointer to the entrypoint of our executable
-# these values are from
-# md5sum trace_executor/ahme-x86_64
-# 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64
 entry_point = 0x2159
 exit_point = 0x225A
 
@@ -81,15 +76,10 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
 
     hinter = hinting.Hinter()
     hinter.register(TraceExecutionHint, collect_hints)
-    # hinter.register(MemoryUnavailableSummaryHint, collect_hints)
-    # hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
-    # hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
-    # hinter.register(DefUseGraphHint, collect_hints)
+    hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
+    hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
     crw = ColorizerReadWrite(hinter)
-    analyses = [
-        # ColorizerSummary(hinter),
-        crw
-    ]
+    analyses = [ColorizerSummary(hinter), crw]
 
     for i in range(num_micro_exec):
         logger.info(f"\nmicro exec number {i}")
@@ -121,25 +111,58 @@ def test(num_micro_exec, num_insns, buflen, fortytwos, seed):
         c.run(perturbed_machine)
 
     smallworld.analyze(perturbed_machine, analyses)
-    print("--------------------------")
-    res = crw.graph.derive(0x219C, True, pdef.registers["rax"])
-    print(res)
-    print("--------------------------")
-    res = crw.graph.derive(
-        0x2183,
-        True,
-        BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x18),
-    )
-    print(res)
-    print("--------------------------")
-    res = crw.graph.derive(
-        0x216E,
-        True,
-        BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x1C),
-    )
-    print(res)
 
-    return hints
+    pdef = PlatformDef.for_platform(platform)
+
+    print("--------------------------")
+    d1 = (0x221F, "rax", crw.graph.derive(0x221F, True, pdef.registers["rax"]))
+    print(f"0x221f rax -- {d1}")
+
+    print("--------------------------")
+    d2 = (0x219C, "rax", crw.graph.derive(0x219C, True, pdef.registers["rax"]))
+    print(f"0x219c rax -- {d2}")
+
+    print("--------------------------")
+    d3 = (0x21F0, "al", crw.graph.derive(0x21F0, True, pdef.registers["al"]))
+    print(f"0x21f0 al -- {d3}")
+
+    print("--------------------------")
+    d4 = (
+        0x2183,
+        "[rbp-0x18]",
+        crw.graph.derive(
+            0x2183,
+            True,
+            BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x18),
+        ),
+    )
+    print(f"0x2183 [rbp-0x18] -- {d4}")
+
+    print("--------------------------")
+    d5 = (
+        0x216E,
+        "[rbp-0x1c]",
+        crw.graph.derive(
+            0x216E,
+            True,
+            BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x1C),
+        ),
+    )
+    print(f"0x216e [rbp-0x1c] -- {d5}")
+
+    print("--------------------------")
+    d6 = (
+        0x2178,
+        "[rbp-0x20]",
+        crw.graph.derive(
+            0x2178,
+            True,
+            BSIDMemoryReferenceOperand(base="rbp", index=None, scale=1, offset=-0x20),
+        ),
+    )
+    print(f"0x2178 [rbp-0x20] -- {d6}")
+
+    return ([d1, d2, d3, d4, d5, d6], hints)
 
 
 if __name__ == "__main__":
