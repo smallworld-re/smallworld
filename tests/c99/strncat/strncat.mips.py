@@ -91,7 +91,7 @@ exit_model.allow_imprecise = True
 code.update_symbol_value("exit", exit_model._address)
 
 memcpy_model = smallworld.state.models.Model.lookup(
-    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
 )
 machine.add(memcpy_model)
 memcpy_model.allow_imprecise = True
