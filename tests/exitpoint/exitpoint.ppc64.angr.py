@@ -33,9 +33,8 @@ with open(filename, "rb") as f:
 # Load and add code from lib.
 # Pray to pudding that
 
-# Set entrypoint from RE.
-# PowerPC64 be tripping.
-entrypoint = 0x4104B0
+# Set entrypoint.
+entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
 
 # Define a fake exit point for test 1
