@@ -380,13 +380,25 @@ class ColorizerReadWrite(analysis.Analysis):
     Well, we first collect all the dynamic value hints output by the
     colorizer.
 
-    The "new" ones are normalized across different micro-executions to
-    get a set of keys that correspond to colors.  This normalization
-    is done by `compute_dv_key`.  And the mapping from dynamic value
-    hint to key via that function can be mapped, further, to unique
-    colors with dvkey2num[key].
+    The "new" ones are hints in which a dynamic value is first
+    observed along an execution trace. These are per-micro-execution
+    colors.  They are normalized across micro-executions to get a set
+    of keys that correspond to colors.  This normalization is done by
+    `compute_dv_key`.  And the mapping from dynamic value hint to key
+    via that function can be mapped, further, to unique colors with
+    dvkey2num[key].
 
-    Next, we find edges in the write->read graph as
+    Note: these "new" hints can actually be reads *or* writes.  A read
+    can be use of a register value or a read of a value from
+    memory. Both of these could contain new values and thus new
+    per-execution colors. But a write, which can be to a register or
+    to memory, can also be a new value (if computation occured in the
+    instruction to get a new value).
+
+    Next, we find edges in the graph as between where a new value was
+    first seen and any place it was seen to be used. The edges are
+    between the keys described above and thus are normalized across
+    micro executions.
 
     """
 

@@ -225,7 +225,7 @@ class Colorizer(analysis.Analysis):
         if type(operand) is RegisterOperand:
             # return size of a reg based on its name
             return self.pdef.registers[operand.name].size
-        elif type(operand) is BSIDMemoryReferenceOperand:
+        elif isinstance(operand, BSIDMemoryReferenceOperand):
             # memory operand knows its size
             return operand.size
         return 0
@@ -264,7 +264,7 @@ class Colorizer(analysis.Analysis):
                     continue
                 sz = self._operand_size(operand)
                 # print(f"operand={operand} sz={sz}")
-                if type(operand) is BSIDMemoryReferenceOperand:
+                if isinstance(operand, BSIDMemoryReferenceOperand):
                     # if addr not mapped, discard this operand
                     a = operand.address(emu)
                     ar = (a, a + sz)
@@ -457,7 +457,7 @@ class Colorizer(analysis.Analysis):
                 exec_id=self.exec_id,
                 message=message,
             )
-        elif type(operand) is BSIDMemoryReferenceOperand:
+        elif isinstance(operand, BSIDMemoryReferenceOperand):
             base_name = "None"
             if operand.base is not None:
                 base_name = operand.base

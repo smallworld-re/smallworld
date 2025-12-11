@@ -89,3 +89,16 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
     def __repr__(self) -> str:
         string = self.expr_string()
         return f"{self.__class__.__name__}({string})"
+
+
+class x86BSIDMemoryReferenceOperand(BSIDMemoryReferenceOperand):
+    def address(self, emulator: emulators.Emulator) -> int:
+        a = super().address(emulator)
+        if self.base == "rip" or self.base == "eip":
+            # fixup for rip-relative
+            try:
+                a += emulator.current_instruction().size()  # type: ignore
+            except:
+                # that failed god knows why
+                pass
+        return a
