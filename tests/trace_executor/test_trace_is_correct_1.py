@@ -1,7 +1,7 @@
 from trace_test import test
 
 import smallworld
-from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+from smallworld.instructions.bsid import x86BSIDMemoryReferenceOperand
 
 if __name__ == "__main__":
     # this trace should trigger a memory error since there's no heap
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     )
 
     expected(
-        hints[0].exception.operands == [(BSIDMemoryReferenceOperand(base="rax"), 0)],
+        hints[0].exception.operands == [(x86BSIDMemoryReferenceOperand(base="rax"), 0)],
         f"exception operands are correct -- {hints[0].exception.operands}",
         f"exception operands are incorrect -- {hints[0].exception.operands}",
     )

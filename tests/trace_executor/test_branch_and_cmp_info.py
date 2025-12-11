@@ -1,6 +1,6 @@
 from trace_test import test
 
-from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+from smallworld.instructions.bsid import x86BSIDMemoryReferenceOperand
 from smallworld.instructions.instructions import RegisterOperand
 
 if __name__ == "__main__":
@@ -52,13 +52,13 @@ if __name__ == "__main__":
     )
 
     truth_cmps = [
-        (8558, [BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C), 47]),
-        (8568, [BSIDMemoryReferenceOperand(base="rbp", offset=-0x20), 0]),
+        (8558, [x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C), 47]),
+        (8568, [x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x20), 0]),
         (
             8706,
             [
                 RegisterOperand("eax"),
-                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
+                x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
             ],
         ),
         (8637, [RegisterOperand("al"), RegisterOperand("al")]),
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             8706,
             [
                 RegisterOperand("eax"),
-                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
+                x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
             ],
         ),
         (8637, [RegisterOperand("al"), RegisterOperand("al")]),
@@ -76,7 +76,7 @@ if __name__ == "__main__":
             8706,
             [
                 RegisterOperand("eax"),
-                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
+                x86BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
             ],
         ),
     ]

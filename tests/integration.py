@@ -3374,7 +3374,7 @@ class TraceExecutionTests(ScriptIntegrationTest):
         )
         self.assertLineContainsStrings(
             stdout,
-            "exception operands are correct -- [(BSIDMemoryReferenceOperand([rax]), 0)]",
+            "exception operands are correct -- [(x86BSIDMemoryReferenceOperand([rax]), 0)]",
         )
         self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 

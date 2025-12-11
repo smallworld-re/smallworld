@@ -97,7 +97,16 @@ class x86BSIDMemoryReferenceOperand(BSIDMemoryReferenceOperand):
         if self.base == "rip" or self.base == "eip":
             # fixup for rip-relative
             try:
-                a += emulator.current_instruction().size()  # type: ignore
+                instr_len = 0
+                try:
+                    instr_len = emulator.current_instruction().size()  # type: ignore
+                except:
+                    # we are here if the `emulator` is not sw unicorn
+                    # wrapper which knows how to compute current
+                    # instruction len
+                    pass
+                a += instr_len
+
             except:
                 # that failed god knows why
                 pass
