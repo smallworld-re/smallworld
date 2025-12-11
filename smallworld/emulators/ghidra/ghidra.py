@@ -50,17 +50,17 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self._memory_map = utils.RangeCollection()
 
         # Instruction hooking callbacks
-        self._instructions_hook: typing.Optional[
-            typing.Callable[[Emulator], None]
-        ] = None
-        self._instruction_hooks: typing.Dict[
-            int, typing.Callable[[Emulator], None]
-        ] = dict()
+        self._instructions_hook: typing.Optional[typing.Callable[[Emulator], None]] = (
+            None
+        )
+        self._instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
+            dict()
+        )
 
         # Function hooking callbacks
-        self._function_hooks: typing.Dict[
-            int, typing.Callable[[Emulator], None]
-        ] = dict()
+        self._function_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
+            dict()
+        )
 
         # Memory hooking callbacks
         self._mem_reads_hook: typing.Optional[

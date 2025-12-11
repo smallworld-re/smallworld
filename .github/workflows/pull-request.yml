@@ -5,9 +5,7 @@ on:
     types: [opened, synchronize, reopened, edited]
 
 env:
-  REGISTRY: harbor.harbor.svc.cluster.local
   TZ: UTC
-  SCRATCH: /home/runner/_shared
   USER: root
 concurrency:
   group: pr-${{ github.event.pull_request.number }}

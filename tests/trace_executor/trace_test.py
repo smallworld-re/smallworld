@@ -96,7 +96,6 @@ hints = []
 
 
 def collect_hints(hint):
-    global hints
     hints.append(hint)
 
 
@@ -109,7 +108,6 @@ print(
 
 def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
     global hints
-    global machine
 
     machine_copy = copy.deepcopy(machine)
     cpu = machine_copy.get_cpus()[0]

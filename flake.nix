@@ -63,6 +63,34 @@
         colorama = [ ];
       };
 
+      basePython = forAllSystems (
+        system:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          python = pkgs.python312;
+        in
+        python
+      );
+
+      prebuilts = forAllSystems (
+        system: final: prev:
+        let
+          pkgs = nixpkgs.legacyPackages.${system};
+          python = basePython.${system};
+          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
+          mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
+        in
+        {
+          unicornafl = hacks.nixpkgsPrebuilt {
+            from = (mkUnicornafl python.pkgs);
+          };
+          pypanda = hacks.nixpkgsPrebuilt {
+            from = (pypandaBuilder pandaWithLibs.${system}) python.pkgs;
+          };
+          colorama = hacks.nixpkgsPrebuilt { from = python.pkgs.colorama; };
+        }
+      );
+
       overlay = workspace.mkPyprojectOverlay {
         sourcePreference = "wheel";
       };
@@ -75,19 +103,8 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          python = pkgs.python312;
+          python = basePython.${system};
           overrides = pkgs.callPackage ./overrides.nix { inherit python; };
-          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
-          mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
-          additional = final: prev: {
-            unicornafl = hacks.nixpkgsPrebuilt {
-              from = (mkUnicornafl python.pkgs);
-            };
-            pypanda = hacks.nixpkgsPrebuilt {
-              from = (pypandaBuilder pandaWithLibs.${system}) python.pkgs;
-            };
-            colorama = hacks.nixpkgsPrebuilt { from = python.pkgs.colorama; };
-          };
         in
         (pkgs.callPackage pyproject-nix.build.packages {
           inherit python;
@@ -97,7 +114,7 @@
               pyproject-build-systems.overlays.wheel
               overlay
               overrides
-              additional
+              prebuilts.${system}
             ]
           )
       );
@@ -328,6 +345,10 @@
       );
 
       pythonSet = forAllSystems (system: pythonSets.${system});
+
+      pythonDeps = deps;
+
+      inherit prebuilts;
 
       formatter = forAllSystems (
         system:
