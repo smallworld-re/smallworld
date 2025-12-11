@@ -1392,7 +1392,7 @@ class MemhookTests(ScriptIntegrationTest):
         stdout, _ = self.command(f"python3 memhook/memhook.{arch}.py")
         self.assertLineContainsStrings(stdout, "foo: read 1 bytes at 0x1004")
         self.assertLineContainsStrings(stdout, "bar: read 4 bytes at 0x1010")
-        self.assertLineContainsStrings(stdout, "baz: read 4 bytes at 0x1024")
+        self.assertLineContainsStrings(stdout, "baz: read 4 bytes at 0x1020")
         self.assertLineContainsStrings(stdout, "qux: read 4 bytes at 0x1034")
 
     def test_aarch64(self):
