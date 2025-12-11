@@ -73,8 +73,8 @@ code.update_symbol_value("free", free_model._address)
 emulator = smallworld.emulators.GhidraEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
-
-emulator.add_exit_point(entrypoint + 0x1000)
+    
+emulator.add_exit_point(0)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

@@ -46,7 +46,7 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 # Configure the heap
-heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x20000, 0x1000, 16)
+heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x200000, 0x1000, 16)
 machine.add(heap)
 
 malloc_model = smallworld.state.models.Model.lookup(
@@ -73,8 +73,8 @@ code.update_symbol_value("free", free_model._address)
 emulator = smallworld.emulators.AngrEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
-
-emulator.add_exit_point(entrypoint + 0x1000)
+    
+emulator.add_exit_point(0)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
