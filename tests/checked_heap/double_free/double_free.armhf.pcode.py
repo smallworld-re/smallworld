@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -72,7 +74,7 @@ emulator = smallworld.emulators.GhidraEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
 
-emulator.add_exit_point(entrypoint + 0x1000)
+emulator.add_exit_point(0)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
