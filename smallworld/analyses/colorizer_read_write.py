@@ -371,6 +371,25 @@ def compute_dv_key(hint):
 
 
 class ColorizerReadWrite(analysis.Analysis):
+    """Collect color hints from Colorizer and turn them into a kind of
+    dynamic def->use (write->read) graph that can be used to figure
+    out how a value at an instruction is derived from inputs.
+
+    How does this work?
+
+    Well, we first collect all the dynamic value hints output by the
+    colorizer.
+
+    The "new" ones are normalized across different micro-executions to
+    get a set of keys that correspond to colors.  This normalization
+    is done by `compute_dv_key`.  And the mapping from dynamic value
+    hint to key via that function can be mapped, further, to unique
+    colors with dvkey2num[key].
+
+    Next, we find edges in the write->read graph as
+
+    """
+
     name = "colorizer_read_write_graph"
     description = "assemble a write->read graph from colorizer hints"
     version = "0.0.1"

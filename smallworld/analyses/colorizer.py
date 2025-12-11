@@ -130,7 +130,7 @@ def randomize_uninitialized(
                         randomize_mem(mem, mem.address + bss_start, bss_size)
 
         elif isinstance(mem, state.memory.Memory):
-            mem_rngs = []
+            mem_rngs: typing.List[typing.Any] = []
             for mem_rng in mem.get_ranges_uninitialized():
                 mem_rngs.append(mem_rng)
             mem_rngs.sort()
@@ -147,28 +147,43 @@ def randomize_uninitialized(
 
 
 class Colorizer(analysis.Analysis):
-    """
-    A simple kind of data flow analysis via tracking distinct values
+    """A simple kind of data flow analysis via tracking distinct values
     (colors) and employing instruction use/def analysis
 
-    We run multiple micro-executions of the code starting from same
-    entry. At the start of each, we randomize register values that
-    have not already been initialized. We maintain a "colors" map from
-    dynamic values to when/where we first observed them. This map is
-    initially empty. Before emulating an instruction, we examine the
-    values (registers and memory) it will read. If any are not in the
-    colors map, that is the initial sighting of that value and we emit
-    a hint to that effect and add a color to the map. If any color is
-    already in the map, then that is a def-use flow from the time or
-    place at which that value was first observed to this instruction.
+    We run a single micro-execution of the code. Before any code is
+    executed, we randomize register values that have not already been
+    initialized. We maintain a "colors" map from dynamic values to
+    when/where we first observed them. This map is initially
+    empty. Before emulating an instruction, we examine the values
+    (registers and memory) it will read. If any are not in the colors
+    map, that is the initial sighting of that value and we emit a hint
+    to that effect and add a color to the map. If any color is already
+    in the map, then that is a def-use flow from the time or place at
+    which that value was first observed to this instruction.
     Similarly, after emulating an instruction, we examine every value
     written to a register or memory. If a value is not in the colors
     map, it is a new, computed result and we hint about its creation
     and add it to the map. If it is in the colors map, we do nothing
     since it just a copy.
 
-    Whilst looking at reads and writes for instructions, we hint if any
-    correspond to unavailable memory.
+    Here are the kinds of hints output by this analysis
+
+    DynamicRegisterValueHint
+    -- about value in a register at a particular instruction in the trace
+
+    DynamicMemoryValueHint
+    -- about a value in memory at a particular instruction in the trace
+
+    These can be "new" values if that is first time we have seen that
+    color (dynamic value).  Or they can be not-new, meaning this is a
+    use of that value previously observed, i.e. a data flow.
+
+    They can also be reads or writes.
+
+    Note: Yes, this kind of analysis depends upon colors being big-ish
+    unique values. There is a constant up top indicating the minimum
+    color value.
+
 
     Arguments:
         num_insns: The number of instructions to micro-execute.
