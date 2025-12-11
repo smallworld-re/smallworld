@@ -81,7 +81,7 @@ class MIPS64SysVCallingContext(CStdCallingContext):
 
     def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
         """Read a four-byte returned value"""
-        return emulator.read_register("v0")
+        return emulator.read_register("v0") & self._int_inv_mask
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""

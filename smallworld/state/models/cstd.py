@@ -397,6 +397,24 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         emulator: emulators.Emulator,
         value: int | float,
     ):
+        # There are some cases where passing floats is not supported
+        if self.argument_types[index] in [ArgumentType.FLOAT, ArgumentType.DOUBLE]:
+            if (
+                self.platform.architecture
+                in [
+                    platforms.Architecture.MIPS32,
+                    platforms.Architecture.MIPS64,
+                ]
+                and index == 0
+            ):
+                raise ConfigurationError(
+                    f"Passing float as arg1 not currently supported for {self.platform}"
+                )
+            if self.platform.architecture == platforms.Architecture.X86_32:
+                raise ConfigurationError(
+                    f"Passing float not currently supported for {self.platform}"
+                )
+
         # Get an argument out of a CStdModel or VariadicContext
         sp = self.platdef.sp_register
         on_stack = self._on_stack[index]

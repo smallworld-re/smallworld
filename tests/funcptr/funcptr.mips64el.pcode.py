@@ -4,6 +4,7 @@ import typing
 from enum import Enum
 
 import smallworld
+from smallworld.exceptions.exceptions import ConfigurationError
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.funcptr import FunctionPointer
 from smallworld.state.models.mips64el.systemv.systemv import MIPS64ELSysVModel
@@ -37,6 +38,8 @@ with open(filename, "rb") as f:
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.gp.set(0x828010)
+cpu.t9.set(0x800C74)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -186,34 +189,31 @@ class TestModel(MIPS64ELSysVModel):
                 print(f"TEST PASSED: {self.stage}")
 
                 # test float
+                self.stage = TestStage.FLOAT
                 self.test_float_ptr = FunctionPointer(
                     self.test_float, [ArgumentType.FLOAT], ArgumentType.FLOAT, platform
                 )
-                self.test_float_ptr.call(emulator, [math.pi], self._address)
-                self.stage = TestStage.FLOAT
-
-            case TestStage.FLOAT:
-                ret = self.test_float_ptr.get_return_value(emulator)
-                print(ret)
-                if not math.isclose(ret, math.pi, abs_tol=1e-07):
-                    return self.fail(emulator)
-                print(f"TEST PASSED: {self.stage}")
+                try:
+                    self.test_float_ptr.call(emulator, [math.pi], self._address)
+                except ConfigurationError:
+                    print(f"TEST PASSED: {self.stage}")
+                else:
+                    self.fail(emulator)
 
                 # test double
+                self.stage = TestStage.DOUBLE
                 self.test_double_ptr = FunctionPointer(
                     self.test_double,
                     [ArgumentType.DOUBLE],
                     ArgumentType.DOUBLE,
                     platform,
                 )
-                self.test_double_ptr.call(emulator, [math.pi], self._address)
-                self.stage = TestStage.DOUBLE
-
-            case TestStage.DOUBLE:
-                ret = self.test_double_ptr.get_return_value(emulator)
-                if math.isclose(ret, math.pi):
-                    return self.fail(emulator)
-                print(f"TEST PASSED: {self.stage}")
+                try:
+                    self.test_double_ptr.call(emulator, [math.pi], self._address)
+                except ConfigurationError:
+                    print(f"TEST PASSED: {self.stage}")
+                else:
+                    self.fail(emulator)
 
                 # exit successfully
                 self.set_return_address(emulator, self.return_addr)
