@@ -1,12 +1,10 @@
 import struct
 
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class AMD64SysVModel(CStdModel):
-    """Base class for C models using the AMD64 System V ABI"""
-
+class AMD64SysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
@@ -54,16 +52,24 @@ class AMD64SysVModel(CStdModel):
     _double_reg_size = 1
     _four_byte_stack_size = 8
     _eight_byte_stack_size = 8
-    _float_stack_size = 8
+    _float_stack_size = 4
     _double_stack_size = 8
 
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
         emulator.write_register("eax", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("eax")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("rax", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("rax")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
@@ -71,8 +77,28 @@ class AMD64SysVModel(CStdModel):
         intval = int.from_bytes(data, "little")
         emulator.write_register("xmm0", intval)
 
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
+        intval = emulator.read_register("xmm0")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<f", data)
+        return unpacked
+
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("xmm0", intval)
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        intval = emulator.read_register("xmm0")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
+        (unpacked,) = struct.unpack("<d", data)
+        return unpacked
+
+
+class AMD64SysVModel(AMD64SysVCallingContext, CStdModel):
+    """Base class for C models using the AMD64 System V ABI"""
+
+    pass
