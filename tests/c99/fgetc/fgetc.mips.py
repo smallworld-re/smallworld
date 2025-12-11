@@ -44,10 +44,6 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-# Configure the heap
-heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
-machine.add(heap)
-
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
@@ -68,7 +64,7 @@ code.update_symbol_value("fgetc", fgetc_model._address)
 
 # Create a fake stdin
 # mips references the copy in libc, so we need to make our own
-fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdin)
 

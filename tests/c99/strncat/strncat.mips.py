@@ -90,6 +90,15 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
+memcpy_model = smallworld.state.models.Model.lookup(
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
+
+# Relocate puts
+code.update_symbol_value("memcpy", memcpy_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -120,7 +129,9 @@ machine.add(dead)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
-    machine.emulate(emulator)
+    # machine.emulate(emulator)
+    for m in machine.step(emulator):
+        print(m.get_cpu().pc)
 except FailExitException:
     if sys.argv[1] == "foobar":
         raise Exception("Test case reached failure case unexpectedly")

@@ -1944,30 +1944,46 @@ class ElfCoreTests(ScriptIntegrationTest):
     def test_elf_core_amd64(self):
         self.run_test("amd64")
 
+    # FIXME: No sysroot for armel in Nix
+    @unittest.skip("Pending Nix sysroot for armel")
     def test_elf_core_armel(self):
         self.run_test("armel")
 
+    # FIXME: No sysroot for armhf in Nix
+    @unittest.skip("Pending Nix sysroot for armhf")
     def test_elf_core_armhf(self):
         self.run_test("armhf")
 
+    # FIXME: No sysroot for i386 in Nix
+    @unittest.skip("Pending Nix sysroot for i386")
     def test_elf_core_i386(self):
         self.run_test("i386")
 
+    # FIXME: zig's mips compiler omits a program header QEMU needs.
+    @unittest.skip("Pending fix to zig/QEMU MIPS ABI problem")
     def test_elf_core_mips(self):
         self.run_test("mips")
 
+    # FIXME: zig's mipsel compiler omits a program header QEMU needs.
+    @unittest.skip("Pending fix to zig/QEMU MIPS ABI problem")
     def test_elf_core_mipsel(self):
         self.run_test("mipsel")
 
+    # FIXME: Nix's mips64 ld.so crashes in very odd ways.
+    @unittest.skip("Pending solution to crashes in mips64 ld.so")
     def test_elf_core_mips64(self):
         self.run_test("mips64")
 
+    # FIXME: Nix's mips64 ld.so crashes in very odd ways.
+    @unittest.skip("Pending solution to crashes in mips64 ld.so")
     def test_elf_core_mips64el(self):
         self.run_test("mips64el")
 
     def test_elf_core_ppc(self):
         self.run_test("ppc")
 
+    # FIXME: Nix's ppc64 ld.so crashes in very odd ways.
+    @unittest.skip("Pending solution to crashes in ppc64 ld.so")
     def test_elf_core_ppc64(self):
         self.run_test("ppc64")
 
