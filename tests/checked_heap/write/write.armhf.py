@@ -73,7 +73,7 @@ code.update_symbol_value("free", free_model._address)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 if isinstance(emulator, smallworld.emulators.AngrEmulator):
     emulator.enable_linear()
-    
+
 emulator.add_exit_point(0)
 try:
     machine.emulate(emulator)
