@@ -119,6 +119,15 @@ exit_model.allow_imprecise = True
 # Relocate exit
 code.update_symbol_value("exit", exit_model._address)
 
+memset_model = smallworld.state.models.Model.lookup(
+    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10024
+)
+machine.add(memset_model)
+memset_model.allow_imprecise = True
+
+# Relocate memset
+code.update_symbol_value("memset", memset_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -149,6 +158,6 @@ machine.add(dead)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 try:
     machine.emulate(emulator)
+    raise Exception("Did not exit as expected")
 except FailExitException:
-    if "" == "foobar":
-        raise Exception("Test case reached failure case unexpectedly")
+    pass
