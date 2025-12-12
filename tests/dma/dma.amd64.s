@@ -9,3 +9,4 @@ divide:
         mov     QWORD [rdx], rdi
         mov     QWORD [rdx + 0x8], rsi
         mov     rax, QWORD [rdx + 0x10]
+        hlt
