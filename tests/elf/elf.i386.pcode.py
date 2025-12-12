@@ -58,6 +58,12 @@ stack.push_integer(argv, 4, None)
 # Push argc
 stack.push_integer(2, 4, None)
 
+# Push fake return value
+# This should be an exit point
+exitpoint = code.entrypoint + code.get_symbol_size("_start") - 4
+machine.add_exit_point(exitpoint)
+stack.push_integer(exitpoint, 8, None)
+
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.esp.set(sp)
@@ -68,5 +74,7 @@ emulator = smallworld.emulators.GhidraEmulator(platform)
 # Use code bounds from the ELF
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
+    # I happen to know that the code _actually_ stops
+    # at .text + 0x22
 
 machine.emulate(emulator)

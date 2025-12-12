@@ -45,6 +45,7 @@ machine.add_exit_point(0)
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory read")
@@ -55,6 +56,7 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory write")
@@ -65,6 +67,7 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.UnicornEmulator(platform)
     final_machine = machine.emulate(emulator)
     raise Exception("Did not report an unmapped memory fetch")

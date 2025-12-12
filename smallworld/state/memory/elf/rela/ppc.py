@@ -14,9 +14,14 @@ class PowerPCElfRelocator(ElfRelocator):
     byteorder = platforms.Byteorder.BIG
     addrsz = 4
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
+        if rela.is_rela:
+            addend = rela.addend
+        else:
+            addend = elf.read_int(rela.offset, self.addrsz, self.byteorder)
+
         if rela.type == R_PPC_ABS32:
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(4, "big")
         elif (
             rela.type == R_PPC_GLOB_DAT
@@ -24,7 +29,7 @@ class PowerPCElfRelocator(ElfRelocator):
             or rela.type == R_PPC_RELATIVE
         ):
             # Different semantics, all behave the same
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(self.addrsz, "big")
         else:
             raise ConfigurationError(
@@ -40,9 +45,14 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
     byteorder = platforms.Byteorder.BIG
     addrsz = 8
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
+        if rela.is_rela:
+            addend = rela.addend
+        else:
+            addend = elf.read_int(rela.offset, self.addrsz, self.byteorder)
+
         if rela.type == R_PPC64_ADDR64:
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(self.addrsz, "big")
         elif rela.type == R_PPC_JUMP_SLOT:
             # The PowerPC64 JUMP_SLOT relocation is much more complicated.
@@ -59,4 +69,4 @@ class PowerPC64ElfRelocator(PowerPCElfRelocator):
             # which I have no idea how to pass.
             raise NotImplementedError("R_PPC64_JUMP_SLOT not implemented")
         else:
-            return super()._compute_value(rela)
+            return super()._compute_value(rela, elf)

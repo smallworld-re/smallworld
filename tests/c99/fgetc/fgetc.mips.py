@@ -25,14 +25,13 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -44,10 +43,6 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
-
-# Configure the heap
-heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
-machine.add(heap)
 
 exit_model = smallworld.state.models.Model.lookup(
     "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
@@ -69,7 +64,7 @@ code.update_symbol_value("fgetc", fgetc_model._address)
 
 # Create a fake stdin
 # mips references the copy in libc, so we need to make our own
-fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
 machine.add(fake_stdin)
 

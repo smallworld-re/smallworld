@@ -14,7 +14,7 @@ class AMD64ElfRelocator(ElfRelocator):
     arch = platforms.Architecture.X86_64
     byteorder = platforms.Byteorder.LITTLE
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
         if (
             rela.type == R_X86_64_GLOB_DAT
             or rela.type == R_X86_64_JUMP_SLOT
@@ -22,7 +22,12 @@ class AMD64ElfRelocator(ElfRelocator):
             or rela.type == R_X86_64_64
         ):
             # Different semantics, all behave the same
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            if rela.is_rela:
+                addend = rela.addend
+            else:
+                addend = elf.read_int(rela.offset, 8, self.byteorder)
+
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(8, "little")
         elif rela.type >= 0 and rela.type < R_X86_64_NUM:
             raise ConfigurationError(

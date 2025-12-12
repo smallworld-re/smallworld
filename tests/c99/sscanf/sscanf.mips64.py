@@ -27,6 +27,9 @@ filename = (
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
+    for bound in code.bounds:
+        machine.add_bound(bound[0], bound[1])
+    machine.add_bound(0x10000, 0x11000)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
@@ -79,6 +82,15 @@ strcmp_model.allow_imprecise = True
 # Relocate strcmp
 code.update_symbol_value("strcmp", strcmp_model._address)
 
+exit_model = smallworld.state.models.Model.lookup(
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10014
+)
+machine.add(exit_model)
+exit_model.allow_imprecise = True
+
+# Relocate exit
+code.update_symbol_value("exit", exit_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -123,7 +135,6 @@ cpu.t9.set(entrypoint)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x20000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

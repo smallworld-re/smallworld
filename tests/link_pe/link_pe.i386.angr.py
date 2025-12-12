@@ -49,7 +49,7 @@ code.link_pe(lib)
 # Pray to pudding that
 
 # Set entrypoint from the ELF
-entrypoint = code.address + 0x15D0
+entrypoint = code.address + 0x1000
 cpu.eip.set(entrypoint)
 
 # Create a stack and add it to the state
@@ -96,7 +96,7 @@ class InitModel(smallworld.state.models.Model):
         pass
 
 
-init = InitModel(code.address + 0x16A0)
+init = InitModel(code.address + 0x15E0)
 machine.add(init)
 
 
@@ -111,8 +111,7 @@ for bound in code.bounds:
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
 
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x2C)
+emulator.add_exit_point(code.address + 0x10BF)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

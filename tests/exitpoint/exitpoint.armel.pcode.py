@@ -6,8 +6,10 @@ import smallworld
 smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
+# NOTE: This is definitely a v6 program,
+# and Ghidra actually cares.
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine

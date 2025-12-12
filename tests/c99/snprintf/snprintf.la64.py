@@ -103,8 +103,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
+emulator = smallworld.emulators.GhidraEmulator(platform)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

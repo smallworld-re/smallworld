@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -76,10 +76,11 @@ code.update_symbol_value("strcmp", strcmp_model._address)
 
 # Create a fake stdin
 # armel copies the address from libc, so we just need to write into the symbol.
-filestar = 0x47492A00
-stdin_addr = code.get_symbol_value("stdin")
+fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
+machine.add(fake_stdin)
 
-code.write_bytes(stdin_addr, filestar.to_bytes(4, "little"))
+code.update_symbol_value("stdin", fake_stdin.address)
 
 
 # Create a type of exception only I will generate

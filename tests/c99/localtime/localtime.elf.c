@@ -3,7 +3,7 @@
 #include <string.h>
 #include <time.h>
 
-int main(int argc, char *argv[]) {
+int main() {
     int *good = (int *)(size_t)0xdead;
     time_t t = 0;
     struct tm expected = {

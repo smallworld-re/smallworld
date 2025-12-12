@@ -29,6 +29,9 @@ with open(filename, "rb") as f:
         f, platform=platform, address=0x400000
     )
     machine.add(code)
+    for bound in code.bounds:
+        machine.add_bound(bound[0], bound[1])
+    machine.add_bound(0x10000, 0x11000)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
@@ -96,6 +99,9 @@ strlen_model = smallworld.state.models.Model.lookup(
 machine.add(strlen_model)
 strlen_model.allow_imprecise = True
 
+# Relocate strlen
+code.update_symbol_value("strlen", strlen_model._address)
+
 getc_model = smallworld.state.models.Model.lookup(
     "getc", platform, smallworld.platforms.ABI.SYSTEMV, 0x1001C
 )
@@ -105,8 +111,14 @@ getc_model.allow_imprecise = True
 # Relocate getc
 code.update_symbol_value("getc", getc_model._address)
 
-# Relocate strlen
-code.update_symbol_value("strlen", strlen_model._address)
+exit_model = smallworld.state.models.Model.lookup(
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10020
+)
+machine.add(exit_model)
+exit_model.allow_imprecise = True
+
+# Relocate exit
+code.update_symbol_value("exit", exit_model._address)
 
 
 # Create a type of exception only I will generate
@@ -136,7 +148,6 @@ machine.add(dead)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

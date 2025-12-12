@@ -32,6 +32,7 @@ with open(filename, "rb") as f:
 # Set entrypoint from the ELF
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -77,10 +78,10 @@ machine.add(backing)
 foo = FooModel("foo", 0x1000, 8)
 machine.add(foo)
 
-bar = FooModel("bar", 0x1010, 8)
+bar = FooModel("bar", 0x100C, 8)
 machine.add(bar)
 
-baz = FooModel("baz", 0x1020, 8)
+baz = FooModel("baz", 0x101C, 8)
 machine.add(baz)
 
 qux = FooModel("qux", 0x1034, 1)

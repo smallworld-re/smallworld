@@ -39,8 +39,11 @@ cpu.rip.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+# Push fake return
+# Make it an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+stack.push_integer(exitpoint, 8, None)
+machine.add_exit_point(exitpoint)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -71,10 +74,10 @@ machine.add(backing)
 foo = FooModel("foo", 0x1000, 8)
 machine.add(foo)
 
-bar = FooModel("bar", 0x1010, 8)
+bar = FooModel("bar", 0x100C, 8)
 machine.add(bar)
 
-baz = FooModel("baz", 0x1020, 8)
+baz = FooModel("baz", 0x101C, 8)
 machine.add(baz)
 
 qux = FooModel("qux", 0x1034, 1)

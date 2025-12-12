@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-int main(int argc, char *argv[]) {
+int main() {
     int *good = (int *)(size_t)0xdead;
     time_t expected = 1741969920;
     struct tm st = {

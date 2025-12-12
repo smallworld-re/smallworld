@@ -13,14 +13,19 @@ class LoongArch64ElfRelocator(ElfRelocator):
     arch = platforms.Architecture.LOONGARCH64
     byteorder = platforms.Byteorder.LITTLE
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
         if (
             rela.type == R_LARCH_JUMP_SLOT
             or rela.type == R_LARCH_RELATIVE
             or rela.type == R_LARCH_64
         ):
             # Different semantics, all behave the same
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            if rela.is_rela:
+                addend = rela.addend
+            else:
+                addend = elf.read_int(rela.offset, 8, self.byteorder)
+
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(8, "little")
         elif rela.type >= 0 and rela.type < R_LARCH_NUM:
             raise ConfigurationError(

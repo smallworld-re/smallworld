@@ -8,7 +8,7 @@ class XtensaElfRelocator(ElfRelocator):
     arch = platforms.Architecture.XTENSA
     byteorder = platforms.Byteorder.LITTLE
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
         # Xtensa doesn't have a dynamic linker.
         raise ConfigurationError(
             "Unknown relocation type for {rela.symbol.name}: {rela.type}"

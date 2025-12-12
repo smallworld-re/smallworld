@@ -8,34 +8,61 @@ fi
 
 platform=`echo "$1" | cut -d. -f2-2`
 
+# Find our QEMU binary and our sysroot platform ID
 qemu_bin="qemu-$platform"
-sysroot="/usr/$platform-linux-gnu"
-
-if [ "$platform" = "amd64" ]; then
-    sysroot="/lib/x86_64-linux-gnu"
+if [ "$platform" = "aarch64" ]; then
+    quad="aarch64-unknown-linux-gnu"
+elif [ "$platform" = "amd64" ]; then
+    quad=""
     qemu_bin="qemu-x86_64"
-    library_path="/lib/x86_64-linux-gnu"
-    export LD_LIBRARY_PATH="$library_path"
 elif [ "$platform" = "armel" ]; then
-    sysroot="/usr/arm-linux-gnueabi"
+    quad="arm-unknown-linux-gnueabi"
     qemu_bin="qemu-arm"
+    echo "FIXME: No sysroot for arm32 in Nix"
+    exit 0
 elif [ "$platform" = "armhf" ]; then
-    sysroot="/usr/arm-linux-gnueabihf"
+    quad="arm-unknown-linux-gnueabihf"
     qemu_bin="qemu-arm"
+    echo "FIXME: no sysroot for arm32 in nix"
+    exit 0
 elif [ "$platform" = "i386" ]; then
-    sysroot="/usr/i686-linux-gnu"
+    quad="i686-unknown-linux-gnu"
+    echo "FIXME: no sysroot for i386 in nix"
+    exit 0
+elif [ "$platform" = "mips" ]; then
+    quad="mips-unknown-linux-gnueabihf"
+    echo "FIXME: QEMU can't run zig-compiled mips32 programs"
+    exit 0
+elif [ "$platform" = "mipsel" ]; then
+    quad="mipsel-unknown-linux-gnueabihf"
+    echo "FIXME: QEMU can't run zig-compiled mips32 programs"
+    exit 0
 elif [ "$platform" = "mips64" ]; then
-    sysroot="/usr/mips64-linux-gnuabi64"
+    quad="mips64-unknown-linux-gnuabi64"
+    echo "FIXME: Something is horribly wrong with mips64 ld.so"
+    exit 0
 elif [ "$platform" = "mips64el" ]; then
-    sysroot="/usr/mips64el-linux-gnuabi64"
+    quad="mips64el-unknown-linux-gnuabi64"
+    echo "FIXME: Something is horribly wrong with mips64 ld.so"
+    exit 0
 elif [ "$platform" = "ppc" ]; then
-    sysroot="/usr/powerpc-linux-gnu"
+    quad="powerpc-unknown-linux-gnu"
 elif [ "$platform" = "ppc64" ]; then
-    sysroot="/usr/powerpc64-linux-gnu"
+    quad="powerpc64-unknown-linux-gnuabielfv2"
+    echo "FIXME: Something is horribly wrong with ppc64 ld.so"
+    exit 0
 fi
 
-echo "foobar" | "$qemu_bin" -L "$sysroot" "$1"
-export LD_LIBRARY_PATH=""
+# Find the sysroot in the nix store 
+sysroot=$(find /nix/store -maxdepth 2 -name "*glibc-$quad*-66" -type d | head -n 1)
+
+if [ "$sysroot" = "" ]; then
+    echo "ERROR: No sysroot for $platform"
+    exit 1
+fi
+echo "$sysroot"
+
+echo "foobar" | $qemu_bin -L "$sysroot" "$(realpath $1)"
 
 find . -name 'core.*' | xargs -I @ rm @
 find . -name "qemu_$1*.core" | xargs -I @ mv @ "$1.core"

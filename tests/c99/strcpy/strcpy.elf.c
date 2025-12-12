@@ -3,7 +3,7 @@
 
 int main(int argc, char *argv[]) {
     char *bad = (char *)(size_t)0xdead;
-    char buf[7];
+    char buf[8];
     char *str = strcpy(buf, argv[1]);
     str[6] = '\0';
     if(str != buf) {

@@ -45,7 +45,6 @@ def _emu_strncpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
     data = emulator.read_memory(src, actual)
     data += b"\0" * (n - actual)
 
-    print(f"Writing {n} bytes to {hex(dst)}")
     emulator.write_memory(dst, data)
 
 

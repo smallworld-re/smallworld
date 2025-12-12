@@ -92,7 +92,11 @@ code.update_symbol_value("puts", puts._address)
 # TL;DR: To call main(), t9 must equal main.
 cpu.t9.set(entrypoint)
 
+# Configure an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+machine.add_exit_point(exitpoint)
+cpu.ra.set(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(entrypoint + 100)
 machine.emulate(emulator)

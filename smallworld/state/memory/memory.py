@@ -129,77 +129,73 @@ class Memory(state.Stateful, dict[int, state.Value]):
             data: The bytes to write.
         """
 
-        if (address < self.address) or (address + len(data) > self.address + self.size):
+        data_start = address
+        data_end = address + len(data)
+
+        if (data_start < self.address) or (data_end > self.address + self.size):
             raise exceptions.ConfigurationError(
                 f"Out of bounds: tried to read {len(data)} bytes at {hex(address)} from memory region {hex(self.address)} - {hex(self.address + self.size)}."
             )
 
-        next_segment_address = address
-        remaining_length = len(data)
+        if len(self) == 0:
+            # No existing data.
+            value = state.BytesValue(data, None)
+            self[address - self.address] = value
 
         segment: state.Value
+        gap_start = 0
         for segment_offset, segment in sorted(self.items()):
-            segment_address = self.address + segment_offset
+            segment_start = self.address + segment_offset
+            segment_end = segment_start + segment.get_size()
 
-            # fill gaps before/between existing segments
-            if next_segment_address < segment_address:
-                buffer = data[
-                    next_segment_address - address : segment_address - address
-                ]
-                self[next_segment_address - self.address] = state.BytesValue(
-                    buffer,
-                    None,
-                )
-                next_segment_address += len(buffer)
-                remaining_length -= len(buffer)
+            gap_end = segment_start
 
-            # write to all overlapping segments
-            if segment_address < next_segment_address:
-                start_in_segment = max(segment_address, address)
-                remaining_length += next_segment_address - start_in_segment
-                next_segment_address = start_in_segment
+            if data_start <= gap_end and gap_start <= data_end:
+                # Part of data possibly falls into the gap between segments.
+                part_start = max(data_start, gap_start)
+                part_end = min(data_end, gap_end)
 
-            # overwrite existing segment
-            if (
-                remaining_length > 0
-                and segment_address <= next_segment_address
-                and next_segment_address < segment_address + segment.get_size()
-            ):
-                contents = segment.get_content()
+                part = data[part_start - data_start : part_end - data_start]
+                if len(part) > 0:
+                    value = state.BytesValue(part, None)
+                    self[part_start - self.address] = value
 
-                # check for symbolic
-                if not isinstance(contents, bytes):
-                    raise exceptions.SymbolicValueError(
-                        f"Tried to write {len(data)} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
-                    )
+            gap_start = segment_end
 
-                offset_in_segment = next_segment_address - segment_address
-                length_in_segment = min(
-                    remaining_length, segment.get_size() - offset_in_segment
-                )
-                contents = (
-                    contents[:offset_in_segment]
-                    + data[
-                        next_segment_address
-                        - address : next_segment_address
-                        - address
-                        + length_in_segment
-                    ]
-                    + contents[offset_in_segment + length_in_segment :]
-                )
-                segment.set_content(contents)
-                next_segment_address += length_in_segment
-                remaining_length -= length_in_segment
-
-            # check if output complete
-            if remaining_length == 0:
+            if segment_start >= data_end:
+                # This segment is after the range we want to update.
+                # We will never have to write anything else.
                 break
 
-        # fill gap past end of existing segments
-        if next_segment_address != address + len(data):
-            self[next_segment_address - self.address] = state.BytesValue(
-                data[next_segment_address - address :], None
-            )
+            if data_start < segment_end and segment_start <= data_end:
+                # Part of data lands in this segment
+                part_start = max(data_start, segment_start)
+                part_end = min(data_end, segment_end)
+
+                part = data[part_start - data_start : part_end - data_start]
+
+                contents = segment.get_content()
+                if not isinstance(contents, bytes):
+                    raise exceptions.SymbolicValueError(
+                        f"Tried to write {len(data)} bytes at {hex(address)}.  Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
+                    )
+
+                prefix = contents[: part_start - segment_start]
+                suffix = contents[part_end - segment_start :]
+
+                segment.set_content(prefix + part + suffix)
+
+        gap_end = self.address + self.size
+        if data_start <= gap_end and gap_start <= data_end:
+            # Part of the data goes past the last segment.
+            part_start = max(data_start, gap_start)
+            part_end = min(data_end, gap_end)
+
+            part = data[part_start - data_start : part_end - data_start]
+
+            if len(part) > 0:
+                value = state.BytesValue(part, None)
+                self[part_start - self.address] = value
 
     def read_bytes(self, address: int, size: int) -> bytes:
         """Read part of this memory region.

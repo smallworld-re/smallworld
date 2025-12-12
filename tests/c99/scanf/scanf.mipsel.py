@@ -27,10 +27,14 @@ filename = (
 with open(filename, "rb") as f:
     code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
+    for bound in code.bounds:
+        machine.add_bound(bound[0], bound[1])
+    machine.add_bound(0x10000, 0x11000)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -106,6 +110,24 @@ strlen_model.allow_imprecise = True
 # Relocate strlen
 code.update_symbol_value("strlen", strlen_model._address)
 
+exit_model = smallworld.state.models.Model.lookup(
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10020
+)
+machine.add(exit_model)
+exit_model.allow_imprecise = True
+
+# Relocate exit
+code.update_symbol_value("exit", exit_model._address)
+
+memset_model = smallworld.state.models.Model.lookup(
+    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10024
+)
+machine.add(memset_model)
+memset_model.allow_imprecise = True
+
+# Relocate memset
+code.update_symbol_value("memset", memset_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -134,9 +156,8 @@ machine.add(dead)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x40000)
 try:
     machine.emulate(emulator)
+    raise Exception("Did not exit as expected")
 except FailExitException:
-    if "" == "foobar":
-        raise Exception("Test case reached failure case unexpectedly")
+    pass

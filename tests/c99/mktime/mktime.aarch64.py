@@ -75,6 +75,16 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
+# Compiler injects an implicit memset
+memset_model = smallworld.state.models.Model.lookup(
+    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(memset_model)
+memset_model.allow_imprecise = True
+
+# Relocate puts
+code.update_symbol_value("memset", memset_model._address)
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):

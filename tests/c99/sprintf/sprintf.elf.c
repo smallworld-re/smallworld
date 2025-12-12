@@ -3,13 +3,13 @@
 #include <math.h>
 
 #define LONG_OCT_4 "10220441102"
-#define LONG_OCT_8 "411022044110220441102"
+#define LONG_OCT_8 "110642547420731241441"
 #define LONG_DEC_4 "1111638594"
-#define LONG_DEC_8 "4774451407313060418"
+#define LONG_DEC_8 "1311768467139281697"
 #define LONG_HEX_4 "42424242"
-#define LONG_HEX_8 "4242424242424242"
+#define LONG_HEX_8 "1234567887654321"
 #define LONG_CON_4 0x42424242l
-#define LONG_CON_8 0x4242424242424242l
+#define LONG_CON_8 0x1234567887654321l
 
 // Different platforms produce different values
 // for NaN, and for longs
@@ -86,7 +86,7 @@
         } \
     } while(0)
 
-int main(int argc, char *argv[]) {
+int main() {
     char buf[128];
     char *good = (char *)(size_t)0xdead;
     int bad = 0;
@@ -111,7 +111,7 @@ int main(int argc, char *argv[]) {
     TEST("%hhd", "66", 0x42);
     TEST("%hd", "16962", 0x4242);
     TEST("%ld", LONG_DEC_RES, LONG_CON);
-    TEST("%lld", "4774451407313060418", 0x4242424242424242ll);
+    TEST("%lld", "1311768467139281697", 0x1234567887654321ll);
     TEST("%zd", LONG_DEC_RES, (size_t)LONG_CON);
     // %i: Signed decimal integer
     TEST("%i", "42", 42);
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
     TEST("%hhi", "66", 0x42);
     TEST("%hi", "16962", 0x4242);
     TEST("%li", LONG_DEC_RES, LONG_CON);
-    TEST("%lli", "4774451407313060418", 0x4242424242424242ll);
+    TEST("%lli", "1311768467139281697", 0x1234567887654321ll);
     TEST("%zi", LONG_DEC_RES, (size_t)LONG_CON);
     // %o: Unsigned octal integer
     TEST("%o", "52", 42);
@@ -139,7 +139,7 @@ int main(int argc, char *argv[]) {
     TEST("%hho", "102", 0x42);
     TEST("%ho", "41102", 0x4242);
     TEST("%lo", LONG_OCT_RES, LONG_CON);
-    TEST("%llo", "411022044110220441102", 0x4242424242424242ll);
+    TEST("%llo", "110642547420731241441", 0x1234567887654321ll);
     TEST("%zo", LONG_OCT_RES, (size_t)LONG_CON);
     // %u: Unsigned decimal integer
     TEST("%u", "42", 42);
@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
     TEST("%hhu", "66", 0x42);
     TEST("%hu", "16962", 0x4242);
     TEST("%lu", LONG_DEC_RES, LONG_CON);
-    TEST("%llu", "4774451407313060418", 0x4242424242424242ll);
+    TEST("%llu", "1311768467139281697", 0x1234567887654321ll);
     TEST("%zu", LONG_DEC_RES, (size_t)LONG_CON);
     // %x: Unsigned hexadecimal integer, lower-case
     TEST("%x", "2a", 42);
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
     TEST("%hhx", "42", 0x42);
     TEST("%hx", "4242", 0x4242);
     TEST("%lx", LONG_HEX_RES, LONG_CON);
-    TEST("%llx", "4242424242424242", 0x4242424242424242ll);
+    TEST("%llx", "1234567887654321", 0x1234567887654321ll);
     TEST("%zx", LONG_HEX_RES, (size_t)LONG_CON);
     // %X: Unsigned hexadecimal integer, upper-case
     TEST("%X", "2A", 42);
@@ -176,7 +176,7 @@ int main(int argc, char *argv[]) {
     TEST("%hhX", "42", 0x42);
     TEST("%hX", "4242", 0x4242);
     TEST("%lX", LONG_HEX_RES, LONG_CON);
-    TEST("%llX", "4242424242424242", 0x4242424242424242ll);
+    TEST("%llX", "1234567887654321", 0x1234567887654321ll);
     TEST("%zX", LONG_HEX_RES, (size_t)LONG_CON);
     // %e: Scientific notation, lower-case
     TEST("%e", "4.200000e+01", 42.0);

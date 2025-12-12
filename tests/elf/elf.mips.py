@@ -62,15 +62,15 @@ stack.push_integer(2, 4, None)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
+# Configure the return register to return to unmapped memory.
+cpu.ra.set(0xFFFF0)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 
 # Use code bounds from the ELF
-emulator.add_exit_point(0)
+emulator.add_exit_point(0xFFFF0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
-    # I happen to know that the code _actually_ stops
-    # at .text + 0x88
-    emulator.add_exit_point(bound[0] + 0x10C)
 
 machine.emulate(emulator)

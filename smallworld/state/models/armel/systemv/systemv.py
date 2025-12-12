@@ -12,7 +12,7 @@ class ArmELSysVModel(CStdModel):
     """
 
     platform = platforms.Platform(
-        platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
     )
     abi = platforms.ABI.SYSTEMV
 

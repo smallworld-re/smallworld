@@ -38,8 +38,11 @@ cpu.rip.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a return address onto the stack
-stack.push_integer(0x7FFFFFF8, 8, "fake return address")
+# Push fake return
+# Make it an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+stack.push_integer(exitpoint, 8, None)
+machine.add_exit_point(exitpoint)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -81,10 +84,6 @@ machine.add(puts)
 
 # Relocate puts
 code.update_symbol_value("puts", puts._address)
-
-# Configure an exit point
-exit_point = 0x7FFFFFF8
-machine.add_exit_point(exit_point)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)

@@ -98,9 +98,9 @@ code.update_symbol_value("puts", puts._address)
 cpu.t9.set(entrypoint)
 
 # Configure an exit point
-exit_point = 0x7FFFFFF8
-machine.add_exit_point(exit_point)
-cpu.ra.set(exit_point)
+exitpoint = entrypoint + code.get_symbol_size("main")
+machine.add_exit_point(exitpoint)
+cpu.ra.set(exitpoint)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)

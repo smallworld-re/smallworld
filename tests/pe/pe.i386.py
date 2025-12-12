@@ -47,7 +47,7 @@ class InitModel(smallworld.state.models.Model):
         pass
 
 
-init = InitModel(code.address + 0x16A0)
+init = InitModel(code.address + 0x1550)
 machine.add(init)
 
 
@@ -84,13 +84,13 @@ class PutsModel(smallworld.state.models.Model):
 
 
 puts = PutsModel(0x10000000)
-code.update_import("msvcrt.dll", "puts", puts._address)
+code.update_import("api-ms-win-crt-stdio-l1-1-0.dll", "puts", puts._address)
 machine.add(puts)
 
 # Set entrypoint to "main"
-cpu.eip.set(code.address + 0x15D0)
+cpu.eip.set(code.address + 0x1000)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(code.address + 0x15F0)
+emulator.add_exit_point(code.address + 0x102E)
 final_machine = machine.emulate(emulator)

@@ -32,6 +32,7 @@ with open(filename, "rb") as f:
 entrypoint = code.get_symbol_value("main")
 print(f"Entrypoint {hex(entrypoint)}")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -82,9 +83,9 @@ machine.add(puts)
 code.update_symbol_value("puts", puts._address)
 
 # Configure an exit point
-exit_point = 0x7FFFFFF8
-machine.add_exit_point(exit_point)
-cpu.ra.set(exit_point)
+exitpoint = entrypoint + code.get_symbol_size("main")
+machine.add_exit_point(exitpoint)
+cpu.ra.set(exitpoint)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)

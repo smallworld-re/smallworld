@@ -47,7 +47,7 @@ with open(libname, "rb") as f:
 code.link_pe(lib)
 
 # Set entrypoint.  PE doesn't make this easy.
-entrypoint = code.address + 0x1550
+entrypoint = code.address + 0x1000
 cpu.rip.set(entrypoint)
 
 # Create a stack and add it to the state
@@ -94,7 +94,7 @@ class InitModel(smallworld.state.models.Model):
         pass
 
 
-init = InitModel(code.address + 0x1640)
+init = InitModel(code.address + 0x16C0)
 machine.add(init)
 
 # Emulate
@@ -108,7 +108,7 @@ for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
 
 # I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x38)
+emulator.add_exit_point(code.address + 0x10D2)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

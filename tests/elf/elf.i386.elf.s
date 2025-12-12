@@ -3,11 +3,11 @@
     .type   _start, @function
 _start:
     # If argc != 2, leave
-    cmpl    $2,(%esp)
+    cmpl    $2,0x4(%esp)
     jne     .L2
 
     # Load argv
-    mov     0x4(%esp),%ebx
+    mov     0x8(%esp),%ebx
     # Load argv[1]
     mov     0x4(%ebx),%ebx
 

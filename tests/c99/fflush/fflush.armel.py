@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V5T, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -66,11 +66,11 @@ fflush_model.allow_imprecise = True
 code.update_symbol_value("fflush", fflush_model._address)
 
 # Create a fake stdout
-# armel copies the address from libc, so we just need to write into the symbol.
-filestar = 0x47492A00
-stdout_addr = code.get_symbol_value("stdout")
+fake_stdout = smallworld.state.memory.Memory(0x20000, 4)
+fake_stdout[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
+machine.add(fake_stdout)
 
-code.write_bytes(stdout_addr, filestar.to_bytes(4, "little"))
+code.update_symbol_value("stdout", fake_stdout.address)
 
 
 # Create a type of exception only I will generate

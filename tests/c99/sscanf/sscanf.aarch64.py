@@ -30,6 +30,10 @@ with open(filename, "rb") as f:
     )
     machine.add(code)
 
+for offset, item in code.items():
+    offset += code.address
+    print(f"Segment [{offset:x} - {offset + item.get_size():x}]")
+
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
@@ -80,6 +84,15 @@ strcmp_model.allow_imprecise = True
 
 # Relocate strcmp
 code.update_symbol_value("strcmp", strcmp_model._address)
+
+exit_model = smallworld.state.models.Model.lookup(
+    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10014
+)
+machine.add(exit_model)
+exit_model.allow_imprecise = True
+
+# Relocate exit
+code.update_symbol_value("exit", exit_model._address)
 
 
 # Create a type of exception only I will generate
