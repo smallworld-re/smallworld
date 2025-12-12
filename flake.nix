@@ -22,13 +22,15 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    pandaPkgs = {
-      url = "github:nixos/nixpkgs?rev=911ad1e67f458b6bcf0278fa85e33bb9924fed7e";
+    panda-qemu = {
+      url = "github:panda-re/qemu?ref=wrapup-rebase";
+      flake = false;
     };
 
-    panda = {
-      url = "github:lluchs/panda/flake";
-      inputs.nixpkgs.follows = "pandaPkgs";
+    panda-ng = {
+      url = "github:rehostingdev/panda-ng?ref=nix-flake-init"; # TODO update once PR is merged
+      inputs.panda-qemu-src.follows = "panda-qemu";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
@@ -38,7 +40,7 @@
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
-      panda,
+      panda-ng,
       ...
     }:
     let
@@ -85,9 +87,11 @@
             from = (mkUnicornafl python.pkgs);
           };
           pypanda = hacks.nixpkgsPrebuilt {
-            from = (pypandaBuilder pandaWithLibs.${system}) python.pkgs;
+            from = panda-ng.lib.${system}.pypandaBuilder python.pkgs;
           };
-          colorama = hacks.nixpkgsPrebuilt { from = python.pkgs.colorama; };
+          colorama = hacks.nixpkgsPrebuilt {
+            from = python.pkgs.colorama;
+          };
         }
       );
 
@@ -136,79 +140,6 @@
         in
         venv
       );
-
-      pandaWithLibs = forAllSystems (
-        system:
-        let
-          oldPanda =
-            (panda.packages.${system}.pkgsWithConfig {
-              targetList = [
-                "x86_64-softmmu"
-                "i386-softmmu"
-                "arm-softmmu"
-                "aarch64-softmmu"
-                "ppc-softmmu"
-                "mips-softmmu"
-                "mipsel-softmmu"
-                "mips64-softmmu"
-                "mips64el-softmmu"
-              ];
-            }).panda;
-          pkgs = nixpkgs.legacyPackages.${system};
-          pandaFixed = pkgs.stdenv.mkDerivation {
-            name = oldPanda.name;
-            buildInputs = [ oldPanda ];
-            phases = [ "installPhase" ];
-            installPhase = ''
-              cp -R ${oldPanda} $out
-              chmod -R +w $out
-              mkdir -pv $out/lib
-              cp $out/bin/*.so $out/lib/
-              touch $out/share/panda/mips_bios.bin
-              touch $out/share/panda/mipsel_bios.bin
-            '';
-          };
-        in
-        pandaFixed
-      );
-
-      pypandaBuilder =
-        pandaPkg: ps:
-        ps.buildPythonPackage {
-          pname = "pandare";
-          version = "1.8";
-          format = "setuptools";
-          src = "${panda}/panda/python/core";
-
-          propagatedBuildInputs = with ps; [
-            cffi
-            protobuf
-            colorama
-          ];
-
-          nativeBuildInputs = [
-            ps.setuptools-scm
-          ];
-
-          buildInputs = [ pandaPkg ];
-
-          postPatch = ''
-            substituteInPlace setup.py \
-              --replace 'install_requires=parse_requirements("requirements.txt"),' ""
-            substituteInPlace pandare/utils.py \
-              --replace '/usr/local/bin/' '${pandaPkg}'
-            substituteInPlace pandare/panda.py \
-              --replace 'self.plugin_path = plugin_path' "self.plugin_path = plugin_path or pjoin('${pandaPkg}', 'lib/panda', arch)" \
-              --replace 'if libpanda_path:' 'if True:' \
-              --replace '= libpanda_path' "= libpanda_path or pjoin('${pandaPkg}', 'bin', f'libpanda-{arch}.so')" \
-              --replace 'realpath(pjoin(self.get_build_dir(), "pc-bios"))' "pjoin('${pandaPkg}', 'share/panda')"
-
-            # Use auto-generated files from separate derivation above.
-            rm create_panda_datatypes.py
-            rm -r pandare/{include,autogen}
-            cp -rt pandare "${pandaPkg}"/lib/panda/python/{include,autogen,plog_pb2.py}
-          '';
-        };
     in
     rec {
       devShells = forAllSystems (
@@ -233,7 +164,7 @@
           inputs = [
             pkgs.z3
             pkgs.aflplusplus
-            pandaWithLibs.${system}
+            panda-ng.packages.${system}.qemu
             pkgs.ghidra
             pkgs.jdk
             pkgs.stdenv.cc
@@ -288,8 +219,6 @@
           pythonSet = pythonSets.${system};
           pkgs = nixpkgs.legacyPackages.${system};
           virtualenv = virtualEnvProd.${system};
-          upstreamPanda = panda.packages.${system}.default;
-          fixedPanda = pandaWithLibs.${system};
 
           printInputsRecursive = pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
             import subprocess
@@ -314,8 +243,6 @@
           inherit printInputsRecursive;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
-          panda = fixedPanda;
-          upstreamPanda = upstreamPanda;
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";
@@ -327,7 +254,7 @@
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
                 pkgs.aflplusplus
-                fixedPanda
+                panda-ng.packages.${system}.qemu
                 virtualenv
                 pkgs.ghidra
               ];
