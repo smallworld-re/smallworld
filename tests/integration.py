@@ -46,13 +46,15 @@ class ScriptIntegrationTest(unittest.TestCase):
         if cwd is None:
             cwd = os.path.abspath(os.path.dirname(__file__))
 
-        parts = cmd.split(' ')
+        parts = cmd.split(" ")
         cmd_name = None
         for part in parts:
-            if part.endswith('.py'):
-                cmd_name = part.replace('/', '_')
+            if part.endswith(".py"):
+                cmd_name = part.replace("/", "_")
                 break
-        should_save_output = os.environ.get('SMALLWORLD_TESTS_SAVE_OUTPUT', 'no').lower().startswith('y')
+        should_save_output = (
+            os.environ.get("SMALLWORLD_TESTS_SAVE_OUTPUT", "no").lower().startswith("y")
+        )
         try:
             process = subprocess.run(
                 cmd,
@@ -65,26 +67,26 @@ class ScriptIntegrationTest(unittest.TestCase):
             )
 
             if cmd_name is not None and should_save_output:
-                with open(f'{cmd_name}.out', 'wb') as f:
+                with open(f"{cmd_name}.out", "wb") as f:
                     f.write(process.stdout)
-                with open(f'{cmd_name}.err', 'wb') as f:
+                with open(f"{cmd_name}.err", "wb") as f:
                     f.write(process.stderr)
-                with open(f'{cmd_name}.cmd', 'w') as f:
+                with open(f"{cmd_name}.cmd", "w") as f:
                     f.write(cmd)
                 if input is not None:
-                    with open(f'{cmd_name}.in', 'wb') as f:
+                    with open(f"{cmd_name}.in", "wb") as f:
                         f.write(input)
             return process.stdout.decode(), process.stderr.decode()
         except subprocess.CalledProcessError as e:
             if cmd_name is not None and should_save_output:
-                with open(f'{cmd_name}.out', 'wb') as f:
+                with open(f"{cmd_name}.out", "wb") as f:
                     f.write(e.stdout)
-                with open(f'{cmd_name}.err', 'wb') as f:
+                with open(f"{cmd_name}.err", "wb") as f:
                     f.write(e.stderr)
-                with open(f'{cmd_name}.cmd', 'w') as f:
+                with open(f"{cmd_name}.cmd", "w") as f:
                     f.write(cmd)
                 if input is not None:
-                    with open(f'{cmd_name}.in', 'wb') as f:
+                    with open(f"{cmd_name}.in", "wb") as f:
                         f.write(input)
             if error:
                 raise DetailedCalledProcessError(e)

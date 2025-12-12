@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import threading
 import typing
@@ -9,7 +10,6 @@ from enum import Enum
 import capstone
 import claripy
 import pandare2
-import os
 
 from ... import exceptions, platforms, utils
 from .. import emulator, hookable
@@ -101,8 +101,13 @@ class PandaEmulator(
 
         def run(self):
             panda_args = self.get_panda_args_from_machdef()
-            if os.environ.get('SMALLWORLD_PANDA_DEBUG', 'no').lower().startswith('y'):
-                panda_args += ['-d', 'in_asm,int,cpu,op,exec,nochain,op_plugin', '-D', f'./smallworld-panda-{self.machdef.panda_arch}-debug.log']
+            if os.environ.get("SMALLWORLD_PANDA_DEBUG", "no").lower().startswith("y"):
+                panda_args += [
+                    "-d",
+                    "in_asm,int,cpu,op,exec,nochain,op_plugin",
+                    "-D",
+                    f"./smallworld-panda-{self.machdef.panda_arch}-debug.log",
+                ]
 
             self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
@@ -115,7 +120,7 @@ class PandaEmulator(
 
             @self.panda.cb_insn_translate
             def should_run_on_insn(env, pc):
-                #logger.debug("cb_insn_translate(cpu={}, pc={:#x})".format(env, pc))
+                # logger.debug("cb_insn_translate(cpu={}, pc={:#x})".format(env, pc))
                 return True
 
             @self.panda.cb_insn_exec
@@ -276,7 +281,11 @@ class PandaEmulator(
             # Used for hooking mem reads
             @self.panda.cb_virt_mem_before_read(enabled=True)
             def on_read(cpu, pc, addr, size):
-                logger.debug("cb_virt_mem_before_read(cpu={}, pc={:#x}, addr={:#x}, size={:#x})".format(cpu, pc, addr, size))
+                logger.debug(
+                    "cb_virt_mem_before_read(cpu={}, pc={:#x}, addr={:#x}, size={:#x})".format(
+                        cpu, pc, addr, size
+                    )
+                )
                 logger.debug(f"\ton_read: {addr}")
                 orig_data = self.panda.virtual_memory_read(self.manager.cpu, addr, size)
                 try:
@@ -304,7 +313,11 @@ class PandaEmulator(
             # Used for hooking mem writes
             @self.panda.cb_virt_mem_before_write(enabled=True)
             def on_write(cpu, pc, addr, size, buf):
-                logger.debug("cb_virt_mem_before_write(cpu={}, pc={:#x}, addr={:#x}, size={:#x}, buf={})".format(cpu, pc, addr, size, buf))
+                logger.debug(
+                    "cb_virt_mem_before_write(cpu={}, pc={:#x}, addr={:#x}, size={:#x}, buf={})".format(
+                        cpu, pc, addr, size, buf
+                    )
+                )
                 logger.debug(f"\ton_write: {hex(addr)}")
                 byte_val = bytes([buf[i] for i in range(size)])
                 try:
@@ -325,7 +338,9 @@ class PandaEmulator(
 
             @self.panda.cb_before_handle_interrupt(enabled=True)
             def on_interrupt(cpu, intno):
-                logger.debug("cb_before_handle_interrupt(cpu={}, intno={})".format(cpu, intno))
+                logger.debug(
+                    "cb_before_handle_interrupt(cpu={}, intno={})".format(cpu, intno)
+                )
                 logger.debug(f"\ton_interrupt: {intno}")
                 try:
                     # First if all interrupts are hooked, run that function
@@ -344,7 +359,11 @@ class PandaEmulator(
 
             # @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
-                logger.debug("cb_before_handle_exception(cpu={}, exception_index={})".format(cpu, exception_index))
+                logger.debug(
+                    "cb_before_handle_exception(cpu={}, exception_index={})".format(
+                        cpu, exception_index
+                    )
+                )
                 logger.error(
                     f"Panda for help: you are hitting an exception at {exception_index}."
                 )
