@@ -246,8 +246,7 @@ jobs:
           nix develop .. -c python3 integration.py -v ${{ matrix.testsuite }}
   Results:
     runs-on: smallworld-arc
-    # needs: [Lint, Unit-Test, Integration-Test]
-    needs: [Lint, Integration-Test]
+    needs: [Lint, Unit-Test, Integration-Test]
     if: always()
     steps:
       - name: Formatter committed – new run will verify
