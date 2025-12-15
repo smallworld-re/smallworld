@@ -1,4 +1,5 @@
 import sys
+import os
 
 from smallworld import emulators, exceptions, platforms
 
@@ -17,7 +18,7 @@ for arch in platforms.Architecture:
 
 if architecture is None:
     print(f"Unknown architecture {sys.argv[1]}", file=sys.stderr)
-    quit(1)
+    os._exit(1)
 
 byteorder = None
 for bo in platforms.Byteorder:
@@ -26,7 +27,7 @@ for bo in platforms.Byteorder:
         break
 if byteorder is None:
     print(f"Unknown byteorder {sys.argv[2]}", file=sys.stderr)
-    quit(1)
+    os._exit(1)
 
 platform = platforms.Platform(architecture, byteorder)
 platdef = platforms.PlatformDef.for_platform(platform)
@@ -34,6 +35,7 @@ machdef = emulators.panda.machdefs.PandaMachineDef.for_platform(platform)
 
 emu = emulators.PandaEmulator(platform)
 bad = False
+
 for reg in platdef.registers.keys():
     try:
         emu.read_register(reg)
@@ -47,4 +49,5 @@ for reg in platdef.registers.keys():
         bad = True
 
 if bad:
-    quit(1)
+    os._exit(1)
+os._exit(0)
