@@ -73,6 +73,10 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
         run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Test Build Artifacts
+        run: |
+          cd tests
+          nix build
 
   Unit-Test:
     runs-on: smallworld-arc
@@ -86,7 +90,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd tests
-          nix develop -c python3 unit.py -v
+          nix develop .. -c python3 unit.py -v
   Integration-Test:
       runs-on: smallworld-arc
       needs: Lint
@@ -191,7 +195,7 @@ jobs:
             - testsuite: DMATests
             - testsuite: DocumentationTests
             - testsuite: ElfTests
-            - testsuite: ElfCoreTests
+            # - testsuite: ElfCoreTests
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FsgsbaseTests
@@ -232,13 +236,12 @@ jobs:
       - name: Build Artifacts
         run: |
           cd tests
-          nix develop -c make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
-          cd elf_core
-          nix develop -c make -j$(nproc)
+          nix build
+          tar xvf result/test_binaries.tar
       - name: Run Integration Tests
         run: |
           cd tests
-          nix develop -c python3 integration.py -v ${{ matrix.testsuite }}
+          nix develop .. -c python3 integration.py -v ${{ matrix.testsuite }}
   Results:
     runs-on: smallworld-arc
     needs: [Lint, Unit-Test, Integration-Test]

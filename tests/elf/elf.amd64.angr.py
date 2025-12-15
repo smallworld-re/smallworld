@@ -58,6 +58,12 @@ stack.push_integer(argv, 8, None)
 # Push argc
 stack.push_integer(2, 8, None)
 
+# Push fake return value
+# This should be an exit point
+exitpoint = code.entrypoint + code.get_symbol_size("_start") - 4
+machine.add_exit_point(exitpoint)
+stack.push_integer(exitpoint, 8, None)
+
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.rsp.set(sp)
@@ -67,6 +73,7 @@ emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
 
 # Use code bounds from the ELF
+emulator.add_exit_point(0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 

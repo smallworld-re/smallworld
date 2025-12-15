@@ -65,12 +65,13 @@ cpu.sp.set(sp)
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
 
+# Configure the return register to return to unmapped memory.
+exitpoint = code.entrypoint + code.get_symbol_size("_start") - 4
+cpu.lr.set(exitpoint)
+machine.add_exit_point(exitpoint)
+
 # Use code bounds from the ELF
-emulator.add_exit_point(0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
-    # I happen to know that the code _actually_ stops
-    # at .text + 0x88
-    emulator.add_exit_point(bound[0] + 0x88)
 
 machine.emulate(emulator)

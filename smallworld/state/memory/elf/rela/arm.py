@@ -13,7 +13,7 @@ R_ARM_NUM = 256  # This and higher aren't valid
 class ArmElfRelocator(ElfRelocator):
     byteorder = platforms.Byteorder.LITTLE
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
         if (
             rela.type == R_ARM_GLOB_DAT
             or rela.type == R_ARM_JUMP_SLOT
@@ -21,7 +21,15 @@ class ArmElfRelocator(ElfRelocator):
             or rela.type == R_ARM_ABS32
         ):
             # Different semantics, all behave the same
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            if rela.type == R_ARM_RELATIVE or rela.type == R_ARM_ABS32:
+                if rela.is_rela:
+                    addend = rela.addend
+                else:
+                    addend = elf.read_int(rela.offset, 4, self.byteorder)
+            else:
+                addend = 0
+
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(4, "little")
         elif rela.type >= 0 and rela.type < R_ARM_NUM:
             raise ConfigurationError(

@@ -25,14 +25,13 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -46,7 +45,7 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 # Configure the heap
-heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x20000, 0x1000, 16)
+heap = smallworld.state.memory.heap.CheckedBumpAllocator(0x200000, 0x1000, 16)
 machine.add(heap)
 
 malloc_model = smallworld.state.models.Model.lookup(
@@ -75,7 +74,7 @@ if "AngrEmulator" == "AngrEmulator":
     if isinstance(emulator, smallworld.emulators.AngrEmulator):
         emulator.enable_linear()
 
-emulator.add_exit_point(entrypoint + 0x1000)
+emulator.add_exit_point(0)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

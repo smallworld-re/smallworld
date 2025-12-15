@@ -33,8 +33,11 @@ cpu.rip.set(entrypoint)
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+# Push fake return
+# Make it an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+stack.push_integer(exitpoint, 8, None)
+machine.add_exit_point(exitpoint)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -79,5 +82,4 @@ code.update_symbol_value("puts", puts._address)
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(entrypoint + 40)
 machine.emulate(emulator)

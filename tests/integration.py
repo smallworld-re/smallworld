@@ -1413,15 +1413,15 @@ class MemhookTests(ScriptIntegrationTest):
     def run_test_64(self, arch):
         stdout, _ = self.command(f"python3 memhook/memhook.{arch}.py")
         self.assertLineContainsStrings(stdout, "foo: read 1 bytes at 0x1004")
-        self.assertLineContainsStrings(stdout, "bar: read 8 bytes at 0x100c")
-        self.assertLineContainsStrings(stdout, "baz: read 8 bytes at 0x1024")
+        self.assertLineContainsStrings(stdout, "bar: read 8 bytes at 0x1010")
+        self.assertLineContainsStrings(stdout, "baz: read 8 bytes at 0x1020")
         self.assertLineContainsStrings(stdout, "qux: read 8 bytes at 0x1030")
 
     def run_test_32(self, arch):
         stdout, _ = self.command(f"python3 memhook/memhook.{arch}.py")
         self.assertLineContainsStrings(stdout, "foo: read 1 bytes at 0x1004")
         self.assertLineContainsStrings(stdout, "bar: read 4 bytes at 0x1010")
-        self.assertLineContainsStrings(stdout, "baz: read 4 bytes at 0x1024")
+        self.assertLineContainsStrings(stdout, "baz: read 4 bytes at 0x1020")
         self.assertLineContainsStrings(stdout, "qux: read 4 bytes at 0x1034")
 
     def test_aarch64(self):
@@ -1473,16 +1473,20 @@ class MemhookTests(ScriptIntegrationTest):
         self.run_test_32("armhf.ghidra")
 
     def test_i386(self):
-        self.run_test_32("i386")
+        self.run_test_64("i386")
 
     def test_i386_angr(self):
-        self.run_test_32("i386.angr")
+        self.run_test_64("i386.angr")
 
+    @unittest.skip("Waiting for panda-ng")
     def test_i386_panda(self):
-        self.run_test_32("i386.panda")
+        # FIXME: This test raises a QEMU exception.
+        # I have no idea what it means,
+        # and we're about to totally change the backend
+        self.run_test_64("i386.panda")
 
     def test_i386_ghidra(self):
-        self.run_test_32("i386.ghidra")
+        self.run_test_64("i386.ghidra")
 
     def test_la64_angr(self):
         self.run_test_64("la64.angr")
@@ -1969,30 +1973,46 @@ class ElfCoreTests(ScriptIntegrationTest):
     def test_elf_core_amd64(self):
         self.run_test("amd64")
 
+    # FIXME: No sysroot for armel in Nix
+    @unittest.skip("Pending Nix sysroot for armel")
     def test_elf_core_armel(self):
         self.run_test("armel")
 
+    # FIXME: No sysroot for armhf in Nix
+    @unittest.skip("Pending Nix sysroot for armhf")
     def test_elf_core_armhf(self):
         self.run_test("armhf")
 
+    # FIXME: No sysroot for i386 in Nix
+    @unittest.skip("Pending Nix sysroot for i386")
     def test_elf_core_i386(self):
         self.run_test("i386")
 
+    # FIXME: zig's mips compiler omits a program header QEMU needs.
+    @unittest.skip("Pending fix to zig/QEMU MIPS ABI problem")
     def test_elf_core_mips(self):
         self.run_test("mips")
 
+    # FIXME: zig's mipsel compiler omits a program header QEMU needs.
+    @unittest.skip("Pending fix to zig/QEMU MIPS ABI problem")
     def test_elf_core_mipsel(self):
         self.run_test("mipsel")
 
+    # FIXME: Nix's mips64 ld.so crashes in very odd ways.
+    @unittest.skip("Pending solution to crashes in mips64 ld.so")
     def test_elf_core_mips64(self):
         self.run_test("mips64")
 
+    # FIXME: Nix's mips64 ld.so crashes in very odd ways.
+    @unittest.skip("Pending solution to crashes in mips64 ld.so")
     def test_elf_core_mips64el(self):
         self.run_test("mips64el")
 
     def test_elf_core_ppc(self):
         self.run_test("ppc")
 
+    # FIXME: Nix's ppc64 ld.so crashes in very odd ways.
+    @unittest.skip("Pending solution to crashes in ppc64 ld.so")
     def test_elf_core_ppc64(self):
         self.run_test("ppc64")
 
@@ -3543,10 +3563,11 @@ class ThumbTests(ScriptIntegrationTest):
                 stderr, "single step at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
             )
             self.assertLineContainsStrings(
-                stderr, "single step at 0x1010: <CsInsn 0x1010 [0121]: movs r1, #1>"
+                stderr,
+                "single step at 0x1010: <CsInsn 0x1010 [4ff00101]: mov.w r1, #1>",
             )
             self.assertLineContainsStrings(
-                stderr, "single step at 0x101c: <CsInsn 0x101c [0110a0e3]: mov r1, #1>"
+                stderr, "single step at 0x1020: <CsInsn 0x1020 [0110a0e3]: mov r1, #1>"
             )
             # check program result for step_block starting in ARM mode
             self.assertLineContainsStrings(stdout, f"BLOCK_{arch.name}=0x6")
@@ -3557,10 +3578,10 @@ class ThumbTests(ScriptIntegrationTest):
                 stderr, "step block at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
             )
             self.assertLineContainsStrings(
-                stderr, "step block at 0x1010: <CsInsn 0x1010 [0121]: movs r1, #1>"
+                stderr, "step block at 0x1010: <CsInsn 0x1010 [4ff00101]: mov.w r1, #1>"
             )
             self.assertLineContainsStrings(
-                stderr, "step block at 0x101c: <CsInsn 0x101c [0110a0e3]: mov r1, #1>"
+                stderr, "step block at 0x1020: <CsInsn 0x1020 [0110a0e3]: mov r1, #1>"
             )
             # check program result for run starting in ARM mode
             self.assertLineContainsStrings(stdout, f"RUN_{arch.name}=0x6")

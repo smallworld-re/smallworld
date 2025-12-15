@@ -13,7 +13,7 @@ class MIPSElfRelocator(ElfRelocator):
     arch = platforms.Architecture.MIPS32
     byteorder = platforms.Byteorder.BIG
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
         # Unpack a MIPS64 relocation.
         #
         # It's not possible to build a 64-bit address in one instruction in MIPS64.
@@ -29,6 +29,15 @@ class MIPSElfRelocator(ElfRelocator):
         for i in range(0, 3):
             rela_types.append((rela.type >> (i * 8)) & 0xFF)
 
+        if rela.is_rela:
+            addend = rela.addend
+        else:
+            addend = elf.read_int(
+                rela.offset,
+                4 if self.arch is platforms.Architecture.MIPS32 else 8,
+                self.byteorder,
+            )
+
         val = rela.symbol.value + rela.symbol.baseaddr
         is_64 = False
         for i in range(0, 3):
@@ -37,10 +46,10 @@ class MIPSElfRelocator(ElfRelocator):
                 break
             elif rela_type == R_MIPS_32 or rela_type == R_MIPS_REL32:
                 # 32-bit direct
-                val = val + rela.addend
+                val = val + addend
             elif rela_type == R_MIPS_64:
                 # 64-bit direct
-                val = val + rela.addend
+                val = val + addend
                 is_64 = True
             else:
                 raise ConfigurationError(
