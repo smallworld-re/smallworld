@@ -104,8 +104,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x10000)
 try:
     machine.emulate(emulator)

@@ -49,7 +49,7 @@ class InitModel(smallworld.state.models.Model):
         pass
 
 
-init = InitModel(code.address + 0x1630)
+init = InitModel(code.address + 0x1620)
 machine.add(init)
 
 
@@ -84,13 +84,15 @@ class PutsModel(smallworld.state.models.Model):
 
 
 puts = PutsModel(0x10000000)
-code.update_import("msvcrt.dll", "puts", puts._address)
+code.update_import("api-ms-win-crt-stdio-l1-1-0.dll", "puts", puts._address)
 machine.add(puts)
 
 # Set entrypoint to "main"
-cpu.rip.set(code.address + 0x1550)
+cpu.rip.set(code.address + 0x1000)
 
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
-emulator.add_exit_point(code.address + 0x1572)
+emulator.add_exit_point(code.address + 0x1031)
 final_machine = machine.emulate(emulator)
+# for m in machine.step(emulator):
+#    pass

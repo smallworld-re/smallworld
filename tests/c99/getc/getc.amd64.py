@@ -67,12 +67,22 @@ getc_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("getc", getc_model._address)
 
-# Create a fake stdin
-# amd64 copies the address from libc, so we just need to write into the symbol.
-filestar = 0x47492A00
-stdin_addr = code.get_symbol_value("stdin")
+printf_model = smallworld.state.models.Model.lookup(
+    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(printf_model)
+printf_model.allow_imprecise = True
 
-code.write_bytes(stdin_addr, filestar.to_bytes(8, "little"))
+# Relocate puts
+code.update_symbol_value("printf", printf_model._address)
+
+# Create a fake stdin
+# Clang references the copy in libc, so we need to make our own.
+fake_stdin = smallworld.state.memory.Memory(0x20000, 8)
+fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 8, None, False)
+machine.add(fake_stdin)
+
+code.update_symbol_value("stdin", fake_stdin.address)
 
 
 # Create a type of exception only I will generate

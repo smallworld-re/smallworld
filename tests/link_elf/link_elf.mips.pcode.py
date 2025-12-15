@@ -49,6 +49,7 @@ code.link_elf(lib)
 # Set entrypoint from the ELF
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
@@ -83,6 +84,11 @@ cpu.sp.set(sp)
 cpu.a0.set(2)
 cpu.a1.set(argv)
 
+# Set an exitpoint.
+exitpoint = entrypoint + code.get_symbol_size("main")
+cpu.ra.set(exitpoint)
+machine.add_exit_point(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.GhidraEmulator(platform)
 
@@ -92,9 +98,6 @@ for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
-
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x74)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

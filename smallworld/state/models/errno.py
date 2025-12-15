@@ -375,7 +375,7 @@ class AMD64ErrnoResolver(ErrnoResolver):
 
 
 class ArmELErrnoResolver(ErrnoResolver):
-    platform = Platform(Architecture.ARM_V5T, Byteorder.LITTLE)
+    platform = Platform(Architecture.ARM_V6M, Byteorder.LITTLE)
     abi = ABI.SYSTEMV
     # armel uses generic errno
 

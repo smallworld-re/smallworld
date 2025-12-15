@@ -79,7 +79,7 @@ class PutsModel(smallworld.state.models.Model):
         print(v)
 
 
-puts = PutsModel(0x1004)
+puts = PutsModel(0x1002)
 machine.add(puts)
 
 # Emulate

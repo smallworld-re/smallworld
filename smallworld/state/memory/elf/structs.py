@@ -52,6 +52,7 @@ class ElfRela:
     I don't want to deal with that.
     """
 
+    is_rela: bool  # Does this relocation have an addend?
     offset: int  # Address of the relocation
     type: int  # Relocation type; platform-dependent
     symbol: ElfSymbol  # Relevant symbol in use

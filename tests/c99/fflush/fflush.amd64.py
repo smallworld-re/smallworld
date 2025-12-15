@@ -68,11 +68,11 @@ fflush_model.allow_imprecise = True
 code.update_symbol_value("fflush", fflush_model._address)
 
 # Create a fake stdout
-# amd64 copies the address from libc, so we just need to write into the symbol.
-filestar = 0x47492A00
-stdout_addr = code.get_symbol_value("stdout")
+fake_stdout = smallworld.state.memory.Memory(0x20000, 8)
+fake_stdout[0] = smallworld.state.IntegerValue(0x47492A00, 8, None, False)
+machine.add(fake_stdout)
 
-code.write_bytes(stdout_addr, filestar.to_bytes(8, "little"))
+code.update_symbol_value("stdout", fake_stdout.address)
 
 
 # Create a type of exception only I will generate
