@@ -1,6 +1,6 @@
 {
   "nodes": {
-    "libosi-src": {
+    "libpanda-ng-src": {
       "flake": false,
       "locked": {
         "lastModified": 1761870394,
@@ -19,11 +19,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1764947035,
-        "narHash": "sha256-EYHSjVM4Ox4lvCXUMiKKs2vETUSL5mx+J2FfutM7T9w=",
+        "lastModified": 1765772535,
+        "narHash": "sha256-aq+dQoaPONOSjtFIBnAXseDm9TUhIbe215TPmkfMYww=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "a672be65651c80d3f592a89b3945466584a22069",
+        "rev": "09b8fda8959d761445f12b55f380d90375a1d6bb",
         "type": "github"
       },
       "original": {
@@ -49,23 +49,7 @@
         "type": "github"
       }
     },
-    "nixpkgs-wireshark": {
-      "locked": {
-        "lastModified": 1654613154,
-        "narHash": "sha256-Kqpik8NNIzErNoeiQc6FS9F7RMVuG9ykZzVkL+Z7nXg=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "e93823409f9e6b8e878edf060b430a14353a28f9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "e93823409f9e6b8e878edf060b430a14353a28f9",
-        "type": "github"
-      }
-    },
-    "panda": {
+    "panda-ng": {
       "inputs": {
         "libpanda-ng-src": "libpanda-ng-src",
         "nixpkgs": [
@@ -157,8 +141,8 @@
       "inputs": {
         "nixpkgs": "nixpkgs",
         "nixpkgs-esp-dev": "nixpkgs-esp-dev",
-        "panda": "panda",
-        "pandaPkgs": "pandaPkgs",
+        "panda-ng": "panda-ng",
+        "panda-qemu": "panda-qemu",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "uv2nix": "uv2nix"
@@ -174,11 +158,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1764992234,
-        "narHash": "sha256-qBbyM1Gnvs/ncbnWfbBboMyevelz+owIdSN5Sg89wzw=",
+        "lastModified": 1765631794,
+        "narHash": "sha256-90d//IZ4GXipNsngO4sb2SAPbIC/a2P+IAdAWOwpcOM=",
         "owner": "pyproject-nix",
         "repo": "uv2nix",
-        "rev": "1610e554e579c3d47b47c8a32d47042116d0e153",
+        "rev": "4cca323a547a1aaa9b94929c4901bed5343eafe8",
         "type": "github"
       },
       "original": {
