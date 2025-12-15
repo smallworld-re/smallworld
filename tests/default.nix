@@ -16,6 +16,7 @@ stdenv.mkDerivation {
     zig
     qemu-user
     xtensaGcc
+    pkgsCross.aarch64.glibc
     pkgsCross.ppc32.glibc
     pkgsCross.ppc64.glibc
     pkgsCross.mips64-linux-gnuabi64.glibc
