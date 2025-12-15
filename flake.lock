@@ -1,26 +1,6 @@
 {
   "nodes": {
-    "deb2nix": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1762371332,
-        "narHash": "sha256-/5h5uwBPHyAzu07llUE5xBputs/gvxilvG6i0p2lm34=",
-        "owner": "kylesferrazza",
-        "repo": "deb2nix",
-        "rev": "083be9cc5b1a0ee5d02b9f841560d97ea4ce9121",
-        "type": "gitlab"
-      },
-      "original": {
-        "owner": "kylesferrazza",
-        "repo": "deb2nix",
-        "type": "gitlab"
-      }
-    },
-    "libpanda-ng-src": {
+    "libosi-src": {
       "flake": false,
       "locked": {
         "lastModified": 1761870394,
@@ -53,7 +33,39 @@
         "type": "github"
       }
     },
-    "panda-ng": {
+    "nixpkgs-esp-dev": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1760647834,
+        "narHash": "sha256-cy80dgIs8uvush55hfV7a5ZHLOml/lDvsawayi5s/sc=",
+        "owner": "mirrexagon",
+        "repo": "nixpkgs-esp-dev",
+        "rev": "a9ee12a6c8235eb5a9d94934d3e79afac2103ffb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mirrexagon",
+        "repo": "nixpkgs-esp-dev",
+        "type": "github"
+      }
+    },
+    "nixpkgs-wireshark": {
+      "locked": {
+        "lastModified": 1654613154,
+        "narHash": "sha256-Kqpik8NNIzErNoeiQc6FS9F7RMVuG9ykZzVkL+Z7nXg=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e93823409f9e6b8e878edf060b430a14353a28f9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e93823409f9e6b8e878edf060b430a14353a28f9",
+        "type": "github"
+      }
+    },
+    "panda": {
       "inputs": {
         "libpanda-ng-src": "libpanda-ng-src",
         "nixpkgs": [
@@ -143,10 +155,10 @@
     },
     "root": {
       "inputs": {
-        "deb2nix": "deb2nix",
         "nixpkgs": "nixpkgs",
-        "panda-ng": "panda-ng",
-        "panda-qemu": "panda-qemu",
+        "nixpkgs-esp-dev": "nixpkgs-esp-dev",
+        "panda": "panda",
+        "pandaPkgs": "pandaPkgs",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "uv2nix": "uv2nix"
