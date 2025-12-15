@@ -71,7 +71,7 @@ code.update_symbol_value("free", free_model._address)
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-if "PandaEmulator" == "AngrEmulator":
+if 'PandaEmulator' == 'AngrEmulator':
     if isinstance(emulator, smallworld.emulators.AngrEmulator):
         emulator.enable_linear()
 
