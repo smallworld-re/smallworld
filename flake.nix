@@ -45,7 +45,7 @@
       pyproject-nix,
       uv2nix,
       pyproject-build-systems,
-      panda,
+      panda-ng,
       nixpkgs-esp-dev,
       ...
     }:
