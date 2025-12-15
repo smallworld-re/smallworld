@@ -387,6 +387,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_armel_angr(self):
         self.run_test("armel.angr")
 
+    @unittest.skip("Waiting for panda-ng fix")
     def test_dma_armel_panda(self):
         self.run_test("armel.panda")
 
