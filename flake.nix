@@ -231,7 +231,10 @@
 
           x86_64_glibc_path = pkgs.glibc.outPath;
           xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
-          tests = pkgs.callPackage ./tests { inherit xtensaGcc; inherit x86_64_glibc_path; };
+          tests = pkgs.callPackage ./tests {
+            inherit xtensaGcc;
+            inherit x86_64_glibc_path;
+          };
         in
         {
           inherit printInputsRecursive tests;
