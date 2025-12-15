@@ -1,25 +1,5 @@
 {
   "nodes": {
-    "deb2nix": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1762371332,
-        "narHash": "sha256-/5h5uwBPHyAzu07llUE5xBputs/gvxilvG6i0p2lm34=",
-        "owner": "kylesferrazza",
-        "repo": "deb2nix",
-        "rev": "083be9cc5b1a0ee5d02b9f841560d97ea4ce9121",
-        "type": "gitlab"
-      },
-      "original": {
-        "owner": "kylesferrazza",
-        "repo": "deb2nix",
-        "type": "gitlab"
-      }
-    },
     "libosi-src": {
       "flake": false,
       "locked": {
@@ -187,7 +167,6 @@
     },
     "root": {
       "inputs": {
-        "deb2nix": "deb2nix",
         "nixpkgs": "nixpkgs",
         "nixpkgs-esp-dev": "nixpkgs-esp-dev",
         "panda": "panda",
