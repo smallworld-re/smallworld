@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 
 from smallworld import emulators, exceptions, platforms
 
