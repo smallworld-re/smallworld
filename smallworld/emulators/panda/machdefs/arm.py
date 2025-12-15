@@ -286,8 +286,8 @@ class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinA, ARMMachineDef):
     byteorder = Byteorder.LITTLE
     cpu = "cortex-a9"
 
-
+# TODO: This is not the right CPU, but might be close enough
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
-    cpu = "cortex-m4"
+    cpu = "cortex-a9"
