@@ -26,9 +26,9 @@ stdenv.mkDerivation {
   };
   buildPhase = ''
     make -j$(nproc)
-    # cd elf_core
-    # ulimit -c unlimited
-    # make
+    cd elf_core
+    ulimit -c unlimited
+    make
   '';
   installPhase = ''
     mkdir -p $out
