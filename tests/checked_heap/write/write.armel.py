@@ -25,9 +25,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -71,7 +69,7 @@ code.update_symbol_value("free", free_model._address)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-if 'UnicornEmulator' == 'AngrEmulator':
+if "UnicornEmulator" == "AngrEmulator":
     if isinstance(emulator, smallworld.emulators.AngrEmulator):
         emulator.enable_linear()
 
