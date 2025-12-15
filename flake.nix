@@ -35,6 +35,11 @@
       url = "github:lluchs/panda/flake";
       inputs.nixpkgs.follows = "pandaPkgs";
     };
+
+    nixpkgs-esp-dev = {
+      url = "github:mirrexagon/nixpkgs-esp-dev";
+      flake = false;
+    };
   };
 
   outputs =
@@ -45,6 +50,7 @@
       uv2nix,
       pyproject-build-systems,
       panda,
+      nixpkgs-esp-dev,
       ...
     }:
     let
@@ -400,9 +406,12 @@
 
             print_node(obj)
           '';
+
+          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
+          tests = pkgs.callPackage ./tests { inherit xtensaGcc; };
         in
         {
-          inherit printInputsRecursive;
+          inherit printInputsRecursive tests;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           panda = fixedPanda;
