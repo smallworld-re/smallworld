@@ -4,6 +4,8 @@ import typing
 
 import claripy
 
+from smallworld.state.models.funcptr import FunctionPointer
+
 from .... import emulators, exceptions
 from ...memory.heap import Heap
 from ..cstd import ArgumentType, CStdModel
@@ -454,15 +456,89 @@ class QSort(CStdModel):
         ArgumentType.POINTER,
     ]
     return_type = ArgumentType.VOID
-
-    # Currently can't call function pointers from models
-    unsupported = True
+    return_addr = 0
 
     def model(self, emulator: emulators.Emulator) -> None:
+        """This implementation uses Insertion sort as a state machine.
+        The model points the emulator at the comparison function and sets the
+        return address back to the model until the array has been fully sorted.
+        """
         super().model(emulator)
-        raise exceptions.UnsupportedModelError(
-            f"{self.name} uses a function pointer; not sure how to model"
-        )
+
+        if not self.skip_return:
+            # store address to return to after model is done
+            self.return_addr = self.get_return_address(emulator)
+
+            # collect args
+            self.base = typing.cast(int, self.get_arg1(emulator))
+            self.nmemb = typing.cast(int, self.get_arg2(emulator))
+            self.size = typing.cast(int, self.get_arg3(emulator))
+            self.compar = typing.cast(int, self.get_arg4(emulator))
+            assert isinstance(self.base, int)
+            assert isinstance(self.nmemb, int)
+            assert isinstance(self.size, int)
+            assert isinstance(self.compar, int)
+
+            # comparison function pointer
+            self.compare_func_ptr = FunctionPointer(
+                self.compar,
+                [ArgumentType.POINTER, ArgumentType.POINTER],
+                ArgumentType.INT,
+                self.platform,
+            )
+
+            # initialize sorting variables and comparison stack frame
+            self.i = 1
+            self.j = self.i
+            self.compare_func_ptr.call(
+                emulator,
+                [
+                    self.base + (self.j * self.size),
+                    self.base + (self.j - 1) * self.size,
+                ],
+                self._address,
+            )
+
+            # return back to this model
+            self.skip_return = True
+            return
+
+        if self.skip_return:
+            # read array and last call's return value
+            elem_addrs = [self.base + i * self.size for i in range(0, self.nmemb)]
+            current_array = [
+                emulator.read_memory(addr, self.size) for addr in elem_addrs
+            ]
+            ret = self.compare_func_ptr.get_return_value(emulator)
+
+            # conditionally swap elements and overwrite array
+            if ret < 0:
+                tmp = current_array[self.j]
+                current_array[self.j] = current_array[self.j - 1]
+                current_array[self.j - 1] = tmp
+                emulator.write_memory(self.base, b"".join(current_array))
+
+            # advance sorting variables
+            self.j -= 1
+            if self.j <= 0:
+                self.i += 1
+                self.j = self.i
+
+            # break if we're sorted
+            if self.i == self.nmemb:
+                self.set_return_address(emulator, self.return_addr)
+                self.skip_return = False
+                return
+
+            # call comparison function and return to this model
+            self.compare_func_ptr.call(
+                emulator,
+                [
+                    self.base + (self.j * self.size),
+                    self.base + (self.j - 1) * self.size,
+                ],
+                self._address,
+            )
 
 
 class Rand(CStdModel):

@@ -3199,14 +3199,19 @@ class C99PutcTests(NoArgLibraryModelTest):
     function = "putc"
 
 
+class C99PutcharTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "putchar"
+
+
 class C99PutsTests(NoArgLibraryModelTest):
     library = "c99"
     function = "puts"
 
 
-class C99PutcharTests(NoArgLibraryModelTest):
+class C99QSortTests(NoArgLibraryModelTest):
     library = "c99"
-    function = "putchar"
+    function = "qsort"
 
 
 class C99FreadTests(OneArgLibraryModelTest):
@@ -4085,6 +4090,47 @@ class CheckedUAFTests(ScriptIntegrationTest):
         self.run_test("riscv64.angr")
 
     def test_riscv64_ghidra(self):
+        self.run_test("riscv64.pcode")
+
+
+class FunctionPointerTests(ScriptIntegrationTest):
+    def run_test(self, kind):
+        self.command(f"python3 funcptr/funcptr.{kind}.py")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf.pcode")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_la64(self):
+        self.run_test("la64.pcode")
+
+    def test_mips(self):
+        self.run_test("mips.pcode")
+
+    def test_mips64(self):
+        self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el.pcode")
+
+    def test_mipsel(self):
+        self.run_test("mipsel.pcode")
+
+    def test_ppc(self):
+        self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
         self.run_test("riscv64.pcode")
 
 
