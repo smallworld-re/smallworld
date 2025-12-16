@@ -1040,6 +1040,5 @@ class VariadicContext:
         """Get the next argument of an assumed type"""
         index = len(self._on_stack)
 
-        # TODO: bring these functions out of CStdCallingContext, as they are shared
         CStdCallingContext.add_argument(self, index, kind)
         return CStdCallingContext.get_argument(self, index, kind, emulator)
