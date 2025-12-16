@@ -94,8 +94,8 @@ class MIPSSysVCallingContext(CStdCallingContext):
         lo = intval & self._int_inv_mask
         hi = (intval >> 32) & self._int_inv_mask
 
-        emulator.write_register("f0", hi)
-        emulator.write_register("f1", lo)
+        emulator.write_register("f0", lo)
+        emulator.write_register("f1", hi)
 
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
