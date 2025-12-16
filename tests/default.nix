@@ -39,7 +39,7 @@ stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out
     cd ..
-    find . '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' ')' -print0 | tar -cvf test_binaries.tar --null -T -
+    find . '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     cp -r test_binaries.tar $out
   '';
 }
