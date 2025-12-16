@@ -30,6 +30,11 @@
       url = "github:lluchs/panda/flake";
       inputs.nixpkgs.follows = "pandaPkgs";
     };
+
+    nixpkgs-esp-dev = {
+      url = "github:mirrexagon/nixpkgs-esp-dev";
+      flake = false;
+    };
   };
 
   outputs =
@@ -39,6 +44,7 @@
       uv2nix,
       pyproject-build-systems,
       panda,
+      nixpkgs-esp-dev,
       ...
     }:
     let
@@ -217,29 +223,13 @@
           pkgs = nixpkgs.legacyPackages.${system};
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
-          crossTargets = [
-            "aarch64-multiplatform"
-            # "arm-embedded"
-            # "armhf-embedded"
-            # "mips-linux-gnu"
-            # "mipsel-linux-gnu"
-            # "mips64-linux-gnuabi64"
-            # "mips64el-linux-gnuabi64"
-            # "riscv64"
-            # "ppc64"
-            # "loongarch64-linux"
-          ];
-          crossTargetCCs = map (target: pkgs.pkgsCross.${target}.stdenv.cc) crossTargets;
           inputs = [
             pkgs.z3
             pkgs.aflplusplus
             pandaWithLibs.${system}
             pkgs.ghidra
             pkgs.jdk
-            pkgs.stdenv.cc
-            # pkgs.nasm
-          ]
-          ++ crossTargetCCs;
+          ];
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
@@ -309,9 +299,12 @@
 
             print_node(obj)
           '';
+
+          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
+          tests = pkgs.callPackage ./tests { inherit xtensaGcc; };
         in
         {
-          inherit printInputsRecursive;
+          inherit printInputsRecursive tests;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           panda = fixedPanda;

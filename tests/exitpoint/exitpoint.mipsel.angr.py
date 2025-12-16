@@ -34,6 +34,7 @@ with open(filename, "rb") as f:
 # Set entrypoint from the ELF
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Define a fake exit point for test 1
 exitpoint = 0x10101010

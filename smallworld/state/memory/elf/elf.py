@@ -293,10 +293,26 @@ class ElfExecutable(Executable):
             # Some kind of arm32
             flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
 
+            # NOTE: ELF stopped numbering ARM version numbers at 5.
+            # This would be fine, except v6 and v7 are absolutely not
+            # binary compatible with v5.
             if EF_ARM_EABI_VER5 in flags and EF_ARM_SOFT_FLOAT in flags:
                 # This is either ARMv5T or some kind of ARMv6.
-                # We're currently assuming v5T, but this isn't always correct.
-                architecture = Architecture.ARM_V5T
+                # We're currently assuming v5T,
+                # unless the user specifically asks for v6.
+                if (
+                    self.platform is not None
+                    and self.platform.architecture is Architecture.ARM_V6M
+                ):
+                    architecture = Architecture.ARM_V6M
+                elif (
+                    self.platform is not None
+                    and self.platform.architecture is Architecture.ARM_V5T
+                ):
+                    architecture = Architecture.ARM_V5T
+                else:
+                    log.warning("Ambiguous ARM ABI version; assuming v5t")
+                    architecture = Architecture.ARM_V5T
             elif EF_ARM_EABI_VER5 in flags and EF_ARM_VFP_FLOAT in flags:
                 # This is ARMv7a, as built by gcc.
                 architecture = Architecture.ARM_V7A
@@ -531,7 +547,13 @@ class ElfExecutable(Executable):
 
                 for s in list(elf.dynamic_symbols)[gotsym:]:
                     sym = lief_to_elf[s]
-                    rela = ElfRela(offset=gotoff, type=rela_type, symbol=sym, addend=0)
+                    rela = ElfRela(
+                        is_rela=False,
+                        offset=gotoff,
+                        type=rela_type,
+                        symbol=sym,
+                        addend=0,
+                    )
                     sym.relas.append(rela)
                     self._dynamic_relas.append(rela)
 
@@ -539,7 +561,6 @@ class ElfExecutable(Executable):
 
         for r in list(elf.dynamic_relocations) + list(elf.pltgot_relocations):
             # Build a rela, and tie it to its symbol
-            # TODO: some relas have no symbols.  Live with it.
             if r.symbol is None:
                 continue
             sym = lief_to_elf[r.symbol]
@@ -550,7 +571,11 @@ class ElfExecutable(Executable):
             else:
                 r_type &= 0xFFFFFFFF
             rela = ElfRela(
-                offset=r.address + baseaddr, type=r_type, symbol=sym, addend=r.addend
+                is_rela=r.is_rela,
+                offset=r.address + baseaddr,
+                type=r_type,
+                symbol=sym,
+                addend=r.addend,
             )
             sym.relas.append(rela)
             self._dynamic_relas.append(rela)
@@ -566,6 +591,7 @@ class ElfExecutable(Executable):
             else:
                 r_type &= 0xFFFFFFFF
             rela = ElfRela(
+                is_rela=r.is_rela,
                 offset=r.address + baseaddr,
                 type=r.type & 0xFFFF,
                 symbol=sym,
@@ -573,6 +599,11 @@ class ElfExecutable(Executable):
             )
             sym.relas.append(rela)
             self._static_relas.append(rela)
+
+        if len(self._dynamic_symbols) > 0:
+            # Any rela tied to the NULL symbol needs to be relocated
+            null_sym = self._dynamic_symbols[0]
+            self.update_symbol_value(null_sym, 0, rebase=False)
 
     def _get_symbols(
         self, name: typing.Union[str, int], dynamic: bool
@@ -660,28 +691,35 @@ class ElfExecutable(Executable):
         """
 
         if isinstance(name, ElfSymbol):
-            sym = name
+            syms = [name]
         else:
             syms = self._get_symbols(name, dynamic)
-            if len(syms) > 1:
-                raise ConfigurationError(f"Multiple syms named {name}")
-            sym = syms[0]
+            for sym in syms:
+                if (
+                    sym.value != syms[0].value
+                    or sym.size != syms[0].size
+                    or sym.baseaddr != syms[0].baseaddr
+                ):
+                    raise ConfigurationError(f"Conflicting symbols for {name}")
 
         if rebase:
             # Value provided is absolute; rebase it to the symbol's base address
-            value -= sym.baseaddr
+            value -= syms[0].baseaddr
 
         # Update the value
-        sym.value = value
+        for sym in syms:
+            sym.value = value
 
         # Mark this symbol as defined
-        sym.defined = True
+        for sym in syms:
+            sym.defined = True
 
         if self._relocator is not None:
-            for rela in sym.relas:
-                # Relocate!
-                log.info(f"Relocating {rela}")
-                self._relocator.relocate(self, rela)
+            for sym in syms:
+                for rela in sym.relas:
+                    # Relocate!
+                    log.info(f"Relocating {rela}")
+                    self._relocator.relocate(self, rela)
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 
