@@ -38,6 +38,7 @@ with open(filename, "rb") as f:
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -49,8 +50,6 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
-cpu.gp.set(0x828010)
-cpu.t9.set(0x800C74)
 
 # Configure the heap
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)

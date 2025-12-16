@@ -38,8 +38,7 @@ with open(filename, "rb") as f:
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
-cpu.gp.set(0x828010)
-cpu.t9.set(0x800C74)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
