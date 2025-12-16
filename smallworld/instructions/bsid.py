@@ -22,13 +22,6 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         self.index = index
         self.scale = scale
         self.offset = offset
-        if (
-            self.base == "None"
-            or self.index == "None"
-            or self.scale == "None"
-            or self.offset == "None"
-        ):
-            breakpoint()
 
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
@@ -50,7 +43,6 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         }
 
     def to_dict(self) -> dict:
-        breakpoint()
         return self.to_json()
 
     @classmethod
@@ -81,9 +73,6 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         elif self.offset > 0:
             string = f"{string}+{self.offset:x}"
 
-        if "None" in string:
-            breakpoint()
-
         return f"[{string}]"
 
     def __repr__(self) -> str:
@@ -95,19 +84,11 @@ class x86BSIDMemoryReferenceOperand(BSIDMemoryReferenceOperand):
     def address(self, emulator: emulators.Emulator) -> int:
         a = super().address(emulator)
         if self.base == "rip" or self.base == "eip":
-            # fixup for rip-relative
-            try:
-                instr_len = 0
-                try:
-                    instr_len = emulator.current_instruction().size()  # type: ignore
-                except:
-                    # we are here if the `emulator` is not sw unicorn
-                    # wrapper which knows how to compute current
-                    # instruction len
-                    pass
-                a += instr_len
-
-            except:
-                # that failed god knows why
-                pass
+            # for x86, if address is computed wrt the instruction
+            # pointer (rip or eip) the value used for that should be
+            # start of *next* instruction.
+            # However, unicorn always reports start of current instruction as value in rip/eip.
+            # This is a grotty fixup.
+            if type(emulator) is emulators.UnicornEmulator:
+                a += emulator.current_instruction().size()  # type: ignore
         return a

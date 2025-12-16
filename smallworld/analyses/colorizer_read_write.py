@@ -214,8 +214,7 @@ class WRGraph:
 
     def get_or_add_rw_from_dvk(self, dvk: DvKey):
         node = self.__get_or_create_node__(dvk.pc)
-        if node is None:
-            breakpoint()
+        assert node is not None
         if dvk.read:
             for ri in node.reads:
                 if dvk_info_match(dvk, ri):
@@ -291,9 +290,12 @@ class WRGraph:
 
         def vmatch(val, rw):
             if (
-                type(val) is BSIDMemoryReferenceOperand
+                isinstance(val, BSIDMemoryReferenceOperand)
                 and type(rw.info) is MemoryLvalInfo
-                and val == rw.info.bsid
+                and (val.base == rw.info.bsid.base)
+                and (val.index == rw.info.bsid.index)
+                and (val.scale == rw.info.bsid.scale)
+                and (val.offset == rw.info.bsid.offset)
             ) or (
                 type(val) is RegisterDef
                 or type(val) is RegisterAliasDef

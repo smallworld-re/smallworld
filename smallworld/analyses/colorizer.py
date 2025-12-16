@@ -20,8 +20,6 @@ from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
 logger = logging.getLogger(__name__)
 
-
-MIN_ACCEPTABLE_COLOR_INT = 0x80
 BAD_COLOR = (2**64) - 1
 
 Colors = typing.Dict[int, typing.Tuple[Operand, int, Instruction, int]]
@@ -93,15 +91,15 @@ def randomize_uninitialized(
                 logger.debug(f"randomize_unitialized: reg{name} randomized to {v:x}")
 
     mems = {}
-    memsk = []
+    mem_addrs = []
     for mem in machine_copy:
         if isinstance(mem, state.memory.Memory):
-            mems[str(mem)] = mem
-            memsk.append(str(mem))
-    memsk.sort()
+            mem_addrs.append(mem.address)
+            mems[mem.address] = mem
+    mem_addrs.sort()
 
-    for mk in memsk:
-        mem = mems[mk]
+    for ma in mem_addrs:
+        mem = mems[ma]
 
         def randomize_mem(mem, start, size):
             bytz = random.randbytes(size)
@@ -184,7 +182,18 @@ class Colorizer(analysis.Analysis):
     unique values. There is a constant up top indicating the minimum
     color value.
 
-
+    Note: Why is there a min_color in constructor to Colorizer?  A
+    color (here) is just a dynamic value that we think might be kinda
+    unique and thus we can intuit data flows when we see it used in
+    multiple places. Obviously, a color of 0 is not helpful. If you
+    see 0 in two places it's unlikely that means there was a
+    dataflow. But this begs the question: what is a reasonable minimum
+    acceptable color for intuiting data flows?  0-10 seems like they
+    can't be good colors?  Here, our default value for min color is
+    0x80: this is fairly conservative and can be lowered.  Note that
+    generally, we use `randomize_unitialized`, above, to set 2, 4, and
+    8-byte registers and memory lvals to random numbers that will work
+    well as colors.  These are unlikely to be < 0x80.
     Arguments:
         num_insns: The number of instructions to micro-execute.
 
@@ -200,6 +209,8 @@ class Colorizer(analysis.Analysis):
         exec_id: int,
         num_insns: int = 200,
         debug: bool = False,
+        # see above for explanation of this min_color stuff
+        min_color: int = 0x80,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -209,6 +220,7 @@ class Colorizer(analysis.Analysis):
         self.shadow_register: typing.Dict[str, Shad] = {}
         self.shadow_memory: Shad = {}
         self.debug = debug
+        self.min_color = min_color
         # self.edge: typing.Dict[int, typing.Dict[int, typing.Tuple[str, int, int]]] = {}
 
     def _get_instr_at_pc(self, emu, pc: int) -> capstone.CsInsn:
@@ -248,22 +260,15 @@ class Colorizer(analysis.Analysis):
         def check_rws(emu, pc, te, is_read):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
-            # if pc == 0x21b1 and is_read:
-            #     logger.info(f"pc={pc:x} before eax={emu.read_register('eax'):x} ecx={emu.read_register('ecx'):x}")
-            #     breakpoint()
             if is_read:
                 operand_list = sw_insn.reads
-                # lab = "read"
             else:
                 operand_list = sw_insn.writes
-                # lab = "write"
             rws = []
             for operand in operand_list:
-                # logger.debug(f"pc={pc:x} {lab}_operand={operand}")
                 if type(operand) is RegisterOperand and operand.name == "rflags":
                     continue
                 sz = self._operand_size(operand)
-                # print(f"operand={operand} sz={sz}")
                 if isinstance(operand, BSIDMemoryReferenceOperand):
                     # if addr not mapped, discard this operand
                     a = operand.address(emu)
@@ -283,6 +288,7 @@ class Colorizer(analysis.Analysis):
                     pass
                 else:
                     self._check_color(emu, is_read, rw, sw_insn, te.ic)
+                # keep pls!
                 # self.update_shadow(emu, pc, is_read, rw)
             if is_read:
                 self.reads = rws
@@ -340,20 +346,14 @@ class Colorizer(analysis.Analysis):
         # this concrete value can be an int (if it came from a register)
         # or bytes (if it came from memory read)
         # we want these in a common format so that we can see them as colors
-        # if size < 2:
-        #     # let's please just have colors that are at least 2 bytes
-        #     return BAD_COLOR
         the_bytes: bytes = b""
         if type(concrete_value) is int:
-            if concrete_value < MIN_ACCEPTABLE_COLOR_INT:
+            if concrete_value < self.min_color:
                 return BAD_COLOR
             the_bytes = concrete_value.to_bytes(size, byteorder="little")
         elif (type(concrete_value) is bytes) or (type(concrete_value) is bytearray):
             # assuming little-endian
-            if (
-                int.from_bytes(concrete_value, byteorder="little")
-                < MIN_ACCEPTABLE_COLOR_INT
-            ):
+            if int.from_bytes(concrete_value, byteorder="little") < self.min_color:
                 return BAD_COLOR
             the_bytes = concrete_value
         else:
