@@ -76,16 +76,6 @@ exit_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("exit", exit_model._address)
 
-# ARM injects an implicit memset
-memset_model = smallworld.state.models.Model.lookup(
-    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(memset_model)
-memset_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("memset", memset_model._address)
-
 memcmp_model = smallworld.state.models.Model.lookup(
     "memcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
 )
@@ -122,7 +112,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

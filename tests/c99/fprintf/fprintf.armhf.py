@@ -29,6 +29,9 @@ with open(filename, "rb") as f:
         f, platform=platform, address=0x400000
     )
     machine.add(code)
+    for bound in code.bounds:
+        machine.add_bound(bound[0], bound[1])
+    machine.add_bound(0x10000, 0x11000)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
@@ -108,8 +111,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(entrypoint + 0x3000)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

@@ -83,9 +83,9 @@ machine.add(puts)
 code.update_symbol_value("puts", puts._address)
 
 # Configure an exit point
-exit_point = 0x7FFFFFF8
-machine.add_exit_point(exit_point)
-cpu.lr.set(exit_point)
+exitpoint = entrypoint + code.get_symbol_size("main")
+cpu.lr.set(exitpoint)
+machine.add_exit_point(exitpoint)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)

@@ -85,6 +85,11 @@ cpu.sp.set(sp)
 cpu.r0.set(2)
 cpu.r1.set(argv)
 
+# set an exitpoint.
+exitpoint = entrypoint + code.get_symbol_size("main")
+cpu.lr.set(exitpoint)
+machine.add_exit_point(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
 emulator.enable_linear()
@@ -95,9 +100,6 @@ for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
-
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x48)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

@@ -62,15 +62,16 @@ stack.push_integer(2, 8, None)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
+# Configure the return register to return to dead space
+exitpoint = code.entrypoint + code.get_symbol_size("_start") - 4
+cpu.lr.set(exitpoint)
+machine.add_exit_point(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
 
 # Use code bounds from the ELF
-emulator.add_exit_point(0)
 for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
-    # I happen to know that the code _actually_ stops
-    # at .text + 0xac
-    emulator.add_exit_point(bound[0] + 0xAC)
 
 machine.emulate(emulator)

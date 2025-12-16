@@ -1213,8 +1213,7 @@ class PandaMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
         )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_panda_armv6m_thumb(self):
         platform = platforms.Platform(

@@ -42,6 +42,7 @@ cpu.sp.set(sp)
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
     cpu.pc.set(entrypoint)
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
     emulator.error_on_unmapped = True
@@ -54,6 +55,7 @@ except smallworld.exceptions.EmulationReadUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("write_unmapped")
     cpu.pc.set(entrypoint)
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
     emulator.error_on_unmapped = True
@@ -66,6 +68,7 @@ except smallworld.exceptions.EmulationWriteUnmappedFailure:
 try:
     entrypoint = code.get_symbol_value("fetch_unmapped")
     cpu.pc.set(entrypoint)
+    cpu.t9.set(entrypoint)
     emulator = smallworld.emulators.AngrEmulator(platform)
     emulator.enable_linear()
     emulator.error_on_unmapped = True

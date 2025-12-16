@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char *argv[]) {
+int main() {
     int *good = (int *)(size_t)0xdead;
     int x = getchar();
     if(x != 'f') {

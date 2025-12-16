@@ -134,7 +134,10 @@ class UnicornEmulator(
                 self.state = EmulatorState.STEP
             if self.state == EmulatorState.START_STEP:
                 insn = self.current_instruction()
-                if insn.mnemonic in self.platdef.delay_slot_mnemonics:
+                if (
+                    insn is not None
+                    and insn.mnemonic in self.platdef.delay_slot_mnemonics
+                ):
                     self.state = EmulatorState.DELAY_STEP
                 else:
                     self.state = EmulatorState.STEP

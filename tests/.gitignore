@@ -4,3 +4,7 @@
 *.so
 *.pe
 *.dll
+*.pdb
+*.lib
+$TMPDIR
+result
