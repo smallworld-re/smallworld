@@ -161,48 +161,6 @@ class UnicornEmulator(
                 # this is the model for the function
                 cb(self)
 
-                # Mimic a platform-specific "return" instruction.
-                if self.platform.architecture == platforms.Architecture.X86_32:
-                    # i386: pop a 4-byte value off the stack
-                    sp = self.read_register("esp")
-                    ret = int.from_bytes(
-                        self.read_memory(sp, 4), self.platform.byteorder.value
-                    )
-                    self.write_register("esp", sp + 4)
-                elif self.platform.architecture == platforms.Architecture.X86_64:
-                    # amd64: pop an 8-byte value off the stack
-                    sp = self.read_register("rsp")
-                    ret = int.from_bytes(
-                        self.read_memory(sp, 8), self.platform.byteorder.value
-                    )
-                    self.write_register("rsp", sp + 8)
-                elif (
-                    self.platform.architecture == platforms.Architecture.AARCH64
-                    or self.platform.architecture == platforms.Architecture.ARM_V5T
-                    or self.platform.architecture == platforms.Architecture.ARM_V6M
-                    or self.platform.architecture
-                    == platforms.Architecture.ARM_V6M_THUMB
-                    or self.platform.architecture == platforms.Architecture.ARM_V7A
-                    or self.platform.architecture == platforms.Architecture.ARM_V7M
-                    or self.platform.architecture == platforms.Architecture.ARM_V7R
-                    or self.platform.architecture == platforms.Architecture.POWERPC32
-                    or self.platform.architecture == platforms.Architecture.POWERPC64
-                ):
-                    # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
-                    ret = self.read_register("lr")
-                elif (
-                    self.platform.architecture == platforms.Architecture.MIPS32
-                    or self.platform.architecture == platforms.Architecture.MIPS64
-                ):
-                    # mips32 and mips64: branch to register 'ra'
-                    ret = self.read_register("ra")
-                else:
-                    raise exceptions.ConfigurationError(
-                        "Don't know how to return for {self.platform.architecture}"
-                    )
-
-                self.write_register("pc", ret)
-
         self.engine.hook_add(unicorn.UC_HOOK_CODE, code_callback)
 
         # functions to run before memory read and write for
@@ -726,7 +684,8 @@ class UnicornEmulator(
 
         try:
             # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.
-            code = bytes(self.engine.mem_read(pc, 16))
+            res = self.engine.mem_read(pc, 16)
+            code = bytes(res)
             # on arm32, update disassembler for ARM vs Thumb
             _ = self._handle_thumb_interwork(pc)
             insns, _ = self._disassemble(code, pc, 1)
@@ -753,7 +712,7 @@ class UnicornEmulator(
         def get_unavailable_rw(rws):
             out = []
             for rw in rws:
-                if type(rw) is instructions.BSIDMemoryReferenceOperand:
+                if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
                     a = rw.address(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))

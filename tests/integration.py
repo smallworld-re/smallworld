@@ -3229,14 +3229,19 @@ class C99PutcTests(NoArgLibraryModelTest):
     function = "putc"
 
 
+class C99PutcharTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "putchar"
+
+
 class C99PutsTests(NoArgLibraryModelTest):
     library = "c99"
     function = "puts"
 
 
-class C99PutcharTests(NoArgLibraryModelTest):
+class C99QSortTests(NoArgLibraryModelTest):
     library = "c99"
-    function = "putchar"
+    function = "qsort"
 
 
 class C99FreadTests(OneArgLibraryModelTest):
@@ -3410,54 +3415,67 @@ class POSIXDirnameTests(NoArgLibraryModelTest):
 
 
 class TraceExecutionTests(ScriptIntegrationTest):
-    def test_trace_is_correct_no_heap(self):
-        stdout, stderr = self.command("python3 trace_executor/test_trace_no_heap.py")
-        self.assertLineContainsStrings(
-            stdout, "Test result: trace_digest matches passed=True"
-        )
-
     def test_trace_is_correct_1(self):
         stdout, stderr = self.command(
             "python3 trace_executor/test_trace_is_correct_1.py"
         )
+        self.assertLineContainsStrings(stdout, "EXPECTED  trace digest matchest truth")
         self.assertLineContainsStrings(
-            stdout, "Test result: trace_digest matches passed=True"
+            stdout, "trace is 18 instructions which is correct"
         )
+        self.assertLineContainsStrings(stdout, "execption args are what we expect")
+        self.assertLineContainsStrings(
+            stdout, "exception type is correct -- EmulationReadUnmappedFailure"
+        )
+        self.assertLineContainsStrings(
+            stdout,
+            "exception operands are correct -- [(x86BSIDMemoryReferenceOperand([rax]), 0)]",
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
     def test_trace_is_correct_2(self):
         stdout, stderr = self.command(
             "python3 trace_executor/test_trace_is_correct_2.py"
         )
+        self.assertLineContainsStrings(stdout, "EXPECTED  trace digest matchest truth")
         self.assertLineContainsStrings(
-            stdout, "Test result: trace_digest matches passed=True"
+            stdout, "trace is 100 instructions which is correct"
         )
+        self.assertLineContainsStrings(stdout, "no exception in trace as expected")
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
     def test_trace_reproduces(self):
         stdout, stderr = self.command("python3 trace_executor/test_trace_reproduces.py")
-        self.assertLineContainsStrings(stdout, "Test result: passed=True")
+        self.assertLineContainsStrings(stdout, "EXPECTED  trace digests are same")
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  traces are same number of instructions"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
     def test_traces_different(self):
         stdout, stderr = self.command("python3 trace_executor/test_traces_different.py")
-        self.assertLineContainsStrings(stdout, "Test result: passed=False")
-        self.assertLineContainsStrings(stdout, "version1 DOES NOT matches version2")
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  trace digests are not same which is as desired"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
     def test_branch_and_cmp_info(self):
         stdout, stderr = self.command(
             "python3 trace_executor/test_branch_and_cmp_info.py"
         )
         self.assertLineContainsStrings(
-            stdout, "Test result: trace_digest matches passed=True"
+            stdout, "EXPECTED  One hint returned, as expected"
         )
-        self.assertLineContainsStrings(stdout, "EXPECTED   cmps match for pc=21a2")
         self.assertLineContainsStrings(
-            stdout, "EXPECTED   immediates match for pc=21a2"
+            stdout, "EXPECTED  num branches is 9, as expected"
         )
-        self.assertLineContainsStrings(stdout, "EXPECTED   cmps match for pc=21ac")
         self.assertLineContainsStrings(
-            stdout, "EXPECTED   immediates match for pc=21ac"
+            stdout, "EXPECTED  comparisons in trace are correct"
         )
-        self.assertLineContainsStrings(stdout, "EXPECTED   cmps match for pc=2236")
-        self.assertLineContainsStrings(stdout, "EXPECTED   num_branches = 3")
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  immediates in trace are correct"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
 
 class ColorizerTests(ScriptIntegrationTest):
@@ -4102,6 +4120,47 @@ class CheckedUAFTests(ScriptIntegrationTest):
         self.run_test("riscv64.angr")
 
     def test_riscv64_ghidra(self):
+        self.run_test("riscv64.pcode")
+
+
+class FunctionPointerTests(ScriptIntegrationTest):
+    def run_test(self, kind):
+        self.command(f"python3 funcptr/funcptr.{kind}.py")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf.pcode")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_la64(self):
+        self.run_test("la64.pcode")
+
+    def test_mips(self):
+        self.run_test("mips.pcode")
+
+    def test_mips64(self):
+        self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el.pcode")
+
+    def test_mipsel(self):
+        self.run_test("mipsel.pcode")
+
+    def test_ppc(self):
+        self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
         self.run_test("riscv64.pcode")
 
 

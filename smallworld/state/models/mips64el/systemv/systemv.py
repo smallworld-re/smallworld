@@ -1,12 +1,10 @@
 import struct
 
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class MIPS64ELSysVModel(CStdModel):
-    """Base class for C models using the AArch64 System V ABI"""
-
+class MIPS64ELSysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
     )
@@ -79,9 +77,17 @@ class MIPS64ELSysVModel(CStdModel):
             val |= self._int_signext_mask
         emulator.write_register("v0", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("v0") & self._int_inv_mask
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("v0", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("v0")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
@@ -89,8 +95,28 @@ class MIPS64ELSysVModel(CStdModel):
         intval = int.from_bytes(data, "little")
         emulator.write_register("f0", intval)
 
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
+        intval = emulator.read_register("f0")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<f", data)
+        return unpacked
+
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("f0", intval)
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        intval = emulator.read_register("f0")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<d", data)
+        return unpacked
+
+
+class MIPS64ELSysVModel(MIPS64ELSysVCallingContext, CStdModel):
+    """Base class for C models using the MIPS64 System V ABI"""
+
+    pass
