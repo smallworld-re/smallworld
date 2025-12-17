@@ -38,7 +38,7 @@ jobs:
 
       - name: Build devshell
         run: |
-          nix develop -c true
+          nix -L develop -c true
 
       - name: Format
         env:
