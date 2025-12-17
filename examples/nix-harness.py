@@ -1,0 +1,51 @@
+#!/usr/bin/env -S nix shell github:smallworld-re/smallworld#venv --command python
+
+import logging
+import sys
+
+import smallworld
+
+if len(sys.argv) != 2:
+    print("You need to provide a number as an argument")
+    sys.exit(1)
+
+try:
+    int(sys.argv[1])
+except ValueError:
+    print("You need to provide a number as an argument")
+    sys.exit(1)
+# Set up logging
+smallworld.logging.setup_logging(level=logging.INFO)
+
+# Define the platform
+platform = smallworld.platforms.Platform(
+    smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
+)
+
+# Create a machine
+machine = smallworld.state.Machine()
+
+# Create a CPU
+cpu = smallworld.state.cpus.CPU.for_platform(platform)
+machine.add(cpu)
+
+# Load and add code into the state
+raw_bytes = b'\x7c\x63\x19\xd6'
+code = smallworld.state.memory.code.Executable.from_bytes(raw_bytes, address=0x1000)
+machine.add(code)
+
+# Set the instruction pointer to the code entrypoint
+cpu.pc.set(code.address)
+
+# Initialize argument registers
+cpu.r3.set(int(sys.argv[1]))
+
+# Emulate
+emulator = smallworld.emulators.PandaEmulator(platform)
+emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
+print(f"exiting at {cpu.pc.get() + code.get_capacity()}")
+final_machine = machine.emulate(emulator)
+
+# read out the final state
+cpu = final_machine.get_cpu()
+print(hex(cpu.r3.get()))
