@@ -684,7 +684,8 @@ class UnicornEmulator(
 
         try:
             # NB: can't use self.read_memory here since if it has an exception it will call _error, itself.
-            code = bytes(self.engine.mem_read(pc, 16))
+            res = self.engine.mem_read(pc, 16)
+            code = bytes(res)
             # on arm32, update disassembler for ARM vs Thumb
             _ = self._handle_thumb_interwork(pc)
             insns, _ = self._disassemble(code, pc, 1)
@@ -711,7 +712,7 @@ class UnicornEmulator(
         def get_unavailable_rw(rws):
             out = []
             for rw in rws:
-                if type(rw) is instructions.BSIDMemoryReferenceOperand:
+                if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
                     a = rw.address(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
