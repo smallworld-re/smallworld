@@ -30,7 +30,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-raw_bytes = b'\x7c\x63\x19\xd6'
+raw_bytes = b"\x7c\x63\x19\xd6"
 code = smallworld.state.memory.code.Executable.from_bytes(raw_bytes, address=0x1000)
 machine.add(code)
 
