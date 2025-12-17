@@ -60,11 +60,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1766013558,
-        "narHash": "sha256-Q5SkQCT19zK7w3LKWNI7sp5r8e6gJVt9aa6nSVkpRPA=",
+        "lastModified": 1766014599,
+        "narHash": "sha256-xkcsx6A9DcidO/GiwK35rcho+q08J7NYqZh3iQ1m4J0=",
         "owner": "rehostingdev",
         "repo": "panda-ng",
-        "rev": "4f6219f8dedc8f77433ee9de365b6ce111509a83",
+        "rev": "16e99a5453bd24fdbef9922521a32f0779d9fc5b",
         "type": "github"
       },
       "original": {

@@ -93,7 +93,7 @@
             from = (mkUnicornafl python.pkgs);
           };
           pypanda = hacks.nixpkgsPrebuilt {
-            from = panda-ng.lib.${system}.pypandaBuilder python.pkgs;
+            from = panda-ng.lib.${system}.pypandaBuilder python.pkgs qemu.${system};
           };
           colorama = hacks.nixpkgsPrebuilt {
             from = python.pkgs.colorama;
@@ -146,6 +146,18 @@
         in
         venv
       );
+
+      qemu = forAllSystems (
+        system:
+        let
+          qemu = panda-ng.packages.${system}.qemu.overrideAttrs (old: {
+            qemuSubprojects = old.qemuSubprojects.overrideAttrs (old: {
+              outputHash = "sha256-eUw7yBWxRKJbfhKvZDRNpTSaxrnDYr31Tkx35Myx4Fs=";
+            });
+          });
+        in
+        qemu
+      );
     in
     rec {
       devShells = forAllSystems (
@@ -157,7 +169,7 @@
           inputs = [
             pkgs.z3
             pkgs.aflplusplus
-            panda-ng.packages.${system}.qemu
+            qemu.${system}
             pkgs.ghidra
             pkgs.jdk
           ];
@@ -240,6 +252,7 @@
           inherit printInputsRecursive tests;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
+          qemu = qemu.${system};
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";
@@ -251,7 +264,7 @@
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
                 pkgs.aflplusplus
-                panda-ng.packages.${system}.qemu
+                qemu.${system}
                 virtualenv
                 pkgs.ghidra
               ];
