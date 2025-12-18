@@ -38,7 +38,7 @@ jobs:
 
       - name: Build devshell
         run: |
-          nix develop -c true
+          nix -L develop -c true
 
       - name: Format
         env:
@@ -198,7 +198,7 @@ jobs:
             - testsuite: DMATests
             - testsuite: DocumentationTests
             - testsuite: ElfTests
-            # - testsuite: ElfCoreTests
+            - testsuite: ElfCoreTests
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FsgsbaseTests
