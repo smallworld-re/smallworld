@@ -22,14 +22,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    panda-qemu = {
-      url = "github:panda-re/qemu?ref=wrapup-rebase";
-      flake = false;
-    };
-
     panda-ng = {
-      url = "github:rehostingdev/panda-ng?ref=nix-flake-init"; # TODO update once PR is merged
-      inputs.panda-qemu-src.follows = "panda-qemu";
+      url = "github:rehostingdev/panda-ng?ref=macos-support"; # TODO update once PR is merged
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -93,7 +87,7 @@
             from = (mkUnicornafl python.pkgs);
           };
           pypanda = hacks.nixpkgsPrebuilt {
-            from = panda-ng.lib.${system}.pypandaBuilder python.pkgs qemu.${system};
+            from = panda-ng.lib.${system}.pypandaBuilder python.pkgs;
           };
           colorama = hacks.nixpkgsPrebuilt {
             from = python.pkgs.colorama;
@@ -146,18 +140,6 @@
         in
         venv
       );
-
-      qemu = forAllSystems (
-        system:
-        let
-          qemu = panda-ng.packages.${system}.qemu.overrideAttrs (old: {
-            qemuSubprojects = old.qemuSubprojects.overrideAttrs (old: {
-              outputHash = "sha256-eUw7yBWxRKJbfhKvZDRNpTSaxrnDYr31Tkx35Myx4Fs=";
-            });
-          });
-        in
-        qemu
-      );
     in
     rec {
       devShells = forAllSystems (
@@ -168,11 +150,18 @@
           virtualenv = virtualEnvDev.${system};
           inputs = [
             pkgs.z3
-            pkgs.aflplusplus
-            qemu.${system}
+            panda-ng.packages.${system}.qemu
             pkgs.ghidra
             pkgs.jdk
-          ];
+          ]
+          ++ (
+            if pkgs.stdenv.isLinux then
+              [
+                pkgs.aflplusplus
+              ]
+            else
+              [ ]
+          );
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
@@ -249,10 +238,10 @@
           };
         in
         {
-          inherit printInputsRecursive tests;
+          inherit printInputsRecursive;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
-          qemu = qemu.${system};
+          qemu = panda-ng.packages.${system}.qemu;
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";
@@ -264,7 +253,7 @@
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
                 pkgs.aflplusplus
-                qemu.${system}
+                panda-ng.packages.${system}.qemu
                 virtualenv
                 pkgs.ghidra
               ];
@@ -279,6 +268,7 @@
             };
           };
         }
+        // (if system == "x86_64-linux" then { inherit tests; } else { })
       );
 
       pythonSet = forAllSystems (system: pythonSets.${system});
