@@ -47,13 +47,13 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-# qsort model
-qsort_model = smallworld.state.models.Model.lookup(
-    "qsort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# bsearch model
+bsearch_model = smallworld.state.models.Model.lookup(
+    "bsearch", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
-machine.add(qsort_model)
-qsort_model.allow_imprecise = True
-code.update_symbol_value("qsort", qsort_model._address)
+machine.add(bsearch_model)
+bsearch_model.allow_imprecise = True
+code.update_symbol_value("bsearch", bsearch_model._address)
 
 
 # Create a type of exception only I will generate
@@ -61,7 +61,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure qsort by dereferencing 0xdead.
+# We signal failure bsearch by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
@@ -85,7 +85,9 @@ machine.add(dead)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
-    machine.emulate(emulator)
+    # machine.emulate(emulator)
+    for step in machine.step(emulator):
+        pass
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass
