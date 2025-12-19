@@ -2951,6 +2951,11 @@ class C99AtollTests(NoArgLibraryModelTest):
     function = "atoll"
 
 
+class C99BSearchTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "bsearch"
+
+
 class C99CallocTests(NoArgLibraryModelTest):
     library = "c99"
     function = "calloc"
