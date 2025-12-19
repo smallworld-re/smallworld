@@ -68,7 +68,7 @@ class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
             return self.remainder.to_bytes(self.reg_size, "little")[start:end]
         else:
             raise smallworld.exceptions.AnalysisError(
-                "Unexpected read from MMIO register {hex(addr)}"
+                f"Unexpected read from MMIO register {hex(addr)}"
             )
 
     def on_write(
@@ -93,7 +93,7 @@ class HDivModel(smallworld.state.models.mmio.MemoryMappedModel):
                 self.remainder = self.numerator % self.denominator
         else:
             raise smallworld.exceptions.AnalysisError(
-                "Unexpected write to MMIO register {hex(addr)}"
+                f"Unexpected write to MMIO register {hex(addr)}"
             )
 
 
@@ -102,7 +102,7 @@ machine.add(hdiv)
 
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(cpu.rip.get() + code.get_capacity())
+emulator.add_exit_point(cpu.rip.get() + code.get_capacity() - 1)
 final_machine = machine.emulate(emulator)
 
 # read out the final state
