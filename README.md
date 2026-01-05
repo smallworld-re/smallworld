@@ -6,6 +6,21 @@
 
 Easier harnessing of code for analysis!
 
+## Quick Start
+Our documentation is currently being updated. To get up and running quickly try the following:
+
+On Linux install nix with flakes enabled. We recommend the [Determinate Systems nix installer](https://docs.determinate.systems/).
+
+Download the script found in `examples/nix-harness.py`.
+
+Then run:
+```
+  nix run nixpkgs#cachix -- use smallworld
+  chmod +x nix-harness.py
+  ./nix-harness.py 10
+```
+See the comments in the python script for more details.
+
 ## Description
 
 SmallWorld is an environment for streamlined harnessing of binary code for the
@@ -43,102 +58,6 @@ to provide hints that can guide improving a harness.
 This harness is the final output of SmallWorld and might be used in fuzzing or
 dynamic reverse engineering. Note that these are not applications which
 SmallWorld directly supports yet.
-
-
-## Installation
-
-SmallWorld can be installed [directly from PyPi](https://pypi.org/project/smallworld-re/), just:
-```bash
-pip install smallworld-re
-```
-
-If you'd like to install the latest changes or do development, you can install directly. To install SmallWorld from this repo, [optionally set up a venv](https://docs.python.org/3/library/venv.html) and then run:
-
-```bash
-pip install .
-```
-
-The result will be a library that can be used for harnessing and analyzing.  See the examples for a walkthrough.
-
-## Contributing
-
-Pull requests and issues more than welcome.
-
-### Development
-
-#### The Easy Way
-To set up a development environment from this repo, the easiest method is to use
-the install script `install.sh`. This has been tested on Ubuntu 22.04 and may be run
-as the root user, or a non-root user with sudo permissions.
-This will both install SmallWorld and build the unit and integration tests.
-Note that installation will not work fully on an ARM and is not supported.
-
-#### The Hard Way
-To manually set up a development environment from this repo, install SmallWorld in
-editable mode with extras for development and testing. Use the include
-constraints to install frozen versions and ensure a consistent development
-environment.
-
-```bash
-pip install -e ".[development]" -c constraints.txt
-```
-
-#### Code Style
-
-Pre-commit hooks are available for automatic code formatting, linting, and type
-checking via [pre-commit](https://pre-commit.com/). To enable them (after
-installing development dependencies), run:
-
-```bash
-pre-commit install
-```
-
-### Testing
-
-#### Prerequisites
-
-Building the test binaries requires some dependencies which can be installed
-with:
-
-```bash
-apt-get install `cat tests/dependencies/apt.txt`
-```
-
-You can then build the tests by running:
-
-```bash
-make -C tests
-
-ulimit -c unlimited
-make -C tests/elf_core
-```
-
-#### Running Tests
-
-Once the test files have been built and SmallWorld has been installed, you can
-run unit and integration tests:
-
-```bash
-python3 tests/unit.py
-python3 tests/integration.py
-```
-
-### Documentation
-
-To build the full SmallWorld documentation
-* verify [Sphinx](https://www.sphinx-doc.org/) has been installed
-* install SmallWorld with `development` extras enabled
-* make sure you have built the tests since the documentation generation requires output from those tests
-* from the `docs/` directory, run:
-
-```bash
-make html
-```
-
-The resulting documentation will be in `docs/build/html/`
-
-Other [supported Sphinx output formats](https://www.sphinx-doc.org/en/master/usage/builders/index.html) can also be generated.
-
 
 ## Distribution
 
