@@ -3,7 +3,7 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -57,6 +57,16 @@ machine.add(bsearch_model)
 bsearch_model.allow_imprecise = True
 code.update_symbol_value("bsearch", bsearch_model._address)
 
+# memcpy model
+memcpy_model = smallworld.state.models.Model.lookup(
+    "memcpy",
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    code.get_symbol_value("memcpy"),
+)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -87,9 +97,7 @@ machine.add(dead)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
-    # machine.emulate(emulator)
-    for step in machine.step(emulator):
-        pass
+    machine.emulate(emulator)
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass
