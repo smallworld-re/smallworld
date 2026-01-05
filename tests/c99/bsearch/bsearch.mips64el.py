@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -31,6 +31,7 @@ with open(filename, "rb") as f:
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -82,7 +83,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)

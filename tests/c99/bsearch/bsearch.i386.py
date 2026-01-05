@@ -3,11 +3,11 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -54,6 +56,14 @@ bsearch_model = smallworld.state.models.Model.lookup(
 machine.add(bsearch_model)
 bsearch_model.allow_imprecise = True
 code.update_symbol_value("bsearch", bsearch_model._address)
+
+# memcpy model
+memcpy_model = smallworld.state.models.Model.lookup(
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x14004
+)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
+code.update_symbol_value("memcpy", memcpy_model._address)
 
 
 # Create a type of exception only I will generate

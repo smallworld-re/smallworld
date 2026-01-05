@@ -3,11 +3,11 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.ARM_V6M, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -25,7 +25,9 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x400000
+    )
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
@@ -85,7 +87,9 @@ machine.add(dead)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
-    machine.emulate(emulator)
+    # machine.emulate(emulator)
+    for step in machine.step(emulator):
+        pass
     raise Exception("Did not exit as expected")
 except FailExitException:
     pass
