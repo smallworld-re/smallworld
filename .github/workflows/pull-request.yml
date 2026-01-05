@@ -158,6 +158,7 @@ jobs:
             - testsuite: C99PutcharTests
             - testsuite: C99PutcTests
             - testsuite: C99PutsTests
+            - testsuite: C99QSortTests
             - testsuite: C99RandTests
             - testsuite: C99ReallocTests
             - testsuite: C99RemoveTests
