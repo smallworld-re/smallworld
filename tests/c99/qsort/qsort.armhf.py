@@ -57,6 +57,16 @@ machine.add(qsort_model)
 qsort_model.allow_imprecise = True
 code.update_symbol_value("qsort", qsort_model._address)
 
+# memcpy model
+memcpy_model = smallworld.state.models.Model.lookup(
+    "memcpy",
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    code.get_symbol_value("memcpy"),
+)
+machine.add(memcpy_model)
+memcpy_model.allow_imprecise = True
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):

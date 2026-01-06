@@ -57,7 +57,7 @@ code.update_symbol_value("qsort", qsort_model._address)
 
 # memcpy model
 memcpy_model = smallworld.state.models.Model.lookup(
-    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x4008E0
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
 )
 machine.add(memcpy_model)
 memcpy_model.allow_imprecise = True
