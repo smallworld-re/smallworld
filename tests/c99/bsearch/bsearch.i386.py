@@ -3,7 +3,7 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
