@@ -57,16 +57,6 @@ machine.add(qsort_model)
 qsort_model.allow_imprecise = True
 code.update_symbol_value("qsort", qsort_model._address)
 
-# memcpy model
-memcpy_model = smallworld.state.models.Model.lookup(
-    "memcpy",
-    platform,
-    smallworld.platforms.ABI.SYSTEMV,
-    code.get_symbol_value("memcpy"),
-)
-machine.add(memcpy_model)
-memcpy_model.allow_imprecise = True
-
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):
@@ -94,7 +84,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
