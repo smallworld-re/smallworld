@@ -116,6 +116,7 @@ jobs:
             - testsuite: C99AtoiTests
             - testsuite: C99AtollTests
             - testsuite: C99AtolTests
+            - testsuite: C99BSearchTests
             - testsuite: C99CallocTests
             - testsuite: C99ClearerrTests
             - testsuite: C99ClockTests
@@ -157,6 +158,7 @@ jobs:
             - testsuite: C99PutcharTests
             - testsuite: C99PutcTests
             - testsuite: C99PutsTests
+            - testsuite: C99QSortTests
             - testsuite: C99RandTests
             - testsuite: C99ReallocTests
             - testsuite: C99RemoveTests

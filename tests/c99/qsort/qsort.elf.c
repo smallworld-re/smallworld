@@ -4,7 +4,7 @@ int compare(const void* a, const void* b) {
     return *(int*)a - *(int*)b;
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     char *good = (char *)(size_t)0xdead;
 
     const int arr[10]    = {3, 2, 7, -100, 20, 2, 1, 30000, 400, -20};

@@ -3,7 +3,7 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -49,6 +49,7 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
+# qsort model
 qsort_model = smallworld.state.models.Model.lookup(
     "qsort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )

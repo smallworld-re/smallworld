@@ -49,13 +49,13 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-# qsort model
-qsort_model = smallworld.state.models.Model.lookup(
-    "qsort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# bsearch model
+bsearch_model = smallworld.state.models.Model.lookup(
+    "bsearch", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
-machine.add(qsort_model)
-qsort_model.allow_imprecise = True
-code.update_symbol_value("qsort", qsort_model._address)
+machine.add(bsearch_model)
+bsearch_model.allow_imprecise = True
+code.update_symbol_value("bsearch", bsearch_model._address)
 
 # memcpy model
 memcpy_model = smallworld.state.models.Model.lookup(
@@ -71,7 +71,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure qsort by dereferencing 0xdead.
+# We signal failure bsearch by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):

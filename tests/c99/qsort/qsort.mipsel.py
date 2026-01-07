@@ -25,14 +25,13 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -59,7 +58,7 @@ code.update_symbol_value("qsort", qsort_model._address)
 
 # memcpy model
 memcpy_model = smallworld.state.models.Model.lookup(
-    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
 )
 machine.add(memcpy_model)
 memcpy_model.allow_imprecise = True

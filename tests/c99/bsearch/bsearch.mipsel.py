@@ -7,7 +7,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -25,14 +25,13 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -49,13 +48,13 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-# qsort model
-qsort_model = smallworld.state.models.Model.lookup(
-    "qsort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# bsearch model
+bsearch_model = smallworld.state.models.Model.lookup(
+    "bsearch", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
 )
-machine.add(qsort_model)
-qsort_model.allow_imprecise = True
-code.update_symbol_value("qsort", qsort_model._address)
+machine.add(bsearch_model)
+bsearch_model.allow_imprecise = True
+code.update_symbol_value("bsearch", bsearch_model._address)
 
 # memcpy model
 memcpy_model = smallworld.state.models.Model.lookup(
@@ -71,7 +70,7 @@ class FailExitException(Exception):
     pass
 
 
-# We signal failure qsort by dereferencing 0xdead.
+# We signal failure bsearch by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
