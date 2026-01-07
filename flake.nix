@@ -247,9 +247,32 @@
             inherit xtensaGcc;
             inherit x86_64_glibc_path;
           };
+
+          pythonPackage = ps: ps.buildPythonPackage {
+            pname = "smallworld";
+            version = "1.0";
+            src = ./.;
+            pyproject = true;
+            build-system = with ps; [
+              setuptools
+              setuptools-scm
+            ];
+
+            dependencies = with ps; [
+              capstone
+              black
+              angr
+            ];
+            meta = {
+              description = "";
+              homepage = "https://github.com/smallworld-re/smallworld";
+              license = lib.licenses.mit;
+            };
+          };
+          
         in
         {
-          inherit printInputsRecursive tests;
+          inherit printInputsRecursive tests pythonPackage pythonSet;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           qemu = qemu.${system};
