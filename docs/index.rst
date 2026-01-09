@@ -11,8 +11,9 @@ or if it has bugs, then you should try SmallWorld!
    :titlesonly:
    :maxdepth: 2
 
+   getting_started/index
+   concepts/index
    tutorial/index
-   usage/index
    reference/index
    contributing
    about
