@@ -11,5 +11,4 @@ in SmallWorld's programming interface.
     platforms/index
     state/index
     emulators/index
-    hinting
-    analyses
+    analyses/index
