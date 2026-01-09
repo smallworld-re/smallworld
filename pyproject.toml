@@ -16,7 +16,7 @@ dependencies = [
     "capstone==5.0.3",
     "jsons==1.6.3",
     "lief==0.17.0",
-    "pyghidra>=2.2.0",
+    "pyghidra==2.2.1",
     "pypcode==3.0",
     "setuptools>=80.9.0",
     "unicorn==2.0.1.post1",
