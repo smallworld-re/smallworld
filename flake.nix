@@ -89,7 +89,7 @@
           colorama = hacks.nixpkgsPrebuilt {
             from = prev.python.pkgs.colorama;
           };
-          pyghidra = final.callPackage ./pyghidra.nix {};
+          pyghidra = final.callPackage ./pyghidra.nix { };
         }
       );
 
@@ -248,7 +248,10 @@
           # packageOverrides = overlay;
           # python = pythonSet.python;
           python = pkgs.python312.override {
-            packageOverrides = final: prev: {pyghidra = null; pypcode = null;};
+            packageOverrides = final: prev: {
+              pyghidra = null;
+              pypcode = null;
+            };
           };
           pythonWithPackage = python.withPackages (
             project.renderers.withPackages {
