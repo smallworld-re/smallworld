@@ -69,35 +69,27 @@
         unicornafl = [ ];
         pypanda = [ ];
         colorama = [ ];
+        pyghidra = [ ];
       };
-
-      basePython = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-          python = pkgs.python312;
-        in
-        python
-      );
 
       prebuilts = forAllSystems (
         system: final: prev:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          python = basePython.${system};
           hacks = pkgs.callPackage pyproject-nix.build.hacks { };
           mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
         in
         {
           unicornafl = hacks.nixpkgsPrebuilt {
-            from = (mkUnicornafl python.pkgs);
+            from = (mkUnicornafl prev.python.pkgs);
           };
           pypanda = hacks.nixpkgsPrebuilt {
-            from = panda-ng.lib.${system}.pypandaBuilder python.pkgs qemu.${system};
+            from = panda-ng.lib.${system}.pypandaBuilder prev.python.pkgs qemu.${system};
           };
           colorama = hacks.nixpkgsPrebuilt {
-            from = python.pkgs.colorama;
+            from = prev.python.pkgs.colorama;
           };
+          pyghidra = final.callPackage ./pyghidra.nix {};
         }
       );
 
@@ -113,20 +105,18 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          python = basePython.${system};
-          overrides = pkgs.callPackage ./overrides.nix { inherit python; };
+          baseSet = pkgs.callPackage pyproject-nix.build.packages {
+            python = pkgs.python312;
+          };
+          overrides = pkgs.callPackage ./overrides.nix { };
+          extensions = lib.composeManyExtensions [
+            pyproject-build-systems.overlays.wheel
+            overlay
+            overrides
+            prebuilts.${system}
+          ];
         in
-        (pkgs.callPackage pyproject-nix.build.packages {
-          inherit python;
-        }).overrideScope
-          (
-            lib.composeManyExtensions [
-              pyproject-build-systems.overlays.wheel
-              overlay
-              overrides
-              prebuilts.${system}
-            ]
-          )
+        baseSet.overrideScope extensions
       );
 
       virtualEnvDev = forAllSystems (
@@ -247,10 +237,33 @@
             inherit xtensaGcc;
             inherit x86_64_glibc_path;
           };
+          project = pyproject-nix.lib.project.loadUVPyproject {
+            projectRoot = ./.;
+          };
+          # packageOverrides = pythonExtensions.${system};
+          # packageOverrides = prebuilts.${system};
+          # packageOverrides = final: prev: {
+          #   pyghidra = pkgs.callPackage ./pyghidra.nix {};
+          # };
+          # packageOverrides = overlay;
+          # python = pythonSet.python;
+          python = pkgs.python312.override {
+            packageOverrides = final: prev: {pyghidra = null; pypcode = null;};
+          };
+          pythonWithPackage = python.withPackages (
+            project.renderers.withPackages {
+              inherit python;
+            }
+          );
         in
         {
-          inherit printInputsRecursive tests;
-          default = pythonSet.smallworld-re;
+          inherit
+            printInputsRecursive
+            tests
+            pythonSet
+            pythonWithPackage
+            ;
+          default = pythonWithPackage;
           venv = virtualenv;
           qemu = qemu.${system};
           dockerImage = pkgs.dockerTools.buildImage {
