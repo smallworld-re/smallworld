@@ -36,11 +36,11 @@
     "nixpkgs-esp-dev": {
       "flake": false,
       "locked": {
-        "lastModified": 1767146219,
-        "narHash": "sha256-dviXadLLdKhoW9apdBoF+UpGxgcukSin6h6oaxKY/w4=",
+        "lastModified": 1767865407,
+        "narHash": "sha256-QWF1rZYd+HvNzLIeRS+OEBX7HF0EhWCGeLbMkgtbsIo=",
         "owner": "mirrexagon",
         "repo": "nixpkgs-esp-dev",
-        "rev": "a202c3c73bed7e2cb8c6870f80781993dab41fcd",
+        "rev": "5287d6e1ca9e15ebd5113c41b9590c468e1e001b",
         "type": "github"
       },
       "original": {
@@ -158,11 +158,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1767152253,
-        "narHash": "sha256-xxuRsew0pedwptVnhfru01xbe+dDhI+OY1kCFDMxBUs=",
+        "lastModified": 1767701098,
+        "narHash": "sha256-CJhKZnWb3gumR9oTRjFvCg/6lYTGbZRU7xtvcyWIRwU=",
         "owner": "pyproject-nix",
         "repo": "uv2nix",
-        "rev": "7a3eb140416318349ec58d2d4e81afe071bc9f03",
+        "rev": "9d357f0d2ce6f5f35ec7959d7e704452352eb4da",
         "type": "github"
       },
       "original": {
