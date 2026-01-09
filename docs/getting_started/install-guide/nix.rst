@@ -107,35 +107,6 @@ Building Example Binaries
 To build all examples, execute the following:
 
 .. code-block:: bash
+   nix build .#tests
+   tar -C tests -xvf result/test_binaries.tar
 
-   cd smallworld/tests
-   make -j $(nproc)
-   ulimit -c unlimited
-   make -C elf_core/Makefile
-
-You can also build binaries for specific platforms using the following,
-in case you only want a subset of the examples.
-
-.. code-block:: bash
-
-   cd smallworld/tests
-   make -j $PLATFORM
-
-``$PLATFORM`` should be one of the following:
-
-    - ``aarch64``: aarch64 assembly and ELF examples
-    - ``amd64``: amd64 assembly and ELF examples
-    - ``amd64_mingw``: amd64 PE examples, built using mingw
-    - ``armel``: armv5t assembly and ELF examples
-    - ``armhf``: armv7a assembly and ELF examples
-    - ``i386``: x86 assembly and ELF examples
-    - ``i386_mingw``: x86 PE examples, built using mingw
-    - ``la64``: loongarch64 assembly and ELF examples
-    - ``mips``: mips32r2 big endian assembly and ELF examples
-    - ``mipsel``: mips32r2 little endian assembly and ELF examples
-    - ``mips64``: mips64r2 big endian assembly and ELF examples
-    - ``mips64el``: mips64r2 little endian assembly and ELF examples
-    - ``ppc``: powerpc32 assembly and ELF examples
-    - ``ppc64``: powerpc64 assembly and ELF examples
-    - ``riscv64``: riscv64 assembly and ELF examples
-    - ``xtensa``: xtensa assembly and ELF examples
