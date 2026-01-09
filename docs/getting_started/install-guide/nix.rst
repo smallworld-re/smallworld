@@ -24,7 +24,9 @@ with SmallWorld already configured.
 Prerequisites
 -------------
 
-The only prerequisite for the Nix environment is `Nix <https://nixos.org/>`_ itself.
+The only prerequisite for the Nix environment is `Nix <https://nixos.org/>`_ itself 
+with flakes enabled. We recommend the `Determinate Systems nix installer
+<https://docs.determinate.systems/determinate-nix/>`_.
 
 Full Install as a Nix Package
 -----------------------------
