@@ -105,6 +105,7 @@ class UnicornEmulator(
         def code_callback(uc, address, size, user_data):
             # Check if we're out of bounds
             if not self._bounds.is_empty() and not self._bounds.contains_value(address):
+                logger.debug(f"stopping emulation out of bounds at {address:x}")
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 raise exceptions.EmulationBounds
