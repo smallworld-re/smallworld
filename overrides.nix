@@ -1,4 +1,4 @@
-{ pkgs, python }:
+{ unicorn, libffi }:
 final: prev:
 let
   buildSystemOverrides = {
@@ -20,14 +20,14 @@ let
 in
 {
   angr = prev.angr.overrideAttrs (old: {
-    autoPatchelfLibs = [ "${python.pkgs.pyvex}/lib/python3.12/site-packages/pyvex/lib" ];
+    autoPatchelfLibs = [ "${prev.pyvex}/lib/python3.12/site-packages/pyvex/lib" ];
   });
 
   cffi = prev.cffi.overrideAttrs (old: {
     nativeBuildInputs =
       (old.nativeBuildInputs or [ ])
       ++ [
-        pkgs.libffi
+        libffi
       ]
       ++ (final.resolveBuildSystem {
         setuptools = [ ];
@@ -35,7 +35,7 @@ in
   });
 
   unicornafl = prev.unicornafl.overrideAttrs (old: {
-    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.unicorn ];
+    nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ unicorn ];
   });
 
 }
