@@ -57,7 +57,7 @@ to use an alternate load address.
 
 Let's take a look at our example:
 
-.. command-output:: x86_64-w64-mingw32-objdump -p pe.amd64.pe | head -n 20
+.. command-output:: objdump -p pe.amd64.pe | head -n 20
     :shell:
     :cwd: ../../../tests/pe
 
@@ -81,37 +81,20 @@ Finding ``main()``
 The next step is to figure out where we want to begin executing.
 
 Sadly, internal symbols are a deprecated feature on PE files;
-most Windows binaries won't have them,
+Windows and most MinGW binaries won't have them,
 and SmallWorld doesn't look for them.
 
-We're lucky that we're using MinGW, which uses the deprecated symbol tables.
-Let's take a look:
 
-.. command-output:: x86_64-w64-mingw32-objdump -t pe.amd64.pe | grep 'main'
-    :shell:
-    :cwd: ../../../tests/pe
-
-The following line contains what we want::
-
-    [116](sec  1)(fl 0x00)(ty   20)(scl   2) (nx 1) 0x0000000000000550 main
-
-PE symbols are relative to the base address of their section,
-indicated by ``(sec  1)``.  The section indexes here are one-indexed,
-so we need to look for section 0 in the section table:
-
-.. command-output:: x86_64-w64-mingw32-objdump -h pe.amd64.pe | head
-    :shell:
-    :cwd: ../../../tests/pe
-
-The ``.text`` section starts ``0x1000`` bytes after the beginning of the image,
-so ``main`` is ``0x1550`` bytes after the beginning of the image.
-Our harness should look like the following:
+This is a case for manual RE.
+Inspecting the entrypoint routines in Ghidra
+tells us that the most probable candidate for ``main()``
+is at offset ``0x1000`` in the file,
+or the start of the text segment.
 
 .. code-block:: python
 
-    entrypoint = code.address + 0x1550
+    entrypoint = code.address + 0x1000
     cpu.rip.set(entrypoint)
-
 
 Stubbing out the runtime
 ------------------------
@@ -121,19 +104,21 @@ Stubbing out the runtime
 If we tried to harness our program now, it would fail with an unmapped memory error.
 Let's take a look at ``main()`` in a disassembler:
 
-.. command-output:: x86_64-w64-mingw32-objdump -d pe.amd64.pe | grep -A 10 '<main>:'
+.. command-output:: objdump -d pe.amd64.pe | grep -A 10 '140001000:'
     :shell:
     :cwd: ../../../tests/pe
 
-I recognize everything there except for the call to ``__main__``.
+I recognize everything there except for the call to ``0x1620``.
 Let's look at it in a disassembler:
 
-.. command-output:: x86_64-w64-mingw32-objdump -d pe.amd64.pe | grep -A 10 '<__main>:'
+.. command-output:: objdump -d pe.amd64.pe | grep -A 10 '140001620:'
     :shell:
     :cwd: ../../../tests/pe
 
-This looks like it's trying to invoke the library initializers,
-which we really don't care about.
+If we manually RE this function,
+we find that it's just more runtime initialization
+that we really don't care about modelling.
+
 Thankfully, it doesn't return anything or otherwise modify the caller,
 so we can easily use SmallWorld's function hooking feature
 to stub it out:
@@ -151,7 +136,7 @@ to stub it out:
             pass
     
     
-    init = InitModel(code.address + 0x1630)
+    init = InitModel(code.address + 0x1620)
     machine.add(init)
 
 

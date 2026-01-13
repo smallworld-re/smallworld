@@ -161,10 +161,13 @@ that contains the register values at the time of the original crash:
 
 .. literalinclude:: ../../../tests/elf_core/elf_core.amd64.elf.registers
 
-Here, we see that ``rip`` is ``0x40000011ad``.
-We can use ``objdump -d`` to inspect the core file, just as we would an ordinary ELF:
+Here, we see that ``rip`` is ``0x7ffff6a7a55c``.
+Now, if we remember the output of ``readelf -l``,
+the file size of that segment was zero.
+By default, core dumps don't include the executable segments
+of code  
 
-.. command-output:: objdump -d elf_core.amd64.elf.core | grep '40000011ad:'
+.. command-output:: objdump -d elf_core.amd64.elf.core | grep '5b8:'
     :shell:
     :cwd: ../../../tests/elf_core
 

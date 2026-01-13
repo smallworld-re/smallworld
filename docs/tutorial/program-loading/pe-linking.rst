@@ -67,9 +67,9 @@ allowing them to provide specific versions of any required DLLs,
 or to leave out DLLs that won't be relevant to the harness.
 
 We can get a list of the DLLs required by an executable or DLL
-using ``x86_64-w64-mingw32-objdump -p``.  Let's try this with ``link_pe.amd64.pe``:
+using ``objdump -p``.  Let's try this with ``link_pe.amd64.pe``:
 
-.. command-output:: x86_64-w64-mingw32-objdump -p link_pe.amd64.pe | grep 'DLL Name'
+.. command-output:: objdump -p link_pe.amd64.pe | grep 'DLL Name'
     :shell:
     :cwd: ../../../tests/link_pe
 

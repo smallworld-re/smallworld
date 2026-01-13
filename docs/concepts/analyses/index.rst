@@ -1,3 +1,5 @@
+.. _analyses:
+
 Analyses
 ========
 

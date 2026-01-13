@@ -31,11 +31,11 @@ You can build this into ``pe.amd64.pe`` using the following commands:
 
 Let's take a look at the PE metadata, specifically regarding puts:
 
-.. command-output:: x86_64-w64-mingw32-objdump -x pe.amd64.pe | grep -A 29 'msvcrt.dll'
+.. command-output:: objdump -x pe.amd64.pe | grep -B 10 'puts'
     :shell:
     :cwd: ../../../tests/pe/
 
-The function is imported from ``msvcrt.dll``.
+The function is imported from ``api-ms-win-crt-stdio-l1-1-0.dll``.
 We could load and harness an entire other library just to provide puts,
 but we're not that interested in exercising the library.
 Let's use a model instead.
@@ -52,7 +52,7 @@ Setting up a stack is covered in :ref:`this tutorial <tutorial_mapping>`.
 
 Let's take a look at the disassembly for main:
 
-.. command-output:: x86_64-w64-mingw32-objdump -d pe.amd64.pe | grep -A 10 '<main>:'
+.. command-output:: objdump -d pe.amd64.pe | grep -A 10 '140001000:'
     :shell:
     :cwd: ../../../tests/pe
 
@@ -155,7 +155,7 @@ and update our PE with the address of ``puts``:
 .. code-block:: python
 
     # Relocate puts
-    code.update_import("msvcrt.dll", "puts", puts._address)
+    code.update_import("api-ms-win-crt-stdio-l1-1-0.dll", "puts", puts._address)
 
 Putting it All Together
 -----------------------

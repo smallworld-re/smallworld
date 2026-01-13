@@ -3,10 +3,11 @@ import typing
 
 import lief
 
-from ....exceptions import ConfigurationError
+from ....emulators import Emulator
+from ....exceptions import ConfigurationError, SymbolicValueError
 from ....platforms import Architecture, Byteorder, Platform
 from ....utils import RangeCollection
-from ...state import BytesValue
+from ...state import BytesValue, SymbolicValue, Value
 from ..code import Executable
 from .rela import ElfRelocator
 from .structs import ElfRela, ElfSymbol
@@ -771,6 +772,44 @@ class ElfExecutable(Executable):
 
             o_sym = o_syms[0]
             self.update_symbol_value(my_sym, o_sym.value + o_sym.baseaddr, rebase=True)
+
+    def apply(self, emulator: Emulator) -> None:
+        # This is very similar to Memory.apply,
+        # but an ELF image, particularly a core dump,
+        # can consume the entire address space.
+        for offset, value in self.items():
+            emulator.map_memory(self.address + offset, value.get_size())
+            if value.get_content() is not None:
+                self._write_content(emulator, self.address + offset, value)
+            if value.get_type() is not None:
+                emulator.write_memory_type(
+                    self.address + offset, value.get_size(), value.get_type()
+                )
+            if value.get_label() is not None:
+                emulator.write_memory_label(
+                    self.address + offset, value.get_size(), value.get_label()
+                )
+
+    def extract(self, emulator: Emulator) -> None:
+        value: Value
+        items = list(self.items())
+        for offset, value in items:
+            try:
+                data = emulator.read_memory(self.address + offset, value.get_size())
+                value = BytesValue(
+                    data, f"Extracted memory from {self.address + offset:x}"
+                )
+            except SymbolicValueError:
+                expr = emulator.read_memory_symbolic(
+                    self.address + offset, value.get_size()
+                )
+                value = SymbolicValue(
+                    value.get_size(),
+                    expr,
+                    None,
+                    f"Extracted memory from {self.address + offset:x}",
+                )
+            self[offset] = value
 
     def __getstate__(self):
         # Override the default pickling mechanism.

@@ -107,6 +107,7 @@ Building Example Binaries
 To build all examples, execute the following:
 
 .. code-block:: bash
+
    nix build .#tests
    tar -C tests -xvf result/test_binaries.tar
 

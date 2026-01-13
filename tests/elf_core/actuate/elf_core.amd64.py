@@ -32,20 +32,32 @@ with open(filename, "rb") as f:
     machine.add(code)
     code.populate_cpu(cpu)
 
+# Load the original binary so we can copy .text
+# I can't get my system to dump the executable segments.
+origname = filename.replace(".core", "")
+with open(origname, "rb") as f:
+    orig = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=code.address
+    )
+
+# The core file reserves space before the true load address for its metadata.
+code_offset = (cpu.pc.get() - code.address) & 0xFFFFFFFFFFFFF000
+code[code_offset] = orig[0x0]
+
 # Replace the instruction bytes at rip with a nop
 nop = b"\x66\x90"
 code.write_bytes(cpu.rip.get(), nop)
 
 # Set up a puts handler
 # puts address recovered from manual RE
-puts_addr = (cpu.rip.get() & 0xFFFFFFFFFFFF0000) | 0x1070
+puts_addr = (cpu.rip.get() & 0xFFFFFFFFFFFF0000) | 0xA610
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
 machine.add(puts)
 
 # Add an exit point
-machine.add_exit_point(cpu.rip.get() + 0x17)
+machine.add_exit_point(cpu.rip.get() + 0x23)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
