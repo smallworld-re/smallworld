@@ -2054,29 +2054,35 @@ class ElfCoreActuateTests(ScriptIntegrationTest):
     def test_amd64_pcode(self):
         self.run_test("amd64.pcode")
 
+    @unittest.skip("Pending Nix sysroot for armel")
     def test_armel(self):
         self.run_test("armel")
 
+    @unittest.skip("Pending Nix sysroot for armel")
     def test_armel_angr(self):
         self.run_test("armel.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending Nix sysroot for armel")
     def test_armel_panda(self):
         self.run_test("armel.panda")
 
+    @unittest.skip("Pending Nix sysroot for armel")
     def test_armel_pcode(self):
         self.run_test("armel.pcode")
 
+    @unittest.skip("Pending Nix sysroot for armhf")
     def test_armhf(self):
         self.run_test("armhf")
 
+    @unittest.skip("Pending Nix sysroot for armhf")
     def test_armhf_angr(self):
         self.run_test("armhf.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending Nix sysroot for armhf")
     def test_armhf_panda(self):
         self.run_test("armhf.panda")
 
+    @unittest.skip("Pending Nix sysroot for armhf")
     def test_armhf_pcode(self):
         self.run_test("armhf.pcode")
 
@@ -2088,58 +2094,69 @@ class ElfCoreActuateTests(ScriptIntegrationTest):
     def test_i386_angr(self):
         self.run_test("i386.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending Nix sysroot for i386")
     def test_i386_panda(self):
         self.run_test("i386.panda")
 
+    @unittest.skip("Pending Nix sysroot for i386")
     def test_i386_pcode(self):
         self.run_test("i386.pcode")
 
     # Can't actuate la64 to create a coredump
 
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mips(self):
         self.run_test("mips")
 
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mips_angr(self):
         self.run_test("mips.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mips_panda(self):
         self.run_test("mips.panda")
 
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mips_pcode(self):
         self.run_test("mips.pcode")
 
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mipsel(self):
         self.run_test("mipsel")
 
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mipsel_angr(self):
         self.run_test("mipsel.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mipsel_panda(self):
         self.run_test("mipsel.panda")
 
+    @unittest.skip("Pending fix for zig/QEMU MIPS ABI conflict")
     def test_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    @unittest.skip("Pending fix for crashes in mips64 ld.so")
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending fix for crashes in mips64 ld.so")
     def test_mips64_panda(self):
         self.run_test("mips64.panda")
 
+    @unittest.skip("Pending fix for crashes in mips64 ld.so")
     def test_mips64_pcode(self):
         self.run_test("mips64.pcode")
 
+    @unittest.skip("Pending fix for crashes in mips64 ld.so")
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
-    @unittest.skip("Waiting for panda-ng")
+    @unittest.skip("Pending fix for crashes in mips64 ld.so")
     def test_mips64el_panda(self):
         self.run_test("mips64el.panda")
 
+    @unittest.skip("Pending fix for crashes in mips64 ld.so")
     def test_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
@@ -2153,11 +2170,13 @@ class ElfCoreActuateTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Pending fix for crashes in ppc64 ld.so")
     def test_ppc64_angr(self):
-        self.run_test("ppc.angr")
+        self.run_test("ppc64.angr")
 
+    @unittest.skip("Pending fix for crashes in ppc64 ld.so")
     def test_ppc64_pcode(self):
-        self.run_test("ppc.pcode")
+        self.run_test("ppc64.pcode")
 
     # NOTE: RiscV doesn't produce a core file when asked.
 
