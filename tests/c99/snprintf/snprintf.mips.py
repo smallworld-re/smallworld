@@ -25,14 +25,13 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
 
 # Set the entrypoint to the address of "main"
 entrypoint = code.get_symbol_value("main")
 cpu.pc.set(entrypoint)
+cpu.t9.set(entrypoint)
 
 # Create a stack and add it to the state
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
@@ -64,9 +63,6 @@ snprintf_model = smallworld.state.models.Model.lookup(
 snprintf_model.heap = heap
 machine.add(snprintf_model)
 snprintf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("snprintf", snprintf_model._address)
 
 # Relocate puts
 code.update_symbol_value("snprintf", snprintf_model._address)

@@ -1,12 +1,10 @@
 import struct
 
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class AArch64SysVModel(CStdModel):
-    """Base class for C models using the AArch64 System V ABI"""
-
+class AArch64SysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
     )
@@ -63,9 +61,17 @@ class AArch64SysVModel(CStdModel):
         """Return a four-byte type"""
         emulator.write_register("w0", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("w0")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("x0", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("x0")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
@@ -73,8 +79,28 @@ class AArch64SysVModel(CStdModel):
         intval = int.from_bytes(data, "little")
         emulator.write_register("s0", intval)
 
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
+        intval = emulator.read_register("s0")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<f", data)
+        return unpacked
+
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("d0", intval)
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        intval = emulator.read_register("d0")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
+        (unpacked,) = struct.unpack("<d", data)
+        return unpacked
+
+
+class AArch64SysVModel(AArch64SysVCallingContext, CStdModel):
+    """Base class for C models using the AArch64 System V ABI"""
+
+    pass

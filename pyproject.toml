@@ -3,7 +3,7 @@ name = "smallworld-re"
 version = "2.0.2"
 description = "An emulation stack tracking library"
 readme = { file = "README.md", content-type = "text/markdown" }
-requires-python = "==3.10.7"
+requires-python = "==3.12.12"
 license = { file = "LICENSE.txt" }
 authors = [
    { name = "MIT Lincoln Laboratory" }, 
@@ -12,10 +12,11 @@ authors = [
 urls = { Homepage = "https://github.com/smallworld-re/smallworld", Issues = "https://github.com/smallworld-re/smallworld/issues" }
 dependencies = [
     "angr==9.2.137",
+    "black[jupyter]>=25.11.0",
     "capstone==5.0.3",
     "jsons==1.6.3",
     "lief==0.17.0",
-    "pyghidra>=2.2.0",
+    "pyghidra==2.2.1",
     "pypcode==3.0",
     "setuptools>=80.9.0",
     "unicorn==2.0.1.post1",

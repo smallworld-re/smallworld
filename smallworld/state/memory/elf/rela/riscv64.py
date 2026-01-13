@@ -12,14 +12,19 @@ class RISCV64ElfRelocator(ElfRelocator):
     arch = platforms.Architecture.RISCV64
     byteorder = platforms.Byteorder.LITTLE
 
-    def _compute_value(self, rela: ElfRela):
+    def _compute_value(self, rela: ElfRela, elf):
         if (
             rela.type == R_RISCV_64
             or rela.type == R_RISCV_JUMP_SLOT
             or rela.type == R_RISCV_RELATIVE
         ):
+            if rela.is_rela:
+                addend = rela.addend
+            else:
+                addend = elf.read_int(rela.offset, 8, self.byteorder)
+
             # Different semantics, all behave the same
-            val = rela.symbol.value + rela.symbol.baseaddr + rela.addend
+            val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(8, "little")
         else:
             raise ConfigurationError(

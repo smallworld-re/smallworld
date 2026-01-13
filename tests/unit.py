@@ -858,12 +858,13 @@ class UnicornMachdefTests(unittest.TestCase):
                 emu.read_register(reg)
             except exceptions.UnsupportedRegisterError:
                 continue
-            except:
+            except Exception as e:
+                print(f" {reg} {e}")
                 bad_regs.add(reg)
         self.assertEqual(
             len(bad_regs),
             0,
-            msg=f"Ghidra did not handle the following registers for {platform}: {bad_regs}",
+            msg=f"Unicorn did not handle the following registers for {platform}: {bad_regs}",
         )
 
     def test_unicorn_aarch64(self):
@@ -1212,8 +1213,7 @@ class PandaMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
         )
-        # Not supported by Panda
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_panda_armv6m_thumb(self):
         platform = platforms.Platform(

@@ -70,8 +70,11 @@ stack.push_integer(argv, 4, None)
 # Push argc
 stack.push_integer(2, 4, None)
 
-# Push return value
-stack.push_integer(0xC001D00D, 4, None)
+# Push fake return
+# Make it an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+stack.push_integer(exitpoint, 4, None)
+machine.add_exit_point(exitpoint)
 
 
 # Configure the stack pointer
@@ -87,9 +90,6 @@ for bound in code.bounds:
     machine.add_bound(bound[0], bound[1])
 for bound in lib.bounds:
     machine.add_bound(bound[0], bound[1])
-
-# I happen to know where the code _actually_ stops
-emulator.add_exit_point(entrypoint + 0x4B)
 
 final_machine = machine.emulate(emulator)
 final_cpu = final_machine.get_cpu()

@@ -1,12 +1,10 @@
 import struct
 
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class LoongArch64SysVModel(CStdModel):
-    """Base class for C models using the LoongArch64 System V ABI"""
-
+class LoongArch64SysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.LOONGARCH64, platforms.Byteorder.LITTLE
     )
@@ -45,7 +43,7 @@ class LoongArch64SysVModel(CStdModel):
     ]
 
     _soft_float = False
-    _variadic_soft_float = False
+    _variadic_soft_float = True
     _floats_are_doubles = False
     _float_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
     _double_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
@@ -66,9 +64,19 @@ class LoongArch64SysVModel(CStdModel):
             val |= self._int_signext_mask
         emulator.write_register("a0", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        ret = emulator.read_register("a0")
+        ret &= self._int_inv_mask  # undo sign extension.
+        return ret
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         emulator.write_register("a0", val)
+
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        return emulator.read_register("a0")
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
@@ -76,8 +84,28 @@ class LoongArch64SysVModel(CStdModel):
         intval = int.from_bytes(data, "little")
         emulator.write_register("fa0", intval)
 
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
+        intval = emulator.read_register("fa0")
+        data = int.to_bytes(intval, self._float_stack_size, "little")
+        (unpacked,) = struct.unpack("<f", data)
+        return unpacked
+
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         data = struct.pack("<d", val)
         intval = int.from_bytes(data, "little")
         emulator.write_register("fa0", intval)
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        intval = emulator.read_register("fa0")
+        data = int.to_bytes(intval, self._double_stack_size, "little")
+        (unpacked,) = struct.unpack("<d", data)
+        return unpacked
+
+
+class LoongArch64SysVModel(LoongArch64SysVCallingContext, CStdModel):
+    """Base class for C models using the LoongArch64 System V ABI"""
+
+    pass

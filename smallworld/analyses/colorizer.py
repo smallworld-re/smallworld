@@ -20,8 +20,6 @@ from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
 logger = logging.getLogger(__name__)
 
-
-MIN_ACCEPTABLE_COLOR_INT = 0x20
 BAD_COLOR = (2**64) - 1
 
 Colors = typing.Dict[int, typing.Tuple[Operand, int, Instruction, int]]
@@ -30,11 +28,15 @@ Shad = typing.Dict[int, typing.Tuple[int, bool, int]]
 
 
 def randomize_uninitialized(
-    machine: state.Machine, seed: int = 123456, extra_regs: typing.List[str] = []
+    machine: state.Machine,
+    seed: int = 123456,
+    extra_regs: typing.List[str] = [],
+    bss_start: typing.Optional[int] = None,
+    bss_size: typing.Optional[int] = None,
 ) -> state.Machine:
     """Consider all parts of the machine that can be written to (registers
     + memory regions). Write random values to any bytes in those machine
-    parts which are currently uninitialized. So this only works if we
+       parts which are currently uninitialized. So this only works if we
     have a way to tell if registers or memory have not been initialized.
 
     Randomize all general purpose regs (plus regs in list of
@@ -49,17 +51,24 @@ def randomize_uninitialized(
     Note that, for a register, it is either set or not.  We can't tell
     if, say edx part of rdx has been set.
 
-    """
-    random.seed(seed)
-    logger.setLevel(logging.DEBUG)
+    NOTE: If we want a seed to determine the specific random values
+    chosen for regs and mem bytes, then we need to arrange for any
+    iterators over things to do so in a repeatable way.  For instance,
+    we need to get register names and sort them then randomize them in
+    that order.  Similarly, we do things to make sure we are
+    randomizing memory objects or the segments within them in same
+    order every time.
 
-    # if logger.getEffectiveLevel() >= logging.DEBUG:
+
+    """
+
+    random.seed(seed)
+
     m = hashlib.md5()
     platform = machine.get_platform()
     machine_copy = copy.deepcopy(machine)
+
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    reg_names = list(pdefs.registers.keys())
-    reg_names.sort()
 
     def get_reg(machine, reg_name):
         cpu = machine.get_cpu()
@@ -69,6 +78,8 @@ def randomize_uninitialized(
                     return x
         return None
 
+    reg_names = list(pdefs.registers.keys())
+    reg_names.sort()
     for name in reg_names:
         if (name in pdefs.general_purpose_registers) or (name in extra_regs):
             reg = get_reg(machine_copy, name)
@@ -76,50 +87,113 @@ def randomize_uninitialized(
                 # this means reg is uninitialized; ok to randomize
                 v = random.randint(0, (1 << (8 * reg.size)) - 1)
                 reg.set(v)
-                # logger.info(f"randomize_uninitialized setting {reg}")
-                # if logger.getEffectiveLevel() >= logging.DEBUG:
                 m.update(str(v).encode("utf-8"))
+                logger.debug(f"randomize_unitialized: reg{name} randomized to {v:x}")
 
-    for el in machine_copy:
-        if isinstance(m, state.memory.Memory):
-            if isinstance(m, state.memory.Executable):
-                # nothing to randomize here
-                continue
-            # To come, I guess
-            # we'd like to randomize anything uninitialized...
-            pass
-    # if logger.getEffectiveLevel() >= logging.DEBUG:
-    logger.info(f"digest of changes made to machine: {m.hexdigest()}")
+    mems = {}
+    mem_addrs = []
+    for mem in machine_copy:
+        if isinstance(mem, state.memory.Memory):
+            mem_addrs.append(mem.address)
+            mems[mem.address] = mem
+    mem_addrs.sort()
 
-    logger.setLevel(logging.INFO)
+    for ma in mem_addrs:
+        mem = mems[ma]
+
+        def randomize_mem(mem, start, size):
+            bytz = random.randbytes(size)
+            mem.write_bytes(start, bytz)
+            m.update(bytz)
+
+        if isinstance(mem, state.memory.code.Executable):
+            # nothing to randomize here except maybe bss
+            if (bss_start is not None) and (bss_size is not None):
+                # see above about reg_names; same deal
+                segstarts = []
+                for seg_start, bv in mem.items():
+                    segstarts.append(seg_start)
+                segstarts.sort()
+                for seg_start in segstarts:
+                    bv = mem[seg_start]
+                    seg_end = seg_start + bv.get_size()
+                    logger.debug(f"bss_start={bss_start:x} seg_start={seg_start:x}")
+                    logger.debug(
+                        f"bss_end={bss_start + bss_size:x} seg_end={seg_end:x}"
+                    )
+                    if (bss_start >= seg_start) and (bss_start + bss_size <= seg_end):
+                        logger.debug(
+                            f"randomize_unitialized: bss in elf segment {seg_start:x}..{seg_end:x}. perturbing it."
+                        )
+                        randomize_mem(mem, mem.address + bss_start, bss_size)
+
+        elif isinstance(mem, state.memory.Memory):
+            mem_rngs: typing.List[typing.Any] = []
+            for mem_rng in mem.get_ranges_uninitialized():
+                mem_rngs.append(mem_rng)
+            mem_rngs.sort()
+
+            for mem_rng in mem_rngs:
+                logger.debug(
+                    f"randomize_unitialized: memory({mem}) type({type(mem)}) has uninitialized range {mem_rng}: perturbing it."
+                )
+                randomize_mem(mem, mem_rng.start, len(mem_rng))
+
+    logger.info(f"seed={seed} digest of changes made to machine: {m.hexdigest()}")
 
     return machine_copy
 
 
 class Colorizer(analysis.Analysis):
-    """
-    A simple kind of data flow analysis via tracking distinct values
+    """A simple kind of data flow analysis via tracking distinct values
     (colors) and employing instruction use/def analysis
 
-    We run multiple micro-executions of the code starting from same
-    entry. At the start of each, we randomize register values that
-    have not already been initialized. We maintain a "colors" map from
-    dynamic values to when/where we first observed them. This map is
-    initially empty. Before emulating an instruction, we examine the
-    values (registers and memory) it will read. If any are not in the
-    colors map, that is the initial sighting of that value and we emit
-    a hint to that effect and add a color to the map. If any color is
-    already in the map, then that is a def-use flow from the time or
-    place at which that value was first observed to this instruction.
+    We run a single micro-execution of the code. Before any code is
+    executed, we randomize register values that have not already been
+    initialized. We maintain a "colors" map from dynamic values to
+    when/where we first observed them. This map is initially
+    empty. Before emulating an instruction, we examine the values
+    (registers and memory) it will read. If any are not in the colors
+    map, that is the initial sighting of that value and we emit a hint
+    to that effect and add a color to the map. If any color is already
+    in the map, then that is a def-use flow from the time or place at
+    which that value was first observed to this instruction.
     Similarly, after emulating an instruction, we examine every value
     written to a register or memory. If a value is not in the colors
     map, it is a new, computed result and we hint about its creation
     and add it to the map. If it is in the colors map, we do nothing
     since it just a copy.
 
-    Whilst looking at reads and writes for instructions, we hint if any
-    correspond to unavailable memory.
+    Here are the kinds of hints output by this analysis
 
+    DynamicRegisterValueHint
+    -- about value in a register at a particular instruction in the trace
+
+    DynamicMemoryValueHint
+    -- about a value in memory at a particular instruction in the trace
+
+    These can be "new" values if that is first time we have seen that
+    color (dynamic value).  Or they can be not-new, meaning this is a
+    use of that value previously observed, i.e. a data flow.
+
+    They can also be reads or writes.
+
+    Note: Yes, this kind of analysis depends upon colors being big-ish
+    unique values. There is a constant up top indicating the minimum
+    color value.
+
+    Note: Why is there a min_color in constructor to Colorizer?  A
+    color (here) is just a dynamic value that we think might be kinda
+    unique and thus we can intuit data flows when we see it used in
+    multiple places. Obviously, a color of 0 is not helpful. If you
+    see 0 in two places it's unlikely that means there was a
+    dataflow. But this begs the question: what is a reasonable minimum
+    acceptable color for intuiting data flows?  0-10 seems like they
+    can't be good colors?  Here, our default value for min color is
+    0x80: this is fairly conservative and can be lowered.  Note that
+    generally, we use `randomize_unitialized`, above, to set 2, 4, and
+    8-byte registers and memory lvals to random numbers that will work
+    well as colors.  These are unlikely to be < 0x80.
     Arguments:
         num_insns: The number of instructions to micro-execute.
 
@@ -134,6 +208,9 @@ class Colorizer(analysis.Analysis):
         *args,
         exec_id: int,
         num_insns: int = 200,
+        debug: bool = False,
+        # see above for explanation of this min_color stuff
+        min_color: int = 0x80,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -142,6 +219,8 @@ class Colorizer(analysis.Analysis):
         self.colors: Colors = {}
         self.shadow_register: typing.Dict[str, Shad] = {}
         self.shadow_memory: Shad = {}
+        self.debug = debug
+        self.min_color = min_color
         # self.edge: typing.Dict[int, typing.Dict[int, typing.Tuple[str, int, int]]] = {}
 
     def _get_instr_at_pc(self, emu, pc: int) -> capstone.CsInsn:
@@ -158,10 +237,17 @@ class Colorizer(analysis.Analysis):
         if type(operand) is RegisterOperand:
             # return size of a reg based on its name
             return self.pdef.registers[operand.name].size
-        elif type(operand) is BSIDMemoryReferenceOperand:
+        elif isinstance(operand, BSIDMemoryReferenceOperand):
             # memory operand knows its size
             return operand.size
         return 0
+
+    def htime(self):
+        if not (hasattr(self, "time_mon")):
+            self.time_mon = 1
+        else:
+            self.time_mon += 1
+        return self.time_mon
 
     def run(self, machine: state.Machine) -> None:
         # collect hints for each microexecution, in a list of lists
@@ -176,18 +262,14 @@ class Colorizer(analysis.Analysis):
             sw_insn = Instruction.from_capstone(cs_insn)
             if is_read:
                 operand_list = sw_insn.reads
-                lab = "read"
             else:
                 operand_list = sw_insn.writes
-                lab = "write"
             rws = []
             for operand in operand_list:
-                logger.debug(f"pc={pc:x} {lab}_operand={operand}")
                 if type(operand) is RegisterOperand and operand.name == "rflags":
                     continue
                 sz = self._operand_size(operand)
-                # print(f"operand={operand} sz={sz}")
-                if type(operand) is BSIDMemoryReferenceOperand:
+                if isinstance(operand, BSIDMemoryReferenceOperand):
                     # if addr not mapped, discard this operand
                     a = operand.address(emu)
                     ar = (a, a + sz)
@@ -206,6 +288,7 @@ class Colorizer(analysis.Analysis):
                     pass
                 else:
                     self._check_color(emu, is_read, rw, sw_insn, te.ic)
+                # keep pls!
                 # self.update_shadow(emu, pc, is_read, rw)
             if is_read:
                 self.reads = rws
@@ -265,15 +348,12 @@ class Colorizer(analysis.Analysis):
         # we want these in a common format so that we can see them as colors
         the_bytes: bytes = b""
         if type(concrete_value) is int:
-            if concrete_value < MIN_ACCEPTABLE_COLOR_INT:
+            if concrete_value < self.min_color:
                 return BAD_COLOR
             the_bytes = concrete_value.to_bytes(size, byteorder="little")
         elif (type(concrete_value) is bytes) or (type(concrete_value) is bytearray):
             # assuming little-endian
-            if (
-                int.from_bytes(concrete_value, byteorder="little")
-                < MIN_ACCEPTABLE_COLOR_INT
-            ):
+            if int.from_bytes(concrete_value, byteorder="little") < self.min_color:
                 return BAD_COLOR
             the_bytes = concrete_value
         else:
@@ -365,6 +445,7 @@ class Colorizer(analysis.Analysis):
         pc = insn.address
         if type(operand) is RegisterOperand:
             return hinting.DynamicRegisterValueHint(
+                time=self.htime(),
                 reg_name=operand.name,
                 size=size,
                 color=color,
@@ -376,7 +457,7 @@ class Colorizer(analysis.Analysis):
                 exec_id=self.exec_id,
                 message=message,
             )
-        elif type(operand) is BSIDMemoryReferenceOperand:
+        elif isinstance(operand, BSIDMemoryReferenceOperand):
             base_name = "None"
             if operand.base is not None:
                 base_name = operand.base
@@ -384,6 +465,7 @@ class Colorizer(analysis.Analysis):
             if operand.index is not None:
                 index_name = operand.index
             return hinting.DynamicMemoryValueHint(
+                time=self.htime(),
                 address=operand.address(emu),
                 base=base_name,
                 index=index_name,

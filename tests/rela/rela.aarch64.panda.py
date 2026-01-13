@@ -77,7 +77,11 @@ machine.add(puts)
 # Relocate puts
 code.update_symbol_value("puts", puts._address)
 
+# Configure an exitpoint.
+exitpoint = entrypoint + code.get_symbol_size("main")
+cpu.lr.set(exitpoint)
+machine.add_exit_point(exitpoint)
+
 # Emulate
 emulator = smallworld.emulators.PandaEmulator(platform)
-emulator.add_exit_point(entrypoint + 32)
 machine.emulate(emulator)

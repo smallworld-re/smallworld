@@ -11,9 +11,6 @@ CREATE_CORE=./create_core.sh
 SCRIPTS=$(filter-out %.actuate.py,$(wildcard *.py))
 CORES=$(patsubst %.py,%.elf.core,$(SCRIPTS))
 REGS=$(patsubst %.py,%.elf.registers,$(SCRIPTS))
-$(info $(SCRIPTS))
-$(info $(CORES))
-$(info $(REGS))
 
 %.elf.core %.elf.registers : %.elf $(CREATE_CORE)
 	$(CREATE_CORE) $<

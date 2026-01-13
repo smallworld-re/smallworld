@@ -4,7 +4,7 @@ import capstone
 
 from smallworld import platforms
 
-from .bsid import BSIDMemoryReferenceOperand
+from .bsid import x86BSIDMemoryReferenceOperand
 from .instructions import Instruction, MemoryReferenceOperand, Operand, RegisterOperand
 
 
@@ -19,7 +19,7 @@ class x86Instruction(Instruction):
     )
 
     def _memory_reference(self, base, index, scale, offset, size):
-        return BSIDMemoryReferenceOperand(
+        return x86BSIDMemoryReferenceOperand(
             base=base, index=index, scale=scale, offset=offset, size=size
         )
 

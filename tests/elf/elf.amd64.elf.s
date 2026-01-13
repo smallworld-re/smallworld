@@ -3,14 +3,14 @@
     .type _start, @function
 _start:
     # Load argc
-    mov     (%rsp),%rdi
+    mov     0x8(%rsp),%rdi
 
     # If argc != 2, leave.
     cmp     $2,%rdi
     jne     .L2
 
     # Load argv
-    mov     0x8(%rsp),%rdi
+    mov     0x10(%rsp),%rdi
     # Load argv[1]
     mov     0x8(%rdi),%rdi
 

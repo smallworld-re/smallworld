@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #if __WORDSIZE == 64
 #define INTRES -1
@@ -12,6 +13,8 @@
 
 #define xstr(s) #s
 #define str(s) xstr(s)
+
+#define MY_ISNAN(x) (((x >> ((sizeof(x) * 8) - 12)) & 0x7f8ll) == (0x7f8))
 
 #define TEST(fmt, src, arg, exp, err) \
     do {\
@@ -37,6 +40,69 @@
         }\
     } while(0)
 
+// Macros for testing floats
+// I am not putting up with the noise
+// that is floating-point equality.
+#define TEST_FLOAT(fmt, src, arg, exp) \
+    do {\
+        for(int i = strlen(src) - 1; i >= 0; i--) {\
+            ungetc(src[i], file);\
+        }\
+        res = scanf(fmt, &arg); \
+        float_tmp = exp;\
+        float_exp = *((int *)(void *)(&float_tmp));\
+        float_arg = *((int *)(void *)(&arg));\
+        if (res != 1) {\
+            puts("Format:");\
+            puts(fmt);\
+            puts("Source:");\
+            puts(src);\
+            printf("Did not convert: %d\n", res);\
+            bad = 1; \
+        } else if (MY_ISNAN(float_exp) && MY_ISNAN(float_arg)) {\
+        } else if (float_arg != float_exp) { \
+            puts("Format:"); \
+            puts(fmt); \
+            puts("Source:");\
+            puts(src);\
+            puts("Expected:");\
+            printf("%f (%llx)\n", exp, float_exp);\
+            puts("Actual:");\
+            printf("%f (%llx)\n", arg, float_arg);\
+            bad = 1;\
+        }\
+    } while(0)
+
+#define TEST_DOUBLE(fmt, src, arg, exp) \
+    do {\
+        for(int i = strlen(src) - 1; i >= 0; i--) {\
+            ungetc(src[i], file);\
+        }\
+        res = scanf(fmt, &arg); \
+        double_tmp = exp;\
+        double_exp = *((long long *)(void *)(&double_tmp));\
+        double_arg = *((long long *)(void *)(&arg));\
+        if (res != 1) {\
+            puts("Format:");\
+            puts(fmt);\
+            puts("Source:");\
+            puts(src);\
+            printf("Did not convert: %d\n", res);\
+            bad = 1;\
+        } else if (MY_ISNAN(double_exp) && MY_ISNAN(double_arg)) {\
+        } else if (double_arg != double_exp) { \
+            puts("Format:"); \
+            puts(fmt); \
+            puts("Source:");\
+            puts(src);\
+            puts("Expected:");\
+            printf("%f (%llx)\n", exp, double_exp);\
+            puts("Actual:");\
+            printf("%f (%llx)\n", arg, double_arg);\
+            bad = 1;\
+        }\
+    } while(0)
+
 #define TEST_STR(fmt, src, arg, exp, pop) \
     do {\
         if(bad_str) {\
@@ -47,8 +113,10 @@
         }\
         res = scanf(fmt, &arg); \
         if (res != 1) {\
-            puts("Format");\
+            puts("Format:");\
             puts(fmt);\
+            puts("Source:");\
+            puts(src);\
             printf("Did not convert: %d\n", res);\
             bad = 1;\
         } else if (strcmp(arg, exp)) { \
@@ -92,7 +160,7 @@
         }\
     } while(0)
 
-int main(int argc, char *argv[]) {
+int main() {
 
     char *quit = (char *)(size_t)0xdead;
     int res = 0;
@@ -114,6 +182,14 @@ int main(int argc, char *argv[]) {
     float               floatval = 0;
     double              doubleval = 0;
     void               *ptrval = NULL;
+    
+    float               float_tmp = 0ll;
+    int                 float_exp = 0ll;
+    int                 float_arg = 0ll;
+    
+    double              double_tmp = 0ll;
+    long long           double_exp = 0ll;
+    long long           double_arg = 0ll;
 
     char                strval[16] = { 0 };
 
@@ -174,408 +250,408 @@ int main(int argc, char *argv[]) {
     TEST("%llu", "18446744073709551615", ulonglongval, ULLONG_MAX, "%llu\n");
     TEST("%zu", "18446744073709551615", sizeval, ULONG_MAX, "%zu\n");
     
-    TEST("%f", " 42", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%f", " 42", floatval, 42.0);
 
-    TEST("%f", "42", floatval, 42.0, "%f\n");
-    TEST("%f", "+42", floatval, 42.0, "%f\n");
-    TEST("%f", "42.0", floatval, 42.0, "%f\n");
-    TEST("%f", "+42.0", floatval, 42.0, "%f\n");
-    TEST("%f", "4.2e1", floatval, 42.0, "%f\n");
-    TEST("%f", "+4.2e1", floatval, 42.0, "%f\n");
-    TEST("%f", "4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%f", "+4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%f", "4.2E1", floatval, 42.0, "%f\n");
-    TEST("%f", "+4.2E1", floatval, 42.0, "%f\n");
-    TEST("%f", "4.2E+1", floatval, 42.0, "%f\n");
-    TEST("%f", "+4.2E+1", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%f", "42", floatval, 42.0);
+    TEST_FLOAT("%f", "+42", floatval, 42.0);
+    TEST_FLOAT("%f", "42.0", floatval, 42.0);
+    TEST_FLOAT("%f", "+42.0", floatval, 42.0);
+    TEST_FLOAT("%f", "4.2e1", floatval, 42.0);
+    TEST_FLOAT("%f", "+4.2e1", floatval, 42.0);
+    TEST_FLOAT("%f", "4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%f", "+4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%f", "4.2E1", floatval, 42.0);
+    TEST_FLOAT("%f", "+4.2E1", floatval, 42.0);
+    TEST_FLOAT("%f", "4.2E+1", floatval, 42.0);
+    TEST_FLOAT("%f", "+4.2E+1", floatval, 42.0);
     
-    TEST("%f", "-42", floatval, -42.0, "%f\n");
-    TEST("%f", "-42.0", floatval, -42.0, "%f\n");
-    TEST("%f", "-4.2e1", floatval, -42.0, "%f\n");
-    TEST("%f", "-4.2e+1", floatval, -42.0, "%f\n");
-    TEST("%f", "-4.2E1", floatval, -42.0, "%f\n");
-    TEST("%f", "-4.2E+1", floatval, -42.0, "%f\n");
+    TEST_FLOAT("%f", "-42", floatval, -42.0);
+    TEST_FLOAT("%f", "-42.0", floatval, -42.0);
+    TEST_FLOAT("%f", "-4.2e1", floatval, -42.0);
+    TEST_FLOAT("%f", "-4.2e+1", floatval, -42.0);
+    TEST_FLOAT("%f", "-4.2E1", floatval, -42.0);
+    TEST_FLOAT("%f", "-4.2E+1", floatval, -42.0);
 
-    TEST("%f", "inf", floatval, INFINITY, "%f\n");
-    TEST("%f", "infinity", floatval, INFINITY, "%f\n");
-    TEST("%f", "INF", floatval, INFINITY, "%f\n");
-    TEST("%f", "INFINITY", floatval, INFINITY, "%f\n");
-    TEST("%f", "-inf", floatval, -INFINITY, "%f\n");
-    TEST("%f", "-infinity", floatval, -INFINITY, "%f\n");
-    TEST("%f", "-INF", floatval, -INFINITY, "%f\n");
-    TEST("%f", "-INFINITY", floatval, -INFINITY, "%f\n");
+    TEST_FLOAT("%f", "inf", floatval, INFINITY);
+    TEST_FLOAT("%f", "infinity", floatval, INFINITY);
+    TEST_FLOAT("%f", "INF", floatval, INFINITY);
+    TEST_FLOAT("%f", "INFINITY", floatval, INFINITY);
+    TEST_FLOAT("%f", "-inf", floatval, -INFINITY);
+    TEST_FLOAT("%f", "-infinity", floatval, -INFINITY);
+    TEST_FLOAT("%f", "-INF", floatval, -INFINITY);
+    TEST_FLOAT("%f", "-INFINITY", floatval, -INFINITY);
 
-    TEST("%f", "nan", floatval, NAN, "%f\n");
-    TEST("%f", "NAN", floatval, NAN, "%f\n");
-    TEST("%f", "-nan", floatval, -NAN, "%f\n");
-    TEST("%f", "-NAN", floatval, -NAN, "%f\n");
+    TEST_FLOAT("%f", "nan", floatval, NAN);
+    TEST_FLOAT("%f", "NAN", floatval, NAN);
+    TEST_FLOAT("%f", "-nan", floatval, -NAN);
+    TEST_FLOAT("%f", "-NAN", floatval, -NAN);
     
-    TEST("%lf", " 42", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%lf", " 42", doubleval, 42.0);
     
-    TEST("%lf", "42", doubleval, 42.0, "%f\n");
-    TEST("%lf", "+42", doubleval, 42.0, "%f\n");
-    TEST("%lf", "42.0", doubleval, 42.0, "%f\n");
-    TEST("%lf", "+42.0", doubleval, 42.0, "%f\n");
-    TEST("%lf", "4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "+4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "+4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "+4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "4.2E+1", doubleval, 42.0, "%f\n");
-    TEST("%lf", "+4.2E+1", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%lf", "42", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "+42", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "42.0", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "+42.0", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "+4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "+4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "+4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "4.2E+1", doubleval, 42.0);
+    TEST_DOUBLE("%lf", "+4.2E+1", doubleval, 42.0);
     
-    TEST("%lf", "-42", doubleval, -42.0, "%f\n");
-    TEST("%lf", "-42.0", doubleval, -42.0, "%f\n");
-    TEST("%lf", "-4.2e1", doubleval, -42.0, "%f\n");
-    TEST("%lf", "-4.2e+1", doubleval, -42.0, "%f\n");
-    TEST("%lf", "-4.2E1", doubleval, -42.0, "%f\n");
-    TEST("%lf", "-4.2E+1", doubleval, -42.0, "%f\n");
+    TEST_DOUBLE("%lf", "-42", doubleval, -42.0);
+    TEST_DOUBLE("%lf", "-42.0", doubleval, -42.0);
+    TEST_DOUBLE("%lf", "-4.2e1", doubleval, -42.0);
+    TEST_DOUBLE("%lf", "-4.2e+1", doubleval, -42.0);
+    TEST_DOUBLE("%lf", "-4.2E1", doubleval, -42.0);
+    TEST_DOUBLE("%lf", "-4.2E+1", doubleval, -42.0);
     
-    TEST("%lf", ".42", doubleval, 0.42, "%f\n");
-    TEST("%lf", "+.42", doubleval, 0.42, "%f\n");
-    TEST("%lf", "0.42", doubleval, 0.42, "%f\n");
-    TEST("%lf", "+0.42", doubleval, 0.42, "%f\n");
-    TEST("%lf", "4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%lf", "+4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%lf", "4.2E-1", doubleval, 0.42, "%f\n");
-    TEST("%lf", "+4.2E-1", doubleval, 0.42, "%f\n");
+    TEST_DOUBLE("%lf", ".42", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "+.42", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "0.42", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "+0.42", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "+4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "4.2E-1", doubleval, 0.42);
+    TEST_DOUBLE("%lf", "+4.2E-1", doubleval, 0.42);
     
-    TEST("%lf", "inf", doubleval, INFINITY, "%f\n");
-    TEST("%lf", "infinity", doubleval, INFINITY, "%f\n");
-    TEST("%lf", "INF", doubleval, INFINITY, "%f\n");
-    TEST("%lf", "INFINITY", doubleval, INFINITY, "%f\n");
-    TEST("%lf", "-inf", doubleval, -INFINITY, "%f\n");
-    TEST("%lf", "-infinity", doubleval, -INFINITY, "%f\n");
-    TEST("%lf", "-INF", doubleval, -INFINITY, "%f\n");
-    TEST("%lf", "-INFINITY", doubleval, -INFINITY, "%f\n");
+    TEST_DOUBLE("%lf", "inf", doubleval, INFINITY);
+    TEST_DOUBLE("%lf", "infinity", doubleval, INFINITY);
+    TEST_DOUBLE("%lf", "INF", doubleval, INFINITY);
+    TEST_DOUBLE("%lf", "INFINITY", doubleval, INFINITY);
+    TEST_DOUBLE("%lf", "-inf", doubleval, -INFINITY);
+    TEST_DOUBLE("%lf", "-infinity", doubleval, -INFINITY);
+    TEST_DOUBLE("%lf", "-INF", doubleval, -INFINITY);
+    TEST_DOUBLE("%lf", "-INFINITY", doubleval, -INFINITY);
 
-    TEST("%lf", "nan", doubleval, NAN, "%f\n");
-    TEST("%lf", "NAN", doubleval, NAN, "%f\n");
-    TEST("%lf", "-nan", doubleval, -NAN, "%f\n");
-    TEST("%lf", "-NAN", doubleval, -NAN, "%f\n");
+    TEST_DOUBLE("%lf", "nan", doubleval, NAN);
+    TEST_DOUBLE("%lf", "NAN", doubleval, NAN);
+    TEST_DOUBLE("%lf", "-nan", doubleval, -NAN);
+    TEST_DOUBLE("%lf", "-NAN", doubleval, -NAN);
     
-    TEST("%e", " 42", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%e", " 42", floatval, 42.0);
     
-    TEST("%e", "42", floatval, 42.0, "%f\n");
-    TEST("%e", "+42", floatval, 42.0, "%f\n");
-    TEST("%e", "42.0", floatval, 42.0, "%f\n");
-    TEST("%e", "+42.0", floatval, 42.0, "%f\n");
-    TEST("%e", "4.2e1", floatval, 42.0, "%f\n");
-    TEST("%e", "+4.2e1", floatval, 42.0, "%f\n");
-    TEST("%e", "4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%e", "+4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%e", "4.2E1", floatval, 42.0, "%f\n");
-    TEST("%e", "+4.2E1", floatval, 42.0, "%f\n");
-    TEST("%e", "4.2E+1", floatval, 42.0, "%f\n");
-    TEST("%e", "+4.2E+1", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%e", "42", floatval, 42.0);
+    TEST_FLOAT("%e", "+42", floatval, 42.0);
+    TEST_FLOAT("%e", "42.0", floatval, 42.0);
+    TEST_FLOAT("%e", "+42.0", floatval, 42.0);
+    TEST_FLOAT("%e", "4.2e1", floatval, 42.0);
+    TEST_FLOAT("%e", "+4.2e1", floatval, 42.0);
+    TEST_FLOAT("%e", "4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%e", "+4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%e", "4.2E1", floatval, 42.0);
+    TEST_FLOAT("%e", "+4.2E1", floatval, 42.0);
+    TEST_FLOAT("%e", "4.2E+1", floatval, 42.0);
+    TEST_FLOAT("%e", "+4.2E+1", floatval, 42.0);
     
-    TEST("%e", "-42", floatval, -42.0, "%f\n");
-    TEST("%e", "-42.0", floatval, -42.0, "%f\n");
-    TEST("%e", "-4.2e1", floatval, -42.0, "%f\n");
-    TEST("%e", "-4.2e+1", floatval, -42.0, "%f\n");
-    TEST("%e", "-4.2E1", floatval, -42.0, "%f\n");
-    TEST("%e", "-4.2E+1", floatval, -42.0, "%f\n");
+    TEST_FLOAT("%e", "-42", floatval, -42.0);
+    TEST_FLOAT("%e", "-42.0", floatval, -42.0);
+    TEST_FLOAT("%e", "-4.2e1", floatval, -42.0);
+    TEST_FLOAT("%e", "-4.2e+1", floatval, -42.0);
+    TEST_FLOAT("%e", "-4.2E1", floatval, -42.0);
+    TEST_FLOAT("%e", "-4.2E+1", floatval, -42.0);
 
-    TEST("%e", "inf", floatval, INFINITY, "%f\n");
-    TEST("%e", "infinity", floatval, INFINITY, "%f\n");
-    TEST("%e", "INF", floatval, INFINITY, "%f\n");
-    TEST("%e", "INFINITY", floatval, INFINITY, "%f\n");
-    TEST("%e", "-inf", floatval, -INFINITY, "%f\n");
-    TEST("%e", "-infinity", floatval, -INFINITY, "%f\n");
-    TEST("%e", "-INF", floatval, -INFINITY, "%f\n");
-    TEST("%e", "-INFINITY", floatval, -INFINITY, "%f\n");
+    TEST_FLOAT("%e", "inf", floatval, INFINITY);
+    TEST_FLOAT("%e", "infinity", floatval, INFINITY);
+    TEST_FLOAT("%e", "INF", floatval, INFINITY);
+    TEST_FLOAT("%e", "INFINITY", floatval, INFINITY);
+    TEST_FLOAT("%e", "-inf", floatval, -INFINITY);
+    TEST_FLOAT("%e", "-infinity", floatval, -INFINITY);
+    TEST_FLOAT("%e", "-INF", floatval, -INFINITY);
+    TEST_FLOAT("%e", "-INFINITY", floatval, -INFINITY);
 
-    TEST("%e", "nan", floatval, NAN, "%f\n");
-    TEST("%e", "NAN", floatval, NAN, "%f\n");
-    TEST("%e", "-nan", floatval, -NAN, "%f\n");
-    TEST("%e", "-NAN", floatval, -NAN, "%f\n");
+    TEST_FLOAT("%e", "nan", floatval, NAN);
+    TEST_FLOAT("%e", "NAN", floatval, NAN);
+    TEST_FLOAT("%e", "-nan", floatval, -NAN);
+    TEST_FLOAT("%e", "-NAN", floatval, -NAN);
     
-    TEST("%le", " 42", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%le", " 42", doubleval, 42.0);
     
-    TEST("%le", "42", doubleval, 42.0, "%f\n");
-    TEST("%le", "+42", doubleval, 42.0, "%f\n");
-    TEST("%le", "42.0", doubleval, 42.0, "%f\n");
-    TEST("%le", "+42.0", doubleval, 42.0, "%f\n");
-    TEST("%le", "4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%le", "+4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%le", "4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%le", "+4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%le", "4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%le", "+4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%le", "4.2E+1", doubleval, 42.0, "%f\n");
-    TEST("%le", "+4.2E+1", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%le", "42", doubleval, 42.0);
+    TEST_DOUBLE("%le", "+42", doubleval, 42.0);
+    TEST_DOUBLE("%le", "42.0", doubleval, 42.0);
+    TEST_DOUBLE("%le", "+42.0", doubleval, 42.0);
+    TEST_DOUBLE("%le", "4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "+4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "+4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "+4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "4.2E+1", doubleval, 42.0);
+    TEST_DOUBLE("%le", "+4.2E+1", doubleval, 42.0);
     
-    TEST("%le", "-42", doubleval, -42.0, "%f\n");
-    TEST("%le", "-42.0", doubleval, -42.0, "%f\n");
-    TEST("%le", "-4.2e1", doubleval, -42.0, "%f\n");
-    TEST("%le", "-4.2e+1", doubleval, -42.0, "%f\n");
-    TEST("%le", "-4.2E1", doubleval, -42.0, "%f\n");
-    TEST("%le", "-4.2E+1", doubleval, -42.0, "%f\n");
+    TEST_DOUBLE("%le", "-42", doubleval, -42.0);
+    TEST_DOUBLE("%le", "-42.0", doubleval, -42.0);
+    TEST_DOUBLE("%le", "-4.2e1", doubleval, -42.0);
+    TEST_DOUBLE("%le", "-4.2e+1", doubleval, -42.0);
+    TEST_DOUBLE("%le", "-4.2E1", doubleval, -42.0);
+    TEST_DOUBLE("%le", "-4.2E+1", doubleval, -42.0);
     
-    TEST("%le", ".42", doubleval, 0.42, "%f\n");
-    TEST("%le", "+.42", doubleval, 0.42, "%f\n");
-    TEST("%le", "0.42", doubleval, 0.42, "%f\n");
-    TEST("%le", "+0.42", doubleval, 0.42, "%f\n");
-    TEST("%le", "4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%le", "+4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%le", "4.2E-1", doubleval, 0.42, "%f\n");
-    TEST("%le", "+4.2E-1", doubleval, 0.42, "%f\n");
+    TEST_DOUBLE("%le", ".42", doubleval, 0.42);
+    TEST_DOUBLE("%le", "+.42", doubleval, 0.42);
+    TEST_DOUBLE("%le", "0.42", doubleval, 0.42);
+    TEST_DOUBLE("%le", "+0.42", doubleval, 0.42);
+    TEST_DOUBLE("%le", "4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%le", "+4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%le", "4.2E-1", doubleval, 0.42);
+    TEST_DOUBLE("%le", "+4.2E-1", doubleval, 0.42);
     
-    TEST("%le", "inf", doubleval, INFINITY, "%f\n");
-    TEST("%le", "infinity", doubleval, INFINITY, "%f\n");
-    TEST("%le", "INF", doubleval, INFINITY, "%f\n");
-    TEST("%le", "INFINITY", doubleval, INFINITY, "%f\n");
-    TEST("%le", "-inf", doubleval, -INFINITY, "%f\n");
-    TEST("%le", "-infinity", doubleval, -INFINITY, "%f\n");
-    TEST("%le", "-INF", doubleval, -INFINITY, "%f\n");
-    TEST("%le", "-INFINITY", doubleval, -INFINITY, "%f\n");
+    TEST_DOUBLE("%le", "inf", doubleval, INFINITY);
+    TEST_DOUBLE("%le", "infinity", doubleval, INFINITY);
+    TEST_DOUBLE("%le", "INF", doubleval, INFINITY);
+    TEST_DOUBLE("%le", "INFINITY", doubleval, INFINITY);
+    TEST_DOUBLE("%le", "-inf", doubleval, -INFINITY);
+    TEST_DOUBLE("%le", "-infinity", doubleval, -INFINITY);
+    TEST_DOUBLE("%le", "-INF", doubleval, -INFINITY);
+    TEST_DOUBLE("%le", "-INFINITY", doubleval, -INFINITY);
 
-    TEST("%le", "nan", doubleval, NAN, "%f\n");
-    TEST("%le", "NAN", doubleval, NAN, "%f\n");
-    TEST("%le", "-nan", doubleval, -NAN, "%f\n");
-    TEST("%le", "-NAN", doubleval, -NAN, "%f\n");
+    TEST_DOUBLE("%le", "nan", doubleval, NAN);
+    TEST_DOUBLE("%le", "NAN", doubleval, NAN);
+    TEST_DOUBLE("%le", "-nan", doubleval, -NAN);
+    TEST_DOUBLE("%le", "-NAN", doubleval, -NAN);
     
-    TEST("%g", " 42", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%g", " 42", floatval, 42.0);
     
-    TEST("%g", "42", floatval, 42.0, "%f\n");
-    TEST("%g", "+42", floatval, 42.0, "%f\n");
-    TEST("%g", "42.0", floatval, 42.0, "%f\n");
-    TEST("%g", "+42.0", floatval, 42.0, "%f\n");
-    TEST("%g", "4.2e1", floatval, 42.0, "%f\n");
-    TEST("%g", "+4.2e1", floatval, 42.0, "%f\n");
-    TEST("%g", "4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%g", "+4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%g", "4.2E1", floatval, 42.0, "%f\n");
-    TEST("%g", "+4.2E1", floatval, 42.0, "%f\n");
-    TEST("%g", "4.2E+1", floatval, 42.0, "%f\n");
-    TEST("%g", "+4.2E+1", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%g", "42", floatval, 42.0);
+    TEST_FLOAT("%g", "+42", floatval, 42.0);
+    TEST_FLOAT("%g", "42.0", floatval, 42.0);
+    TEST_FLOAT("%g", "+42.0", floatval, 42.0);
+    TEST_FLOAT("%g", "4.2e1", floatval, 42.0);
+    TEST_FLOAT("%g", "+4.2e1", floatval, 42.0);
+    TEST_FLOAT("%g", "4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%g", "+4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%g", "4.2E1", floatval, 42.0);
+    TEST_FLOAT("%g", "+4.2E1", floatval, 42.0);
+    TEST_FLOAT("%g", "4.2E+1", floatval, 42.0);
+    TEST_FLOAT("%g", "+4.2E+1", floatval, 42.0);
     
-    TEST("%g", "-42", floatval, -42.0, "%f\n");
-    TEST("%g", "-42.0", floatval, -42.0, "%f\n");
-    TEST("%g", "-4.2e1", floatval, -42.0, "%f\n");
-    TEST("%g", "-4.2e+1", floatval, -42.0, "%f\n");
-    TEST("%g", "-4.2E1", floatval, -42.0, "%f\n");
-    TEST("%g", "-4.2E+1", floatval, -42.0, "%f\n");
+    TEST_FLOAT("%g", "-42", floatval, -42.0);
+    TEST_FLOAT("%g", "-42.0", floatval, -42.0);
+    TEST_FLOAT("%g", "-4.2e1", floatval, -42.0);
+    TEST_FLOAT("%g", "-4.2e+1", floatval, -42.0);
+    TEST_FLOAT("%g", "-4.2E1", floatval, -42.0);
+    TEST_FLOAT("%g", "-4.2E+1", floatval, -42.0);
 
-    TEST("%g", "inf", floatval, INFINITY, "%f\n");
-    TEST("%g", "infinity", floatval, INFINITY, "%f\n");
-    TEST("%g", "INF", floatval, INFINITY, "%f\n");
-    TEST("%g", "INFINITY", floatval, INFINITY, "%f\n");
-    TEST("%g", "-inf", floatval, -INFINITY, "%f\n");
-    TEST("%g", "-infinity", floatval, -INFINITY, "%f\n");
-    TEST("%g", "-INF", floatval, -INFINITY, "%f\n");
-    TEST("%g", "-INFINITY", floatval, -INFINITY, "%f\n");
+    TEST_FLOAT("%g", "inf", floatval, INFINITY);
+    TEST_FLOAT("%g", "infinity", floatval, INFINITY);
+    TEST_FLOAT("%g", "INF", floatval, INFINITY);
+    TEST_FLOAT("%g", "INFINITY", floatval, INFINITY);
+    TEST_FLOAT("%g", "-inf", floatval, -INFINITY);
+    TEST_FLOAT("%g", "-infinity", floatval, -INFINITY);
+    TEST_FLOAT("%g", "-INF", floatval, -INFINITY);
+    TEST_FLOAT("%g", "-INFINITY", floatval, -INFINITY);
 
-    TEST("%g", "nan", floatval, NAN, "%f\n");
-    TEST("%g", "NAN", floatval, NAN, "%f\n");
-    TEST("%g", "-nan", floatval, -NAN, "%f\n");
-    TEST("%g", "-NAN", floatval, -NAN, "%f\n");
+    TEST_FLOAT("%g", "nan", floatval, NAN);
+    TEST_FLOAT("%g", "NAN", floatval, NAN);
+    TEST_FLOAT("%g", "-nan", floatval, -NAN);
+    TEST_FLOAT("%g", "-NAN", floatval, -NAN);
     
-    TEST("%lg", " 42", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%lg", " 42", doubleval, 42.0);
     
-    TEST("%lg", "42", doubleval, 42.0, "%f\n");
-    TEST("%lg", "+42", doubleval, 42.0, "%f\n");
-    TEST("%lg", "42.0", doubleval, 42.0, "%f\n");
-    TEST("%lg", "+42.0", doubleval, 42.0, "%f\n");
-    TEST("%lg", "4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "+4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "+4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "+4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "4.2E+1", doubleval, 42.0, "%f\n");
-    TEST("%lg", "+4.2E+1", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%lg", "42", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "+42", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "42.0", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "+42.0", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "+4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "+4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "+4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "4.2E+1", doubleval, 42.0);
+    TEST_DOUBLE("%lg", "+4.2E+1", doubleval, 42.0);
     
-    TEST("%lg", "-42", doubleval, -42.0, "%f\n");
-    TEST("%lg", "-42.0", doubleval, -42.0, "%f\n");
-    TEST("%lg", "-4.2e1", doubleval, -42.0, "%f\n");
-    TEST("%lg", "-4.2e+1", doubleval, -42.0, "%f\n");
-    TEST("%lg", "-4.2E1", doubleval, -42.0, "%f\n");
-    TEST("%lg", "-4.2E+1", doubleval, -42.0, "%f\n");
+    TEST_DOUBLE("%lg", "-42", doubleval, -42.0);
+    TEST_DOUBLE("%lg", "-42.0", doubleval, -42.0);
+    TEST_DOUBLE("%lg", "-4.2e1", doubleval, -42.0);
+    TEST_DOUBLE("%lg", "-4.2e+1", doubleval, -42.0);
+    TEST_DOUBLE("%lg", "-4.2E1", doubleval, -42.0);
+    TEST_DOUBLE("%lg", "-4.2E+1", doubleval, -42.0);
     
-    TEST("%lg", ".42", doubleval, 0.42, "%f\n");
-    TEST("%lg", "+.42", doubleval, 0.42, "%f\n");
-    TEST("%lg", "0.42", doubleval, 0.42, "%f\n");
-    TEST("%lg", "+0.42", doubleval, 0.42, "%f\n");
-    TEST("%lg", "4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%lg", "+4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%lg", "4.2E-1", doubleval, 0.42, "%f\n");
-    TEST("%lg", "+4.2E-1", doubleval, 0.42, "%f\n");
+    TEST_DOUBLE("%lg", ".42", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "+.42", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "0.42", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "+0.42", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "+4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "4.2E-1", doubleval, 0.42);
+    TEST_DOUBLE("%lg", "+4.2E-1", doubleval, 0.42);
     
-    TEST("%lg", "inf", doubleval, INFINITY, "%f\n");
-    TEST("%lg", "infinity", doubleval, INFINITY, "%f\n");
-    TEST("%lg", "INF", doubleval, INFINITY, "%f\n");
-    TEST("%lg", "INFINITY", doubleval, INFINITY, "%f\n");
-    TEST("%lg", "-inf", doubleval, -INFINITY, "%f\n");
-    TEST("%lg", "-infinity", doubleval, -INFINITY, "%f\n");
-    TEST("%lg", "-INF", doubleval, -INFINITY, "%f\n");
-    TEST("%lg", "-INFINITY", doubleval, -INFINITY, "%f\n");
+    TEST_DOUBLE("%lg", "inf", doubleval, INFINITY);
+    TEST_DOUBLE("%lg", "infinity", doubleval, INFINITY);
+    TEST_DOUBLE("%lg", "INF", doubleval, INFINITY);
+    TEST_DOUBLE("%lg", "INFINITY", doubleval, INFINITY);
+    TEST_DOUBLE("%lg", "-inf", doubleval, -INFINITY);
+    TEST_DOUBLE("%lg", "-infinity", doubleval, -INFINITY);
+    TEST_DOUBLE("%lg", "-INF", doubleval, -INFINITY);
+    TEST_DOUBLE("%lg", "-INFINITY", doubleval, -INFINITY);
 
-    TEST("%lg", "nan", doubleval, NAN, "%f\n");
-    TEST("%lg", "NAN", doubleval, NAN, "%f\n");
-    TEST("%lg", "-nan", doubleval, -NAN, "%f\n");
-    TEST("%lg", "-NAN", doubleval, -NAN, "%f\n");
+    TEST_DOUBLE("%lg", "nan", doubleval, NAN);
+    TEST_DOUBLE("%lg", "NAN", doubleval, NAN);
+    TEST_DOUBLE("%lg", "-nan", doubleval, -NAN);
+    TEST_DOUBLE("%lg", "-NAN", doubleval, -NAN);
     
-    TEST("%E", " 42", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%E", " 42", floatval, 42.0);
     
-    TEST("%E", "42", floatval, 42.0, "%f\n");
-    TEST("%E", "+42", floatval, 42.0, "%f\n");
-    TEST("%E", "42.0", floatval, 42.0, "%f\n");
-    TEST("%E", "+42.0", floatval, 42.0, "%f\n");
-    TEST("%E", "4.2e1", floatval, 42.0, "%f\n");
-    TEST("%E", "+4.2e1", floatval, 42.0, "%f\n");
-    TEST("%E", "4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%E", "+4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%E", "4.2E1", floatval, 42.0, "%f\n");
-    TEST("%E", "+4.2E1", floatval, 42.0, "%f\n");
-    TEST("%E", "4.2E+1", floatval, 42.0, "%f\n");
-    TEST("%E", "+4.2E+1", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%E", "42", floatval, 42.0);
+    TEST_FLOAT("%E", "+42", floatval, 42.0);
+    TEST_FLOAT("%E", "42.0", floatval, 42.0);
+    TEST_FLOAT("%E", "+42.0", floatval, 42.0);
+    TEST_FLOAT("%E", "4.2e1", floatval, 42.0);
+    TEST_FLOAT("%E", "+4.2e1", floatval, 42.0);
+    TEST_FLOAT("%E", "4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%E", "+4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%E", "4.2E1", floatval, 42.0);
+    TEST_FLOAT("%E", "+4.2E1", floatval, 42.0);
+    TEST_FLOAT("%E", "4.2E+1", floatval, 42.0);
+    TEST_FLOAT("%E", "+4.2E+1", floatval, 42.0);
     
-    TEST("%E", "-42", floatval, -42.0, "%f\n");
-    TEST("%E", "-42.0", floatval, -42.0, "%f\n");
-    TEST("%E", "-4.2e1", floatval, -42.0, "%f\n");
-    TEST("%E", "-4.2e+1", floatval, -42.0, "%f\n");
-    TEST("%E", "-4.2E1", floatval, -42.0, "%f\n");
-    TEST("%E", "-4.2E+1", floatval, -42.0, "%f\n");
+    TEST_FLOAT("%E", "-42", floatval, -42.0);
+    TEST_FLOAT("%E", "-42.0", floatval, -42.0);
+    TEST_FLOAT("%E", "-4.2e1", floatval, -42.0);
+    TEST_FLOAT("%E", "-4.2e+1", floatval, -42.0);
+    TEST_FLOAT("%E", "-4.2E1", floatval, -42.0);
+    TEST_FLOAT("%E", "-4.2E+1", floatval, -42.0);
 
-    TEST("%E", "inf", floatval, INFINITY, "%f\n");
-    TEST("%E", "infinity", floatval, INFINITY, "%f\n");
-    TEST("%E", "INF", floatval, INFINITY, "%f\n");
-    TEST("%E", "INFINITY", floatval, INFINITY, "%f\n");
-    TEST("%E", "-inf", floatval, -INFINITY, "%f\n");
-    TEST("%E", "-infinity", floatval, -INFINITY, "%f\n");
-    TEST("%E", "-INF", floatval, -INFINITY, "%f\n");
-    TEST("%E", "-INFINITY", floatval, -INFINITY, "%f\n");
+    TEST_FLOAT("%E", "inf", floatval, INFINITY);
+    TEST_FLOAT("%E", "infinity", floatval, INFINITY);
+    TEST_FLOAT("%E", "INF", floatval, INFINITY);
+    TEST_FLOAT("%E", "INFINITY", floatval, INFINITY);
+    TEST_FLOAT("%E", "-inf", floatval, -INFINITY);
+    TEST_FLOAT("%E", "-infinity", floatval, -INFINITY);
+    TEST_FLOAT("%E", "-INF", floatval, -INFINITY);
+    TEST_FLOAT("%E", "-INFINITY", floatval, -INFINITY);
 
-    TEST("%E", "nan", floatval, NAN, "%f\n");
-    TEST("%E", "NAN", floatval, NAN, "%f\n");
-    TEST("%E", "-nan", floatval, -NAN, "%f\n");
-    TEST("%E", "-NAN", floatval, -NAN, "%f\n");
+    TEST_FLOAT("%E", "nan", floatval, NAN);
+    TEST_FLOAT("%E", "NAN", floatval, NAN);
+    TEST_FLOAT("%E", "-nan", floatval, -NAN);
+    TEST_FLOAT("%E", "-NAN", floatval, -NAN);
     
-    TEST("%lE", " 42", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%lE", " 42", doubleval, 42.0);
     
-    TEST("%lE", "42", doubleval, 42.0, "%f\n");
-    TEST("%lE", "+42", doubleval, 42.0, "%f\n");
-    TEST("%lE", "42.0", doubleval, 42.0, "%f\n");
-    TEST("%lE", "+42.0", doubleval, 42.0, "%f\n");
-    TEST("%lE", "4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "+4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "+4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "+4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "4.2E+1", doubleval, 42.0, "%f\n");
-    TEST("%lE", "+4.2E+1", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%lE", "42", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "+42", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "42.0", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "+42.0", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "+4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "+4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "+4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "4.2E+1", doubleval, 42.0);
+    TEST_DOUBLE("%lE", "+4.2E+1", doubleval, 42.0);
     
-    TEST("%lE", "-42", doubleval, -42.0, "%f\n");
-    TEST("%lE", "-42.0", doubleval, -42.0, "%f\n");
-    TEST("%lE", "-4.2e1", doubleval, -42.0, "%f\n");
-    TEST("%lE", "-4.2e+1", doubleval, -42.0, "%f\n");
-    TEST("%lE", "-4.2E1", doubleval, -42.0, "%f\n");
-    TEST("%lE", "-4.2E+1", doubleval, -42.0, "%f\n");
+    TEST_DOUBLE("%lE", "-42", doubleval, -42.0);
+    TEST_DOUBLE("%lE", "-42.0", doubleval, -42.0);
+    TEST_DOUBLE("%lE", "-4.2e1", doubleval, -42.0);
+    TEST_DOUBLE("%lE", "-4.2e+1", doubleval, -42.0);
+    TEST_DOUBLE("%lE", "-4.2E1", doubleval, -42.0);
+    TEST_DOUBLE("%lE", "-4.2E+1", doubleval, -42.0);
     
-    TEST("%lE", ".42", doubleval, 0.42, "%f\n");
-    TEST("%lE", "+.42", doubleval, 0.42, "%f\n");
-    TEST("%lE", "0.42", doubleval, 0.42, "%f\n");
-    TEST("%lE", "+0.42", doubleval, 0.42, "%f\n");
-    TEST("%lE", "4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%lE", "+4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%lE", "4.2E-1", doubleval, 0.42, "%f\n");
-    TEST("%lE", "+4.2E-1", doubleval, 0.42, "%f\n");
+    TEST_DOUBLE("%lE", ".42", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "+.42", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "0.42", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "+0.42", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "+4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "4.2E-1", doubleval, 0.42);
+    TEST_DOUBLE("%lE", "+4.2E-1", doubleval, 0.42);
     
-    TEST("%lE", "inf", doubleval, INFINITY, "%f\n");
-    TEST("%lE", "infinity", doubleval, INFINITY, "%f\n");
-    TEST("%lE", "INF", doubleval, INFINITY, "%f\n");
-    TEST("%lE", "INFINITY", doubleval, INFINITY, "%f\n");
-    TEST("%lE", "-inf", doubleval, -INFINITY, "%f\n");
-    TEST("%lE", "-infinity", doubleval, -INFINITY, "%f\n");
-    TEST("%lE", "-INF", doubleval, -INFINITY, "%f\n");
-    TEST("%lE", "-INFINITY", doubleval, -INFINITY, "%f\n");
+    TEST_DOUBLE("%lE", "inf", doubleval, INFINITY);
+    TEST_DOUBLE("%lE", "infinity", doubleval, INFINITY);
+    TEST_DOUBLE("%lE", "INF", doubleval, INFINITY);
+    TEST_DOUBLE("%lE", "INFINITY", doubleval, INFINITY);
+    TEST_DOUBLE("%lE", "-inf", doubleval, -INFINITY);
+    TEST_DOUBLE("%lE", "-infinity", doubleval, -INFINITY);
+    TEST_DOUBLE("%lE", "-INF", doubleval, -INFINITY);
+    TEST_DOUBLE("%lE", "-INFINITY", doubleval, -INFINITY);
 
-    TEST("%lE", "nan", doubleval, NAN, "%f\n");
-    TEST("%lE", "NAN", doubleval, NAN, "%f\n");
-    TEST("%lE", "-nan", doubleval, -NAN, "%f\n");
-    TEST("%lE", "-NAN", doubleval, -NAN, "%f\n");
+    TEST_DOUBLE("%lE", "nan", doubleval, NAN);
+    TEST_DOUBLE("%lE", "NAN", doubleval, NAN);
+    TEST_DOUBLE("%lE", "-nan", doubleval, -NAN);
+    TEST_DOUBLE("%lE", "-NAN", doubleval, -NAN);
     
-    TEST("%a", "42", floatval, 42.0, "%f\n");
-    TEST("%a", "+42", floatval, 42.0, "%f\n");
-    TEST("%a", "42.0", floatval, 42.0, "%f\n");
-    TEST("%a", "+42.0", floatval, 42.0, "%f\n");
-    TEST("%a", "4.2e1", floatval, 42.0, "%f\n");
-    TEST("%a", "+4.2e1", floatval, 42.0, "%f\n");
-    TEST("%a", "4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%a", "+4.2e+1", floatval, 42.0, "%f\n");
-    TEST("%a", "4.2E1", floatval, 42.0, "%f\n");
-    TEST("%a", "+4.2E1", floatval, 42.0, "%f\n");
-    TEST("%a", "4.2E+1", floatval, 42.0, "%f\n");
-    TEST("%a", "+4.2E+1", floatval, 42.0, "%f\n");
+    TEST_FLOAT("%a", "42", floatval, 42.0);
+    TEST_FLOAT("%a", "+42", floatval, 42.0);
+    TEST_FLOAT("%a", "42.0", floatval, 42.0);
+    TEST_FLOAT("%a", "+42.0", floatval, 42.0);
+    TEST_FLOAT("%a", "4.2e1", floatval, 42.0);
+    TEST_FLOAT("%a", "+4.2e1", floatval, 42.0);
+    TEST_FLOAT("%a", "4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%a", "+4.2e+1", floatval, 42.0);
+    TEST_FLOAT("%a", "4.2E1", floatval, 42.0);
+    TEST_FLOAT("%a", "+4.2E1", floatval, 42.0);
+    TEST_FLOAT("%a", "4.2E+1", floatval, 42.0);
+    TEST_FLOAT("%a", "+4.2E+1", floatval, 42.0);
     
-    TEST("%a", "-42", floatval, -42.0, "%f\n");
-    TEST("%a", "-42.0", floatval, -42.0, "%f\n");
-    TEST("%a", "-4.2e1", floatval, -42.0, "%f\n");
-    TEST("%a", "-4.2e+1", floatval, -42.0, "%f\n");
-    TEST("%a", "-4.2E1", floatval, -42.0, "%f\n");
-    TEST("%a", "-4.2E+1", floatval, -42.0, "%f\n");
+    TEST_FLOAT("%a", "-42", floatval, -42.0);
+    TEST_FLOAT("%a", "-42.0", floatval, -42.0);
+    TEST_FLOAT("%a", "-4.2e1", floatval, -42.0);
+    TEST_FLOAT("%a", "-4.2e+1", floatval, -42.0);
+    TEST_FLOAT("%a", "-4.2E1", floatval, -42.0);
+    TEST_FLOAT("%a", "-4.2E+1", floatval, -42.0);
 
-    TEST("%a", "inf", floatval, INFINITY, "%f\n");
-    TEST("%a", "infinity", floatval, INFINITY, "%f\n");
-    TEST("%a", "INF", floatval, INFINITY, "%f\n");
-    TEST("%a", "INFINITY", floatval, INFINITY, "%f\n");
-    TEST("%a", "-inf", floatval, -INFINITY, "%f\n");
-    TEST("%a", "-infinity", floatval, -INFINITY, "%f\n");
-    TEST("%a", "-INF", floatval, -INFINITY, "%f\n");
-    TEST("%a", "-INFINITY", floatval, -INFINITY, "%f\n");
+    TEST_FLOAT("%a", "inf", floatval, INFINITY);
+    TEST_FLOAT("%a", "infinity", floatval, INFINITY);
+    TEST_FLOAT("%a", "INF", floatval, INFINITY);
+    TEST_FLOAT("%a", "INFINITY", floatval, INFINITY);
+    TEST_FLOAT("%a", "-inf", floatval, -INFINITY);
+    TEST_FLOAT("%a", "-infinity", floatval, -INFINITY);
+    TEST_FLOAT("%a", "-INF", floatval, -INFINITY);
+    TEST_FLOAT("%a", "-INFINITY", floatval, -INFINITY);
 
-    TEST("%a", "nan", floatval, NAN, "%f\n");
-    TEST("%a", "NAN", floatval, NAN, "%f\n");
-    TEST("%a", "-nan", floatval, -NAN, "%f\n");
-    TEST("%a", "-NAN", floatval, -NAN, "%f\n");
+    TEST_FLOAT("%a", "nan", floatval, NAN);
+    TEST_FLOAT("%a", "NAN", floatval, NAN);
+    TEST_FLOAT("%a", "-nan", floatval, -NAN);
+    TEST_FLOAT("%a", "-NAN", floatval, -NAN);
     
-    TEST("%la", "42", doubleval, 42.0, "%f\n");
-    TEST("%la", "+42", doubleval, 42.0, "%f\n");
-    TEST("%la", "42.0", doubleval, 42.0, "%f\n");
-    TEST("%la", "+42.0", doubleval, 42.0, "%f\n");
-    TEST("%la", "4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%la", "+4.2e1", doubleval, 42.0, "%f\n");
-    TEST("%la", "4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%la", "+4.2e+1", doubleval, 42.0, "%f\n");
-    TEST("%la", "4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%la", "+4.2E1", doubleval, 42.0, "%f\n");
-    TEST("%la", "4.2E+1", doubleval, 42.0, "%f\n");
-    TEST("%la", "+4.2E+1", doubleval, 42.0, "%f\n");
+    TEST_DOUBLE("%la", "42", doubleval, 42.0);
+    TEST_DOUBLE("%la", "+42", doubleval, 42.0);
+    TEST_DOUBLE("%la", "42.0", doubleval, 42.0);
+    TEST_DOUBLE("%la", "+42.0", doubleval, 42.0);
+    TEST_DOUBLE("%la", "4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "+4.2e1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "+4.2e+1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "+4.2E1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "4.2E+1", doubleval, 42.0);
+    TEST_DOUBLE("%la", "+4.2E+1", doubleval, 42.0);
     
-    TEST("%la", "-42", doubleval, -42.0, "%f\n");
-    TEST("%la", "-42.0", doubleval, -42.0, "%f\n");
-    TEST("%la", "-4.2e1", doubleval, -42.0, "%f\n");
-    TEST("%la", "-4.2e+1", doubleval, -42.0, "%f\n");
-    TEST("%la", "-4.2E1", doubleval, -42.0, "%f\n");
-    TEST("%la", "-4.2E+1", doubleval, -42.0, "%f\n");
+    TEST_DOUBLE("%la", "-42", doubleval, -42.0);
+    TEST_DOUBLE("%la", "-42.0", doubleval, -42.0);
+    TEST_DOUBLE("%la", "-4.2e1", doubleval, -42.0);
+    TEST_DOUBLE("%la", "-4.2e+1", doubleval, -42.0);
+    TEST_DOUBLE("%la", "-4.2E1", doubleval, -42.0);
+    TEST_DOUBLE("%la", "-4.2E+1", doubleval, -42.0);
     
-    TEST("%la", ".42", doubleval, 0.42, "%f\n");
-    TEST("%la", "+.42", doubleval, 0.42, "%f\n");
-    TEST("%la", "0.42", doubleval, 0.42, "%f\n");
-    TEST("%la", "+0.42", doubleval, 0.42, "%f\n");
-    TEST("%la", "4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%la", "+4.2e-1", doubleval, 0.42, "%f\n");
-    TEST("%la", "4.2E-1", doubleval, 0.42, "%f\n");
-    TEST("%la", "+4.2E-1", doubleval, 0.42, "%f\n");
+    TEST_DOUBLE("%la", ".42", doubleval, 0.42);
+    TEST_DOUBLE("%la", "+.42", doubleval, 0.42);
+    TEST_DOUBLE("%la", "0.42", doubleval, 0.42);
+    TEST_DOUBLE("%la", "+0.42", doubleval, 0.42);
+    TEST_DOUBLE("%la", "4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%la", "+4.2e-1", doubleval, 0.42);
+    TEST_DOUBLE("%la", "4.2E-1", doubleval, 0.42);
+    TEST_DOUBLE("%la", "+4.2E-1", doubleval, 0.42);
     
-    TEST("%la", "inf", doubleval, INFINITY, "%f\n");
-    TEST("%la", "infinity", doubleval, INFINITY, "%f\n");
-    TEST("%la", "INF", doubleval, INFINITY, "%f\n");
-    TEST("%la", "INFINITY", doubleval, INFINITY, "%f\n");
-    TEST("%la", "-inf", doubleval, -INFINITY, "%f\n");
-    TEST("%la", "-infinity", doubleval, -INFINITY, "%f\n");
-    TEST("%la", "-INF", doubleval, -INFINITY, "%f\n");
-    TEST("%la", "-INFINITY", doubleval, -INFINITY, "%f\n");
+    TEST_DOUBLE("%la", "inf", doubleval, INFINITY);
+    TEST_DOUBLE("%la", "infinity", doubleval, INFINITY);
+    TEST_DOUBLE("%la", "INF", doubleval, INFINITY);
+    TEST_DOUBLE("%la", "INFINITY", doubleval, INFINITY);
+    TEST_DOUBLE("%la", "-inf", doubleval, -INFINITY);
+    TEST_DOUBLE("%la", "-infinity", doubleval, -INFINITY);
+    TEST_DOUBLE("%la", "-INF", doubleval, -INFINITY);
+    TEST_DOUBLE("%la", "-INFINITY", doubleval, -INFINITY);
 
-    TEST("%la", "nan", doubleval, NAN, "%f\n");
-    TEST("%la", "NAN", doubleval, NAN, "%f\n");
-    TEST("%la", "-nan", doubleval, -NAN, "%f\n");
-    TEST("%la", "-NAN", doubleval, -NAN, "%f\n");
+    TEST_DOUBLE("%la", "nan", doubleval, NAN);
+    TEST_DOUBLE("%la", "NAN", doubleval, NAN);
+    TEST_DOUBLE("%la", "-nan", doubleval, -NAN);
+    TEST_DOUBLE("%la", "-NAN", doubleval, -NAN);
     
-    TEST("%f", "4e", floatval, 4.0, "%f\n");
+    TEST_FLOAT("%f", "4e", floatval, 4.0);
 
     TEST("%p", "(nil)", ptrval, NULL, "%p\n");
     TEST("%p", "(NIL)", ptrval, NULL, "%p\n");
@@ -592,7 +668,8 @@ int main(int argc, char *argv[]) {
     TEST_LEN("%s%n", "foobar", intval, 6, "%d\n");
 
     if(bad) {
-        return 1;
+        puts("FAILURE!");
+        exit(1);
     }
     puts("SUCCESS!");
     return *quit;

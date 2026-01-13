@@ -37,12 +37,8 @@ machine.add(stack)
 rsp = stack.get_pointer()
 cpu.rsp.set(rsp)
 
-# set the instruction pointer to the entrypoint of our executable
-# these values are from
-# md5sum trace_executor/ahme-x86_64
-# 185c8b9cd1c7c9b3b014d91266ab4cad  trace_executor/ahme-x86_64
-entry_point = 0x2189
-exit_point = 0x2291
+entry_point = 0x2159
+exit_point = 0x225A
 
 cpu.rip.set(entry_point)
 machine.add(cpu)
@@ -88,15 +84,10 @@ def check_pcs(pcs1, pcs2, label1, label2):
     return True
 
 
-def check_cmpinfo(hints, truth_pcs):
-    pass
-
-
 hints = []
 
 
 def collect_hints(hint):
-    global hints
     hints.append(hint)
 
 
@@ -109,7 +100,6 @@ print(
 
 def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
     global hints
-    global machine
 
     machine_copy = copy.deepcopy(machine)
     cpu = machine_copy.get_cpus()[0]

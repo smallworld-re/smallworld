@@ -50,17 +50,17 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self._memory_map = utils.RangeCollection()
 
         # Instruction hooking callbacks
-        self._instructions_hook: typing.Optional[
-            typing.Callable[[Emulator], None]
-        ] = None
-        self._instruction_hooks: typing.Dict[
-            int, typing.Callable[[Emulator], None]
-        ] = dict()
+        self._instructions_hook: typing.Optional[typing.Callable[[Emulator], None]] = (
+            None
+        )
+        self._instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
+            dict()
+        )
 
         # Function hooking callbacks
-        self._function_hooks: typing.Dict[
-            int, typing.Callable[[Emulator], None]
-        ] = dict()
+        self._function_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
+            dict()
+        )
 
         # Memory hooking callbacks
         self._mem_reads_hook: typing.Optional[
@@ -206,49 +206,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Run the hook
         self._function_hooks[address](self)
-
-        # Mimic a platform-specific "return" instruction.
-        if self.platform.architecture == platforms.Architecture.X86_32:
-            sp = self.read_register("esp")
-            if self.platform.byteorder == platforms.Byteorder.LITTLE:
-                ret = int.from_bytes(self.read_memory(sp, 4), "little")
-            elif self.platform.byteorder == platforms.Byteorder.BIG:
-                ret = int.from_bytes(self.read_memory(sp, 4), "big")
-            self.write_register("esp", sp + 4)
-        elif self.platform.architecture == platforms.Architecture.X86_64:
-            # amd64: pop an 8-byte value off the stack
-            sp = self.read_register("rsp")
-            if self.platform.byteorder == platforms.Byteorder.LITTLE:
-                ret = int.from_bytes(self.read_memory(sp, 8), "little")
-            elif self.platform.byteorder == platforms.Byteorder.BIG:
-                ret = int.from_bytes(self.read_memory(sp, 8), "big")
-            self.write_register("rsp", sp + 8)
-        elif (
-            self.platform.architecture == platforms.Architecture.AARCH64
-            or self.platform.architecture == platforms.Architecture.ARM_V5T
-            or self.platform.architecture == platforms.Architecture.ARM_V6M
-            or self.platform.architecture == platforms.Architecture.ARM_V6M_THUMB
-            or self.platform.architecture == platforms.Architecture.ARM_V7A
-            or self.platform.architecture == platforms.Architecture.ARM_V7M
-            or self.platform.architecture == platforms.Architecture.ARM_V7R
-            or self.platform.architecture == platforms.Architecture.POWERPC32
-            or self.platform.architecture == platforms.Architecture.POWERPC64
-        ):
-            # aarch64, arm32, powerpc and powerpc64: branch to register 'lr'
-            ret = self.read_register("lr")
-        elif (
-            self.platform.architecture == platforms.Architecture.LOONGARCH64
-            or self.platform.architecture == platforms.Architecture.MIPS32
-            or self.platform.architecture == platforms.Architecture.MIPS64
-            or self.platform.architecture == platforms.Architecture.RISCV64
-        ):
-            # mips32, mips64, and riscv64: branch to register 'ra'
-            ret = self.read_register("ra")
-        elif self.platform.architecture == platforms.Architecture.XTENSA:
-            # xtensa: branch to register 'a0'
-            ret = self.read_register("a0")
-
-        self.write_register("pc", ret)
 
     def hook_function(
         self, address: int, function: typing.Callable[[Emulator], None]
@@ -510,14 +467,24 @@ class GhidraEmulator(AbstractGhidraEmulator):
                     self._process_write_breakpoint(addr_var, data_var)
                 elif opcode == op.LOAD:
                     # This is a LOAD opcode; could trigger a "read" hook
-                    _, addr_var = op.getInputs()
+                    addr_space = self.machdef.language.getDefaultSpace()
+                    default_id = addr_space.getSpaceID()
+
+                    space_var, addr_var = op.getInputs()
                     out_var = op.getOutput()
-                    self._process_read_breakpoint(addr_var, out_var)
-                    # Skip the actual LOAD opcode
-                    # The read breakpoint handler will mimic its behavior;
-                    # running the op normally will clobber a custom value
-                    # produced by a hook.
-                    skip = True
+
+                    space_id = space_var.getAddress().getOffset()
+
+                    # Only trigger breakpoints on the primary address space.
+                    # Ghidra uses a scratch address space for some operations.
+                    # You very rarely see loads/stores to it, but they happen.
+                    if space_id == default_id:
+                        self._process_read_breakpoint(addr_var, out_var)
+                        # Skip the actual LOAD opcode
+                        # The read breakpoint handler will mimic its behavior;
+                        # running the op normally will clobber a custom value
+                        # produced by a hook.
+                        skip = True
                 elif opcode == op.COPY:
                     # This is a COPY opcode.
                     # It's used if copying directly between two varnodes,

@@ -1,11 +1,11 @@
 import logging
 import sys
+import typing
 
 import smallworld
 from smallworld import hinting
-from smallworld.analyses import Colorizer, ColorizerSummary
+from smallworld.analyses import Colorizer, ColorizerReadWrite, ColorizerSummary
 from smallworld.analyses.colorizer import randomize_uninitialized
-from smallworld.hinting import DynamicRegisterValueHint, DynamicRegisterValueSummaryHint
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
@@ -36,14 +36,12 @@ machine.add_exit_point(code.address + code.get_capacity())
 machine.add(code)
 machine.add(cpu)
 
-
-def collect_hints(hint):
-    logger.info(hint)
-
-
 hinter = hinting.Hinter()
-hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
-hinter.register(DynamicRegisterValueHint, collect_hints)
+
+analyses: typing.List[smallworld.analyses.Analysis] = [
+    ColorizerSummary(hinter),
+    ColorizerReadWrite(hinter),
+]
 
 seed = 123456
 cs = ColorizerSummary(hinter)

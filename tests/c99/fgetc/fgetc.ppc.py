@@ -65,12 +65,21 @@ fgetc_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("fgetc", fgetc_model._address)
 
-# Create a fake stdin
-# powerpc copies the address from libc, so we just need to write into the symbol.
-filestar = 0x47492A00
-stdin_addr = code.get_symbol_value("stdin")
+printf_model = smallworld.state.models.Model.lookup(
+    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
+)
+machine.add(printf_model)
+printf_model.allow_imprecise = True
 
-code.write_bytes(stdin_addr, filestar.to_bytes(4, "big"))
+# Relocate puts
+code.update_symbol_value("printf", fgetc_model._address)
+
+# Create a fake stdin
+fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
+fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
+machine.add(fake_stdin)
+
+code.update_symbol_value("stdin", fake_stdin.address)
 
 
 # Create a type of exception only I will generate

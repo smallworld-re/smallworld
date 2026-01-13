@@ -5,9 +5,7 @@ on:
     types: [opened, synchronize, reopened, edited]
 
 env:
-  REGISTRY: harbor.harbor.svc.cluster.local
   TZ: UTC
-  SCRATCH: /home/runner/_shared
   USER: root
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
@@ -26,7 +24,7 @@ jobs:
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - name: Checkout (This Repo)
+      - name: Checkout
         uses: actions/checkout@v3
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
@@ -34,13 +32,13 @@ jobs:
         with:
           token: ${{ secrets.BOT_TOKEN }}
 
-      - name: Checkout (Fork Repo)
-        uses: actions/checkout@v3
-        env:
-          secret: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token == '' }}
+      - name: Cache inputs
+        run: |
+          nix run .#printInputsRecursive | cachix push smallworld
 
-      - uses: actions/checkout@v4
+      - name: Build devshell
+        run: |
+          nix -L develop -c true
 
       - name: Format
         env:
@@ -49,6 +47,7 @@ jobs:
         run: |
           nix develop -c isort . --profile black
           nix develop -c black ./
+          nix develop -c treefmt -f nixfmt --no-cache
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -71,12 +70,16 @@ jobs:
           nix develop -c black --check ./
           nix develop -c flake8 ./
           nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
+          nix develop -c treefmt -f nixfmt --ci
 
       - name: Check Title
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
+      - name: Build Test Artifacts
+        run: |
+          nix build .#tests
 
   Unit-Test:
     runs-on: smallworld-arc
@@ -90,7 +93,7 @@ jobs:
       - name: Run Unit Tests
         run: |
           cd tests
-          nix develop -c python3 unit.py -v
+          nix develop .. -c python3 unit.py -v
   Integration-Test:
       runs-on: smallworld-arc
       needs: Lint
@@ -113,6 +116,7 @@ jobs:
             - testsuite: C99AtoiTests
             - testsuite: C99AtollTests
             - testsuite: C99AtolTests
+            - testsuite: C99BSearchTests
             - testsuite: C99CallocTests
             - testsuite: C99ClearerrTests
             - testsuite: C99ClockTests
@@ -154,6 +158,7 @@ jobs:
             - testsuite: C99PutcharTests
             - testsuite: C99PutcTests
             - testsuite: C99PutsTests
+            - testsuite: C99QSortTests
             - testsuite: C99RandTests
             - testsuite: C99ReallocTests
             - testsuite: C99RemoveTests
@@ -200,6 +205,7 @@ jobs:
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FsgsbaseTests
+            - testsuite: FunctionPointerTests
             - testsuite: FuzzTests
             - testsuite: LinkElfTests
             - testsuite: LinkPETests
@@ -236,14 +242,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Artifacts
         run: |
-          cd tests
-          nix develop -c make -j$(nproc) LOONGARCH64_SYSROOT=/usr/loongarch64-linux-gnu
-          cd elf_core
-          nix develop -c make -j$(nproc)
+          nix build .#tests
+          tar -C tests -xvf result/test_binaries.tar
       - name: Run Integration Tests
         run: |
           cd tests
-          nix develop -c python3 integration.py -v ${{ matrix.testsuite }}
+          nix develop .. -c python3 integration.py -v ${{ matrix.testsuite }}
   Results:
     runs-on: smallworld-arc
     needs: [Lint, Unit-Test, Integration-Test]

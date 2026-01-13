@@ -1,10 +1,8 @@
 from ..... import emulators, platforms
-from ...cstd import ArgumentType, CStdModel
+from ...cstd import ArgumentType, CStdCallingContext, CStdModel
 
 
-class I386SysVModel(CStdModel):
-    """Base class for C models using the AMD64 System V ABI"""
-
+class I386SysVCallingContext(CStdCallingContext):
     platform = platforms.Platform(
         platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
     )
@@ -54,6 +52,10 @@ class I386SysVModel(CStdModel):
         """Return a four-byte type"""
         emulator.write_register("eax", val)
 
+    def _read_return_4_byte(self, emulator: emulators.Emulator) -> int:
+        """Read a four-byte returned value"""
+        return emulator.read_register("eax")
+
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return an eight-byte type"""
         hi = (val >> 32) & self._int_inv_mask
@@ -62,10 +64,31 @@ class I386SysVModel(CStdModel):
         emulator.write_register("eax", lo)
         emulator.write_register("edx", hi)
 
+    def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
+        """Read an eight-byte returned value"""
+        lo = emulator.read_register("eax")
+        hi = emulator.read_register("edx")
+
+        return lo + (hi << 32)
+
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
+        raise NotImplementedError("i386 System-V uses x87 registers to return floats")
+
+    def _read_return_float(self, emulator: emulators.Emulator) -> float:
+        """Read a float returned value"""
         raise NotImplementedError("i386 System-V uses x87 registers to return floats")
 
     def _return_double(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a double"""
         raise NotImplementedError("i386 System-V uses x87 registers to return doubles")
+
+    def _read_return_double(self, emulator: emulators.Emulator) -> float:
+        """Read a double returned value"""
+        raise NotImplementedError("i386 System-V uses x87 registers to return floats")
+
+
+class I386SysVModel(I386SysVCallingContext, CStdModel):
+    """Base class for C models using the I386 System V ABI"""
+
+    pass

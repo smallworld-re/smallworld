@@ -267,7 +267,15 @@ class ARMMachineMixinVFP:
 class ARMv5TMachineDef(ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V5T
     byteorder = Byteorder.LITTLE
-    cpu = "pxa255"
+    cpu = "arm926"
+
+
+# TODO: I have no idea which board to use.
+# I'm hoping that v6m code is compatible with a v7m-ish machine.
+class ARMv6MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
+    arch = Architecture.ARM_V6M
+    byteorder = Byteorder.LITTLE
+    cpu = "cortex-a9"
 
 
 # TODO: Something's very weird with Panda's Arm 7 models.
@@ -279,7 +287,8 @@ class ARMv7AMachineDef(ARMMachineMixinVFP, ARMMachineMixinA, ARMMachineDef):
     cpu = "cortex-a9"
 
 
+# TODO: This is not the right CPU, but might be close enough
 class ARMv7MMachineDef(ARMMachineMixinFP, ARMMachineMixinM, ARMMachineDef):
     arch = Architecture.ARM_V7M
     byteorder = Byteorder.LITTLE
-    cpu = "cortex-m4"
+    cpu = "cortex-a9"
