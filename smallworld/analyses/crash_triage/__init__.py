@@ -1,5 +1,6 @@
 from .crash_triage import CrashTriage
 from .hints import *  # noqa: F401, F403
 from .hints import __all__ as __hints__
+from .printer import CrashTriagePrinter
 
-__all__ = __hints__ + ["CrashTriage"]
+__all__ = __hints__ + ["CrashTriage", "CrashTriagePrinter"]

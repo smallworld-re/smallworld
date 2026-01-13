@@ -65,6 +65,20 @@ from ... import hinting
 #   a.
 
 
+# ****************************************************
+# *** Helper: Describe an unconstrained expression ***
+# ****************************************************
+@dataclass
+class Expression:
+    expr: str
+    usr_labels: typing.Set[str]
+    init_reg_labels: typing.Set[str]
+    init_mem_labels: typing.Set[str]
+    unk_reg_labels: typing.Set[str]
+    unk_mem_labels: typing.Set[str]
+    unk_unk_labels: typing.Set[str]
+
+
 # *******************************************
 # *** Helper: Describe an unexpected halt ***
 # *******************************************
@@ -75,17 +89,22 @@ class Halt:
 
 @dataclass(frozen=True)
 class HaltUnconstrained(Halt):
-    pass
+    kind: str
+    expr: Expression
 
 
 @dataclass(frozen=True)
 class HaltDeadended(Halt):
-    pass
+    kind: str
+    pc: int
 
 
 @dataclass(frozen=True)
 class HaltDiverged(Halt):
-    pass
+    halt1: Halt
+    halt2: Halt
+    guard1: Expression
+    guard2: Expression
 
 
 # ***********************************************
@@ -98,17 +117,17 @@ class IllegalInstr:
 
 @dataclass(frozen=True)
 class IllegalInstrNoDecode(IllegalInstr):
-    pass
+    mem: str
 
 
 @dataclass(frozen=True)
 class IllegalInstrConfirmed(IllegalInstr):
-    pass
+    instr: str
 
 
 @dataclass(frozen=True)
 class IllegalInstrUnconfirmed(IllegalInstr):
-    pass
+    instr: str
 
 
 # ***************************************

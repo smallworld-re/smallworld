@@ -4,7 +4,7 @@ from .colorizer import Colorizer
 from .colorizer_read_write import ColorizerReadWrite
 from .colorizer_summary import ColorizerSummary
 from .coverage_frontier import CoverageFrontier
-from .crash_triage import CrashTriage
+from .crash_triage import CrashTriage, CrashTriagePrinter
 from .field_detection import FieldDetectionAnalysis, ForcedFieldDetectionAnalysis
 from .forced_exec import ForcedExecution
 from .trace_execution import TraceExecution
@@ -15,6 +15,7 @@ __all__ = __analysis__ + [
     "ColorizerSummary",
     "ColorizerReadWrite",
     "CrashTriage",
+    "CrashTriagePrinter",
     "FieldDetectionAnalysis",
     "ForcedFieldDetectionAnalysis",
     "ForcedExecution",

@@ -8,11 +8,26 @@ import angr
 
 from ... import emulators, exceptions, platforms, state
 from .. import analysis
-from .hints import (  # DiagnosisEarlyDiverge,; DiagnosisIllegal,; DiagnosisMemory,; DiagnosisOOB,; DiagnosisOOBConfirmed,; DiagnosisOOBUnconfirmed,; HaltDeadended,; HaltDiverged,; HaltUnconstrained,; IllegalInstrConfirmed,; IllegalInstrNoDecode,; IllegalInstrUnconfirmed,
+from .hints import (
     DiagnosisEarly,
+    DiagnosisEarlyDiverge,
     DiagnosisEarlyHalt,
     DiagnosisEarlyIllegal,
+    DiagnosisIllegal,
+    DiagnosisMemory,
+    DiagnosisOOB,
+    DiagnosisOOBConfirmed,
+    DiagnosisOOBUnconfirmed,
     DiagnosisTrap,
+    Expression,
+    Halt,
+    HaltDeadended,
+    HaltDiverged,
+    HaltUnconstrained,
+    IllegalInstr,
+    IllegalInstrConfirmed,
+    IllegalInstrNoDecode,
+    IllegalInstrUnconfirmed,
     TriageHint,
     TriageIllegal,
     TriageMemory,
@@ -114,7 +129,7 @@ class CrashTriage(analysis.Analysis):
         # so I can get all the exceptions.
         try:
             idx = 0
-            while self.max_steps > 0 and idx < self.max_steps:
+            while self.max_steps < 0 or idx < self.max_steps:
                 pc = emu.read_register("pc")
                 # There is something wrong with Unicorn's bounds check
                 if not emu._bounds.contains_value(pc):
@@ -125,7 +140,7 @@ class CrashTriage(analysis.Analysis):
                 emu.step()
                 idx += 1
 
-            log.warning(
+            log.debug(
                 f"No crash found after {self.max_steps} steps.  Try a bigger limit?"
             )
             hint = TriageTooLong(
@@ -135,7 +150,7 @@ class CrashTriage(analysis.Analysis):
             return None
         except exceptions.EmulationExitpoint:
             # Normal exit.  No crash?
-            log.warning("Exited normally; no crash")
+            log.debug("Exited normally; no crash")
             hint = TriageNormalExit(message="Exited normally; no crash", trace=trace)
             self.hinter.send(hint)
             return None
@@ -162,23 +177,28 @@ class CrashTriage(analysis.Analysis):
 
     def _check_trace(
         self, i: int, trace: typing.List[int], emu: emulators.AngrEmulator
-    ):
+    ) -> typing.Optional[DiagnosisEarlyDiverge]:
         epc = trace[i]
         apc = emu.read_register("pc")
         log.debug(f"Stepping through {apc:x}")
         if epc != apc:
-            log.warning(f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x}")
-            return False
-        return True
+            log.debug(f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x}")
+            return DiagnosisEarlyDiverge(index=i, pc=apc)
+        return None
 
     def _diagnose_expression(self, emu, expr):
-        og_labels: typing.Set[str] = set()
+        usr_labels: typing.Set[str] = set()
         reg_labels: typing.Set[str] = set()
         mem_labels: typing.Set[str] = set()
         unk_labels: typing.Set[str] = set()
+        unk_reg_labels = set()
+        unk_mem_labels = set()
+        unk_unk_labels = set()
+
+        # Collect symbolic variable names
         for label in expr.variables:
             if label in self.og_labels:
-                og_labels.add(label)
+                usr_labels.add(label)
             elif label in self.reg_labels:
                 reg_labels.add(label)
             elif label in self.mem_labels:
@@ -186,17 +206,11 @@ class CrashTriage(analysis.Analysis):
             else:
                 unk_labels.add(label)
 
-        if og_labels:
-            log.warning(f"Depends on user-provided data: {og_labels}")
-        if reg_labels:
-            log.warning(f"Depends on initialized registers: {og_labels}")
-        if mem_labels:
-            mem_labels = set(map(lambda x: x[4:]))
-            log.warning(f"Depends on initialized memory segments: {mem_labels}")
+        # Covnvert memory labels into addresses
+        mem_labels = set(map(lambda x: x[4:], mem_labels))
+
         if unk_labels:
-            unk_reg_labels = set()
-            unk_mem_labels = set()
-            unk_unk_labels = set()
+            # Decode angr's uninitialized state naming convention
             for label in unk_labels:
                 if label.startswith("reg"):
                     label_arr = label.split("_")
@@ -211,20 +225,19 @@ class CrashTriage(analysis.Analysis):
                     unk_mem_labels.add(label_arr[1])
                 else:
                     unk_unk_labels.add(label)
-            if unk_reg_labels:
-                log.warning(f"Depends on uninitialized registers: {unk_reg_labels}")
-            if unk_mem_labels:
-                log.warning(
-                    f"Depends on uninitialized memory segments: {unk_mem_labels}"
-                )
-            if unk_unk_labels:
-                log.warning(
-                    f"Depends on unrecognized uninitialized state: {unk_unk_labels}"
-                )
+        return Expression(
+            expr=str(expr),
+            usr_labels=list(usr_labels),
+            init_reg_labels=list(reg_labels),
+            init_mem_labels=list(mem_labels),
+            unk_reg_labels=list(unk_reg_labels),
+            unk_mem_labels=list(unk_mem_labels),
+            unk_unk_labels=list(unk_unk_labels),
+        )
 
     def _diagnose_unconstrained(
         self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int, expected: bool
-    ):
+    ) -> HaltUnconstrained:
         target = state._ip
 
         # Recover the Vex that got us here.
@@ -236,40 +249,51 @@ class CrashTriage(analysis.Analysis):
         # Vex only allows indirect jumps as default block exits.
         # We can look at the default jumpkind for this block
         # to tell us
+        kind: str
         if vex.jumpkind == "Ijk_Ret":
-            log.warning("Caused by an unbounded return.")
+            log.debug("Caused by an unbounded return.")
+            kind = "return"
         elif vex.jumpkind == "Ijk_Call":
-            log.warning("Caused by an unbounded indirect function call.")
+            log.debug("Caused by an unbounded indirect function call.")
+            kind = "call"
         elif vex.jumpkind in ("Ijk_Boring", "Ijk_Privileged", "Ijk_Yield"):
-            log.warning("Caused by an unbounded indirect jump.")
+            log.debug("Caused by an unbounded indirect jump.")
+            kind = "jump"
         else:
             log.error(f"Unexpected cause: {vex.jumpkind}")
+            kind = "unknown"
 
-        log.warning(f"Jump target expression: {target}")
-        self._diagnose_expression(emu, target)
+        log.debug(f"Jump target expression: {target}")
+        expr = self._diagnose_expression(emu, target)
+
+        return HaltUnconstrained(kind=kind, expr=expr)
 
     def _diagnose_deadended(
         self, emu: emulators.AngrEmulator, state: angr.SimState, expected: bool
     ):
         ip = state._ip.concrete_value
+        kind: str
         if not emu.state.scratch.memory_map.contains_value(ip):
-            log.warning(f"Execution entered unmapped memory at {ip:x}")
-            return True
+            log.debug(f"Execution entered unmapped memory at {ip:x}")
+            kind = "unmapped"
         elif (
             not emu.state.scratch.bounds.is_empty()
             and not emu.state.scratch.bounds.contains_value(ip)
         ):
-            log.warning(f"Execution went out of bounds at {ip:x}")
-            return True
+            log.debug(f"Execution went out of bounds at {ip:x}")
+            kind = "bounds"
         elif ip in emu.state.scratch.exit_points:
-            log.warning(f"Execution hit an exit point at {ip:x}")
-            return True
-        elif expected:
-            log.warning(f"No clear cause for deadended state at {ip:x}")
+            log.debug(f"Execution hit an exit point at {ip:x}")
+            kind = "exitpoint"
+        else:
+            log.debug(f"No clear cause for deadended state at {ip:x}")
+            kind = "unknown"
 
-        return False
+        return HaltDeadended(kind=kind, pc=ip)
 
-    def _diagnose_stop(self, emu: emulators.AngrEmulator, pc: int, expected: bool):
+    def _diagnose_stop(
+        self, emu: emulators.AngrEmulator, pc: int, expected: bool
+    ) -> Halt:
         # Cases:
         # - Single unconstrained state:
         #   - Return out of context?
@@ -283,19 +307,19 @@ class CrashTriage(analysis.Analysis):
         #   - If this is unexpected, what is the last guard conditioned on?
         if len(emu.mgr.unconstrained) > 0:
             # Unconstrained state; program counter was unbounded.
-            log.warning(f"Stopped due to unbound PC after {pc:x}")
+            log.debug(f"Stopped due to unbound PC after {pc:x}")
             (state,) = emu.mgr.unconstrained
-            self._diagnose_unconstrained(emu, state, pc, expected)
+            return self._diagnose_unconstrained(emu, state, pc, expected)
 
         elif len(emu.mgr.deadended) > 0:
             # Single deadended state
-            log.warning(f"Stopped due to execution limits after {pc:x}")
+            log.debug(f"Stopped due to execution limits after {pc:x}")
             (state,) = emu.mgr.deadended
-            self._diagnose_deadended(emu, state, expected)
+            return self._diagnose_deadended(emu, state, expected)
 
         elif len(emu.mgr.active) > 1:
             # Divergent state.
-            log.warning(f"State diverged after {pc:x}")
+            log.debug(f"State diverged after {pc:x}")
 
             state1, state2 = emu.mgr.active
 
@@ -303,37 +327,46 @@ class CrashTriage(analysis.Analysis):
             # These may not only diverge unexpectedly,
             # but may lead to deadended or unconstrained states.
             if state1._ip.symbolic:
-                log.warning("State at {state1._ip} is unconstrained")
-                self._diagnose_unconstrained(emu, state1, pc, expected)
+                log.debug("State at {state1._ip} is unconstrained")
+                halt1 = self._diagnose_unconstrained(emu, state1, pc, expected)
             else:
-                self._diagnose_deadended(emu, state1, False)
+                halt1 = self._diagnose_deadended(emu, state1, False)
 
-            if state1._ip.symbolic:
-                log.warning("State at {state2._ip} is unconstrained")
-                self._diagnose_unconstrained(emu, state2, pc, expected)
+            if state2._ip.symbolic:
+                log.debug("State at {state2._ip} is unconstrained")
+                halt2 = self._diagnose_unconstrained(emu, state2, pc, expected)
             else:
-                self._diagnose_deadended(emu, state2, False)
+                halt2 = self._diagnose_deadended(emu, state2, False)
 
-            log.warning(f"Guard for {state1._ip}: {state1.scratch.guard}")
-            self._diagnose_expression(emu, state1.scratch.guard)
-            log.warning(f"Guard for {state2._ip}: {state2.scratch.guard}")
-            self._diagnose_expression(emu, state2.scratch.guard)
+            log.debug(f"Guard for {state1._ip}: {state1.scratch.guard}")
+            guard1 = self._diagnose_expression(emu, state1.scratch.guard)
+            log.debug(f"Guard for {state2._ip}: {state2.scratch.guard}")
+            guard2 = self._diagnose_expression(emu, state2.scratch.guard)
 
-    def _diagnose_oob(self, emu: emulators.AngrEmulator, crash: CrashResults):
+            return HaltDiverged(halt1, halt2, guard1, guard2)
+
+        raise Exception("No cause for the emulator to halt")
+
+    def _diagnose_oob(
+        self, emu: emulators.AngrEmulator, crash: CrashResults
+    ) -> DiagnosisOOB:
         try:
             emu.step()
             # Didn't trigger.  I wonder why.
-            log.warning(
+            log.debug(
                 f"Expected emulation to stop at {crash.trace[-1]:x}, but it didn't."
             )
-            return
+            return DiagnosisOOBUnconfirmed()
         except exceptions.EmulationStop:
             pass
 
         # Handle it the same way, just with expected stops.
-        self._diagnose_stop(emu, crash.trace[-1], True)
+        halt = self._diagnose_stop(emu, crash.trace[-1], True)
+        return DiagnosisOOBConfirmed(halt=halt)
 
-    def _diagnose_illegal(self, emu: emulators.AngrEmulator, pc: int, expected: bool):
+    def _diagnose_illegal(
+        self, emu: emulators.AngrEmulator, pc: int, expected: bool
+    ) -> IllegalInstr:
         block = emu.state.block(opt_level=0, strict_block_end=True)
 
         disas = block.disassembly
@@ -344,15 +377,18 @@ class CrashTriage(analysis.Analysis):
 
         if block.vex.jumpkind == "Ijk_NoDecode":
             if insn is not None:
-                log.warning(f"Instruction at {pc:x} is illegal: {insn}")
+                log.debug(f"Instruction at {pc:x} is illegal: {insn}")
+                return IllegalInstrConfirmed(instr=str(insn))
             else:
                 insn_mem = emu.read_memory_symbolic(pc, 16)
-                log.warning(f"Instruction at {pc:x} is untranslatable: {insn_mem}")
+                log.debug(f"Instruction at {pc:x} is untranslatable: {insn_mem}")
+                return IllegalInstrNoDecode(mem=repr(insn_mem))
         else:
-            log.warning(f"Instruction at {pc:x} appears fine to vex: {insn}")
-            log.warning(
+            log.debug(f"Instruction at {pc:x} appears fine to vex: {insn}")
+            log.debug(
                 "vex may not be fully accurate.  Please consult relevant ISA docs to confirm."
             )
+            return IllegalInstrUnconfirmed(instr=str(insn))
 
     def _diagnose_trap(self, emu: emulators.AngrEmulator, crash: CrashResults):
         block = emu.state.block(opt_level=0, strict_block_end=True)
@@ -364,19 +400,24 @@ class CrashTriage(analysis.Analysis):
             insn = None
 
         if insn is not None:
-            log.warning(f"Unicorn reported a trap at {insn}")
-            log.warning("It's extremely unlikely angr will capture this behavior.")
+            log.debug(f"Unicorn reported a trap at {insn}")
+            log.debug("It's extremely unlikely angr will capture this behavior.")
         else:
-            log.warning(
+            log.debug(
                 f"Unicorn reported a trap at {crash.trace[-1]:x}; instruction is undecodable."
             )
+
         return DiagnosisTrap()
 
-    def _diagnose_mem(self, emu: emulators.AngrEmulator, crash: CrashResults):
+    def _diagnose_mem(
+        self, emu: emulators.AngrEmulator, crash: CrashResults
+    ) -> DiagnosisMemory:
         pc = crash.trace[-1]
         if crash.mem_operands is None:
             # This is almost certainly a memory error triggered by a model.
-            log.warning(f"Memory error at {pc:x} has no associated cause.")
+            log.debug(f"Memory error at {pc:x} has no associated cause.")
+
+        return DiagnosisMemory()
 
     def _get_early_hint(self, crash: CrashResults, diagnosis: DiagnosisEarly):
         if crash.cause is CrashCause.OOB:
@@ -413,11 +454,13 @@ class CrashTriage(analysis.Analysis):
         machine.apply(emu)
         emu.initialize()
 
+        diagnosis_early: typing.Optional[DiagnosisEarly]
+
         # Step through the emulator so I can tell if we're following the trace.
         for i in range(0, len(crash.trace) - 1):
-            diagnosis = self._check_trace(i, crash.trace, emu)
-            if diagnosis is not None:
-                hint = self._get_early_hint(crash, diagnosis)
+            diagnosis_early = self._check_trace(i, crash.trace, emu)
+            if diagnosis_early is not None:
+                hint = self._get_early_hint(crash, diagnosis_early)
                 self.hinter.send(hint)
                 return
 
@@ -425,11 +468,11 @@ class CrashTriage(analysis.Analysis):
                 emu.step()
             except exceptions.EmulationStop:
                 # Emulator stopped early.
-                log.warning(f"Unexpected stop after {crash.trace[i]:x}")
+                log.debug(f"Unexpected stop after {crash.trace[i]:x}")
 
                 halt = self._diagnose_stop(emu, crash.trace[i], False)
-                diagnosis = DiagnosisEarlyHalt(index=i, halt=halt)
-                hint = self._get_early_hint(crash, diagnosis)
+                diagnosis_early = DiagnosisEarlyHalt(index=i, halt=halt)
+                hint = self._get_early_hint(crash, diagnosis_early)
 
                 self.hinter.send(hint)
                 return
@@ -437,11 +480,11 @@ class CrashTriage(analysis.Analysis):
                 # Emulator encountered an unexpected illegal instruction.
                 # Unicorn and angr have different ISA coverage,
                 # so this isn't expected.
-                log.warning(f"Unexpected illegal instruction at {crash.trace[i]:x}")
+                log.debug(f"Unexpected illegal instruction at {crash.trace[i]:x}")
 
                 illegal = self._diagnose_illegal(emu, crash.trace[i], False)
-                diagnosis = DiagnosisEarlyIllegal(index=i, illegal=illegal)
-                hint = self._get_early_hint(crash, diagnosis)
+                diagnosis_early = DiagnosisEarlyIllegal(index=i, illegal=illegal)
+                hint = self._get_early_hint(crash, diagnosis_early)
 
                 self.hinter.send(hint)
                 return
@@ -455,32 +498,33 @@ class CrashTriage(analysis.Analysis):
 
         # Diagnose the specific cause of the crash
         if crash.cause is CrashCause.OOB:
-            diagnosis = self._diagnose_oob(emu, crash)
+            diagnosis_oob = self._diagnose_oob(emu, crash)
             hint = TriageOOB(
                 message="Crash caused by out of bounds execution",
                 trace=crash.trace,
-                diagnosis=diagnosis,
+                diagnosis=diagnosis_oob,
             )
         elif crash.cause is CrashCause.ILLEGAL:
-            diagnosis = self._diagnose_illegal(emu, crash.trace[-1], True)
+            illegal = self._diagnose_illegal(emu, crash.trace[-1], True)
+            diagnosis_illegal = DiagnosisIllegal(illegal=illegal)
             hint = TriageIllegal(
                 message="Crash caused by illegal instruction",
                 trace=crash.trace,
-                diagnosis=diagnosis,
+                diagnosis=diagnosis_illegal,
             )
         elif crash.cause is CrashCause.TRAP:
-            diagnosis = self._diagnose_trap(emu, crash)
+            diagnosis_trap = self._diagnose_trap(emu, crash)
             hint = TriageTrap(
                 message="Crash caused by unhandled trap",
                 trace=crash.trace,
-                diagnosis=diagnosis,
+                diagnosis=diagnosis_trap,
             )
         elif crash.cause is CrashCause.MEM:
-            diagnosis = self._diagnose_mem(emu, crash)
+            diagnosis_mem = self._diagnose_mem(emu, crash)
             hint = TriageMemory(
                 message="Crash caused by memory error",
                 trace=crash.trace,
-                diagnosis=diagnosis,
+                diagnosis=diagnosis_mem,
             )
         else:
             raise exceptions.AnalysisError(f"Unrecognized crash cause {crash.cause}")

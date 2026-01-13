@@ -55,6 +55,10 @@ analyses: typing.List[smallworld.analyses.Analysis] = [
     smallworld.analyses.CrashTriage(hinter)
 ]
 
+
+printer = smallworld.analyses.CrashTriagePrinter(hinter)
+printer.run(machine)
+
 # Test one: out of bounds
 cpu.rip.set(code.get_symbol_value("bad_jump"))
 smallworld.analyze(machine, analyses)
