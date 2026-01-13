@@ -248,7 +248,7 @@ class DiagnosisTrap:
 class DiagnosisMemory:
     """Diagnosis for a memory error"""
 
-    pass
+    operands: typing.Dict[typing.Any, Expression]
 
 
 # *************

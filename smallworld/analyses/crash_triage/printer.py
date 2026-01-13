@@ -64,6 +64,8 @@ class CrashTriagePrinter(analysis.Analysis):
         elif isinstance(illegal, IllegalInstrUnconfirmed):
             log.warning(f"Code at {pc:x} appears decodable: {illegal.instr}")
             log.warning("This analysis may not be acurate; check the docs for this ISA")
+        else:
+            log.error(f"Unknown illegal instruction report: {illegal}")
 
     def print_halt(self, pc: int, halt: Halt) -> None:
         if isinstance(halt, HaltUnconstrained):

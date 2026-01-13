@@ -1,5 +1,7 @@
 import typing
 
+import claripy
+
 from .. import emulators
 from .instructions import MemoryReferenceOperand
 
@@ -33,6 +35,22 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             index = emulator.read_register(self.index)
 
         return base + self.scale * index + self.offset
+
+    def symbolic_address(self, emulator: emulators.Emulator) -> claripy.ast.bv.BV:
+        platdef = emulator.platdef  # type: ignore
+
+        zero = claripy.BVV(0, platdef.wordsize)
+        base = zero
+        if self.base is not None:
+            base = emulator.read_register_symbolic(self.base)
+
+        index = zero
+        if self.index is not None:
+            index = emulator.read_register(self.index)
+
+        scale = claripy.BVV(self.offset, platdef.wordsize)
+        offset = claripy.BVV(self.offset, platdef.wordsize)
+        return base + scale * index + offset
 
     def to_json(self) -> dict:
         return {

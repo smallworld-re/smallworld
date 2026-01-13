@@ -413,11 +413,15 @@ class CrashTriage(analysis.Analysis):
         self, emu: emulators.AngrEmulator, crash: CrashResults
     ) -> DiagnosisMemory:
         pc = crash.trace[-1]
+        operands: typing.Dict[typing.Any, Expression] = dict()
         if crash.mem_operands is None:
             # This is almost certainly a memory error triggered by a model.
             log.debug(f"Memory error at {pc:x} has no associated cause.")
+        else:
+            for operand in crash.mem_operands:
+                log.debug(f"Operand: {operand}")
 
-        return DiagnosisMemory()
+        return DiagnosisMemory(operands=operands)
 
     def _get_early_hint(self, crash: CrashResults, diagnosis: DiagnosisEarly):
         if crash.cause is CrashCause.OOB:

@@ -42,7 +42,10 @@ with open(filename, "rb") as f:
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-# Set an exit point
+# Label an argument
+stack.push_symbolic(4, "Arg 1")
+
+# Label an exit point
 stack.push_symbolic(4, "Return address")
 
 # Configure the stack pointer
@@ -51,6 +54,10 @@ cpu.esp.set(esp)
 
 # Set up analyses
 hinter = smallworld.hinting.Hinter()
+
+printer = smallworld.analyses.CrashTriagePrinter(hinter)
+printer.run(machine)
+
 analyses: typing.List[smallworld.analyses.Analysis] = [
     smallworld.analyses.CrashTriage(hinter)
 ]
