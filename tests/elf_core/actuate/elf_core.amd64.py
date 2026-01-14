@@ -50,7 +50,7 @@ code.write_bytes(cpu.rip.get(), nop)
 
 # Set up a puts handler
 # puts address recovered from manual RE
-puts_addr = (cpu.rip.get() & 0xFFFFFFFFFFFF0000) | 0xA610
+puts_addr = (cpu.rip.get() & 0xFFFFFFFFFFFFF000) | 0x610
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
