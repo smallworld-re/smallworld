@@ -8,9 +8,10 @@ Introduction
 In this tutorial you will be guided through building a simple fuzzing harness
 and fuzzing it with `AFL++`_. It assumes you are already familiar with building a SmallWorld
 harness and with `AFL++`_. For this tutorial we will be using a very simple binary that reads
-four bytes (which we're going to pretend is a size) and compares them to 11, then reads 
-the next four bytes and compares them one-by-one to the values 98, 97, 100, and 33. If it 
-makes it through all of the compares it crashes by writing to an unmapped address.
+four bytes (which we're going to pretend is a size) and exits if they are 11 or less, then reads 
+the next four bytes and compares them one-by-one to the values 98, 97, 100, and 33 exiting if 
+they are not equal. If it makes it through all of the compares it crashes by writing to an 
+unmapped address.
 
 .. literalinclude:: ../../tests/fuzz/fuzz.amd64.s
   :language: NASM
@@ -83,11 +84,25 @@ Running With AFL++
 ------------------
 To run our harness with `AFL++`_ using a command such as the following:
 
-```
-afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 our_fuzz_harness.py @@
-```
+.. code-block:: bash
+  afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 our_fuzz_harness.py @@
+
+
+and you should see a TUI that looks like this:
+
+.. literalinclude:: ./afl_output.txt
+  :language: none
 
 See the `AFL++`_ documentation for a more complete listing to all of the arguments and options.
+
+Breakdown of an Input
+---------------------
+Now, lets look at an input the crashed our program. Using `xxd` we have the following::
+  
+  00000000: ff7f 0000 6261 6421                      ....bad!
+
+As you can see, the first four bytes `ff7f 0000` are an integer greater than 11. Then we have
+the bytes `0x62` (98), `0x61` (97), `0x64` (100), and `0x21` (33) which spells `bad!` in ascii.
 
 
 Next Steps
