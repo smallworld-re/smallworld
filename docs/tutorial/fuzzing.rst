@@ -85,6 +85,7 @@ Running With AFL++
 To run our harness with `AFL++`_ using a command such as the following:
 
 .. code-block:: bash
+  
   afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 our_fuzz_harness.py @@
 
 
