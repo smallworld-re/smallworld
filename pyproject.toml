@@ -15,7 +15,7 @@ dependencies = [
     "black[jupyter]>=25.11.0",
     "capstone==5.0.3",
     "jsons==1.6.3",
-    "lief==0.17.0",
+    "lief==0.17.2",
     "pyghidra==2.2.1",
     "pypcode==3.0",
     "setuptools>=80.9.0",
