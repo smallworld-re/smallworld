@@ -41,6 +41,10 @@ with open(libname, "rb") as f:
     )
     machine.add(lib)
 
+lib.link_elf(lib)
+code.link_elf(code, all_syms=True)
+lib.link_elf(lib, all_syms=True)
+code.link_elf(code, all_syms=True)
 code.link_elf(lib)
 
 # Load and add code from lib.
@@ -82,6 +86,17 @@ cpu.r1.set(sp)
 # Set argument registers
 cpu.r3.set(2)
 cpu.r4.set(argv)
+
+# Configure global pointer.
+#
+# This is normally set by the libc initializer,
+# and can't be deduced from the binary alone.
+# Very fortunately, the expected offset
+# is exported in the dynamic tags
+if 0x70000000 not in lib._dtags:
+    raise Exception("No DT_PPC_GOT in dtags")
+global_ptr = lib._dtags[0x70000000] + lib.address
+cpu.r30.set(global_ptr)
 
 # set an exitpoint.
 exitpoint = entrypoint + code.get_symbol_size("main")
