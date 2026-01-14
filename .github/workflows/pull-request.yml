@@ -24,6 +24,7 @@ jobs:
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+          
       - name: Checkout
         uses: actions/checkout@v3
         env:
@@ -33,6 +34,7 @@ jobs:
           token: ${{ secrets.BOT_TOKEN }}
 
       - name: Cache inputs
+        if: ${{ secrets.CACHIX_AUTH_TOKEN != '' }}
         run: |
           nix run .#printInputsRecursive | cachix push smallworld
 
