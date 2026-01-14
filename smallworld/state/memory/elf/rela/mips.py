@@ -7,6 +7,7 @@ R_MIPS_NONE = 0
 R_MIPS_32 = 2  # 32-bit direct
 R_MIPS_REL32 = 3
 R_MIPS_64 = 18  # 64-bit direct
+R_MIPS_JUMP_SLOT = 127
 
 
 class MIPSElfRelocator(ElfRelocator):
@@ -51,6 +52,12 @@ class MIPSElfRelocator(ElfRelocator):
                 # 64-bit direct
                 val = val + addend
                 is_64 = True
+            elif rela_type == R_MIPS_JUMP_SLOT:
+                # Jump slot.
+                # Do NOT add the addend.
+                # For rels, it will be pre-populated with the offset of the PLT resolver,
+                # not an actual addend.
+                is_64 = self.arch is platforms.Architecture.MIPS64
             else:
                 raise ConfigurationError(
                     f"Invalid relocation type {i} for {rela.symbol.name}: {rela_type}"
