@@ -34,7 +34,9 @@ jobs:
           token: ${{ secrets.BOT_TOKEN }}
 
       - name: Cache inputs
-        if: ${{ secrets.CACHIX_AUTH_TOKEN != '' }}
+        env:
+          cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        if: ${{ env.cachix_token != '' }}
         run: |
           nix run .#printInputsRecursive | cachix push smallworld
 
