@@ -1,14 +1,22 @@
 from .field_analysis import (
     FDAState,
-    FieldDetectionAnalysis,
-    ForcedFieldDetectionAnalysis,
 )
 from .malloc import FreeModel, MallocModel
 
 __all__ = [
     "FDAState",
-    "FieldDetectionAnalysis",
-    "ForcedFieldDetectionAnalysis",
     "FreeModel",
     "MallocModel",
 ]
+
+try:
+    from .field_analysis import (
+        FieldDetectionAnalysis,
+        ForcedFieldDetectionAnalysis,
+    )
+    __all__ += [
+        "FieldDetectionAnalysis",
+        "ForcedFieldDetectionAnalysis",
+    ]
+except ImportError:
+    pass
