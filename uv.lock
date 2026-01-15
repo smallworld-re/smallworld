@@ -1892,7 +1892,7 @@ requires-dist = [
     { name = "pyghidra", specifier = ">=3.0.0" },
     { name = "pypcode", specifier = ">=3.0" },
     { name = "setuptools", specifier = ">=80.9.0" },
-    { name = "unicorn", specifier = "==2.0.1.post1" },
+    { name = "unicorn", specifier = ">=2.0.1.post1" },
 ]
 
 [package.metadata.requires-dev]

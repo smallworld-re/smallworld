@@ -19,7 +19,7 @@ dependencies = [
     "pyghidra>=3.0.0",
     "pypcode>=3.0",
     "setuptools>=80.9.0",
-    "unicorn==2.0.1.post1",
+    "unicorn>=2.0.1.post1",
 ]
 
 [build-system]
@@ -40,6 +40,9 @@ dev = [
     "sphinxcontrib-programoutput>=0.17",
     "timeout-decorator>=0.5.0",
 ]
+
+[tool.uv.extra-build-dependencies]
+"arpy-1.1.1" = ["setuptools"]
 
 [tool.setuptools]
 include-package-data = true
