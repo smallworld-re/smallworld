@@ -52,14 +52,7 @@ rsp = stack.get_pointer()
 cpu.rsp.set(rsp)
 
 # Set up analyses
-hinter = smallworld.hinting.Hinter()
-analyses: typing.List[smallworld.analyses.Analysis] = [
-    smallworld.analyses.CrashTriage(hinter)
-]
 
-
-printer = smallworld.analyses.CrashTriagePrinter(hinter)
-printer.run(machine)
 
 # Need to test:
 # - Early:
@@ -89,35 +82,122 @@ printer.run(machine)
 # - Memory:
 
 
-def run_test(symbol):
+def run_test(
+    symbol,
+    hint_type=None,
+    diagnosis_type=None,
+    halt_type=None,
+    halt_kind=None,
+    illegal_type=None,
+    mem_access=None,
+):
     log.info(f"Test: {symbol}")
     cpu.rip.set(code.get_symbol_value(symbol))
-    smallworld.analyze(machine, analyses)
+
+    hinter = smallworld.hinting.Hinter()
+    analyses: typing.List[smallworld.analyses.Analysis] = [
+        smallworld.analyses.CrashTriageVerification(
+            hinter,
+            hint_type=hint_type,
+            diagnosis_type=diagnosis_type,
+            halt_type=halt_type,
+            halt_kind=halt_kind,
+            mem_access=mem_access,
+        )
+    ]
+    try:
+        smallworld.analyze(machine, analyses)
+        return True
+    except smallworld.exceptions.AnalysisError as e:
+        log.error(f"FAILED: {e}")
+        return False
 
 
-# run_test("early_lost")
-# run_test("early_halt_deadend_bounds")
-# run_test("early_halt_deadend_mmap")
-run_test("early_halt_unconstrained_call")
-# run_test("early_halt_unconstrained_return")
-# run_test("early_halt_unconstrained_jump")
-run_test("early_halt_diverged")
-# run_test("early_illegal")
+good = True
+
+# good &= run_test("early_lost")
+# good &= run_test("early_halt_deadend_bounds")
+# good &= run_test("early_halt_deadend_mmap")
+good &= run_test(
+    "early_halt_unconstrained_call",
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisEarlyHalt,
+    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
+    halt_kind="call",
+)
+# good &= run_test("early_halt_unconstrained_return")
+# good &= run_test("early_halt_unconstrained_jump")
+good &= run_test(
+    "early_halt_diverged",
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisEarlyHalt,
+    halt_type=smallworld.analyses.crash_triage.HaltDiverged,
+)
+# good &= run_test("early_illegal")
+
+# good &= run_test("oob_deadend_bounds")
+good &= run_test(
+    "oob_deadend_mmap",
+    hint_type=smallworld.analyses.crash_triage.TriageOOB,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
+    halt_type=smallworld.analyses.crash_triage.HaltDeadended,
+    halt_kind="unmapped",
+)
+good &= run_test(
+    "oob_unconstrained_call",
+    hint_type=smallworld.analyses.crash_triage.TriageOOB,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
+    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
+    halt_kind="call",
+)
+good &= run_test(
+    "oob_unconstrained_return",
+    hint_type=smallworld.analyses.crash_triage.TriageOOB,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
+    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
+    halt_kind="return",
+)
+# good &= run_test("oob_unconstrained_jump")
+# good &= run_test("oob_diverged")
+
+good &= run_test(
+    "illegal_undecodable",
+    hint_type=smallworld.analyses.crash_triage.TriageIllegal,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
+    illegal_type=smallworld.analyses.crash_triage.IllegalInstrNoDecode,
+)
+# amd64 ud2 decodes in angr.
+good &= run_test(
+    "illegal_decodable",
+    hint_type=smallworld.analyses.crash_triage.TriageIllegal,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
+    illegal_type=smallworld.analyses.crash_triage.IllegalInstrUnconfirmed,
+)
+
+good &= run_test(
+    "mem_read_constrained",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.READ,
+)
+good &= run_test(
+    "mem_read_unconstrained",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.READ,
+)
+good &= run_test(
+    "mem_write_constrained",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.WRITE,
+)
+good &= run_test(
+    "mem_write_unconstrained",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.WRITE,
+)
 
 
-# run_test("oob_deadend_bounds")
-run_test("oob_deadend_mmap")
-run_test("oob_unconstrained_call")
-run_test("oob_unconstrained_return")
-run_test("oob_unconstrained_jump")
-# run_test("oob_diverged")
-
-quit()
-
-run_test("illegal_undecodable")
-run_test("illegal_decodable")
-
-run_test("mem_read_constrained")
-run_test("mem_read_unconstrained")
-run_test("mem_write_constrained")
-run_test("mem_write_unconstrained")
+if not good:
+    log.error("At least one analysis failed; check the logs")
+    quit(1)

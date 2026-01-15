@@ -198,13 +198,20 @@ class IllegalInstrUnconfirmed(IllegalInstr):
     instr: str
 
 
+@dataclass(frozen=True)
+class Diagnosis:
+    """Root class of all diagnoses"""
+
+    pass
+
+
 # ***************************************
 # *** Diagnosis for Early termination ***
 # ***************************************
 
 
 @dataclass(frozen=True)
-class DiagnosisEarly:
+class DiagnosisEarly(Diagnosis):
     """Diagnosis pass terminated early
 
     See subclasses for specific diagnoses.
@@ -255,7 +262,7 @@ class DiagnosisEarlyIllegal(DiagnosisEarly):
 
 
 @dataclass(frozen=True)
-class DiagnosisOOB:
+class DiagnosisOOB(Diagnosis):
     """Parent class for halt diagnoses.
 
     See subclasses for specific diagnoses.
@@ -288,7 +295,7 @@ class DiagnosisOOBUnconfirmed(DiagnosisOOB):
 
 
 @dataclass(frozen=True)
-class DiagnosisIllegal:
+class DiagnosisIllegal(Diagnosis):
     """Diagnosis for an illegal instruction fault
 
     Attributes:
@@ -304,7 +311,7 @@ class DiagnosisIllegal:
 
 
 @dataclass(frozen=True)
-class DiagnosisTrap:
+class DiagnosisTrap(Diagnosis):
     """Diagnosis for an unhandled trap.
 
     angr is very user-space focused,
@@ -325,7 +332,7 @@ class DiagnosisTrap:
 
 
 @dataclass(frozen=True)
-class DiagnosisMemory:
+class DiagnosisMemory(Diagnosis):
     """Diagnosis for a memory error
 
     Attributes:
@@ -441,6 +448,7 @@ class TriageMemory(TriageCrash):
 
 
 __all__ = [
+    "Diagnosis",
     "DiagnosisEarly",
     "DiagnosisEarlyDiverge",
     "DiagnosisEarlyHalt",
@@ -459,6 +467,7 @@ __all__ = [
     "IllegalInstrNoDecode",
     "IllegalInstrConfirmed",
     "IllegalInstrUnconfirmed",
+    "MemoryAccess",
     "TriageCrash",
     "TriageIllegal",
     "TriageMemory",
