@@ -11,6 +11,8 @@ logging.getLogger("pyvex").setLevel(logging.WARNING)
 logging.getLogger("smallworld").setLevel(logging.INFO)
 logging.getLogger("smallworld.analyses.crash_triage").setLevel(logging.DEBUG)
 
+log = logging.getLogger(__name__)
+
 # Define the platform
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
@@ -59,22 +61,63 @@ analyses: typing.List[smallworld.analyses.Analysis] = [
 printer = smallworld.analyses.CrashTriagePrinter(hinter)
 printer.run(machine)
 
-# Test one: out of bounds
-cpu.rip.set(code.get_symbol_value("bad_jump"))
-smallworld.analyze(machine, analyses)
+# Need to test:
+# - Early:
+#   - Lost trace (difficult)
+#   - Halted:
+#       - Deadended:
+#           - Bounds (difficult)
+#           - Memory map (difficult)
+#       - Unconstrained:
+#           - Call
+#           - Return (difficult)
+#           - Jump (difficult)
+#       - Diverged
+#   - Illegal (difficult on this ISA)
+# - OOB:
+#   - Deadended:
+#       - Out of bounds
+#       - Unmapped
+#   - Unconstrained:
+#       - Call
+#       - Return
+#       - Branch (difficult)
+# - Illegal:
+#   - Undecodable
+#   - Confirmed
+#   - Unconfirmed
+# - Memory:
 
-# Test two: uninitialized function pointer
-cpu.rip.set(code.get_symbol_value("bad_function_pointer"))
-smallworld.analyze(machine, analyses)
 
-# Test three: return out of context
-cpu.rip.set(code.get_symbol_value("bad_return"))
-smallworld.analyze(machine, analyses)
+def run_test(symbol):
+    log.info(f"Test: {symbol}")
+    cpu.rip.set(code.get_symbol_value(symbol))
+    smallworld.analyze(machine, analyses)
 
-# Test four: branch on uninitialized
-cpu.rip.set(code.get_symbol_value("bad_if"))
-smallworld.analyze(machine, analyses)
 
-# Test five: Illegal instruction
-cpu.rip.set(code.get_symbol_value("bad_instruction"))
-smallworld.analyze(machine, analyses)
+# run_test("early_lost")
+# run_test("early_halt_deadend_bounds")
+# run_test("early_halt_deadend_mmap")
+run_test("early_halt_unconstrained_call")
+# run_test("early_halt_unconstrained_return")
+# run_test("early_halt_unconstrained_jump")
+run_test("early_halt_diverged")
+# run_test("early_illegal")
+
+
+# run_test("oob_deadend_bounds")
+run_test("oob_deadend_mmap")
+run_test("oob_unconstrained_call")
+run_test("oob_unconstrained_return")
+run_test("oob_unconstrained_jump")
+# run_test("oob_diverged")
+
+quit()
+
+run_test("illegal_undecodable")
+run_test("illegal_decodable")
+
+run_test("mem_read_constrained")
+run_test("mem_read_unconstrained")
+run_test("mem_write_constrained")
+run_test("mem_write_unconstrained")

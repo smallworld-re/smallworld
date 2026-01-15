@@ -23,11 +23,13 @@ from .hints import (
     Halt,
     HaltDeadended,
     HaltDiverged,
+    HaltNoHalt,
     HaltUnconstrained,
     IllegalInstr,
     IllegalInstrConfirmed,
     IllegalInstrNoDecode,
     IllegalInstrUnconfirmed,
+    MemoryAccess,
     TriageHint,
     TriageIllegal,
     TriageMemory,
@@ -46,7 +48,9 @@ class CrashCause(enum.Enum):
     OOB = 1
     ILLEGAL = 2
     TRAP = 3
-    MEM = 4
+    MEM_READ = 4
+    MEM_WRITE = 4
+    MEM_FETCH = 4
 
 
 @dataclasses.dataclass
@@ -57,6 +61,62 @@ class CrashResults:
 
 
 class CrashTriage(analysis.Analysis):
+    """An analysis to ID potential causes of a crash.
+
+    Concrete emulators like Unicorn and Panda
+    are great at finding crashes, but they don't preserve
+    enough data to really explain why a crash happened.
+    You got a null pointer dereference.  Okay, why?
+    Where did that null pointer come from?
+    What was the program doing to cause it?
+
+    On the other hand, angr's symbolic executor
+    can provide extremely detailed machine-readable
+    information about how the code and data
+    reached a particular state,
+    but getting it to identify crash conditions
+    isn't always easy.
+
+    The solution is a dual harness approach:
+
+    - Run the harness once in Unicorn to get
+      an immediate cause and execution trace
+    - Run the harness again in angr to replay
+      the execution trace.
+    - Examine the final state from angr
+      to get a diagnosis for the crash.
+
+    Here are the kinds of hints produced by this analysis:
+
+    TriageNormalExit:
+        Execution exited at an exit point,
+        indicating there was no crash.
+
+    TriageNormalTooLong:
+        Execution exceeded the specified maximum number of steps
+        without encountering a crash.
+
+    TriageOOB:
+        Execution went out of bounds, or left mapped memory.
+
+    TriageIllegal:
+        Execution encountered an illegal instruction
+
+    TriageTrap:
+        Execution halted because of an unhandled
+        hardware interrupt/trap/exception/fault
+
+    TriageMemory:
+        Execution halted because of an illegal memory access.
+        This will include a field specifying the kind of access:
+        read, write, or fetch.
+
+    Each hint contains the execution trace it followed,
+    as well as a diagnosis.
+    The diagnosis will either contain details about the crash,
+    or indicate that angr stopped before reaching it.
+    """
+
     name = "crash-triage"
     description = "Diagnose a crashing harness"
     version = "0.0.1"
@@ -135,7 +195,7 @@ class CrashTriage(analysis.Analysis):
                 if not emu._bounds.contains_value(pc):
                     raise exceptions.EmulationBounds
 
-                log.debug(f"Stepping through {pc:x}")
+                log.info(f"Stepping through {pc:x}")
                 trace.append(pc)
                 emu.step()
                 idx += 1
@@ -167,10 +227,20 @@ class CrashTriage(analysis.Analysis):
             # Unhandled exception/interrupt/trap/whatever your ISA calls it.
             log.debug(f"Trap at {e.pc:x}")
             cause = CrashCause.TRAP
-        except exceptions.EmulationMemoryFailure as e:
-            # Something went very wrong doing the memories.
-            log.debug(f"Memory exception at {e.pc:x}: {e.operands}")
-            cause = CrashCause.MEM
+        except exceptions.EmulationReadFailure as e:
+            # Something went very wrong read the memories.
+            log.debug(f"Memory read failure at {e.pc:x}: {e.operands}")
+            cause = CrashCause.MEM_READ
+            mem_operands = e.operands
+        except exceptions.EmulationWriteFailure as e:
+            # Something went very wrong read the memories.
+            log.debug(f"Memory write failure at {e.pc:x}: {e.operands}")
+            cause = CrashCause.MEM_WRITE
+            mem_operands = e.operands
+        except exceptions.EmulationFetchFailure as e:
+            # Something went very wrong read the memories.
+            log.debug(f"Memory fetch failure at {e.pc:x}: {e.operands}")
+            cause = CrashCause.MEM_FETCH
             mem_operands = e.operands
 
         return CrashResults(trace, cause, mem_operands)
@@ -236,7 +306,7 @@ class CrashTriage(analysis.Analysis):
         )
 
     def _diagnose_unconstrained(
-        self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int, expected: bool
+        self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
     ) -> HaltUnconstrained:
         target = state._ip
 
@@ -269,7 +339,7 @@ class CrashTriage(analysis.Analysis):
         return HaltUnconstrained(kind=kind, expr=expr)
 
     def _diagnose_deadended(
-        self, emu: emulators.AngrEmulator, state: angr.SimState, expected: bool
+        self, emu: emulators.AngrEmulator, state: angr.SimState, real: bool = True
     ):
         ip = state._ip.concrete_value
         kind: str
@@ -285,15 +355,15 @@ class CrashTriage(analysis.Analysis):
         elif ip in emu.state.scratch.exit_points:
             log.debug(f"Execution hit an exit point at {ip:x}")
             kind = "exitpoint"
-        else:
+        elif real:
             log.debug(f"No clear cause for deadended state at {ip:x}")
             kind = "unknown"
+        else:
+            return HaltNoHalt(pc=ip)
 
         return HaltDeadended(kind=kind, pc=ip)
 
-    def _diagnose_stop(
-        self, emu: emulators.AngrEmulator, pc: int, expected: bool
-    ) -> Halt:
+    def _diagnose_stop(self, emu: emulators.AngrEmulator, pc: int) -> Halt:
         # Cases:
         # - Single unconstrained state:
         #   - Return out of context?
@@ -309,13 +379,13 @@ class CrashTriage(analysis.Analysis):
             # Unconstrained state; program counter was unbounded.
             log.debug(f"Stopped due to unbound PC after {pc:x}")
             (state,) = emu.mgr.unconstrained
-            return self._diagnose_unconstrained(emu, state, pc, expected)
+            return self._diagnose_unconstrained(emu, state, pc)
 
         elif len(emu.mgr.deadended) > 0:
             # Single deadended state
             log.debug(f"Stopped due to execution limits after {pc:x}")
             (state,) = emu.mgr.deadended
-            return self._diagnose_deadended(emu, state, expected)
+            return self._diagnose_deadended(emu, state)
 
         elif len(emu.mgr.active) > 1:
             # Divergent state.
@@ -328,15 +398,15 @@ class CrashTriage(analysis.Analysis):
             # but may lead to deadended or unconstrained states.
             if state1._ip.symbolic:
                 log.debug("State at {state1._ip} is unconstrained")
-                halt1 = self._diagnose_unconstrained(emu, state1, pc, expected)
+                halt1 = self._diagnose_unconstrained(emu, state1, pc)
             else:
-                halt1 = self._diagnose_deadended(emu, state1, False)
+                halt1 = self._diagnose_deadended(emu, state1, real=False)
 
             if state2._ip.symbolic:
                 log.debug("State at {state2._ip} is unconstrained")
-                halt2 = self._diagnose_unconstrained(emu, state2, pc, expected)
+                halt2 = self._diagnose_unconstrained(emu, state2, pc)
             else:
-                halt2 = self._diagnose_deadended(emu, state2, False)
+                halt2 = self._diagnose_deadended(emu, state2, real=False)
 
             log.debug(f"Guard for {state1._ip}: {state1.scratch.guard}")
             guard1 = self._diagnose_expression(emu, state1.scratch.guard)
@@ -361,12 +431,10 @@ class CrashTriage(analysis.Analysis):
             pass
 
         # Handle it the same way, just with expected stops.
-        halt = self._diagnose_stop(emu, crash.trace[-1], True)
+        halt = self._diagnose_stop(emu, crash.trace[-1])
         return DiagnosisOOBConfirmed(halt=halt)
 
-    def _diagnose_illegal(
-        self, emu: emulators.AngrEmulator, pc: int, expected: bool
-    ) -> IllegalInstr:
+    def _diagnose_illegal(self, emu: emulators.AngrEmulator, pc: int) -> IllegalInstr:
         block = emu.state.block(opt_level=0, strict_block_end=True)
 
         disas = block.disassembly
@@ -413,15 +481,49 @@ class CrashTriage(analysis.Analysis):
         self, emu: emulators.AngrEmulator, crash: CrashResults
     ) -> DiagnosisMemory:
         pc = crash.trace[-1]
-        operands: typing.Dict[typing.Any, Expression] = dict()
+        is_hook: bool = False
+        safe_operands: typing.Dict[typing.Any, typing.Tuple[Expression, int]] = dict()
+        unmapped_operands: typing.Dict[
+            typing.Any, typing.Tuple[Expression, int]
+        ] = dict()
+        unsat_operands: typing.Dict[typing.Any, Expression] = dict()
+        unconstrained_operands: typing.Dict[typing.Any, Expression] = dict()
+
         if crash.mem_operands is None:
             # This is almost certainly a memory error triggered by a model.
             log.debug(f"Memory error at {pc:x} has no associated cause.")
+            is_hook = True
         else:
-            for operand in crash.mem_operands:
+            for operand, _ in crash.mem_operands:
                 log.debug(f"Operand: {operand}")
+                expr = operand.symbolic_address(emu)
+                res = self._diagnose_expression(emu, expr)
+                if expr.symbolic:
+                    try:
+                        (value,) = emu.state.solver.eval_atmost(expr, 1)
+                    except angr.errors.SimUnsatError:
+                        # No possible values for this expression
+                        unsat_operands[operand] = res
+                        continue
+                    except angr.errors.SimValueError:
+                        # Value is unconstrained
+                        unconstrained_operands[operand] = res
+                        continue
+                else:
+                    value = expr.concrete_value
 
-        return DiagnosisMemory(operands=operands)
+                if emu.state.scratch.memory_map.contains_value(value):
+                    safe_operands[operand] = (res, value)
+                else:
+                    unmapped_operands[operand] = (res, value)
+
+        return DiagnosisMemory(
+            is_hook=is_hook,
+            safe_operands=safe_operands,
+            unmapped_operands=unmapped_operands,
+            unconstrained_operands=unconstrained_operands,
+            unsat_operands=unsat_operands,
+        )
 
     def _get_early_hint(self, crash: CrashResults, diagnosis: DiagnosisEarly):
         if crash.cause is CrashCause.OOB:
@@ -442,9 +544,24 @@ class CrashTriage(analysis.Analysis):
                 trace=crash.trace,
                 diagnosis=diagnosis,
             )
-        elif crash.cause is CrashCause.MEM:
+        elif crash.cause is CrashCause.MEM_READ:
             return TriageMemory(
-                message="Crash caused by memory error",
+                message="Crash caused by memory read error",
+                access=MemoryAccess.READ,
+                trace=crash.trace,
+                diagnosis=diagnosis,
+            )
+        elif crash.cause is CrashCause.MEM_WRITE:
+            return TriageMemory(
+                message="Crash caused by memory read error",
+                access=MemoryAccess.WRITE,
+                trace=crash.trace,
+                diagnosis=diagnosis,
+            )
+        elif crash.cause is CrashCause.MEM_FETCH:
+            return TriageMemory(
+                message="Crash caused by memory read error",
+                access=MemoryAccess.FETCH,
                 trace=crash.trace,
                 diagnosis=diagnosis,
             )
@@ -474,7 +591,7 @@ class CrashTriage(analysis.Analysis):
                 # Emulator stopped early.
                 log.debug(f"Unexpected stop after {crash.trace[i]:x}")
 
-                halt = self._diagnose_stop(emu, crash.trace[i], False)
+                halt = self._diagnose_stop(emu, crash.trace[i])
                 diagnosis_early = DiagnosisEarlyHalt(index=i, halt=halt)
                 hint = self._get_early_hint(crash, diagnosis_early)
 
@@ -486,7 +603,7 @@ class CrashTriage(analysis.Analysis):
                 # so this isn't expected.
                 log.debug(f"Unexpected illegal instruction at {crash.trace[i]:x}")
 
-                illegal = self._diagnose_illegal(emu, crash.trace[i], False)
+                illegal = self._diagnose_illegal(emu, crash.trace[i])
                 diagnosis_early = DiagnosisEarlyIllegal(index=i, illegal=illegal)
                 hint = self._get_early_hint(crash, diagnosis_early)
 
@@ -509,7 +626,7 @@ class CrashTriage(analysis.Analysis):
                 diagnosis=diagnosis_oob,
             )
         elif crash.cause is CrashCause.ILLEGAL:
-            illegal = self._diagnose_illegal(emu, crash.trace[-1], True)
+            illegal = self._diagnose_illegal(emu, crash.trace[-1])
             diagnosis_illegal = DiagnosisIllegal(illegal=illegal)
             hint = TriageIllegal(
                 message="Crash caused by illegal instruction",
@@ -523,10 +640,27 @@ class CrashTriage(analysis.Analysis):
                 trace=crash.trace,
                 diagnosis=diagnosis_trap,
             )
-        elif crash.cause is CrashCause.MEM:
+        elif crash.cause is CrashCause.MEM_READ:
             diagnosis_mem = self._diagnose_mem(emu, crash)
             hint = TriageMemory(
-                message="Crash caused by memory error",
+                message="Crash caused by read error",
+                access=MemoryAccess.READ,
+                trace=crash.trace,
+                diagnosis=diagnosis_mem,
+            )
+        elif crash.cause is CrashCause.MEM_WRITE:
+            diagnosis_mem = self._diagnose_mem(emu, crash)
+            hint = TriageMemory(
+                message="Crash caused by read error",
+                access=MemoryAccess.WRITE,
+                trace=crash.trace,
+                diagnosis=diagnosis_mem,
+            )
+        elif crash.cause is CrashCause.MEM_FETCH:
+            diagnosis_mem = self._diagnose_mem(emu, crash)
+            hint = TriageMemory(
+                message="Crash caused by read error",
+                access=MemoryAccess.FETCH,
                 trace=crash.trace,
                 diagnosis=diagnosis_mem,
             )

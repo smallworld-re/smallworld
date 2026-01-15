@@ -612,7 +612,10 @@ class UnicornEmulator(
 
         if pc not in self.function_hooks and self.memory_map.contains_value(pc):
             disas = self.current_instruction()
-            logger.debug(f"single step at 0x{disas.address:x}: {disas}")
+            if disas is None:
+                logger.debug(f"single step at 0x{pc:x}: UNDECODABLE")
+            else:
+                logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
             self.engine.emu_start(pc, 0x0)

@@ -1,3 +1,4 @@
+import enum
 import typing
 from dataclasses import dataclass
 
@@ -88,19 +89,46 @@ class Halt:
 
 
 @dataclass(frozen=True)
+class HaltNoHalt(Halt):
+    """Program would not actually halt here.
+
+    Attributes:
+        pc: Next program counter
+    """
+
+    pc: int
+
+
+@dataclass(frozen=True)
 class HaltUnconstrained(Halt):
+    """Program halted because of an unconstrained program counter
+
+    Attributes:
+        kind: String describing the kind of jump involved
+        expr: Description of the program counter expression
+    """
+
     kind: str
     expr: Expression
 
 
 @dataclass(frozen=True)
 class HaltDeadended(Halt):
+    """Program halted because it left program bounds
+
+    Attributes:
+        kind: String describing the reason the program likely halted
+        pc: Next program counter
+    """
+
     kind: str
     pc: int
 
 
 @dataclass(frozen=True)
 class HaltDiverged(Halt):
+    """Program halted because of an unconstrained branch"""
+
     halt1: Halt
     halt2: Halt
     guard1: Expression
@@ -112,21 +140,61 @@ class HaltDiverged(Halt):
 # ***********************************************
 @dataclass(frozen=True)
 class IllegalInstr:
+    """Root class for illegal instructions descriptions.
+
+    See its subclasses for the possible results.
+    """
+
     pass
 
 
 @dataclass(frozen=True)
 class IllegalInstrNoDecode(IllegalInstr):
+    """Description of an invalid instruction.
+
+    angr was unable to disassemble this instruction.
+    This is either gibberish injected purposefully
+    to cause an illtrap, or you tried to execute data.
+
+    This is an inaccurate result, since the various
+    diassemblers used by angr don't always cover
+    the entire ISA.
+
+    Attributes:
+        mem: String representing 16 bytes of memory at the instruction pointer.
+    """
+
     mem: str
 
 
 @dataclass(frozen=True)
 class IllegalInstrConfirmed(IllegalInstr):
+    """Description of a valid but illegal instruction.
+
+    angr disassembled it successfully,
+    but the lifter couldn't model it.
+
+    This is an inaccurate result,
+    since the Vex lifter only supports subsets of each ISA
+    relevant to user-space code,
+    and may not support more exotic extensions.
+    """
+
     instr: str
 
 
 @dataclass(frozen=True)
 class IllegalInstrUnconfirmed(IllegalInstr):
+    """Description of a valid and legal instruction.
+
+    angr disassembled and lifted this instruction without issue;
+    it's not obviously illegal.
+
+    This is an inaccurate result,
+    since the Vex lifter isn't always consistent about how
+    it models faulting instructions.
+    """
+
     instr: str
 
 
@@ -139,8 +207,10 @@ class IllegalInstrUnconfirmed(IllegalInstr):
 class DiagnosisEarly:
     """Diagnosis pass terminated early
 
+    See subclasses for specific diagnoses.
+
     Attributes:
-        index: Index into the trace where the disruption happened/
+        index: Index into the trace where the disruption happened.
     """
 
     index: int
@@ -186,6 +256,11 @@ class DiagnosisEarlyIllegal(DiagnosisEarly):
 
 @dataclass(frozen=True)
 class DiagnosisOOB:
+    """Parent class for halt diagnoses.
+
+    See subclasses for specific diagnoses.
+    """
+
     pass
 
 
@@ -214,7 +289,7 @@ class DiagnosisOOBUnconfirmed(DiagnosisOOB):
 
 @dataclass(frozen=True)
 class DiagnosisIllegal:
-    """Diagnosis for an illegal instruction.
+    """Diagnosis for an illegal instruction fault
 
     Attributes:
         illegal: Description of the illegal instruction
@@ -232,8 +307,13 @@ class DiagnosisIllegal:
 class DiagnosisTrap:
     """Diagnosis for an unhandled trap.
 
-    Don't know how to get details;
-    just confirms that diagnosis was able to reach the same point.
+    angr is very user-space focused,
+    and really doesn't model fault conditions
+    beyond those already handled by
+    memory failures or illegal instructions.
+
+    This just indicates it reached the same state
+    as Unicorn did.
     """
 
     pass
@@ -246,9 +326,20 @@ class DiagnosisTrap:
 
 @dataclass(frozen=True)
 class DiagnosisMemory:
-    """Diagnosis for a memory error"""
+    """Diagnosis for a memory error
 
-    operands: typing.Dict[typing.Any, Expression]
+    Attributes:
+        is_hook: True if this is suspected to be a hook.
+        safe_operands: Operands I don't have anything against
+        unmapped_operands: Operands whose results map to an unmapped address
+        unconstrained_operands: Operands that depends on uninitialized data
+    """
+
+    is_hook: bool
+    safe_operands: typing.Dict[typing.Any, typing.Tuple[Expression, int]]
+    unmapped_operands: typing.Dict[typing.Any, typing.Tuple[Expression, int]]
+    unconstrained_operands: typing.Dict[typing.Any, Expression]
+    unsat_operands: typing.Dict[typing.Any, Expression]
 
 
 # *************
@@ -265,7 +356,9 @@ class TriageHint(hinting.Hint):
     """
 
     trace: typing.List[int]
-    pass
+
+    def to_json(self):
+        return dict()
 
 
 @dataclass(frozen=True)
@@ -329,6 +422,12 @@ class TriageTrap(TriageCrash):
     diagnosis: typing.Union[DiagnosisEarly, DiagnosisTrap]
 
 
+class MemoryAccess(enum.Enum):
+    READ = "read"
+    WRITE = "write"
+    FETCH = "fetch"
+
+
 @dataclass(frozen=True)
 class TriageMemory(TriageCrash):
     """Triage exited because of a memory error.
@@ -337,6 +436,7 @@ class TriageMemory(TriageCrash):
         diagnosis: Description of the diagnosis.
     """
 
+    access: MemoryAccess
     diagnosis: typing.Union[DiagnosisEarly, DiagnosisMemory]
 
 

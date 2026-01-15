@@ -105,7 +105,18 @@ class CrashTriagePrinter(analysis.Analysis):
         pass
 
     def print_diag_memory(self, pc: int, diagnosis: DiagnosisMemory) -> None:
-        pass
+        if diagnosis.is_hook:
+            log.warning("No operands recovered; did this error happen in a hook?")
+            return
+        for operand, (expr, value) in diagnosis.unmapped_operands.items():
+            log.warning(f"If operand {operand} is an address, it's unmapped: {value:x}")
+            self.print_expression(expr)
+        for operand, expr in diagnosis.unconstrained_operands.items():
+            log.warning(f"If operand {operand} is an address, it's unconstrained")
+            self.print_expression(expr)
+        for operand, epxr in diagnosis.unsat_operands.items():
+            log.warning(f"Operand {operand} is unsatisfiable; something's weird here")
+            self.print_expression(expr)
 
     def print_crash_illegal(self, hint: hinting.Hint) -> None:
         assert isinstance(hint, TriageIllegal)
@@ -152,7 +163,7 @@ class CrashTriagePrinter(analysis.Analysis):
     def print_crash_memory(self, hint: hinting.Hint) -> None:
         assert isinstance(hint, TriageMemory)
         pc = hint.trace[-1]
-        log.warning(f"Crash caused by a memory error at {pc:x}")
+        log.warning(f"Crash caused by a {hint.access.value} error at {pc:x}")
         if isinstance(hint.diagnosis, DiagnosisEarly):
             self.print_diag_early(pc, hint.trace, hint.diagnosis)
         elif isinstance(hint.diagnosis, DiagnosisMemory):
