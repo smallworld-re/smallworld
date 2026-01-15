@@ -2,13 +2,11 @@
 final: prev:
 let
   buildSystemOverrides = {
-    arpy.setuptools = [ ];
     bitarray.setuptools = [ ];
     cppheaderparser.setuptools = [ ];
     future.setuptools = [ ];
     markupsafe.setuptools = [ ];
     mulpyplexer.setuptools = [ ];
-    pyxbe.setuptools = [ ];
     pypcode.setuptools = [ ];
     pyyaml.setuptools = [ ];
     timeout-decorator.setuptools = [ ];
