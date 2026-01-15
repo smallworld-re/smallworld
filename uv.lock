@@ -1602,15 +1602,14 @@ wheels = [
 
 [[package]]
 name = "pypcode"
-version = "3.3.3"
+version = "3.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f9/4c/7a57f97f569c24607a0490d9bf5e69ad2a29915ece5cb7f0891d4d6847d5/pypcode-3.3.3.tar.gz", hash = "sha256:378b8d3b1552c3251243b421114dd67ccb49660fe762c60fb19dede1279cf30c", size = 2159423, upload-time = "2025-10-13T21:34:36.64Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/47/0c/e23dc44159debbe36d5a9886d12b0173bd7e1154559b0ce21e82807f19dc/pypcode-3.0.0.tar.gz", hash = "sha256:544ad1e47508b4f2a90bb26865daa5fe45b9ce637a3655af3a7eddd7559fbdc6", size = 2067324, upload-time = "2024-06-12T01:53:17.478Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/92/3272987c85f92f6cd6b77b4b2b663c14bb0006aee04e8d55329d9dafdc09/pypcode-3.3.3-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:31be0e2524701546106f98a16faad85f85b89fcd98289ff41d9129f4280fe29d", size = 13805188, upload-time = "2025-10-13T21:33:56.879Z" },
-    { url = "https://files.pythonhosted.org/packages/fd/cb/3c3b182808ad1667cdd9d2dd2994f2c662b8cfa68d206bb5218684377414/pypcode-3.3.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a60bbe863456f42a97b5b33d10ccb97ae2f725542d1fd871b9293000619532af", size = 13756473, upload-time = "2025-10-13T21:33:59.122Z" },
-    { url = "https://files.pythonhosted.org/packages/ff/f6/235a8aeabed2bc8e74f4dd5d052c0548f7e2aabad47ad8916873e717c358/pypcode-3.3.3-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5241cd815a89229d6ccc26b3d525e38eb1b17df7f60c35f085428351ad199f8d", size = 13844193, upload-time = "2025-10-13T21:34:01.14Z" },
-    { url = "https://files.pythonhosted.org/packages/0c/16/2fd2e676d0de49c9c8afcdcde747019e96cc9a9c50810a93cee69ae1c79a/pypcode-3.3.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c2af24d1741aff3e57821c58c90ffafe2d66d540284f126b5e46cec4826060f0", size = 13878012, upload-time = "2025-10-13T21:34:03.221Z" },
-    { url = "https://files.pythonhosted.org/packages/c7/d9/b5deaab861c384f3b0702aab2c1a952921cf9ab4cbf7be5dab806bb476cd/pypcode-3.3.3-cp312-cp312-win_amd64.whl", hash = "sha256:1346b59345c361f2fe782db8bef7c7478c57261ff760567096507285f7ff22d0", size = 13628994, upload-time = "2025-10-13T21:34:05.571Z" },
+    { url = "https://files.pythonhosted.org/packages/1b/4b/2556d6bab3dcd8dc9081d1e5bebde0d5880df53d52650fbd2d4226dfce46/pypcode-3.0.0-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:687afef917cadd7cacd896eabc2da000b5ad14793bcbd6cdc4c61c70c400b355", size = 12800412, upload-time = "2024-06-12T01:53:06.75Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/79/75ffa4322a6216807c6eaae309a86e19ccab0b2db7778ff227400005aa24/pypcode-3.0.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:a687274841df0b3750503ecc2de3dc2b3d16a84c8376f86a8e9b0d630c507aa6", size = 12758780, upload-time = "2024-06-12T01:53:09.199Z" },
+    { url = "https://files.pythonhosted.org/packages/aa/9e/cfa314ae8249f4e63cb90230ee817705bdd4ade50b79d6d9370598232df6/pypcode-3.0.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ba64d78e3d791029a25bc15df09bd70954fb2289dd85a2909d6cdd7a70dbcf0b", size = 12887174, upload-time = "2024-06-12T01:53:12.845Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/53/e2d781e01c1dc8701143e1791a67f850a61cb5706069e26e16ec21f5a6dc/pypcode-3.0.0-cp312-cp312-win_amd64.whl", hash = "sha256:f0228d2874a75e69024e65ccdaa27760de9ed056a85aa08fb748ef8ea462ec13", size = 12627128, upload-time = "2024-06-12T01:53:15.247Z" },
 ]
 
 [[package]]
@@ -1886,13 +1885,13 @@ dev = [
 requires-dist = [
     { name = "angr", specifier = "==9.2.137" },
     { name = "black", extras = ["jupyter"], specifier = ">=25.11.0" },
-    { name = "capstone", specifier = ">=5.0.3" },
-    { name = "jsons", specifier = ">=1.6.3" },
-    { name = "lief", specifier = ">=0.17.2" },
+    { name = "capstone", specifier = "==5.0.3" },
+    { name = "jsons", specifier = "==1.6.3" },
+    { name = "lief", specifier = "==0.17.2" },
     { name = "pyghidra", specifier = ">=3.0.0" },
-    { name = "pypcode", specifier = ">=3.0" },
+    { name = "pypcode", specifier = "==3.0" },
     { name = "setuptools", specifier = ">=80.9.0" },
-    { name = "unicorn", specifier = ">=2.0.1.post1" },
+    { name = "unicorn", specifier = "==2.0.1.post1" },
 ]
 
 [package.metadata.requires-dev]
