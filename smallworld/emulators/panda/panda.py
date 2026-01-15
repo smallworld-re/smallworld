@@ -66,7 +66,7 @@ class PandaEmulator(
         # be careful in callbacks
         # If we want to support repeated panda instances we need to make this a subprocess, not thread
 
-        def __init__(self, manager, thread_state):
+        def __init__(self, manager, thread_state, arg_overrides : typing.Dict[str, str] = {}):
             super().__init__(daemon=True)
             self.manager = manager
             self.platdef = platforms.PlatformDef.for_platform(self.manager.platform)
@@ -74,6 +74,7 @@ class PandaEmulator(
             self.state = thread_state
             self.panda = None
             self.hook_return = None
+            self.arg_overrides = arg_overrides
 
         # Functions to update state, this prob should be changed
         def setup_state(self, cpu):
@@ -86,28 +87,52 @@ class PandaEmulator(
         def get_panda_args_from_machdef(self):
             panda_args = []
 
-            if hasattr(self.machdef, "machine"):
+            if 'machine' in self.arg_overrides:
+                panda_args.extend(["-M", self.arg_overrides['machine']])
+            elif hasattr(self.machdef, "machine"):
                 panda_args.extend(["-M", self.machdef.machine])
             else:
                 panda_args.extend(["-M", "configurable"])
 
-            if hasattr(self.machdef, "cpu"):  # != "":
+            if 'cpu' in self.arg_overrides:
+                panda_args.extend(["-cpu", self.arg_overrides['cpu']])
+            elif hasattr(self.machdef, "cpu"):  # != "":
                 panda_args.extend(["-cpu", self.machdef.cpu])
 
-            panda_args.extend(["-nographic"])
+            if self.arg_overrides.get('nographic', True):
+                panda_args.extend(["-nographic"])
+
             # At some point we can send something in that only supports singlestep?
-            # panda_args.extend(["singlestep"])
+            if self.arg_overrides.get('singlestep', False):
+                panda_args.extend(['-singlestep'])
+
+            debug_log_file = self.arg_overrides.get('debug_log_file', None)
+            debug_log_flags = [
+                'in_asm',
+                'int',
+                'cpu',
+                'op',
+                'exec',
+                'nochain',
+                'op_plugin',
+            ]
+
+            if 'debug_log_flags' in self.arg_overrides:
+                # Supplying debug_log_flags without debug_log_name gets default
+                if debug_log_file is None:
+                    debug_log_file = f"./smallworld-panda-{self.machdef.panda_arch}-debug.log"
+                debug_log_flags = self.arg_overrides['debug_log_flags']
+
+            if debug_log_file is not None:
+                panda_args += [
+                    '-d', ','.join(debug_log_flags),
+                    '-D', debug_log_file,
+                ]
+
             return panda_args
 
         def run(self):
             panda_args = self.get_panda_args_from_machdef()
-            if os.environ.get("SMALLWORLD_PANDA_DEBUG", "no").lower().startswith("y"):
-                panda_args += [
-                    "-d",
-                    "in_asm,int,cpu,op,exec,nochain,op_plugin",
-                    "-D",
-                    f"./smallworld-panda-{self.machdef.panda_arch}-debug.log",
-                ]
 
             self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
@@ -334,7 +359,7 @@ class PandaEmulator(
                 # Clear the event for the next iteration
                 self.manager.run_panda = False
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(self, platform: platforms.Platform, arg_overrides : typing.Dict[str, str] = {}):
         super().__init__(platform=platform)
 
         self.PAGE_SIZE = 0x1000
@@ -353,7 +378,7 @@ class PandaEmulator(
         self.cpu = None
         self.pc: int = 0
 
-        self.panda_thread = self.PandaThread(self, self.ThreadState.SETUP)
+        self.panda_thread = self.PandaThread(self, self.ThreadState.SETUP, arg_overrides=arg_overrides)
         self.panda_thread.start()
 
         self.disassembler = capstone.Cs(
