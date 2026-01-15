@@ -87,5 +87,4 @@ code.update_symbol_value("puts", puts._address)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-for step in machine.step(emulator):
-    print(f"{step.get_cpu().rip}")
+machine.emulate(emulator)

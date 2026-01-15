@@ -21,27 +21,49 @@ class Architecture(enum.Enum):
     """64-bit x86 supporting AVX512 extensions."""
 
     AARCH64 = "aarch64"
+    """arm64 v8a or later"""
 
     MIPS32 = "mips32"
+    """MIPS32 rel 2"""
 
     MIPS64 = "mips64"
+    """MIPS32 rel 2"""
+
+    POWERPC32 = "powerpc32"
+    """32-bit PowerPC"""
 
     POWERPC64 = "powerpc64"
-    POWERPC32 = "powerpc32"
+    """64-bit PowerPC"""
 
     ARM_V5T = "arm-v5t"
+    """arm32 v5t"""
+
     ARM_V6M = "arm-v6m"
+    """arm32 v6m, ARM isa"""
+
     ARM_V6M_THUMB = "arm-v6m-thumb"
+    """arm32 v6m, THUMB isa"""
+
     ARM_V7M = "arm-v7m"
+    """arm32 v7m"""
+
     ARM_V7R = "arm-v7r"
+    """arm32 v7r"""
+
     ARM_V7A = "arm-v7a"
+    """arm32 v7a"""
 
     LOONGARCH32 = "loongarch32"
+    """32-bit LoongArch"""
+
     LOONGARCH64 = "loongarch64"
+    """64-bit LoongArch"""
 
     RISCV64 = "riscv-64"
+    """64-bit RiscV"""
 
     XTENSA = "xtensa"
+    """Xtensa"""
 
 
 class Byteorder(enum.Enum):

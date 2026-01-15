@@ -286,6 +286,29 @@ class PEExecutable(Executable):
                 else:
                     self._imports_by_name[(d.name, e.name)] = imp
 
+    def get_export(self, dll: str, hint: typing.Union[str, int, PEExport]) -> int:
+        # No platform specified
+        if self.platform is None or self.platdef is None:
+            raise ConfigurationError("No platform specified; can't fetch exports")
+
+        if isinstance(hint, str):
+            # Look up by name
+            if (dll, hint) not in self._exports_by_name:
+                raise ConfigurationError(
+                    f"No export for {dll}.{hint}.  Try by ordinal?"
+                )
+            exp = self._exports_by_name[(dll, hint)]
+        elif isinstance(hint, int):
+            if (dll, hint) not in self._exports_by_ordinal:
+                raise ConfigurationError(f"No export for {dll}.#{hint}.  Try by name?")
+            exp = self._exports_by_ordinal[(dll, hint)]
+        elif isinstance(hint, PEExport):
+            exp = hint
+        else:
+            raise TypeError(f"Unexpected hint {hint} of type {type(hint)}")
+
+        return exp.value
+
     def update_import(
         self, dll: str, hint: typing.Union[str, int, PEImport], value: int
     ) -> None:

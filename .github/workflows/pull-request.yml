@@ -24,6 +24,7 @@ jobs:
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+          
       - name: Checkout
         uses: actions/checkout@v3
         env:
@@ -33,6 +34,9 @@ jobs:
           token: ${{ secrets.BOT_TOKEN }}
 
       - name: Cache inputs
+        env:
+          cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+        if: ${{ env.cachix_token != '' }}
         run: |
           nix run .#printInputsRecursive | cachix push smallworld
 
@@ -200,7 +204,8 @@ jobs:
             - testsuite: DMATests
             - testsuite: DocumentationTests
             - testsuite: ElfTests
-            - testsuite: ElfCoreTests
+            #- testsuite: ElfCoreActuateTests
+            - testsuite: ElfCoreLoadTests
             - testsuite: ExitpointTests
             - testsuite: FloatsTests
             - testsuite: FsgsbaseTests

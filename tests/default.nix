@@ -20,9 +20,6 @@ stdenv.mkDerivation {
     xtensaGcc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
-    # pkgsCross.ppc64.glibc
-    # pkgsCross.mips64-linux-gnuabi64.glibc
-    # pkgsCross.mips64el-linux-gnuabi64.glibc
   ];
   env = {
     ZIG_GLOBAL_CACHE_DIR = "tmp/zig-cache";
@@ -39,6 +36,7 @@ stdenv.mkDerivation {
   installPhase = ''
     mkdir -p $out
     cd ..
+    rm -rf tmp
     find . '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     cp -r test_binaries.tar $out
   '';
