@@ -11,7 +11,7 @@ authors = [
 ]
 urls = { Homepage = "https://github.com/smallworld-re/smallworld", Issues = "https://github.com/smallworld-re/smallworld/issues" }
 dependencies = [
-    "angr>=9.2.137",
+    "angr==9.2.137",
     "black[jupyter]>=25.11.0",
     "capstone>=5.0.3",
     "jsons>=1.6.3",
@@ -40,9 +40,6 @@ dev = [
     "sphinxcontrib-programoutput>=0.17",
     "timeout-decorator>=0.5.0",
 ]
-
-[tool.uv.extra-build-dependencies]
-"arpy-1.1.1" = ["setuptools"]
 
 [tool.setuptools]
 include-package-data = true
