@@ -397,19 +397,19 @@ class PandaEmulator(
     def read_register_content(self, name: str) -> int:
         # If we are reading a "pc" reg, refer to the manager's notion of PC
         # QEMU thinks in blocks, so the register contained in self.cpu will be inaccurate.
-        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc", self.panda_thread.panda, self.cpu):
             return self.pc
 
-        if not self.panda_thread.machdef.check_panda_reg(name):
+        if not self.panda_thread.machdef.check_panda_reg(name, self.panda_thread.panda, self.cpu):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
-        name = self.panda_thread.machdef.panda_reg(name)
+        panda_reg_name = self.panda_thread.machdef.panda_reg(name, self.panda_thread.panda, self.cpu)
 
         try:
-            return self.panda_thread.panda.arch.get_reg(self.cpu, name)
+            return self.panda_thread.panda.arch.get_reg(self.cpu, panda_reg_name)
         except:
-            raise exceptions.AnalysisError(f"Failed reading {name} (id: {name})")
+            raise exceptions.AnalysisError(f"Failed reading {panda_reg_name} (id: {name})")
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -423,24 +423,24 @@ class PandaEmulator(
                 "This emulator cannot handle bitvector expressions"
             )
 
-        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc", self.panda_thread.panda, self.cpu):
             # This is my internal pc
             self.pc = content
             self.panda_thread.panda.arch.set_pc(self.cpu, content)
             return
 
-        if not self.panda_thread.machdef.check_panda_reg(name):
+        if not self.panda_thread.machdef.check_panda_reg(name, self.panda_thread.panda, self.cpu):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
 
-        name = self.panda_thread.machdef.panda_reg(name)
+        panda_reg_name = self.panda_thread.machdef.panda_reg(name, self.panda_thread.panda, self.cpu)
         try:
-            self.panda_thread.panda.arch.set_reg(self.cpu, name, content)
+            self.panda_thread.panda.arch.set_reg(self.cpu, panda_reg_name, content)
         except:
-            raise exceptions.AnalysisError(f"Failed writing {name} (id: {name})")
+            raise exceptions.AnalysisError(f"Failed writing {panda_reg_name} (id: {name})")
 
-        logger.debug(f"set register {name}={content}")
+        logger.debug(f"set register {panda_reg_name} (id: {name}) = {content}")
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
