@@ -104,7 +104,7 @@ Now, lets look at an input the crashed our program. Using `xxd` we have the foll
 
 As you can see, the first four bytes `ff7f 0000` are an integer greater than 11. Then we have
 the bytes `0x62` (98), `0x61` (97), `0x64` (100), and `0x21` (33) which spells `bad!` in ascii.
-
+Note that this input matches what was required as discussed in the introduction of this tutorial.
 
 Next Steps
 ----------
