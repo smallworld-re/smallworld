@@ -13,11 +13,11 @@ urls = { Homepage = "https://github.com/smallworld-re/smallworld", Issues = "htt
 dependencies = [
     "angr==9.2.137",
     "black[jupyter]>=25.11.0",
-    "capstone==5.0.3",
-    "jsons==1.6.3",
-    "lief==0.17.2",
+    "capstone>=5.0.3",
+    "jsons>=1.6.3",
+    "lief>=0.17.2",
     "pyghidra>=3.0.0",
-    "pypcode==3.0",
+    "pypcode>=3.0",
     "setuptools>=80.9.0",
     "unicorn==2.0.1.post1",
 ]
