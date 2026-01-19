@@ -312,7 +312,7 @@ class UnicornEmulator(
         return (uc_const, parent, reg.size, offset, is_msr)
 
     def read_register_content(self, name: str) -> int:
-        (reg, _, _, _, is_msr) = self._register(name)
+        reg, _, _, _, is_msr = self._register(name)
         if reg == 0:
             raise exceptions.UnsupportedRegisterError(
                 "Unicorn does not support register {name} for {self.platform}"
@@ -326,7 +326,7 @@ class UnicornEmulator(
             raise exceptions.AnalysisError(f"Failed reading {name} (id: {reg})") from e
 
     def read_register_label(self, name: str) -> typing.Optional[str]:
-        (_, base_reg, size, offset, _) = self._register(name)
+        _, base_reg, size, offset, _ = self._register(name)
         if base_reg in self.label:
             # we'll return a string repr of set of labels on all byte offsets
             # for this register
@@ -357,7 +357,7 @@ class UnicornEmulator(
         if name == "pc":
             content = self._handle_thumb_interwork(content)
 
-        (reg, base_reg, size, start_offset, is_msr) = self._register(name)
+        reg, base_reg, size, start_offset, is_msr = self._register(name)
         try:
             if is_msr:
                 self.engine.msr_write(reg, content)
@@ -377,7 +377,7 @@ class UnicornEmulator(
     ) -> None:
         if label is None:
             return
-        (_, base_reg, size, offset, _) = self._register(name)
+        _, base_reg, size, offset, _ = self._register(name)
         if base_reg not in self.label:
             self.label[base_reg] = {}
         for i in range(offset, offset + size):
@@ -437,11 +437,11 @@ class UnicornEmulator(
         return list(self.memory_map.ranges)
 
     def _is_address_mapped(self, address):
-        (ind, found) = self.memory_map.find_closest_range(address)
+        ind, found = self.memory_map.find_closest_range(address)
         return found
 
     def _is_address_range_mapped(self, address_range):
-        (a, b) = address_range
+        a, b = address_range
         for address in range(a, b):
             if self._is_address_mapped(address) is False:
                 return False
@@ -524,7 +524,7 @@ class UnicornEmulator(
     def _check(self) -> None:
         # check if it's ok to begin emulating
         # 1. pc must be set in order to emulate
-        (_, base_name, size, offset, _) = self._register("pc")
+        _, base_name, size, offset, _ = self._register("pc")
         if (
             base_name in self.initialized_registers
             and len(self.initialized_registers[base_name]) == size

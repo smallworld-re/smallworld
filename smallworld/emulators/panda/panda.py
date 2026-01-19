@@ -606,7 +606,7 @@ class PandaEmulator(
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, pc, 1)
+        instr, disas = self.disassemble(code, pc, 1)
 
         logger.info(f"block step at 0x{pc:x}: {disas}")
 
@@ -632,7 +632,7 @@ class PandaEmulator(
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, pc, 1)
+        instr, disas = self.disassemble(code, pc, 1)
 
         logger.info(f"single step at 0x{pc:x}: {disas}")
 
