@@ -61,7 +61,7 @@ def check_pcs(pcs1, pcs2, label1, label2):
         print(f"{label2:12} pcs: {[hex(pc) for pc in pcs2]}")
         ml = max(len(pcs1), len(pcs2))
         for i in range(ml):
-            (pc1, pc2) = (None, None)
+            pc1, pc2 = (None, None)
             if i < len(pcs1):
                 pc1 = pcs1[i]
             if i < len(pcs2):
