@@ -168,7 +168,8 @@ Here is the output for inputs of 1 through 6.
     :cwd: ./
 
 The output might begin to ring bells.
-If not, you can try googling the sequence for 6: ``6, 3, 10, 5, 16, 8, 4, 2, 1` .
+If not, you can try googling the sequence for 6, which is
+``6, 3, 10, 5, 16, 8, 4, 2, 1`` .
 This is the *hailstone* sequence, which seems always to end in 1 but this has
 never been proved (this is known to math people as the Collatz conjecture).
 See the `Wikipedia page on the Collatz conjecture <https://en.wikipedia.org/wiki/Collatz_conjecture>`_ for more info.
