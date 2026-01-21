@@ -103,6 +103,7 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
+            logger.debug(f"In code callback for instruction at 0x{address:x}")
             # Check if we're out of bounds
             if not self._bounds.is_empty() and not self._bounds.contains_value(address):
                 self.state = EmulatorState.EXIT
@@ -147,12 +148,12 @@ class UnicornEmulator(
                 self.all_instructions_hook(self)
 
             if cb := self.is_instruction_hooked(address):
-                logger.debug(f"hit hooking address for instruction at {address:x}")
+                logger.debug(f"hit hooking address for instruction at 0x{address:x}")
                 cb(self)
             # check function hooks *before* bounds since these might be out-of-bounds
             if cb := self.is_function_hooked(address):
                 logger.debug(
-                    f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}"
+                    f"hit hooking address for function at 0x{address:x} -- {self.function_hooks[address]}"
                 )
                 # note that hooking a function means that we stop at function
                 # entry and, after running the hook, we do not let the function
@@ -615,7 +616,6 @@ class UnicornEmulator(
 
         try:
             self.engine.emu_start(pc, 0x0)
-
         except unicorn.UcError as e:
             if (
                 e.errno == unicorn.UC_ERR_FETCH_UNMAPPED
