@@ -608,6 +608,8 @@ class RangeCollection(Iterable):
         Returns:
             True iff there is a range in the collection which contains `value`
         """
+        if not isinstance(value, int):
+            raise Exception(f"Value is not an int: {type(value)}")
         arange = (value, value + 1)
 
         # Only need to test left bisect

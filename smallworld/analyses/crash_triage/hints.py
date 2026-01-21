@@ -2,6 +2,8 @@ import enum
 import typing
 from dataclasses import dataclass
 
+import claripy
+
 from ... import hinting
 
 # Crash triage results have two major pieces,
@@ -65,16 +67,27 @@ from ... import hinting
 # 3. Uninitialized Pointer:
 #   a.
 
+# ************************************
+# *** Enum: Types of memory access ***
+# ************************************
+
+
+class MemoryAccess(enum.Enum):
+    READ = "read"
+    WRITE = "write"
+    FETCH = "fetch"
+
 
 # ****************************************************
 # *** Helper: Describe an unconstrained expression ***
 # ****************************************************
 @dataclass
 class Expression:
-    expr: str
+    expr: claripy.ast.bv.BV
     usr_labels: typing.Set[str]
     init_reg_labels: typing.Set[str]
     init_mem_labels: typing.Set[str]
+    init_mem_ref: typing.Optional[typing.Tuple[int, int]]
     unk_reg_labels: typing.Set[str]
     unk_mem_labels: typing.Set[str]
     unk_unk_labels: typing.Set[str]
@@ -108,7 +121,7 @@ class HaltUnconstrained(Halt):
         expr: Description of the program counter expression
     """
 
-    kind: str
+    target: str
     expr: Expression
 
 
@@ -122,7 +135,9 @@ class HaltDeadended(Halt):
     """
 
     kind: str
+    target: str
     pc: int
+    expr: Expression
 
 
 @dataclass(frozen=True)
@@ -254,6 +269,14 @@ class DiagnosisEarlyIllegal(DiagnosisEarly):
     """
 
     illegal: IllegalInstr
+
+
+@dataclass(frozen=True)
+class DiagnosisEarlyMemory(DiagnosisEarly):
+    """Diagnosis pass terminated early due to dereferencing an unconstrained address"""
+
+    access: MemoryAccess
+    address: Expression
 
 
 # ***********************************
@@ -429,12 +452,6 @@ class TriageTrap(TriageCrash):
     diagnosis: typing.Union[DiagnosisEarly, DiagnosisTrap]
 
 
-class MemoryAccess(enum.Enum):
-    READ = "read"
-    WRITE = "write"
-    FETCH = "fetch"
-
-
 @dataclass(frozen=True)
 class TriageMemory(TriageCrash):
     """Triage exited because of a memory error.
@@ -453,6 +470,7 @@ __all__ = [
     "DiagnosisEarlyDiverge",
     "DiagnosisEarlyHalt",
     "DiagnosisEarlyIllegal",
+    "DiagnosisEarlyMemory",
     "DiagnosisIllegal",
     "DiagnosisMemory",
     "DiagnosisOOB",

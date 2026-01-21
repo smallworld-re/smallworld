@@ -41,20 +41,24 @@ class CrashTriageVerification(analysis.Analysis):
     def __init__(
         self,
         *args,
+        max_steps: int = -1,
         hint_type: typing.Optional[typing.Type[TriageHint]] = None,
         hint_attrs: typing.Optional[typing.Dict[str, typing.Any]] = None,
         diagnosis_type: typing.Optional[typing.Type[Diagnosis]] = None,
         halt_type: typing.Optional[typing.Type[Halt]] = None,
         halt_kind: typing.Optional[str] = None,
+        halt_target: typing.Optional[str] = None,
         illegal_type: typing.Optional[typing.Type[IllegalInstr]] = None,
         mem_access: typing.Optional[MemoryAccess] = None,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
+        self.max_steps = max_steps
         self.hint_type = hint_type
         self.diagnosis_type = diagnosis_type
         self.halt_type = halt_type
         self.halt_kind = halt_kind
+        self.halt_target = halt_target
         self.illegal_type = illegal_type
         self.mem_access = mem_access
 
@@ -87,9 +91,8 @@ class CrashTriageVerification(analysis.Analysis):
                 raise exceptions.AnalysisError(
                     f"Expected halt {self.halt_type}, got {type(hint.diagnosis.halt)}"
                 )
-            elif self.halt_kind is not None and not hasattr(
-                hint.diagnosis.halt, "kind"
-            ):
+
+            if self.halt_kind is not None and not hasattr(hint.diagnosis.halt, "kind"):
                 raise exceptions.AnalysisError(
                     f"Expected halt to have kind {self.halt_kind}; {type(hint.diagnosis.halt)} has no kind"
                 )
@@ -102,9 +105,29 @@ class CrashTriageVerification(analysis.Analysis):
                     f"Expected halt to have kind {self.halt_kind}, got {hint.diagnosis.halt.kind}"
                 )
 
+            if self.halt_target is not None and not hasattr(
+                hint.diagnosis.halt, "target"
+            ):
+                raise exceptions.AnalysisError(
+                    f"Expected halt to have target {self.halt_target}; {type(hint.diagnosis.halt)} has no target"
+                )
+            elif (
+                self.halt_target is not None
+                and hasattr(hint.diagnosis.halt, "target")
+                and hint.diagnosis.halt.target != self.halt_target
+            ):
+                raise exceptions.AnalysisError(
+                    f"Expected halt to have target {self.halt_target}, got {hint.diagnosis.halt.target}"
+                )
+
         elif self.halt_kind is not None:
             raise exceptions.AnalysisError(
                 f"Specified halt kind {self.halt_kind}, but no halt expected"
+            )
+
+        elif self.halt_target is not None:
+            raise exceptions.AnalysisError(
+                f"Specified halt target {self.halt_target}. but no halt expected"
             )
 
         if self.illegal_type is not None:
@@ -141,7 +164,7 @@ class CrashTriageVerification(analysis.Analysis):
         self.hinter.register(TriageTooLong, self._handle_hint)
         self.hinter.register(TriageTrap, self._handle_hint)
 
-        CrashTriage(self.hinter).run(machine)
+        CrashTriage(self.hinter, max_steps=self.max_steps).run(machine)
 
 
 __all__ = ["CrashTriageVerification"]

@@ -3,18 +3,18 @@
 /*********************************************
  *** Functions for legit function pointers ***
  *********************************************/
-void foo(void) {
-    __builtin_trap();
+int foo(void) {
+    return *(int *)(size_t)(0xdea0l);
 }
 
-void bar(void) {
-    __builtin_trap();
+int bar(void) {
+    return *(int *)(size_t)(0xdea0l);
 }
 
-void baz(void) {
-    __builtin_trap();
+int baz(void) {
+    return *(int *)(size_t)(0xdea0l);
 }
-void (*callees[])(void) = {
+int (*callees[])(void) = {
     foo,
     bar,
     baz
@@ -103,7 +103,7 @@ void oob_deadend_mmap(void) {
 
     // Yes, for now this is the same as the bounds version;
     // the difference will have to be in the harness.
-    void (*foobar)(void) = (void *)(size_t)0xdead0000l;
+    void (*foobar)(void) = (void *)(size_t)0xdead000l;
     foobar();
 }
 
@@ -171,6 +171,25 @@ void mem_write_unconstrained(int *x) {
     *x = 42; 
 }
 
+/***********************************
+ *** Specific Exciting Behaviors ***
+ ***********************************/
+
+int qux(int x) {
+    return (x * 3 - 7) & 0xff;
+}
+
+int (*initialized_global)(int) = qux;
+
+void example_initialized_global(void) {
+    initialized_global(42);
+}
+
+void (*uninitialized_global)(void) = NULL;
+
+void example_uninitialized_global(void ) {
+    uninitialized_global();
+}
 
 int main() {
     return 0;

@@ -8,6 +8,7 @@ from .hints import (
     DiagnosisEarlyDiverge,
     DiagnosisEarlyHalt,
     DiagnosisEarlyIllegal,
+    DiagnosisEarlyMemory,
     DiagnosisIllegal,
     DiagnosisMemory,
     DiagnosisOOB,
@@ -47,6 +48,10 @@ class CrashTriagePrinter(analysis.Analysis):
             log.warning(f"Depends on initialized registers: {expr.init_reg_labels}")
         if expr.init_mem_labels:
             log.warning(f"Depends on initialized memory: {expr.init_mem_labels}")
+        if expr.init_mem_ref:
+            log.warning(
+                f"Is a dereference of {expr.init_mem_ref[0]:x} - {expr.init_mem_ref[1]:x}"
+            )
         if expr.unk_reg_labels:
             log.warning(f"Depends on uninitialized registers: {expr.unk_reg_labels}")
         if expr.unk_mem_labels:
@@ -69,10 +74,13 @@ class CrashTriagePrinter(analysis.Analysis):
 
     def print_halt(self, pc: int, halt: Halt) -> None:
         if isinstance(halt, HaltUnconstrained):
-            log.warning(f"Halted due to unbounded {halt.kind}")
+            log.warning(f"Halted due to unbounded {halt.target}")
             self.print_expression(halt.expr)
         elif isinstance(halt, HaltDeadended):
-            log.warning(f"Halted due to {halt.kind} at {halt.pc:x}")
+            log.warning(
+                f"Halted due to {halt.kind} because of a {halt.target} at {halt.pc:x}"
+            )
+            self.print_expression(halt.expr)
         elif isinstance(halt, HaltDiverged):
             log.warning(f"Halted due to diverging state after {pc:x}")
 
@@ -94,6 +102,11 @@ class CrashTriagePrinter(analysis.Analysis):
                 f"Triage encountered an illegal instruciton at step {diagnosis.index} ({trace[diagnosis.index]:x})"
             )
             self.print_illegal_instr(trace[diagnosis.index], diagnosis.illegal)
+        elif isinstance(diagnosis, DiagnosisEarlyMemory):
+            log.warning(
+                f"Triage encountered an unconstrained {diagnosis.access.value} at step {diagnosis.index} ({trace[diagnosis.index]:x})"
+            )
+            self.print_expression(diagnosis.address)
 
     def print_diag_oob(self, pc: int, diagnosis: DiagnosisOOB) -> None:
         if isinstance(diagnosis, DiagnosisOOBUnconfirmed):

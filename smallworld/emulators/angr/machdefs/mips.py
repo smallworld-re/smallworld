@@ -1,3 +1,6 @@
+import typing
+
+import angr
 import archinfo
 
 from ....platforms import Architecture, Byteorder
@@ -170,6 +173,24 @@ class MIPSMachineDef(AngrMachineDef):
     }
 
     supports_single_step = False
+
+    def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
+        if "extra_stop_points" in kwargs:
+            exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
+            del kwargs["extra_stop_points"]
+        else:
+            print("Default exit points")
+            exit_points = state.scratch.exit_points
+
+        try:
+            return super().successors(state, extra_stop_points=exit_points, **kwargs)
+        except angr.errors.SimIRSBNoDecodeError:
+            if "num_inst" in kwargs and kwargs["num_inst"] == 1:
+                # This could be a single step through a delay slot
+                kwargs["num_inst"] = 2
+                return super().successors(
+                    state, extra_stop_points=exit_points, **kwargs
+                )
 
 
 class MIPSELMachineDef(MIPSMachineDef):

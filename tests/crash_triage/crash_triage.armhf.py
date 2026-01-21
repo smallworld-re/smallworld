@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.ARM_V7A, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -45,11 +45,11 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 machine.add(stack)
 
 # Set an exit point
-stack.push_symbolic(8, "Return address")
+cpu.lr.set_label("Return Address")
 
 # Configure the stack pointer
-rsp = stack.get_pointer()
-cpu.rsp.set(rsp)
+sp = stack.get_pointer()
+cpu.sp.set(sp)
 
 # Set up analyses
 
@@ -93,12 +93,13 @@ def run_test(
     mem_access=None,
 ):
     log.info(f"Test: {symbol}")
-    cpu.rip.set(code.get_symbol_value(symbol))
+    cpu.pc.set(code.get_symbol_value(symbol))
 
     hinter = smallworld.hinting.Hinter()
     analyses: typing.List[smallworld.analyses.Analysis] = [
         smallworld.analyses.CrashTriageVerification(
             hinter,
+            max_steps=20,
             hint_type=hint_type,
             diagnosis_type=diagnosis_type,
             halt_type=halt_type,
@@ -172,7 +173,6 @@ good &= run_test(
     diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
     illegal_type=smallworld.analyses.crash_triage.IllegalInstrNoDecode,
 )
-# amd64 ud2 decodes in angr.
 good &= run_test(
     "illegal_decodable",
     hint_type=smallworld.analyses.crash_triage.TriageIllegal,

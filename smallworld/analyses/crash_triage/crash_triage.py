@@ -8,11 +8,13 @@ import angr
 
 from ... import emulators, exceptions, platforms, state
 from .. import analysis
+from .concretization import SimConcretizationStrategyFault, UnboundAddressError
 from .hints import (
     DiagnosisEarly,
     DiagnosisEarlyDiverge,
     DiagnosisEarlyHalt,
     DiagnosisEarlyIllegal,
+    DiagnosisEarlyMemory,
     DiagnosisIllegal,
     DiagnosisMemory,
     DiagnosisOOB,
@@ -49,8 +51,8 @@ class CrashCause(enum.Enum):
     ILLEGAL = 2
     TRAP = 3
     MEM_READ = 4
-    MEM_WRITE = 4
-    MEM_FETCH = 4
+    MEM_WRITE = 5
+    MEM_FETCH = 6
 
 
 @dataclasses.dataclass
@@ -146,7 +148,6 @@ class CrashTriage(analysis.Analysis):
                         # Do not make the PC register symbolic.  Badness ensues.
                         continue
                     if reg.get_label() is None:
-                        print(f"Renaming {reg.name}")
                         reg.set_label(reg.name)
                         self.reg_labels.add(reg.name)
                     else:
@@ -159,14 +160,19 @@ class CrashTriage(analysis.Analysis):
                     ):
                         # This is an executable segment.
                         # Labeling code reduces angr's performance to almost a second per step,
-                        # since it needs to use the solver to concretize the memory.
+                        # since it needs to use the solver to concretize up to an entire
+                        # page of memory.  z3 is fast, but it's not that fast.
                         #
                         # This will limit introspection into decisions based off of
                         # data in any R/X segments, but since it's read-only I'm not too worried.
+                        log.debug(
+                            f"Skipping segment [{x.address + off:x} - {x.address + off + val.get_size():x}]; it's code"
+                        )
                         continue
                     label = val.get_label()
                     if label is None:
                         label = f"memory_{x.address + off:x}"
+                        log.debug(f"Adding memory label {label}")
                         val.set_label(label)
                         self.mem_labels.add(label)
                     else:
@@ -249,10 +255,14 @@ class CrashTriage(analysis.Analysis):
         self, i: int, trace: typing.List[int], emu: emulators.AngrEmulator
     ) -> typing.Optional[DiagnosisEarlyDiverge]:
         epc = trace[i]
-        apc = emu.read_register("pc")
-        log.debug(f"Stepping through {apc:x}")
+        ip = emu.read_register_symbolic("pc")
+        apc = emu.state.solver.eval_one(ip)
+
+        log.debug(f"Stepping through {apc:x} ({ip})")
         if epc != apc:
-            log.debug(f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x}")
+            log.debug(
+                f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x} ({ip})"
+            )
             return DiagnosisEarlyDiverge(index=i, pc=apc)
         return None
 
@@ -260,10 +270,19 @@ class CrashTriage(analysis.Analysis):
         usr_labels: typing.Set[str] = set()
         reg_labels: typing.Set[str] = set()
         mem_labels: typing.Set[str] = set()
+        mem_ref: typing.Optional[typing.Tuple[int, int]] = None
         unk_labels: typing.Set[str] = set()
         unk_reg_labels = set()
         unk_mem_labels = set()
         unk_unk_labels = set()
+
+        # Check if this is a simple memory dereference
+        # This will get represented as one of the following:
+        #
+        # - LSB: Reverse(memory_XXXXXXXX[b:a])
+        # - MSB: memory_XXXXXXXX[b:a]
+        #
+        # where the referenced memory is [XXXXXXXX + a, XXXXXXXX + b)
 
         # Collect symbolic variable names
         for label in expr.variables:
@@ -277,7 +296,7 @@ class CrashTriage(analysis.Analysis):
                 unk_labels.add(label)
 
         # Covnvert memory labels into addresses
-        mem_labels = set(map(lambda x: x[4:], mem_labels))
+        mem_labels = set(map(lambda x: "0x" + x.split("_")[1], mem_labels))
 
         if unk_labels:
             # Decode angr's uninitialized state naming convention
@@ -295,22 +314,62 @@ class CrashTriage(analysis.Analysis):
                     unk_mem_labels.add(label_arr[1])
                 else:
                     unk_unk_labels.add(label)
+
+        if len(expr.variables) == 1:
+            addr: typing.Optional[int] = None
+            (label,) = expr.variables
+
+            if "_" in label:
+                addr_str = label.split("_")[1]
+                if addr_str in mem_labels or addr_str in unk_mem_labels:
+                    addr = int(addr_str, 16)
+
+            if addr is not None:
+                mem_expr = expr
+                if mem_expr.op == "Reverse":
+                    # This is reversed; it's little-endian
+                    mem_expr = expr.args[0]
+
+                start = 0
+                end = 0
+
+                if mem_expr.op == "BVS":
+                    start = addr
+                    end = addr + mem_expr.size() // 8
+
+                elif mem_expr.op == "Extract":
+                    # This is a slice of a larger chunk of memory
+                    # Args in this case are end, start, original
+                    #
+                    # The nasty is that the indexes
+                    # are relative to the LSB moving upward,
+                    # so if you extract the first 8 bytes from a 0x1000 byte segment
+                    # at 0x403000, you are referencing bits
+                    # 0x7fc0 to 0x7fff.
+                    b, a, mem_expr = mem_expr.args
+                    size = mem_expr.size() // 8
+                    start = addr + size - ((b + 1) // 8)
+                    end = addr + size - (a // 8)
+
+                if mem_expr.op == "BVS" and mem_expr.args[0] == label:
+                    # This is a simple slice of a single memory region
+                    mem_ref = (start, end)
+                    log.debug(f"{mem_ref}")
         return Expression(
-            expr=str(expr),
-            usr_labels=list(usr_labels),
-            init_reg_labels=list(reg_labels),
-            init_mem_labels=list(mem_labels),
-            unk_reg_labels=list(unk_reg_labels),
-            unk_mem_labels=list(unk_mem_labels),
-            unk_unk_labels=list(unk_unk_labels),
+            expr=expr,
+            usr_labels=usr_labels,
+            init_reg_labels=reg_labels,
+            init_mem_labels=mem_labels,
+            init_mem_ref=mem_ref,
+            unk_reg_labels=unk_reg_labels,
+            unk_mem_labels=unk_mem_labels,
+            unk_unk_labels=unk_unk_labels,
         )
 
-    def _diagnose_unconstrained(
+    def _get_target_type(
         self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
-    ) -> HaltUnconstrained:
-        target = state._ip
-
-        # Recover the Vex that got us here.
+    ) -> str:
+        # Recover the vex that got us here
         old_state = emu.state
         emu.state = state
         emu.write_register("pc", pc)
@@ -319,32 +378,45 @@ class CrashTriage(analysis.Analysis):
         # Vex only allows indirect jumps as default block exits.
         # We can look at the default jumpkind for this block
         # to tell us
-        kind: str
+
         if vex.jumpkind == "Ijk_Ret":
             log.debug("Caused by an unbounded return.")
-            kind = "return"
+            return "return"
         elif vex.jumpkind == "Ijk_Call":
             log.debug("Caused by an unbounded indirect function call.")
-            kind = "call"
+            return "call"
         elif vex.jumpkind in ("Ijk_Boring", "Ijk_Privileged", "Ijk_Yield"):
             log.debug("Caused by an unbounded indirect jump.")
-            kind = "jump"
+            return "jump"
         else:
             log.error(f"Unexpected cause: {vex.jumpkind}")
-            kind = "unknown"
+            return "unknown"
+
+    def _diagnose_unconstrained(
+        self, emu: emulators.AngrEmulator, state: angr.SimState, pc: int
+    ) -> HaltUnconstrained:
+        target = state._ip
+
+        target_str = self._get_target_type(emu, state, pc)
 
         log.debug(f"Jump target expression: {target}")
         expr = self._diagnose_expression(emu, target)
 
-        return HaltUnconstrained(kind=kind, expr=expr)
+        return HaltUnconstrained(target=target_str, expr=expr)
 
     def _diagnose_deadended(
-        self, emu: emulators.AngrEmulator, state: angr.SimState, real: bool = True
+        self,
+        emu: emulators.AngrEmulator,
+        state: angr.SimState,
+        pc: int,
+        real: bool = True,
     ):
-        ip = state._ip.concrete_value
+        expr = state._ip
+        ip = emu.state.solver.eval_one(expr)
         kind: str
+
         if not emu.state.scratch.memory_map.contains_value(ip):
-            log.debug(f"Execution entered unmapped memory at {ip:x}")
+            log.debug(f"Execution entered unmapped memory at {ip:x} ({expr})")
             kind = "unmapped"
         elif (
             not emu.state.scratch.bounds.is_empty()
@@ -361,7 +433,13 @@ class CrashTriage(analysis.Analysis):
         else:
             return HaltNoHalt(pc=ip)
 
-        return HaltDeadended(kind=kind, pc=ip)
+        # Determine the target type
+        target = self._get_target_type(emu, state, pc)
+
+        # Determine full target expression
+        expr = self._diagnose_expression(emu, expr)
+
+        return HaltDeadended(kind=kind, target=target, pc=ip, expr=expr)
 
     def _diagnose_stop(self, emu: emulators.AngrEmulator, pc: int) -> Halt:
         # Cases:
@@ -385,7 +463,7 @@ class CrashTriage(analysis.Analysis):
             # Single deadended state
             log.debug(f"Stopped due to execution limits after {pc:x}")
             (state,) = emu.mgr.deadended
-            return self._diagnose_deadended(emu, state)
+            return self._diagnose_deadended(emu, state, pc)
 
         elif len(emu.mgr.active) > 1:
             # Divergent state.
@@ -400,13 +478,13 @@ class CrashTriage(analysis.Analysis):
                 log.debug("State at {state1._ip} is unconstrained")
                 halt1 = self._diagnose_unconstrained(emu, state1, pc)
             else:
-                halt1 = self._diagnose_deadended(emu, state1, real=False)
+                halt1 = self._diagnose_deadended(emu, state1, pc, real=False)
 
             if state2._ip.symbolic:
                 log.debug("State at {state2._ip} is unconstrained")
                 halt2 = self._diagnose_unconstrained(emu, state2, pc)
             else:
-                halt2 = self._diagnose_deadended(emu, state2, real=False)
+                halt2 = self._diagnose_deadended(emu, state2, pc, real=False)
 
             log.debug(f"Guard for {state1._ip}: {state1.scratch.guard}")
             guard1 = self._diagnose_expression(emu, state1.scratch.guard)
@@ -570,7 +648,11 @@ class CrashTriage(analysis.Analysis):
 
     def _diagnose(self, machine: state.Machine, crash: CrashResults):
         # Set up an angr emulator
-        emu = emulators.AngrEmulator(machine.get_platform())
+        def angr_init(emu):
+            emu.state.memory.read_strategies = [SimConcretizationStrategyFault(True)]
+            emu.state.memory.write_strategies = [SimConcretizationStrategyFault(False)]
+
+        emu = emulators.AngrEmulator(machine.get_platform(), init=angr_init)
         emu.enable_linear()
         machine.apply(emu)
         emu.initialize()
@@ -587,6 +669,17 @@ class CrashTriage(analysis.Analysis):
 
             try:
                 emu.step()
+            except UnboundAddressError as e:
+                # Emulator tried to concretize an unbound address
+                address = self._diagnose_expression(emu, e.address)
+                access = MemoryAccess.READ if e.is_read else MemoryAccess.WRITE
+                diagnosis_early = DiagnosisEarlyMemory(
+                    index=i, access=access, address=address
+                )
+                hint = self._get_early_hint(crash, diagnosis_early)
+
+                self.hinter.send(hint)
+                return
             except exceptions.EmulationStop:
                 # Emulator stopped early.
                 log.debug(f"Unexpected stop after {crash.trace[i]:x}")
