@@ -147,12 +147,12 @@ class UnicornEmulator(
                 self.all_instructions_hook(self)
 
             if cb := self.is_instruction_hooked(address):
-                logger.debug(f"hit hooking address for instruction at {address:x}")
+                logger.debug(f"hit hooking address for instruction at 0x{address:x}")
                 cb(self)
             # check function hooks *before* bounds since these might be out-of-bounds
             if cb := self.is_function_hooked(address):
                 logger.debug(
-                    f"hit hooking address for function at {address:x} -- {self.function_hooks[address]}"
+                    f"hit hooking address for function at 0x{address:x} -- {self.function_hooks[address]}"
                 )
                 # note that hooking a function means that we stop at function
                 # entry and, after running the hook, we do not let the function
@@ -228,9 +228,26 @@ class UnicornEmulator(
                     value.to_bytes(size, self.platform.byteorder.value),
                 )
 
+        def mem_read_unmapped_callback(uc, type, address, size, value, user_data):
+            logger.debug(f"unmapped read of address 0x{address:x}")
+
+        def mem_write_unmapped_callback(uc, type, address, size, value, user_data):
+            logger.debug(f"unmapped write of address 0x{address:x}")
+
+        def mem_fetch_unmapped_callback(uc, type, address, size, value, user_data):
+            logger.debug(f"unmapped fetch of address 0x{address:x}")
+
         self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_HOOK_MEM_READ, mem_read_callback)
-
+        self.engine.hook_add(
+            unicorn.UC_HOOK_MEM_READ_UNMAPPED, mem_read_unmapped_callback
+        )
+        self.engine.hook_add(
+            unicorn.UC_HOOK_MEM_WRITE_UNMAPPED, mem_write_unmapped_callback
+        )
+        self.engine.hook_add(
+            unicorn.UC_HOOK_MEM_FETCH_UNMAPPED, mem_fetch_unmapped_callback
+        )
         # function to run on *every* interrupt
         self.interrupts_hook: typing.Optional[
             typing.Callable[[emulator.Emulator, int], None]
@@ -615,7 +632,6 @@ class UnicornEmulator(
 
         try:
             self.engine.emu_start(pc, 0x0)
-
         except unicorn.UcError as e:
             if (
                 e.errno == unicorn.UC_ERR_FETCH_UNMAPPED
