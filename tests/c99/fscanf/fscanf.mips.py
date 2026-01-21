@@ -157,7 +157,7 @@ machine.add_exit_point(exitpoint)
 cpu.ra.set(exitpoint)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
