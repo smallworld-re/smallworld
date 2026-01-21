@@ -103,7 +103,6 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
-            logger.debug(f"In code callback for instruction at 0x{address:x}")
             # Check if we're out of bounds
             if not self._bounds.is_empty() and not self._bounds.contains_value(address):
                 self.state = EmulatorState.EXIT
@@ -229,9 +228,21 @@ class UnicornEmulator(
                     value.to_bytes(size, self.platform.byteorder.value),
                 )
 
+
+        def mem_read_unmapped_callback(uc, type, address, size, value, user_data):
+            logger.debug(f"unmapped read of address 0x{address:x}")
+            
+        def mem_write_unmapped_callback(uc, type, address, size, value, user_data):
+            logger.debug(f"unmapped write of address 0x{address:x}")
+            
+        def mem_fetch_unmapped_callback(uc, type, address, size, value, user_data):
+            logger.debug(f"unmapped fetch of address 0x{address:x}")
+            
         self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_HOOK_MEM_READ, mem_read_callback)
-
+        self.engine.hook_add(unicorn.UC_HOOK_MEM_READ_UNMAPPED, mem_read_unmapped_callback)
+        self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE_UNMAPPED, mem_write_unmapped_callback)
+        self.engine.hook_add(unicorn.UC_HOOK_MEM_FETCH_UNMAPPED, mem_fetch_unmapped_callback)
         # function to run on *every* interrupt
         self.interrupts_hook: typing.Optional[
             typing.Callable[[emulator.Emulator, int], None]
