@@ -1,9 +1,9 @@
 import abc
-from ctypes import c_int32, c_uint32, c_int64, c_uint64
 import enum
 import logging
 import struct
 import typing
+from ctypes import c_int32, c_int64, c_uint32, c_uint64
 
 from smallworld import platforms, utils
 from smallworld.exceptions.exceptions import ConfigurationError
