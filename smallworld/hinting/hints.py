@@ -460,7 +460,8 @@ class CoverageFrontierHint(hinting.Hint):
     coverage_frontier: typing.List[int]
     edges: typing.List[typing.Tuple[int, typing.List[int]]]
     branches: typing.List[int]
-
+    num_traces: int
+    
 
 __all__ = [
     "DynamicRegisterValueHint",
