@@ -155,7 +155,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")

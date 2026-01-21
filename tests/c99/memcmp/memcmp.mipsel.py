@@ -108,7 +108,7 @@ machine.add(dead)
 code.update_symbol_value("exit", exit_model._address)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
