@@ -228,21 +228,26 @@ class UnicornEmulator(
                     value.to_bytes(size, self.platform.byteorder.value),
                 )
 
-
         def mem_read_unmapped_callback(uc, type, address, size, value, user_data):
             logger.debug(f"unmapped read of address 0x{address:x}")
-            
+
         def mem_write_unmapped_callback(uc, type, address, size, value, user_data):
             logger.debug(f"unmapped write of address 0x{address:x}")
-            
+
         def mem_fetch_unmapped_callback(uc, type, address, size, value, user_data):
             logger.debug(f"unmapped fetch of address 0x{address:x}")
-            
+
         self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE, mem_write_callback)
         self.engine.hook_add(unicorn.UC_HOOK_MEM_READ, mem_read_callback)
-        self.engine.hook_add(unicorn.UC_HOOK_MEM_READ_UNMAPPED, mem_read_unmapped_callback)
-        self.engine.hook_add(unicorn.UC_HOOK_MEM_WRITE_UNMAPPED, mem_write_unmapped_callback)
-        self.engine.hook_add(unicorn.UC_HOOK_MEM_FETCH_UNMAPPED, mem_fetch_unmapped_callback)
+        self.engine.hook_add(
+            unicorn.UC_HOOK_MEM_READ_UNMAPPED, mem_read_unmapped_callback
+        )
+        self.engine.hook_add(
+            unicorn.UC_HOOK_MEM_WRITE_UNMAPPED, mem_write_unmapped_callback
+        )
+        self.engine.hook_add(
+            unicorn.UC_HOOK_MEM_FETCH_UNMAPPED, mem_fetch_unmapped_callback
+        )
         # function to run on *every* interrupt
         self.interrupts_hook: typing.Optional[
             typing.Callable[[emulator.Emulator, int], None]
