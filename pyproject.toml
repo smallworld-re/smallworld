@@ -20,7 +20,7 @@ dependencies = [
     "pypcode>=3.0",
     "setuptools>=80.9.0",
     "unicorn>=2.0.1.post1",
-    # "cffi==1.14.0"
+    "pycparser>=2.18,<3.0"
 ]
 
 [build-system]
