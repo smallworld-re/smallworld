@@ -323,7 +323,6 @@
               fixedPanda
               virtualenv
               pkgs.ghidra
-              # TODO: We could include bnUltimate.${system} here if we want BN in the image
             ];
             pathsToLink = [ "/bin" "/etc" "/var" ];
           };
