@@ -227,7 +227,7 @@ class Colorizer(analysis.Analysis):
             raise AnalysisRunError(
                 "Unable to read next instruction out of emulator memory"
             )
-        (insns, disas) = emu._disassemble(code, pc, 2)
+        insns, disas = emu._disassemble(code, pc, 2)
         insn = insns[0]
         return insn
 
@@ -281,7 +281,7 @@ class Colorizer(analysis.Analysis):
             if len(rws) == 0:
                 return
             for rw in rws:
-                (operand, conc, color, sz) = rw
+                operand, conc, color, sz = rw
                 if color == BAD_COLOR:
                     pass
                 else:
@@ -383,7 +383,7 @@ class Colorizer(analysis.Analysis):
         insn: Instruction,
         insn_num: int,
     ):
-        (operand, conc, color, operand_size) = rw
+        operand, conc, color, operand_size = rw
         if color in self.colors.keys():
             # previously observed color
             if is_read:

@@ -18,7 +18,7 @@ if __name__ == "__main__":
     # Also, buflen bigger than min color 0x80 thus we *will* actually
     # get derivation for buflen back to esi (2nd arg to foo).
     #
-    (derivations, hints) = test(
+    derivations, hints = test(
         5,  # num micro executions
         100,  # max instructions per micro execution
         0x80 + 1,  # buffer length (not 47 here, which is magic)
@@ -1348,8 +1348,8 @@ if __name__ == "__main__":
     ]
 
     for i in range(6):
-        (cpc, cvals, cder) = correct_derivations[i]
-        (opc, ovals, oder) = derivations[i]
+        cpc, cvals, cder = correct_derivations[i]
+        opc, ovals, oder = derivations[i]
         expected(
             (cpc == opc) and (cvals == ovals) and (cder == oder),
             f"derivation for {cvals} @ {cpc:x} is correct: {cder}",
