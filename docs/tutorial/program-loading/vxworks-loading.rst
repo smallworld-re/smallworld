@@ -5,9 +5,29 @@ Loading a VXWorks image
 
 .. warning::
 
-    Loading VXWorks images requires a license to Binary Ninja Ultimate
+    Loading VXWorks images requires a license to Binary Ninja Ultimate. 
+    Because not all users may have this, by default it is disabled.
 
 In this tutorial, you will be guided through loading a VXWorks file.
+
+To enable Binary Ninja integration for VXWorks support, 
+first place the Binary Ninja Ultimate zip file in the project root of the SmallWorld repository,
+    as ``binaryninja_linux_stable_ultimate.zip``.
+    
+    In the flake.nix, ensure the following lines are uncommented to include Binary Ninja:
+.. code-block::
+
+    binaryninja = {
+      url = "github:jchv/nix-binary-ninja";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    
+    binjaZip = {
+      url = "path:./binaryninja_linux_stable_ultimate.zip";
+      flake = false;
+    };
+    
+Then, re-run the Nix flake build to include Binary Ninja Ultimate support.
 
 It is important to know VXWorks files can differ based on VXWorks version and 
 specific compiler options. For this example, we will use a VXWorks binary 
