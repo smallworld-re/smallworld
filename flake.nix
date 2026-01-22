@@ -30,14 +30,24 @@
     pandaPkgs = {
       url = "github:nixos/nixpkgs?rev=911ad1e67f458b6bcf0278fa85e33bb9924fed7e";
     };
-    
+
     panda = {
       url = "github:lluchs/panda/flake";
       inputs.nixpkgs.follows = "pandaPkgs";
     };
+
+    # binaryninja = {
+    #   url = "github:jchv/nix-binary-ninja";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
+    
+    # binjaZip = {
+    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #   flake = false;
+    # };
   };
 
-  outputs =
+  outputs = inputs@
     {
       nixpkgs,
       pyproject-nix,
@@ -49,13 +59,17 @@
     }:
     let
       inherit (nixpkgs) lib;
+      
+      binaryninja = inputs.binaryninja or null;
+      binjaZip    = inputs.binjaZip or null;
+      
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
 
       root = ./.;
       rootSet = nixpkgs.lib.fileset.gitTracked root;
       excludeSet = nixpkgs.lib.fileset.unions [./flake.nix ./flake.lock];
       fileset = nixpkgs.lib.fileset.difference rootSet excludeSet;
-      rootString =  builtins.unsafeDiscardStringContext (nixpkgs.lib.fileset.toSource { inherit fileset root; });
+      rootString = builtins.unsafeDiscardStringContext (nixpkgs.lib.fileset.toSource { inherit fileset root; });
       rootPath = /. + rootString;
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
       deps = workspace.deps.all // {
@@ -76,7 +90,7 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          python = pkgs.python312;
+          python = pkgs.python312; # binja ships with python 3.11
           overrides = pkgs.callPackage ./overrides.nix { inherit python; };
           hacks = pkgs.callPackage pyproject-nix.build.hacks {};
           additional = final: prev: {
@@ -121,12 +135,24 @@
       pandaWithLibs = forAllSystems (
         system:
         let
-          oldPanda = (panda.packages.${system}.pkgsWithConfig { targetList = ["x86_64-softmmu" "i386-softmmu" "arm-softmmu" "aarch64-softmmu" "ppc-softmmu" "mips-softmmu" "mipsel-softmmu" "mips64-softmmu" "mips64el-softmmu"]; }).panda;
+          oldPanda = (panda.packages.${system}.pkgsWithConfig {
+            targetList = [
+              "x86_64-softmmu"
+              "i386-softmmu"
+              "arm-softmmu"
+              "aarch64-softmmu"
+              "ppc-softmmu"
+              "mips-softmmu"
+              "mipsel-softmmu"
+              "mips64-softmmu"
+              "mips64el-softmmu"
+            ];
+          }).panda;
           pkgs = nixpkgs.legacyPackages.${system};
           pandaFixed = pkgs.stdenv.mkDerivation {
             name = oldPanda.name;
-            buildInputs = [oldPanda];
-            phases = ["installPhase"];
+            buildInputs = [ oldPanda ];
+            phases = [ "installPhase" ];
             installPhase = ''
               cp -R ${oldPanda} $out
               chmod -R +w $out
@@ -174,6 +200,15 @@
           cp -rt pandare "${pandaPkg}"/lib/panda/python/{include,autogen,plog_pb2.py}
         '';
       };
+
+      bnUltimate = forAllSystems (system:
+        if binaryninja != null && binjaZip != null then
+          let bnPkgs = binaryninja.packages.${system};
+          in bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+        else
+          null
+      );
+
     in
     rec {
       devShells = forAllSystems (
@@ -203,9 +238,19 @@
             pkgs.jdk
             pkgs.stdenv.cc
             # pkgs.nasm
-          ] ++ crossTargetCCs;
+          ] 
+          ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system}
+          ++ crossTargetCCs;
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
+            
+          bnPath =
+            lib.optionalString (bnUltimate.${system} != null)
+              "${bnUltimate.${system}}";
+
+          bnPythonPath =
+            lib.optionalString (bnUltimate.${system} != null)
+              "${bnUltimate.${system}}/opt/binaryninja/python";
         in
         {
           default = pkgs.mkShell {
@@ -223,6 +268,9 @@
             shellHook = ''
               unset PYTHONPATH
               export REPO_ROOT=$(git rev-parse --show-toplevel)
+            '' + lib.optionalString (bnUltimate.${system} != null) ''
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH
             '';
           };
           imperative = pkgs.mkShell {
@@ -237,6 +285,8 @@
             shellHook = ''
               export PYTHONPATH="${smallworldBuilt}/${pythonSet.python.sitePackages}:${virtualenv}/${pythonSet.python.sitePackages}:$PYTHONPATH"
               unset SOURCE_DATE_EPOCH
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnPythonPath}:$PYTHONPATH
             '';
           };
         }
@@ -255,6 +305,10 @@
         venv = virtualenv;
         panda = fixedPanda;
         upstreamPanda = upstreamPanda;
+        binaryninja-ultimate =
+          lib.optionalAttrs (bnUltimate.${system} != null) {
+            default = bnUltimate.${system};
+          };
         dockerImage = pkgs.dockerTools.buildImage {
           name = "smallworld-re";
           tag = "latest";
@@ -269,11 +323,12 @@
               fixedPanda
               virtualenv
               pkgs.ghidra
+              # TODO: We could include bnUltimate.${system} here if we want BN in the image
             ];
-            pathsToLink = ["/bin" "/etc" "/var"];
+            pathsToLink = [ "/bin" "/etc" "/var" ];
           };
           config = {
-            Cmd = ["/bin/sh"];
+            Cmd = [ "/bin/sh" ];
           };
         };
       });

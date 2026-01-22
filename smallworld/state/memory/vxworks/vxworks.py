@@ -166,12 +166,15 @@ class VXWorksImage(Executable):
             # if section['name'] == '.text':
             if True:
                 print(
-                    f"\x1b[34m{section['name']} section at addr {hex(sect_addr + self._file_base)} first 8 bytes : {sect_data[:4].hex().lower()} {sect_data[4:8].hex().lower()}\x1b[0m"
+                    f"\x1b[34m{section['name']} section ({hex(sect_addr)}-{hex(sect_addr + sect_size)}) first 8 bytes : {sect_data[:4].hex().lower()} {sect_data[4:8].hex().lower()}\x1b[0m"
                 )
 
+            # if sect_addr is less than base offset would be NICE to use, but may not work reliably
+            # if one of the sect addresses should be less than image base, can interpret as offset then
             # Why are you the way that you are? Why does this make sense?
-            # self[sect_addr - self.address] = sect_value # this is incorrect
-            self[sect_addr] = sect_value  # this is correct
+            # this is correct because SMWO later self adjusts for base address
+            self[sect_addr - self.address] = sect_value
+            # self[sect_addr] = sect_value  # this is incorrect
 
     def _map_bounds(self, bv: BinaryView):
         for seg in bv.segments:
