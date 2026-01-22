@@ -301,30 +301,22 @@
           lib.optionalAttrs (bnUltimate.${system} != null) {
             default = bnUltimate.${system};
           };
-          dockerImage = pkgs.dockerTools.buildImage {
-            name = "smallworld-re";
-            tag = "latest";
-            copyToRoot = pkgs.buildEnv {
-              name = "smallworld-root";
-              paths = [
-                pkgs.dockerTools.usrBinEnv
-                pkgs.dockerTools.binSh
-                pkgs.dockerTools.caCertificates
-                pkgs.dockerTools.fakeNss
-                pkgs.aflplusplus
-                qemu.${system}
-                virtualenv
-                pkgs.ghidra
-              ];
-              pathsToLink = [
-                "/bin"
-                "/etc"
-                "/var"
-              ];
-            };
-            config = {
-              Cmd = [ "/bin/sh" ];
-            };
+        dockerImage = pkgs.dockerTools.buildImage {
+          name = "smallworld-re";
+          tag = "latest";
+          copyToRoot = pkgs.buildEnv {
+            name = "smallworld-root";
+            paths = [
+              pkgs.dockerTools.usrBinEnv
+              pkgs.dockerTools.binSh
+              pkgs.dockerTools.caCertificates
+              pkgs.dockerTools.fakeNss
+              pkgs.aflplusplus
+              fixedPanda
+              virtualenv
+              pkgs.ghidra
+            ];
+            pathsToLink = [ "/bin" "/etc" "/var" ];
           };
         }
       );
