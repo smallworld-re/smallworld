@@ -11,6 +11,7 @@ build/
 venv/
 .venv/
 .venv-imperative/
+tmp/
 core.*
 /result
 unicornafl-flake/result
