@@ -31,6 +31,16 @@
       url = "github:mirrexagon/nixpkgs-esp-dev";
       flake = false;
     };
+    
+    # binaryninja = {
+     #   url = "github:jchv/nix-binary-ninja";
+     #   inputs.nixpkgs.follows = "nixpkgs";
+     # };
+     
+     # binjaZip = {
+     #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+     #   flake = false;
+     # };
 
     # binaryninja = {
     #   url = "github:jchv/nix-binary-ninja";
@@ -216,6 +226,14 @@
         else
           null
       );
+
+      bnUltimate = forAllSystems (system:
+         if binaryninja != null && binjaZip != null then
+           let bnPkgs = binaryninja.packages.${system};
+           in bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+         else
+           null
+       );
     in
     rec {
       devShells = forAllSystems (
