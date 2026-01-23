@@ -37,7 +37,7 @@
       url = "github:mirrexagon/nixpkgs-esp-dev";
       flake = false;
     };
-    
+
     # binaryninja = {
      #   url = "github:jchv/nix-binary-ninja";
      #   inputs.nixpkgs.follows = "nixpkgs";
@@ -67,8 +67,8 @@
     };
   };
 
-  outputs = inputs@
-    {
+  outputs =
+    inputs@{
       nixpkgs,
       pyproject-nix,
       uv2nix,
@@ -81,10 +81,10 @@
     }:
     let
       inherit (nixpkgs) lib;
-      
+
       binaryninja = inputs.binaryninja or null;
-      binjaZip    = inputs.binjaZip or null;
-      
+      binjaZip = inputs.binjaZip or null;
+
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
 
       root = ./.;
@@ -212,13 +212,16 @@
         qemu
       );
 
-      bnUltimate = forAllSystems (system:
-         if binaryninja != null && binjaZip != null then
-           let bnPkgs = binaryninja.packages.${system};
-           in bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
-         else
-           null
-       );
+      bnUltimate = forAllSystems (
+        system:
+        if binaryninja != null && binjaZip != null then
+          let
+            bnPkgs = binaryninja.packages.${system};
+          in
+          bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+        else
+          null
+      );
     in
     rec {
       devShells = forAllSystems (
@@ -234,15 +237,13 @@
             pkgs.ghidra
             pkgs.jdk
           ]
-          ++lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
-           bnPath =
-             lib.optionalString (bnUltimate.${system} != null)
-               "${bnUltimate.${system}}";
+          ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
+          bnPath = lib.optionalString (bnUltimate.${system} != null) "${bnUltimate.${system}}";
 
-           bnPythonPath =
-             lib.optionalString (bnUltimate.${system} != null)
-               "${bnUltimate.${system}}/opt/binaryninja/python";
-          
+          bnPythonPath = lib.optionalString (
+            bnUltimate.${system} != null
+          ) "${bnUltimate.${system}}/opt/binaryninja/python";
+
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
         in
@@ -265,9 +266,10 @@
             shellHook = ''
               unset PYTHONPATH
               export REPO_ROOT=$(git rev-parse --show-toplevel)
-             '' + lib.optionalString (bnUltimate.${system} != null) ''
-               export BINJA_PATH=${bnUltimate.${system}}
-               export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
+            ''
+            + lib.optionalString (bnUltimate.${system} != null) ''
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
           };
           imperative = pkgs.mkShell {
             packages = [
@@ -331,8 +333,7 @@
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           qemu = qemu.${system};
-          binaryninja-ultimate =
-          lib.optionalAttrs (bnUltimate.${system} != null) {
+          binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
             default = bnUltimate.${system};
           };
           dockerImage = pkgs.dockerTools.buildImage {
