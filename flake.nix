@@ -181,7 +181,7 @@
             packages = [
               virtualenv
               pkgs.uv
-              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt
               pkgs.nixfmt-tree
             ]
             ++ inputs;
@@ -291,9 +291,9 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          inherit (pkgs) nixfmt-rfc-style;
+          inherit (pkgs) nixfmt;
         in
-        nixfmt-rfc-style
+        nixfmt
       );
     };
 }
