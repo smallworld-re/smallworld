@@ -69,22 +69,23 @@ each ``node`` of the doubly-linked list must already be allocated on the
 heap with the ``prev`` and ``next`` fields pointing to its neighbors.
 Additionally, the ``rdi`` register must point to the head of the list.
 
-SmallWorld provides two interfaces for heap memory management.
-The ``BumpAllocator`` provides a simple heap by placing each new
-allocation in the next available slice. The ``CheckedBumpAllocator`` is
-a more advanced heap which checks for memory errors. For this example, we
-will use the ``BumpAllocator``.
+In SmallWorld, a ``Heap`` is a ``Memory`` object with an interface for
+dynamic allocation. See :ref:`heaps` to learn more about heaps in SmallWorld.
 
-The snippet below constructs a ``BumpAllocator`` heap. We give it an
-address of ``0x4000`` and a size of ``0x4000``.
+For this example, we will use a ``BumpAllocator`` heap. The snippet below
+constructs a new ``BumpAllocator`` with an address of ``0x4000`` and a size of
+``0x4000``.
 
 .. literalinclude:: ../../tests/struct/struct.amd64.py
   :language: python
   :lines: 32
 
 We can use our heap to allocate ``StructNode`` objects in SmallWorld.
-The ``heap.allocate`` method returns the address of the allocated object,
-allowing us to point two nodes at each other as neighbors in the list.
+First, we convert our ``StructNode`` into a ``Value`` by using
+``Value.from_ctypes()``. Then, we use ``heap.allocate()`` to place our
+``Value`` on the heap. This method returns the memory address of the
+allocated node, which can then be used to link the nodes together
+through their ``next`` and ``prev`` pointers.
 
 .. literalinclude:: ../../tests/struct/struct.amd64.py
   :language: python
@@ -94,7 +95,7 @@ Completing Our Harness
 ----------------------
 
 We have now defined the memory layout of our struct type, created a few
-linked ``node`` objects, and allocated those objects into our heap.
+linked ``node`` objects, and allocated those objects on our heap.
 The final step is to set the inputs of the function and observe the
 outputs.
 
@@ -108,16 +109,19 @@ state.
   :lines: 54-55
 
 We add the lines below to step through our harness and observe the final
-CPU state. We check ``rdi`` to ensure it points to node B and ``esi`` to
-ensure it contains 42.
+CPU state. We expect ``rdi`` to iterate through the list and point to node
+B at the end. We also expect that the ``data`` field of node B will
+contain 42. To verify this, we extract the heap memory from our emulator
+and use ``ctypes`` to create a new ``StructNode`` from the bytes at node
+B's address.
 
 .. literalinclude:: ../../tests/struct/struct.amd64.py
   :language: python
-  :lines: 62-66
+  :lines: 59-67
 
 Now, running our harness, we can see that ``rdi`` has been advanced to
-point to node B instead of node A, and 42 was found in the output state
-as expected. Our harness successfully operated on our structured data.
+point to node B and its ``data`` field has been set to 42. Our harness
+successfully operated on our structured data.
 
 .. command-output:: python3 struct.amd64.py
     :cwd: ../../tests/struct/
