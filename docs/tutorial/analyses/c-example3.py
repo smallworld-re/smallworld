@@ -1,17 +1,16 @@
 import copy
-import logging
 import functools
+import logging
 
 import smallworld
 from smallworld import hinting
 from smallworld.analyses import Colorizer, ColorizerReadWrite
-from smallworld.platforms.defs.platformdef import RegisterAliasDef, RegisterDef
-
 from smallworld.analyses.colorizer import randomize_uninitialized
 from smallworld.hinting.hints import (
     DynamicMemoryValueSummaryHint,
-    DynamicRegisterValueSummaryHint
+    DynamicRegisterValueSummaryHint,
 )
+from smallworld.platforms.defs.platformdef import RegisterAliasDef, RegisterDef
 
 smallworld.logging.setup_logging(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -39,7 +38,7 @@ cpu.rsp.set(rsp)
 entry_point = 0x1149 + base_address
 
 # call to "system"
-exit_point = 0x123b
+exit_point = 0x123B
 
 cpu.rip.set(entry_point)
 machine.add(cpu)
@@ -57,16 +56,12 @@ code.update_symbol_value("printf", printf._address)
 hinter = smallworld.hinting.Hinter()
 crw = ColorizerReadWrite(hinter)
 
-c = Colorizer(hinter, num_insns=1000, exec_id=1)    
+c = Colorizer(hinter, num_insns=1000, exec_id=1)
 machine_copy = copy.deepcopy(machine)
-perturbed_machine = randomize_uninitialized(
-    machine_copy, 1234
-)
+perturbed_machine = randomize_uninitialized(machine_copy, 1234)
 c.run(perturbed_machine)
 crw.run(perturbed_machine)
 
 # directly ask for a derivation of the value in rax in instruction 0x1238
 der = crw.graph.derive(0x1238, True, RegisterDef("rax", 8))
 print(der)
-
-
