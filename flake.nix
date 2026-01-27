@@ -96,11 +96,11 @@
           mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
 
           patched-unicorn = pkgs.fetchFromGitHub {
-              owner = "appleflyerv3";
-              repo = "unicorn";
-              rev = "mmio_map_pc_sync";
-              hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
-            };
+            owner = "appleflyerv3";
+            repo = "unicorn";
+            rev = "mmio_map_pc_sync";
+            hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
+          };
           unicornPatched = pkgs.unicorn.overrideAttrs (final: {
             src = patched-unicorn;
           });
@@ -113,7 +113,7 @@
           unicorn = hacks.nixpkgsPrebuilt {
             from = pyUnicornPatched;
           };
-          
+
           unicornafl = hacks.nixpkgsPrebuilt {
             from = (mkUnicornafl python.pkgs);
           };
