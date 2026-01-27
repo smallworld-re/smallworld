@@ -7,13 +7,13 @@ if __name__ == "__main__":
     # this trace should trigger a memory error since there's no heap
     # it won't do much
     hints = test(
-        100,    # max number of instructions
-        46,     # buffer length (47 is a magic length, unlocking ad ifferent code path)
+        100,  # max number of instructions
+        46,  # buffer length (47 is a magic length, unlocking ad ifferent code path)
         False,  # if true, we create a heap before initializing
         False,  # [only does something if create_heap is true) if true,
-                # we add lots of 0x42 to the buffer
+        # we add lots of 0x42 to the buffer
         False,  # if true we randomize registers and buffers, else they are all zero
-        1234,   # random seed
+        1234,  # random seed
     )
 
     num_expected = 0

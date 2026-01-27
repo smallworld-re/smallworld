@@ -191,7 +191,7 @@ class Colorizer(analysis.Analysis):
     generally, we use `randomize_unitialized`, above, to set 2, 4, and
     8-byte registers and memory lvals to random numbers that will work
     well as colors.  These are unlikely to be < 0x80.
-    
+
     Arguments:
         exec_id: An integer used to identify this execution, if needed
         num_insns: The number of instructions to micro-execute

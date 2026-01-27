@@ -5,10 +5,7 @@ import smallworld
 from smallworld import hinting
 from smallworld.analyses import Colorizer
 from smallworld.analyses.colorizer import randomize_uninitialized
-from smallworld.hinting.hints import (
-    DynamicMemoryValueHint,
-    DynamicRegisterValueHint
-)
+from smallworld.hinting.hints import DynamicMemoryValueHint, DynamicRegisterValueHint
 
 smallworld.logging.setup_logging(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -36,7 +33,7 @@ cpu.rsp.set(rsp)
 entry_point = 0x1149 + base_address
 
 # call to "system"
-exit_point = 0x123b
+exit_point = 0x123B
 
 
 cpu.rip.set(entry_point)
@@ -52,13 +49,16 @@ code.update_symbol_value("printf", printf._address)
 
 
 the_color = None
+
+
 def collect_hints(hint):
     global the_color
     if hint.pc == 0x1238:
         print(f"First pass, color in rdi @ pc=0x{hint.pc:x} is {hint.color}")
         the_color = hint.color
-    #print(hint)
-            
+    # print(hint)
+
+
 # first time through to figure out color for rax/rdi
 # at instruction
 #   0x00001238      mov rdi, rax,
@@ -68,17 +68,18 @@ hinter.register(DynamicMemoryValueHint, collect_hints)
 hinter.register(DynamicRegisterValueHint, collect_hints)
 c = Colorizer(hinter, num_insns=1000, exec_id=1)
 machine_copy = copy.deepcopy(machine)
-perturbed_machine = randomize_uninitialized(
-    machine_copy, 1234
-)
+perturbed_machine = randomize_uninitialized(machine_copy, 1234)
 c.run(perturbed_machine)
 
 
 def collect_hints2(hint):
     global the_color
     if hint.color == the_color and hint.message == "read-def":
-        print(f"Second pass, first obs of color {the_color} is pc=0x{hint.pc:x}, in {hint.reg_name}")
-        
+        print(
+            f"Second pass, first obs of color {the_color} is pc=0x{hint.pc:x}, in {hint.reg_name}"
+        )
+
+
 # second time through to figure out when
 # we first saw that color
 hinter = smallworld.hinting.Hinter()
@@ -86,12 +87,5 @@ hinter.register(DynamicMemoryValueHint, collect_hints2)
 hinter.register(DynamicRegisterValueHint, collect_hints2)
 c = Colorizer(hinter, num_insns=1000, exec_id=1)
 machine_copy = copy.deepcopy(machine)
-perturbed_machine = randomize_uninitialized(
-    machine_copy, 1234
-)
+perturbed_machine = randomize_uninitialized(machine_copy, 1234)
 c.run(perturbed_machine)
-
-
-
-
-

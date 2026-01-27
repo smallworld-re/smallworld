@@ -9,6 +9,7 @@ from .trace_execution_types import TraceElement
 
 Edges = typing.NewType("Edges", typing.Dict[int, typing.Any])
 
+
 # branches: set of pcs that are branch instructions
 # edges: set of edges observed
 def compute_coverage_frontier(
@@ -58,13 +59,13 @@ class CoverageFrontier(Analysis):
         self.branches = set([])  # set of pcs that are branch instructions
         self.hinter.register(TraceExecutionHint, self.monitor_branches)
         self.num_traces = 0
-        
+
     def monitor_branches(self, hint: Hint) -> None:
         # examine execution trace and collect any branch information
         if isinstance(hint, TraceExecutionHint):
             update_coverage(hint.trace, self.pcs, self.branches, self.edges)
             self.num_traces += 1
-            
+
     def run(self, machine: Machine) -> None:
         # run this *after* all TraceExecutionHints have been generated
         # by whatever and collected by this analysis
@@ -82,6 +83,6 @@ class CoverageFrontier(Analysis):
                 coverage_frontier=list(coverage_frontier),
                 edges=edges_list,
                 branches=list(self.branches),
-                num_traces = self.num_traces
+                num_traces=self.num_traces,
             )
         )

@@ -1,5 +1,3 @@
-
-
 import sys
 
 import smallworld
@@ -25,7 +23,7 @@ rsp = stack.get_pointer()
 cpu.rsp.set(rsp)
 
 entry_point = 0x1149
-exit_point = entry_point+0xbb
+exit_point = entry_point + 0xBB
 
 cpu.rip.set(entry_point)
 machine.add(cpu)
@@ -37,15 +35,19 @@ print(f"function input = {inp}")
 cpu.rdi.set(inp)
 
 arr = []
+
+
 def before_cb(emu, pc, te):
     global arr
     if pc == 0x00001185:
         arr.append(emu.read_register("eax"))
 
+
 def collect_hints(h):
     for te in h.trace:
         print(te)
-            
+
+
 hinter = smallworld.hinting.Hinter()
 hinter.register(smallworld.hinting.TraceExecutionHint, collect_hints)
 ta = TraceExecution(hinter, num_insns=10000)
@@ -53,5 +55,3 @@ ta.register_cb(TraceExecutionCBPoint.BEFORE_INSTRUCTION, before_cb)
 ta.run(machine)
 
 print(arr)
-
-
