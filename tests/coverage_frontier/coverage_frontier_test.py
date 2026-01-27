@@ -111,12 +111,10 @@ if __name__ == "__main__":
         seed = int(sys.argv[3])
     except:
         logger.info("Error in one or more args")
-        logger.info(
-            """Usage: colorizer_test.py num_insns buflen fortytwos seed
+        logger.info("""Usage: colorizer_test.py num_insns buflen fortytwos seed
 num_micro_exec  How many micro executions.
 num_insns:       How many (max) instructions to execute from entry for each micro exec.
-seed:           Seed for random number generator."""
-        )
+seed:           Seed for random number generator.""")
         sys.exit(1)
 
     _ = test(num_micro_exec, num_insns, seed)
