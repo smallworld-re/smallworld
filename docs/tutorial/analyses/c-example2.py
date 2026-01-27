@@ -54,7 +54,7 @@ ha = {}
 
 
 def collect_hints(hint):
-    global ha  # fmt: skip
+    global ha  # noqa
     if (
         type(hint) is DynamicMemoryValueSummaryHint
         or type(hint) is DynamicRegisterValueSummaryHint

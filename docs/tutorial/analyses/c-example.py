@@ -51,7 +51,7 @@ the_color = None
 
 
 def collect_hints(hint):
-    global the_color
+    global the_color  # noqa
     if hint.pc == 0x1238:
         print(f"First pass, color in rdi @ pc=0x{hint.pc:x} is {hint.color}")
         the_color = hint.color
@@ -72,7 +72,7 @@ c.run(perturbed_machine)
 
 
 def collect_hints2(hint):
-    global the_color  # fmt: skip
+    global the_color  # noqa
     if hint.color == the_color and hint.message == "read-def":
         print(
             f"Second pass, first obs of color {the_color} is pc=0x{hint.pc:x}, in {hint.reg_name}"
