@@ -89,13 +89,16 @@ can only execute one branch of the ``jne`` at ``0x1158``, so the
 coverage frontier should contain that single branch instruction.
 
 .. command-output:: python3 coverage_frontier_test.py 1 100 1233 2> /dev/null 
+    :shell:		    
     :cwd: ../../../tests/coverage_frontier
+    
 
 And if we ask for three or more traces, with this same seed, we
 will have enough execution diversity to have hit both branches,
 and our coverage frontier will be empty.
 
 .. command-output:: python3 coverage_frontier_test.py 3 100 1233 2> /dev/null 
+    :shell:		    
     :cwd: ../../../tests/coverage_frontier
 
 	  
