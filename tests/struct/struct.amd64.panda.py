@@ -56,11 +56,12 @@ cpu.rsi.set_content(42)
 emulator = smallworld.emulators.PandaEmulator(platform)
 emulator.add_exit_point(cpu.rip.get() + 26)
 
-# final_machine = machine.emulate(emulator)
-# final_cpu = final_machine.get_cpu()
-
 *_, final_machine = machine.step(emulator)
 
 final_cpu = final_machine.get_cpu()
 print(f"curr = {hex(final_cpu.rdi.get())}")
-print(f"arg2 = {final_cpu.esi.get()}")
+
+heap.extract(emulator)
+final_node_b_bytes = heap.read_bytes(node_b_addr, ctypes.sizeof(StructNode))
+final_node_b = StructNode.from_buffer_copy(final_node_b_bytes)
+print(f"node_b->data = {final_node_b.data}")
