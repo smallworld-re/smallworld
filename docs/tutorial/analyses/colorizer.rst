@@ -318,7 +318,7 @@ Note that the following lines are what provide this answer:
 
 .. literalinclude:: ./c-example3.py
   :language: Python
-  :lines: 68-70
+  :lines: 59-61
 	     
 
 
