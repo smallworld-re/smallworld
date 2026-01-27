@@ -1,16 +1,10 @@
 import copy
-import functools
 import logging
 
 import smallworld
-from smallworld import hinting
 from smallworld.analyses import Colorizer, ColorizerReadWrite
 from smallworld.analyses.colorizer import randomize_uninitialized
-from smallworld.hinting.hints import (
-    DynamicMemoryValueSummaryHint,
-    DynamicRegisterValueSummaryHint,
-)
-from smallworld.platforms.defs.platformdef import RegisterAliasDef, RegisterDef
+from smallworld.platforms.defs.platformdef import RegisterDef
 
 smallworld.logging.setup_logging(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -26,7 +20,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
 base_address = 0x0
 code = smallworld.state.memory.code.Executable.from_elf(
-    open(f"c-example", "rb"), address=base_address
+    open("c-example", "rb"), address=base_address
 )
 machine.add(code)
 

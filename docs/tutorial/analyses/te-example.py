@@ -13,7 +13,7 @@ machine = smallworld.state.Machine()
 cpu = smallworld.state.cpus.CPU.for_platform(platform)
 
 code = smallworld.state.memory.code.Executable.from_elf(
-    open(f"te-example", "rb"), address=0x0
+    open("te-example", "rb"), address=0x0
 )
 machine.add(code)
 
