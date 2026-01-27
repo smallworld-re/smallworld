@@ -37,6 +37,11 @@
       url = "github:mirrexagon/nixpkgs-esp-dev";
       flake = false;
     };
+
+    # patched-unicorn = {
+    #   url = "github:appleflyerv3/unicorn?ref=mmio_map_pc_sync";
+    #   flake = false;
+    # };
   };
 
   outputs =
@@ -47,6 +52,7 @@
       pyproject-build-systems,
       panda-ng,
       nixpkgs-esp-dev,
+      # patched-unicorn,
       ...
     }:
     let
@@ -69,6 +75,7 @@
         unicornafl = [ ];
         pypanda = [ ];
         colorama = [ ];
+        unicorn = [ ];
       };
 
       basePython = forAllSystems (
@@ -87,8 +94,26 @@
           python = basePython.${system};
           hacks = pkgs.callPackage pyproject-nix.build.hacks { };
           mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
+
+          patched-unicorn = pkgs.fetchFromGitHub {
+              owner = "appleflyerv3";
+              repo = "unicorn";
+              rev = "mmio_map_pc_sync";
+              hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
+            };
+          unicornPatched = pkgs.unicorn.overrideAttrs (final: {
+            src = patched-unicorn;
+          });
+
+          pyUnicornPatched = python.pkgs.unicorn.override {
+            unicorn = unicornPatched;
+          };
         in
         {
+          unicorn = hacks.nixpkgsPrebuilt {
+            from = pyUnicornPatched;
+          };
+          
           unicornafl = hacks.nixpkgsPrebuilt {
             from = (mkUnicornafl python.pkgs);
           };
