@@ -84,11 +84,11 @@ for i in range(1, 5):
 cs.run(perturbed_machine)
 
 mc = 0
-for c in ha.keys():
-    mc = max(c, mc)
+for color in ha.keys():
+    mc = max(color, mc)
 
-for c in range(1, mc + 1):
-    print(f"\ncolor={c}")
-    ha[c].sort(key=lambda h: f"{h.pc}-{h.message}")
-    for h in ha[c]:
+for color in range(1, mc + 1):
+    print(f"\ncolor={color}")
+    ha[color].sort(key=lambda h: f"{h.pc}-{h.message}")
+    for h in ha[color]:
         print(f"  pc=0x{h.pc:x}  {h}")
