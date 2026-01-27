@@ -87,6 +87,7 @@ mc = 0
 for color in ha.keys():
     mc = max(color, mc)
 
+
 for color in range(1, mc + 1):
     print(f"\ncolor={color}")
     ha[color].sort(key=lambda h: f"{h.pc}-{h.message}")
