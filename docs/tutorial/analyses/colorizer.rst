@@ -270,7 +270,7 @@ The final output of interest is the hints, sorted by color, and then sorted by t
     :cwd: ./
 
 
-If we look at just those for ``color=4`` we see the first observance of that color
+If we consider just those for ``color=4`` we see the first observance of that color
 is ``pc=0x1151`` in ``rdi`` and the last is ``pc=0x1238`` in ``rax``.
 This is the same result as above but perhaps more nicely presented.
 And it is a result that is tolerant of multiple traces.
