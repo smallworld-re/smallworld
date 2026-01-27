@@ -38,7 +38,7 @@ arr = []
 
 
 def before_cb(emu, pc, te):
-    global arr
+    global arr  # fmt: skip
     if pc == 0x00001185:
         arr.append(emu.read_register("eax"))
 

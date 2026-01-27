@@ -72,7 +72,7 @@ c.run(perturbed_machine)
 
 
 def collect_hints2(hint):
-    global the_color
+    global the_color  # fmt: skip
     if hint.color == the_color and hint.message == "read-def":
         print(
             f"Second pass, first obs of color {the_color} is pc=0x{hint.pc:x}, in {hint.reg_name}"
