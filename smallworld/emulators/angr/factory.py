@@ -28,25 +28,25 @@ class PatchedObjectFactory(AngrObjectFactory):
                 raise AnalysisError("Cannot step an unconstrained state")
 
             # Check if the ip is mapped
-            (r, found) = state.scratch.memory_map.find_closest_range(ip)
+            r, found = state.scratch.memory_map.find_closest_range(ip)
             if not found:
                 # Nope.  No code here.
                 log.warn(f"No block mapped at {state._ip}")
                 max_size = 0
             else:
                 # Yep.  We have an upper bound on our block
-                (start, stop) = r
+                start, stop = r
                 max_size = stop - ip
                 if not state.scratch.bounds.is_empty():
                     # We also have bounds.  Test if we're in those
-                    (r, found) = state.scratch.bounds.find_closest_range(ip)
+                    r, found = state.scratch.bounds.find_closest_range(ip)
                     if not found:
                         # Nope.  Out of bounds.
                         log.warn(f"{state._ip} is out of bounds")
                         max_size = 0
                     else:
                         # Yep.  Allow anything in bounds and in memory
-                        (start, stop) = r
+                        start, stop = r
                         max_size = min(max_size, stop - ip)
 
                 for exit_point in state.scratch.exit_points:

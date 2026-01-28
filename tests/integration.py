@@ -951,11 +951,11 @@ class StackTests(ScriptIntegrationTest):
 class StructureTests(ScriptIntegrationTest):
     def test_unicorn(self):
         stdout, _ = self.command("python3 struct/struct.amd64.py")
-        self.assertLineContainsStrings(stdout, "arg2 = 42")
+        self.assertLineContainsStrings(stdout, "node_b->data = 42")
 
     def test_panda(self):
         stdout, _ = self.command("python3 struct/struct.amd64.panda.py")
-        self.assertLineContainsStrings(stdout, "arg2 = 42")
+        self.assertLineContainsStrings(stdout, "node_b->data = 42")
 
 
 class BranchTests(ScriptIntegrationTest):

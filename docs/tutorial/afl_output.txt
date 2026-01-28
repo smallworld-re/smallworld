@@ -1,0 +1,25 @@
+
+           american fuzzy lop ++4.35c {default} (python3) [explore]
+┌─ process timing ────────────────────────────────────┬─ overall results ────┐
+│        run time : 1 days, 20 hrs, 1 min, 46 sec     │  cycles done : 1205  │
+│   last new find : 1 days, 17 hrs, 14 min, 29 sec    │ corpus count : 5     │
+│last saved crash : 0 days, 12 hrs, 54 min, 20 sec    │saved crashes : 1     │
+│ last saved hang : none seen yet                     │  saved hangs : 0     │
+├─ cycle progress ─────────────────────┬─ map coverage┴──────────────────────┤
+│  now processing : 4.1787 (80.0%)     │    map density : 0.01% / 0.02%      │
+│  runs timed out : 0 (0.00%)          │ count coverage : 1.00 bits/tuple    │
+├─ stage progress ─────────────────────┼─ findings in depth ─────────────────┤
+│  now trying : havoc                  │ favored items : 5 (100.00%)         │
+│ stage execs : 33/120 (27.50%)        │  new edges on : 5 (100.00%)         │
+│ total execs : 339k                   │ total crashes : 4 (1 saved)         │
+│  exec speed : 2.15/sec (zzzz...)     │  total tmouts : 0 (0 saved)         │
+├─ fuzzing strategy yields ────────────┴─────────────┬─ item geometry ───────┤
+│   bit flips : 0/0, 0/0, 0/0                        │    levels : 5         │
+│  byte flips : 0/0, 0/0, 0/0                        │   pending : 0         │
+│ arithmetics : 0/0, 0/0, 0/0                        │  pend fav : 0         │
+│  known ints : 0/0, 0/0, 0/0                        │ own finds : 4         │
+│  dictionary : 0/0, 0/0, 0/0, 0/0                   │  imported : 0         │
+│havoc/splice : 5/339k, 0/0                          │ stability : 100.00%   │
+│py/custom/rq : unused, unused, unused, unused       ├───────────────────────┘
+│    trim/eff : 75.00%/18, n/a                       │          [cpu000: 50%]
+└─ strategy: exploit ────────── state: finished... ──┘

@@ -364,7 +364,7 @@ class AngrEmulator(
         if name == "pc":
             name = self.platdef.pc_register
 
-        (off, size) = self.machdef.angr_reg(name)
+        off, size = self.machdef.angr_reg(name)
         return self.state.registers.load(off, size)
 
     def read_register_content(self, name: str) -> int:
@@ -394,7 +394,7 @@ class AngrEmulator(
         try:
             # This considers all BVSs to be labeled values;
             # if it has a name, we're giving it to you.
-            (off, size) = self.machdef.angr_reg(name)
+            off, size = self.machdef.angr_reg(name)
             out = self.state.registers.load(off, size)
             if out.symbolic:
                 if out.op == "BVS":
@@ -433,7 +433,7 @@ class AngrEmulator(
 
         if name == "pc":
             name = self.platdef.pc_register
-        (off, size) = self.machdef.angr_reg(name)
+        off, size = self.machdef.angr_reg(name)
 
         if content is None:
             v = claripy.BVS("UNINITIALIZED", size * 8)
@@ -476,7 +476,7 @@ class AngrEmulator(
         else:
             if name == "pc":
                 name = self.platdef.pc_register
-            (off, size) = self.machdef.angr_reg(name)
+            off, size = self.machdef.angr_reg(name)
 
             # This will bind whatever value is currently in the register
             # to a symbol named after the label

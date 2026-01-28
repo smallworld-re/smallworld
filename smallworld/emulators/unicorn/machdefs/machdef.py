@@ -100,8 +100,8 @@ def populate_registers(arch_info, unicorn_consts):
 
     registers = {}
     for reg_name, info in arch_info.items():
-        (base_reg_name, (start, end)) = info
-        (ucstr, ucnum) = find_uc_const(reg_name)
+        base_reg_name, (start, end) = info
+        ucstr, ucnum = find_uc_const(reg_name)
         registers[reg_name] = (ucnum, base_reg_name, start, end)
 
     return registers

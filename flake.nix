@@ -37,6 +37,7 @@
       url = "github:mirrexagon/nixpkgs-esp-dev";
       flake = false;
     };
+
   };
 
   outputs =
@@ -69,6 +70,7 @@
         unicornafl = [ ];
         pypanda = [ ];
         colorama = [ ];
+        unicorn = [ ];
       };
 
       basePython = forAllSystems (
@@ -87,8 +89,26 @@
           python = basePython.${system};
           hacks = pkgs.callPackage pyproject-nix.build.hacks { };
           mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
+
+          patched-unicorn = pkgs.fetchFromGitHub {
+            owner = "appleflyerv3";
+            repo = "unicorn";
+            rev = "mmio_map_pc_sync";
+            hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
+          };
+          unicornPatched = pkgs.unicorn.overrideAttrs (final: {
+            src = patched-unicorn;
+          });
+
+          pyUnicornPatched = python.pkgs.unicorn.override {
+            unicorn = unicornPatched;
+          };
         in
         {
+          unicorn = hacks.nixpkgsPrebuilt {
+            from = pyUnicornPatched;
+          };
+
           unicornafl = hacks.nixpkgsPrebuilt {
             from = (mkUnicornafl python.pkgs);
           };
@@ -181,7 +201,7 @@
             packages = [
               virtualenv
               pkgs.uv
-              pkgs.nixfmt-rfc-style
+              pkgs.nixfmt
               pkgs.nixfmt-tree
             ]
             ++ inputs;
@@ -291,9 +311,9 @@
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          inherit (pkgs) nixfmt-rfc-style;
+          inherit (pkgs) nixfmt;
         in
-        nixfmt-rfc-style
+        nixfmt
       );
     };
 }
