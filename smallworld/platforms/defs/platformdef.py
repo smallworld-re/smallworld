@@ -64,6 +64,9 @@ class PlatformDef(metaclass=abc.ABCMeta):
     delay_slot_mnemonics: typing.Set[str] = set()
     """Set of delay slot mnemonics"""
 
+    implicit_dereference_mnemonics: typing.Set[str] = set()
+    """Set of mnemonics for instructions that implicitly dereference a register"""
+
     @property
     @abc.abstractmethod
     def pc_register(self) -> str:

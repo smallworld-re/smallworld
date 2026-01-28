@@ -53,6 +53,17 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        """Handle a Unicorn interrupt
+
+        Unicorn doesn't always translate interrupts into exceptions;
+        we may need to give it some help.
+
+        Arguments:
+            intno: QEMU interrupt index
+        """
+        pass
+
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
         """Find the appropriate MachineDef for your architecture

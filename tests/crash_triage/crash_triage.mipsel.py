@@ -44,7 +44,6 @@ machine.add(stack)
 
 # Set an exit point
 cpu.ra.set_label("Return Address")
-cpu.ra.set(0x1000)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -112,7 +111,7 @@ def run_test(
         smallworld.analyze(machine, analyses)
         return True
     except smallworld.exceptions.AnalysisError as e:
-        log.error(f"FAILED: {e}")
+        log.error(f"{symbol} FAILED: {e}")
         return False
 
 
@@ -150,19 +149,20 @@ good &= run_test(
     halt_kind="unmapped",
     halt_target="call",
 )
+
+# NOTE: On MIPS, unconstrained exits get reported as a memory error,
+# not as a code bounds error.
 good &= run_test(
     "oob_unconstrained_call",
-    hint_type=smallworld.analyses.crash_triage.TriageOOB,
-    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
-    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
-    halt_target="call",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.FETCH,
 )
 good &= run_test(
     "oob_unconstrained_return",
-    hint_type=smallworld.analyses.crash_triage.TriageOOB,
-    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
-    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
-    halt_target="return",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.FETCH,
 )
 # good &= run_test("oob_unconstrained_jump")
 # good &= run_test("oob_diverged")
