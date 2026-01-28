@@ -38,10 +38,6 @@
       flake = false;
     };
 
-    # patched-unicorn = {
-    #   url = "github:appleflyerv3/unicorn?ref=mmio_map_pc_sync";
-    #   flake = false;
-    # };
   };
 
   outputs =
@@ -52,7 +48,6 @@
       pyproject-build-systems,
       panda-ng,
       nixpkgs-esp-dev,
-      # patched-unicorn,
       ...
     }:
     let
