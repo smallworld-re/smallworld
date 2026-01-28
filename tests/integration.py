@@ -3654,6 +3654,32 @@ class ColorizerTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
 
+class CrashTriageTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        self.command(f"python3 crash_triage/crash_triage.{arch}.py")
+
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    def test_armel(self):
+        self.run_test("armel")
+
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    def test_i386(self):
+        self.run_test("i386")
+
+    def test_mips(self):
+        self.run_test("mips")
+
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+
 class FsgsbaseTests(ScriptIntegrationTest):
     def test1(self):
         stdout, stderr = self.command("python fsgsbase/fsgsbase.amd64.py")

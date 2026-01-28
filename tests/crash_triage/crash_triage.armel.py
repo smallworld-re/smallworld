@@ -4,7 +4,7 @@ import typing
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
 logging.getLogger("angr").setLevel(logging.WARNING)
 logging.getLogger("claripy").setLevel(logging.WARNING)
 logging.getLogger("pyvex").setLevel(logging.WARNING)

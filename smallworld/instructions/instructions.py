@@ -228,8 +228,6 @@ class Instruction(metaclass=abc.ABCMeta):
                 else:
                     # This is a register reference that's used for its value.
                     read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
-            else:
-                raise Exception(f"Unrecognized operand type: {operand.type}")
 
         return read
 

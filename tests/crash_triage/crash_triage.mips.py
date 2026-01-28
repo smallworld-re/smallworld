@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.MIPS32, smallworld.platforms.Byteorder.BIG
 )
 
 # Create a machine
@@ -33,9 +33,7 @@ filename = (
     .replace(".pcode", "")
 )
 with open(filename, "rb") as f:
-    code = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=0x400000
-    )
+    code = smallworld.state.memory.code.Executable.from_elf(f, platform=platform)
     machine.add(code)
     for bound in code.bounds:
         machine.add_bound(bound[0], bound[1])
@@ -45,7 +43,7 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 machine.add(stack)
 
 # Set an exit point
-cpu.lr.set_label("Return Address")
+cpu.ra.set_label("Return Address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -94,6 +92,7 @@ def run_test(
 ):
     log.info(f"Test: {symbol}")
     cpu.pc.set(code.get_symbol_value(symbol))
+    cpu.t9.set(code.get_symbol_value(symbol))
 
     hinter = smallworld.hinting.Hinter()
     analyses: typing.List[smallworld.analyses.Analysis] = [
@@ -112,7 +111,7 @@ def run_test(
         smallworld.analyze(machine, analyses)
         return True
     except smallworld.exceptions.AnalysisError as e:
-        log.error(f"FAILED: {e}")
+        log.error(f"{symbol} FAILED: {e}")
         return False
 
 
@@ -150,36 +149,36 @@ good &= run_test(
     halt_kind="unmapped",
     halt_target="call",
 )
+
+# NOTE: On MIPS, unconstrained exits get reported as a memory error,
+# not as a code bounds error.
 good &= run_test(
     "oob_unconstrained_call",
-    hint_type=smallworld.analyses.crash_triage.TriageOOB,
-    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
-    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
-    halt_target="call",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.FETCH,
 )
 good &= run_test(
     "oob_unconstrained_return",
-    hint_type=smallworld.analyses.crash_triage.TriageOOB,
-    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisOOB,
-    halt_type=smallworld.analyses.crash_triage.HaltUnconstrained,
-    halt_target="return",
+    hint_type=smallworld.analyses.crash_triage.TriageMemory,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
+    mem_access=smallworld.analyses.crash_triage.MemoryAccess.FETCH,
 )
 # good &= run_test("oob_unconstrained_jump")
 # good &= run_test("oob_diverged")
 
-# FIXME: Unicorn aarch64 does not error on an illegal instruction
-# good &= run_test(
-#     "illegal_undecodable",
-#     hint_type=smallworld.analyses.crash_triage.TriageIllegal,
-#     diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
-#     illegal_type=smallworld.analyses.crash_triage.IllegalInstrNoDecode,
-# )
-# good &= run_test(
-#     "illegal_decodable",
-#     hint_type=smallworld.analyses.crash_triage.TriageIllegal,
-#     diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
-#     illegal_type=smallworld.analyses.crash_triage.IllegalInstrUnconfirmed,
-# )
+good &= run_test(
+    "illegal_undecodable",
+    hint_type=smallworld.analyses.crash_triage.TriageIllegal,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
+    illegal_type=smallworld.analyses.crash_triage.IllegalInstrNoDecode,
+)
+good &= run_test(
+    "illegal_decodable",
+    hint_type=smallworld.analyses.crash_triage.TriageIllegal,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
+    illegal_type=smallworld.analyses.crash_triage.IllegalInstrUnconfirmed,
+)
 
 good &= run_test(
     "mem_read_constrained",
