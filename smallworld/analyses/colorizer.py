@@ -357,6 +357,11 @@ class Colorizer(analysis.Analysis):
         else:
             assert 1 == 0
         # let's make color a number
+        if size == 16:
+            q1 = (struct.unpack("<Q", the_bytes[:8]))[0]
+            q2 = (struct.unpack("<Q", the_bytes[8:]))[0]
+            # i mean this will otherwise be big so lets just combine them
+            return q1 ^ q2
         if size == 8:
             return struct.unpack("<Q", the_bytes)[0]
         if size == 4:
