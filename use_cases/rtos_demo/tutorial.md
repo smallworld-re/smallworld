@@ -305,7 +305,7 @@ Finally, we can remove any unneeded debugging information that we were printing 
 ### Constructing a Payload
 Knowing that `lr` takes up the top 4 bytes of the stack and that `input_buffer` starts 40 bytes below the top of the stack, we can determine that our payload must include 36 bytes of padding followed by our desired 4-byte return address.
 
-To compress 36 bytes into the first 12 bytes of `input_buffer`, we can take advantage of the expanding behavior discovered during dynamic analysis. The 8-byte expression `b"8a8b8c8d"` will expand to 32 bytes when processed. The remaining 4 bytes of padding can be any non-numeric character. Afterwards, we can include the address of `stop_udp`, which should be marked as our exit point.
+To compress 36 bytes into the first 12 bytes of `input_buffer`, we can take advantage of the expanding behavior discovered during dynamic analysis. The 8-byte expression `b"8a8b8c8d"` will expand to 32 bytes when processed. The next 3 bytes of padding can be any non-numeric character (here we choose `b"\x00"`). The following byte is `b"2"` to handle cases where its subsequent byte is a numeric character. Lastly, we include the address of `stop_udp`, which should be marked as our exit point.
 
 ```python
 # Entry point / exit point
@@ -319,7 +319,7 @@ emulator.add_exit_point(exit_point)
 
 # Input buffer
 buffer_memory_address = 0x1000
-input_bytes = b"8a8b8c8d\0\0\0\0" + stop_udp_addr.to_bytes(
+input_bytes = b"8a8b8c8d\x00\x00\x002" + stop_udp_addr.to_bytes(
     4, code.platform.byteorder.value
 )
 buffer_memory = smallworld.state.memory.RawMemory.from_bytes(
