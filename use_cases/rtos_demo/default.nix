@@ -1,10 +1,11 @@
-{ pkgs
-, stdenv
-, zephyr  # from zephyr-nix
-, cmake
-, ninja
-, west2nix
-, gitMinimal
+{
+  pkgs,
+  stdenv,
+  zephyr, # from zephyr-nix
+  cmake,
+  ninja,
+  west2nix,
+  gitMinimal,
 }:
 
 let
