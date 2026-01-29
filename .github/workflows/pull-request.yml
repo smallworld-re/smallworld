@@ -84,6 +84,7 @@ jobs:
       - name: Build Test Artifacts
         run: |
           nix build .#tests
+          nix build .#rtos_demo
 
   Unit-Test:
     runs-on: smallworld-arc
