@@ -1,12 +1,17 @@
 # RTOS Demo
-In this demonstration, SmallWorld is used to harness vulnerable code in an ARM32 RTOS binary for fuzzing, dynamic analysis, and exploit development. Scripts for each completed stage of the process are included for reference (`rtos_0_run.py`, `rtos_1_fuzz.py`, `rtos_2_analyze.py`, `rtos_3_find_lr.py`, `rtos_4_exploit.py`). The binary under analysis (`zephyr.elf`) is also included.
+In this demonstration, SmallWorld is used to harness vulnerable code in an ARM32 RTOS binary for fuzzing, dynamic analysis, and exploit development. Scripts for each completed stage of the process are included for reference (`rtos_0_run.py`, `rtos_1_fuzz.py`, `rtos_2_analyze.py`, `rtos_3_find_lr.py`, `rtos_4_exploit.py`).
 
 ## Setup
 First, verify that SmallWorld and its dependencies are installed in your development environment. For installation instructions, reference our documentation.
 
 Next, we will need a binary to harness. For this example, we use [Zephyr](https://www.zephyrproject.org/), an open source RTOS targeting embedded devices. We will be using a modified version of their [echo server example](https://github.com/zephyrproject-rtos/zephyr/tree/main/samples/net/sockets/echo_server) with some injected vulnerable code for the sake of demonstration.
 
-Using the `zephyr.elf` binary included with this tutorial is recommended. However, if you wish to compile it from scratch, you may do so using `rtos_build.sh`. This bash script uses Docker to pull down the Zephyr SDK, patch the example source code, and compile our `zephyr.elf` binary. Note that the Zephyr SDK is a large project, and may take upwards of an hour to fully install. Additionally, if you compile your own binary, hard-coded addresses in the provided sample scripts may be offset.
+We use Nix to build our `zephyr.elf` binary deterministically. Run the commands below to compile `zephyr.elf` and copy it into the current directory.
+
+```sh
+nix build .#rtos_demo
+cp result/zephyr.elf ./zephyr.elf
+```
 
 ## Harnessing
 *The `rtos_0_run.py` script is included for reference with this section.*

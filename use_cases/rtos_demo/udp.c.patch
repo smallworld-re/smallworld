@@ -1,6 +1,6 @@
---- udp.c
-+++ udp.c
-@@ -36,6 +36,72 @@
+--- a/samples/net/sockets/echo_server/src/udp.c
++++ b/samples/net/sockets/echo_server/src/udp.c
+@@ -36,6 +36,72 @@ K_THREAD_DEFINE(udp6_thread_id, STACK_SIZE,
  		THREAD_PRIORITY,
  		IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0, -1);
  
@@ -73,7 +73,7 @@
  static int start_udp_proto(struct data *data, struct sockaddr *bind_addr,
  			   socklen_t bind_addrlen)
  {
-@@ -133,6 +199,10 @@
+@@ -133,6 +199,10 @@ static int process_udp(struct data *data)
  			atomic_add(&data->udp.bytes_received, received);
  		}
  

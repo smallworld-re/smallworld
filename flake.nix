@@ -37,6 +37,24 @@
       url = "github:mirrexagon/nixpkgs-esp-dev";
       flake = false;
     };
+
+    # For building RTOS Demo
+    zephyr = {
+      url = "github:zephyrproject-rtos/zephyr/v3.5.0";
+      flake = false;
+    };
+
+    zephyr-nix = {
+      url = "github:adisbladis/zephyr-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.zephyr.follows = "zephyr";
+    };
+
+    west2nix = {
+      url = "github:adisbladis/west2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.zephyr-nix.follows = "zephyr-nix";
+    };
   };
 
   outputs =
@@ -47,6 +65,8 @@
       pyproject-build-systems,
       panda-ng,
       nixpkgs-esp-dev,
+      zephyr-nix,
+      west2nix,
       ...
     }:
     let
@@ -247,9 +267,13 @@
             inherit xtensaGcc;
             inherit x86_64_glibc_path;
           };
+          rtos_demo = pkgs.callPackage ./use_cases/rtos_demo {
+            zephyr = zephyr-nix.packages.${system};
+            west2nix = pkgs.callPackage west2nix.lib.mkWest2nix { };
+          };
         in
         {
-          inherit printInputsRecursive tests;
+          inherit printInputsRecursive tests rtos_demo;
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           qemu = qemu.${system};
