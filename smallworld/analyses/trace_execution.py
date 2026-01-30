@@ -123,8 +123,10 @@ class TraceExecution(analysis.Analysis):
             )
             trace.append(te)
             # run any callbacks
-            for before_cb in self.before_instruction_cbs:
-                before_cb(self.emulator, pc, te)
+
+            if pc not in self.emulator.function_hooks:
+                for before_cb in self.before_instruction_cbs:
+                    before_cb(self.emulator, pc, te)
             try:
                 i += 1
                 logger.debug(cs_insn)
@@ -143,8 +145,9 @@ class TraceExecution(analysis.Analysis):
                 the_exc = e
                 break
             # run any after callbacks
-            for after_cb in self.after_instruction_cbs:
-                after_cb(self.emulator, pc, te)
+            if pc not in self.emulator.function_hooks:
+                for after_cb in self.after_instruction_cbs:
+                    after_cb(self.emulator, pc, te)
             if i == self.num_insns:
                 emu_result = TraceRes.ER_MAX_INSNS
                 break

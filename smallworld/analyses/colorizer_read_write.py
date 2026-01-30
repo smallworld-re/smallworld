@@ -237,6 +237,8 @@ class WRGraph:
         dstri = self.get_or_add_rw_from_dvk(read)
         src = SrcDst(firstobs.pc, srcrwi)
         dst = SrcDst(read.pc, dstri)
+        if src == dst:
+            return  # just dont
         if src not in self.out_edges:
             self.out_edges[src] = set([])
         self.out_edges[src].add(dst)
