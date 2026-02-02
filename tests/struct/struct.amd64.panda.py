@@ -62,6 +62,8 @@ final_cpu = final_machine.get_cpu()
 print(f"curr = {hex(final_cpu.rdi.get())}")
 
 heap.extract(emulator)
-final_node_b_bytes = heap.read_bytes(node_b_addr, ctypes.sizeof(StructNode))
+final_node_b_bytes = heap.read_bytes(
+    node_b_addr, ctypes.sizeof(StructNode), platform.byteorder
+)
 final_node_b = StructNode.from_buffer_copy(final_node_b_bytes)
 print(f"node_b->data = {final_node_b.data}")

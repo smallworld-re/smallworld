@@ -41,11 +41,15 @@ class Stateful(metaclass=abc.ABCMeta):
         return id(self)
 
 
+type CTypesAny = typing.Union[ctypes.Structure, ctypes.Union]
+type ValueContent = typing.Union[None, int, bytes, claripy.ast.bv.BV, CTypesAny]
+
+
 class Value(metaclass=abc.ABCMeta):
     """An abstract class whose subclasses all have a tuple of content, type, and label.  Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
 
     def __init__(self: typing.Any) -> None:
-        self._content: typing.Union[None, int, bytes, claripy.ast.bv.BV] = None
+        self._content: ValueContent = None
         self._type: typing.Optional[typing.Any] = None
         self._label: typing.Optional[str] = None
 
@@ -59,7 +63,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return 0
 
-    def get_content(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
+    def get_content(self) -> ValueContent:
         """Get the content of this value.
 
         Returns:
@@ -68,9 +72,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return self._content
 
-    def set_content(
-        self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]
-    ) -> None:
+    def set_content(self, content: ValueContent) -> None:
         """Set the content of this value.
 
         Arguments:
@@ -115,7 +117,7 @@ class Value(metaclass=abc.ABCMeta):
 
         self._label = label
 
-    def get(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
+    def get(self) -> ValueContent:
         """A helper to get the content of this value.
 
         Returns:
@@ -124,7 +126,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return self.get_content()
 
-    def set(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]) -> None:
+    def set(self, content: ValueContent) -> None:
         """A helper to set the content of this value.
 
         Arguments:
@@ -230,7 +232,9 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         class CTypeValue(Value):
-            def __init__(self, ctype: typing.Any, label: str):
+            def __init__(
+                self, ctype: typing.Union[ctypes.Structure, ctypes.Union], label: str
+            ):
                 self._content = ctype
                 self._label = label
                 self._type = ctype.__class__
@@ -402,14 +406,22 @@ class Register(Value, Stateful):
             s = s + str(type(x))
         return s
 
-    def set_content(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]):
+    def __content_typecheck(
+        self, content: ValueContent
+    ) -> typing.Union[int, claripy.ast.bv.BV, None]:
+        if not (
+            isinstance(content, int)
+            or isinstance(content, claripy.ast.bv.BV)
+            or content is None
+        ):
+            raise TypeError(
+                f"Expected None, int, or claripy expression as content for Register {self.name}, got {type(content)}"
+            )
+        return content
+
+    def set_content(self, content: ValueContent):
         if content is not None:
-            if not isinstance(content, int) and not isinstance(
-                content, claripy.ast.bv.BV
-            ):
-                raise TypeError(
-                    f"Expected None, int, or claripy expression as content for Register {self.name}, got {type(content)}"
-                )
+            content = self.__content_typecheck(content)
             if isinstance(content, int) and content < 0:
                 logger.warn(
                     "Converting content {hex(content)} of {self.name} to unsigned."
@@ -451,8 +463,7 @@ class Register(Value, Stateful):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         content = self.get_content()
-        if isinstance(content, bytes):
-            raise TypeError("Register content cannot be bytes")
+        content = self.__content_typecheck(content)
         if content is not None:
             emulator.write_register_content(self.name, content)
         if self.get_type() is not None:
@@ -509,7 +520,7 @@ class RegisterAlias(Register):
 
         return mask
 
-    def get_content(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
+    def get_content(self) -> ValueContent:
         r = self.reference.get_content()
         if r is None:
             return r
@@ -526,9 +537,7 @@ class RegisterAlias(Register):
                 raise TypeError(f"Unexpected register content {type(value)}")
         return value
 
-    def set_content(
-        self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]
-    ) -> None:
+    def set_content(self, content: ValueContent) -> None:
         if content is not None:
             if isinstance(content, int):
                 if content < 0:
@@ -549,10 +558,9 @@ class RegisterAlias(Register):
                 )
 
             value = self.reference.get_content()
+            value = self.__content_typecheck(value)
             if value is None:
                 value = 0
-            if isinstance(value, bytes):
-                raise TypeError("Value should not be bytes")
 
             # mypy completely loses the plot trying to determine type for content
             content = content << (self.offset * 8)  # type: ignore[operator]

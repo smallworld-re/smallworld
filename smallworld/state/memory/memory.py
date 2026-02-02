@@ -197,7 +197,9 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 value = state.BytesValue(part, None)
                 self[part_start - self.address] = value
 
-    def read_bytes(self, address: int, size: int) -> bytes:
+    def read_bytes(
+        self, address: int, size: int, byteorder: platforms.Byteorder
+    ) -> bytes:
         """Read part of this memory region.
         This will fail if any sub-region of the memory requested is symbolic or uninitialized.
 
@@ -220,29 +222,33 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
         segment: state.Value
         for segment_offset, segment in sorted(self.items()):
-            contents = segment.get_content()
+            # check if segment is in requested range
             segment_address = self.address + segment_offset
+            if not (
+                segment_address <= next_segment_address
+                and next_segment_address < segment_address + segment.get_size()
+            ):
+                continue
 
-            # check for symbolic
-            if not isinstance(contents, bytes):
+            # check for symbolic value
+            if isinstance(segment, state.SymbolicValue):
                 raise exceptions.SymbolicValueError(
                     f"Tried to read {size} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
                 )
 
-            # read into output buffer
-            if (
-                segment_address <= next_segment_address
-                and next_segment_address < segment_address + segment.get_size()
-            ):
-                offset_in_segment = next_segment_address - segment_address
-                length_in_segment = min(
-                    remaining_length, segment.get_size() - offset_in_segment
-                )
-                out += contents[
-                    offset_in_segment : offset_in_segment + length_in_segment
-                ]
-                next_segment_address += length_in_segment
-                remaining_length -= length_in_segment
+            # find offset of Value in output buffer
+            offset_in_segment = next_segment_address - segment_address
+            length_in_segment = min(
+                remaining_length, segment.get_size() - offset_in_segment
+            )
+
+            # append bytes to output buffer
+            segment_bytes = segment.to_bytes(byteorder)
+            out += segment_bytes[
+                offset_in_segment : offset_in_segment + length_in_segment
+            ]
+            next_segment_address += length_in_segment
+            remaining_length -= length_in_segment
 
             # check if output complete
             if remaining_length == 0:
@@ -260,8 +266,8 @@ class Memory(state.Stateful, dict[int, state.Value]):
         self,
         address: int,
         value: int,
-        size: typing.Literal[1, 2, 4],
-        endianness: platforms.Byteorder,
+        size: typing.Literal[1, 2, 4, 8],
+        byteorder: platforms.Byteorder,
     ) -> None:
         """Write an integer to memory.
         This will fail if any sub-region of the existing memory is symbolic.
@@ -274,14 +280,14 @@ class Memory(state.Stateful, dict[int, state.Value]):
         """
 
         self.write_bytes(
-            address, int.to_bytes(value, size, endianness.value, signed=False)
+            address, int.to_bytes(value, size, byteorder.value, signed=False)
         )
 
     def read_int(
         self,
         address: int,
-        size: typing.Literal[1, 2, 4],
-        endianness: platforms.Byteorder,
+        size: typing.Literal[1, 2, 4, 8],
+        byteorder: platforms.Byteorder,
     ) -> int:
         """Read and interpret as an integer.
         This will fail if any sub-region of the memory requested is symbolic or uninitialized.
@@ -296,8 +302,8 @@ class Memory(state.Stateful, dict[int, state.Value]):
         """
 
         return int.from_bytes(
-            self.read_bytes(address, size),
-            endianness.value,
+            self.read_bytes(address, size, byteorder),
+            byteorder.value,
             signed=False,
         )
 
