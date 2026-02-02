@@ -1,8 +1,12 @@
+import logging
+
 import unicorn
 import unicorn.ppc_const
 
 from ....platforms import Architecture, Byteorder
 from .machdef import UnicornMachineDef
+
+logger = logging.getLogger(__name__)
 
 
 class PPCMachineDef(UnicornMachineDef):
@@ -103,3 +107,9 @@ class PPC32MachineDef(PPCMachineDef):
 class PPC64MachineDef(PPCMachineDef):
     arch = Architecture.POWERPC64
     uc_mode = unicorn.UC_MODE_PPC64 | unicorn.UC_MODE_BIG_ENDIAN
+
+    def __init__(self, *args, **kwargs):
+        logger.warning(
+            "Unicorn PowerPC64 support is a work in progress.  This may not work."
+        )
+        super(*args, **kwargs)

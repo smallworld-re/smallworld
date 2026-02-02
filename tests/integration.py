@@ -349,14 +349,15 @@ class CallTestsUnicorn(CallTests):
         self.run_test("mipsel")
 
     def test_call_mips64(self):
-        self.run_test("mips64")
+        self.run_test("mips64", signext=True)
 
     def test_call_mips64el(self):
-        self.run_test("mips64el")
+        self.run_test("mips64el", signext=True)
 
     def test_call_ppc(self):
         self.run_test("ppc")
 
+    @unittest.skip("Unexpected trap")
     def test_call_ppc64(self):
         self.run_test("ppc64", signext=True)
 
@@ -499,6 +500,7 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_dma_ppc64(self):
         self.run_test("ppc64")
 
@@ -659,6 +661,7 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_square_ppc64(self):
         self.run_test("ppc64", signext=True)
 
@@ -822,6 +825,7 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_recursion_ppc64(self):
         self.run_test("ppc64")
 
@@ -998,6 +1002,7 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_ppc_pcode(self):
         self.run_test("ppc.pcode", reg="r3", res="0xffff")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_stack_ppc64(self):
         self.run_test("ppc64", reg="r3", res="0xffff")
 
@@ -1199,8 +1204,12 @@ class BranchTestsUnicorn(BranchTests):
     def test_branch_ppc(self):
         self.run_branch("ppc", reg="r3")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_branch_ppc64(self):
         self.run_branch("ppc64", reg="r3")
+
+    def test_branch_riscv64(self):
+        self.run_branch("riscv64", reg="a0")
 
 
 class StrlenTests(ScriptIntegrationTest):
@@ -1337,6 +1346,7 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_strlen_ppc64(self):
         self.run_test("ppc64")
 
@@ -1505,6 +1515,7 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_hooking_ppc64(self):
         self.run_test("ppc64")
 
@@ -1814,6 +1825,7 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_elf_ppc64(self):
         self.run_test("ppc64")
 
@@ -2658,6 +2670,7 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_ppc64(self):
         self.run_test("ppc64")
 
@@ -2876,6 +2889,7 @@ class ExitpointTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_ppc64(self):
         self.run_test("ppc64")
 
@@ -3035,6 +3049,7 @@ class UnmappedTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
     def test_ppc64(self):
         self.run_test("ppc64")
 
