@@ -2,7 +2,7 @@ import abc
 import inspect
 import typing
 
-from .... import platforms, utils
+from .... import exceptions, platforms, utils
 
 # from ....platforms import Architecture
 
@@ -52,6 +52,19 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
             raise ValueError(
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        """Handle a Unicorn interrupt
+
+        Unicorn doesn't always translate interrupts into exceptions;
+        we may need to give it some help.
+
+        Arguments:
+            intno: QEMU interrupt index
+        """
+        raise exceptions.EmulationExecExceptionFailure(
+            f"Unhandled interrupt {intno} at {hex(pc)}", pc
+        )
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

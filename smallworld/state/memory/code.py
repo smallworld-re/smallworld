@@ -2,9 +2,9 @@ import typing
 
 import claripy
 
-from ... import emulators
+from ... import emulators, exceptions
 from ...platforms import Platform
-from ..state import Value
+from ..state import BytesValue, SymbolicValue, Value
 from . import memory
 
 
@@ -18,6 +18,52 @@ class Executable(memory.RawMemory):
         This is not used by Emulators - but is available for reference from
         file parsing, if supported.
     """
+
+    def apply(self, emulator: emulators.Emulator) -> None:
+        # Program images are sparse, and can cover huge swaths of the address space.
+        # Memory.apply() needs to allocate the entire region for stack/heap operations.
+        # Doing that with an ELF core dump that occupies the entire address space
+        # will lead to sadness.
+        for offset, value in self.items():
+            emulator.map_memory(self.address + offset, value.get_size())
+            if value.get_content() is not None:
+                self._write_content(emulator, self.address + offset, value)
+            if value.get_type() is not None:
+                emulator.write_memory_type(
+                    self.address + offset, value.get_size(), value.get_type()
+                )
+            if value.get_label() is not None:
+                print(
+                    f"Writing label for [{self.address + offset:x} - {self.address + offset + value.get_size():x}]"
+                )
+                emulator.write_memory_label(
+                    self.address + offset, value.get_size(), value.get_label()
+                )
+
+    def extract(self, emulator: emulators.Emulator) -> None:
+        # This is the mirror problem of apply.
+        # Memory.extract() will extract the entire contiguous region.
+        # Doing that with an ELF core dump that occupies the entire address space
+        # will lead to sadness.
+        value: Value
+        items = list(self.items())
+        for offset, value in items:
+            try:
+                data = emulator.read_memory(self.address + offset, value.get_size())
+                value = BytesValue(
+                    data, f"Extracted memory from {self.address + offset:x}"
+                )
+            except exceptions.SymbolicValueError:
+                expr = emulator.read_memory_symbolic(
+                    self.address + offset, value.get_size()
+                )
+                value = SymbolicValue(
+                    value.get_size(),
+                    expr,
+                    None,
+                    f"Extracted memory from {self.address + offset:x}",
+                )
+            self[offset] = value
 
     def _write_content(self, emulator: emulators.Emulator, address: int, value: Value):
         if isinstance(value.get_content(), claripy.ast.bv.BV):
