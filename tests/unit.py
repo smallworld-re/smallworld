@@ -340,17 +340,29 @@ class StateTests(unittest.TestCase):
         memory = state.memory.Memory(addr, 4)
 
         memory.write_int(addr, 240, 1, platforms.Byteorder.LITTLE)
-        self.assertEqual(memory.read_bytes(addr, 1), b"\xf0")
+        self.assertEqual(
+            memory.read_bytes(addr, 1, platforms.Byteorder.LITTLE), b"\xf0"
+        )
         memory.write_int(addr, 240, 1, platforms.Byteorder.BIG)
-        self.assertEqual(memory.read_bytes(addr, 1), b"\xf0")
+        self.assertEqual(
+            memory.read_bytes(addr, 1, platforms.Byteorder.LITTLE), b"\xf0"
+        )
         memory.write_int(addr, 4080, 2, platforms.Byteorder.LITTLE)
-        self.assertEqual(memory.read_bytes(addr, 2), b"\xf0\x0f")
+        self.assertEqual(
+            memory.read_bytes(addr, 2, platforms.Byteorder.LITTLE), b"\xf0\x0f"
+        )
         memory.write_int(addr, 4080, 2, platforms.Byteorder.BIG)
-        self.assertEqual(memory.read_bytes(addr, 2), b"\x0f\xf0")
+        self.assertEqual(
+            memory.read_bytes(addr, 2, platforms.Byteorder.LITTLE), b"\x0f\xf0"
+        )
         memory.write_int(addr, 4027576335, 4, platforms.Byteorder.LITTLE)
-        self.assertEqual(memory.read_bytes(addr, 4), b"\x0f\xf0\x0f\xf0")
+        self.assertEqual(
+            memory.read_bytes(addr, 4, platforms.Byteorder.LITTLE), b"\x0f\xf0\x0f\xf0"
+        )
         memory.write_int(addr, 4027576335, 4, platforms.Byteorder.BIG)
-        self.assertEqual(memory.read_bytes(addr, 4), b"\xf0\x0f\xf0\x0f")
+        self.assertEqual(
+            memory.read_bytes(addr, 4, platforms.Byteorder.LITTLE), b"\xf0\x0f\xf0\x0f"
+        )
 
     def test_memory_ranges_initialized(self):
         # empty memory has no initialized ranges

@@ -406,7 +406,7 @@ class Register(Value, Stateful):
             s = s + str(type(x))
         return s
 
-    def __content_typecheck(
+    def _register_content_typecheck(
         self, content: ValueContent
     ) -> typing.Union[int, claripy.ast.bv.BV, None]:
         if not (
@@ -421,7 +421,7 @@ class Register(Value, Stateful):
 
     def set_content(self, content: ValueContent):
         if content is not None:
-            content = self.__content_typecheck(content)
+            content = self._register_content_typecheck(content)
             if isinstance(content, int) and content < 0:
                 logger.warn(
                     "Converting content {hex(content)} of {self.name} to unsigned."
@@ -463,7 +463,7 @@ class Register(Value, Stateful):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         content = self.get_content()
-        content = self.__content_typecheck(content)
+        content = self._register_content_typecheck(content)
         if content is not None:
             emulator.write_register_content(self.name, content)
         if self.get_type() is not None:
@@ -558,7 +558,7 @@ class RegisterAlias(Register):
                 )
 
             value = self.reference.get_content()
-            value = self.__content_typecheck(value)
+            value = self._register_content_typecheck(value)
             if value is None:
                 value = 0
 
