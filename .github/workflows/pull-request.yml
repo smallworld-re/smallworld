@@ -84,6 +84,7 @@ jobs:
       - name: Build Test Artifacts
         run: |
           nix build .#tests
+          nix build .#rtos_demo
 
   Unit-Test:
     runs-on: smallworld-arc
@@ -248,6 +249,8 @@ jobs:
         run: |
           nix build .#tests
           tar -C tests -xvf result/test_binaries.tar
+          nix build .#rtos_demo
+          cp result/zephyr.elf use_cases/rtos_demo/zephyr.elf
       - name: Run Integration Tests
         run: |
           cd tests

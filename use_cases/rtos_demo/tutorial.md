@@ -1,12 +1,17 @@
 # RTOS Demo
-In this demonstration, SmallWorld is used to harness vulnerable code in an ARM32 RTOS binary for fuzzing, dynamic analysis, and exploit development. Scripts for each completed stage of the process are included for reference (`rtos_0_run.py`, `rtos_1_fuzz.py`, `rtos_2_analyze.py`, `rtos_3_find_lr.py`, `rtos_4_exploit.py`). The binary under analysis (`zephyr.elf`) is also included.
+In this demonstration, SmallWorld is used to harness vulnerable code in an ARM32 RTOS binary for fuzzing, dynamic analysis, and exploit development. Scripts for each completed stage of the process are included for reference (`rtos_0_run.py`, `rtos_1_fuzz.py`, `rtos_2_analyze.py`, `rtos_3_find_lr.py`, `rtos_4_exploit.py`).
 
 ## Setup
 First, verify that SmallWorld and its dependencies are installed in your development environment. For installation instructions, reference our documentation.
 
 Next, we will need a binary to harness. For this example, we use [Zephyr](https://www.zephyrproject.org/), an open source RTOS targeting embedded devices. We will be using a modified version of their [echo server example](https://github.com/zephyrproject-rtos/zephyr/tree/main/samples/net/sockets/echo_server) with some injected vulnerable code for the sake of demonstration.
 
-Using the `zephyr.elf` binary included with this tutorial is recommended. However, if you wish to compile it from scratch, you may do so using `rtos_build.sh`. This bash script uses Docker to pull down the Zephyr SDK, patch the example source code, and compile our `zephyr.elf` binary. Note that the Zephyr SDK is a large project, and may take upwards of an hour to fully install. Additionally, if you compile your own binary, hard-coded addresses in the provided sample scripts may be offset.
+We use Nix to build our `zephyr.elf` binary deterministically. Run the commands below to compile `zephyr.elf` and copy it into the current directory.
+
+```sh
+nix build .#rtos_demo
+cp result/zephyr.elf ./zephyr.elf
+```
 
 ## Harnessing
 *The `rtos_0_run.py` script is included for reference with this section.*
@@ -300,7 +305,7 @@ Finally, we can remove any unneeded debugging information that we were printing 
 ### Constructing a Payload
 Knowing that `lr` takes up the top 4 bytes of the stack and that `input_buffer` starts 40 bytes below the top of the stack, we can determine that our payload must include 36 bytes of padding followed by our desired 4-byte return address.
 
-To compress 36 bytes into the first 12 bytes of `input_buffer`, we can take advantage of the expanding behavior discovered during dynamic analysis. The 8-byte expression `b"8a8b8c8d"` will expand to 32 bytes when processed. The remaining 4 bytes of padding can be any non-numeric character. Afterwards, we can include the address of `stop_udp`, which should be marked as our exit point.
+To compress 36 bytes into the first 12 bytes of `input_buffer`, we can take advantage of the expanding behavior discovered during dynamic analysis. The 8-byte expression `b"8a8b8c8d"` will expand to 32 bytes when processed. The next 3 bytes of padding can be any non-numeric character (here we choose `b"\x00"`). The following byte is `b"2"` to handle cases where its subsequent byte is a numeric character. Lastly, we include the address of `stop_udp`, which should be marked as our exit point.
 
 ```python
 # Entry point / exit point
@@ -314,7 +319,7 @@ emulator.add_exit_point(exit_point)
 
 # Input buffer
 buffer_memory_address = 0x1000
-input_bytes = b"8a8b8c8d\0\0\0\0" + stop_udp_addr.to_bytes(
+input_bytes = b"8a8b8c8d\x00\x00\x002" + stop_udp_addr.to_bytes(
     4, code.platform.byteorder.value
 )
 buffer_memory = smallworld.state.memory.RawMemory.from_bytes(

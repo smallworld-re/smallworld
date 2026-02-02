@@ -1,0 +1,86 @@
+--- a/samples/net/sockets/echo_server/src/udp.c
++++ b/samples/net/sockets/echo_server/src/udp.c
+@@ -36,6 +36,72 @@ K_THREAD_DEFINE(udp6_thread_id, STACK_SIZE,
+ 		THREAD_PRIORITY,
+ 		IS_ENABLED(CONFIG_USERSPACE) ? K_USER : 0, -1);
+ 
++/* BEGIN SMALLWORLD CODE */
++#define SMALLWORLD_BUFFER_SIZE 16
++unsigned int smallworld_len(char* buf) {
++    unsigned int i = 0;
++    while (buf[i] != 0) {
++        i++;
++    }
++    return i;
++}
++
++unsigned int smallworld_is_num(char b) {
++    if (b >= '0' && b <= '9') {
++        return 1;
++    }
++    return 0;
++}
++
++unsigned int smallworld_is_lower(char c) {
++    if (c >= 'a' && c <= 'z') {
++        return 1;
++    }
++    return 0;
++}
++
++void smallworld_copy(char* from, char* to, unsigned int num) {
++    for (int i = 0; i < num; i++) {
++        to[i] = from[i];
++    }
++}
++
++int smallworld_to_num(char c) {
++    return (int) (c - '0');
++}
++
++void smallworld_capitalize(char* buf, unsigned int size) {
++    for (int i = 0; i < size; i++) {
++        if (smallworld_is_lower(buf[i])) {
++            buf[i] = buf[i] - ('a' - 'A');
++        }
++    }
++}
++void smallworld_bug(char* input, char* output) {
++    char temp[SMALLWORLD_BUFFER_SIZE] = {0};
++    unsigned int t = 0;
++    unsigned int i = 0;
++    unsigned int j = 0;
++    int count = 0;
++    char c = '\0';
++    while (i < SMALLWORLD_BUFFER_SIZE) {
++        if (smallworld_is_num(input[i])) {
++            count = smallworld_to_num(input[i]);
++            c = input[++i];
++            for (j = 0; j < count; j++) {
++                temp[t] = c;
++                t++;
++            }
++            i++;
++        } else {
++            temp[t++] = input[i++];
++        }
++    }
++    smallworld_capitalize(temp, SMALLWORLD_BUFFER_SIZE);
++    smallworld_copy(temp, output, SMALLWORLD_BUFFER_SIZE);
++}
++/* END SMALLWORLD CODE */
++
+ static int start_udp_proto(struct data *data, struct sockaddr *bind_addr,
+ 			   socklen_t bind_addrlen)
+ {
+@@ -133,6 +199,10 @@ static int process_udp(struct data *data)
+ 			atomic_add(&data->udp.bytes_received, received);
+ 		}
+ 
++		/* INVOKE SMALLWORLD CODE */
++        data->udp.recv_buffer[received - 1] = 0;
++        smallworld_bug((char *)(data->udp.recv_buffer), (char *)(data->udp.recv_buffer));
++
+ 		ret = sendto(data->udp.sock, data->udp.recv_buffer, received, 0,
+ 			     &client_addr, client_addr_len);
+ 		if (ret < 0) {

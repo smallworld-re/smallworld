@@ -3719,21 +3719,21 @@ class RTOSDemoTests(ScriptIntegrationTest):
             cwd=self._rtos_demo_dir(),
         )
         for line in [
-            "002116:16",
-            "005214:1",
-            "005481:1",
-            "011210:1",
-            "011876:1",
-            "017923:16",
-            "019535:1",
-            "029241:1",
-            "033447:1",
-            "037562:16",
-            "049243:32",
-            "052615:32",
-            "061240:16",
-            "062153:1",
-            "062162:1",
+            "007807:16",
+            "012490:1",
+            "015455:1",
+            "018200:1",
+            "020054:1",
+            "023082:16",
+            "028189:1",
+            "028808:1",
+            "029351:32",
+            "031963:1",
+            "032949:1",
+            "034500:32",
+            "043283:16",
+            "060881:1",
+            "060989:16",
         ]:
             self.assertLineContainsStrings(stdout, line)
 
@@ -3748,7 +3748,7 @@ class RTOSDemoTests(ScriptIntegrationTest):
 
     def test_rtos_exploit(self):
         stdout = self.run_test("rtos_4_exploit.py")
-        self.assertLineContainsStrings(stdout, "PC: 0x10422c")
+        self.assertLineContainsStrings(stdout, "PC: 0x104234")
         self.assertLineContainsStrings(stdout, "Reached stop_udp: True")
 
 
