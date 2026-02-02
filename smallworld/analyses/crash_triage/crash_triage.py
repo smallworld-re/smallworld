@@ -561,9 +561,9 @@ class CrashTriage(analysis.Analysis):
         pc = crash.trace[-1]
         is_hook: bool = False
         safe_operands: typing.Dict[typing.Any, typing.Tuple[Expression, int]] = dict()
-        unmapped_operands: typing.Dict[
-            typing.Any, typing.Tuple[Expression, int]
-        ] = dict()
+        unmapped_operands: typing.Dict[typing.Any, typing.Tuple[Expression, int]] = (
+            dict()
+        )
         unsat_operands: typing.Dict[typing.Any, Expression] = dict()
         unconstrained_operands: typing.Dict[typing.Any, Expression] = dict()
 
