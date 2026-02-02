@@ -1,5 +1,6 @@
 import logging
 
+from angr.errors import SimValueError
 from angr.factory import AngrObjectFactory
 
 from ...exceptions import AnalysisError
@@ -21,9 +22,10 @@ class PatchedObjectFactory(AngrObjectFactory):
             # Angr's Vex lifter will happily run off the edge of memory,
             # interpreting undefined memory as zeroes.
             state = kwargs["backup_state"]
-            if state._ip.symbolic:
-                raise AnalysisError("Cannot build a block for a symbolic IP")
-            ip = state._ip.concrete_value
+            try:
+                ip = state.solver.eval_one(state._ip)
+            except SimValueError:
+                raise AnalysisError("Cannot step an unconstrained state")
 
             # Check if the ip is mapped
             r, found = state.scratch.memory_map.find_closest_range(ip)

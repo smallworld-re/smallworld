@@ -1,7 +1,58 @@
+import enum
+import logging
+
 import unicorn
 
+from ....exceptions import EmulationExecExceptionFailure
 from ....platforms import Architecture, Byteorder
 from .machdef import UnicornMachineDef
+
+logger = logging.getLogger(__name__)
+
+# From unicorn/qemu/mips/cpu.h
+# Descriptions from unicorn/qemu/mips/helpers.c
+
+
+class MipsExcp(enum.IntEnum):
+    EXCP_NONE = (-1,)  # No exception.  Wut?
+    EXCP_RESET = 0  # Hard reset
+    EXCP_SRESET = 1  # Soft reset
+    EXCP_DSS = 2  # Debug single-step
+    EXCP_DINT = 3  # Debug interrupt
+    EXCP_DDBL = 4  # Debug data break load
+    EXCP_DDBS = 5  # Debug data break store
+    EXCP_NMI = 6  # Non-maskable interrupt
+    EXCP_MCHECK = 7  # Machine check exception
+    EXCP_EXT_INTERRUPT = 8  # External interrupt
+    EXCP_DFWATCH = 9  # Deferred watchpoint
+    EXCP_DIB = 10  # Debug instruction breakpoint
+    EXCP_IWATCH = 11  # Instruction fetch watchpoint
+    EXCP_AdEL = 12  # Address exception on load
+    EXCP_AdES = 13  # Address exception on store
+    EXCP_TLBF = 14  # TLB refill
+    EXCP_IBE = 15  # Instruction bus error
+    EXCP_DBp = 16  # Debug breakpoint
+    EXCP_SYSCALL = 17  # Syscall instruction
+    EXCP_BREAK = 18  # Break instruction
+    EXCP_CpU = 19  # Coprocessor unusable
+    EXCP_RI = 20  # Reserved instruction
+    EXCP_OVERFLOW = 21  # Arithmetic overflow
+    EXCP_TRAP = 22  # Trap instruction eval'd to true
+    EXCP_FPE = 23  # Floating-point error
+    EXCP_DWATCH = 24  # Data watchpoint
+    EXCP_LTLBL = 25  # TLB write to unwritable page
+    EXCP_TLBL = 26  # TLB load failed
+    EXCP_TLBS = 27  # TLB store failed
+    EXCP_DBE = 28  # Data bus error
+    EXCP_THREAD = 29  # Thread yield
+    EXCP_MDMX = 30  # MDMX vector processor exceptioon
+    EXCP_C2E = 31  # Precise coprocessor 2 error
+    EXCP_CACHE = 32  # Cache error
+    EXCP_DSPDIS = 33  # DSP extensions disabled
+    EXCP_MSADIS = 34  # MSA extensions disabled
+    EXCP_MSAFPE = 35  # MSA floating point error
+    EXCP_TLBXI = 36  # Tried to fetch from execute-protected memory
+    EXCP_TLBRI = 37  # Tried to read from read-protected memory
 
 
 class MIPSMachineDef(UnicornMachineDef):
@@ -136,6 +187,177 @@ class MIPSMachineDef(UnicornMachineDef):
             "fenr": unicorn.mips_const.UC_MIPS_REG_INVALID,
             "fccr": unicorn.mips_const.UC_MIPS_REG_INVALID,
         }
+
+    def handle_interrupt(self, intno: int, pc: int) -> None:
+        # Unicorn treats all MIPS exceptions as interrupts,
+        # including the ones that would normally raise UcError.
+        #
+        # Pending a fix to Unicorn, do the translation manually.
+        if intno == MipsExcp.EXCP_MCHECK:
+            # Machine check exception.
+            # Uh oh.
+            logger.error("Machine fault")
+            raise EmulationExecExceptionFailure("MIPS machine fault", pc)
+
+        elif intno in (
+            MipsExcp.EXCP_DSS,
+            MipsExcp.EXCP_DINT,
+            MipsExcp.EXCP_DDBL,
+            MipsExcp.EXCP_DDBS,
+            MipsExcp.EXCP_DIB,
+            MipsExcp.EXCP_DBp,
+        ):
+            # Debug exceptions.
+            # If you are messing with this subsystem,
+            # SmallWorld can't help you.
+            logger.error(f"Debug exception: {MipsExcp(intno).name}")
+            raise EmulationExecExceptionFailure("MIPS debug exception", pc)
+
+        elif intno in (
+            MipsExcp.EXCP_DFWATCH,
+            MipsExcp.EXCP_IWATCH,
+            MipsExcp.EXCP_DWATCH,
+        ):
+            # Watchpoint error.
+            # If you are messing with this subsystem,
+            # SmallWorld can't help you
+            logger.error(f"Watchpoint exception: {MipsExcp(intno).name}")
+            raise EmulationExecExceptionFailure("MIPS watchpoint exception", pc)
+
+        elif intno == MipsExcp.EXCP_THREAD:
+            # Thread yield exception.
+            # If you are messing with this subsystem,
+            # SmallWorld can't help you
+            logger.error("Thread yield exception")
+            raise EmulationExecExceptionFailure("MIPS thread yield exception", pc)
+
+        elif intno in (MipsExcp.EXCP_RESET, MipsExcp.EXCP_SRESET):
+            # Reset exception.
+            # We really should never see this.
+            logger.error(f"Reset signal: {MipsExcp(intno).name}")
+            raise EmulationExecExceptionFailure("MIPS reset signal", pc)
+
+        elif intno in (
+            MipsExcp.EXCP_CpU,
+            MipsExcp.EXCP_DSPDIS,
+            MipsExcp.EXCP_MSADIS,
+        ):
+            # Coprocessor unavailable.
+            # Raise as an illegal instruction error
+            logger.debug(f"Coprocessor unavailable: {MipsExcp(intno).name}")
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
+
+        elif intno in (MipsExcp.EXCP_NMI, MipsExcp.EXCP_EXT_INTERRUPT):
+            # Interrupt of some kind.
+            # TODO: Actually allow hooking for this?
+            logger.error(f"External interrupt: {MipsExcp(intno).name}")
+            raise EmulationExecExceptionFailure("MIPS external interrupt", pc)
+
+        elif intno == MipsExcp.EXCP_RI:
+            # Reserved instruction error.
+            # Raise as an illegal instruction error
+            logger.debug("Reserved instruction")
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
+
+        elif intno == MipsExcp.EXCP_TLBL:
+            # TLB load failure
+            # Raise as a read unmappd
+            # This can also cover a fetch, but it's hard to tell
+            logger.debug("TLB load failure")
+            raise unicorn.UcError(unicorn.UC_ERR_READ_UNMAPPED)
+
+        elif intno == MipsExcp.EXCP_TLBS:
+            # TLB store failure
+            # Raise as a write unmapped
+            logger.debug("TLB store failure")
+            raise unicorn.UcError(unicorn.UC_ERR_WRITE_UNMAPPED)
+
+        elif intno == MipsExcp.EXCP_TLBF:
+            # TLB refill error
+            # Annoyingly, this could be either a read or a write;
+            # Unicorn doesn't give us that info.
+            logger.error("TLB refill exception")
+            logger.error("Not enough info from Unicorn to give an accurate cause")
+            raise EmulationExecExceptionFailure("MIPS TLB refill exception", pc)
+
+        elif intno == MipsExcp.EXCP_AdEL:
+            # Address load error
+            # Raise as an unaligned read
+            # Could also be an unaligned fetch, but it's hard to tell
+            logger.debug("Address load error")
+            raise unicorn.UcError(unicorn.UC_ERR_READ_UNALIGNED)
+
+        elif intno == MipsExcp.EXCP_AdES:
+            # Address store error
+            # Raise as an unaligned write
+            logger.debug("Address store error")
+            raise unicorn.UcError(unicorn.UC_ERR_WRITE_UNALIGNED)
+
+        elif intno == MipsExcp.EXCP_LTLBL:
+            # TLB modify error
+            # I think this should get raised as a write protected error
+            logger.debug("TLB modify error")
+            raise unicorn.UcError(unicorn.UC_ERR_WRITE_PROT)
+
+        elif intno == MipsExcp.EXCP_TLBXI:
+            # TLB execute inhibited
+            # Raise as a fetch protected error
+            logger.debug("TLB execute-inhibit")
+            raise unicorn.UcError(unicorn.UC_ERR_FETCH_PROT)
+
+        elif intno == MipsExcp.EXCP_TLBRI:
+            # TLB read inhibited
+            # Raise as a read protected error
+            logger.debug("TLB read-inhibit")
+            raise unicorn.UcError(unicorn.UC_ERR_READ_PROT)
+
+        elif intno == MipsExcp.EXCP_IBE:
+            # Instruction bus error
+            # Raise as a fetch unmapped; not quite right, but maybe?
+            logger.debug("Instruction bus error")
+            raise unicorn.UcError(unicorn.UC_ERR_FETCH_UNMAPPED)
+
+        elif intno == MipsExcp.EXCP_DBE:
+            # Data bus error
+            # Annoyingly, this could be a read or a write.
+            logger.error("Data bus error")
+            logger.error("Not enough info from Unicorn to give an accurate cause")
+            raise EmulationExecExceptionFailure("MIPS data bus error", pc)
+
+        elif intno == MipsExcp.EXCP_CACHE:
+            # Cache error.
+            # No idea what this means, and it looks like it's not plumbed into QEMU...?
+            logger.error("Cache error")
+            logger.error(
+                "At the time of writing, this doesn't look supported by QEMU/Unicorn...?"
+            )
+            raise EmulationExecExceptionFailure("MIPS cache error", pc)
+
+        elif intno in (
+            MipsExcp.EXCP_BREAK,
+            MipsExcp.EXCP_TRAP,
+            MipsExcp.EXCP_OVERFLOW,
+            MipsExcp.EXCP_FPE,
+            MipsExcp.EXCP_C2E,
+            MipsExcp.EXCP_MDMX,
+            MipsExcp.EXCP_MSAFPE,
+        ):
+            # Instruction or coprocessor errors
+            # Treat as an illegal instruction.
+            logger.error(f"Instruction failure: {MipsExcp(intno).name}")
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
+
+        elif intno == MipsExcp.EXCP_SYSCALL:
+            # System call instruction.
+            # Treat as an illegal instruction
+            # TODO: actually handle this.
+            logger.error("System call")
+            logger.error("UnicornEmulator currently doesn't support hooking these.")
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
+
+        else:
+            logger.error("Unexpected MIPS exception number: {intno}")
+            raise EmulationExecExceptionFailure(f"Unhandled exception {intno}", pc)
 
 
 class MIPSELMachineDef(MIPSMachineDef):
