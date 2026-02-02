@@ -11,6 +11,7 @@ from .arm import (
 from .i386 import i386MachineDef
 from .machdef import UnicornMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
+from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 
 __all__ = [
     "AArch64MachineDef",
@@ -24,5 +25,7 @@ __all__ = [
     "i386MachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
+    "MIPS64BEMachineDef",
+    "MIPS64ELMachineDef",
     "UnicornMachineDef",
 ]
