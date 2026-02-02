@@ -46,9 +46,9 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
         index = zero
         if self.index is not None:
-            index = emulator.read_register(self.index)
+            index = emulator.read_register_symbolic(self.index)
 
-        scale = claripy.BVV(self.offset, platdef.address_size * 8)
+        scale = claripy.BVV(self.scale, platdef.address_size * 8)
         offset = claripy.BVV(self.offset, platdef.address_size * 8)
         return base + scale * index + offset
 

@@ -179,7 +179,6 @@ class MIPSMachineDef(AngrMachineDef):
             exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
             del kwargs["extra_stop_points"]
         else:
-            print("Default exit points")
             exit_points = state.scratch.exit_points
 
         try:

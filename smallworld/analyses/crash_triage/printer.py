@@ -90,7 +90,7 @@ class CrashTriagePrinter(analysis.Analysis):
         if isinstance(diagnosis, DiagnosisEarlyDiverge):
             log.warning("Triage did not follow the initial trace")
             log.warning(
-                f"Expected {pc:x} at step {diagnosis.index}, got {diagnosis.pc}"
+                f"Expected {trace[diagnosis.index]:x} at step {diagnosis.index}, got {diagnosis.pc:x}"
             )
         elif isinstance(diagnosis, DiagnosisEarlyHalt):
             log.warning(
@@ -106,6 +106,10 @@ class CrashTriagePrinter(analysis.Analysis):
             log.warning(
                 f"Triage encountered an unconstrained {diagnosis.access.value} at step {diagnosis.index} ({trace[diagnosis.index]:x})"
             )
+            if diagnosis.op is None:
+                log.warning("No operand identified")
+            else:
+                log.warning(f"Responsible operand: {diagnosis.op}")
             self.print_expression(diagnosis.address)
 
     def print_diag_oob(self, pc: int, diagnosis: DiagnosisOOB) -> None:

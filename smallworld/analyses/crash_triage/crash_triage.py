@@ -5,8 +5,10 @@ import logging
 import typing
 
 import angr
+import capstone
+import claripy
 
-from ... import emulators, exceptions, platforms, state
+from ... import emulators, exceptions, instructions, platforms, state
 from .. import analysis
 from .concretization import SimConcretizationStrategyFault, UnboundAddressError
 from .hints import (
@@ -42,7 +44,6 @@ from .hints import (
 )
 
 log = logging.getLogger(__name__)
-print(__name__)
 
 
 class CrashCause(enum.Enum):
@@ -129,13 +130,17 @@ class CrashTriage(analysis.Analysis):
         self.og_labels: typing.Set[str] = set()
         self.reg_labels: typing.Set[str] = set()
         self.mem_labels: typing.Set[str] = set()
+        self.platform: typing.Optional[platforms.Platform] = None
+        self.platdef: typing.Optional[platforms.PlatformDef] = None
+        self.cs: typing.Optional[capstone.Cs] = None
 
     def _instrument_machine(self, machine: state.Machine):
+        assert self.platdef is not None
+
         # Label everything initialized.
         self.og_labels.clear()
         self.reg_labels.clear()
         self.mem_labels.clear()
-        platdef = platforms.PlatformDef.for_platform(machine.get_platform())
 
         for x in machine:
             if isinstance(x, state.cpus.CPU):
@@ -144,7 +149,7 @@ class CrashTriage(analysis.Analysis):
                         continue
                     if reg.get_content() is None:
                         continue
-                    if reg.name == platdef.pc_register:
+                    if reg.name == self.platdef.pc_register:
                         # Do not make the PC register symbolic.  Badness ensues.
                         continue
                     if reg.get_label() is None:
@@ -182,7 +187,8 @@ class CrashTriage(analysis.Analysis):
 
     def _get_crash(self, machine: state.Machine) -> typing.Optional[CrashResults]:
         # Create and configure a Unicorn emulator.
-        emu = emulators.UnicornEmulator(machine.get_platform())
+        assert self.platform is not None
+        emu = emulators.UnicornEmulator(self.platform)
         machine.apply(emu)
 
         hint: TriageHint
@@ -251,20 +257,14 @@ class CrashTriage(analysis.Analysis):
 
         return CrashResults(trace, cause, mem_operands)
 
-    def _check_trace(
-        self, i: int, trace: typing.List[int], emu: emulators.AngrEmulator
-    ) -> typing.Optional[DiagnosisEarlyDiverge]:
-        epc = trace[i]
-        ip = emu.read_register_symbolic("pc")
-        apc = emu.state.solver.eval_one(ip)
-
-        log.debug(f"Stepping through {apc:x} ({ip})")
-        if epc != apc:
-            log.debug(
-                f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x} ({ip})"
-            )
-            return DiagnosisEarlyDiverge(index=i, pc=apc)
-        return None
+    def _disassemble(self, emu, pc):
+        assert self.cs is not None
+        # FIXME: handle Thumb
+        code = emu.read_memory(pc, 16)
+        insns = list(self.cs.disasm(code, pc))
+        if len(insns) < 1:
+            return None
+        return insns[0]
 
     def _diagnose_expression(self, emu, expr):
         usr_labels: typing.Set[str] = set()
@@ -603,6 +603,51 @@ class CrashTriage(analysis.Analysis):
             unsat_operands=unsat_operands,
         )
 
+    def _diagnose_unbounded_address(
+        self,
+        pc: int,
+        i: int,
+        emu: emulators.AngrEmulator,
+        address: claripy.ast.bv.BV,
+        is_read: bool,
+    ):
+        # See if any operand matches the failing address
+        bad_op = None
+
+        disas = self._disassemble(emu, pc)
+        insn = instructions.Instruction.from_capstone(disas)
+        ops = insn.reads if is_read else insn.writes
+        for op in ops:
+            if isinstance(op, instructions.BSIDMemoryReferenceOperand):
+                val = op.symbolic_address(emu)
+                log.warning(f"{op}: {val} vs {address}")
+                try:
+                    emu.state.solver.eval_atleast(
+                        val, 1, extra_constraints=[val != address]
+                    )
+                except angr.errors.SimUnsatError:
+                    bad_op = op
+                    break
+
+        expr = self._diagnose_expression(emu, address)
+        access = MemoryAccess.READ if is_read else MemoryAccess.WRITE
+        return DiagnosisEarlyMemory(index=i, access=access, address=expr, op=bad_op)
+
+    def _check_trace(
+        self, i: int, trace: typing.List[int], emu: emulators.AngrEmulator
+    ) -> typing.Optional[DiagnosisEarlyDiverge]:
+        epc = trace[i]
+        ip = emu.read_register_symbolic("pc")
+        apc = emu.state.solver.eval_one(ip)
+
+        log.info(f"Stepping through {apc:x} ({ip})")
+        if epc != apc:
+            log.debug(
+                f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x} ({ip})"
+            )
+            return DiagnosisEarlyDiverge(index=i, pc=apc)
+        return None
+
     def _get_early_hint(self, crash: CrashResults, diagnosis: DiagnosisEarly):
         if crash.cause is CrashCause.OOB:
             return TriageOOB(
@@ -646,13 +691,15 @@ class CrashTriage(analysis.Analysis):
         else:
             raise exceptions.AnalysisError(f"Unexpected crash cause {crash.cause}")
 
-    def _diagnose(self, machine: state.Machine, crash: CrashResults):
+    def _diagnose(self, machine: state.Machine, crash: CrashResults) -> None:
+        assert self.platform is not None
+
         # Set up an angr emulator
         def angr_init(emu):
             emu.state.memory.read_strategies = [SimConcretizationStrategyFault(True)]
             emu.state.memory.write_strategies = [SimConcretizationStrategyFault(False)]
 
-        emu = emulators.AngrEmulator(machine.get_platform(), init=angr_init)
+        emu = emulators.AngrEmulator(self.platform, init=angr_init)
         emu.enable_linear()
         machine.apply(emu)
         emu.initialize()
@@ -671,10 +718,15 @@ class CrashTriage(analysis.Analysis):
                 emu.step()
             except UnboundAddressError as e:
                 # Emulator tried to concretize an unbound address
-                address = self._diagnose_expression(emu, e.address)
-                access = MemoryAccess.READ if e.is_read else MemoryAccess.WRITE
-                diagnosis_early = DiagnosisEarlyMemory(
-                    index=i, access=access, address=address
+                # This is an odd case of an unbounded read;
+                # the emulator won't have operand information,
+                # so we need to do a little digging.
+                log.debug(
+                    f"Unexpected attempt to concretize unbound address at {crash.trace[i]:x}"
+                )
+
+                diagnosis_early = self._diagnose_unbounded_address(
+                    crash.trace[i], i, emu, e.address, e.is_read
                 )
                 hint = self._get_early_hint(crash, diagnosis_early)
 
@@ -693,7 +745,7 @@ class CrashTriage(analysis.Analysis):
             except exceptions.EmulationExecInvalidFailure:
                 # Emulator encountered an unexpected illegal instruction.
                 # Unicorn and angr have different ISA coverage,
-                # so this isn't expected.
+                # so this isn't unexpected.
                 log.debug(f"Unexpected illegal instruction at {crash.trace[i]:x}")
 
                 illegal = self._diagnose_illegal(emu, crash.trace[i])
@@ -763,6 +815,15 @@ class CrashTriage(analysis.Analysis):
         self.hinter.send(hint)
 
     def run(self, machine: state.Machine) -> None:
+        self.platform = machine.get_platform()
+        assert self.platform is not None
+
+        self.platdef = platforms.PlatformDef.for_platform(self.platform)
+        assert self.platdef is not None
+
+        self.cs = capstone.Cs(self.platdef.capstone_arch, self.platdef.capstone_mode)
+        self.cs.detail = True
+
         # Copy the machine.  We will edit it.
         machine = copy.deepcopy(machine)
 

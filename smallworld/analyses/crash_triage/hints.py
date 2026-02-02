@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import claripy
 
-from ... import hinting
+from ... import hinting, instructions
 
 # Crash triage results have two major pieces,
 # the initial Triage failure, and the angr analysis results
@@ -273,9 +273,16 @@ class DiagnosisEarlyIllegal(DiagnosisEarly):
 
 @dataclass(frozen=True)
 class DiagnosisEarlyMemory(DiagnosisEarly):
-    """Diagnosis pass terminated early due to dereferencing an unconstrained address"""
+    """Diagnosis pass terminated early due to dereferencing an unconstrained address
+
+    Attributes:
+        access: The kind of memory access attempted
+        op: The offending operand, if possible to identify
+        address: Details of the unconstrained address
+    """
 
     access: MemoryAccess
+    op: typing.Optional[instructions.Operand]
     address: Expression
 
 
