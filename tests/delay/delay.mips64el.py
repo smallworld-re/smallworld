@@ -41,7 +41,7 @@ exit_point = cpu.pc.get() + code.get_capacity()
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 
-expected_writes: typing.Dict[int, int] = {0x100C: 1, 0x1020: 2, 0x1038: 1}
+expected_writes: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x1038: 1}
 actual_writes: typing.Dict[int, int] = dict()
 
 
@@ -52,7 +52,7 @@ def hook_memory_write(emu, addr, size, data):
 
 emulator.hook_memory_write(0x2000, 0x2004, hook_memory_write)
 
-expected_delay_slots: typing.Dict[int, int] = dict()
+expected_delay_slots: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x102C: 1}
 actual_delay_slots: typing.Dict[int, int] = dict()
 
 
