@@ -59,6 +59,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       pyproject-nix,
       uv2nix,
@@ -329,6 +330,118 @@
       pythonDeps = deps;
 
       inherit prebuilts;
+
+      # Nixpkgs overlay that exposes `smallworld` as a normal Python package
+      # usable via `pkgs.python312.withPackages (ps: [ ps.smallworld ])`.
+      overlays.default =
+        final: prev:
+        let
+          system = final.stdenv.hostPlatform.system;
+
+          # The pyproject-nix/uv2nix package set built by this flake for the
+          # current system.
+          pythonSet = pythonSets.${system};
+
+          hacks = final.callPackage pyproject-nix.build.hacks { };
+
+          # IMPORTANT:
+          # `hacks.toNixpkgs` works by enabling a wheel ("dist") output and then
+          # using the generated wheel as input to nixpkgs `buildPythonPackage`.
+          # That *only* works for packages that are actually built by the
+          # pyproject-nix/uv2nix builders. It will generally FAIL for packages
+          # that you pulled in via `hacks.nixpkgsPrebuilt` (like unicorn/pypanda/
+          # unicornafl in this repo), because those do not produce wheels.
+          basePyOverlay = hacks.toNixpkgs {
+            inherit pythonSet;
+            packages = [ "smallworld-re" "pyghidra" "pypcode"];
+          };
+
+          # Wrap the converted set to add a nicer alias.
+          convertedOverlay =
+            pyFinal: pyPrev:
+            let
+              converted = basePyOverlay pyFinal pyPrev;
+
+              # Make `smallworld` (and `smallworld-re`) automatically pull in
+              # heavy/native add-ons that downstream users often expect.
+              #
+              # This is what makes `python.withPackages (ps: [ ps.smallworld ])`
+              # also include `ps.pypanda` + `ps.unicornafl` in the environment.
+              smallworldWithAddons =
+                (converted."smallworld-re").overridePythonAttrs (old: {
+                  propagatedBuildInputs =
+                    (old.propagatedBuildInputs or [ ])
+                    ++ [
+                      pyFinal.pypanda
+                      pyFinal.unicornafl
+                    ];
+                });
+            in
+            converted
+            // {
+              # Keep the original attribute name, but with add-ons propagated.
+              "smallworld-re" = smallworldWithAddons;
+
+              # Nice alias (so downstream can use `ps.smallworld`).
+              smallworld = smallworldWithAddons;
+            };
+
+          # Add non-uv2nix packages directly as nixpkgs-style python packages.
+          extraOverlay =
+            pyFinal: pyPrev:
+            let
+              # --- Patched unicorn (C library + python bindings) ---
+              patched-unicorn-src = final.fetchFromGitHub {
+                owner = "appleflyerv3";
+                repo = "unicorn";
+                rev = "mmio_map_pc_sync";
+                hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
+              };
+
+              unicornLibPatched = prev.unicorn.overrideAttrs (_: {
+                src = patched-unicorn-src;
+              });
+
+              unicornPyPatched = pyPrev.unicorn.override {
+                unicorn = unicornLibPatched;
+              };
+
+              # Your existing builder (see flake's `prebuilts` section)
+              mkUnicornafl = final.callPackage ./unicornafl-build { };
+            in
+            {
+              unicorn = unicornPyPatched;
+
+              # Expose these as normal nixpkgs python packages.
+              unicornafl = mkUnicornafl pyFinal;
+
+              # pypanda builder comes from the panda-ng flake input.
+              pypanda = panda-ng.lib.${system}.pypandaBuilder pyFinal qemu.${system};
+            };
+
+          pyOverlay = final.lib.composeExtensions convertedOverlay extraOverlay;
+        in
+        {
+          # Provide a python312 interpreter whose package set includes:
+          # - uv2nix-built `smallworld-re` (as `smallworld`)
+          # - uv2nix-built `pyghidra`
+          # - nixpkgs/custom-built `pypanda`, `unicornafl`, and patched `unicorn`
+          python312 =
+            let
+              python =
+                prev.python312.override
+                  (old: {
+                    self = python;
+                    packageOverrides = final.lib.composeExtensions
+                      (old.packageOverrides or (_: _: { }))
+                      pyOverlay;
+                  });
+            in
+            python;
+
+          # Convenience: expose the extended package set directly.
+          python312Packages = final.python312.pkgs;
+        };
 
       formatter = forAllSystems (
         system:
