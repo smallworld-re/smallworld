@@ -13,6 +13,7 @@ from .machdef import UnicornMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
 from .ppc import PPC32MachineDef, PPC64MachineDef
+from .riscv64 import RISCV64MachineDef
 
 __all__ = [
     "AArch64MachineDef",
@@ -30,5 +31,6 @@ __all__ = [
     "MIPS64ELMachineDef",
     "PPC32MachineDef",
     "PPC64MachineDef",
+    "RISCV64MachineDef",
     "UnicornMachineDef",
 ]

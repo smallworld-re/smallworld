@@ -360,6 +360,9 @@ class CallTestsUnicorn(CallTests):
     def test_call_ppc64(self):
         self.run_test("ppc64", signext=True)
 
+    def test_call_riscv64(self):
+        self.run_test("riscv64", signext=True)
+
 
 class DMATests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):
@@ -504,6 +507,9 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_dma_riscv64(self):
+        self.run_test("riscv64")
 
     def test_dma_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -661,6 +667,9 @@ class SquareTests(ScriptIntegrationTest):
 
     def test_square_ppc64_pcode(self):
         self.run_test("ppc64.pcode", signext=True)
+
+    def test_square_riscv64(self):
+        self.run_test("riscv64", signext=True)
 
     def test_square_riscv64_angr(self):
         self.run_test("riscv64.angr", signext=True)
@@ -821,6 +830,9 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_recursion_riscv64(self):
+        self.run_test("riscv64")
 
     def test_recursion_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -995,6 +1007,9 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_ppc64_pcode(self):
         self.run_test("ppc64.pcode", reg="r3", res="0xffff")
 
+    def test_stack_riscv64(self):
+        self.run_test("riscv64", reg="a0", res="0xffffffff")
+
     def test_stack_riscv64_angr(self):
         self.run_test("riscv64.angr", reg="a0", res="0xffffffff")
 
@@ -1066,6 +1081,9 @@ class BranchTestsAngr(BranchTests):
 
     def test_branch_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
+
+    def test_branch_riscv64(self):
+        self.run_branch("riscv64", reg="a0")
 
     def test_branch_riscv64_angr(self):
         self.run_branch("riscv64.angr", reg="a0")
@@ -1328,6 +1346,9 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
 
+    def test_strlen_riscv64(self):
+        self.run_test("riscv64")
+
     def test_strlen_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -1493,6 +1514,9 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
 
+    def test_hooking_riscv64(self):
+        self.run_test("riscv64")
+
     def test_hooking_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -1650,6 +1674,9 @@ class MemhookTests(ScriptIntegrationTest):
     def test_ppc_ghidra(self):
         self.run_test_32("ppc.ghidra")
 
+    def test_riscv64(self):
+        self.run_test_64("riscv64")
+
     def test_riscv64_angr(self):
         self.run_test_64("riscv64.angr")
 
@@ -1796,6 +1823,9 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
 
+    def test_elf_riscv64(self):
+        self.run_test("riscv64")
+
     def test_elf_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -1941,6 +1971,9 @@ class RelaTests(ScriptIntegrationTest):
         self.run_test("ppc.pcode")
 
     # NOTE: PowerPC64 relocations are not currently supported
+
+    def test_rela_riscv64(self):
+        self.run_test("riscv64")
 
     def test_rela_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -2092,6 +2125,9 @@ class LinkElfTests(ScriptIntegrationTest):
         self.run_test("ppc.pcode")
 
     # NOTE: PowerPC64 relocations are not currently supported
+
+    def test_link_elf_riscv64(self):
+        self.run_test("riscv64")
 
     def test_link_elf_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -2631,6 +2667,9 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
 
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -2846,6 +2885,9 @@ class ExitpointTests(ScriptIntegrationTest):
     def test_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
 
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -3001,6 +3043,9 @@ class UnmappedTests(ScriptIntegrationTest):
 
     def test_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -4112,6 +4157,9 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
 
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -4242,6 +4290,9 @@ class CheckedReadTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -4374,6 +4425,9 @@ class CheckedWriteTests(ScriptIntegrationTest):
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
 
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
 
@@ -4504,6 +4558,9 @@ class CheckedUAFTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
