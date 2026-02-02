@@ -408,6 +408,10 @@ class RBTree(Iterable):
         N = self._get_node(value)
         self._remove_node(N)
 
+    def clear(self) -> None:
+        """Clear the entire tree"""
+        self._root = self._nil
+
     def extend(self, iterable: Iterable) -> None:
         """Add all values from an iterable to this tree
 
@@ -604,6 +608,8 @@ class RangeCollection(Iterable):
         Returns:
             True iff there is a range in the collection which contains `value`
         """
+        if not isinstance(value, int):
+            raise Exception(f"Value is not an int: {type(value)}")
         arange = (value, value + 1)
 
         # Only need to test left bisect
@@ -780,6 +786,10 @@ class RangeCollection(Iterable):
             # There's still a bit left
             out.append((start, end))
         return out
+
+    def clear(self) -> None:
+        """Remove all ranges in this collection"""
+        self._ranges.clear()
 
     @property
     def ranges(self) -> typing.List[typing.Tuple[int, int]]:

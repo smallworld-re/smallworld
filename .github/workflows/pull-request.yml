@@ -201,6 +201,7 @@ jobs:
             - testsuite: CheckedUAFTests
             - testsuite: CheckedWriteTests
             - testsuite: ColorizerTests
+            - testsuite: CrashTriageTests
             - testsuite: DelayTests
             - testsuite: DMATests
             - testsuite: DocumentationTests

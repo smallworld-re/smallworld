@@ -86,6 +86,7 @@ class UnicornEmulator(
 
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
+        self.curr_pc: int = 0
         # labels are per byte
 
         # We'll have one entry in this dictionary per full-width base
@@ -103,8 +104,25 @@ class UnicornEmulator(
 
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
+            # Save the current PC.
+            #
+            # On some ISAs, the interrupt hook will fire after
+            # control switches to the interrupt handler.
+            #
+            # For one, the address of the handler is usually garbage.
+            # For two, it makes it annoying as hell to diagnose the faulting
+            # instruction.
+            #
+            # Since the interrupt hook fires after the code hook,
+            # save the current program counter here so we can restore it later.
+            #
+            # If you actually care about executing interrupt handlers,
+            # please, for the love of all that's good use Panda.
+            self.curr_pc = address
+
             # Check if we're out of bounds
             if not self._bounds.is_empty() and not self._bounds.contains_value(address):
+                logger.debug(f"stopping emulation out of bounds at {address:x}")
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 raise exceptions.EmulationBounds
@@ -119,27 +137,50 @@ class UnicornEmulator(
             # Check single-step conditions.
             #
             # This callback gets invoked before the instruction is emulated.
-            # When single-stepping, we want to run through it once,
+            # When single-stepping, we want to run through this hook once,
             # and then stop emulation when it's run the second time.
             #
             # NOTE: Calling emu_stop() doesn't immediately stop emulation.
             # Returning here prevents spurious instruction and function hooks.
-            # The memory read/write hooks also check for EXIT
+            # The memory read/write and interrupt hooks also check for EXIT
             # to ensure they don't get called twice on the same event.
+
             if self.state == EmulatorState.STEP:
+                # This instruction is after the current step.
+                # Stop emulation and don't execute the rest of the hook.
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 return
             if self.state == EmulatorState.DELAY_STEP:
+                # This instruction is in a delay slot.
+                # The next instruction will be outside the current step.
+                #
+                # TODO: There are ISAs that support multiple delay slots.
+                # I will fix the state machine when we support one.
                 self.state = EmulatorState.STEP
             if self.state == EmulatorState.START_STEP:
+                # This is the first instruction in the step.
+                # What we do next isn't trivial.
                 insn = self.current_instruction()
                 if (
                     insn is not None
                     and insn.mnemonic in self.platdef.delay_slot_mnemonics
                 ):
+                    # This instruction has a branch delay slot.
+                    #
+                    # This means that the branch described
+                    # in the current instruction won't happen
+                    # until after the next instruction.
+                    # Stopping after the current instruction
+                    # will make Unicorn forget about the
+                    # branch.
+                    #
+                    # Easiest solution is to include
+                    # the next instruction as part of this step.
                     self.state = EmulatorState.DELAY_STEP
                 else:
+                    # This instruction is a normal instruction.
+                    # The next instruction will be outside the current step.
                     self.state = EmulatorState.STEP
 
             # run instruciton hooks
@@ -149,6 +190,7 @@ class UnicornEmulator(
             if cb := self.is_instruction_hooked(address):
                 logger.debug(f"hit hooking address for instruction at 0x{address:x}")
                 cb(self)
+
             # check function hooks *before* bounds since these might be out-of-bounds
             if cb := self.is_function_hooked(address):
                 logger.debug(
@@ -157,8 +199,7 @@ class UnicornEmulator(
                 # note that hooking a function means that we stop at function
                 # entry and, after running the hook, we do not let the function
                 # execute. Instead, we return from the function as if it ran.
-                # this permits modeling
-                # this is the model for the function
+                #
                 cb(self)
 
         self.engine.hook_add(unicorn.UC_HOOK_CODE, code_callback)
@@ -259,10 +300,23 @@ class UnicornEmulator(
         ] = {}
 
         def interrupt_callback(uc, index, user_data):
+            # On some ISAs, Unicorn will already have set PC
+            # to the interrupt handler address,
+            # which is probably garbage.  Put it back.
+            self.write_register("pc", self.curr_pc)
+
+            if self.state == EmulatorState.EXIT:
+                # This is a vestigial instruction.
+                # Don't report
+                self.engine.emu_stop()
+                return
+
             if self.interrupts_hook is not None:
                 self.interrupts_hook()
             if index in self.interrupt_hook:
                 self.interrupt_hook[index]()
+
+            self.machdef.handle_interrupt(index, self.curr_pc)
 
         self.engine.hook_add(unicorn.UC_HOOK_INTR, interrupt_callback)
 
@@ -628,7 +682,10 @@ class UnicornEmulator(
 
         if pc not in self.function_hooks and self.memory_map.contains_value(pc):
             disas = self.current_instruction()
-            logger.debug(f"single step at 0x{disas.address:x}: {disas}")
+            if disas is None:
+                logger.debug(f"single step at 0x{pc:x}: UNDECODABLE")
+            else:
+                logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
             self.engine.emu_start(pc, 0x0)
@@ -725,11 +782,22 @@ class UnicornEmulator(
         # rws is list of either reads or writes. get list of these
         # reads or writes that is not actually available, i.e. memory
         # not mapped
-        def get_unavailable_rw(rws):
+        def get_unavailable_rw(insn, rws):
             out = []
             for rw in rws:
                 if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
+                    # This operation accesses memory
                     a = rw.address(self)
+                    if not (self._is_address_mapped(a)):
+                        out.append((rw, a))
+                elif (
+                    insn._instruction.mnemonic
+                    in self.platdef.implicit_dereference_mnemonics
+                    and isinstance(rw, instructions.RegisterOperand)
+                ):
+                    # This operand is a register that's implicitly derferenced
+                    # by this ISA
+                    a = rw.concretize(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out
@@ -756,44 +824,76 @@ class UnicornEmulator(
 
         if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
             msg = f"{prefix} due to read of unmapped memory"
-            # actually this is a memory read error
             if i is not None:
-                operands = get_unavailable_rw(i.reads)
+                operands = get_unavailable_rw(i, i.reads)
+
             exc = exceptions.EmulationReadUnmappedFailure(msg, pc, operands=operands)
+
+            if len(self.platdef.delay_slot_mnemonics) != 0:
+                # If this is in a delay slot,
+                # then the exception could either be
+                # a read error from the current instruction,
+                # or a fetch error from the previous instruction,
+                # which is only getting resolved now.
+
+                try:
+                    # This only happens on MIPS,
+                    # which uses 32-bit fixed-width instructions.
+                    # TODO: Detect instruction width for other ISAs;
+                    # if we ever support mips16 or micromips, this will break.
+                    res = self.engine.mem_read(pc - 4, 16)
+                    code = bytes(res)
+                    # on arm32, update disassembler for ARM vs Thumb
+                    _ = self._handle_thumb_interwork(pc)
+                    insns, _ = self._disassemble(code, pc - 4, 1)
+                    insn = insns[0]
+
+                    prev_mnem = insn.mnemonic
+                    prev_i = instructions.Instruction.from_capstone(insn)
+                    prev_operands = get_unavailable_rw(prev_i, prev_i.reads)
+                except Exception:
+                    prev_mnem = None
+                    prev_i = None
+                    prev_operands = list()
+
+                if (
+                    prev_mnem is not None
+                    and prev_mnem in self.platdef.delay_slot_mnemonics
+                    and prev_operands
+                ):
+                    msg = f"{prefix} due to fetch of unmapped memory"
+                    exc = exceptions.EmulationFetchUnmappedFailure(
+                        msg, pc - 4, operands=prev_operands
+                    )
 
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
-            # actually this is a memory read error
             if i is not None:
-                operands = get_unavailable_rw(i.reads)
+                operands = get_unavailable_rw(i, i.reads)
             exc = exceptions.EmulationReadProtectedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
             msg = f"{prefix} due to unaligned read"
-            # actually this is a memory read error
             if i is not None:
-                operands = get_unavailable_rw(i.reads)
+                operands = get_unavailable_rw(i, i.reads)
             exc = exceptions.EmulationReadUnalignedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
             msg = f"{prefix} due to write to unmapped memory"
-            # actually this is a memory write error
             if i is not None:
-                operands = get_unavailable_rw(i.writes)
+                operands = get_unavailable_rw(i, i.writes)
             exc = exceptions.EmulationWriteUnmappedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_PROT:
             msg = f"{prefix} due to write to mapped but protected memory"
-            # actually this is a memory write error
             if i is not None:
-                operands = get_unavailable_rw(i.writes)
+                operands = get_unavailable_rw(i, i.writes)
             exc = exceptions.EmulationWriteProtectedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
             msg = f"{prefix} due to unaligned write"
-            # actually this is a memory write error
             if i is not None:
-                operands = get_unavailable_rw(i.writes)
+                operands = get_unavailable_rw(i, i.writes)
             exc = exceptions.EmulationWriteUnalignedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:
