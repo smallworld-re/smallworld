@@ -44,8 +44,9 @@ with open(filename, "rb") as f:
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
 machine.add(stack)
 
-# Set an argument
-stack.push_symbolic(4, "Argument")
+# Set two arguments
+stack.push_symbolic(4, "Argument 2")
+stack.push_symbolic(4, "Argument 1")
 
 # Set an exit point
 stack.push_symbolic(4, "Return address")
@@ -206,6 +207,12 @@ good &= run_test(
     hint_type=smallworld.analyses.crash_triage.TriageMemory,
     diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
     mem_access=smallworld.analyses.crash_triage.MemoryAccess.WRITE,
+)
+
+good &= run_test(
+    "trap_div0",
+    hint_type=smallworld.analyses.crash_triage.TriageTrap,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisTrap,
 )
 
 

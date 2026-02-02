@@ -202,6 +202,14 @@ good &= run_test(
     diagnosis_type=smallworld.analyses.crash_triage.DiagnosisMemory,
     mem_access=smallworld.analyses.crash_triage.MemoryAccess.WRITE,
 )
+# NOTE: armel doesn't trap on div0.
+# It reports a result of zero.
+#
+# good &= run_test(
+#    "trap_div0",
+#    hint_type=smallworld.analyses.crash_triage.TriageTrap,
+#    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisTrap,
+# )
 
 
 if not good:

@@ -205,6 +205,15 @@ good &= run_test(
     mem_access=smallworld.analyses.crash_triage.MemoryAccess.WRITE,
 )
 
+# MIPS doesn't have separate traps for trapping instructions.
+# This will look the same as an illegal instruction.
+good &= run_test(
+    "trap_div0",
+    hint_type=smallworld.analyses.crash_triage.TriageIllegal,
+    diagnosis_type=smallworld.analyses.crash_triage.DiagnosisIllegal,
+    illegal_type=smallworld.analyses.crash_triage.IllegalInstrUnconfirmed,
+)
+
 
 if not good:
     log.error("At least one analysis failed; check the logs")

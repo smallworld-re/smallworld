@@ -171,6 +171,14 @@ void mem_write_unconstrained(int *x) {
     *x = 42; 
 }
 
+/******************
+ *** Trap tests ***
+ ******************/
+
+int trap_div0(int x, int y) {
+    return x / y;
+}
+
 /***********************************
  *** Specific Exciting Behaviors ***
  ***********************************/

@@ -2,7 +2,7 @@ import abc
 import inspect
 import typing
 
-from .... import platforms, utils
+from .... import exceptions, platforms, utils
 
 # from ....platforms import Architecture
 
@@ -62,7 +62,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         Arguments:
             intno: QEMU interrupt index
         """
-        pass
+        raise exceptions.EmulationExecExceptionFailure(
+            f"Unhandled interrupt {intno} at {hex(pc)}", pc
+        )
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
