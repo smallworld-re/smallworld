@@ -10,8 +10,12 @@ from .arm import (
 )
 from .i386 import i386MachineDef
 from .machdef import UnicornMachineDef
-from .mips import MIPSBEMachineDef, MIPSELMachineDef
-from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
+from .mips import (
+    MIPS64BEMachineDef,
+    MIPS64ELMachineDef,
+    MIPSBEMachineDef,
+    MIPSELMachineDef,
+)
 from .ppc import PPC32MachineDef, PPC64MachineDef
 from .riscv64 import RISCV64MachineDef
 

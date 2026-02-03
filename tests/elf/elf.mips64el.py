@@ -62,6 +62,10 @@ stack.push_integer(2, 8, None)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
+# Configure fake exit point
+cpu.ra.set(0x10101010)
+machine.add_exit_point(0x10101010)
+
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 
