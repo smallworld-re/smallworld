@@ -41,6 +41,9 @@ stack.push_bytes(b"\0" * 32, None)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
+# Add spurious exit point
+machine.add_exit_point(0)
+
 # First test: read unmapped memory
 try:
     entrypoint = code.get_symbol_value("read_unmapped")
