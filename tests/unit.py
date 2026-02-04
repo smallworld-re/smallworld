@@ -943,36 +943,31 @@ class UnicornMachdefTests(unittest.TestCase):
         platform = platforms.Platform(
             platforms.Architecture.MIPS64, platforms.Byteorder.BIG
         )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_unicorn_mips64el(self):
         platform = platforms.Platform(
             platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
         )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_unicorn_ppc(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
         )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_unicorn_ppc64(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
         )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_unicorn_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
         )
-        # Not supported by unicorn
-        self.assertRaises(ValueError, self.run_test, platform)
+        self.run_test(platform)
 
     def test_unicorn_xtensa(self):
         platform = platforms.Platform(
