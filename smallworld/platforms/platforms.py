@@ -23,6 +23,9 @@ class Architecture(enum.Enum):
     AARCH64 = "aarch64"
     """arm64 v8a or later"""
 
+    M68K = "m68k"
+    """Motorola 68k"""
+
     MIPS32 = "mips32"
     """MIPS32 rel 2"""
 

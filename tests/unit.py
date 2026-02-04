@@ -776,6 +776,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_m68k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.M68K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_cpu_mips(self):
         platform = platforms.Platform(
             platforms.Architecture.MIPS32, platforms.Byteorder.BIG
@@ -924,6 +930,12 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_i386(self):
         platform = platforms.Platform(
             platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_m68k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.M68K, platforms.Byteorder.BIG
         )
         self.run_test(platform)
 
