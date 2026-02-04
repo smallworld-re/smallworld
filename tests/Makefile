@@ -24,6 +24,7 @@ ARMHF_ID := arm-linux-gnueabihf.2.40
 I386_ID := x86-linux-gnu.2.40
 I386_MINGW_ID := x86-windows-gnu.2.40
 LA64_ID := loongarch64-linux-gnu.2.40
+M68K_ID := m68k-unknown-linux-gnu
 MIPS_ID := mips-linux-gnueabihf.2.40
 MIPSEL_ID := mipsel-linux-gnueabihf.2.40
 MIPS64_ID := mips64-linux.2.3.48-gnuabi64.2.40
@@ -41,6 +42,7 @@ ARMEL_ASM_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ASM_AS := zig build-exe -target $(ARMHF_ID)
 I386_ASM_AS := zig build-exe -target $(I386_ID)
 LA64_ASM_AS := zig build-exe -target $(LA64_ID)
+M68K_ASM_AS := ./$(M68K_ID)-asm
 MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ASM_AS := zig build-exe -target $(MIPSEL_ID)
 MIPS64_ASM_AS := zig build-exe -target $(MIPS64_ID)
@@ -48,7 +50,7 @@ MIPS64EL_ASM_AS := zig build-exe -target $(MIPS64EL_ID)
 PPC_ASM_AS := zig build-exe -target $(PPC_ID)
 PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
 RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
-XTENSA_ASM_AS := ./xtensa_asm_wrapper.sh
+XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
 # Assembler Commands for ELF
 
@@ -57,7 +59,8 @@ AMD64_ELF_AS := zig build-exe -target $(AMD64_ID)
 ARMEL_ELF_AS := zig build-exe -target $(ARMEL_ID)
 ARMHF_ELF_AS := zig build-exe -target $(ARMHF_ID) 
 I386_ELF_AS := zig build-exe -target $(I386_ID) 
-LA64_ELF_AS := zig build-exe -target $(LA64_ID) 
+LA64_ELF_AS := zig build-exe -target $(LA64_ID)
+M68K_AS := ./$(M68K_ID)-elfasm
 MIPS_ELF_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID)
 MIPS64_ELF_AS := zig build-exe -target $(MIPS64_ID) 
@@ -65,7 +68,7 @@ MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID)
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
 PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
 RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
-XTENSA_ELF_AS := ./xtensa_elf_wrapper.sh
+XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
 # Objcopy Commands
 
@@ -76,6 +79,7 @@ ARMEL_OBJCOPY := zig objcopy
 ARMHF_OBJCOPY := zig objcopy
 I386_OBJCOPY := zig objcopy
 LA64_OBJCOPY := zig objcopy
+M68K_OBJCOPY := $(M68K_ID)-objcopy
 MIPS_OBJCOPY := zig objcopy
 MIPSEL_OBJCOPY := zig objcopy
 MIPS64_OBJCOPY := zig objcopy
@@ -95,6 +99,7 @@ ARMHF_CC := zig cc -target $(ARMHF_ID)
 I386_CC := zig cc -target $(I386_ID) 
 I386_MINGW_CC := zig cc -target $(I386_MINGW_ID) 
 LA64_CC := zig cc -target $(LA64_ID) 
+M68K_CC := $(M68K_ID)-gcc
 MIPS_CC := zig cc -target $(MIPS_ID) 
 MIPSEL_CC := zig cc -target $(MIPSEL_ID) 
 MIPS64_CC := zig cc -target $(MIPS64_ID) 
@@ -151,6 +156,7 @@ ARMHF_EXT := armhf
 I386_EXT := i386
 I386_MINGW_EXT := i386
 LA64_EXT := la64
+M68K_EXT := m68k
 MIPS_EXT := mips
 MIPSEL_EXT := mipsel
 MIPS64_EXT := mips64
@@ -167,6 +173,7 @@ ARMEL_SRC_EXT := $(ARMEL_EXT)
 ARMHF_SRC_EXT := $(ARMHF_EXT)
 I386_SRC_EXT := $(I386_EXT)
 LA64_SRC_EXT := $(LA64_EXT)
+M68K_SRC_EXT := $(M68K_EXT)
 MIPS_SRC_EXT := $(MIPS_EXT)
 # NOTE: mipsel uses mips source
 MIPSEL_SRC_EXT := $(MIPS_EXT)
@@ -269,13 +276,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

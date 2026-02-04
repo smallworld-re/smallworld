@@ -18,6 +18,8 @@ stdenv.mkDerivation {
     qemu-user
     gdb
     xtensaGcc
+    pkgsCross.m68k.stdenv.cc
+    pkgsCross.m68k.glibc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
   ];
