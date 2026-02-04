@@ -1,51 +1,29 @@
-Coverage Frontier Analysis
-==========================
+.. _coverage_frontier_tutorial:
 
-The coverage frontier is a concept related to edge coverage of some code.
-A few definitions first:
+Coverage Frontier Analysis Tutorial
+===================================
 
-1. The *control-flow graph* (CFG) of some binary code has nodes that
-   are the instructions in the code and there is a directed edge
-   between any two instruction that can follow one another,
-   sequentially, during some execution.
-2. A *dynamic CFG* (DCFG) is constructed by running the code
-   a number of times on different inputs. Instruction nodes and
-   edges will be those that were observed for some trace. In
-   many cases, there will be missing nodes and edges, as none of
-   the inputs tried has revealed them. Note that there is usually
-   a disparity between this DCFG and the ideal one that would come
-   from perfect knowledge of all possible paths through code given
-   all possible inputs. It is an unsolved and generally very
-   difficult problem to come up with a set of inputs for which the
-   DCFG will match the ideal one. 
-3. Given a DCFG, some conditional branch instructions will have two
-   successors, indicating that both branches were observed acros
-   traces. Conversely, some branch instructions will have only one
-   successor. These branches are considered *half-covered* with
-   respect to the set of inputs used to generate the traces and
-   thus the DCFG.
-4. The *coverage frontier* of some code is the set of half-covered
-   conditionals for that code, given the set of inputs used to
-   generate traces. This is a useful concept in *fuzzing* which
-   generates lots of random inputs for executing some code. The
-   coverage frontier is the branches in the code you have been
-   unable to *solve* for both sides after some number of input
-   tries.
-      
-This analysis will compute the coverage frontier by collecting and
-examining the ``TraceExecutionHint`` outputs from a number of runs
-of the ``TraceExecution`` analysis.
+Say you have a function and you want to determine, for some set of
+concrete inputs, which conditionals are only ever taken in one
+direction. This is sometimes called the "coverage frontier" and the
+:ref:`concept is described at more length elsewhere
+<coverage_frontier_concept>` in these docs.  Why would you want to
+know that?  Well, if the set of inputs is large then the coverage
+frontier tells you exactly which conditionals are not well served by
+those inputs, since they are only ever taken in one direction.
 
-Example Use
------------
+The ``CoverageFrontier`` analysis computes exactly this; for some set
+of execution traces (each of which generates a ``TraceExecutionHint``),
+it analyses the sequences of instructions to identify conditionals
+that are *half-covered*, meaning only one branch is ever taken.
+These are the coverage frontier.
 
-Consider a program that contains the a function ``foo`` which takes
-a single argument (in the ``edi`` register). Here is that function:
+For this tutorial, you will consider a program that contains the
+following function ``foo`` which takes a single argument (in the
+``edi`` register).
 
 .. code-block::
 
-       [0x00001060]> pdf @ sym.foo
-		   ; CALL XREF from sub.main_1168 @ 0x1192(x)
        ┌ 31: sym.foo (int64_t arg1);
        │ `- args(rdi) vars(1:sp[0xc..0xc])
        │           0x00001149      55             push rbp
@@ -64,29 +42,79 @@ a single argument (in the ``edi`` register). Here is that function:
        └           0x00001167      c3             ret
        [0x00001060]> 
 
-That argument copied into `eax` and tested to determine if it is
-odd or even which is used to decide the conditional branch at ``0x1158``.
-The returns either ``0x24`` or ``0x42`` based on the whether or not
-the argument ``edi`` is even.
+The argument is copied into `eax`
+and tested to determine if it is odd or even, which is used to decide
+the conditional branch at ``0x1158``. The function returns either
+``0x24`` or ``0x42`` based on the whether or not the argument ``edi``
+is even. Given how this function operates, if you execute it just
+once, you should see just one of the branches of ``0x1158`` execute.
+In this case, ``0x1158`` is certain to be in the coverage frontier.
+However, if you execute the function more than once with both odd and
+even inputs, or if you just run it a lot of times with random inputs,
+then it is very likely to hit both branches, meaning ``0x1158`` will
+not be in the coverage frontier.
 
-Here is a small script that harnesses a program ``cf`` that contains
-this function ``foo``.
-It executes the function one or more times, each time using the
-``TraceExecution`` analysis.
-The hints output by these analysis runs are consumed by a
-``CoverageFrontier`` analysis.
+There is a script in the SmallWorld test suite used to exercise and
+verify the ``CoverageFrontier`` analysis. This script harnesses the
+function ``foo`` above (setting the entry point to ``0x1149``), in the
+program ``cf`` that is pre-compiled in that testing directory.  The
+script contains a lot that is either boilerplate or relevant only to
+testing.  Let's focus on the parts of it that make use of the
+``CoverageFrontier``. First, there is code that sets up a hinter and
+creates the ``CoverageFrontier`` analysis object.
 
 .. literalinclude:: ../../../tests/coverage_frontier/coverage_frontier_test.py
   :language: Python
+  :lines: 65-67
 
+The script registers a function to collect the
+``CoverageFrontierHint`` that is output by the analysis. Only one such
+hint will be output by the analysis when it is run.
+
+.. literalinclude:: ../../../tests/coverage_frontier/coverage_frontier_test.py
+  :language: Python
+  :lines: 51-54
+
+The script creates ``num_micro_exec`` traces, using the
+``TraceExecution`` analysis. For each, a different and random value is
+assigned to ``rdi`` which is the input to the function ``foo``.  Each
+of these runs of ``TraceExecution`` will output a ``TraceExecutionHint``
+that is consumed by the ``CoverageFrontier`` analysis.
+
+.. literalinclude:: ../../../tests/coverage_frontier/coverage_frontier_test.py
+  :language: Python
+  :lines: 69-77
+
+After all these traces have been created and hinted, we run the ``CoverageFrontier`` analysis
+
+.. literalinclude:: ../../../tests/coverage_frontier/coverage_frontier_test.py
+  :language: Python
+  :lines: 79-82
+
+The upshot of all this should be that we collect a single
+``CoverageFrontierHint`` which will be in the global ``hint[0]``.
+This hint's ``coverage_frontier`` set is output with code like this
+(where ``h = hint[0]``).
+
+.. literalinclude:: ../../../tests/coverage_frontier/coverage_frontier_test.py
+  :language: Python
+  :lines: 99-102
+
+Here is the complete script, which contains some code to harness the
+``cf`` program as well as some needed for testing.
+
+.. literalinclude:: ../../../tests/coverage_frontier/coverage_frontier_test.py
+  :language: Python
+	  
 The script takes three arguments.
 The first is the number of micro-executions or *traces* to run, each of
 which is an execution of the function ``foo``.
 The second sets a maximum number of instructions to execute.
 The third argument is a seed for the random number generator.
-If we run script, asking it to create a *single* trace, obviously we
-can only execute one branch of the ``jne`` at ``0x1158``, so the
-coverage frontier should contain that single branch instruction.
+
+If we run script, asking it to create a *single* trace, as noted
+earlier, we can only execute one branch of the ``jne`` at ``0x1158``,
+so the coverage frontier will contain that branch instruction.
 
 .. command-output:: python3 coverage_frontier_test.py 1 100 1233 2> /dev/null 
     :shell:		    
@@ -102,6 +130,12 @@ and our coverage frontier will be empty.
     :cwd: ../../../tests/coverage_frontier
 
 	  
+The function ``foo`` is not a complicated one; consider it a toy
+example.  If it were much larger or more complicated, then
+determining, merely by inspection, what conditionals were likely to
+easily covered would be very difficult. The ``CoverageFrontier`` can
+figure this out for you directly.
+
 	  
 
 
