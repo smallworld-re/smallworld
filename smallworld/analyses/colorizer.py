@@ -103,7 +103,7 @@ def randomize_uninitialized(
 
         def randomize_mem(mem, start, size):
             bytz = random.randbytes(size)
-            mem.write_bytes(start, bytz, machine.get_platform().byteorder)
+            mem.write_bytes(start, bytz)
             m.update(bytz)
 
         if isinstance(mem, state.memory.code.Executable):

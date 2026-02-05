@@ -29,7 +29,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         self.size: int = size
         """The size address of this memory region."""
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         """Convert this memory region into a byte string.
 
         Missing/undefined space will be filled with zeros.
@@ -45,9 +45,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         for offset, value in self.items():
             # data = value.get_content()
             result = (
-                result[:offset]
-                + value.to_bytes(byteorder=byteorder)
-                + result[offset + value.get_size() :]
+                result[:offset] + value.to_bytes() + result[offset + value.get_size() :]
             )
 
         return result
@@ -85,9 +83,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 return
             except exceptions.SymbolicValueError:
                 pass
-        emulator.write_memory_content(
-            address, value.to_bytes(emulator.platform.byteorder)
-        )
+        emulator.write_memory_content(address, value.to_bytes())
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.map_memory(self.address, self.get_capacity())
@@ -120,9 +116,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         self.clear()
         self[0] = value
 
-    def write_bytes(
-        self, address: int, data: bytes, byteorder: platforms.Byteorder
-    ) -> None:
+    def write_bytes(self, address: int, data: bytes) -> None:
         """Overwrite part of this memory region with specific bytes.
         This will fail if any sub-region of the existing memory is symbolic.
 
@@ -181,7 +175,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                         f"Tried to write {len(data)} bytes at {hex(address)}.  Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
                     )
 
-                contents = segment.to_bytes(byteorder)
+                contents = segment.to_bytes()
                 prefix = contents[: part_start - segment_start]
                 suffix = contents[part_end - segment_start :]
                 new_segment_bytes = prefix + part + suffix
@@ -191,7 +185,9 @@ class Memory(state.Stateful, dict[int, state.Value]):
                     case state.BytesValue():
                         segment.set_content(new_segment_bytes)
                     case state.IntegerValue():
-                        as_int = int.from_bytes(new_segment_bytes, byteorder.value)
+                        as_int = int.from_bytes(
+                            new_segment_bytes, segment.byteorder.value
+                        )
                         segment.set_content(as_int)
                     case _:
                         # CTypeValue
@@ -213,9 +209,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 value = state.BytesValue(part, None)
                 self[part_start - self.address] = value
 
-    def read_bytes(
-        self, address: int, size: int, byteorder: platforms.Byteorder
-    ) -> bytes:
+    def read_bytes(self, address: int, size: int) -> bytes:
         """Read part of this memory region.
         This will fail if any sub-region of the memory requested is symbolic or uninitialized.
 
@@ -259,7 +253,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
             )
 
             # append bytes to output buffer
-            segment_bytes = segment.to_bytes(byteorder)
+            segment_bytes = segment.to_bytes()
             out += segment_bytes[
                 offset_in_segment : offset_in_segment + length_in_segment
             ]
@@ -296,7 +290,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         """
 
         self.write_bytes(
-            address, int.to_bytes(value, size, byteorder.value, signed=False), byteorder
+            address, int.to_bytes(value, size, byteorder.value, signed=False)
         )
 
     def read_int(
@@ -318,7 +312,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         """
 
         return int.from_bytes(
-            self.read_bytes(address, size, byteorder),
+            self.read_bytes(address, size),
             byteorder.value,
             signed=False,
         )

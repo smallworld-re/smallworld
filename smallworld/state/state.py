@@ -208,14 +208,11 @@ class Value(metaclass=abc.ABCMeta):
         return state
 
     @abc.abstractmethod
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         """Convert this value into a byte string.
 
-        Arguments:
-            byteorder: Byteorder for conversion to raw bytes.
-
         Returns:
-            Bytes for this value with the given byteorder.
+            Bytes for this value.
         """
 
         return b""
@@ -248,7 +245,7 @@ class Value(metaclass=abc.ABCMeta):
             def get_size(self) -> int:
                 return ctypes.sizeof(self._content)  # type: ignore
 
-            def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+            def to_bytes(self) -> bytes:
                 return bytes(self._content)  # type: ignore
 
         return CTypeValue(ctype, label)
@@ -299,7 +296,12 @@ class IntegerValue(Value):
     """
 
     def __init__(
-        self, integer: int, size: int, label: typing.Optional[str], signed: bool = True
+        self,
+        integer: int,
+        size: int,
+        label: typing.Optional[str],
+        signed: bool = True,
+        byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE,
     ) -> None:
         super().__init__()
         if size == 8:
@@ -327,11 +329,16 @@ class IntegerValue(Value):
         self._content = integer
         self._label = label
         self._size = size
+        self._byteorder = byteorder
 
     def get_size(self) -> int:
         return self._size
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    @property
+    def byteorder(self) -> platforms.Byteorder:
+        return self._byteorder
+
+    def to_bytes(self) -> bytes:
         if self._content is None:
             raise ValueError("IntegerValue must have an integer value")
         if not isinstance(self._content, int):
@@ -341,9 +348,9 @@ class IntegerValue(Value):
             # Convert signed python into unsigned int containing 2s-compliment value.
             # Python's to_bytes() doesn't do this on its own.
             value = 2 ** (self._size * 8) + value
-        if byteorder == platforms.Byteorder.LITTLE:
+        if self._byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self._size, byteorder="little")
-        elif byteorder == platforms.Byteorder.BIG:
+        elif self._byteorder == platforms.Byteorder.BIG:
             return value.to_bytes(self._size, byteorder="big")
         else:
             raise NotImplementedError("middle endian integers are not yet implemented")
@@ -370,7 +377,7 @@ class BytesValue(Value):
     def get_size(self) -> int:
         return self._size
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         if self._content is None or not isinstance(self._content, bytes):
             raise ValueError("BytesValue must have a bytes value")
         return self._content
@@ -384,7 +391,12 @@ class Register(Value, Stateful):
         size: The size (in bytes) of the register.
     """
 
-    def __init__(self, name: str, size: int = 4):
+    def __init__(
+        self,
+        name: str,
+        size: int = 4,
+        byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE,
+    ):
         super().__init__()
 
         self.name: str = name
@@ -392,6 +404,9 @@ class Register(Value, Stateful):
 
         self.size = size
         """Register size in bytes."""
+
+        self.byteorder = byteorder
+        """Register platform byteorder."""
 
     def __str__(self):
         s = f"Reg({self.name},{self.size})="
@@ -469,7 +484,7 @@ class Register(Value, Stateful):
         if self.get_label() is not None:
             emulator.write_register_label(self.name, self.get_label())
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         value = self.get_content()
 
         if value is None:
@@ -482,12 +497,12 @@ class Register(Value, Stateful):
         elif isinstance(value, bytes):
             # This never happens, but let's keep mypy happy
             return value
-        elif byteorder == platforms.Byteorder.LITTLE:
+        elif self.byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self.size, byteorder="little")
-        elif byteorder == platforms.Byteorder.BIG:
+        elif self.byteorder == platforms.Byteorder.BIG:
             return value.to_bytes(self.size, byteorder="big")
         else:
-            raise ValueError(f"unsupported byteorder {byteorder}")
+            raise ValueError(f"unsupported byteorder {self.byteorder}")
 
 
 class RegisterAlias(Register):
