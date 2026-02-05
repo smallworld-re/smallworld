@@ -62,5 +62,5 @@ for step in machine.step(emulator):
 
 # Extract changes to buffer
 buffer_memory.extract(emulator)
-output_bytes = buffer_memory.to_bytes(byteorder=code.platform.byteorder)
+output_bytes = buffer_memory.to_bytes()
 print(f"Buffer: {output_bytes!r}")
