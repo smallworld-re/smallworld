@@ -215,8 +215,20 @@
           ];
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
+          pythonEnvPkgs = import nixpkgs {
+            inherit system;
+            overlays = [overlays.default];
+          };
+          pythonEnv = pythonEnvPkgs.mkShell {
+            packages = [
+              (pythonEnvPkgs.python312.withPackages (ps: [
+                ps.smallworld
+              ]))
+            ];
+          };
         in
         {
+          inherit pythonEnv;
           default = pkgs.mkShell {
             packages = [
               virtualenv
