@@ -141,7 +141,7 @@ class StateTests(unittest.TestCase):
         # test write to entire segment
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abcdefgh", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
@@ -149,7 +149,7 @@ class StateTests(unittest.TestCase):
         # test write to sub-segment
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abcdefgh", None)
-        memory.write_bytes(0x1003, b"DE")
+        memory.write_bytes(0x1003, b"DE", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"abcDEfgh"
         )
@@ -158,7 +158,7 @@ class StateTests(unittest.TestCase):
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abcd", None)
         memory[4] = state.BytesValue(b"efgh", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
@@ -168,24 +168,24 @@ class StateTests(unittest.TestCase):
         memory[0] = state.BytesValue(b"abc", None)
         memory[3] = state.BytesValue(b"de", None)
         memory[5] = state.BytesValue(b"fgh", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
 
-        # test memory discontinuous
+        # test write discontinuous
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abc", None)
         memory[5] = state.BytesValue(b"fgh", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
 
-        # test memory discontinuous on end
+        # test write discontinuous on ends
         memory = state.memory.Memory(0x1000, 0x8)
-        memory[0] = state.BytesValue(b"abcde", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory[2] = state.BytesValue(b"cde", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
@@ -194,23 +194,66 @@ class StateTests(unittest.TestCase):
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abc", None)
         memory[1] = state.BytesValue(b"fgh", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(memory[0].get_content(), b"ABC")
         self.assertEqual(memory[1].get_content(), b"BCD")
 
         # test write out of bounds
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abcdefgh")
+        memory.write_bytes(0x1000, b"abcdefgh", platforms.Byteorder.LITTLE)
         self.assertRaises(
             exceptions.ConfigurationError,
-            lambda: memory.write_bytes(0x1000, b"abcdefghijklmnop"),
+            lambda: memory.write_bytes(
+                0x1000, b"abcdefghijklmnop", platforms.Byteorder.LITTLE
+            ),
         )
         self.assertRaises(
             exceptions.ConfigurationError,
-            lambda: memory.write_bytes(0x500, b"abcdefghijklmnop"),
+            lambda: memory.write_bytes(
+                0x0500, b"abcdefghijklmnop", platforms.Byteorder.LITTLE
+            ),
+        )
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.write_bytes(0x0FFC, b"abcdefgh", platforms.Byteorder.LITTLE),
+        )
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.write_bytes(0x1004, b"abcdefgh", platforms.Byteorder.LITTLE),
         )
 
-        # test memory contains symbolic
+        # test overwrite IntegerValue bytes
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[3] = state.IntegerValue(0xDEADBEEF, 4, None)
+        memory[7] = state.BytesValue(b"f", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
+        self.assertEqual(
+            memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
+            b"ABCDEFGH",
+        )
+
+        # test overwrite CTypeValue bytes
+        class TestStruct(ctypes.LittleEndianStructure):
+            _pack_ = 4
+            _fields_ = (("test_field", ctypes.c_int32),)
+
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        struct = TestStruct()
+        struct.test_field = 0xDEADBEEF
+        memory[3] = state.Value.from_ctypes(struct, None)
+        memory[7] = state.BytesValue(b"f", None)
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
+        self.assertEqual(
+            memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
+            b"ABCDEFGH",
+        )
+        self.assertEqual(
+            memory[3].get_content().test_field, int.from_bytes(b"DEFG", "little")
+        )
+
+        # test overwrite SymbolicValue bytes
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abc", None)
         memory[3] = state.SymbolicValue(2, None, None, None)
@@ -224,95 +267,129 @@ class StateTests(unittest.TestCase):
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abc", None)
         memory[5] = state.BytesValue(b"fgh", None)
-        memory.write_bytes(0x1000, b"ABCDEFGH")
+        memory.write_bytes(0x1000, b"ABCDEFGH", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.to_bytes(byteorder=platforms.Byteorder.LITTLE), b"ABCDEFGH"
         )
 
     def test_memory_read_bytes(self):
-        # test read memory all in one segment
+        # test read entire segment
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abcdefgh")
+        memory[0] = state.BytesValue(b"abcdefgh", None)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"abcdefgh"
         )
 
-        # test read memory in sub-segment
+        # test read sub-segment
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abcdefgh")
+        memory[0] = state.BytesValue(b"abcdefgh", None)
         self.assertEqual(
             memory.read_bytes(0x1001, 0x4, platforms.Byteorder.LITTLE), b"bcde"
         )
 
-        # test read memory split over 2 segments
+        # test read split over 2 segments
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abcd")
-        memory.write_bytes(0x1004, b"efgh")
+        memory[0] = state.BytesValue(b"abcd", None)
+        memory[4] = state.BytesValue(b"efgh", None)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"abcdefgh"
         )
 
-        # test read memory split over 3 segments
+        # test read split over 3 segments
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abc")
-        memory.write_bytes(0x1003, b"de")
-        memory.write_bytes(0x1005, b"fgh")
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[3] = state.BytesValue(b"de", None)
+        memory[5] = state.BytesValue(b"fgh", None)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE), b"abcdefgh"
         )
 
-        # test read memory with unused segments and sub-segments
+        # test read with unused segments and sub-segments
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"a")
-        memory.write_bytes(0x1001, b"bcd")
-        memory.write_bytes(0x1004, b"efg")
-        memory.write_bytes(0x1007, b"h")
+        memory[0] = state.BytesValue(b"a", None)
+        memory[1] = state.BytesValue(b"bcd", None)
+        memory[4] = state.BytesValue(b"efg", None)
+        memory[7] = state.BytesValue(b"h", None)
         self.assertEqual(
             memory.read_bytes(0x1002, 0x4, platforms.Byteorder.LITTLE), b"cdef"
         )
 
-        # test read out of bounds
+        # test read discontinuous
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abcdefgh")
-        self.assertRaises(
-            exceptions.ConfigurationError,
-            lambda: memory.read_bytes(0x1000, 0x10, platforms.Byteorder.LITTLE),
-        )
-
-        # test read memory discontinuous
-        memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abc")
-        memory.write_bytes(0x1005, b"fgh")
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[5] = state.BytesValue(b"fgh", None)
         self.assertRaises(
             exceptions.ConfigurationError,
             lambda: memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
+        )
+
+        # test read discontinuous on ends
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[2] = state.BytesValue(b"cde", None)
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
+        )
+
+        # test read overlapping segments
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[1] = state.BytesValue(b"fgh", None)
+        self.assertEqual(
+            memory.read_bytes(0x1000, 0x4, platforms.Byteorder.LITTLE), b"abch"
+        )
+
+        # test read out of bounds
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory.write_bytes(0x1000, b"abcdefgh", platforms.Byteorder.LITTLE)
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.read_bytes(0x1000, 0x10, platforms.Byteorder.LITTLE),
         )
         self.assertRaises(
             exceptions.ConfigurationError,
             lambda: memory.read_bytes(0x500, 0x8, platforms.Byteorder.LITTLE),
         )
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.read_bytes(0x0FFC, 0x8, platforms.Byteorder.LITTLE),
+        )
+        self.assertRaises(
+            exceptions.ConfigurationError,
+            lambda: memory.read_bytes(0x1004, 0x8, platforms.Byteorder.LITTLE),
+        )
 
-        # test read memory containing ctypes structure
-        class TestStruct(ctypes.LittleEndianStructure):
-            _pack_ = 4
-            _fields_ = (("test_field", ctypes.c_int32),)
-
-        struct = TestStruct()
+        # test read IntegerValue bytes
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abc")
-        struct.test_field = 0xDEADBEEF
-        memory[3] = state.Value.from_ctypes(struct, None)
-        memory.write_bytes(0x1007, b"f")
+        memory[0] = state.BytesValue(b"abc", None)
+        memory[3] = state.IntegerValue(0xDEADBEEF, 4, None)
+        memory[7] = state.BytesValue(b"f", None)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
             b"abc\xef\xbe\xad\xdef",
         )
 
-        # test read memory containing symbolic values
+        # test read CTypeValue bytes
+        class TestStruct(ctypes.LittleEndianStructure):
+            _pack_ = 4
+            _fields_ = (("test_field", ctypes.c_int32),)
+
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(0x1000, b"abc")
+        memory[0] = state.BytesValue(b"abc", None)
+        struct = TestStruct()
+        struct.test_field = 0xDEADBEEF
+        memory[3] = state.Value.from_ctypes(struct, None)
+        memory[7] = state.BytesValue(b"f", None)
+        self.assertEqual(
+            memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
+            b"abc\xef\xbe\xad\xdef",
+        )
+
+        # test read SymbolicValue bytes
+        memory = state.memory.Memory(0x1000, 0x8)
+        memory[0] = state.BytesValue(b"abc", None)
         memory[3] = state.SymbolicValue(2, None, None, None)
-        memory.write_bytes(0x1005, b"fgh")
+        memory[5] = state.BytesValue(b"fgh", None)
         self.assertRaises(
             exceptions.SymbolicValueError,
             lambda: memory.read_bytes(0x1000, 0x8, platforms.Byteorder.LITTLE),
@@ -324,6 +401,7 @@ class StateTests(unittest.TestCase):
         memory.write_bytes(
             addr,
             int.to_bytes(0b11110000000011111111000000001111, 4, "big"),
+            platforms.Byteorder.LITTLE,
         )
 
         self.assertEqual(memory.read_int(addr, 1, platforms.Byteorder.LITTLE), 240)
@@ -370,14 +448,14 @@ class StateTests(unittest.TestCase):
         self.assertEqual(memory.get_ranges_initialized(), [])
 
         # single memory region
-        memory.write_bytes(memory.address + 1, b"\xff\xff")
+        memory.write_bytes(memory.address + 1, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_initialized(),
             [range(memory.address + 1, memory.address + 2)],
         )
 
         # non-contiguous initialized regions
-        memory.write_bytes(memory.address + 6, b"\xff\xff")
+        memory.write_bytes(memory.address + 6, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_initialized(),
             [
@@ -398,7 +476,11 @@ class StateTests(unittest.TestCase):
 
         # fully initialized
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(memory.address, b"\xff\xff\xff\xff\xff\xff\xff\xff")
+        memory.write_bytes(
+            memory.address,
+            b"\xff\xff\xff\xff\xff\xff\xff\xff",
+            platforms.Byteorder.LITTLE,
+        )
         self.assertEqual(
             memory.get_ranges_initialized(),
             [range(memory.address, memory.address + 7)],
@@ -413,7 +495,7 @@ class StateTests(unittest.TestCase):
         )
 
         # single memory region
-        memory.write_bytes(memory.address + 1, b"\xff\xff")
+        memory.write_bytes(memory.address + 1, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_uninitialized(),
             [
@@ -423,7 +505,7 @@ class StateTests(unittest.TestCase):
         )
 
         # non-contiguous initialized regions
-        memory.write_bytes(memory.address + 6, b"\xff\xff")
+        memory.write_bytes(memory.address + 6, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_uninitialized(),
             [
@@ -444,7 +526,11 @@ class StateTests(unittest.TestCase):
 
         # fully initialized
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(memory.address, b"\xff\xff\xff\xff\xff\xff\xff\xff")
+        memory.write_bytes(
+            memory.address,
+            b"\xff\xff\xff\xff\xff\xff\xff\xff",
+            platforms.Byteorder.LITTLE,
+        )
         self.assertEqual(
             memory.get_ranges_uninitialized(),
             [],
@@ -483,8 +569,8 @@ class StateTests(unittest.TestCase):
         )
 
         # gaps filled with bytes values
-        memory.write_bytes(memory.address, b"\xff")
-        memory.write_bytes(memory.address + 4, b"\xff\xff")
+        memory.write_bytes(memory.address, b"\xff", platforms.Byteorder.LITTLE)
+        memory.write_bytes(memory.address + 4, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_symbolic(),
             [
@@ -507,14 +593,14 @@ class StateTests(unittest.TestCase):
         self.assertEqual(memory.get_ranges_concrete(), [])
 
         # single concrete memory region
-        memory.write_bytes(memory.address + 1, b"\xff\xff")
+        memory.write_bytes(memory.address + 1, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_concrete(),
             [range(memory.address + 1, memory.address + 2)],
         )
 
         # non-contiguous concrete regions
-        memory.write_bytes(memory.address + 6, b"\xff\xff")
+        memory.write_bytes(memory.address + 6, b"\xff\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_concrete(),
             [
@@ -524,7 +610,7 @@ class StateTests(unittest.TestCase):
         )
 
         # contiguous and non-contiguous concrete regions
-        memory.write_bytes(memory.address + 3, b"\xff")
+        memory.write_bytes(memory.address + 3, b"\xff", platforms.Byteorder.LITTLE)
         self.assertEqual(
             memory.get_ranges_concrete(),
             [
@@ -546,7 +632,11 @@ class StateTests(unittest.TestCase):
 
         # fully concrete initialized
         memory = state.memory.Memory(0x1000, 0x8)
-        memory.write_bytes(memory.address, b"\xff\xff\xff\xff\xff\xff\xff\xff")
+        memory.write_bytes(
+            memory.address,
+            b"\xff\xff\xff\xff\xff\xff\xff\xff",
+            platforms.Byteorder.LITTLE,
+        )
         self.assertEqual(
             memory.get_ranges_concrete(),
             [range(memory.address, memory.address + 7)],

@@ -120,7 +120,9 @@ class Memory(state.Stateful, dict[int, state.Value]):
         self.clear()
         self[0] = value
 
-    def write_bytes(self, address: int, data: bytes) -> None:
+    def write_bytes(
+        self, address: int, data: bytes, byteorder: platforms.Byteorder
+    ) -> None:
         """Overwrite part of this memory region with specific bytes.
         This will fail if any sub-region of the existing memory is symbolic.
 
@@ -164,26 +166,40 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
             if segment_start >= data_end:
                 # This segment is after the range we want to update.
-                # We will never have to write anything else.
+                # I.e. we have completed the write.
                 break
 
-            if data_start < segment_end and segment_start <= data_end:
+            if data_start < segment_end and segment_start < data_end:
                 # Part of data lands in this segment
                 part_start = max(data_start, segment_start)
                 part_end = min(data_end, segment_end)
 
                 part = data[part_start - data_start : part_end - data_start]
 
-                contents = segment.get_content()
-                if not isinstance(contents, bytes):
+                if isinstance(segment, state.SymbolicValue):
                     raise exceptions.SymbolicValueError(
                         f"Tried to write {len(data)} bytes at {hex(address)}.  Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
                     )
 
+                contents = segment.to_bytes(byteorder)
                 prefix = contents[: part_start - segment_start]
                 suffix = contents[part_end - segment_start :]
+                new_segment_bytes = prefix + part + suffix
 
-                segment.set_content(prefix + part + suffix)
+                # set content
+                match segment:
+                    case state.BytesValue():
+                        segment.set_content(new_segment_bytes)
+                    case state.IntegerValue():
+                        as_int = int.from_bytes(new_segment_bytes, byteorder.value)
+                        segment.set_content(as_int)
+                    case _:
+                        # CTypeValue
+                        ctype_subclass = typing.cast(
+                            state.CTypesAny, segment.get_type()
+                        )
+                        as_ctype = ctype_subclass.from_buffer_copy(new_segment_bytes)
+                        segment.set_content(as_ctype)
 
         gap_end = self.address + self.size
         if data_start <= gap_end and gap_start <= data_end:
@@ -280,7 +296,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         """
 
         self.write_bytes(
-            address, int.to_bytes(value, size, byteorder.value, signed=False)
+            address, int.to_bytes(value, size, byteorder.value, signed=False), byteorder
         )
 
     def read_int(

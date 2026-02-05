@@ -34,7 +34,7 @@ class ElfRelocator:
 
     def relocate(self, elf: elf.ElfExecutable, rela: ElfRela) -> None:
         val = self._compute_value(rela, elf)
-        elf.write_bytes(rela.offset, val)
+        elf.write_bytes(rela.offset, val, self.byteorder)
 
     @classmethod
     def for_platform(cls, platform: platforms.Platform):

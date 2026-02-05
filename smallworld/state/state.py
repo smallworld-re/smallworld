@@ -232,9 +232,7 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         class CTypeValue(Value):
-            def __init__(
-                self, ctype: typing.Union[ctypes.Structure, ctypes.Union], label: str
-            ):
+            def __init__(self, ctype: CTypesAny, label: str):
                 self._content = ctype
                 self._label = label
                 self._type = ctype.__class__

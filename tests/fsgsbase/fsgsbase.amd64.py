@@ -37,7 +37,7 @@ fsm = smallworld.state.memory.Memory(fs_mem_base, fs_mem_size)
 the_bytes = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 #             0123456789abcdef0123456789abcdef0123456789abcdef
 #                                                     ^ this is fs:[0x28]
-fsm.write_bytes(fs_mem_base, the_bytes)
+fsm.write_bytes(fs_mem_base, the_bytes, smallworld.platforms.Byteorder.LITTLE)
 
 cpu.fsbase.set(fs_mem_base)
 
@@ -48,7 +48,7 @@ gsm = smallworld.state.memory.Memory(gs_mem_base, gs_mem_size)
 the_bytes = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 #             0123456789abcdef0123456789abcdef0123456789abcdef
 #                                ^ this is gs:[0x13]
-gsm.write_bytes(gs_mem_base, the_bytes)
+gsm.write_bytes(gs_mem_base, the_bytes, smallworld.platforms.Byteorder.LITTLE)
 
 cpu.gsbase.set(gs_mem_base)
 
