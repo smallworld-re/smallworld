@@ -103,8 +103,8 @@ each instruction executed.  These have the following structure.
          branch: bool                  # true iff this instruction is a branch
          immediates: typing.List[int]  # list of immediate operands in this instruction
 
-The ``CmpInfo`` is a union of two possibilities:
-``typing.Union[RegisterOperand, BSIDMemoryReferenceOperand, int]`` and
+The ``CmpInfo`` is a union of three possibilities:
+``RegisterOperand``, ``BSIDMemoryReferenceOperand``, and ``int`` and
 the intent is that it can represent the semantics of operands that are
 registers, memory read or writes, and immediates.
 

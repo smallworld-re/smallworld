@@ -3,6 +3,13 @@
 Colorizer Analysis Tutorial
 ===========================
 
+We will solve the same problem three times using, in sequence,
+``Colorizer``, ``ColorizerSummary``, and ``ColorizerReadWrite``
+analyses.
+
+Take 1: Colorizer
+----------------- 
+
 The following function ``call_sym`` illustrates one way in which the
 colorizer analysis can be of use.
 
@@ -82,42 +89,90 @@ colorizer analysis can be of use.
        │           0x00001241      c9             leave
        └           0x00001242      c3             ret
 
-There is a call to the libc function ``system`` near the end of this function,
-at instruction ``0x123b``
-However, it is hard to tell what argument is being passed to it, i.e.
-what string is being pointed to. 
-That is because the code has been obfuscated.
+There is a call to the libc function ``system`` near the end of this
+function, at instruction ``0x123b`` However, it is hard to tell what
+argument is being passed to it, i.e.  what string is being pointed to.
+That is because the code has been obfuscated. But we can use the
+``Colorizer`` to defeat this obfuscation directly, via dynamic
+execution and tracking values or colors.
 
-But we can use the colorizer to defeat this obfuscation  directly, via dynamic execution.
-Here is a simple script to do that.
+First, we need to harness this function. This is something you have
+seen before, but here is the kind of code that will do this.
+
+.. literalinclude:: ./c-example.py
+  :language: Python
+  :lines: 1-47
+
+A few things to point out here. First, we set, as our exit point, the
+call to ``system``, because we want to see the color of the value in
+the argument to the call. That is, what we want to know is what is
+the dynamic value in ``rdi`` when we reach ``0x0000123b call
+sym.imp.system``, and to determine where that value came from, if
+possible. So we can stop analyzing when we reach that call. Second,
+we arrange to model the calls to ``printf`` in this function. This means
+we will be able to see what they print, which might be useful, but,
+more important, the harness will not fail on them since libc is not
+actually available.
+
+We will use the colorizer twice, i.e. make two dynamic analyses of the
+function's code. In the first, we determine the color for ``rax`` at
+the instruction immediately prior to the ``system`` call.  This is the
+value that gets copied into ``rdi``, the argument to ``system``.  Here
+is code that does this.
+
+.. literalinclude:: ./c-example.py
+  :language: Python
+  :lines: 48-65
+
+We register a callback ``collect_hints`` to collect hints coming from
+the colorizer and then look specifically at the one that corresponds
+to ``pc=0x1238`` which copies ``rax`` into ``rdi``. We save this color
+into the global ``the_color``.
+
+In a second pass use of the colorizer, we determine when ``the_color``
+was first observed, by looking for the hint involving it which has the
+message indicating that it is a ``read-def`` (see above), meaning it
+is the first observation.
+
+.. literalinclude:: ./c-example.py
+  :language: Python
+  :lines: 67-81
+
+This is done by another callback ``collect_hints2``, which is looking
+the a hint involving ``the_color`` where that color is first observed.
+
+Note, in both passes we employ a call to ``randomize_unitialized`` to
+ensure that values will get nice looking colors if not initialized
+already, and we use the same seed so that the same colors will get
+assigned in both and the same trace will get executed.
+
+Here is the script in its entirety.
 
 .. literalinclude:: ./c-example.py
   :language: Python
 
-There is a bunch of boilerplate here to load the code that contains this
-function as well as to model the calls to ``printf``.
-That is not important.
-What we want to know is what is the dynamic value in ``rdi`` when we get
-to ``0x0000123b  call sym.imp.system``, and where that value came from,
-if possible.
-The script runs the colorizer twice.
-In the first pass, we determine the color for ``rax`` at the instruction
-immediately prior to the ``system`` call.
-This is the value that gets copied into ``rdi``, the argument to ``system``.
-In the second pass, we determine when that color was first observed,
-by looking for the hint involving that color which has the message
-indicating that it is a ``read-def`` (see above), meaning it
-is the first observation.
+We can run this script to answer the question "Where does the argument
+to ``system`` come from? It takes no arguments but we can filter the
+output to get just the operative parts which come from the print
+statements in those two hint callbacks.
 
 .. command-output:: python3 c-example.py 2> /dev/null | egrep '(First pass|Second pass)'
     :shell:		    
     :cwd: ./
-
 	  
 The script tells us that, for this trace, the value in ``rdi`` passed to
 ``system`` is the same as the value in ``rdi`` at the start of the function
 ``call_sys``, i.e. in the instruction ``0x00001151  mov qword [var_28h], rdi``
 which copies the function argument into a local variable.
+
+
+Take 1: ColorizerSummary
+------------------------
+
+THIS IS NONSENSE.  YOU DONT NEED SUMMARY HERE?
+
+We can simplify that script considerably if we use the ``ColorizerSummary``.
+This script will make it easier toreason
 
 ..... Shift to using ColorizerSummary
   
@@ -149,38 +204,52 @@ This is the same result as above but perhaps more nicely presented.
 And it is a result that is tolerant of multiple traces.
 
 
-.... Shift to using ColorizerWriteRead
+Take 2: ColorizerReadWrite
+---------------------------
 
-Here is a slightly modified version of the previous script.
+We can dramatically simplify our script by making use of the
+``ColorizerReadWrite`` analysis which allows us to ask derivation
+questions about instructions and values.
+
+The first part of the script, which harnesses the code to run is
+unchanged. And we don't need to collect any hints, we simply run the
+colorizer and arrange for its hints to be passed to a
+``ColorizerReadWrite`` object which will construct a read->write graph
+as described in :ref:`Colorizer Concepts <colorizer_concept>`.
 
 .. literalinclude:: ./c-example3.py
   :language: Python
+  :lines: 50-56
 
-Here we don't care about multiple executions, we simply want a derivation
-of the value in the register ``rax`` at instruction ``0x1238``.
-If we run the script...
+We can now derive where the value in ``rax`` comes from at instruction
+``0x1238`` with the code
+
+.. literalinclude:: ./c-example3.py
+  :language: Python
+  :lines: 58-60
+
+The complete script looks like this:
+
+.. literalinclude:: ./c-example3.py
+  :language: Python
+  :lines: 59-61
+
+We can run this (discarding the stderr output which is considerable) with
 
 .. command-output:: python3 c-example3.py 2> /dev/null 
     :shell:		    
     :cwd: ./
 
-We obtain the answer directly, namely that this value is the same as what is in
-``rdi`` at the start of the function.
-Note that the following lines are what provide this answer:
+We obtain the answer directly, namely that this value is the same as
+what is in ``rdi`` at the start of the function.
 
 .. literalinclude:: ./c-example3.py
   :language: Python
   :lines: 59-61
 	     
 
+Further Reading
+---------------
 
-
-
-	 
-
-
-.. [#A] REDQUEEN: "Fuzzing with Input-to-State Correspondence", Cornelius
-	Aschermann, Sergej Schumilo, Tim Blazytko, Robert Gawlik and
-	Thorsten Holz, Network and Distributed Systems Security (NDSS)
- 	Symposium, 2019
-	
+See the :ref:`Colorizer Concepts <colorizer_concept>` page
+for more details.

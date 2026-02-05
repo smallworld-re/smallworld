@@ -51,8 +51,6 @@ code.update_symbol_value("printf", printf._address)
 # New and interesting stuff follows:
 
 ha = {}
-
-
 def collect_hints(hint):
     global ha  # noqa
     if (
@@ -63,22 +61,17 @@ def collect_hints(hint):
             ha[hint.color] = []
         ha[hint.color].append(hint)
 
-
 hinter = smallworld.hinting.Hinter()
 hinter.register(DynamicMemoryValueSummaryHint, collect_hints)
 hinter.register(DynamicRegisterValueSummaryHint, collect_hints)
 
 cs = ColorizerSummary(hinter)
-# crw = ColorizerReadWrite(hinter)
-# analyses = [cs, crw]
-
 for i in range(1, 5):
     logger.info(f"\nmicro exec number {i}")
     c = Colorizer(hinter, num_insns=1000, exec_id=i)
     machine_copy = copy.deepcopy(machine)
     perturbed_machine = randomize_uninitialized(machine_copy, 1234 + i)
     c.run(perturbed_machine)
-
 cs.run(perturbed_machine)
 
 mc = 0

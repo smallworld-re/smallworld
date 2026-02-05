@@ -49,7 +49,6 @@ code.update_symbol_value("printf", printf._address)
 
 hinter = smallworld.hinting.Hinter()
 crw = ColorizerReadWrite(hinter)
-
 c = Colorizer(hinter, num_insns=1000, exec_id=1)
 machine_copy = copy.deepcopy(machine)
 perturbed_machine = randomize_uninitialized(machine_copy, 1234)

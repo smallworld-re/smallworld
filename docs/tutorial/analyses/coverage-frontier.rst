@@ -136,8 +136,9 @@ determining, merely by inspection, what conditionals were likely to
 easily covered would be very difficult. The ``CoverageFrontier`` can
 figure this out for you directly.
 
-	  
 
+Further Reading
+---------------
 
-
-
+See the :ref:`CoverageFrontier Concepts <coverage_frontier_concept>` page
+for more details.

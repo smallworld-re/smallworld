@@ -171,3 +171,10 @@ conjecture).  See the `Wikipedia page on the Collatz conjecture
 <https://en.wikipedia.org/wiki/Collatz_conjecture>`_ for more info.
 
 Truly, this does appear to be a weird kind of opaque predicate.
+
+
+Further Reading
+---------------
+
+See the :ref:`TraceExecution Concepts <trace_execution_concept>` page
+for more details.
