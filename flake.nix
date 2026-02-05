@@ -217,7 +217,7 @@
           smallworldBuilt = packages.${system}.default;
           pythonEnvPkgs = import nixpkgs {
             inherit system;
-            overlays = [overlays.default];
+            overlays = [ overlays.default ];
           };
           pythonEnv = pythonEnvPkgs.mkShell {
             packages = [
