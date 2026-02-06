@@ -50,7 +50,7 @@ machine.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 # We support PANDA-ng, Ghidra, Unicorn, and angr. Not all emulators support all platforms. They all share the same API.
 
-# Create a PANDA-ng emulator. 
+# Create a PANDA-ng emulator.
 panda_ng = smallworld.emulators.PandaEmulator(platform)
 
 # Emulate our machine
@@ -65,7 +65,7 @@ if (input_arg == 100) and (panda_r3 != 1):
 elif (input_arg != 100) and (panda_r3 != 0):
     sys.exit(1)
 
-# Create a Ghidra emulator. 
+# Create a Ghidra emulator.
 ghidra = smallworld.emulators.GhidraEmulator(platform)
 
 # Emulate our machine
@@ -81,7 +81,7 @@ elif (input_arg != 100) and (ghidra_r3 != 0):
     sys.exit(1)
 
 
-# Create a Unicorn emulator. 
+# Create a Unicorn emulator.
 unicorn = smallworld.emulators.UnicornEmulator(platform)
 
 # Emulate our machine
@@ -96,7 +96,7 @@ if (input_arg == 100) and (unicorn_r3 != 1):
 elif (input_arg != 100) and (unicorn_r3 != 0):
     sys.exit(1)
 
-# # Create an angr emulator. 
+# # Create an angr emulator.
 # angr = smallworld.emulators.AngrEmulator(platform)
 
 # # Emulate our machine
@@ -110,4 +110,3 @@ elif (input_arg != 100) and (unicorn_r3 != 0):
 #     sys.exit(1)
 # elif (input_arg != 100) and (angr_r3 != 0):
 #     sys.exit(1)
-
