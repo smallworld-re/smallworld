@@ -51,6 +51,8 @@ code.update_symbol_value("printf", printf._address)
 # New and interesting stuff follows:
 
 ha = {}
+
+
 def collect_hints(hint):
     global ha  # noqa
     if (
@@ -60,6 +62,7 @@ def collect_hints(hint):
         if hint.color not in ha:
             ha[hint.color] = []
         ha[hint.color].append(hint)
+
 
 hinter = smallworld.hinting.Hinter()
 hinter.register(DynamicMemoryValueSummaryHint, collect_hints)

@@ -261,9 +261,9 @@ class FileDescriptorManager:
     There can absolutely be ABI-specific subclasses.
     """
 
-    _singletons: typing.Dict[typing.Tuple[Platform, ABI], "FileDescriptorManager"] = (
-        dict()
-    )
+    _singletons: typing.Dict[
+        typing.Tuple[Platform, ABI], "FileDescriptorManager"
+    ] = dict()
 
     def __init__(self):
         # Enables full FS modeling.
