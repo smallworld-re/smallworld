@@ -96,17 +96,18 @@ if (input_arg == 100) and (unicorn_r3 != 1):
 elif (input_arg != 100) and (unicorn_r3 != 0):
     sys.exit(1)
 
-# # Create an angr emulator.
-# angr = smallworld.emulators.AngrEmulator(platform)
+# Create an angr emulator.
+angr = smallworld.emulators.AngrEmulator(platform)
+angr.enable_linear()
 
-# # Emulate our machine
-# angr_machine = machine.emulate(angr)
+# Emulate our machine
+angr_machine = machine.emulate(angr)
 
-# # read out r3
-# angr_r3 = angr_machine.get_cpu().r3.get()
+# read out r3
+angr_r3 = angr_machine.get_cpu().r3.get()
 
-# # check that our function behaves the way we expect
-# if (input_arg == 100) and (angr_r3 != 1):
-#     sys.exit(1)
-# elif (input_arg != 100) and (angr_r3 != 0):
-#     sys.exit(1)
+# check that our function behaves the way we expect
+if (input_arg == 100) and (angr_r3 != 1):
+    sys.exit(1)
+elif (input_arg != 100) and (angr_r3 != 0):
+    sys.exit(1)
