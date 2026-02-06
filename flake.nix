@@ -59,6 +59,7 @@
 
   outputs =
     {
+      self,
       nixpkgs,
       pyproject-nix,
       uv2nix,
@@ -214,8 +215,20 @@
           ];
           GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
           smallworldBuilt = packages.${system}.default;
+          pythonEnvPkgs = import nixpkgs {
+            inherit system;
+            overlays = [ overlays.default ];
+          };
+          pythonEnv = pythonEnvPkgs.mkShell {
+            packages = [
+              (pythonEnvPkgs.python312.withPackages (ps: [
+                ps.smallworld
+              ]))
+            ];
+          };
         in
         {
+          inherit pythonEnv;
           default = pkgs.mkShell {
             packages = [
               virtualenv
@@ -329,6 +342,195 @@
       pythonDeps = deps;
 
       inherit prebuilts;
+
+      # Nixpkgs overlay that exposes `smallworld` as a normal Python package
+      # usable via `pkgs.python312.withPackages (ps: [ ps.smallworld ])`.
+      overlays.default =
+        final: prev:
+        let
+          system = final.stdenv.hostPlatform.system;
+
+          # The pyproject-nix/uv2nix package set built by this flake for the
+          # current system.
+          pythonSet = pythonSets.${system};
+
+          hacks = final.callPackage pyproject-nix.build.hacks { };
+
+          # IMPORTANT:
+          # `hacks.toNixpkgs` works by enabling a wheel ("dist") output and then
+          # using the generated wheel as input to nixpkgs `buildPythonPackage`.
+          # That *only* works for packages that are actually built by the
+          # pyproject-nix/uv2nix builders. It will generally FAIL for packages
+          # that you pulled in via `hacks.nixpkgsPrebuilt` (like unicorn/pypanda/
+          # unicornafl in this repo), because those do not produce wheels.
+          basePyOverlay = hacks.toNixpkgs {
+            inherit pythonSet;
+            packages = [
+              "smallworld-re"
+              "pyghidra"
+              "pypcode"
+            ];
+          };
+
+          # Wrap the converted set to add a nicer alias.
+          convertedOverlay =
+            pyFinal: pyPrev:
+            let
+              converted = basePyOverlay pyFinal pyPrev;
+
+              # Make `smallworld` (and `smallworld-re`) automatically pull in
+              # heavy/native add-ons that downstream users often expect.
+              #
+              # This is what makes `python.withPackages (ps: [ ps.smallworld ])`
+              # also include `ps.pypanda` + `ps.unicornafl` in the environment.
+              smallworldWithAllDeps = (converted."smallworld-re").overridePythonAttrs (old: {
+                propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [
+                  # Python deps
+                  pyFinal.pyghidra
+                  pyFinal.pypanda
+                  pyFinal.unicornafl
+                  pyFinal.unicorn
+
+                  # Native/runtime deps commonly required by these modules
+                  final.ghidra
+                  final.jre
+                  qemu.${system}
+                  final.aflplusplus
+                  final.z3
+                ];
+              });
+            in
+            converted
+            // {
+              # Keep the original attribute name, but with add-ons propagated.
+              "smallworld-re" = smallworldWithAllDeps;
+
+              # Nice alias (so downstream can use `ps.smallworld`).
+              smallworld = smallworldWithAllDeps;
+            };
+
+          # Add non-uv2nix packages directly as nixpkgs-style python packages.
+          extraOverlay =
+            pyFinal: pyPrev:
+            let
+              # --- Patched unicorn (C library + python bindings) ---
+              patched-unicorn-src = final.fetchFromGitHub {
+                owner = "appleflyerv3";
+                repo = "unicorn";
+                rev = "mmio_map_pc_sync";
+                hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
+              };
+
+              unicornLibPatched = prev.unicorn.overrideAttrs (_: {
+                src = patched-unicorn-src;
+              });
+
+              unicornPyPatched = pyPrev.unicorn.override {
+                unicorn = unicornLibPatched;
+              };
+
+              # Your existing builder (see flake's `prebuilts` section)
+              mkUnicornafl = final.callPackage ./unicornafl-build { };
+            in
+            {
+              unicorn = unicornPyPatched;
+
+              # Expose these as normal nixpkgs python packages.
+              unicornafl = mkUnicornafl pyFinal;
+
+              # pypanda builder comes from the panda-ng flake input.
+              pypanda = panda-ng.lib.${system}.pypandaBuilder pyFinal qemu.${system};
+            };
+
+          pyOverlay = final.lib.composeExtensions convertedOverlay extraOverlay;
+        in
+        {
+          # Provide a python312 interpreter whose package set includes:
+          # - uv2nix-built `smallworld-re` (as `smallworld`)
+          # - uv2nix-built `pyghidra`
+          # - nixpkgs/custom-built `pypanda`, `unicornafl`, and patched `unicorn`
+          python312 =
+            let
+              # We wrap `withPackages` so the resulting python env derivation
+              # contains a setup-hook. This is necessary because setup-hooks
+              # on *python packages* (like `ps.smallworld`) are NOT sourced
+              # when they are only included inside `python.withPackages`.
+              #
+              # Nix shells source setup-hooks from *top-level build inputs*,
+              # i.e. the python env derivation itself.
+              basePython = prev.python312.override (old: {
+                self = basePython;
+                packageOverrides = final.lib.composeExtensions (old.packageOverrides or (_: _: { })) pyOverlay;
+              });
+
+              python = basePython // {
+                withPackages =
+                  f:
+                  let
+                    env = basePython.withPackages f;
+                    requested = f basePython.pkgs;
+                    needsGhidra = final.lib.any (
+                      p:
+                      let
+                        pname = p.pname or null;
+                      in
+                      pname == "smallworld-re" || pname == "pyghidra" || pname == "smallworld"
+                    ) requested;
+                  in
+                  if needsGhidra then
+                    final.buildEnv {
+                      name = "${env.name}-smallworld-full";
+                      # Tool deps included here so they land on PATH in downstream shells.
+                      paths = [
+                        env
+                        final.jre
+                        final.ghidra
+                        qemu.${system}
+                        final.aflplusplus
+                        final.z3
+                      ];
+
+                      # Keep the join focused; we mostly need binaries + shell hooks.
+                      pathsToLink = [
+                        "/bin"
+                        "/nix-support"
+                      ];
+                      ignoreCollisions = true;
+
+                      postBuild = ''
+                        # Ensure nix-support is a real directory (not a symlink from an input).
+                        if [ -L "$out/nix-support" ]; then
+                          rm -f "$out/nix-support"
+                        fi
+                        mkdir -p "$out/nix-support"
+
+                        # If buildEnv linked an existing setup-hook as a symlink, replace it.
+                        if [ -e "$out/nix-support/setup-hook" ]; then
+                          rm -f "$out/nix-support/setup-hook"
+                        fi
+
+                        # Preserve any setup-hook content from the underlying python env, if present.
+                        if [ -f "${env}/nix-support/setup-hook" ]; then
+                          cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
+                        else
+                          : > "$out/nix-support/setup-hook"
+                        fi
+
+                        cat >> "$out/nix-support/setup-hook" <<'EOF'
+                        export GHIDRA_INSTALL_DIR=${final.ghidra}/lib/ghidra
+                        export JAVA_HOME=${final.jre}
+                        EOF
+                      '';
+                    }
+                  else
+                    env;
+              };
+            in
+            python;
+
+          # Convenience: expose the extended package set directly.
+          python312Packages = final.python312.pkgs;
+        };
 
       formatter = forAllSystems (
         system:
