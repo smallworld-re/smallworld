@@ -116,8 +116,8 @@ for this to work, the colorizer must set the ``exec_id`` correctly for
 each distinct trace analyzed. The output of this analysis is a pair of
 summary hints.
 
-- DynamicRegisterValueSummaryHint
-- DynamicMemoryValueSummaryHint
+- ``DynamicRegisterValueSummaryHint``
+- ``DynamicMemoryValueSummaryHint``
 
 These are analogous to the non-summary versions, additionally
 providing the following.
@@ -180,5 +180,5 @@ has either the type ``RegisterDef`` or ``BSIDMemoryReferenceOperand``.
 Tutorials
 ---------
 
-We provide an example uses of ``Colorizer``, ``ColorizerSummary``, and
+We provide an example uses of ``Colorizer`` and
 ``ColorizerReadWrite`` in a :ref:`tutorial <colorizer_tutorial>`.
