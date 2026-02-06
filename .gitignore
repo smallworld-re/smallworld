@@ -4,7 +4,9 @@
 *.json
 *.elf
 *.so
-
+*~
+*.dot
+*.html
 *.egg-info/
 dist/
 build/
@@ -13,4 +15,5 @@ venv/
 .venv-imperative/
 core.*
 /result
+/docs/build
 unicornafl-flake/result
