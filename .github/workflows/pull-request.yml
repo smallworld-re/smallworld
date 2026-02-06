@@ -113,7 +113,7 @@ jobs:
         run: |
           cd examples
           sed -i 's/github:smallworld-re\/smallworld/../' nix-harness.py
-          ./nix-harness.py
+          ./nix-harness.py 100
           
   Integration-Test:
       runs-on: smallworld-arc
