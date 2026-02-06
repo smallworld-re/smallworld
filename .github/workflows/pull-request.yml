@@ -111,7 +111,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Run Example
         run: |
-          cd example
+          cd examples
           sed -i 's/github:smallworld-re\/smallworld/../' nix-harness.py
           ./nix-harness.py
           
