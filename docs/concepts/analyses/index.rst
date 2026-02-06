@@ -150,10 +150,13 @@ branches in code are encountered but only ever go one way
 These branches, or *coverage frontier* are interesting for
 targeted fuzzing or other activities.
 
+
 SmallWorld Analyses
 -------------------
 
 .. toctree::
+
    trace-execution
    coverage-frontier
    colorizer
+   crash-triage
