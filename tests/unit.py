@@ -209,7 +209,9 @@ class StateTests(unittest.TestCase):
         # test overwrite IntegerValue bytes
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abc", None)
-        memory[3] = state.IntegerValue(0xDEADBEEF, 4, None)
+        memory[3] = state.IntegerValue(
+            0xDEADBEEF, 4, None, byteorder=platforms.Byteorder.LITTLE
+        )
         memory[7] = state.BytesValue(b"f", None)
         memory.write_bytes(0x1000, b"ABCDEFGH")
         self.assertEqual(
@@ -332,7 +334,9 @@ class StateTests(unittest.TestCase):
         # test read IntegerValue bytes
         memory = state.memory.Memory(0x1000, 0x8)
         memory[0] = state.BytesValue(b"abc", None)
-        memory[3] = state.IntegerValue(0xDEADBEEF, 4, None)
+        memory[3] = state.IntegerValue(
+            0xDEADBEEF, 4, None, byteorder=platforms.Byteorder.LITTLE
+        )
         memory[7] = state.BytesValue(b"f", None)
         self.assertEqual(
             memory.read_bytes(0x1000, 0x8),

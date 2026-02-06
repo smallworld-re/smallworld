@@ -615,8 +615,14 @@ class FixedRegister(Register):
         value:  Fixed value of the register
     """
 
-    def __init__(self, name, size=4, value=0):
-        super().__init__(name, size=size)
+    def __init__(
+        self,
+        name,
+        size=4,
+        value=0,
+        byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE,
+    ):
+        super().__init__(name, size=size, byteorder=byteorder)
         super().set_content(value)
 
     def set_content(self, value: typing.Optional[typing.Any]):

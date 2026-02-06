@@ -51,8 +51,12 @@ class MallocModel(state.models.Model):
 
         if len(heap) > 0:
             raise exceptions.ConfigurationError("This only works with a blank heap")
-        end = state.IntegerValue(heap.address + heap.get_capacity(), 8, None)
-        ptr = state.IntegerValue(heap.address + 16, 8, None)
+        end = state.IntegerValue(
+            heap.address + heap.get_capacity(), 8, None, byteorder=platform.byteorder
+        )
+        ptr = state.IntegerValue(
+            heap.address + 16, 8, None, byteorder=platform.byteorder
+        )
 
         heap.allocate(end)
         heap.allocate(ptr)
@@ -63,9 +67,9 @@ class MallocModel(state.models.Model):
 
         self.struct_lengths: typing.Dict[str, int] = dict()
         self.struct_prefixes: typing.Dict[str, str] = dict()
-        self.struct_fields: typing.Dict[str, typing.List[typing.Tuple[int, str]]] = (
-            dict()
-        )
+        self.struct_fields: typing.Dict[
+            str, typing.List[typing.Tuple[int, str]]
+        ] = dict()
 
     def bind_length_to_struct(
         self, field: str, prefix: str, labels: typing.List[typing.Tuple[int, str]]

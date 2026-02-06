@@ -68,7 +68,9 @@ code.update_symbol_value("fgetc", fgetc_model._address)
 # Create a fake stdin
 # armel copies the address from libc, so we just need to write into the symbol.
 fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
-fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
+fake_stdin[0] = smallworld.state.IntegerValue(
+    0x47492A00, 4, None, False, smallworld.platforms.Byteorder.LITTLE
+)
 machine.add(fake_stdin)
 
 code.update_symbol_value("stdin", fake_stdin.address)

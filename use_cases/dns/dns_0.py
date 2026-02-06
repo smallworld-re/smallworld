@@ -68,7 +68,7 @@ gdata[0] = smallworld.state.SymbolicValue(48, None, None, "msg")
 # Input buffer
 gdata[48] = smallworld.state.SymbolicValue(512, None, None, "buf")
 # Offset into buffer
-gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
+gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False, code.platform.byteorder)
 
 # Configure arguments
 # arg 0: pointer to buf

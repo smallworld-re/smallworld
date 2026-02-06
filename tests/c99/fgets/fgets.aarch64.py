@@ -79,7 +79,9 @@ code.update_symbol_value("strcmp", strcmp_model._address)
 # Create a fake stdin
 # aarch64 references the copy in libc, so we need to make our own
 fake_stdin = smallworld.state.memory.Memory(0x20000, 8)
-fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 8, None, False)
+fake_stdin[0] = smallworld.state.IntegerValue(
+    0x47492A00, 8, None, False, smallworld.platforms.Byteorder.LITTLE
+)
 machine.add(fake_stdin)
 
 code.update_symbol_value("stdin", fake_stdin.address)
