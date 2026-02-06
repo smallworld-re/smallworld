@@ -217,6 +217,7 @@ class AngrEmulator(
             plugin_preset=self._plugin_preset,
             add_options={
                 # angr.options.BYPASS_UNSUPPORTED_SYSCALL,
+                angr.options.KEEP_IP_SYMBOLIC,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
             },
@@ -232,6 +233,12 @@ class AngrEmulator(
                 angr.options.SIMPLIFY_REGISTER_WRITES,
             },
         )
+        # If we're in linear mode,
+        # limit the maximum number of results when solving
+        # for a symbolic IP.  If the IP has constrained solutions,
+        # solutions, the default maximum of 256 will take a while to resolve.
+        if self._linear:
+            self.state.options.symbolic_ip_max_targets = 1
 
         # Create a simulation manager for our entry state
         self.mgr = self.proj.factory.simulation_manager(self.state, save_unsat=True)
@@ -244,7 +251,7 @@ class AngrEmulator(
             self.init(self)
 
         # Configure the state with default memory access breakpoints.
-        # These pick up
+        # These pick up unmapped accesses if you want to detect them.
         def sym_read_callback(state):
             addr = state.inspect.mem_read_address
             if not isinstance(addr, int):
@@ -1373,13 +1380,6 @@ class AngrEmulator(
 
         # Step execution once, however the user asked for it.
         if single_insn:
-            # Not all architectures support single-step execution.
-            # In particular, angr can't lift delay slot ISAs one instruction at a time,
-            # since it has to lift the instruction and the slot as one unit.
-            if not self.machdef.supports_single_step:
-                raise exceptions.ConfigurationError(
-                    f"AngrEmulator does not support single-instruction stepping for {self.platform}"
-                )
             num_inst = 1
         else:
             num_inst = None
@@ -1401,6 +1401,7 @@ class AngrEmulator(
 
         # Test for exceptional states
         if len(self.mgr.errored) > 0:
+            log.error(self.mgr.errored[0].state)
             raise exceptions.EmulationError(
                 self.mgr.errored[0].error
             ) from self.mgr.errored[0].error
@@ -1421,15 +1422,25 @@ class AngrEmulator(
                     "No states in expected stashes for linear execution"
                 )
 
-        # Filter out exited or invalid states
+        # Filter out unconstrained states
+        def filter_unconstrained(state):
+            if not state._ip.symbolic:
+                return False
+
+            try:
+                state.solver.eval_atmost(state._ip, 1)[0]
+                return False
+            except angr.errors.SimValueError:
+                return True
+
         self.mgr.move(
             from_stash="active",
             to_stash="unconstrained",
-            filter_func=lambda x: (x._ip.symbolic),
+            filter_func=filter_unconstrained,
         )
 
         def filter_func(state):
-            ip = state._ip.concrete_value
+            ip = state.solver.eval_exact(state._ip, 1)[0]
             if (
                 not self.state.scratch.bounds.is_empty()
                 and not self.state.scratch.bounds.contains_value(ip)

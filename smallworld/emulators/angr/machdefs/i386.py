@@ -181,6 +181,13 @@ class i386MachineDef(AngrMachineDef):
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         # VEX doesn't correctly model SYSENTER and SYSEXIT
+        # We need to override their translation.
+
+        # Disable optimization if we're single-stepping.
+        # PyVex doesn't detect certain very small instructions
+        # if optimization is in any way enabled.
+        if "num_inst" in kwargs and kwargs["num_inst"] is not None:
+            kwargs["opt_level"] = -1
 
         # Inject exit points here.
         assert hasattr(state.scratch, "exit_points")
@@ -189,7 +196,6 @@ class i386MachineDef(AngrMachineDef):
             exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
             del kwargs["extra_stop_points"]
         else:
-            print("Default exit points")
             exit_points = state.scratch.exit_points
 
         # Fetch or compute the IR block for our state
