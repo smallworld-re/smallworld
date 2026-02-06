@@ -1,4 +1,4 @@
-#!/usr/bin/env -S nix shell github:smallworld-re/smallworld#venv --command python
+#!/usr/bin/env -S nix develop github:smallworld-re/smallworld#pythonEnv -c python
 
 import logging
 import sys
@@ -23,6 +23,9 @@ platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
 )
 
+# This will be the input to our function
+input_arg = int(sys.argv[1])
+
 # Create a machine to hold all of our state
 machine = smallworld.state.Machine()
 
@@ -39,13 +42,16 @@ machine.add(code)
 cpu.pc.set(code.address)
 
 # Initialize argument registers
-cpu.r3.set(int(sys.argv[1]))
+cpu.r3.set(input_arg)
 
-# Create a PANDA-ng emulator. We also support Ghidra, Unicorn, and angr. Not all emulators support all platforms. They all share the same API.
+# We need to establish when we want to stop
+machine.add_exit_point(cpu.pc.get() + code.get_capacity())
+
+
+# We support PANDA-ng, Ghidra, Unicorn, and angr. Not all emulators support all platforms. They all share the same API.
+
+# Create a PANDA-ng emulator. 
 panda_ng = smallworld.emulators.PandaEmulator(platform)
-
-# Tell the emulator when to stop
-panda_ng.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 # Emulate our machine
 panda_machine = machine.emulate(panda_ng)
@@ -53,4 +59,55 @@ panda_machine = machine.emulate(panda_ng)
 # # read out r3
 panda_r3 = panda_machine.get_cpu().r3.get()
 
-print(panda_r3)
+# check that our function behaves the way we expect
+if (input_arg == 100) and (panda_r3 != 1):
+    sys.exit(1)
+elif (input_arg != 100) and (panda_r3 != 0):
+    sys.exit(1)
+
+# Create a Ghidra emulator. 
+ghidra = smallworld.emulators.GhidraEmulator(platform)
+
+# Emulate our machine
+ghidra_machine = machine.emulate(ghidra)
+
+# read out r3
+ghidra_r3 = ghidra_machine.get_cpu().r3.get()
+
+# check that our function behaves the way we expect
+if (input_arg == 100) and (ghidra_r3 != 1):
+    sys.exit(1)
+elif (input_arg != 100) and (ghidra_r3 != 0):
+    sys.exit(1)
+
+
+# Create a Unicorn emulator. 
+unicorn = smallworld.emulators.UnicornEmulator(platform)
+
+# Emulate our machine
+unicorn_machine = machine.emulate(unicorn)
+
+# read out r3
+unicorn_r3 = unicorn_machine.get_cpu().r3.get()
+
+# check that our function behaves the way we expect
+if (input_arg == 100) and (unicorn_r3 != 1):
+    sys.exit(1)
+elif (input_arg != 100) and (unicorn_r3 != 0):
+    sys.exit(1)
+
+# # Create an angr emulator. 
+# angr = smallworld.emulators.AngrEmulator(platform)
+
+# # Emulate our machine
+# angr_machine = machine.emulate(angr)
+
+# # read out r3
+# angr_r3 = angr_machine.get_cpu().r3.get()
+
+# # check that our function behaves the way we expect
+# if (input_arg == 100) and (angr_r3 != 1):
+#     sys.exit(1)
+# elif (input_arg != 100) and (angr_r3 != 0):
+#     sys.exit(1)
+
