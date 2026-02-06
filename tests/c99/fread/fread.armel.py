@@ -76,7 +76,9 @@ code.update_symbol_value("strcmp", strcmp_model._address)
 
 # Create a fake stdin
 fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
-fake_stdin[0] = smallworld.state.IntegerValue(0x47492A00, 4, None, False)
+fake_stdin[0] = smallworld.state.IntegerValue(
+    0x47492A00, 4, None, False, smallworld.platforms.Byteorder.LITTLE
+)
 machine.add(fake_stdin)
 
 code.update_symbol_value("stdin", fake_stdin.address)

@@ -63,7 +63,7 @@ to store data passed into the harness by reference:
     machine.add(heap)
     
     # Allocate an integer argument on the heap
-    arg_address = heap.allocate_integer(42, 4, None)
+    arg_address = heap.allocate_integer(42, 4, None, smallworld.platforms.Byteorder.LITTLE)
     
     # Create a stack
     stack = Stack.for_platform(platform)
