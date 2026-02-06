@@ -51,11 +51,14 @@ code.update_symbol_value("printf", printf._address)
 # immediately prior to call to system.
 
 the_color = None
+
+
 def collect_hints(hint):
     global the_color  # noqa
     if hint.pc == 0x1238:
         print(f"First pass, color in rdi @ pc=0x{hint.pc:x} is {hint.color}")
         the_color = hint.color
+
 
 hinter = smallworld.hinting.Hinter()
 hinter.register(DynamicRegisterValueHint, collect_hints)
@@ -66,12 +69,14 @@ c.run(perturbed_machine)
 
 # second pass to figure out when we first saw that color
 
+
 def collect_hints2(hint):
     global the_color  # noqa
     if hint.color == the_color and hint.message == "read-def":
         print(
             f"Second pass, first obs of color {the_color} is pc=0x{hint.pc:x}, in {hint.reg_name}"
         )
+
 
 hinter = smallworld.hinting.Hinter()
 hinter.register(DynamicRegisterValueHint, collect_hints2)
