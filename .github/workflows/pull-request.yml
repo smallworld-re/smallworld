@@ -112,7 +112,7 @@ jobs:
       - name: Run Example
         run: |
           cd example
-          sed -i 's/github:smallworld-re/smallworld/../' nix-harness.py
+          sed -i 's/github:smallworld-re\/smallworld/../' nix-harness.py
           ./nix-harness.py
           
   Integration-Test:
