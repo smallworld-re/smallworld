@@ -3,9 +3,8 @@
 Colorizer Analysis Tutorial
 ===========================
 
-We will solve the same problem three times using, in sequence,
-``Colorizer``, ``ColorizerSummary``, and ``ColorizerReadWrite``
-analyses.
+We will solve the same problem twice using both ``Colorizer`` and
+``ColorizerReadWrite`` analyses.
 
 Take 1: Colorizer
 ----------------- 
@@ -163,45 +162,7 @@ statements in those two hint callbacks.
 The script tells us that, for this trace, the value in ``rdi`` passed to
 ``system`` is the same as the value in ``rdi`` at the start of the function
 ``call_sys``, i.e. in the instruction ``0x00001151  mov qword [var_28h], rdi``
-which copies the function argument into a local variable.
-
-
-Take 1: ColorizerSummary
-------------------------
-
-THIS IS NONSENSE.  YOU DONT NEED SUMMARY HERE?
-
-We can simplify that script considerably if we use the ``ColorizerSummary``.
-This script will make it easier toreason
-
-..... Shift to using ColorizerSummary
-  
-The following script shows an example use of ``ColorizerSummary`` on
-the same program as above.
-
-.. literalinclude:: ./c-example2.py
-  :language: Python
-
-In this script, the new and interesting stuff starts at line 53.
-We create a ``ColorizerSummary`` analysis and register the script's
-``collect_hints`` function to receive the hints that ``ColorizerSummary``
-outputs.
-Then, we run the colorizer five times, each time using ``randomize_uninitialized``
-to get different values for registers and memory.
-At this point, we run the summarizer, which has already collected
-all the hints from the five colorizer runs.
-It analyzes these and outputs summary hints which are, in turn,
-collected, indexed by the normalized color.
-The final output of interest is the hints, sorted by color, and then sorted by the program counter.
-
-.. command-output:: python3 c-example2.py 2> /dev/null 
-    :shell:		    
-    :cwd: ./
-
-If we consider just those for ``color=4`` we see the first observance of that color
-is ``pc=0x1151`` in ``rdi`` and the last is ``pc=0x1238`` in ``rax``.
-This is the same result as above but perhaps more nicely presented.
-And it is a result that is tolerant of multiple traces.
+which copies the function argument into a local variable. traces.
 
 
 Take 2: ColorizerReadWrite
