@@ -179,8 +179,8 @@ which copies the function argument into a local variable. traces.
 Take 2: ColorizerReadWrite
 ---------------------------
 
-We can dramatically simplify our script by making use of the
-``ColorizerReadWrite`` analysis which allows us to ask derivation
+We can take a somewhat more straightforward approach by making use of
+the ``ColorizerReadWrite`` analysis which allows us to ask derivation
 questions about instructions and values.
 
 The first part of the script, which harnesses the code to run is
@@ -204,7 +204,6 @@ The complete script looks like this:
 
 .. literalinclude:: ./c-example3.py
   :language: Python
-  :lines: 59-61
 
 We can run this (discarding the stderr output which is considerable) with
 
@@ -212,14 +211,11 @@ We can run this (discarding the stderr output which is considerable) with
     :shell:		    
     :cwd: ./
 
-We obtain the answer directly, namely that this value is the same as
-what is in ``rdi`` at the start of the function.
+We obtain the answer we wanted directly, namely that ``rax`` at
+``pc=0x1238`` is directly derived from the value of ``rdi`` at
+``pc=0x1151`` which is the input to the function.
 
-.. literalinclude:: ./c-example3.py
-  :language: Python
-  :lines: 59-61
-	     
-
+	  
 Further Reading
 ---------------
 

@@ -57,4 +57,5 @@ crw.run(perturbed_machine)
 
 # directly ask for a derivation of the value in rax in instruction 0x1238
 der = crw.graph.derive(0x1238, True, RegisterDef("rax", 8))
-print(der)
+for r in der:
+    print(f"derivation result is pc=0x{r.pc:x}: {r.wr}")
