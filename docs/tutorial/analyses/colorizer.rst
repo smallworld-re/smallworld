@@ -9,7 +9,7 @@ We will solve the same problem twice using both ``Colorizer`` and
 Take 1: Colorizer
 ----------------- 
 
-The following function ``call_sym`` illustrates one way in which the
+The following function ``call_sys`` illustrates one way in which the
 colorizer analysis can be of use.
 
 .. code-block::
@@ -89,7 +89,7 @@ colorizer analysis can be of use.
        └           0x00001242      c3             ret
 
 There is a call to the libc function ``system`` near the end of this
-function, at instruction ``0x123b`` However, it is hard to tell what
+function, at instruction ``0x123b`` . However, it is hard to tell what
 argument is being passed to it, i.e.  what string is being pointed to.
 That is because the code has been obfuscated. But we can use the
 ``Colorizer`` to defeat this obfuscation directly, via dynamic
@@ -104,14 +104,25 @@ seen before, but here is the kind of code that will do this.
 
 A few things to point out here. First, we set, as our exit point, the
 call to ``system``, because we want to see the color of the value in
-the argument to the call. That is, what we want to know is what is
-the dynamic value in ``rdi`` when we reach ``0x0000123b call
-sym.imp.system``, and to determine where that value came from, if
-possible. So we can stop analyzing when we reach that call. Second,
-we arrange to model the calls to ``printf`` in this function. This means
-we will be able to see what they print, which might be useful, but,
-more important, the harness will not fail on them since libc is not
-actually available.
+the argument to the call. That is, what we want to know is what is the
+dynamic value in ``rdi`` when we reach ``0x123b call sym.imp.system``,
+and to determine where that value came from, if possible. So we can
+stop analyzing when we reach that call. Second, we arrange to model
+the calls to ``printf`` in this function. We set up the model to take
+over for calls to ``0x1040 + base_address``. This is not obvious in
+the above disassembly since radare glosses such calls as ``call
+sym.imp.printf``. If you disassemble, instead, with ``objdump`` (or
+use Binary Ninja or Ghdira), you can see that the call is really to
+``0x1040``.
+
+.. code-block:: assembly
+
+   119e:   call  1040 <printf@plt>
+
+
+Modeling printf has two benefits. We will be able to see what gets
+printed, which might be useful, but, more important, the harness will
+not fail on them since libc is not actually available.
 
 We will use the colorizer twice, i.e. make two dynamic analyses of the
 function's code. In the first, we determine the color for ``rax`` at
