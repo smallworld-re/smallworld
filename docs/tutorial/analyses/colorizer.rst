@@ -115,7 +115,7 @@ sym.imp.printf``. If you disassemble, instead, with ``objdump`` (or
 use Binary Ninja or Ghdira), you can see that the call is really to
 ``0x1040``.
 
-.. code-block:: assembly
+.. code-block::
 
    119e:   call  1040 <printf@plt>
 
