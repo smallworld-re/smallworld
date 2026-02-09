@@ -1,7 +1,7 @@
 # type: ignore
 from colorizer_test import test
 
-from smallworld.analyses.colorizer_read_write import RegisterInfo
+from smallworld.analyses.colorizer_read_write import ReadInfo, RegisterInfo, SrcDst
 from smallworld.hinting.hints import (
     DynamicMemoryValueSummaryHint,
     DynamicRegisterValueSummaryHint,
@@ -1327,8 +1327,15 @@ if __name__ == "__main__":
             8735,
             "rax",
             {
-                RegisterInfo(
-                    color=3, is_new=True, register=RegisterDef(name="rdi", size=8)
+                SrcDst(
+                    pc=8541,
+                    wr=ReadInfo(
+                        info=RegisterInfo(
+                            color=3,
+                            is_new=True,
+                            register=RegisterDef(name="rdi", size=8),
+                        )
+                    ),
                 )
             },
         ),
@@ -1339,13 +1346,26 @@ if __name__ == "__main__":
             8558,
             "[rbp-0x1c]",
             {
-                RegisterInfo(
-                    color=4, is_new=True, register=RegisterDef(name="esi", size=4)
+                SrcDst(
+                    pc=8545,
+                    wr=ReadInfo(
+                        info=RegisterInfo(
+                            color=4,
+                            is_new=True,
+                            register=RegisterDef(name="esi", size=4),
+                        )
+                    ),
                 )
             },
         ),
         (8568, "[rbp-0x20]", set()),
     ]
+
+    expected(
+        len(derivations) == len(correct_derivations),
+        "number of derivations is correct",
+        f"expected{len(correct_derivations)} derivations, but got {len(derivations)}",
+    )
 
     for i in range(6):
         cpc, cvals, cder = correct_derivations[i]
