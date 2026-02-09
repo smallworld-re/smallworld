@@ -112,7 +112,7 @@ inputs and see the value in ``eax`` at program counter ``0x1185``
 inside the loop. You can achieve that, easily, with the before/after
 instruction execution callbacks in the ``TraceExecution`` analysis.
 Note that more details are provided about that in the
-:ref:`TraceAnalysis concepts section<trace_analysis_concept>`.
+:ref:`TraceAnalysis concepts section<trace_execution_concept>`.
 
 First, set up a hinter, wire it up to a ``TraceExecution``
 analysis object, and register a function to be called before
