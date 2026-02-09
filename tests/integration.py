@@ -3891,6 +3891,35 @@ class TraceExecutionTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
 
+class CoverageFrontierTests(ScriptIntegrationTest):
+    def test_coverage_frontier_1(self):
+        stdout, stderr = self.command(
+            "python coverage_frontier/test_coverage_frontier_1.py"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  One hint returned, as expected"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  One item in coverage frontier, as expected"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  Coverage frontier is as expected: 0x1158"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
+
+    def test_coverage_frontier_2(self):
+        stdout, stderr = self.command(
+            "python coverage_frontier/test_coverage_frontier_2.py"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  One hint returned, as expected"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  Zero items in coverage frontier, as expected"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
+
+
 class ColorizerTests(ScriptIntegrationTest):
     def test_colors_1(self):
         stdout, stderr = self.command("python3 colorizer/test_colorizer_1.py")
