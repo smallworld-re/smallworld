@@ -395,7 +395,6 @@ class Register(Value, Stateful):
         self,
         name: str,
         size: int = 4,
-        byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE,
     ):
         super().__init__()
 
@@ -405,8 +404,8 @@ class Register(Value, Stateful):
         self.size = size
         """Register size in bytes."""
 
-        self.byteorder = byteorder
-        """Register platform byteorder."""
+        self.byteorder: typing.Optional[platforms.Byteorder] = None
+        """Register platform byteorder. Assigned by CPU constructor."""
 
     def __str__(self):
         s = f"Reg({self.name},{self.size})="
@@ -620,9 +619,8 @@ class FixedRegister(Register):
         name,
         size=4,
         value=0,
-        byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE,
     ):
-        super().__init__(name, size=size, byteorder=byteorder)
+        super().__init__(name, size=size)
         super().set_content(value)
 
     def set_content(self, value: typing.Optional[typing.Any]):

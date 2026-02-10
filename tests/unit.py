@@ -743,6 +743,7 @@ class CPUTests(unittest.TestCase):
 
         all_regs = set(pdef.registers.keys())
 
+        reg: state.Register
         for reg in cpu:
             # Check that the register is supposed to exist
             self.assertTrue(
@@ -752,6 +753,9 @@ class CPUTests(unittest.TestCase):
 
             # Track that we've seen this register
             all_regs.remove(reg.name)
+
+            # Check that CPU byteorder was assigned
+            self.assertEqual(reg.byteorder, cpu.platform.byteorder)
 
             # Check that the name agrees with the CPU attribute
             attr_name = reg.name

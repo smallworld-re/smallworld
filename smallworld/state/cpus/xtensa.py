@@ -68,8 +68,18 @@ class XTensaEL(XTensa):
         platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
     )
 
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
+
 
 class XTensaBE(XTensa):
     platform = platforms.Platform(
         platforms.Architecture.XTENSA, platforms.Byteorder.BIG
     )
+
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()

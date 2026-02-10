@@ -289,6 +289,9 @@ class MIPS64EL(MIPS64):
         # TODO: MIPS has a boatload of extensions with their own registers.
         # There isn't a clean join between Sleigh, Unicorn, and MIPS docs.
 
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
+
 
 class MIPS64BE(MIPS64):
     """Auto-generated CPU state for mips:mips32:big.
@@ -330,3 +333,6 @@ class MIPS64BE(MIPS64):
         self.add(self.hi3)
         self.lo3 = state.RegisterAlias("lo3", self.ac3, size=8, offset=8)
         self.add(self.lo3)
+
+        # Apply byteorder to all Registers
+        self._apply_byteorder()

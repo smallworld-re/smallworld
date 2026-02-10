@@ -577,6 +577,11 @@ class ARMv5T(ARMCPUMixinM, ARM):
         platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
     )
 
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
+
 
 class ARMv6M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
     """CPU Model for ARMv6-M little-endian."""
@@ -584,6 +589,11 @@ class ARMv6M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
     )
+
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
 
 
 class ARMv6MThumb(ARMv6M):
@@ -593,6 +603,11 @@ class ARMv6MThumb(ARMv6M):
         platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
     )
 
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
+
 
 class ARMv7M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
     """CPU Model for ARMv7-M little-endian."""
@@ -600,6 +615,11 @@ class ARMv7M(ARMCPUMixinFPEL, ARMCPUMixinM, ARM):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
     )
+
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
 
 
 class ARMv7R(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
@@ -610,6 +630,11 @@ class ARMv7R(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
         platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
     )
 
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
+
 
 class ARMv7A(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
     """CPU Model for ARMv7-A little-endian."""
@@ -617,3 +642,8 @@ class ARMv7A(ARMCPUMixinVFPEL, ARMCPUMixinRA, ARM):
     platform = platforms.Platform(
         platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
     )
+
+    def __init__(self):
+        super().__init__()
+        # Apply byteorder to all Registers
+        self._apply_byteorder()

@@ -294,6 +294,8 @@ class LoongArch64(LoongArch):
 
     def __init__(self):
         super().__init__(8)
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
 
 
 __all__ = ["LoongArch64"]

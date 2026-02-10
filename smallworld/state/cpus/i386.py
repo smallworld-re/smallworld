@@ -230,3 +230,6 @@ class I386(cpu.CPU):
         self.add(self.xmm6)
         self.xmm7 = state.Register("xmm7", 16)
         self.add(self.xmm7)
+
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
