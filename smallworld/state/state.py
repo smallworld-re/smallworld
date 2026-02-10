@@ -300,8 +300,8 @@ class IntegerValue(Value):
         integer: int,
         size: int,
         label: typing.Optional[str],
+        byteorder: platforms.Byteorder,
         signed: bool = True,
-        byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE,
     ) -> None:
         super().__init__()
         if size == 8:

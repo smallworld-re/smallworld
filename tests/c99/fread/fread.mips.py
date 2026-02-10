@@ -79,7 +79,7 @@ code.update_symbol_value("strcmp", strcmp_model._address)
 # mips references the copy in libc, so we need to make our own
 fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(
-    0x47492A00, 4, None, False, smallworld.platforms.Byteorder.BIG
+    0x47492A00, 4, None, smallworld.platforms.Byteorder.BIG, False
 )
 machine.add(fake_stdin)
 

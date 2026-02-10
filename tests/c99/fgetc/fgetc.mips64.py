@@ -69,7 +69,7 @@ code.update_symbol_value("fgetc", fgetc_model._address)
 # mips64 references the copy in libc, so we need to make our own
 fake_stdin = smallworld.state.memory.Memory(0x20000, 8)
 fake_stdin[0] = smallworld.state.IntegerValue(
-    0x47492A00, 8, None, False, smallworld.platforms.Byteorder.BIG
+    0x47492A00, 8, None, smallworld.platforms.Byteorder.BIG, False
 )
 machine.add(fake_stdin)
 

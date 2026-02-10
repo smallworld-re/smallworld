@@ -70,7 +70,7 @@ code.update_symbol_value("fgetc", fgetc_model._address)
 # Create a fake stdin
 fake_stdin = smallworld.state.memory.Memory(0x20000, 8)
 fake_stdin[0] = smallworld.state.IntegerValue(
-    0x47492A00, 8, None, False, smallworld.platforms.Byteorder.LITTLE
+    0x47492A00, 8, None, smallworld.platforms.Byteorder.LITTLE, False
 )
 machine.add(fake_stdin)
 

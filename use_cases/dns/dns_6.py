@@ -118,18 +118,18 @@ gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
 # Strings can be of length 0 - 63,
 # and the total number of characters can't exceed 25
 gdata[60] = smallworld.state.IntegerValue(
-    2, 1, "buf.struct.string0.len", byteorder=code.platform.byteorder
+    2, 1, "buf.struct.string0.len", code.platform.byteorder
 )
 gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.string0[0]")
 gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.string0[1]")
 gdata[63] = smallworld.state.IntegerValue(
-    0, 1, "buf.struct.string1.len", byteorder=code.platform.byteorder
+    0, 1, "buf.struct.string1.len", code.platform.byteorder
 )
 gdata[64] = smallworld.state.SymbolicValue(2, None, None, "buf.struct.a")
 gdata[66] = smallworld.state.SymbolicValue(2, None, None, "buf.struct.b")
 gdata[68] = smallworld.state.SymbolicValue(492, None, None, "buf")
 # Offset into buffer
-gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False, code.platform.byteorder)
+gdata[560] = smallworld.state.IntegerValue(0, 8, "off", code.platform.byteorder, False)
 
 # Configure arguments
 # arg 0: pointer to buf

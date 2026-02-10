@@ -43,7 +43,7 @@ class Heap(memory.Memory):
         Returns:
             The address at which the integer was allocated.
         """
-        value = state.IntegerValue(integer, size, label, byteorder=byteorder)
+        value = state.IntegerValue(integer, size, label, byteorder)
         return self.allocate(value)
 
     def allocate_bytes(

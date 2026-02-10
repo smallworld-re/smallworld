@@ -70,7 +70,7 @@ code.update_symbol_value("fflush", fflush_model._address)
 # mips references the copy in libc, so we need to make our own
 fake_stdout = smallworld.state.memory.Memory(0x20000, 4)
 fake_stdout[0] = smallworld.state.IntegerValue(
-    0x47492A00, 4, None, False, smallworld.platforms.Byteorder.LITTLE
+    0x47492A00, 4, None, smallworld.platforms.Byteorder.LITTLE, False
 )
 machine.add(fake_stdout)
 

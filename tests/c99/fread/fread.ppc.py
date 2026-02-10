@@ -78,7 +78,7 @@ code.update_symbol_value("strcmp", strcmp_model._address)
 # powerpc copies the address from libc, so we just need to write into the symbol.
 fake_stdin = smallworld.state.memory.Memory(0x20000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(
-    0x47492A00, 4, None, False, smallworld.platforms.Byteorder.BIG
+    0x47492A00, 4, None, smallworld.platforms.Byteorder.BIG, False
 )
 machine.add(fake_stdin)
 
