@@ -45,7 +45,9 @@ class MIPSN64PlatformDef(PlatformDef):
     conditional_branch_mnemonics = {
         # Conditional branch
         "beq",
+        "beqz",
         "bne",
+        "bnez",
         "bgez",
         "bgtz",
         "blez",

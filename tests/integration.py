@@ -348,6 +348,22 @@ class CallTestsUnicorn(CallTests):
     def test_call_mipsel(self):
         self.run_test("mipsel")
 
+    def test_call_mips64(self):
+        self.run_test("mips64", signext=True)
+
+    def test_call_mips64el(self):
+        self.run_test("mips64el", signext=True)
+
+    def test_call_ppc(self):
+        self.run_test("ppc")
+
+    @unittest.skip("Unexpected trap")
+    def test_call_ppc64(self):
+        self.run_test("ppc64", signext=True)
+
+    def test_call_riscv64(self):
+        self.run_test("riscv64", signext=True)
+
 
 class DMATests(ScriptIntegrationTest):
     def run_test(self, arch, signext=False):
@@ -448,6 +464,9 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_dma_mips64(self):
+        self.run_test("mips64", signext=True)
+
     def test_dma_mips64_angr(self):
         self.run_test("mips64.angr", signext=True)
 
@@ -456,6 +475,9 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_mips64_pcode(self):
         self.run_test("mips64.pcode", signext=True)
+
+    def test_dma_mips64el(self):
+        self.run_test("mips64el", signext=True)
 
     def test_dma_mips64el_angr(self):
         self.run_test("mips64el.angr", signext=True)
@@ -466,6 +488,9 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_mips64el_pcode(self):
         self.run_test("mips64el.pcode", signext=True)
 
+    def test_dma_ppc(self):
+        self.run_test("ppc")
+
     def test_dma_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -475,11 +500,18 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_dma_ppc64(self):
+        self.run_test("ppc64")
+
     def test_dma_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_dma_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_dma_riscv64(self):
+        self.run_test("riscv64")
 
     def test_dma_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -593,6 +625,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mipsel_pcode(self):
         self.run_test(arch="mipsel.pcode")
 
+    def test_square_mips64(self):
+        self.run_test(arch="mips64", signext=True)
+
     def test_square_mips64_angr(self):
         self.run_test(arch="mips64.angr", signext=True)
 
@@ -601,6 +636,9 @@ class SquareTests(ScriptIntegrationTest):
 
     def test_square_mips64_pcode(self):
         self.run_test(arch="mips64.pcode", signext=True)
+
+    def test_square_mips64el(self):
+        self.run_test(arch="mips64el", signext=True)
 
     def test_square_mips64el_angr(self):
         self.run_test(arch="mips64el.angr", signext=True)
@@ -611,6 +649,9 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_mips64el_pcode(self):
         self.run_test(arch="mips64el.pcode", signext=True)
 
+    def test_square_ppc(self):
+        self.run_test("ppc")
+
     def test_square_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -620,11 +661,18 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_square_ppc64(self):
+        self.run_test("ppc64", signext=True)
+
     def test_square_ppc64_angr(self):
         self.run_test("ppc64.angr", signext=True)
 
     def test_square_ppc64_pcode(self):
         self.run_test("ppc64.pcode", signext=True)
+
+    def test_square_riscv64(self):
+        self.run_test("riscv64", signext=True)
 
     def test_square_riscv64_angr(self):
         self.run_test("riscv64.angr", signext=True)
@@ -741,6 +789,9 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_recursion_mips64(self):
+        self.run_test("mips64")
+
     def test_recursion_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -749,6 +800,9 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_recursion_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_recursion_mips64el(self):
+        self.run_test("mips64el")
 
     def test_recursion_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -759,6 +813,9 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_recursion_ppc(self):
+        self.run_test("ppc")
+
     def test_recursion_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -768,11 +825,18 @@ class RecursionTests(ScriptIntegrationTest):
     def test_recursion_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_recursion_ppc64(self):
+        self.run_test("ppc64")
+
     def test_recursion_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_recursion_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_recursion_riscv64(self):
+        self.run_test("riscv64")
 
     def test_recursion_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -902,6 +966,9 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mipsel_pcode(self):
         self.run_test("mipsel.pcode", reg="v0", res="0xaaaa")
 
+    def test_stack_mips64(self):
+        self.run_test("mips64", reg="v0", res="0xffff")
+
     def test_stack_mips64_angr(self):
         self.run_test("mips64.angr", reg="v0", res="0xffff")
 
@@ -910,6 +977,9 @@ class StackTests(ScriptIntegrationTest):
 
     def test_stack_mips64_pcode(self):
         self.run_test("mips64.pcode", reg="v0", res="0xffff")
+
+    def test_stack_mips64el(self):
+        self.run_test("mips64el", reg="v0", res="0xffff")
 
     def test_stack_mips64el_angr(self):
         self.run_test("mips64el.angr", reg="v0", res="0xffff")
@@ -920,6 +990,9 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_mips64el_pcode(self):
         self.run_test("mips64el.pcode", reg="v0", res="0xffff")
 
+    def test_stack_ppc(self):
+        self.run_test("ppc", reg="r3", res="0xffff")
+
     def test_stack_ppc_angr(self):
         self.run_test("ppc.angr", reg="r3", res="0xffff")
 
@@ -929,11 +1002,18 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_ppc_pcode(self):
         self.run_test("ppc.pcode", reg="r3", res="0xffff")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_stack_ppc64(self):
+        self.run_test("ppc64", reg="r3", res="0xffff")
+
     def test_stack_ppc64_angr(self):
         self.run_test("ppc64.angr", reg="r3", res="0xffff")
 
     def test_stack_ppc64_pcode(self):
         self.run_test("ppc64.pcode", reg="r3", res="0xffff")
+
+    def test_stack_riscv64(self):
+        self.run_test("riscv64", reg="a0", res="0xffffffff")
 
     def test_stack_riscv64_angr(self):
         self.run_test("riscv64.angr", reg="a0", res="0xffffffff")
@@ -1006,6 +1086,9 @@ class BranchTestsAngr(BranchTests):
 
     def test_branch_ppc64_angr(self):
         self.run_branch("ppc64.angr", reg="r3")
+
+    def test_branch_riscv64(self):
+        self.run_branch("riscv64", reg="a0")
 
     def test_branch_riscv64_angr(self):
         self.run_branch("riscv64.angr", reg="a0")
@@ -1112,6 +1195,22 @@ class BranchTestsUnicorn(BranchTests):
     def test_branch_mipsel(self):
         self.run_branch("mipsel", reg="v0")
 
+    def test_branch_mips64(self):
+        self.run_branch("mips64", reg="v0")
+
+    def test_branch_mips64el(self):
+        self.run_branch("mips64el", reg="v0")
+
+    def test_branch_ppc(self):
+        self.run_branch("ppc", reg="r3")
+
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_branch_ppc64(self):
+        self.run_branch("ppc64", reg="r3")
+
+    def test_branch_riscv64(self):
+        self.run_branch("riscv64", reg="a0")
+
 
 class StrlenTests(ScriptIntegrationTest):
     def run_test(self, arch):
@@ -1211,6 +1310,9 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_strlen_mips64(self):
+        self.run_test("mips64")
+
     def test_strlen_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -1219,6 +1321,9 @@ class StrlenTests(ScriptIntegrationTest):
 
     def test_strlen_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_strlen_mips64el(self):
+        self.run_test("mips64el")
 
     def test_strlen_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -1229,6 +1334,9 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_strlen_ppc(self):
+        self.run_test("ppc")
+
     def test_strlen_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -1238,11 +1346,18 @@ class StrlenTests(ScriptIntegrationTest):
     def test_strlen_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_strlen_ppc64(self):
+        self.run_test("ppc64")
+
     def test_strlen_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_strlen_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_strlen_riscv64(self):
+        self.run_test("riscv64")
 
     def test_strlen_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -1360,6 +1475,9 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_hooking_mips64(self):
+        self.run_test("mips64")
+
     def test_hooking_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -1370,6 +1488,9 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_hooking_mips64el(self):
+        self.run_test("mips64el")
 
     def test_hooking_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -1382,6 +1503,9 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_hooking_ppc(self):
+        self.run_test("ppc")
+
     def test_hooking_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -1391,11 +1515,18 @@ class HookingTests(ScriptIntegrationTest):
     def test_hooking_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_hooking_ppc64(self):
+        self.run_test("ppc64")
+
     def test_hooking_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_hooking_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_hooking_riscv64(self):
+        self.run_test("riscv64")
 
     def test_hooking_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -1519,28 +1650,31 @@ class MemhookTests(ScriptIntegrationTest):
     def test_mipsel_ghidra(self):
         self.run_test_32("mipsel.ghidra")
 
+    def test_mips64(self):
+        self.run_test_64("mips64")
+
     def test_mips64_angr(self):
         self.run_test_64("mips64.angr")
 
+    @unittest.skip("Panda failure")
     def test_mips64_panda(self):
-        # Broken; no idea why
-        # self.run_test_64("mips64.panda")
-        pass
+        self.run_test_64("mips64.panda")
 
     def test_mips64_ghidra(self):
         self.run_test_64("mips64.ghidra")
-        pass
 
     def test_mips64el_angr(self):
         self.run_test_64("mips64el.angr")
 
+    @unittest.skip("Panda failure")
     def test_mips64el_panda(self):
-        # Broken; no idea why
-        # self.run_test_64("mips64el.panda")
-        pass
+        self.run_test_64("mips64el.panda")
 
     def test_mips64el_ghidra(self):
         self.run_test_64("mips64el.ghidra")
+
+    def test_ppc(self):
+        self.run_test_32("ppc")
 
     def test_ppc_angr(self):
         self.run_test_32("ppc.angr")
@@ -1550,6 +1684,9 @@ class MemhookTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test_32("ppc.ghidra")
+
+    def test_riscv64(self):
+        self.run_test_64("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test_64("riscv64.angr")
@@ -1652,6 +1789,9 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_elf_mips64(self):
+        self.run_test("mips64")
+
     def test_elf_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -1660,6 +1800,9 @@ class ElfTests(ScriptIntegrationTest):
 
     def test_elf_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_elf_mips64el(self):
+        self.run_test("mips64el")
 
     def test_elf_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -1670,6 +1813,9 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_elf_ppc(self):
+        self.run_test("ppc")
+
     def test_elf_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -1679,11 +1825,18 @@ class ElfTests(ScriptIntegrationTest):
     def test_elf_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_elf_ppc64(self):
+        self.run_test("ppc64")
+
     def test_elf_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_elf_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_elf_riscv64(self):
+        self.run_test("riscv64")
 
     def test_elf_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -1793,6 +1946,9 @@ class RelaTests(ScriptIntegrationTest):
     def test_rela_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_rela_mips64(self):
+        self.run_test("mips64")
+
     def test_rela_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -1802,6 +1958,9 @@ class RelaTests(ScriptIntegrationTest):
     def test_rela_mips64_pcode(self):
         self.run_test("mips64.pcode")
 
+    def test_rela_mips64el(self):
+        self.run_test("mips64el")
+
     def test_rela_mips64el_angr(self):
         self.run_test("mips64el.angr")
 
@@ -1810,6 +1969,9 @@ class RelaTests(ScriptIntegrationTest):
 
     def test_rela_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
+
+    def test_rela_ppc(self):
+        self.run_test("ppc")
 
     def test_rela_ppc_angr(self):
         self.run_test("ppc.angr")
@@ -1821,6 +1983,9 @@ class RelaTests(ScriptIntegrationTest):
         self.run_test("ppc.pcode")
 
     # NOTE: PowerPC64 relocations are not currently supported
+
+    def test_rela_riscv64(self):
+        self.run_test("riscv64")
 
     def test_rela_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -1926,24 +2091,42 @@ class LinkElfTests(ScriptIntegrationTest):
     def test_link_elf_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
-    #    def test_link_elf_mips64_angr(self):
-    #        self.run_test("mips64.angr")
-    #
-    #    def test_link_elf_mips64_panda(self):
-    #        self.run_test("mips64.panda")
-    #
-    #    def test_link_elf_mips64_pcode(self):
-    #        self.run_test("mips64.pcode")
-    #
-    #    def test_link_elf_mips64el_angr(self):
-    #        self.run_test("mips64el.angr")
-    #
-    #    def test_link_elf_mips64el_panda(self):
-    #        self.run_test("mips64el.panda")
-    #
-    #    def test_link_elf_mips64el_pcode(self):
-    #        self.run_test("mips64el.pcode")
-    #
+    # FIXME: MIPS64 binaries infty-loop.
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64(self):
+        self.run_test("mips64")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64_angr(self):
+        self.run_test("mips64.angr")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64_panda(self):
+        self.run_test("mips64.panda")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64_pcode(self):
+        self.run_test("mips64.pcode")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64el(self):
+        self.run_test("mips64el")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64el_angr(self):
+        self.run_test("mips64el.angr")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64el_panda(self):
+        self.run_test("mips64el.panda")
+
+    @unittest.skip("Unexpected failure")
+    def test_link_elf_mips64el_pcode(self):
+        self.run_test("mips64el.pcode")
+
+    def test_link_elf_ppc(self):
+        self.run_test("ppc")
+
     def test_link_elf_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -1954,6 +2137,9 @@ class LinkElfTests(ScriptIntegrationTest):
         self.run_test("ppc.pcode")
 
     # NOTE: PowerPC64 relocations are not currently supported
+
+    def test_link_elf_riscv64(self):
+        self.run_test("riscv64")
 
     def test_link_elf_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -2160,6 +2346,9 @@ class ElfCoreActuateTests(ScriptIntegrationTest):
     def test_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -2169,6 +2358,10 @@ class ElfCoreActuateTests(ScriptIntegrationTest):
 
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
+
+    @unittest.skip("Pending fix for crashes in ppc64 ld.so")
+    def test_ppc64(self):
+        self.run_test("ppc64")
 
     @unittest.skip("Pending fix for crashes in ppc64 ld.so")
     def test_ppc64_angr(self):
@@ -2441,6 +2634,9 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -2449,6 +2645,9 @@ class StaticBufferTests(ScriptIntegrationTest):
 
     def test_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -2459,6 +2658,9 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -2468,11 +2670,18 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_ppc64(self):
+        self.run_test("ppc64")
+
     def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -2515,6 +2724,9 @@ class DelayTests(ScriptIntegrationTest):
     def test_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -2523,6 +2735,9 @@ class DelayTests(ScriptIntegrationTest):
 
     def test_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -2635,6 +2850,9 @@ class ExitpointTests(ScriptIntegrationTest):
     def test_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -2644,6 +2862,9 @@ class ExitpointTests(ScriptIntegrationTest):
 
     def test_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -2655,6 +2876,9 @@ class ExitpointTests(ScriptIntegrationTest):
     def test_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -2665,11 +2889,18 @@ class ExitpointTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_ppc64(self):
+        self.run_test("ppc64")
+
     def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -2779,6 +3010,9 @@ class UnmappedTests(ScriptIntegrationTest):
     def test_mipsel_pcode(self):
         self.run_test("mipsel.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -2788,6 +3022,9 @@ class UnmappedTests(ScriptIntegrationTest):
 
     def test_mips64_pcode(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -2799,6 +3036,9 @@ class UnmappedTests(ScriptIntegrationTest):
     def test_mips64el_pcode(self):
         self.run_test("mips64el.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -2809,11 +3049,18 @@ class UnmappedTests(ScriptIntegrationTest):
     def test_ppc_pcode(self):
         self.run_test("ppc.pcode")
 
+    @unittest.skip("Unicorn ppc64 support buggy")
+    def test_ppc64(self):
+        self.run_test("ppc64")
+
     def test_ppc64_angr(self):
         self.run_test("ppc64.angr")
 
     def test_ppc64_pcode(self):
         self.run_test("ppc64.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -3903,6 +4150,9 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -3911,6 +4161,9 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -3933,6 +4186,9 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -3941,6 +4197,9 @@ class CheckedDoubleFreeTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -4025,6 +4284,9 @@ class CheckedReadTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -4033,6 +4295,9 @@ class CheckedReadTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -4055,6 +4320,9 @@ class CheckedReadTests(ScriptIntegrationTest):
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -4063,6 +4331,9 @@ class CheckedReadTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -4147,6 +4418,9 @@ class CheckedWriteTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -4155,6 +4429,9 @@ class CheckedWriteTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -4177,6 +4454,9 @@ class CheckedWriteTests(ScriptIntegrationTest):
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -4185,6 +4465,9 @@ class CheckedWriteTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
@@ -4269,6 +4552,9 @@ class CheckedUAFTests(ScriptIntegrationTest):
     def test_mips_ghidra(self):
         self.run_test("mips.pcode")
 
+    def test_mips64(self):
+        self.run_test("mips64")
+
     def test_mips64_angr(self):
         self.run_test("mips64.angr")
 
@@ -4277,6 +4563,9 @@ class CheckedUAFTests(ScriptIntegrationTest):
 
     def test_mips64_ghidra(self):
         self.run_test("mips64.pcode")
+
+    def test_mips64el(self):
+        self.run_test("mips64el")
 
     def test_mips64el_angr(self):
         self.run_test("mips64el.angr")
@@ -4299,6 +4588,9 @@ class CheckedUAFTests(ScriptIntegrationTest):
     def test_mipsel_ghidra(self):
         self.run_test("mipsel.pcode")
 
+    def test_ppc(self):
+        self.run_test("ppc")
+
     def test_ppc_angr(self):
         self.run_test("ppc.angr")
 
@@ -4307,6 +4599,9 @@ class CheckedUAFTests(ScriptIntegrationTest):
 
     def test_ppc_ghidra(self):
         self.run_test("ppc.pcode")
+
+    def test_riscv64(self):
+        self.run_test("riscv64")
 
     def test_riscv64_angr(self):
         self.run_test("riscv64.angr")
