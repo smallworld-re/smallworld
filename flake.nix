@@ -79,51 +79,39 @@
 
       ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
-      patchedUnicornSpec = {
-        owner = "appleflyerv3";
-        repo = "unicorn";
-        rev = "mmio_map_pc_sync";
-        hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
-      };
-
       # Helpers shared between the uv2nix "prebuilts" overlay and the nixpkgs python overlay.
       pypandaBuilderFor = system: panda-ng.lib.${system}.pypandaBuilder;
 
-      mkUnicornaflBuilder = callPackage: callPackage ./unicornafl-build { };
-
-      mkPatchedUnicorn =
+      pythonNativeAddons = forAllSystems (
+        system:
+        { pythonPkgs, unicornPy }:
         {
           fetchFromGitHub,
-          unicornLib,
-          unicornPy,
-        }:
-        let
-          patchedSrc = fetchFromGitHub patchedUnicornSpec;
-          unicornLibPatched = unicornLib.overrideAttrs (_: {
-            src = patchedSrc;
-          });
-        in
-        unicornPy.override {
-          unicorn = unicornLibPatched;
-        };
-
-      mkPythonNativeAddons =
-        {
-          system,
-          fetchFromGitHub,
-          unicornLib,
-          unicornPy,
+          unicorn,
           callPackage,
-          pythonPkgs,
+          ...
         }:
         let
-          mkUnicornafl = mkUnicornaflBuilder callPackage;
+          mkUnicornafl = callPackage ./unicornafl-build { };
+          patchedUnicornSrc = fetchFromGitHub {
+            owner = "appleflyerv3";
+            repo = "unicorn";
+            rev = "mmio_map_pc_sync";
+            hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
+          };
+          patchedUnicorn = unicorn.overrideAttrs (_: {
+            src = patchedUnicornSrc;
+          });
+          patchedUnicornPy = unicornPy.override {
+            unicorn = patchedUnicorn;
+          };
         in
         {
-          unicorn = mkPatchedUnicorn { inherit fetchFromGitHub unicornLib unicornPy; };
+          unicorn = patchedUnicornPy;
           unicornafl = mkUnicornafl pythonPkgs;
           pypanda = (pypandaBuilderFor system) pythonPkgs qemu.${system};
-        };
+        }
+      );
 
       # Workspace source selection: only the files needed to build the python project.
       root = ./.;
@@ -163,17 +151,11 @@
         let
           pkgs = pkgsFor system;
           python = basePython.${system};
-
           hacks = pkgs.callPackage pyproject-nix.build.hacks { };
-
-          native = mkPythonNativeAddons {
-            inherit system;
-            fetchFromGitHub = pkgs.fetchFromGitHub;
-            unicornLib = pkgs.unicorn;
-            unicornPy = python.pkgs.unicorn;
-            callPackage = pkgs.callPackage;
+          native = pythonNativeAddons.${system} {
             pythonPkgs = python.pkgs;
-          };
+            unicornPy = python.pkgs.unicorn;
+          } pkgs;
         in
         {
           unicorn = hacks.nixpkgsPrebuilt {
@@ -459,14 +441,10 @@
           extraOverlay =
             pyFinal: pyPrev:
             let
-              native = mkPythonNativeAddons {
-                inherit system;
-                fetchFromGitHub = final.fetchFromGitHub;
-                unicornLib = prev.unicorn;
-                unicornPy = pyPrev.unicorn;
-                callPackage = final.callPackage;
+              native = pythonNativeAddons.${system} {
                 pythonPkgs = pyFinal;
-              };
+                unicornPy = pyPrev.unicorn;
+              } (final // { inherit (prev) unicorn; });
             in
             {
               inherit (native) unicorn unicornafl pypanda;
