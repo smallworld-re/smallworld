@@ -123,7 +123,7 @@ gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.var.b")
 gdata[62] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.var.c")
 gdata[63] = smallworld.state.SymbolicValue(497, None, None, "buf")
 # Offset into buffer
-gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
+gdata[560] = smallworld.state.IntegerValue(0, 8, "off", code.platform.byteorder, False)
 
 # Configure arguments
 # arg 0: pointer to buf

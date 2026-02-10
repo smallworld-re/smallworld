@@ -173,7 +173,7 @@ gdata[0] = smallworld.state.EmptyValue(48, None, "msg")
 gdata[48] = smallworld.state.EmptyValue(512, None, "buf")
 
 # Offset into buffer
-gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
+gdata[560] = smallworld.state.IntegerValue(0, 8, "off", code.platform.byteorder, False)
 ```
 
 Next, we use what we know about the function signature to assign values to registers.
