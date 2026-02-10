@@ -86,14 +86,17 @@
         hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
       };
 
-
       # Helpers shared between the uv2nix "prebuilts" overlay and the nixpkgs python overlay.
       pypandaBuilderFor = system: panda-ng.lib.${system}.pypandaBuilder;
 
       mkUnicornaflBuilder = callPackage: callPackage ./unicornafl-build { };
 
       mkPatchedUnicorn =
-        { fetchFromGitHub, unicornLib, unicornPy }:
+        {
+          fetchFromGitHub,
+          unicornLib,
+          unicornPy,
+        }:
         let
           patchedSrc = fetchFromGitHub patchedUnicornSpec;
           unicornLibPatched = unicornLib.overrideAttrs (_: {
@@ -130,9 +133,11 @@
         ./.python-version
         ./smallworld
       ];
-      rootString = builtins.unsafeDiscardStringContext (lib.fileset.toSource {
-        inherit fileset root;
-      });
+      rootString = builtins.unsafeDiscardStringContext (
+        lib.fileset.toSource {
+          inherit fileset root;
+        }
+      );
       rootPath = /. + rootString;
 
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
@@ -263,14 +268,13 @@
           inherit pythonEnv;
 
           default = pkgs.mkShell {
-            packages =
-              [
-                virtualenv
-                pkgs.uv
-                pkgs.nixfmt
-                pkgs.nixfmt-tree
-              ]
-              ++ toolInputs;
+            packages = [
+              virtualenv
+              pkgs.uv
+              pkgs.nixfmt
+              pkgs.nixfmt-tree
+            ]
+            ++ toolInputs;
 
             env = {
               inherit GHIDRA_INSTALL_DIR;
@@ -288,13 +292,12 @@
           };
 
           imperative = pkgs.mkShell {
-            packages =
-              [
-                pythonSet.python
-                pythonSet.pip
-                pythonSet.setuptools
-              ]
-              ++ toolInputs;
+            packages = [
+              pythonSet.python
+              pythonSet.pip
+              pythonSet.setuptools
+            ]
+            ++ toolInputs;
 
             env = {
               inherit GHIDRA_INSTALL_DIR;
@@ -398,8 +401,16 @@
             final.z3
           ];
 
-          pkgToolDeps = [ final.ghidra final.jre ] ++ toolDeps;
-          envToolDeps = [ final.jre final.ghidra ] ++ toolDeps;
+          pkgToolDeps = [
+            final.ghidra
+            final.jre
+          ]
+          ++ toolDeps;
+          envToolDeps = [
+            final.jre
+            final.ghidra
+          ]
+          ++ toolDeps;
 
           pythonAddonDepsFor = pyFinal: [
             pyFinal.pyghidra
@@ -436,8 +447,7 @@
               # add-ons that downstream users often expect.
               smallworldWithAllDeps = (converted."smallworld-re").overridePythonAttrs (old: {
                 propagatedBuildInputs =
-                  (old.propagatedBuildInputs or [ ])
-                  ++ ((pythonAddonDepsFor pyFinal) ++ pkgToolDeps);
+                  (old.propagatedBuildInputs or [ ]) ++ ((pythonAddonDepsFor pyFinal) ++ pkgToolDeps);
               });
             in
             converted
@@ -462,7 +472,6 @@
               inherit (native) unicorn unicornafl pypanda;
             };
 
-
           pyOverlay = final.lib.composeExtensions convertedOverlay extraOverlay;
         in
         {
@@ -475,62 +484,61 @@
               });
 
               # Wrap `withPackages` so the resulting python env derivation contains a setup-hook.
-              python = basePython
-                // {
-                  withPackages =
-                    f:
-                    let
-                      env = basePython.withPackages f;
-                      requested = f basePython.pkgs;
-                      needsGhidra = final.lib.any (
-                        p:
-                        let
-                          pname = p.pname or null;
-                        in
-                        pname == "smallworld-re" || pname == "pyghidra" || pname == "smallworld"
-                      ) requested;
-                    in
-                    if needsGhidra then
-                      final.buildEnv {
-                        name = "${env.name}-smallworld-full";
+              python = basePython // {
+                withPackages =
+                  f:
+                  let
+                    env = basePython.withPackages f;
+                    requested = f basePython.pkgs;
+                    needsGhidra = final.lib.any (
+                      p:
+                      let
+                        pname = p.pname or null;
+                      in
+                      pname == "smallworld-re" || pname == "pyghidra" || pname == "smallworld"
+                    ) requested;
+                  in
+                  if needsGhidra then
+                    final.buildEnv {
+                      name = "${env.name}-smallworld-full";
 
-                        # Tool deps included here so they land on PATH in downstream shells.
-                        paths = [ env ] ++ envToolDeps;
+                      # Tool deps included here so they land on PATH in downstream shells.
+                      paths = [ env ] ++ envToolDeps;
 
-                        pathsToLink = [
-                          "/bin"
-                          "/nix-support"
-                        ];
-                        ignoreCollisions = true;
+                      pathsToLink = [
+                        "/bin"
+                        "/nix-support"
+                      ];
+                      ignoreCollisions = true;
 
-                        postBuild = ''
-                          # Ensure nix-support is a real directory (not a symlink from an input).
-                          if [ -L "$out/nix-support" ]; then
-                            rm -f "$out/nix-support"
-                          fi
-                          mkdir -p "$out/nix-support"
+                      postBuild = ''
+                        # Ensure nix-support is a real directory (not a symlink from an input).
+                        if [ -L "$out/nix-support" ]; then
+                          rm -f "$out/nix-support"
+                        fi
+                        mkdir -p "$out/nix-support"
 
-                          # If buildEnv linked an existing setup-hook as a symlink, replace it.
-                          if [ -e "$out/nix-support/setup-hook" ]; then
-                            rm -f "$out/nix-support/setup-hook"
-                          fi
+                        # If buildEnv linked an existing setup-hook as a symlink, replace it.
+                        if [ -e "$out/nix-support/setup-hook" ]; then
+                          rm -f "$out/nix-support/setup-hook"
+                        fi
 
-                          # Preserve any setup-hook content from the underlying python env, if present.
-                          if [ -f "${env}/nix-support/setup-hook" ]; then
-                            cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
-                          else
-                            : > "$out/nix-support/setup-hook"
-                          fi
+                        # Preserve any setup-hook content from the underlying python env, if present.
+                        if [ -f "${env}/nix-support/setup-hook" ]; then
+                          cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
+                        else
+                          : > "$out/nix-support/setup-hook"
+                        fi
 
-                          cat >> "$out/nix-support/setup-hook" <<'EOF'
-                          export GHIDRA_INSTALL_DIR=${ghidraInstallDir final.ghidra}
-                          export JAVA_HOME=${final.jre}
-                          EOF
-                        '';
-                      }
-                    else
-                      env;
-                };
+                        cat >> "$out/nix-support/setup-hook" <<'EOF'
+                        export GHIDRA_INSTALL_DIR=${ghidraInstallDir final.ghidra}
+                        export JAVA_HOME=${final.jre}
+                        EOF
+                      '';
+                    }
+                  else
+                    env;
+              };
             in
             python;
 
