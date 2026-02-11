@@ -3,16 +3,15 @@
     "libpanda-ng-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1761870394,
-        "narHash": "sha256-3QPRa+4D3H6XQguarHDiQtGDWEuI1xH1D8L5u/SxNIY=",
-        "owner": "rehostingdev",
+        "lastModified": 1770663360,
+        "narHash": "sha256-2p4U5IMSj4nxMUMt49Zvwgftq7XXW8V4OxYBRvOUM2M=",
+        "owner": "panda-re",
         "repo": "libpanda-ng",
-        "rev": "1cf935120c6109c2983496279325a00e4b7980cc",
+        "rev": "3f2a9c6e817267f734015d68ec18d53849731317",
         "type": "github"
       },
       "original": {
-        "owner": "rehostingdev",
-        "ref": "fixes",
+        "owner": "panda-re",
         "repo": "libpanda-ng",
         "type": "github"
       }
@@ -76,26 +75,24 @@
         "nixpkgs": [
           "nixpkgs"
         ],
-        "panda-qemu-src": [
-          "panda-qemu"
-        ]
+        "panda-qemu-src": "panda-qemu-src"
       },
       "locked": {
-        "lastModified": 1766014599,
-        "narHash": "sha256-xkcsx6A9DcidO/GiwK35rcho+q08J7NYqZh3iQ1m4J0=",
+        "lastModified": 1770849677,
+        "narHash": "sha256-NHD7Zd8aVkDGiXwgrhA4FFixYAZITYO5LyGUgD+DkvM=",
         "owner": "rehostingdev",
         "repo": "panda-ng",
-        "rev": "16e99a5453bd24fdbef9922521a32f0779d9fc5b",
+        "rev": "72099e7278d8c1c8c8b47e61021a781c53e108d1",
         "type": "github"
       },
       "original": {
         "owner": "rehostingdev",
-        "ref": "nix-flake-init",
+        "ref": "macos-support",
         "repo": "panda-ng",
         "type": "github"
       }
     },
-    "panda-qemu": {
+    "panda-qemu-src": {
       "flake": false,
       "locked": {
         "lastModified": 1766081023,
@@ -184,7 +181,6 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-esp-dev": "nixpkgs-esp-dev",
         "panda-ng": "panda-ng",
-        "panda-qemu": "panda-qemu",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "uv2nix": "uv2nix",
