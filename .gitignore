@@ -17,3 +17,4 @@ core.*
 /result
 /docs/build
 unicornafl-flake/result
+tests/downstream_flake/flake.lock
