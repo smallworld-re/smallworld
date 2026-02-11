@@ -10,7 +10,12 @@
 
   };
 
-  outputs = { self, nixpkgs, smallworld }:
+  outputs =
+    {
+      self,
+      nixpkgs,
+      smallworld,
+    }:
     let
       system = "x86_64-linux"; # change if needed (e.g. aarch64-darwin)
 
@@ -18,7 +23,7 @@
         inherit system;
         overlays = [ smallworld.overlays.default ];
       };
-      
+
       python = pkgs.python312;
       pythonEnv = python.withPackages (ps: [
         ps.smallworld

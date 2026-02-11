@@ -22,14 +22,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    panda-qemu = {
-      url = "github:panda-re/qemu?ref=wrapup-rebase";
-      flake = false;
-    };
-
     panda-ng = {
-      url = "github:rehostingdev/panda-ng?ref=nix-flake-init"; # TODO: update once PR is merged
-      inputs.panda-qemu-src.follows = "panda-qemu";
+      url = "github:rehostingdev/panda-ng?ref=macos-support"; # TODO: update once PR is merged
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -134,17 +128,7 @@
 
       basePython = forAllSystems (system: (pkgsFor system).python312);
 
-      qemu = forAllSystems (
-        system:
-        let
-          qemuBase = panda-ng.packages.${system}.qemu;
-        in
-        qemuBase.overrideAttrs (old: {
-          qemuSubprojects = old.qemuSubprojects.overrideAttrs (_: {
-            outputHash = "sha256-eUw7yBWxRKJbfhKvZDRNpTSaxrnDYr31Tkx35Myx4Fs=";
-          });
-        })
-      );
+      qemu = forAllSystems (system: panda-ng.packages.${system}.qemu);
 
       prebuilts = forAllSystems (
         system: _final: _prev:
