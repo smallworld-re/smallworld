@@ -124,7 +124,7 @@ jobs:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - uses: actions/checkout@v4
-      - name: Run Example
+      - name: Test Flake
         run: |
           cp flake.lock tests/downstream_flake
           cd tests/downstream_flake
