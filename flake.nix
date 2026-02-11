@@ -74,8 +74,6 @@
       ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
       # Helpers shared between the uv2nix "prebuilts" overlay and the nixpkgs python overlay.
-      pypandaBuilderFor = system: panda-ng.lib.${system}.pypandaBuilder;
-
       pythonNativeAddons = forAllSystems (
         system:
         { pythonPkgs, unicornPy }:
@@ -103,7 +101,7 @@
         {
           unicorn = patchedUnicornPy;
           unicornafl = mkUnicornafl pythonPkgs;
-          pypanda = (pypandaBuilderFor system) pythonPkgs qemu.${system};
+          pypanda = panda-ng.lib.${system}.pypandaBuilder pythonPkgs;
         }
       );
 
