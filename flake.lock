@@ -78,11 +78,11 @@
         "panda-qemu-src": "panda-qemu-src"
       },
       "locked": {
-        "lastModified": 1770849677,
-        "narHash": "sha256-NHD7Zd8aVkDGiXwgrhA4FFixYAZITYO5LyGUgD+DkvM=",
+        "lastModified": 1770852173,
+        "narHash": "sha256-+emCfsvAEIa8C1exkKh4ZOH11CvaH71EmogWleZwkw8=",
         "owner": "rehostingdev",
         "repo": "panda-ng",
-        "rev": "72099e7278d8c1c8c8b47e61021a781c53e108d1",
+        "rev": "74415871ced2c832c6f47db5d0f206dbeef56a1a",
         "type": "github"
       },
       "original": {
