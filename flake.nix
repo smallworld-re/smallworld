@@ -23,7 +23,7 @@
     };
 
     panda-ng = {
-      url = "github:rehostingdev/panda-ng?ref=macos-support"; # TODO: update once PR is merged
+      url = "github:panda-re/panda-ng";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
