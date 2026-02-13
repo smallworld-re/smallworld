@@ -206,7 +206,7 @@
 
           toolInputs = [
             pkgs.z3
-            pkgs.aflplusplus
+            (pkgs.callPackage ./aflplusplus.nix {})
             qemu.${system}
             pkgs.ghidra
             pkgs.jdk
@@ -313,7 +313,7 @@
           };
         in
         {
-          inherit printInputsRecursive tests rtos_demo;
+          inherit printInputsRecursive rtos_demo;
 
           default = pythonSet.smallworld-re;
           venv = virtualenv;
@@ -329,7 +329,7 @@
                 pkgs.dockerTools.binSh
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
-                pkgs.aflplusplus
+                (pkgs.callPackage ./aflplusplus.nix {})
                 qemu.${system}
                 virtualenv
                 pkgs.ghidra
@@ -345,6 +345,7 @@
             };
           };
         }
+        // (if system == "x86_64-linux" then { inherit tests; } else { })
       );
 
       pythonSet = forAllSystems (system: pythonSets.${system});
@@ -361,7 +362,7 @@
 
           toolDeps = [
             qemu.${system}
-            final.aflplusplus
+            (final.callPackage ./aflplusplus.nix {})
             final.z3
           ];
 
