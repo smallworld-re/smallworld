@@ -69,7 +69,13 @@
       systems = lib.systems.flakeExposed;
       forAllSystems = lib.genAttrs systems;
 
-      pkgsFor = system: nixpkgs.legacyPackages.${system};
+      pkgsFor = forAllSystems (
+        system:
+        import nixpkgs {
+          inherit system;
+          overlays = [ self.overlays.default ];
+        }
+      );
 
       ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
@@ -124,14 +130,14 @@
       emptyDeps = lib.genAttrs [ "unicornafl" "pypanda" "colorama" "unicorn" ] (_: [ ]);
       deps = workspace.deps.all // emptyDeps;
 
-      basePython = forAllSystems (system: (pkgsFor system).python312);
+      basePython = forAllSystems (system: pkgsFor.${system}.python312);
 
       qemu = forAllSystems (system: panda-ng.packages.${system}.qemu);
 
       prebuilts = forAllSystems (
         system: _final: _prev:
         let
-          pkgs = pkgsFor system;
+          pkgs = pkgsFor.${system};
           python = basePython.${system};
           hacks = pkgs.callPackage pyproject-nix.build.hacks { };
           native = pythonNativeAddons.${system} {
@@ -164,7 +170,7 @@
       pythonSets = forAllSystems (
         system:
         let
-          pkgs = pkgsFor system;
+          pkgs = pkgsFor.${system};
           python = basePython.${system};
           overrides = pkgs.callPackage ./overrides.nix { inherit python; };
 
@@ -200,7 +206,7 @@
       devShells = forAllSystems (
         system:
         let
-          pkgs = pkgsFor system;
+          pkgs = pkgsFor.${system};
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
 
@@ -218,13 +224,9 @@
           smallworldBuilt = packages.${system}.default;
 
           # Shell that exposes `python312.withPackages (ps: [ ps.smallworld ])`.
-          pythonEnvPkgs = import nixpkgs {
-            inherit system;
-            overlays = [ overlays.default ];
-          };
-          pythonEnv = pythonEnvPkgs.mkShell {
+          pythonEnv = pkgs.mkShell {
             packages = [
-              (pythonEnvPkgs.python312.withPackages (ps: [ ps.smallworld ]))
+              (pkgs.python312.withPackages (ps: [ ps.smallworld ]))
             ];
           };
         in
@@ -278,7 +280,7 @@
       packages = forAllSystems (
         system:
         let
-          pkgs = pkgsFor system;
+          pkgs = pkgsFor.${system};
           pythonSet = pythonSets.${system};
           virtualenv = virtualEnvProd.${system};
 
@@ -506,6 +508,6 @@
           python312Packages = final.python312.pkgs;
         };
 
-      formatter = forAllSystems (system: (pkgsFor system).nixfmt);
+      formatter = forAllSystems (system: pkgsFor.${system}.nixfmt);
     };
 }
