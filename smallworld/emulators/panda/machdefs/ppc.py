@@ -53,6 +53,7 @@ class PowerPCMachineDef(PandaMachineDef):
         "sp",
         "lr",
         "ctr",
+        "msr",
     }
     _registers_mapping = {
         "r1": "sp",
