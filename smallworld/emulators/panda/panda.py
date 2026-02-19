@@ -222,7 +222,7 @@ class PandaEmulator(
 
                 if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
-                    pass
+                    return True
                 logger.debug(f"\t{self.manager.current_instruction()}")
                 self.hook_return = pc + self.manager.current_instruction().size
 
