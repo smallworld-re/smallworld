@@ -425,6 +425,9 @@ class AMD64AVX2(AMD64):
         self.xmm15 = state.RegisterAlias("xmm15", self.ymm15, 16, 0)
         self.add(self.xmm15)
 
+        # Apply byteorder to all Registers
+        self._apply_byteorder()
+
 
 class AMD64AVX512(AMD64):
     """AMD64 CPU supporting up to AVX512"""
@@ -659,3 +662,6 @@ class AMD64AVX512(AMD64):
         self.add(self.ymm31)
         self.xmm31 = state.RegisterAlias("xmm31", self.zmm31, 16, 0)
         self.add(self.xmm31)
+
+        # Apply byteorder to all Registers
+        self._apply_byteorder()

@@ -41,11 +41,15 @@ class Stateful(metaclass=abc.ABCMeta):
         return id(self)
 
 
+type CTypesAny = typing.Union[ctypes.Structure, ctypes.Union]
+type ValueContent = typing.Union[None, int, bytes, claripy.ast.bv.BV, CTypesAny]
+
+
 class Value(metaclass=abc.ABCMeta):
     """An abstract class whose subclasses all have a tuple of content, type, and label.  Content is the value which must be convertable into bytes. The type is a ctype reprensenting the type of content. Label is a string that is a human label for the object. Any or all are optional."""
 
     def __init__(self: typing.Any) -> None:
-        self._content: typing.Union[None, int, bytes, claripy.ast.bv.BV] = None
+        self._content: ValueContent = None
         self._type: typing.Optional[typing.Any] = None
         self._label: typing.Optional[str] = None
 
@@ -59,7 +63,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return 0
 
-    def get_content(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
+    def get_content(self) -> ValueContent:
         """Get the content of this value.
 
         Returns:
@@ -68,9 +72,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return self._content
 
-    def set_content(
-        self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]
-    ) -> None:
+    def set_content(self, content: ValueContent) -> None:
         """Set the content of this value.
 
         Arguments:
@@ -115,7 +117,7 @@ class Value(metaclass=abc.ABCMeta):
 
         self._label = label
 
-    def get(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
+    def get(self) -> ValueContent:
         """A helper to get the content of this value.
 
         Returns:
@@ -124,7 +126,7 @@ class Value(metaclass=abc.ABCMeta):
 
         return self.get_content()
 
-    def set(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]) -> None:
+    def set(self, content: ValueContent) -> None:
         """A helper to set the content of this value.
 
         Arguments:
@@ -206,14 +208,11 @@ class Value(metaclass=abc.ABCMeta):
         return state
 
     @abc.abstractmethod
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         """Convert this value into a byte string.
 
-        Arguments:
-            byteorder: Byteorder for conversion to raw bytes.
-
         Returns:
-            Bytes for this value with the given byteorder.
+            Bytes for this value.
         """
 
         return b""
@@ -230,7 +229,7 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         class CTypeValue(Value):
-            def __init__(self, ctype: typing.Any, label: str):
+            def __init__(self, ctype: CTypesAny, label: str):
                 self._content = ctype
                 self._label = label
                 self._type = ctype.__class__
@@ -246,7 +245,7 @@ class Value(metaclass=abc.ABCMeta):
             def get_size(self) -> int:
                 return ctypes.sizeof(self._content)  # type: ignore
 
-            def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+            def to_bytes(self) -> bytes:
                 return bytes(self._content)  # type: ignore
 
         return CTypeValue(ctype, label)
@@ -297,7 +296,12 @@ class IntegerValue(Value):
     """
 
     def __init__(
-        self, integer: int, size: int, label: typing.Optional[str], signed: bool = True
+        self,
+        integer: int,
+        size: int,
+        label: typing.Optional[str],
+        byteorder: platforms.Byteorder,
+        signed: bool = True,
     ) -> None:
         super().__init__()
         if size == 8:
@@ -325,11 +329,16 @@ class IntegerValue(Value):
         self._content = integer
         self._label = label
         self._size = size
+        self._byteorder = byteorder
 
     def get_size(self) -> int:
         return self._size
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    @property
+    def byteorder(self) -> platforms.Byteorder:
+        return self._byteorder
+
+    def to_bytes(self) -> bytes:
         if self._content is None:
             raise ValueError("IntegerValue must have an integer value")
         if not isinstance(self._content, int):
@@ -339,9 +348,9 @@ class IntegerValue(Value):
             # Convert signed python into unsigned int containing 2s-compliment value.
             # Python's to_bytes() doesn't do this on its own.
             value = 2 ** (self._size * 8) + value
-        if byteorder == platforms.Byteorder.LITTLE:
+        if self._byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self._size, byteorder="little")
-        elif byteorder == platforms.Byteorder.BIG:
+        elif self._byteorder == platforms.Byteorder.BIG:
             return value.to_bytes(self._size, byteorder="big")
         else:
             raise NotImplementedError("middle endian integers are not yet implemented")
@@ -368,7 +377,7 @@ class BytesValue(Value):
     def get_size(self) -> int:
         return self._size
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         if self._content is None or not isinstance(self._content, bytes):
             raise ValueError("BytesValue must have a bytes value")
         return self._content
@@ -382,7 +391,11 @@ class Register(Value, Stateful):
         size: The size (in bytes) of the register.
     """
 
-    def __init__(self, name: str, size: int = 4):
+    def __init__(
+        self,
+        name: str,
+        size: int = 4,
+    ):
         super().__init__()
 
         self.name: str = name
@@ -390,6 +403,9 @@ class Register(Value, Stateful):
 
         self.size = size
         """Register size in bytes."""
+
+        self.byteorder: typing.Optional[platforms.Byteorder] = None
+        """Register platform byteorder. Assigned by CPU constructor."""
 
     def __str__(self):
         s = f"Reg({self.name},{self.size})="
@@ -402,14 +418,22 @@ class Register(Value, Stateful):
             s = s + str(type(x))
         return s
 
-    def set_content(self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]):
+    def _register_content_typecheck(
+        self, content: ValueContent
+    ) -> typing.Union[int, claripy.ast.bv.BV, None]:
+        if not (
+            isinstance(content, int)
+            or isinstance(content, claripy.ast.bv.BV)
+            or content is None
+        ):
+            raise TypeError(
+                f"Expected None, int, or claripy expression as content for Register {self.name}, got {type(content)}"
+            )
+        return content
+
+    def set_content(self, content: ValueContent):
         if content is not None:
-            if not isinstance(content, int) and not isinstance(
-                content, claripy.ast.bv.BV
-            ):
-                raise TypeError(
-                    f"Expected None, int, or claripy expression as content for Register {self.name}, got {type(content)}"
-                )
+            content = self._register_content_typecheck(content)
             if isinstance(content, int) and content < 0:
                 logger.warn(
                     "Converting content {hex(content)} of {self.name} to unsigned."
@@ -451,8 +475,7 @@ class Register(Value, Stateful):
 
     def apply(self, emulator: emulators.Emulator) -> None:
         content = self.get_content()
-        if isinstance(content, bytes):
-            raise TypeError("Register content cannot be bytes")
+        content = self._register_content_typecheck(content)
         if content is not None:
             emulator.write_register_content(self.name, content)
         if self.get_type() is not None:
@@ -460,7 +483,7 @@ class Register(Value, Stateful):
         if self.get_label() is not None:
             emulator.write_register_label(self.name, self.get_label())
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         value = self.get_content()
 
         if value is None:
@@ -473,12 +496,12 @@ class Register(Value, Stateful):
         elif isinstance(value, bytes):
             # This never happens, but let's keep mypy happy
             return value
-        elif byteorder == platforms.Byteorder.LITTLE:
+        elif self.byteorder == platforms.Byteorder.LITTLE:
             return value.to_bytes(self.size, byteorder="little")
-        elif byteorder == platforms.Byteorder.BIG:
+        elif self.byteorder == platforms.Byteorder.BIG:
             return value.to_bytes(self.size, byteorder="big")
         else:
-            raise ValueError(f"unsupported byteorder {byteorder}")
+            raise ValueError(f"unsupported byteorder {self.byteorder}")
 
 
 class RegisterAlias(Register):
@@ -509,7 +532,7 @@ class RegisterAlias(Register):
 
         return mask
 
-    def get_content(self) -> typing.Union[None, int, bytes, claripy.ast.bv.BV]:
+    def get_content(self) -> ValueContent:
         r = self.reference.get_content()
         if r is None:
             return r
@@ -526,9 +549,7 @@ class RegisterAlias(Register):
                 raise TypeError(f"Unexpected register content {type(value)}")
         return value
 
-    def set_content(
-        self, content: typing.Union[None, int, bytes, claripy.ast.bv.BV]
-    ) -> None:
+    def set_content(self, content: ValueContent) -> None:
         if content is not None:
             if isinstance(content, int):
                 if content < 0:
@@ -549,10 +570,9 @@ class RegisterAlias(Register):
                 )
 
             value = self.reference.get_content()
+            value = self._register_content_typecheck(value)
             if value is None:
                 value = 0
-            if isinstance(value, bytes):
-                raise TypeError("Value should not be bytes")
 
             # mypy completely loses the plot trying to determine type for content
             content = content << (self.offset * 8)  # type: ignore[operator]
@@ -594,7 +614,12 @@ class FixedRegister(Register):
         value:  Fixed value of the register
     """
 
-    def __init__(self, name, size=4, value=0):
+    def __init__(
+        self,
+        name,
+        size=4,
+        value=0,
+    ):
         super().__init__(name, size=size)
         super().set_content(value)
 

@@ -1,6 +1,7 @@
 import abc
 import typing
 
+from smallworld import platforms
 from smallworld.emulators import Emulator
 
 from .. import state
@@ -30,7 +31,9 @@ class Heap(memory.Memory):
         """
         pass
 
-    def allocate_integer(self, integer: int, size: int, label: str) -> int:
+    def allocate_integer(
+        self, integer: int, size: int, label: str, byteorder: platforms.Byteorder
+    ) -> int:
         """Allocate space for and write an integer to the heap.
 
         Arguments:
@@ -40,7 +43,7 @@ class Heap(memory.Memory):
         Returns:
             The address at which the integer was allocated.
         """
-        value = state.IntegerValue(integer, size, label)
+        value = state.IntegerValue(integer, size, label, byteorder)
         return self.allocate(value)
 
     def allocate_bytes(
