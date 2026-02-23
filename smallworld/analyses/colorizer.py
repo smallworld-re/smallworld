@@ -131,7 +131,7 @@ def randomize_uninitialized(
             mem_rngs: typing.List[typing.Any] = []
             for mem_rng in mem.get_ranges_uninitialized():
                 mem_rngs.append(mem_rng)
-            mem_rngs.sort()
+            mem_rngs.sort(key=lambda x: x.start)
 
             for mem_rng in mem_rngs:
                 logger.debug(
