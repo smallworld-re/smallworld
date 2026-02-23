@@ -301,8 +301,7 @@ class WRGraph:
                 and (val.scale == rw.info.bsid.scale)
                 and (val.offset == rw.info.bsid.offset)
             ) or (
-                type(val) is RegisterDef
-                or type(val) is RegisterAliasDef
+                (type(val) is RegisterDef or type(val) is RegisterAliasDef)
                 and type(rw.info) is RegisterInfo
                 and val.name == rw.info.register.name
             ):
@@ -310,31 +309,39 @@ class WRGraph:
             return False
 
         node = self.__find_node__(pc)
+        der: typing.Set[SrcDst] = set([])
         if node is None:
             return set([])
         if is_read:
-            der: typing.Set[Info] = set([])
             for read in node.reads:
                 if vmatch(val, read):
+                    num_in_edges = 0
                     for dst in self.in_edges:
                         if (
                             dst.pc == pc
                             and (type(dst.wr) is ReadInfo)
                             and dst.wr.info == read.info
                         ):
+                            num_in_edges += 1
                             der = der | der_read(node, dst)
+                    if num_in_edges == 0:
+                        der = set([SrcDst(node.pc, read)])
             return der
         else:
             for write in node.writes:
                 if vmatch(val, write):
+                    num_in_edges = 0
                     for dst in self.in_edges:
                         if (
                             dst.pc == pc
                             and (type(dst.wr) is WriteInfo)
                             and dst.wr.info == write.info
                         ):
-                            return der_write(node, dst)
-            assert 1 == 0
+                            num_in_edges += 1
+                            der = der | der_write(node, dst)
+                    if num_in_edges == 0:
+                        der = set([SrcDst(node.pc, write)])
+            return der
 
 
 # this should return same key for hint regardless of actual dynamic
