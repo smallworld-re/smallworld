@@ -295,6 +295,10 @@ class Colorizer(analysis.Analysis):
             check_rws(emu, pc, te, True)
 
         def after_instruction_cb(emu, pc, te):
+            # note: we have to check writes *after* the instruction
+            # executes since we might be writing a computed value
+            # which we'll only know the value (color) of after the
+            # instruction executes!
             check_rws(emu, pc, te, False)
 
         self.colors = {}
