@@ -33,6 +33,8 @@
     };
 
     # For building RTOS Demo
+    nixpkgs-25-11.url = "github:nixos/nixpkgs/nixos-25.11";
+
     zephyr = {
       url = "github:zephyrproject-rtos/zephyr/v3.5.0";
       flake = false;
@@ -40,7 +42,7 @@
 
     zephyr-nix = {
       url = "github:adisbladis/zephyr-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-25-11";
       inputs.zephyr.follows = "zephyr";
     };
 
