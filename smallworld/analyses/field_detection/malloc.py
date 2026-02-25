@@ -51,8 +51,10 @@ class MallocModel(state.models.Model):
 
         if len(heap) > 0:
             raise exceptions.ConfigurationError("This only works with a blank heap")
-        end = state.IntegerValue(heap.address + heap.get_capacity(), 8, None)
-        ptr = state.IntegerValue(heap.address + 16, 8, None)
+        end = state.IntegerValue(
+            heap.address + heap.get_capacity(), 8, None, platform.byteorder
+        )
+        ptr = state.IntegerValue(heap.address + 16, 8, None, platform.byteorder)
 
         heap.allocate(end)
         heap.allocate(ptr)

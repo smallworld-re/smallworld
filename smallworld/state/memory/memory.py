@@ -29,7 +29,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         self.size: int = size
         """The size address of this memory region."""
 
-    def to_bytes(self, byteorder: platforms.Byteorder) -> bytes:
+    def to_bytes(self) -> bytes:
         """Convert this memory region into a byte string.
 
         Missing/undefined space will be filled with zeros.
@@ -45,9 +45,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         for offset, value in self.items():
             # data = value.get_content()
             result = (
-                result[:offset]
-                + value.to_bytes(byteorder=byteorder)
-                + result[offset + value.get_size() :]
+                result[:offset] + value.to_bytes() + result[offset + value.get_size() :]
             )
 
         return result
@@ -85,9 +83,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 return
             except exceptions.SymbolicValueError:
                 pass
-        emulator.write_memory_content(
-            address, value.to_bytes(emulator.platform.byteorder)
-        )
+        emulator.write_memory_content(address, value.to_bytes())
 
     def apply(self, emulator: emulators.Emulator) -> None:
         emulator.map_memory(self.address, self.get_capacity())
@@ -164,26 +160,42 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
             if segment_start >= data_end:
                 # This segment is after the range we want to update.
-                # We will never have to write anything else.
+                # I.e. we have completed the write.
                 break
 
-            if data_start < segment_end and segment_start <= data_end:
+            if data_start < segment_end and segment_start < data_end:
                 # Part of data lands in this segment
                 part_start = max(data_start, segment_start)
                 part_end = min(data_end, segment_end)
 
                 part = data[part_start - data_start : part_end - data_start]
 
-                contents = segment.get_content()
-                if not isinstance(contents, bytes):
+                if isinstance(segment, state.SymbolicValue):
                     raise exceptions.SymbolicValueError(
                         f"Tried to write {len(data)} bytes at {hex(address)}.  Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
                     )
 
+                contents = segment.to_bytes()
                 prefix = contents[: part_start - segment_start]
                 suffix = contents[part_end - segment_start :]
+                new_segment_bytes = prefix + part + suffix
 
-                segment.set_content(prefix + part + suffix)
+                # set content
+                match segment:
+                    case state.BytesValue():
+                        segment.set_content(new_segment_bytes)
+                    case state.IntegerValue():
+                        as_int = int.from_bytes(
+                            new_segment_bytes, segment.byteorder.value
+                        )
+                        segment.set_content(as_int)
+                    case _:
+                        # CTypeValue
+                        ctype_subclass = typing.cast(
+                            state.CTypesAny, segment.get_type()
+                        )
+                        as_ctype = ctype_subclass.from_buffer_copy(new_segment_bytes)
+                        segment.set_content(as_ctype)
 
         gap_end = self.address + self.size
         if data_start <= gap_end and gap_start <= data_end:
@@ -220,29 +232,33 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
         segment: state.Value
         for segment_offset, segment in sorted(self.items()):
-            contents = segment.get_content()
+            # check if segment is in requested range
             segment_address = self.address + segment_offset
+            if not (
+                segment_address <= next_segment_address
+                and next_segment_address < segment_address + segment.get_size()
+            ):
+                continue
 
-            # check for symbolic
-            if not isinstance(contents, bytes):
+            # check for symbolic value
+            if isinstance(segment, state.SymbolicValue):
                 raise exceptions.SymbolicValueError(
                     f"Tried to read {size} bytes at {hex(address)}. Data at {hex(segment_address)} - {hex(segment_address + segment.get_size())} is symbolic."
                 )
 
-            # read into output buffer
-            if (
-                segment_address <= next_segment_address
-                and next_segment_address < segment_address + segment.get_size()
-            ):
-                offset_in_segment = next_segment_address - segment_address
-                length_in_segment = min(
-                    remaining_length, segment.get_size() - offset_in_segment
-                )
-                out += contents[
-                    offset_in_segment : offset_in_segment + length_in_segment
-                ]
-                next_segment_address += length_in_segment
-                remaining_length -= length_in_segment
+            # find offset of Value in output buffer
+            offset_in_segment = next_segment_address - segment_address
+            length_in_segment = min(
+                remaining_length, segment.get_size() - offset_in_segment
+            )
+
+            # append bytes to output buffer
+            segment_bytes = segment.to_bytes()
+            out += segment_bytes[
+                offset_in_segment : offset_in_segment + length_in_segment
+            ]
+            next_segment_address += length_in_segment
+            remaining_length -= length_in_segment
 
             # check if output complete
             if remaining_length == 0:
@@ -260,8 +276,8 @@ class Memory(state.Stateful, dict[int, state.Value]):
         self,
         address: int,
         value: int,
-        size: typing.Literal[1, 2, 4],
-        endianness: platforms.Byteorder,
+        size: typing.Literal[1, 2, 4, 8],
+        byteorder: platforms.Byteorder,
     ) -> None:
         """Write an integer to memory.
         This will fail if any sub-region of the existing memory is symbolic.
@@ -274,14 +290,14 @@ class Memory(state.Stateful, dict[int, state.Value]):
         """
 
         self.write_bytes(
-            address, int.to_bytes(value, size, endianness.value, signed=False)
+            address, int.to_bytes(value, size, byteorder.value, signed=False)
         )
 
     def read_int(
         self,
         address: int,
-        size: typing.Literal[1, 2, 4],
-        endianness: platforms.Byteorder,
+        size: typing.Literal[1, 2, 4, 8],
+        byteorder: platforms.Byteorder,
     ) -> int:
         """Read and interpret as an integer.
         This will fail if any sub-region of the memory requested is symbolic or uninitialized.
@@ -297,7 +313,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
         return int.from_bytes(
             self.read_bytes(address, size),
-            endianness.value,
+            byteorder.value,
             signed=False,
         )
 
