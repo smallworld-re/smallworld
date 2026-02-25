@@ -12,5 +12,5 @@ about some of the concepts in smallworld.
     program-loading/index
     local-types-and-the-heap
     modeling-and-hooking/index
-    analyses
+    analyses/index
     fuzzing

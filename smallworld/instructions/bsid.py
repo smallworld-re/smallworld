@@ -108,5 +108,5 @@ class x86BSIDMemoryReferenceOperand(BSIDMemoryReferenceOperand):
             # However, unicorn always reports start of current instruction as value in rip/eip.
             # This is a grotty fixup.
             if type(emulator) is emulators.UnicornEmulator:
-                a += emulator.current_instruction().size()  # type: ignore
+                a += emulator.current_instruction().size  # type: ignore
         return a

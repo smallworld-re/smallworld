@@ -131,7 +131,7 @@ def randomize_uninitialized(
             mem_rngs: typing.List[typing.Any] = []
             for mem_rng in mem.get_ranges_uninitialized():
                 mem_rngs.append(mem_rng)
-            mem_rngs.sort()
+            mem_rngs.sort(key=lambda x: x.start)
 
             for mem_rng in mem_rngs:
                 logger.debug(
@@ -148,21 +148,22 @@ class Colorizer(analysis.Analysis):
     """A simple kind of data flow analysis via tracking distinct values
     (colors) and employing instruction use/def analysis
 
-    We run a single micro-execution of the code. Before any code is
-    executed, we randomize register values that have not already been
-    initialized. We maintain a "colors" map from dynamic values to
-    when/where we first observed them. This map is initially
-    empty. Before emulating an instruction, we examine the values
-    (registers and memory) it will read. If any are not in the colors
-    map, that is the initial sighting of that value and we emit a hint
-    to that effect and add a color to the map. If any color is already
-    in the map, then that is a def-use flow from the time or place at
-    which that value was first observed to this instruction.
-    Similarly, after emulating an instruction, we examine every value
-    written to a register or memory. If a value is not in the colors
-    map, it is a new, computed result and we hint about its creation
-    and add it to the map. If it is in the colors map, we do nothing
-    since it just a copy.
+    We run a single micro-execution of the code, given the input (to
+    `run` method) machine state, single-stepping instructions and
+    interposing for analysis before and after each instruction to
+    check values dynamically read / written by each instruction.  We
+    maintain a "colors" map from these dynamic values to when/where we
+    first observed them. This map is initially empty. Before emulating
+    an instruction, we examine the values (registers and memory) it
+    will read. If any are not in the colors map, that is the initial
+    sighting of that value and we emit a hint to that effect and add a
+    color to the map. If any color is already in the map, then that is
+    a def-use flow from the time or place at which that value was
+    first observed to this instruction. Similarly, after emulating an
+    instruction, we examine every value written to a register or
+    memory. If a value is not in the colors map, it is a new, computed
+    result and we hint about its creation and add it to the map. If it
+    is in the colors map, we do nothing since it just a copy.
 
     Here are the kinds of hints output by this analysis
 
@@ -178,10 +179,6 @@ class Colorizer(analysis.Analysis):
 
     They can also be reads or writes.
 
-    Note: Yes, this kind of analysis depends upon colors being big-ish
-    unique values. There is a constant up top indicating the minimum
-    color value.
-
     Note: Why is there a min_color in constructor to Colorizer?  A
     color (here) is just a dynamic value that we think might be kinda
     unique and thus we can intuit data flows when we see it used in
@@ -194,8 +191,11 @@ class Colorizer(analysis.Analysis):
     generally, we use `randomize_unitialized`, above, to set 2, 4, and
     8-byte registers and memory lvals to random numbers that will work
     well as colors.  These are unlikely to be < 0x80.
+
     Arguments:
-        num_insns: The number of instructions to micro-execute.
+        exec_id: An integer used to identify this execution, if needed
+        num_insns: The number of instructions to micro-execute
+        min_color: see above, min dyn value to be a color
 
     """
 
@@ -208,7 +208,6 @@ class Colorizer(analysis.Analysis):
         *args,
         exec_id: int,
         num_insns: int = 200,
-        debug: bool = False,
         # see above for explanation of this min_color stuff
         min_color: int = 0x80,
         **kwargs,
@@ -219,7 +218,6 @@ class Colorizer(analysis.Analysis):
         self.colors: Colors = {}
         self.shadow_register: typing.Dict[str, Shad] = {}
         self.shadow_memory: Shad = {}
-        self.debug = debug
         self.min_color = min_color
         # self.edge: typing.Dict[int, typing.Dict[int, typing.Tuple[str, int, int]]] = {}
 
@@ -297,6 +295,10 @@ class Colorizer(analysis.Analysis):
             check_rws(emu, pc, te, True)
 
         def after_instruction_cb(emu, pc, te):
+            # note: we have to check writes *after* the instruction
+            # executes since we might be writing a computed value
+            # which we'll only know the value (color) of after the
+            # instruction executes!
             check_rws(emu, pc, te, False)
 
         self.colors = {}
@@ -359,6 +361,11 @@ class Colorizer(analysis.Analysis):
         else:
             assert 1 == 0
         # let's make color a number
+        if size == 16:
+            q1 = (struct.unpack("<Q", the_bytes[:8]))[0]
+            q2 = (struct.unpack("<Q", the_bytes[8:]))[0]
+            # i mean this will otherwise be big so lets just combine them
+            return q1 ^ q2
         if size == 8:
             return struct.unpack("<Q", the_bytes)[0]
         if size == 4:

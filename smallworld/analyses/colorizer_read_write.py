@@ -237,6 +237,8 @@ class WRGraph:
         dstri = self.get_or_add_rw_from_dvk(read)
         src = SrcDst(firstobs.pc, srcrwi)
         dst = SrcDst(read.pc, dstri)
+        if src == dst:
+            return  # just dont
         if src not in self.out_edges:
             self.out_edges[src] = set([])
         self.out_edges[src].add(dst)
@@ -261,8 +263,9 @@ class WRGraph:
                 # this should be something with NO in-edges since its
                 # a new read, thus an input
                 assert dst not in self.in_edges
-                return set([dst.wr.info])
-            der: typing.Set[Info] = set([])
+                # return set([dst.wr.info])
+                return set([dst])
+            der: typing.Set[SrcDst] = set([])
             for src in self.in_edges[dst]:
                 n = self.__find_node__(src.pc)
                 if type(src.wr) is ReadInfo:
@@ -277,11 +280,12 @@ class WRGraph:
             # print(f"     src = {src.wr}")
             # we dont have any writes in our graph that *arent* new
             assert src.wr.info.is_new is True
-            der: typing.Set[Info] = set([])
+            der: typing.Set[SrcDst] = set([])
             for ri in n.reads:
                 if ri.info.is_new:
                     # there won't be any in-edges -- just add it
-                    der = der | set([ri.info])
+                    # der = der | set([ri.info])
+                    der = der | set([SrcDst(n.pc, ri)])
                 for dst in self.in_edges:
                     if dst.pc == n.pc:
                         if (type(dst.wr) is ReadInfo) and dst.wr == ri:
@@ -297,8 +301,7 @@ class WRGraph:
                 and (val.scale == rw.info.bsid.scale)
                 and (val.offset == rw.info.bsid.offset)
             ) or (
-                type(val) is RegisterDef
-                or type(val) is RegisterAliasDef
+                (type(val) is RegisterDef or type(val) is RegisterAliasDef)
                 and type(rw.info) is RegisterInfo
                 and val.name == rw.info.register.name
             ):
@@ -306,31 +309,39 @@ class WRGraph:
             return False
 
         node = self.__find_node__(pc)
+        der: typing.Set[SrcDst] = set([])
         if node is None:
             return set([])
         if is_read:
-            der: typing.Set[Info] = set([])
             for read in node.reads:
                 if vmatch(val, read):
+                    num_in_edges = 0
                     for dst in self.in_edges:
                         if (
                             dst.pc == pc
                             and (type(dst.wr) is ReadInfo)
                             and dst.wr.info == read.info
                         ):
+                            num_in_edges += 1
                             der = der | der_read(node, dst)
+                    if num_in_edges == 0:
+                        der = set([SrcDst(node.pc, read)])
             return der
         else:
             for write in node.writes:
                 if vmatch(val, write):
+                    num_in_edges = 0
                     for dst in self.in_edges:
                         if (
                             dst.pc == pc
                             and (type(dst.wr) is WriteInfo)
                             and dst.wr.info == write.info
                         ):
-                            return der_write(node, dst)
-            assert 1 == 0
+                            num_in_edges += 1
+                            der = der | der_write(node, dst)
+                    if num_in_edges == 0:
+                        der = set([SrcDst(node.pc, write)])
+            return der
 
 
 # this should return same key for hint regardless of actual dynamic
