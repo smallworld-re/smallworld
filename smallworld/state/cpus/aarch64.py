@@ -552,6 +552,3 @@ class AArch64(cpu.CPU):
         self.add(self.b31)
         # Vector registers
         # TODO: Figure out how to model these
-
-        # Apply byteorder to all Registers
-        self._apply_byteorder()

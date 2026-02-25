@@ -345,6 +345,3 @@ class RISCV64(cpu.CPU):
 
         # *** Control and Status Registers ***
         # NOTE: These exist, but aren't supported.
-
-        # Apply byteorder to all Registers
-        self._apply_byteorder()

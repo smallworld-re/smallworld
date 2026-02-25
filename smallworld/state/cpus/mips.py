@@ -288,9 +288,6 @@ class MIPSEL(MIPS):
         self.hi3 = state.RegisterAlias("hi3", self.ac3, size=4, offset=4)
         self.add(self.hi3)
 
-        # Apply byteorder to all Registers
-        self._apply_byteorder()
-
 
 class MIPSBE(MIPS):
     """Auto-generated CPU state for mips:mips32:big.
@@ -332,6 +329,3 @@ class MIPSBE(MIPS):
         self.add(self.hi3)
         self.lo3 = state.RegisterAlias("lo3", self.ac3, size=4, offset=4)
         self.add(self.lo3)
-
-        # Apply byteorder to all Registers
-        self._apply_byteorder()

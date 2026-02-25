@@ -1,4 +1,5 @@
 import abc
+from typing import override
 
 from ... import platforms, utils
 from .. import state
@@ -56,12 +57,11 @@ class CPU(state.StatefulSet):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self.platform})"
 
-    def _apply_byteorder(self):
-        # apply byteorder to registers
-        for x in self.__dict__:
-            a = self.__getattribute__(x)
-            if isinstance(a, state.Register):
-                a.byteorder = self.platform.byteorder
+    @override
+    def add(self, item):
+        if isinstance(item, state.Register):
+            item.byteorder = self.platform.byteorder
+        self._contents.add(item)
 
 
 __all__ = ["CPU"]

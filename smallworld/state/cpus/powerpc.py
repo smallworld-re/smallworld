@@ -209,8 +209,6 @@ class PowerPC32(PowerPC):
 
     def __init__(self):
         super().__init__(4)
-        # Apply byteorder to all Registers
-        self._apply_byteorder()
 
 
 class PowerPC64(PowerPC):
@@ -222,5 +220,3 @@ class PowerPC64(PowerPC):
 
     def __init__(self):
         super().__init__(8)
-        # Apply byteorder to all Registers
-        self._apply_byteorder()
