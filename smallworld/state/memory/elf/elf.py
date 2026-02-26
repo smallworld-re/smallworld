@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 # ELF machine values
 # See /usr/include/elf.h for the complete list
 EM_386 = 3  # Intel 80386
+EM_68K = 4  # Motorola 68k family
 EM_MIPS = 8  # MIPS; all kinds
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
@@ -55,7 +56,16 @@ PF_W = 0x2  # Segment is writable
 PF_R = 0x4  # Segment is readable
 
 # Universal dynamic tag values
-DT_PLTGOT = 0x3
+DT_PLTRELSZ = 2  # Size of PLT relocation table
+DT_PLTGOT = 3  # Address of some kind of GOT; processor-dependent
+DT_RELA = 7  # Address of dynamic rela table
+DT_RELASZ = 8  # Size of dynamic rela table
+DT_RELAENT = 9  # Size of dynamic relas
+DT_REL = 17  # Address of dynamic rel table
+DT_RELSZ = 18  # Size of dynamic rel table
+DT_RELENT = 19  # Size of dynamic rels
+DT_PLTREL = 20  # Type of PLT relocation
+DT_JMPREL = 23  # Address of PLT relocation table
 
 # MIPS-specific dynamic tag values
 DT_MIPS_LOCAL_GOTNO = 0x7000000A
@@ -98,6 +108,7 @@ class ElfExecutable(Executable):
         self._page_size = page_size
         self._user_base = user_base
         self._file_base = 0
+        self._segments: typing.Dict[int, typing.Tuple[int, int]] = dict()
 
         # Lief struct.
         # We can't keep it around forever, since it's not copyable.
@@ -178,6 +189,10 @@ class ElfExecutable(Executable):
             if phdr_type == PT_LOAD:
                 # Loadable segment
                 # Map its data into memory
+                self._segments[phdr.virtual_address] = (
+                    phdr.file_offset,
+                    phdr.physical_size,
+                )
                 self._map_segment(phdr, image)
             elif phdr_type == PT_DYNAMIC:
                 # Dynamic linking metadata.
@@ -265,7 +280,7 @@ class ElfExecutable(Executable):
         self._extract_dtags(elf)
 
         # Organize symbols for later relocation
-        self._extract_symbols(elf)
+        self._extract_symbols(elf, image)
 
     def _platform_for_ehdr(self, elf):
         # Determine byteorder.  This bit's easy
@@ -290,6 +305,9 @@ class ElfExecutable(Executable):
         elif elf.header.machine_type.value == EM_386:
             # i386
             architecture = Architecture.X86_32
+        elif elf.header.machine_type.value == EM_68K:
+            # m68k
+            architecture = Architecture.M68K
         elif elf.header.machine_type.value == EM_ARM:
             # Some kind of arm32
             flags = set(map(lambda x: x.value & 0xFFFFFFFF, elf.header.flags_list))
@@ -421,6 +439,14 @@ class ElfExecutable(Executable):
             val += self._page_size - 1
         return (val // self._page_size) * self._page_size
 
+    def _virtual_to_physical(self, elf, val: int) -> int:
+        for vaddr, (paddr, size) in self._segments.items():
+            if val >= vaddr and val < vaddr + size:
+                return val - vaddr + paddr
+        raise ConfigurationError(
+            f"Virutal address {val:x} is not in any loaded segment"
+        )
+
     def _map_segment(self, phdr, image):
         # Compute segment boundaries
         seg_start = self._page_align(phdr.file_offset, up=False)
@@ -463,7 +489,7 @@ class ElfExecutable(Executable):
         for dt in elf.dynamic_entries:
             self._dtags[dt.tag.value & 0xFFFFFFFF] = dt.value
 
-    def _extract_symbols(self, elf):
+    def _extract_symbols(self, elf, image):
         lief_to_elf = dict()
 
         # Figure out the base address
@@ -559,33 +585,155 @@ class ElfExecutable(Executable):
 
                     gotoff += gotent
 
-        for r in list(elf.dynamic_relocations) + list(elf.pltgot_relocations):
-            # Build a rela, and tie it to its symbol
-            if r.symbol is None:
-                continue
-            sym = lief_to_elf[r.symbol]
-            # Lief royally screws up relocation entries
-            r_type = r.r_info(elf.header.identity_class)
-            if elf.header.identity_class.value == 1:
-                r_type &= 0xFF
-            else:
-                r_type &= 0xFFFFFFFF
-            rela = ElfRela(
-                is_rela=r.is_rela,
-                offset=r.address + baseaddr,
-                type=r_type,
-                symbol=sym,
-                addend=r.addend,
-            )
-            sym.relas.append(rela)
-            self._dynamic_relas.append(rela)
+        # Okay, lief's relocation parsing is an embarrassing disaster.
+        # I'm taking over because I know how to read C structs, dammit.
 
+        # Handle .rel(a).plt
+        if DT_JMPREL in self._dtags:
+            # We need three dynamic tags to define .rel(a).plt:
+            #
+            # - DT_JMPREL: Offset of the table itself
+            # - DT_PLTREL: Relocation type
+            # - DT_PLTRELSZ: Size of relocation table
+
+            if DT_PLTREL not in self._dtags:
+                raise ConfigurationError(
+                    "ELF specifies a PLT relocation table, but not DT_PLTREL"
+                )
+            if DT_PLTRELSZ not in self._dtags:
+                raise ConfigurationError(
+                    "Elf specifies a PLT relocation table, but not DT_PLTRELSZ"
+                )
+
+            jmprel = self._dtags[DT_JMPREL]
+            pltrel = self._dtags[DT_PLTREL]
+            pltrelsz = self._dtags[DT_PLTRELSZ]
+
+            # Figure out if we're dealing with rels or relas
+            if pltrel == DT_RELA:
+                is_rela = True
+            elif pltrel == DT_REL:
+                is_rela = False
+            else:
+                raise ConfigurationError(f"Unknown value for DT_PLTREL: {pltrel}")
+
+            # Figure out the entry size based on EH_CLASS and the relocation type
+            if elf.header.identity_class.value == 1:
+                if is_rela:
+                    pltrelent = 12
+                else:
+                    pltrelent = 8
+            else:
+                if is_rela:
+                    pltrelent = 24
+                else:
+                    pltrelent = 16
+
+            # Find the table within the image.
+            offset = self._virtual_to_physical(elf, jmprel)
+
+            # Parse the table
+            for i in range(0, pltrelsz // pltrelent):
+                rela = ElfRela.from_bytes(
+                    i,
+                    is_rela,
+                    elf.header.identity_class.value,
+                    elf.header.identity_data.value,
+                    image,
+                    offset,
+                    baseaddr,
+                    self._dynamic_symbols,
+                )
+                rela.symbol.relas.append(rela)
+                self._dynamic_relas.append(rela)
+
+        # Handle .rela.dyn
+        if DT_RELA in self._dtags:
+            # We need three dynamic tags to define .rela.dyn:
+            #
+            # - DT_RELA: Offset of the table itself
+            # - DT_RELAENT: Relocation size
+            # - DT_RELASZ: Size of relocation table
+
+            if DT_RELASZ not in self._dtags:
+                raise ConfigurationError(
+                    "ELF specifies a dynamic relocation table, but not DT_RELASZ"
+                )
+            if DT_RELAENT not in self._dtags:
+                raise ConfigurationError(
+                    "ELF specifies a dynamic relocation table, but not DT_RELAENT"
+                )
+
+            is_rela = True
+            relaoff = self._dtags[DT_RELA]
+            relasz = self._dtags[DT_RELASZ]
+            relaent = self._dtags[DT_RELAENT]
+
+            # Find the table within the image
+            offset = self._virtual_to_physical(elf, relaoff)
+
+            # Parse the table
+            for i in range(0, relasz // relaent):
+                rela = ElfRela.from_bytes(
+                    i,
+                    is_rela,
+                    elf.header.identity_class.value,
+                    elf.header.identity_data.value,
+                    image,
+                    offset,
+                    baseaddr,
+                    self._dynamic_symbols,
+                )
+                rela.symbol.relas.append(rela)
+                self._dynamic_relas.append(rela)
+
+        # Handle .rel.dyn
+        if DT_REL in self._dtags:
+            # We need three dynamic tags to define .rel.dyn:
+            #
+            # - DT_REL: Offset of the table itself
+            # - DT_RELENT: Relocation size
+            # - DT_RELSZ: Size of relocation table
+
+            if DT_RELSZ not in self._dtags:
+                raise ConfigurationError(
+                    "ELF specifies a dynamic relocation table, but not DT_RELSZ"
+                )
+            if DT_RELENT not in self._dtags:
+                raise ConfigurationError(
+                    "ELF specifies a dynamic relocation table, but not DT_RELENT"
+                )
+
+            is_rel = True
+            reloff = self._dtags[DT_REL]
+            relsz = self._dtags[DT_RELSZ]
+            relent = self._dtags[DT_RELENT]
+
+            # Find the table within the image
+            offset = self._virtual_to_physical(elf, reloff)
+
+            # Parse the table
+            for i in range(0, relsz // relent):
+                rel = ElfRela.from_bytes(
+                    i,
+                    is_rel,
+                    elf.header.identity_class.value,
+                    elf.header.identity_data.value,
+                    image,
+                    offset,
+                    baseaddr,
+                    self._dynamic_symbols,
+                )
+                rel.symbol.relas.append(rel)
+                self._dynamic_relas.append(rel)
+
+        # FIXME: Do I actually test this anywhere???
         for r in elf.object_relocations:
             if r.symbol is None:
                 continue
             sym = lief_to_elf[r.symbol]
             # Lief royally screws up relocation entries
-            r_type = r.r_info(elf.header.identity_class)
+            r_type = r.info
             if elf.header.identity_class.value == 1:
                 r_type &= 0xFF
             else:

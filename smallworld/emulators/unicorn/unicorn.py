@@ -78,7 +78,9 @@ class UnicornEmulator(
         self.platform = platform
         self.platdef = platforms.PlatformDef.for_platform(self.platform)
         self.machdef = UnicornMachineDef.for_platform(self.platform)
-        self.engine = unicorn.Uc(self.machdef.uc_arch, self.machdef.uc_mode)
+        self.engine = unicorn.Uc(
+            self.machdef.uc_arch, self.machdef.uc_mode, self.machdef.uc_cpu
+        )
         self.disassembler = capstone.Cs(
             self.platdef.capstone_arch, self.platdef.capstone_mode
         )
@@ -133,6 +135,8 @@ class UnicornEmulator(
                 self.state = EmulatorState.EXIT
                 self.engine.emu_stop()
                 raise exceptions.EmulationExitpoint
+
+            logger.info(f"Considering {address:x}")
 
             # Check single-step conditions.
             #
