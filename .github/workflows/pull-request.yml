@@ -126,8 +126,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test Flake
         run: |
-          cp flake.lock tests/downstream_flake
           cd tests/downstream_flake
+          nix flake update
           nix develop -c python3 -c 'import smallworld'
           
   Integration-Test:
