@@ -398,6 +398,7 @@
           basePyOverlay = hacks.toNixpkgs {
             inherit pythonSet;
             packages = [
+              "angr"
               "smallworld-re"
               "pyghidra"
               "pypcode"
