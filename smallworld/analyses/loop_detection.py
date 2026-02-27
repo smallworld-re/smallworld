@@ -18,8 +18,12 @@ characterize all loops in code.
 
 """
 
+from smallworld.state import Machine
+from smallworld.analyses import Analysis
+from smallworld.hinting.hints import TraceExecutionHint,LoopHint
+from smallworld.hinting import Hint
 
-class LoopDetection(analysis.Analysis):
+class LoopDetection(Analysis):
     name = "loop_detection"
     description = "Analyze traces and detect loops"
     version = "0.0.1"
@@ -27,7 +31,7 @@ class LoopDetection(analysis.Analysis):
     def __init__(
         self,
         *args,
-        min_iter: int = 3,
+        min_iter: int = 2,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
@@ -55,27 +59,36 @@ class LoopDetection(analysis.Analysis):
                     self.heads.add(te.pc)
                 pcs.add(te.pc)
                 last_pc = te.pc                    
-        self.strands = []
+        self.strands = {}
         for teh in self.traces:
             collecting = False
+            head = None
             for te in teh.trace: 
-                if (collecting is None) and (te.pc in self.heads):
+                if (not collecting) and (te.pc in self.heads):
                     # start a new strand
-                    collecting = te.pc
-                    strand = []
-                if (collecting is not None) and te.pc == collecting:
+                    collecting = True
+                    head = te.pc
+                    strand = [te.pc]
+                    continue
+                if collecting:
+                    strand.append(te.pc)
+                if collecting and te.pc == head:
                     # we hit the back-edges
                     # save the strand
                     if te.pc not in self.strands:
-                        self.strands[te.pc] = set([])
-                        self.strands[te.pc].add(tuple(strand))
-                    collecting = None
+                        self.strands[te.pc] = [] 
+                    self.strands[te.pc].append(strand)
+                    collecting = False
+                    head = None
+                    strand = []
                     continue
-                if collecting:
-                    strand.append(te)
-        print(f"Found {len(self.heads)} loops in {len(self.traces}) traces")
-        for pc, strand in self.heads.items():
-            print(f"  loop strand:", end="")
-            for te in strand:
-                print(f" {te.pc:x}")
-            print("")
+        for pc in self.heads:
+            self.hinter.send(
+                LoopHint(
+                    message = "loop head and strands detected",
+                    head = pc,
+                    strands = self.strands[pc]
+                )
+            )
+
+        

@@ -27,7 +27,7 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 # create an executable and add it to the machine
 path = pathlib.Path(__file__).parent.resolve()
 code = smallworld.state.memory.code.Executable.from_elf(
-    open(f"{path}/ahme-x86_64", "rb"), address=0x1000
+    open(f"{path}/../trace_executor/ahme-x86_64", "rb"), address=0x1000
 )
 machine.add(code)
 
@@ -98,7 +98,7 @@ print(
 )
 
 
-def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
+def test(hinter, num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
     global hints
 
     machine_copy = copy.deepcopy(machine)
@@ -131,39 +131,20 @@ def test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed):
     cpu.esi.set_content(buflen)
     # arg 3 is "y" which controls some things
     cpu.rdx.set_content(0)
-    hinter = hinting.Hinter()
     hinter.register(TraceExecutionHint, collect_hints)
     traceA = TraceExecution(hinter, num_insns=num_insn, seed=seed)
-    ld = LoopDetection(hinter, 2)
+    ld = LoopDetection(hinter, min_iter=2)
     if randomize_regs:
         machine_copy = randomize_uninitialized(machine_copy, seed)
     traceA.run(machine_copy)
-    ld.run()
+    ld.run(machine_copy)
     return hints
 
 
 if __name__ == "__main__":
-    try:
-        num_insn = int(sys.argv[1])
-        buflen = int(sys.argv[2])
-        create_heap = sys.argv[3] == "True"
-        fortytwos = sys.argv[4] == "True"
-        randomize_regs = sys.argv[5] == "True"
-        seed = int(sys.argv[6])
-    except:
-        print("Error in one or more args")
-        print(
-            """Usage: trace_test.py insn buflen create_heap fortytwos randomize_regs seed
-num_insn:       How many (max) instructions to execute from entry for each micro exec.
-buflen:         Length of buffer on heap that will be processed by fn foo @ 0x1169
-create_heap:    program needs a buffer on heap so if this is NOT true, there should be a
-                memory unavailable error
-fortytwos:      The program handed to the colorizer for analysis, ahme, has a preference
-                for byte value 42 on some branches. If true, buffers with random bytes
-                will be roughly half 42s.
-randomize_regs: if True, TraceExecution will randomize any regs not initialized
-seed:           Seed for random number generator."""
-        )
-        sys.exit(1)
 
-    _ = test(num_insn, buflen, create_heap, fortytwos, randomize_regs, seed)
+    hinter = hinting.Hinter()
+    test(hinter, 200, 40, True, True, True, 1234)
+    test(hinter, 200, 47, True, True, True, 1234)
+    
+
