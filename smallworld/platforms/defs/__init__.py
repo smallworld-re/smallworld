@@ -5,6 +5,7 @@ from .i386 import I386
 from .loongarch import LoongArch64
 from .mips import MIPS32BE, MIPS32EL
 from .mips64 import MIPS64BE, MIPS64EL
+from .msp430 import MSP430
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 from .powerpc import PowerPC32, PowerPC64
 from .riscv import RiscV64
@@ -26,6 +27,7 @@ __all__ = [
     "MIPS32BE",
     "MIPS64EL",
     "MIPS64BE",
+    "MSP430",
     "PlatformDef",
     "PowerPC32",
     "PowerPC64",

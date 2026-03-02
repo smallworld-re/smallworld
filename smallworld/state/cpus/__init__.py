@@ -7,6 +7,7 @@ from .i386 import I386
 from .loongarch import LoongArch64
 from .mips import MIPSBE, MIPSEL
 from .mips64 import MIPS64BE, MIPS64EL
+from .msp430 import MSP430
 from .powerpc import PowerPC32, PowerPC64
 from .riscv import RISCV64
 from .xtensa import XTensaBE, XTensaEL
@@ -26,6 +27,7 @@ __all__ = __cpu__ + [
     "MIPS64BE",
     "MIPSEL",
     "MIPSBE",
+    "MSP430",
     "PowerPC32",
     "PowerPC64",
     "RISCV64",

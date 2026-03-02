@@ -65,6 +65,9 @@ class Architecture(enum.Enum):
     XTENSA = "xtensa"
     """Xtensa"""
 
+    MSP430 = "msp430"
+    "TI msp430"
+
 
 class Byteorder(enum.Enum):
     """Endianness."""
