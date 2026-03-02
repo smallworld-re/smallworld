@@ -800,6 +800,18 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_msp430(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_cpu_msp430x(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_ppc(self):
         platform = platforms.Platform(
             platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
@@ -1108,6 +1120,18 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_mips64el(self):
         platform = platforms.Platform(
             platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_msp430(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_msp430x(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1426,6 +1450,18 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_mips64el(self):
         platform = platforms.Platform(
             platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_msp430(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_msp430x(self):
+        platform = platforms.Platform(
+            platforms.Architecture.MSP430X, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 

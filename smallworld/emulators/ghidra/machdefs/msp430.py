@@ -7,13 +7,17 @@ class MSP430AbsMachineDef(GhidraMachineDef):
 
     _registers = {
         "pc": "PC",
+        "r0": "PC",
         "sp": "SP",
+        "r1": "SP",
         "sr": "SR",
+        "r2": "SR",
         # NOTE: cg1 isn't accessible directly.
         # Accessing the constant generator registers is somewhat meaningless,
         # so this isn't a hardship.
         "cg1": None,
         "cg2": "R3",
+        "r3": "R3",
         "r4": "R4",
         "r5": "R5",
         "r6": "R6",
