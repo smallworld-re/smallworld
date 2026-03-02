@@ -17,12 +17,13 @@ characterize all loops in code.
 
 """
 
+import typing
+
 from smallworld.analyses import Analysis
 from smallworld.hinting import Hint
 from smallworld.hinting.hints import LoopHint, TraceExecutionHint
 from smallworld.state import Machine
 
-import typing
 
 class LoopDetection(Analysis):
     name = "loop_detection"
