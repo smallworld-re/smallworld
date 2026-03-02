@@ -8,7 +8,7 @@ import smallworld
 from smallworld import hinting
 from smallworld.analyses import TraceExecution, LoopDetection
 from smallworld.analyses.colorizer import randomize_uninitialized
-from smallworld.hinting.hints import TraceExecutionHint
+from smallworld.hinting.hints import TraceExecutionHint, LoopHint
 
 # setup logging
 smallworld.logging.setup_logging(level=logging.DEBUG)
@@ -132,6 +132,7 @@ def test(hinter, num_insn, buflen, create_heap, fortytwos, randomize_regs, seed)
     # arg 3 is "y" which controls some things
     cpu.rdx.set_content(0)
     hinter.register(TraceExecutionHint, collect_hints)
+    hinter.register(LoopHint, collect_hints)
     traceA = TraceExecution(hinter, num_insns=num_insn, seed=seed)
     ld = LoopDetection(hinter, min_iter=2)
     if randomize_regs:

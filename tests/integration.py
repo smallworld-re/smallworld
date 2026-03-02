@@ -3891,6 +3891,18 @@ class TraceExecutionTests(ScriptIntegrationTest):
         self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
 
+class LoopDetectionTests(ScriptIntegrationTest):
+    def test_trace_is_correct_1(self):
+        stdout, stderr = self.command(
+            "python3  loop_detector/test_loop_detector_1.py"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  found loop hint in hints1")
+        self.assertLineContainsStrings(stdout, "EXPECTED  found loop hint in hints2")
+        self.assertLineContainsStrings(stdout, "EXPECTED  loop hint in hints1 is correct")
+        self.assertLineContainsStrings(stdout, "EXPECTED  loop hint in hints2 is correct")
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
+
+
 class CoverageFrontierTests(ScriptIntegrationTest):
     def test_coverage_frontier_1(self):
         stdout, stderr = self.command(

@@ -44,9 +44,10 @@ class LoopDetection(Analysis):
             self.traces.append(hint)
 
     def run(self, machine: Machine) -> None:
-        # NB: this analysis doesnt use machine.  it assumes something
-        # else is generating TraceExecutionHints
-        self.heads = set([])
+        # NB: this analysis doesnt use machine; it assumes something
+        # else is generating TraceExecutionHints.
+        # First pass over traces to get loop heads
+        heads = set([])
         for teh in self.traces:
             last_pc = None
             pcs = set([])
@@ -54,17 +55,19 @@ class LoopDetection(Analysis):
                 # if pc jumps back to a lesser pc and that pc is in
                 # set already observed then this is a back-edge and
                 # te.pc is a loop head
-                if last_pc is not None and last_pc > te.pc and te.pc in pcs:
-                    # back-edge
-                    self.heads.add(te.pc)
+                if last_pc is not None and te.pc < last_pc and te.pc in pcs:
+                    # back-edge to a loop head
+                    heads.add(te.pc)
                 pcs.add(te.pc)
-                last_pc = te.pc                    
-        self.strands = {}
+                last_pc = te.pc                            
+        # second pass to get loop strands per head
+        strands = {}
         for teh in self.traces:
             collecting = False
             head = None
+            strand = []
             for te in teh.trace: 
-                if (not collecting) and (te.pc in self.heads):
+                if (not collecting) and (te.pc in heads):
                     # start a new strand
                     collecting = True
                     head = te.pc
@@ -74,20 +77,24 @@ class LoopDetection(Analysis):
                     strand.append(te.pc)
                 if collecting and te.pc == head:
                     # we hit the back-edges
-                    # save the strand
-                    if te.pc not in self.strands:
-                        self.strands[te.pc] = [] 
-                    self.strands[te.pc].append(strand)
+                    # save unique strands
+                    sh = hash(tuple(strand))
+                    if te.pc not in strands:
+                        strands[te.pc] = {}
+                    strands[te.pc][sh] = strand
                     collecting = False
                     head = None
                     strand = []
                     continue
-        for pc in self.heads:
+        for pc in heads:
+            the_strands = []
+            for h,strand in strands[pc].items():
+                the_strands.append(strand)
             self.hinter.send(
                 LoopHint(
                     message = "loop head and strands detected",
                     head = pc,
-                    strands = self.strands[pc]
+                    strands = the_strands
                 )
             )
 
