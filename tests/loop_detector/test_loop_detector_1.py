@@ -2,19 +2,17 @@ from loop_detector_test import test
 
 import smallworld
 from smallworld.instructions.bsid import x86BSIDMemoryReferenceOperand
+from smallworld import hinting
 
 if __name__ == "__main__":
-    # this trace should trigger a memory error since there's no heap
-    # it won't do much
-    hints = test(
-        100,  # max number of instructions
-        46,  # buffer length (47 is a magic length, unlocking ad ifferent code path)
-        False,  # if true, we create a heap before initializing
-        False,  # [only does something if create_heap is true) if true,
-        # we add lots of 0x42 to the buffer
-        False,  # if true we randomize registers and buffers, else they are all zero
-        1234,  # random seed
-    )
+
+    # these two traces should hit *both* loops
+    hinter = hinting.Hinter()
+    hints1 = test(hinter, 200, 40, True, True, True, 1234)
+    hints2 = test(hinter, 200, 47, True, True, True, 1234)
+
+    breakpoint()
+    exit()
 
     num_expected = 0
     num_unexpected = 0
@@ -30,6 +28,19 @@ if __name__ == "__main__":
             num_unexpected += 1
             return False
 
+expected(
+    ints1[-1] = 
+    LoopHint(
+        message='loop head and strands detected', 
+        head=8722, 
+        strands=
+        [
+            [8722, 8725, 8728, 8732, 8735, 8738, 8743, 8745, 8747, 8751, 8754, 8756, 8759, 8761, 8763, 8766, 8768, 8770, 8772, 8775, 8778, 8782, 8785, 8788, 8722], 
+            [8722, 8725, 8728, 8732, 8735, 8738, 8743, 8745, 8747, 8751, 8754, 8756, 8759, 8761, 8763, 8766, 8768, 8770, 8772, 8775, 8778, 8782, 8785, 8788, 8722], [8722, 8725, 8728, 8732, 8735, 8738, 8743, 8745, 8747, 8751, 8754, 8756, 8759, 8761, 8763, 8766, 8768, 8770, 8772, 8775, 8778, 8782, 8785, 8788, 8722], [8722, 8725, 8728, 8732, 8735, 8738, 8743, 8745, 8747, 8751, 8754, 8756, 8759, 8761, 8763, 8766, 8768, 8770, 8772, 8775, 8778, 8782, 8785, 8788, 8722]])
+
+
+(Pdb) hints2[-1]
+LoopHint(message='loop head and strands detected', head=8591, strands=[[8591, 8594, 8597, 8601, 8604, 8607, 8612, 8614, 8616, 8620, 8622, 8625, 8627, 8629, 8631, 8633, 8635, 8637, 8639, 8655, 8658, 8660, 8663, 8665, 8667, 8669, 8672, 8675, 8678, 8682, 8685, 8688, 8690, 8699, 8703, 8706, 8709, 8591], [8591, 8594, 8597, 8601, 8604, 8607, 8612, 8614, 8616, 8620, 8622, 8625, 8627, 8629, 8631, 8633, 8635, 8637, 8639, 8641, 8644, 8646, 8648, 8650, 8653, 8672, 8675, 8678, 8682, 8685, 8688, 8690, 8699, 8703, 8706, 8709, 8591], [8591, 8594, 8597, 8601, 8604, 8607, 8612, 8614, 8616, 8620, 8622, 8625, 8627, 8629, 8631, 8633, 8635, 8637, 8639, 8641, 8644, 8646, 8648, 8650, 8653, 8672, 8675, 8678, 8682, 8685, 8688, 8690, 8692, 8699, 8703, 8706, 8709, 8591]])
     expected(
         len(hints) == 1,
         "One hint returned, as expected",
