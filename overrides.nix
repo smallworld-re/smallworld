@@ -3,6 +3,7 @@ final: prev:
 let
   buildSystemOverrides = {
     arpy.setuptools = [ ];
+    angr.setuptools-rust = [ ];
     pyxbe.setuptools = [ ];
     bitarray.setuptools = [ ];
     cppheaderparser.setuptools = [ ];
