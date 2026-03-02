@@ -1,4 +1,3 @@
-
 """Assumptions
 
 Listens for TraceExecution hints.
@@ -18,16 +17,17 @@ characterize all loops in code.
 
 """
 
-from smallworld.state import Machine
 from smallworld.analyses import Analysis
-from smallworld.hinting.hints import TraceExecutionHint,LoopHint
 from smallworld.hinting import Hint
+from smallworld.hinting.hints import LoopHint, TraceExecutionHint
+from smallworld.state import Machine
+
 
 class LoopDetection(Analysis):
     name = "loop_detection"
     description = "Analyze traces and detect loops"
     version = "0.0.1"
-    
+
     def __init__(
         self,
         *args,
@@ -37,7 +37,7 @@ class LoopDetection(Analysis):
         super().__init__(*args, **kwargs)
         self.min_iter = min_iter
         self.hinter.register(TraceExecutionHint, self.collect_traces)
-        self.traces = []        
+        self.traces = []
 
     def collect_traces(self, hint: Hint) -> None:
         if isinstance(hint, TraceExecutionHint):
@@ -59,14 +59,14 @@ class LoopDetection(Analysis):
                     # back-edge to a loop head
                     heads.add(te.pc)
                 pcs.add(te.pc)
-                last_pc = te.pc                            
+                last_pc = te.pc
         # second pass to get loop strands per head
         strands = {}
         for teh in self.traces:
             collecting = False
             head = None
             strand = []
-            for te in teh.trace: 
+            for te in teh.trace:
                 if (not collecting) and (te.pc in heads):
                     # start a new strand
                     collecting = True
@@ -88,14 +88,12 @@ class LoopDetection(Analysis):
                     continue
         for pc in heads:
             the_strands = []
-            for h,strand in strands[pc].items():
+            for h, strand in strands[pc].items():
                 the_strands.append(strand)
             self.hinter.send(
                 LoopHint(
-                    message = "loop head and strands detected",
-                    head = pc,
-                    strands = the_strands
+                    message="loop head and strands detected",
+                    head=pc,
+                    strands=the_strands,
                 )
             )
-
-        

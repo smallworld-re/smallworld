@@ -25,5 +25,6 @@ __all__ = __analysis__ + [
     "TraceElement",
     "TraceRes",
     "CmpInfo",
+    "LoopDetection",
     "CoverageFrontier",
 ]

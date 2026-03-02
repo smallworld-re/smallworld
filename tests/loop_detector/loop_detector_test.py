@@ -2,13 +2,12 @@ import copy
 import logging
 import pathlib
 import random
-import sys
 
 import smallworld
 from smallworld import hinting
-from smallworld.analyses import TraceExecution, LoopDetection
+from smallworld.analyses import LoopDetection, TraceExecution
 from smallworld.analyses.colorizer import randomize_uninitialized
-from smallworld.hinting.hints import TraceExecutionHint, LoopHint
+from smallworld.hinting.hints import LoopHint, TraceExecutionHint
 
 # setup logging
 smallworld.logging.setup_logging(level=logging.DEBUG)
@@ -147,5 +146,3 @@ if __name__ == "__main__":
     hinter = hinting.Hinter()
     test(hinter, 200, 40, True, True, True, 1234)
     test(hinter, 200, 47, True, True, True, 1234)
-    
-

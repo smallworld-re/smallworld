@@ -462,10 +462,12 @@ class CoverageFrontierHint(hinting.Hint):
     branches: typing.List[int]
     num_traces: int
 
+
 @dataclass(frozen=True)
 class LoopHint(hinting.Hint):
     head: int
     strands: typing.List[typing.List[int]]
+
 
 __all__ = [
     "DynamicRegisterValueHint",
@@ -482,8 +484,5 @@ __all__ = [
     "TraceExecutionHint",
     "BranchesHint",
     "CoverageFrontierHint",
-    "LoopHint"
+    "LoopHint",
 ]
-
-
-    
