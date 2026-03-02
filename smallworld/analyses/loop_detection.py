@@ -22,6 +22,7 @@ from smallworld.hinting import Hint
 from smallworld.hinting.hints import LoopHint, TraceExecutionHint
 from smallworld.state import Machine
 
+import typing
 
 class LoopDetection(Analysis):
     name = "loop_detection"
@@ -37,7 +38,7 @@ class LoopDetection(Analysis):
         super().__init__(*args, **kwargs)
         self.min_iter = min_iter
         self.hinter.register(TraceExecutionHint, self.collect_traces)
-        self.traces = []
+        self.traces: typing.List[TraceExecutionHint] = []
 
     def collect_traces(self, hint: Hint) -> None:
         if isinstance(hint, TraceExecutionHint):
@@ -47,7 +48,7 @@ class LoopDetection(Analysis):
         # NB: this analysis doesnt use machine; it assumes something
         # else is generating TraceExecutionHints.
         # First pass over traces to get loop heads
-        heads = set([])
+        heads: typing.Set[int] = set([])
         for teh in self.traces:
             last_pc = None
             pcs = set([])
@@ -61,7 +62,7 @@ class LoopDetection(Analysis):
                 pcs.add(te.pc)
                 last_pc = te.pc
         # second pass to get loop strands per head
-        strands = {}
+        strands: typing.Dict[int, typing.Dict[int, typing.List[int]]] = {}
         for teh in self.traces:
             collecting = False
             head = None
