@@ -2,11 +2,8 @@ from ....platforms import Architecture, Byteorder
 from .machdef import GhidraMachineDef
 
 
-class MSP430MachineDef(GhidraMachineDef):
-    arch = Architecture.MSP430
+class MSP430AbsMachineDef(GhidraMachineDef):
     byteorder = Byteorder.LITTLE
-
-    language_id = "TI_MSP430:LE:16:default"
 
     _registers = {
         "pc": "PC",
@@ -30,3 +27,15 @@ class MSP430MachineDef(GhidraMachineDef):
         "r14": "R14",
         "r15": "R15",
     }
+
+
+class MSP430MachineDef(MSP430AbsMachineDef):
+    arch = Architecture.MSP430
+
+    language_id = "TI_MSP430:LE:16:default"
+
+
+class MSP430XMachineDef(MSP430AbsMachineDef):
+    arch = Architecture.MSP430X
+
+    language_id = "TI_MSP430X:LE:32:default"
