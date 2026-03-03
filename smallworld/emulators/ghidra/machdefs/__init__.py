@@ -6,6 +6,7 @@ from .loongarch import LoongArch64MachineDef
 from .machdef import GhidraMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
+from .msp430 import MSP430MachineDef, MSP430XMachineDef
 from .ppc import PowerPC32MachineDef, PowerPC64MachineDef
 from .riscv import RISCV64MachineDef
 from .xtensa import XTensaMachineDef
@@ -23,6 +24,8 @@ __all__ = [
     "MIPS64ELMachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
+    "MSP430MachineDef",
+    "MSP430XMachineDef",
     "GhidraMachineDef",
     "PowerPC32MachineDef",
     "PowerPC64MachineDef",
