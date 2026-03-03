@@ -39,7 +39,7 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x400
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -134,7 +134,7 @@ machine.add(foo_model)
 foo_model.allow_imprecise = True
 
 
-class Bar(smallworld.state.models.mips.systemv.systemv.MIPSSysVModel):
+class Bar(smallworld.state.models.m68k.systemv.systemv.M68KSysVModel):
     name = "bar"
     argument_types = [
         smallworld.state.models.cstd.ArgumentType.UINT,

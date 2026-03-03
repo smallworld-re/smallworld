@@ -269,6 +269,21 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         """Size of a double on the stack"""
         raise NotImplementedError()
 
+    def _return_pointer(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return a pointer type
+
+        On m68k, the return register changes
+        depending on if you're returning a value or address.
+        """
+        if ArgumentType.POINTER in self._four_byte_types:
+            self._return_4_byte(emulator, val)
+        elif ArgumentType.POINTER in self._eight_byte_types:
+            self._return_8_byte(emulator, val)
+        else:
+            raise ConfigurationError(
+                f"Pointer is neither a 4 nor 8 byte integer on {self.platform}"
+            )
+
     @abc.abstractmethod
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
@@ -573,6 +588,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             if on_stack:
                 # Stored on the stack; read from memory
                 addr = emulator.read_register(sp) + arg_offset
+                print(f"Fetching argument {index} from {arg_offset:x} -> {addr:x}")
                 data = emulator.read_memory(addr, self._four_byte_stack_size)
                 if self.platform.byteorder == Byteorder.BIG:
                     intval = int.from_bytes(data, "big")
@@ -746,6 +762,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                     f"Trying to return {type(val)} as a double"
                 )
             self._return_double(emulator, val)
+            return
+
+        if self.return_type == ArgumentType.POINTER:
+            # We're a pointer
+            if not isinstance(val, int):
+                raise exceptions.ConfigurationError(
+                    f"Trying to return {type(val)} as a pointer"
+                )
+            self._return_pointer(emulator, val)
             return
 
         # All other types are integral

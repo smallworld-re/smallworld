@@ -106,6 +106,8 @@ class Model(Hook):
         # Set this to True to bypass the "imprecise" flag.
         self.allow_imprecise = False
 
+        self.platdef = platforms.PlatformDef.for_platform(self.platform)
+
     # Flag indicating this model is unsupported.
     #
     # This function includes a behavior SmallWorld
@@ -212,25 +214,25 @@ class Model(Hook):
     def get_return_address(self, emulator: emulators.Emulator, pop=False) -> int:
         """Read this model's return address, or pop the return address from the stack."""
 
-        if self.platform.architecture == platforms.Architecture.X86_32:
-            # i386: read a 4-byte value from the stack
-            sp = emulator.read_register("esp")
+        if (
+            self.platform.architecture == platforms.Architecture.X86_32
+            or self.platform.architecture == platforms.Architecture.X86_64
+            or self.platform.architecture == platforms.Architecture.M68K
+        ):
+            # amd64, i386, m68k: Read register from stack
+            sp = emulator.read_register(self.platdef.sp_register)
             if self.platform.byteorder == platforms.Byteorder.LITTLE:
-                ret = int.from_bytes(emulator.read_memory(sp, 4), "little")
+                ret = int.from_bytes(
+                    emulator.read_memory(sp, self.platdef.address_size), "little"
+                )
             elif self.platform.byteorder == platforms.Byteorder.BIG:
-                ret = int.from_bytes(emulator.read_memory(sp, 4), "big")
+                ret = int.from_bytes(
+                    emulator.read_memory(sp, self.platdef.address_size), "big"
+                )
             if pop:
-                emulator.write_register("esp", sp + 4)
-            return ret
-        elif self.platform.architecture == platforms.Architecture.X86_64:
-            # amd64: read an 8-byte value from the stack
-            sp = emulator.read_register("rsp")
-            if self.platform.byteorder == platforms.Byteorder.LITTLE:
-                ret = int.from_bytes(emulator.read_memory(sp, 8), "little")
-            elif self.platform.byteorder == platforms.Byteorder.BIG:
-                ret = int.from_bytes(emulator.read_memory(sp, 8), "big")
-            if pop:
-                emulator.write_register("rsp", sp + 8)
+                emulator.write_register(
+                    self.platdef.sp_register, sp + self.platdef.address_size
+                )
             return ret
         elif (
             self.platform.architecture == platforms.Architecture.AARCH64

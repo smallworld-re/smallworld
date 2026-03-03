@@ -18,7 +18,7 @@ test:
     link.l    %fp,#-64
     
     # Put a pointer to the stack buffer in arg1
-    mov.l   %sp,%d0
+    mov.l   %sp,-(%sp)
     # Read a string from stdin
     jsr     gets
     # Write the string back to stdou

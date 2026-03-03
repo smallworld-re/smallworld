@@ -539,6 +539,7 @@ class UnicornEmulator(
         if not len(content):
             raise ValueError("memory write cannot be empty")
 
+        logger.debug(f"Writing {len(content)} to {address:x}")
         try:
             # print(f"write_memory: {content}")
             self.engine.mem_write(address, content)

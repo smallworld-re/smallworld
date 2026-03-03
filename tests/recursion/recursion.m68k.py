@@ -35,8 +35,8 @@ machine.add(stack)
 # Set the instruction pointer to the code entrypoint
 cpu.pc.set(code.address)
 
-# Initialize argument registers
-cpu.a0.set(int(sys.argv[1]))
+# Push argument onto the stack
+stack.push_integer(int(sys.argv[1]), 4, "arg1")
 
 # Push a return address onto the stack
 stack.push_integer(0xFFFFFFFF, 4, "fake return address")
@@ -52,4 +52,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+print(hex(cpu.d0.get()))

@@ -74,10 +74,6 @@ def find_subclass(
     class_stack: typing.List[typing.Type[T]] = [cls]
     while len(class_stack) > 0:
         impl: typing.Type[T] = class_stack.pop(-1)
-        if inspect.isabstract(impl):
-            print(f"{impl} is abstract")
-        elif not check(impl):
-            print(f"{impl} fails checks")
 
         if not inspect.isabstract(impl) and check(impl):
             return impl(*args, **kwargs)

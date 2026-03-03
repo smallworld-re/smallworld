@@ -3,7 +3,7 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -32,28 +32,23 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x400
 machine.add(stack)
 
 # Set the instruction pointer to the code entrypoint
-cpu.pc.set(code.address + 4)
+cpu.pc.set(code.address + 2)
 
 # Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 
-# Configure gets model
-gets = smallworld.state.models.Model.lookup(
-    "gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000
-)
-machine.add(gets)
-
-
 # Configure puts model
-class PutsModel(smallworld.state.models.Model):
-    name = "puts"
+class FoobarModel(smallworld.state.models.Model):
+    name = "foobar"
     platform = platform
     abi = smallworld.platforms.ABI.NONE
+
+    static_space_required = 4
 
     def model(self, emulator: smallworld.emulators.Emulator) -> None:
         # Reading a block of memory from angr will fail,
@@ -61,29 +56,23 @@ class PutsModel(smallworld.state.models.Model):
         # are guaranteed to be symbolic.
         #
         # Thus, we must step one byte at a time.
-        a = emulator.read_register("sp")
-        s = int.from_bytes(emulator.read_memory(a + 4, 4), "big")
-        v = b""
-        try:
-            b = emulator.read_memory_content(s, 1)
-        except smallworld.exceptions.SymbolicValueError:
-            b = None
-        while b is not None and b != b"\x00":
-            v = v + b
-            s = s + 1
-            try:
-                b = emulator.read_memory_content(s, 1)
-            except smallworld.exceptions.SymbolicValueError:
-                b = None
-        if b is None:
-            raise smallworld.exceptions.SymbolicValueError(f"Symbolic byte at {hex(s)}")
-        print(v)
+        assert self.static_buffer_address is not None
+
+        if platform.byteorder == smallworld.platforms.Byteorder.LITTLE:
+            data = 0x04A1.to_bytes(4, "little")
+        elif platform.byteorder == smallworld.platforms.Byteorder.BIG:
+            data = 0x04A1.to_bytes(4, "big")
+        emulator.write_memory(self.static_buffer_address, data)
+        emulator.write_register("a0", self.static_buffer_address)
 
 
-puts = PutsModel(0x1002)
-machine.add(puts)
+foobar = FoobarModel(0x1000)
+foobar.static_buffer_address = 0x10000
+machine.add(foobar)
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)
+
+print(final_machine.get_cpu().d0)

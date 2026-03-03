@@ -3171,6 +3171,12 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
+    def test_fuzz_m68k(self):
+        self.run_fuzz("m68k")
+
+    def test_afl_m68k(self):
+        self.run_afl("m68k", ["021692:1", "022192:1", "059686:1"])
+
     def test_fuzz_mips(self):
         self.run_fuzz("mips")
 

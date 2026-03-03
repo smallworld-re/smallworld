@@ -3,7 +3,7 @@ import logging
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.DEBUG)
+smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -18,35 +18,35 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 machine.add(cpu)
 
 # Load and add code into the state
-code = smallworld.state.memory.code.Executable.from_filepath(
-    __file__.replace(".py", ".bin")
+filename = (
+    __file__.replace(".py", ".elf")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", ""),
-    address=0x1000,
+    .replace(".pcode", "")
 )
-machine.add(code)
+with open(filename, "rb") as f:
+    code = smallworld.state.memory.code.Executable.from_elf(
+        f, platform=platform, address=0x40000
+    )
+    machine.add(code)
+
+# Set the entrypoint to the address of "main"
+entrypoint = code.get_symbol_value("main")
+print(f"Entrypoint {hex(entrypoint)}")
+cpu.pc.set(entrypoint)
 
 # Create a stack and add it to the state
-stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
 machine.add(stack)
 
-# Set the instruction pointer to the code entrypoint
-cpu.pc.set(code.address + 4)
-
-# Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+# Configure an exit point
+exitpoint = entrypoint + code.get_symbol_size("main")
+stack.push_integer(exitpoint, 4, None)
+machine.add_exit_point(exitpoint)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
 cpu.sp.set(sp)
-
-
-# Configure gets model
-gets = smallworld.state.models.Model.lookup(
-    "gets", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000
-)
-machine.add(gets)
 
 
 # Configure puts model
@@ -61,8 +61,8 @@ class PutsModel(smallworld.state.models.Model):
         # are guaranteed to be symbolic.
         #
         # Thus, we must step one byte at a time.
-        a = emulator.read_register("sp")
-        s = int.from_bytes(emulator.read_memory(a + 4, 4), "big")
+        a = emulator.read_register("sp") + 4
+        s = int.from_bytes(emulator.read_memory(a, 4), "big")
         v = b""
         try:
             b = emulator.read_memory_content(s, 1)
@@ -80,10 +80,13 @@ class PutsModel(smallworld.state.models.Model):
         print(v)
 
 
-puts = PutsModel(0x1002)
+puts = PutsModel(0x10000)
 machine.add(puts)
+
+# Relocate puts
+code.update_symbol_value("puts", puts._address)
+
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
-emulator.add_exit_point(code.address + code.get_capacity())
-final_machine = machine.emulate(emulator)
+machine.emulate(emulator)

@@ -35,15 +35,22 @@ machine.add(stack)
 # Set the instruction pointer to the code entrypoint
 cpu.pc.set(code.address)
 
-# Initialize argument registers
-cpu.a0.set(int(sys.argv[1]))
+# Push a string onto the stack, padded to 16 bytes to make life easier.
+# Remember the starting address
+string = sys.argv[1].encode("utf-8") + b"\0"
+padding = b"\0" * (16 - (len(string) % 16))
+stack.push_bytes(string + padding, None)
 
-# Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+saddr = stack.get_pointer()
 
-# Configure the stack pointer
-sp = stack.get_pointer()
-cpu.sp.set(sp)
+# Push the stack address as the first argument
+stack.push_integer(saddr, 4, None)
+
+# Push a return address
+stack.push_integer(0x00000000, 4, None)
+
+# Configure the stack
+cpu.sp.set(stack.get_pointer())
 
 # Emulate
 emulator = smallworld.emulators.UnicornEmulator(platform)
@@ -52,4 +59,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+print(hex(cpu.d0.get()))

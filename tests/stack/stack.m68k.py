@@ -1,5 +1,4 @@
 import logging
-import sys
 
 import smallworld
 
@@ -35,11 +34,18 @@ machine.add(stack)
 # Set the instruction pointer to the code entrypoint
 cpu.pc.set(code.address)
 
-# Initialize argument registers
-cpu.a0.set(int(sys.argv[1]))
-
-# Push a return address onto the stack
-stack.push_integer(0xFFFFFFFF, 4, "fake return address")
+# Push a return address and arguments onto the stack
+stack.push_integer(0x44444444, 4, None)  # Argument 7
+stack.push_integer(0x01010101, 4, None)  # Argument 6
+stack.push_integer(0x33333333, 4, None)  # Argument 5
+stack.push_integer(0x01010101, 4, None)  # Argument 4
+stack.push_integer(0x22222222, 4, None)  # Argument 3
+stack.push_integer(0x01010101, 4, None)  # Argument 2
+stack.push_integer(0x11111111, 4, None)  # Argument 1
+stack.push_integer(0x01010101, 4, None)  # Return address
+stack.write_bytes(
+    0x2500, b"\xff\xff\xff\xff"
+)  # ensure writing below sp won't modify sp
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -52,4 +58,4 @@ final_machine = machine.emulate(emulator)
 
 # read out the final state
 cpu = final_machine.get_cpu()
-print(hex(cpu.v0.get()))
+print(cpu.d0)

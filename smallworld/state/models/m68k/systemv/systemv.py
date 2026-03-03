@@ -46,6 +46,12 @@ class M68KSysVCallingContext(CStdCallingContext):
     _float_stack_size = 4
     _double_stack_size = 8
 
+    def _return_pointer(self, emulator: emulators.Emulator, val: int) -> None:
+        emulator.write_register("a0", val)
+
+    def _read_return_pointer(self, emulator: emulators.Emulator) -> int:
+        return emulator.read_register("a0")
+
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         emulator.write_register("d0", val)
 
@@ -53,10 +59,16 @@ class M68KSysVCallingContext(CStdCallingContext):
         return emulator.read_register("d0")
 
     def _return_8_byte(self, emulator: emulators.Emulator, val: int) -> None:
-        raise NotImplementedError("No idea how m68k returns 8 byte values")
+        lo = val & self._int_inv_mask
+        hi = (val >> 32) & self._int_inv_mask
+
+        emulator.write_register("d0", hi)
+        emulator.write_register("d1", lo)
 
     def _read_return_8_byte(self, emulator: emulators.Emulator) -> int:
-        raise NotImplementedError("No idea how m68k returns 8 byte values")
+        hi = emulator.read_register("d0")
+        lo = emulator.read_register("d1")
+        return lo + (hi << 32)
 
     def _return_float(self, emulator: emulators.Emulator, val: float) -> None:
         """Return a float"""
