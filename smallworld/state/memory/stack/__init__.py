@@ -6,6 +6,7 @@ from .loongarch import LoongArch64Stack
 from .m68k import M68KStack
 from .mips import MIPSBEStack, MIPSELStack
 from .mips64 import MIPS64BEStack, MIPS64ELStack
+from .msp430 import MSP430Stack
 from .ppc import PowerPC32Stack, PowerPC64Stack
 from .riscv import RISCV64Stack
 from .stack import *  # noqa: F401, F403
@@ -27,6 +28,7 @@ __all__ = __stack__ + [
     "MIPSELStack",
     "MIPS64BEStack",
     "MIPS64ELStack",
+    "MSP430Stack",
     "PowerPC32Stack",
     "PowerPC64Stack",
     "RISCV64Stack",

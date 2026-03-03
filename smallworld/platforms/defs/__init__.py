@@ -6,6 +6,7 @@ from .loongarch import LoongArch64
 from .m68k import M68K
 from .mips import MIPS32BE, MIPS32EL
 from .mips64 import MIPS64BE, MIPS64EL
+from .msp430 import MSP430, MSP430X
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 from .powerpc import PowerPC32, PowerPC64
 from .riscv import RiscV64
@@ -28,6 +29,8 @@ __all__ = [
     "MIPS32BE",
     "MIPS64EL",
     "MIPS64BE",
+    "MSP430",
+    "MSP430X",
     "PlatformDef",
     "PowerPC32",
     "PowerPC64",
