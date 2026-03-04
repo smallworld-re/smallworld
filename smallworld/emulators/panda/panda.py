@@ -430,7 +430,10 @@ class PandaEmulator(
         )
 
         try:
-            return self.panda_thread.panda.arch.get_reg(self.cpu, panda_reg_name)
+            if self.panda_thread.panda:
+                return self.panda_thread.panda.arch.get_reg(self.cpu, panda_reg_name)
+            else:
+                raise exceptions.EmulationError("PANDA not started")
         except:
             raise exceptions.AnalysisError(
                 f"Failed reading {panda_reg_name} (id: {name})"
@@ -453,7 +456,10 @@ class PandaEmulator(
         ):
             # This is my internal pc
             self.pc = content
-            self.panda_thread.panda.arch.set_pc(self.cpu, content)
+            if self.panda_thread.panda:
+                self.panda_thread.panda.arch.set_pc(self.cpu, content)
+            else:
+                raise exceptions.EmulationError("PANDA not started")
             return
 
         if not self.panda_thread.machdef.check_panda_reg(
@@ -467,7 +473,10 @@ class PandaEmulator(
             name, self.panda_thread.panda, self.cpu
         )
         try:
-            self.panda_thread.panda.arch.set_reg(self.cpu, panda_reg_name, content)
+            if self.panda_thread.panda:
+                self.panda_thread.panda.arch.set_reg(self.cpu, panda_reg_name, content)
+            else:
+                raise exceptions.EmulationError("PANDA not started")
         except:
             raise exceptions.AnalysisError(
                 f"Failed writing {panda_reg_name} (id: {name})"
@@ -478,8 +487,10 @@ class PandaEmulator(
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
-
-        return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
+        if self.panda_thread.panda:
+            return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
+        else:
+            raise exceptions.EmulationError("PANDA not started")
 
     def map_memory(self, address: int, size: int) -> None:
         def page_down(address):
@@ -510,11 +521,14 @@ class PandaEmulator(
             logger.info(
                 f"Mapping at {hex(start_page * self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
             )
-            self.panda_thread.panda.map_memory(
-                f"{start_page * self.PAGE_SIZE}",
-                page_size * self.PAGE_SIZE,
-                start_page * self.PAGE_SIZE,
-            )
+            if self.panda_thread.panda:
+                self.panda_thread.panda.map_memory(
+                    f"{start_page * self.PAGE_SIZE}",
+                    page_size * self.PAGE_SIZE,
+                    start_page * self.PAGE_SIZE,
+                )
+            else:
+                raise exceptions.EmulationError("PANDA not started")
         # Make sure we add our new region to our mapped_pages
         self.mapped_pages.add_range(region)
 
@@ -572,18 +586,24 @@ class PandaEmulator(
         # is past the end of the list being sliced.
         if address % self.PAGE_SIZE != 0:
             block_size = address % self.PAGE_SIZE
-            self.panda_thread.panda.physical_memory_write(
-                address, content[0:block_size]
-            )
+            if self.panda_thread.panda:
+                self.panda_thread.panda.physical_memory_write(
+                    address, content[0:block_size]
+                )
+            else:
+                raise exceptions.EmulationError("PANDA not started")
 
             offset += block_size
             size -= block_size
 
         while size > 0:
             block_address = address + offset
-            self.panda_thread.panda.physical_memory_write(
-                block_address, content[offset : offset + self.PAGE_SIZE]
-            )
+            if self.panda_thread.panda:
+                self.panda_thread.panda.physical_memory_write(
+                    block_address, content[offset : offset + self.PAGE_SIZE]
+                )
+            else:
+                raise exceptions.EmulationError("PANDA not started")
 
             offset += self.PAGE_SIZE
             size -= self.PAGE_SIZE
