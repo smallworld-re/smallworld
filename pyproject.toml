@@ -15,7 +15,7 @@ dependencies = [
     "jsons>=1.6.3",
     "lief>=0.17.2",
     "setuptools>=80.9.0",
-    "pycparser>=2.18,<3.0"
+    "pycparser>=2.18,<3.0",
     "networkx>=3.2.1",
     "claripy>=9.2.102",
 ]
