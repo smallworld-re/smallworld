@@ -1441,6 +1441,12 @@ class GhidraMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_ghidra_m68k(self):
+        platform = platforms.Platform(
+            platforms.Architecture.M68K, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
     def test_ghidra_mips(self):
         platform = platforms.Platform(
             platforms.Architecture.MIPS32, platforms.Byteorder.BIG

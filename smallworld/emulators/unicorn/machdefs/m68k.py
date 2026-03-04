@@ -96,6 +96,7 @@ class M68KMachineDef(UnicornMachineDef):
         "a4": unicorn.m68k_const.UC_M68K_REG_A4,
         "a5": unicorn.m68k_const.UC_M68K_REG_A5,
         "a6": unicorn.m68k_const.UC_M68K_REG_A6,
+        "fp": unicorn.m68k_const.UC_M68K_REG_A6,
         # User stack pointer
         "usp": unicorn.m68k_const.UC_M68K_REG_A7,
         "sp": unicorn.m68k_const.UC_M68K_REG_A7,

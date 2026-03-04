@@ -120,7 +120,9 @@ class M68K(PlatformDef):
         "a3": RegisterDef(name="a3", size=4),
         "a4": RegisterDef(name="a4", size=4),
         "a5": RegisterDef(name="a5", size=4),
+        # a6 is used as the frame pointer in Linux calling conventions.
         "a6": RegisterDef(name="a6", size=4),
+        "fp": RegisterAliasDef(name="fp", parent="a6", size=4, offset=0),
         # a7 is the stack pointer.
         # It is aliased to "sp" in many disassemblers
         #

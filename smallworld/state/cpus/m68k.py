@@ -40,8 +40,11 @@ class M68K(CPU):
         self.add(self.a4)
         self.a5 = state.Register("a5", 4)
         self.add(self.a5)
+        # a6 is the frame pointer in some calling conventions.
         self.a6 = state.Register("a6", 4)
         self.add(self.a6)
+        self.fp = state.RegisterAlias("fp", self.a6, 4, 0)
+        self.add(self.fp)
         # a7 is the stack pointer.
         # It is aliased to "sp" in many disassemblers
         #

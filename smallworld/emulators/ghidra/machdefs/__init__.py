@@ -3,6 +3,7 @@ from .amd64 import AMD64MachineDef
 from .arm import ARMv5TMachineDef, ARMv6MMachineDef, ARMv7AMachineDef, ARMv7MMachineDef
 from .i386 import i386MachineDef
 from .loongarch import LoongArch64MachineDef
+from .m68k import M68KMachineDef
 from .machdef import GhidraMachineDef
 from .mips import MIPSBEMachineDef, MIPSELMachineDef
 from .mips64 import MIPS64BEMachineDef, MIPS64ELMachineDef
@@ -20,6 +21,7 @@ __all__ = [
     "ARMv7AMachineDef",
     "i386MachineDef",
     "LoongArch64MachineDef",
+    "M68KMachineDef",
     "MIPS64BEMachineDef",
     "MIPS64ELMachineDef",
     "MIPSBEMachineDef",
