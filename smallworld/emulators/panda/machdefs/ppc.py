@@ -1,3 +1,4 @@
+from ....exceptions import UnsupportedRegisterError
 from ....platforms import Architecture, Byteorder
 from .machdef import PandaMachineDef
 
@@ -119,7 +120,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
         if name in self._registers:
             res = self._registers[name]
             if res is None:
-                raise exceptions.UnsupportedRegisterError(
+                raise UnsupportedRegisterError(
                     f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
                 )
             return res
@@ -127,7 +128,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
             self._panda_get_spr_regs(panda_obj, panda_cpu)
             if name.upper() in panda_obj.arch.registers_spr.keys():
                 return name.upper()
-            raise exceptions.UnsupportedRegisterError(
+            raise UnsupportedRegisterError(
                 f"SPR {name} not recognized by Panda for {self.arch}:{self.byteorder}"
             )
         else:
