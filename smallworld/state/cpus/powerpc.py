@@ -539,6 +539,10 @@ class PowerPC(cpu.CPU):
         for r in self.SPR.values():
             self.add(r)
 
+        # Machine State Register
+        self.msr = state.Register("msr", size=wordsize)
+        self.add(self.msr)
+
 
 class PowerPC32(PowerPC):
     """CPU state for 32-bit PowerPC."""
