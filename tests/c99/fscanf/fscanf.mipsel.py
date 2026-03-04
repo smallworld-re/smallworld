@@ -157,7 +157,7 @@ machine.add_exit_point(exitpoint)
 cpu.ra.set(exitpoint)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.GhidraEmulator(platform)
 emulator.add_exit_point(entrypoint + 0x40000)
 try:
     machine.emulate(emulator)

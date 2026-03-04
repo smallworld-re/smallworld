@@ -40,7 +40,7 @@ cpu.rsp.set(stack.get_pointer())
 
 # Configure _main model
 class InitModel(smallworld.state.models.Model):
-    name = "_main"
+    name = "__main"
     platform = platform
     abi = smallworld.platforms.ABI.NONE
 

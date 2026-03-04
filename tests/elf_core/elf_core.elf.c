@@ -2,13 +2,18 @@
 #include <stdlib.h>
 #include <sys/procfs.h>
 
-struct elf_prstatus foo;
 char input_word[64];
+int x = 1;
 
 int main() {
 
     if(fscanf(stdin, "%63s", input_word) != 1) {
         return 1;
     }
-    __builtin_trap();
+    for(int i = 0; i < 2; i++) {
+        if (i == 1) {
+            __builtin_trap();
+        }
+    }
+    puts(input_word);
 }

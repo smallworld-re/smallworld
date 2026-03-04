@@ -133,6 +133,13 @@ class PandaEmulator(
 
         def run(self):
             panda_args = self.get_panda_args_from_machdef()
+            if os.environ.get("SMALLWORLD_PANDA_DEBUG", "no").lower().startswith("y"):
+                panda_args += [
+                    "-d",
+                    "in_asm,int,cpu,op,exec,nochain,op_plugin",
+                    "-D",
+                    f"./smallworld-panda-{self.machdef.panda_arch}-debug.log",
+                ]
 
             self.panda = pandare2.Panda(self.machdef.panda_arch, extra_args=panda_args)
 
@@ -631,7 +638,7 @@ class PandaEmulator(
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, pc, 1)
+        instr, disas = self.disassemble(code, pc, 1)
 
         logger.info(f"block step at 0x{pc:x}: {disas}")
 
@@ -657,7 +664,7 @@ class PandaEmulator(
         code = self.read_memory(pc, 15)  # longest possible instruction
         if code is None:
             assert False, "impossible state"
-        (instr, disas) = self.disassemble(code, pc, 1)
+        instr, disas = self.disassemble(code, pc, 1)
 
         logger.info(f"single step at 0x{pc:x}: {disas}")
 

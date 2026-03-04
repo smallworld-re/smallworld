@@ -28,6 +28,8 @@ MIPS_ID := mips-linux-gnueabihf.2.40
 MIPSEL_ID := mipsel-linux-gnueabihf.2.40
 MIPS64_ID := mips64-linux.2.3.48-gnuabi64.2.40
 MIPS64EL_ID := mips64el-linux.2.3.48-gnuabi64.2.40
+MSP430_ID := msp430-linux-gnu
+MSP430X_ID := msp430-linux-gnu
 PPC_ID := powerpc-linux.1.3.45-gnueabi.2.40
 PPC64_ID := powerpc64-linux-gnu.2.40
 RISCV64_ID := riscv64-linux-gnu.2.40
@@ -45,10 +47,12 @@ MIPS_ASM_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ASM_AS := zig build-exe -target $(MIPSEL_ID)
 MIPS64_ASM_AS := zig build-exe -target $(MIPS64_ID)
 MIPS64EL_ASM_AS := zig build-exe -target $(MIPS64EL_ID)
+MSP430_ASM_AS := zig build-exe -target $(MSP430_ID)
+MSP430X_ASM_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ASM_AS := zig build-exe -target $(PPC_ID)
 PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
 RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
-XTENSA_ASM_AS := ./xtensa_asm_wrapper.sh
+XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
 # Assembler Commands for ELF
 
@@ -62,10 +66,12 @@ MIPS_ELF_AS := zig build-exe -target $(MIPS_ID)
 MIPSEL_ELF_AS := zig build-exe -target $(MIPSEL_ID)
 MIPS64_ELF_AS := zig build-exe -target $(MIPS64_ID) 
 MIPS64EL_ELF_AS := zig build-exe -target $(MIPS64EL_ID) 
+MSP430_ELF_AS := zig build-exe -target $(MSP430_ID)
+MSP430X_ELF_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
 PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
 RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
-XTENSA_ELF_AS := ./xtensa_elf_wrapper.sh
+XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
 # Objcopy Commands
 
@@ -80,6 +86,8 @@ MIPS_OBJCOPY := zig objcopy
 MIPSEL_OBJCOPY := zig objcopy
 MIPS64_OBJCOPY := zig objcopy
 MIPS64EL_OBJCOPY := zig objcopy
+MSP430_OBJCOPY := zig objcopy
+MSP430X_OBJCOPY := zig objcopy
 PPC_OBJCOPY := zig objcopy
 PPC64_OBJCOPY := zig objcopy
 RISCV64_OBJCOPY := zig objcopy
@@ -99,6 +107,8 @@ MIPS_CC := zig cc -target $(MIPS_ID)
 MIPSEL_CC := zig cc -target $(MIPSEL_ID) 
 MIPS64_CC := zig cc -target $(MIPS64_ID) 
 MIPS64EL_CC := zig cc -target $(MIPS64EL_ID) 
+MSP430_CC := zig cc -target $(MSP430_ID)
+MSP430X_CC := zig cc -target $(MSP430X_ID)
 PPC_CC := zig cc -target $(PPC_ID) 
 PPC64_CC := zig cc -target $(PPC64_ID) 
 RISCV64_CC := zig cc -target $(RISCV64_ID)
@@ -109,6 +119,8 @@ XTENSA_CC := $(XTENSA_ID)-gcc
 # *************************
 
 GENERAL_ASFLAGS := $(ASFLAGS)
+MSP430_ASFLAGS := -fno-sanitize-c -fno-builtin -fno-compiler-rt
+MSP430X_ASFLAGS := -mcpu msp430x -fno-sanitize-c -fno-builtin -fno-compiler-rt
 XTENSA_ASFLAGS := --no-transform --target-align --text-section-literals
 
 # objcopy flags
@@ -155,6 +167,8 @@ MIPS_EXT := mips
 MIPSEL_EXT := mipsel
 MIPS64_EXT := mips64
 MIPS64EL_EXT := mips64el
+MSP430_EXT := msp430
+MSP430X_EXT := msp430x
 PPC_EXT := ppc
 PPC64_EXT := ppc64
 RISCV64_EXT := riscv64
@@ -173,6 +187,8 @@ MIPSEL_SRC_EXT := $(MIPS_EXT)
 MIPS64_SRC_EXT := $(MIPS64_EXT)
 # NOTE: mips64el uses mips64 source
 MIPS64EL_SRC_EXT := $(MIPS64_EXT)
+MSP430_SRC_EXT := $(MSP430_EXT)
+MSP430X_SRC_EXT := $(MSP430X_EXT)
 PPC_SRC_EXT := $(PPC_EXT)
 PPC64_SRC_EXT := $(PPC64_EXT)
 RISCV64_SRC_EXT := $(RISCV64_EXT)
@@ -215,7 +231,7 @@ $(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
 $(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
 %.$$($(1)_EXT).so : %.so.c
-	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -shared -o $$@ $$<
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -fPIC -shared -o $$@ $$<
 
 %.$$($(1)_EXT).elf : %.elf.c
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$<
@@ -269,10 +285,10 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 XTENSA
 
 # List of platforms that support ELF
 C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64

@@ -94,7 +94,7 @@ class TraceExecution(analysis.Analysis):
                 raise smallworld.exceptions.AnalysisRunError(
                     "Unable to read next instruction out of emulator memory"
                 )
-            (cs_insns, disas) = self.emulator._disassemble(code, pc, 1)
+            cs_insns, disas = self.emulator._disassemble(code, pc, 1)
             return cs_insns[0]
 
         the_exc = None
@@ -116,15 +116,17 @@ class TraceExecution(analysis.Analysis):
                 emu_result = TraceRes.ER_BOUNDS
                 break
             cs_insn = get_insn(pc)
-            (cmp_info, imm_info) = get_cmp_info(self.platform, self.emulator, cs_insn)
+            cmp_info, imm_info = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
             te = TraceElement(
                 pc, i, cs_insn.mnemonic, cs_insn.op_str, cmp_info, branch_info, imm_info
             )
             trace.append(te)
             # run any callbacks
-            for before_cb in self.before_instruction_cbs:
-                before_cb(self.emulator, pc, te)
+
+            if pc not in self.emulator.function_hooks:
+                for before_cb in self.before_instruction_cbs:
+                    before_cb(self.emulator, pc, te)
             try:
                 i += 1
                 logger.debug(cs_insn)
@@ -143,8 +145,9 @@ class TraceExecution(analysis.Analysis):
                 the_exc = e
                 break
             # run any after callbacks
-            for after_cb in self.after_instruction_cbs:
-                after_cb(self.emulator, pc, te)
+            if pc not in self.emulator.function_hooks:
+                for after_cb in self.after_instruction_cbs:
+                    after_cb(self.emulator, pc, te)
             if i == self.num_insns:
                 emu_result = TraceRes.ER_MAX_INSNS
                 break

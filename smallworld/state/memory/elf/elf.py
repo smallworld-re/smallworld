@@ -64,6 +64,7 @@ DT_MIPS_GOTSYM = 0x70000013
 # MIPS-specific relocation type
 R_MIPS_32 = 2
 R_MIPS_64 = 18
+R_MIPS_JUMP_SLOT = 127
 
 
 class ElfExecutable(Executable):
@@ -532,12 +533,11 @@ class ElfExecutable(Executable):
                 local_gotno = self._dtags[DT_MIPS_LOCAL_GOTNO]
                 gotoff = self._dtags[DT_PLTGOT]
 
+                rela_type = R_MIPS_JUMP_SLOT
                 if self.platform.architecture == Architecture.MIPS32:
                     gotent = 4
-                    rela_type = R_MIPS_32
                 else:
                     gotent = 8
-                    rela_type = R_MIPS_64
 
                 # Rebase the GOT offset relative to the image
                 gotoff = self._rebase_file(gotoff)
@@ -723,7 +723,9 @@ class ElfExecutable(Executable):
         else:
             log.error(f"No platform defined; cannot relocate {name}!")
 
-    def link_elf(self, elf: "ElfExecutable", dynamic: bool = True) -> None:
+    def link_elf(
+        self, elf: "ElfExecutable", dynamic: bool = True, all_syms: bool = False
+    ) -> None:
         """Link one ELF against another
 
         This roughly mimics the ELF linker;
@@ -734,6 +736,7 @@ class ElfExecutable(Executable):
         Arguments:
             elf: The ELF from which to draw symbol values
             dynamic: Whether to link static or dynamic symbols
+            all_syms: Whether to override defined symbols
         """
         if dynamic:
             # Relocate rela.dyn and rela.plt
@@ -747,7 +750,7 @@ class ElfExecutable(Executable):
             if my_sym.name == "":
                 # This isn't a real symbol
                 continue
-            if my_sym.defined:
+            if not all_syms and my_sym.defined:
                 # This is a defined symbol
                 continue
 

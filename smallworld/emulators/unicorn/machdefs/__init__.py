@@ -10,7 +10,14 @@ from .arm import (
 )
 from .i386 import i386MachineDef
 from .machdef import UnicornMachineDef
-from .mips import MIPSBEMachineDef, MIPSELMachineDef
+from .mips import (
+    MIPS64BEMachineDef,
+    MIPS64ELMachineDef,
+    MIPSBEMachineDef,
+    MIPSELMachineDef,
+)
+from .ppc import PPC32MachineDef, PPC64MachineDef
+from .riscv64 import RISCV64MachineDef
 
 __all__ = [
     "AArch64MachineDef",
@@ -24,5 +31,10 @@ __all__ = [
     "i386MachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
+    "MIPS64BEMachineDef",
+    "MIPS64ELMachineDef",
+    "PPC32MachineDef",
+    "PPC64MachineDef",
+    "RISCV64MachineDef",
     "UnicornMachineDef",
 ]

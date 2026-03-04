@@ -105,6 +105,11 @@ class MIPSO32PlatformDef(PlatformDef):
         "jalr",
     } | conditional_branch_mnemonics
 
+    implicit_dereference_mnemonics = {
+        "jr",
+        "jalr",
+    }
+
     pc_register = "pc"
     sp_register = "sp"
 

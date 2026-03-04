@@ -219,14 +219,71 @@ class Bsearch(CStdModel):
     ]
     return_type = ArgumentType.POINTER
 
-    # Currently can't call function pointers from models
-    unsupported = True
-
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
-        # Not easily possible; need to call a comparator function.
-        raise exceptions.UnsupportedModelError(
-            "bsearch uses a function pointer; not sure how to model"
+
+        if not self.skip_return:
+            # store address to return to after model is done
+            self.return_addr = self.get_return_address(emulator)
+
+            # collect args
+            self.key_ptr = typing.cast(int, self.get_arg1(emulator))
+            self.base_ptr = typing.cast(int, self.get_arg2(emulator))
+            self.nmemb = typing.cast(int, self.get_arg3(emulator))
+            self.size = typing.cast(int, self.get_arg4(emulator))
+            self.compar = typing.cast(int, self.get_arg5(emulator))
+            assert isinstance(self.key_ptr, int)
+            assert isinstance(self.base_ptr, int)
+            assert isinstance(self.nmemb, int)
+            assert isinstance(self.size, int)
+            assert isinstance(self.compar, int)
+
+            # comparison function pointer
+            self.compare_func_ptr = FunctionPointer(
+                self.compar,
+                [ArgumentType.POINTER, ArgumentType.POINTER],
+                ArgumentType.INT,
+                self.platform,
+            )
+
+            # initialize searching variables and comparison stack frame
+            self.low: int = 0
+            self.high: int = self.nmemb - 1
+
+            # return back to this model
+            self.skip_return = True
+
+        else:
+            # read array and last call's return value
+            ret = self.compare_func_ptr.get_return_value(emulator)
+
+            # handle comparison result
+            if ret == 0:
+                self.set_return_value(emulator, self.base_ptr + (self.mid * self.size))
+                self.set_return_address(emulator, self.return_addr)
+                self.skip_return = False
+                return
+            elif ret > 0:
+                self.low = self.mid + 1
+            elif ret < 0:
+                self.high = self.mid - 1
+
+            # searched entire array
+            if self.low > self.high:
+                self.set_return_value(emulator, 0)
+                self.set_return_address(emulator, self.return_addr)
+                self.skip_return = False
+                return
+
+        # call comparison function and return to this model
+        self.mid: int = self.low + ((self.high - self.low) // 2)
+        self.compare_func_ptr.call(
+            emulator,
+            [
+                self.key_ptr,
+                self.base_ptr + (self.mid * self.size),
+            ],
+            self._address,
         )
 
 

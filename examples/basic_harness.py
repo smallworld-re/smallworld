@@ -1,4 +1,3 @@
-import copy
 import logging
 import sys
 import typing
@@ -10,6 +9,7 @@ from smallworld.analyses.colorizer import randomize_uninitialized
 
 # setup logging and hinting
 smallworld.logging.setup_logging(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # configure the platform for emulation
 platform = smallworld.platforms.Platform(
@@ -26,13 +26,14 @@ cpu = smallworld.state.cpus.CPU.for_platform(platform)
 code = smallworld.state.memory.code.Executable.from_filepath(
     sys.argv[1], address=0x1000
 )
-machine.add(code)
 
-
+# set start instruction for analysis and an "exit point" at which to
+# stop
+cpu.pc.set(code.address)
 machine.add_exit_point(code.address + code.get_capacity())
-# set the instruction pointer to the entrypoint of our executable
-cpu.rip.set(code.address)
 
+# add code and cpu to the machine
+machine.add(code)
 machine.add(cpu)
 
 hinter = hinting.Hinter()
@@ -43,12 +44,12 @@ analyses: typing.List[smallworld.analyses.Analysis] = [
 ]
 
 seed = 123456
-
+cs = ColorizerSummary(hinter)
 for i in range(10):
     c = Colorizer(hinter, num_insns=10, exec_id=i)
-    machine_copy = copy.deepcopy(machine)
-    perturbed_machine = randomize_uninitialized(machine_copy, seed + i, ["rbp", "rsp"])
+    perturbed_machine = randomize_uninitialized(machine, seed + i, [])
     c.run(perturbed_machine)
-
-
-smallworld.analyze(perturbed_machine, analyses)
+# Technically, an analysis takes a `machine` arg but this one doesn't
+# actually use it for anythihng.  This is because it just listens for
+# colorizer hints.
+cs.run(None)

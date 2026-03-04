@@ -93,6 +93,18 @@ class Stack(memory.Memory):
         value = state.Value.from_ctypes(content, label)
         return self.push(value)
 
+    def push_symbolic(self, size: int, label: str) -> int:
+        """Push an uninitialized placeholder to the stack.
+
+        Arguments:
+            size: The number of bytes to push.
+            label: The label for the bytes
+        Returns:
+            The stack pointer after the push.
+        """
+        value = state.SymbolicValue(size, None, None, label)
+        return self.push(value)
+
     @classmethod
     def for_platform(cls, platform: platforms.Platform, address: int, size: int):
         """Create a stack for this platform.

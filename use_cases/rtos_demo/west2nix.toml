@@ -1,0 +1,16 @@
+[manifest]
+group-filter = ["-babblesim", "-optional", "-testing"]
+
+[[manifest.projects]]
+name = "cmsis"
+url = "https://github.com/zephyrproject-rtos/cmsis"
+revision = "512cc7e895e8491696b61f7ba8066b4a182569b8"
+path = "/build/modules/hal/cmsis"
+groups = ["hal"]
+
+[manifest.projects.nix]
+hash = "sha256-IR4Za8TuYY7nkqK57xUJ2uWnCp7wB9B4/ZjhalLhCUU="
+
+[manifest.self]
+path = "/build/zephyr"
+west-commands = "scripts/west-commands.yml"

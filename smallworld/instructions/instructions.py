@@ -4,7 +4,7 @@ import typing
 
 import capstone
 
-from smallworld.platforms.platforms import Platform
+from smallworld.platforms import Platform, PlatformDef
 
 from .. import emulators, utils
 
@@ -207,17 +207,27 @@ class Instruction(metaclass=abc.ABCMeta):
         specifications (i.e., in the form `base + scale * index + offset`).
         """
 
+        platdef = PlatformDef.for_platform(self.platform)
         read: typing.Set[Operand] = set()
 
         for operand in self._instruction.operands:
             if operand.type == capstone.CS_OP_MEM and (
                 not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
             ):
+                # This is a memory operand.
+                # Handling is architecture-specific
                 read.add(self._memory_reference(operand))
             elif operand.type == capstone.CS_OP_REG and (
                 not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
             ):
-                read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
+                if self._instruction.mnemonic in platdef.implicit_dereference_mnemonics:
+                    # This is a register operand that's
+                    # actually dereferenced by the instruction.
+                    # Handle as a memory operand.
+                    read.add(self._memory_reference(operand))
+                else:
+                    # This is a register reference that's used for its value.
+                    read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
 
         return read
 

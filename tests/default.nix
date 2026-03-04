@@ -20,16 +20,15 @@ stdenv.mkDerivation {
     xtensaGcc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
-    # pkgsCross.ppc64.glibc
-    # pkgsCross.mips64-linux-gnuabi64.glibc
-    # pkgsCross.mips64el-linux-gnuabi64.glibc
   ];
   env = {
-    ZIG_GLOBAL_CACHE_DIR = "tmp/zig-cache";
     AMD64_SYSROOT = x86_64_glibc_path;
     AARCH64_SYSROOT = pkgsCross.aarch64-multiplatform.glibc.outPath;
     PPC_SYSROOT = pkgsCross.ppc32.glibc.outPath;
   };
+  shellHook = ''
+    export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache
+  '';
   buildPhase = ''
     make -j$(nproc)
     cd elf_core
@@ -37,9 +36,8 @@ stdenv.mkDerivation {
     make
   '';
   installPhase = ''
+    find .. '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     mkdir -p $out
-    cd ..
-    find . '(' -iname '*.elf' -o -iname '*.so' -o -iname '*.bin' -o -iname '*.o' -o -iname '*.pe' -o -iname '*.dll' -o -iname '*.core' -o -iname '*.registers' ')' -print0 | tar -cvf test_binaries.tar --null -T -
     cp -r test_binaries.tar $out
   '';
 }

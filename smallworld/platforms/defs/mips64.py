@@ -45,7 +45,9 @@ class MIPSN64PlatformDef(PlatformDef):
     conditional_branch_mnemonics = {
         # Conditional branch
         "beq",
+        "beqz",
         "bne",
+        "bnez",
         "bgez",
         "bgtz",
         "blez",
@@ -105,6 +107,11 @@ class MIPSN64PlatformDef(PlatformDef):
         "jal",
         "jalr",
     } | conditional_branch_mnemonics
+
+    implicit_dereference_mnemonics = {
+        "jr",
+        "jalr",
+    }
 
     pc_register = "pc"
     sp_register = "sp"

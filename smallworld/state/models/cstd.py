@@ -3,6 +3,7 @@ import enum
 import logging
 import struct
 import typing
+from ctypes import c_int32, c_int64, c_uint32, c_uint64
 
 from smallworld import platforms, utils
 from smallworld.exceptions.exceptions import ConfigurationError
@@ -755,11 +756,10 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
 
         if val < 0:
             # Negative value; need to find 2s-compliment if it's an int
-            val *= -1
             if self.return_type in self._four_byte_types:
-                val = ((val ^ self._int_inv_mask) + 1) & self._int_inv_mask
+                val = c_int32(val).value
             elif self.return_type in self._eight_byte_types:
-                val = ((val ^ self._long_long_inv_mask) + 1) & self._long_long_inv_mask
+                val = c_int64(val).value
             elif (
                 self.return_type == ArgumentType.FLOAT
                 or self.return_type == ArgumentType.DOUBLE
@@ -772,10 +772,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
 
         # Delegate return to handler
         if self.return_type in self._four_byte_types:
-            self._return_4_byte(emulator, val)
-
+            self._return_4_byte(emulator, c_uint32(val).value)
         elif self.return_type in self._eight_byte_types:
-            self._return_8_byte(emulator, val)
+            self._return_8_byte(emulator, c_uint64(val).value)
 
         else:
             raise exceptions.ConfigurationError(
