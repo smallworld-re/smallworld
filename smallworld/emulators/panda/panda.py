@@ -66,7 +66,9 @@ class PandaEmulator(
         # be careful in callbacks
         # If we want to support repeated panda instances we need to make this a subprocess, not thread
 
-        def __init__(self, manager, thread_state, arg_overrides : typing.Dict[str, str] = {}):
+        def __init__(
+            self, manager, thread_state, arg_overrides: typing.Dict[str, str] = {}
+        ):
             super().__init__(daemon=True)
             self.manager = manager
             self.platdef = platforms.PlatformDef.for_platform(self.manager.platform)
@@ -87,46 +89,50 @@ class PandaEmulator(
         def get_panda_args_from_machdef(self):
             panda_args = []
 
-            if 'machine' in self.arg_overrides:
-                panda_args.extend(["-M", self.arg_overrides['machine']])
+            if "machine" in self.arg_overrides:
+                panda_args.extend(["-M", self.arg_overrides["machine"]])
             elif hasattr(self.machdef, "machine"):
                 panda_args.extend(["-M", self.machdef.machine])
             else:
                 panda_args.extend(["-M", "configurable"])
 
-            if 'cpu' in self.arg_overrides:
-                panda_args.extend(["-cpu", self.arg_overrides['cpu']])
+            if "cpu" in self.arg_overrides:
+                panda_args.extend(["-cpu", self.arg_overrides["cpu"]])
             elif hasattr(self.machdef, "cpu"):  # != "":
                 panda_args.extend(["-cpu", self.machdef.cpu])
 
-            if self.arg_overrides.get('nographic', True):
+            if self.arg_overrides.get("nographic", True):
                 panda_args.extend(["-nographic"])
 
             # At some point we can send something in that only supports singlestep?
-            if self.arg_overrides.get('singlestep', False):
-                panda_args.extend(['-singlestep'])
+            if self.arg_overrides.get("singlestep", False):
+                panda_args.extend(["-singlestep"])
 
-            debug_log_file = self.arg_overrides.get('debug_log_file', None)
+            debug_log_file = self.arg_overrides.get("debug_log_file", None)
             debug_log_flags = [
-                'in_asm',
-                'int',
-                'cpu',
-                'op',
-                'exec',
-                'nochain',
-                'op_plugin',
+                "in_asm",
+                "int",
+                "cpu",
+                "op",
+                "exec",
+                "nochain",
+                "op_plugin",
             ]
 
-            if 'debug_log_flags' in self.arg_overrides:
+            if "debug_log_flags" in self.arg_overrides:
                 # Supplying debug_log_flags without debug_log_name gets default
                 if debug_log_file is None:
-                    debug_log_file = f"./smallworld-panda-{self.machdef.panda_arch}-debug.log"
-                debug_log_flags = self.arg_overrides['debug_log_flags']
+                    debug_log_file = (
+                        f"./smallworld-panda-{self.machdef.panda_arch}-debug.log"
+                    )
+                debug_log_flags = self.arg_overrides["debug_log_flags"]
 
             if debug_log_file is not None:
                 panda_args += [
-                    '-d', ','.join(debug_log_flags),
-                    '-D', debug_log_file,
+                    "-d",
+                    ",".join(debug_log_flags),
+                    "-D",
+                    debug_log_file,
                 ]
 
             return panda_args
@@ -366,7 +372,9 @@ class PandaEmulator(
                 # Clear the event for the next iteration
                 self.manager.run_panda = False
 
-    def __init__(self, platform: platforms.Platform, arg_overrides : typing.Dict[str, str] = {}):
+    def __init__(
+        self, platform: platforms.Platform, arg_overrides: typing.Dict[str, str] = {}
+    ):
         super().__init__(platform=platform)
 
         self.PAGE_SIZE = 0x1000
@@ -385,7 +393,9 @@ class PandaEmulator(
         self.cpu = None
         self.pc: int = 0
 
-        self.panda_thread = self.PandaThread(self, self.ThreadState.SETUP, arg_overrides=arg_overrides)
+        self.panda_thread = self.PandaThread(
+            self, self.ThreadState.SETUP, arg_overrides=arg_overrides
+        )
         self.panda_thread.start()
 
         self.disassembler = capstone.Cs(
@@ -404,19 +414,27 @@ class PandaEmulator(
     def read_register_content(self, name: str) -> int:
         # If we are reading a "pc" reg, refer to the manager's notion of PC
         # QEMU thinks in blocks, so the register contained in self.cpu will be inaccurate.
-        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc", self.panda_thread.panda, self.cpu):
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg(
+            "pc", self.panda_thread.panda, self.cpu
+        ):
             return self.pc
 
-        if not self.panda_thread.machdef.check_panda_reg(name, self.panda_thread.panda, self.cpu):
+        if not self.panda_thread.machdef.check_panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        ):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
-        panda_reg_name = self.panda_thread.machdef.panda_reg(name, self.panda_thread.panda, self.cpu)
+        panda_reg_name = self.panda_thread.machdef.panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        )
 
         try:
             return self.panda_thread.panda.arch.get_reg(self.cpu, panda_reg_name)
         except:
-            raise exceptions.AnalysisError(f"Failed reading {panda_reg_name} (id: {name})")
+            raise exceptions.AnalysisError(
+                f"Failed reading {panda_reg_name} (id: {name})"
+            )
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -430,22 +448,30 @@ class PandaEmulator(
                 "This emulator cannot handle bitvector expressions"
             )
 
-        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc", self.panda_thread.panda, self.cpu):
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg(
+            "pc", self.panda_thread.panda, self.cpu
+        ):
             # This is my internal pc
             self.pc = content
             self.panda_thread.panda.arch.set_pc(self.cpu, content)
             return
 
-        if not self.panda_thread.machdef.check_panda_reg(name, self.panda_thread.panda, self.cpu):
+        if not self.panda_thread.machdef.check_panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        ):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
 
-        panda_reg_name = self.panda_thread.machdef.panda_reg(name, self.panda_thread.panda, self.cpu)
+        panda_reg_name = self.panda_thread.machdef.panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        )
         try:
             self.panda_thread.panda.arch.set_reg(self.cpu, panda_reg_name, content)
         except:
-            raise exceptions.AnalysisError(f"Failed writing {panda_reg_name} (id: {name})")
+            raise exceptions.AnalysisError(
+                f"Failed writing {panda_reg_name} (id: {name})"
+            )
 
         logger.debug(f"set register {panda_reg_name} (id: {name}) = {content}")
 

@@ -14,6 +14,7 @@ try:
         FieldDetectionAnalysis,
         ForcedFieldDetectionAnalysis,
     )
+
     __all__ += [
         "FieldDetectionAnalysis",
         "ForcedFieldDetectionAnalysis",

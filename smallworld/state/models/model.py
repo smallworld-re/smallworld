@@ -268,7 +268,10 @@ class Model(Hook):
 
         self.model(emulator)
 
-        if self.skip_return or (hasattr(emulators, 'AngrEmulator') and isinstance(emulator, emulators.AngrEmulator)):
+        if self.skip_return or (
+            hasattr(emulators, "AngrEmulator")
+            and isinstance(emulator, emulators.AngrEmulator)
+        ):
             return
 
         ret = self.get_return_address(emulator, pop=True)

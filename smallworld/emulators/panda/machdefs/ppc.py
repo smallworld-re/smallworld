@@ -106,14 +106,14 @@ class PowerPC32MachineDef(PowerPCMachineDef):
     def _panda_get_spr_regs(self, panda_obj, panda_cpu):
         # HACKHACK: export something in pypanda to do this instead of duplicating.
         # We'll also be paranoid in reading this in case the upstream patch hasn't landed.
-        if getattr(panda_obj.arch, 'registers_spr', None) is None:
+        if getattr(panda_obj.arch, "registers_spr", None) is None:
             # print(f'obtaining PANDA spr regs')
             env = panda_obj.cpu_env(panda_cpu)
             panda_obj.arch.registers_spr = {}
             for idx, spr_cb in enumerate(env.spr_cb):
                 if spr_cb.name:
-                    pystr = panda_obj.arch.panda.ffi.string(spr_cb.name).decode('utf-8')
-                    panda_obj.arch.registers_spr['SPR_' + pystr] = idx
+                    pystr = panda_obj.arch.panda.ffi.string(spr_cb.name).decode("utf-8")
+                    panda_obj.arch.registers_spr["SPR_" + pystr] = idx
 
     def panda_reg(self, name: str, panda_obj, panda_cpu) -> str:
         if name in self._registers:
@@ -123,7 +123,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
                     f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
                 )
             return res
-        elif name.startswith('SPR_'):
+        elif name.startswith("SPR_"):
             self._panda_get_spr_regs(panda_obj, panda_cpu)
             if name.upper() in panda_obj.arch.registers_spr.keys():
                 return name.upper()
@@ -144,7 +144,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
         """
         if name in self._registers and self._registers[name] is not None:
             return True
-        elif name.startswith('SPR_'):
+        elif name.startswith("SPR_"):
             self._panda_get_spr_regs(panda_obj, panda_cpu)
             return name.upper() in panda_obj.arch.registers_spr.keys()
         else:

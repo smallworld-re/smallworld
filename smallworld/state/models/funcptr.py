@@ -26,7 +26,10 @@ class FunctionPointer:
         self.context.return_type = self.return_type
 
     def call(
-        self, emulator: emulators.Emulator, args: list[typing.Union[int, float]], return_address: int
+        self,
+        emulator: emulators.Emulator,
+        args: list[typing.Union[int, float]],
+        return_address: int,
     ) -> None:
         """Set up the calling stack frame for the function this points to.
 

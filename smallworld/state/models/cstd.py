@@ -781,7 +781,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 f"Returning unhandled type {self.return_type}"
             )
 
-    def get_return_value(self, emulator: emulators.Emulator) -> typing.Union[int, float, None]:
+    def get_return_value(
+        self, emulator: emulators.Emulator
+    ) -> typing.Union[int, float, None]:
         """Get return value, according to the appropriate return type"""
         if self.return_type == ArgumentType.VOID:
             # We're void.
