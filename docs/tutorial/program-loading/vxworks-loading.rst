@@ -13,8 +13,13 @@ In this tutorial, you will be guided through loading a VXWorks file.
 To enable Binary Ninja integration for VXWorks support, 
 first place the Binary Ninja Ultimate zip file in the project root of the SmallWorld repository,
     as ``binaryninja_linux_stable_ultimate.zip``.
-    
-    In the flake.nix, ensure the following lines are uncommented to include Binary Ninja:
+
+Since Nix flakes require files to be tracked in git to be included in the build,
+add the zip file to git (does not need to be committed):
+.. code-block:: bash
+    git add binaryninja_linux_stable_ultimate.zip
+
+In the flake.nix, ensure the following lines are uncommented to include Binary Ninja:
 .. code-block::
 
     binaryninja = {
@@ -28,6 +33,12 @@ first place the Binary Ninja Ultimate zip file in the project root of the SmallW
     };
     
 Then, re-run the Nix flake build to include Binary Ninja Ultimate support.
+
+.. warning::
+
+    Nix requires files are tracked in git to be included in the build.
+    Add the  
+    Because not all users may have this, by default it is disabled.
 
 It is important to know VXWorks files can differ based on VXWorks version and 
 specific compiler options. For this example, we will use a VXWorks binary 
