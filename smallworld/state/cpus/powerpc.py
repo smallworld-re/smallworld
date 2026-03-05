@@ -533,7 +533,7 @@ class PowerPC(cpu.CPU):
         # Extend this as needed.
         self.SPR = {
             # TODO: Some of these have size != wordsize, and many are not correct to directly access
-            sprname: state.Register(("SPR_" + sprname).lower()), size=wordsize)
+            sprname: state.Register(("SPR_" + sprname).lower(), size=wordsize)
             for sprname in QemuPPCSPRNames
         }
         for r in self.SPR.values():

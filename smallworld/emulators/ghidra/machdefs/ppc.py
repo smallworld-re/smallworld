@@ -409,7 +409,7 @@ class PowerPCMachineDef(GhidraMachineDef):
         "spr_usprg7": None,
         "spr_vrsave": None,
         "spr_xer": None,
-        "spr_zpr": None,        
+        "spr_zpr": None,
     }
 
 

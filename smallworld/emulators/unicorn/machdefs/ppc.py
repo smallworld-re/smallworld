@@ -421,7 +421,6 @@ class PPCMachineDef(UnicornMachineDef):
         "spr_vrsave": unicorn.ppc_const.UC_PPC_REG_INVALID,
         "spr_xer": unicorn.ppc_const.UC_PPC_REG_INVALID,
         "spr_zpr": unicorn.ppc_const.UC_PPC_REG_INVALID,
-
     }
 
 

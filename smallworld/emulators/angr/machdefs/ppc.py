@@ -412,7 +412,6 @@ class PowerPCMachineDef(AngrMachineDef):
         "spr_vrsave": "",
         "spr_xer": "",
         "spr_zpr": "",
-
     }
 
 
