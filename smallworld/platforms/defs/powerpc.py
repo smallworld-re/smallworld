@@ -569,6 +569,7 @@ class PowerPCPlatformDef(PlatformDef):
             "spr_vrsave": RegisterDef(name="spr_vrsave", size=self.address_size),
             "spr_xer": RegisterDef(name="spr_xer", size=self.address_size),
             "spr_zpr": RegisterDef(name="spr_zpr", size=self.address_size),
+            "msr": RegisterDef(name="msr", size=self.address_size),
         }
 
 

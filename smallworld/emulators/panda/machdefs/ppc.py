@@ -93,7 +93,7 @@ class PowerPCMachineDef(PandaMachineDef):
         "f29",
         "f30",
         "f31",
-        "xer",
+        # "xer",
         "fpscr",
     }
     _registers = {i: j for i, j in _registers_mapping.items()}
