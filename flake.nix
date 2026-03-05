@@ -33,14 +33,14 @@
     };
 
     # binaryninja = {
-     #   url = "github:jchv/nix-binary-ninja";
-     #   inputs.nixpkgs.follows = "nixpkgs";
-     # };
-     
-     # binjaZip = {
-     #   url = "path:./binaryninja_linux_stable_ultimate.zip";
-     #   flake = false;
-     # };
+    #   url = "github:jchv/nix-binary-ninja";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
+
+    # binjaZip = {
+    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #   flake = false;
+    # };
 
     # For building RTOS Demo
     zephyr = {
