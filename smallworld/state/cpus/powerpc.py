@@ -521,8 +521,8 @@ class PowerPC(cpu.CPU):
         self.add(self.cr7)
 
         # Integer Exception Register
-        self.xer = state.Register("xer", size=4)
-        self.add(self.xer)
+        # self.xer = state.Register("xer", size=4)
+        # self.add(self.xer)
 
         # Floating Point Status and Control Register
         self.fpscr = state.Register("fpscr", size=4)
@@ -533,7 +533,7 @@ class PowerPC(cpu.CPU):
         # Extend this as needed.
         self.SPR = {
             # TODO: Some of these have size != wordsize, and many are not correct to directly access
-            sprname: state.Register("SPR_" + sprname, size=wordsize)
+            sprname: state.Register(("SPR_" + sprname).lower()), size=wordsize)
             for sprname in QemuPPCSPRNames
         }
         for r in self.SPR.values():
