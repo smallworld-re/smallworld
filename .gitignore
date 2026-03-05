@@ -4,7 +4,9 @@
 *.json
 *.elf
 *.so
-
+*~
+*.dot
+*.html
 *.egg-info/
 dist/
 build/
@@ -14,4 +16,6 @@ venv/
 tmp/
 core.*
 /result
+/docs/build
 unicornafl-flake/result
+tests/downstream_flake/flake.lock

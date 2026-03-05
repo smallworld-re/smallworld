@@ -488,6 +488,15 @@ class DMATests(ScriptIntegrationTest):
     def test_dma_mips64el_pcode(self):
         self.run_test("mips64el.pcode", signext=True)
 
+    def test_dma_msp430_pcode(self):
+        self.run_test("msp430.pcode")
+
+    def test_dma_msp430x_angr(self):
+        self.run_test("msp430x.angr")
+
+    def test_dma_msp430x_pcode(self):
+        self.run_test("msp430x.pcode")
+
     def test_dma_ppc(self):
         self.run_test("ppc")
 
@@ -527,19 +536,22 @@ class DMATests(ScriptIntegrationTest):
 
 
 class SquareTests(ScriptIntegrationTest):
-    def run_test(self, arch, signext=False):
+    def run_test(self, arch, signext=False, sixteenbit=False):
         def test_output(number):
             stdout, _ = self.command(f"python3 square/square.{arch}.py {number}")
             res = number**2
             if signext and res & 0xFFFFFFFF80000000 != 0:
                 # MIPS64 sign-extends 32-bit ints to use the full 64-bit register.
                 res = 0xFFFFFFFF80000000 | res
+            if sixteenbit:
+                res = res & 0xFFFF
 
             self.assertLineContainsStrings(stdout, hex(res))
 
         test_output(5)
         test_output(1337)
-        test_output(65535)
+        if not sixteenbit:
+            test_output(65535)
 
     def test_square_amd64(self):
         self.run_test(arch="amd64")
@@ -648,6 +660,15 @@ class SquareTests(ScriptIntegrationTest):
 
     def test_square_mips64el_pcode(self):
         self.run_test(arch="mips64el.pcode", signext=True)
+
+    def test_square_msp430_pcode(self):
+        self.run_test(arch="msp430.pcode", sixteenbit=True)
+
+    def test_square_msp430x_angr(self):
+        self.run_test(arch="msp430x.angr", sixteenbit=True)
+
+    def test_square_msp430x_pcode(self):
+        self.run_test(arch="msp430x.pcode", sixteenbit=True)
 
     def test_square_ppc(self):
         self.run_test("ppc")
@@ -1081,6 +1102,9 @@ class BranchTestsAngr(BranchTests):
     def test_branch_mips64el_angr(self):
         self.run_branch("mips64el.angr", reg="v0")
 
+    def test_branch_msp430x_angr(self):
+        self.run_branch("msp430x.angr", reg="r14")
+
     def test_branch_ppc_angr(self):
         self.run_branch("ppc.angr", reg="r3")
 
@@ -1127,6 +1151,12 @@ class BranchTestsGhidra(BranchTests):
 
     def test_branch_mips64el_pcode(self):
         self.run_branch("mips64el.pcode", reg="v0")
+
+    def test_branch_msp430_pcode(self):
+        self.run_branch("msp430.pcode", reg="r14")
+
+    def test_branch_msp430x_pcode(self):
+        self.run_branch("msp430x.pcode", reg="r14")
 
     def test_branch_ppc_pcode(self):
         self.run_branch("ppc.pcode", reg="r3")
@@ -3887,6 +3917,49 @@ class TraceExecutionTests(ScriptIntegrationTest):
         )
         self.assertLineContainsStrings(
             stdout, "EXPECTED  immediates in trace are correct"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
+
+
+class LoopDetectionTests(ScriptIntegrationTest):
+    def test_trace_is_correct_1(self):
+        stdout, stderr = self.command("python3  loop_detector/test_loop_detector_1.py")
+        self.assertLineContainsStrings(stdout, "EXPECTED  found loop hint in hints1")
+        self.assertLineContainsStrings(stdout, "EXPECTED  found loop hint in hints2")
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  loop hint in hints1 is correct"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  loop hint in hints2 is correct"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
+
+
+class CoverageFrontierTests(ScriptIntegrationTest):
+    def test_coverage_frontier_1(self):
+        stdout, stderr = self.command(
+            "python coverage_frontier/test_coverage_frontier_1.py"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  One hint returned, as expected"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  One item in coverage frontier, as expected"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  Coverage frontier is as expected: 0x1158"
+        )
+        self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
+
+    def test_coverage_frontier_2(self):
+        stdout, stderr = self.command(
+            "python coverage_frontier/test_coverage_frontier_2.py"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  One hint returned, as expected"
+        )
+        self.assertLineContainsStrings(
+            stdout, "EXPECTED  Zero items in coverage frontier, as expected"
         )
         self.assertLineContainsStrings(stdout, "EXPECTED  No unexpected results")
 
