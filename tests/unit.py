@@ -1167,6 +1167,7 @@ class PandaMachdefTests(unittest.TestCase):
 
         regs_needed = set(platdef.registers.keys())
         regs_needed -= machdef._registers.keys()
+        regs_needed = set(filter(lambda x: not x.startswith('spr_'), regs_needed))
         if platdef.pc_register != "pc":
             regs_needed -= set(["pc"])
 

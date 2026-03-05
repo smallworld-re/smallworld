@@ -125,7 +125,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
                     f"Register {name} not recognized by Panda for {self.arch}:{self.byteorder}"
                 )
             return res
-        elif name.startswith("SPR_"):
+        elif name.startswith("spr_"):
             self._panda_get_spr_regs(panda_obj, panda_cpu)
             if name.upper() in panda_obj.arch.registers_spr.keys():
                 return name.upper()
@@ -146,7 +146,7 @@ class PowerPC32MachineDef(PowerPCMachineDef):
         """
         if name in self._registers and self._registers[name] is not None:
             return True
-        elif name.startswith("SPR_"):
+        elif name.startswith("spr_"):
             self._panda_get_spr_regs(panda_obj, panda_cpu)
             return name.upper() in panda_obj.arch.registers_spr.keys()
         else:

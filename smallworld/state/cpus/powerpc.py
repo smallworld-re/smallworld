@@ -538,7 +538,7 @@ class PowerPC(cpu.CPU):
         }
         for k,r in self.SPR.items():
             self.add(r)
-            setattr(self, k, r)
+            setattr(self, "spr_" + k.lower(), r)
 
         # Machine State Register
         self.msr = state.Register("msr", size=wordsize)
