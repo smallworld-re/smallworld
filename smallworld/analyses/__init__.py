@@ -26,7 +26,17 @@ try:
 except ImportError:
     pass
 
-from .crash_triage import CrashTriage, CrashTriagePrinter, CrashTriageVerification
+try:
+    from .crash_triage import CrashTriage, CrashTriagePrinter, CrashTriageVerification
+
+    __all__ += [
+        "CrashTriage",
+        "CrashTriagePrinter",
+        "CrashTriageVerification",
+    ]
+except ImportError:
+    pass
+
 from .loop_detection import LoopDetection
 from .trace_execution import TraceExecution
 from .trace_execution_types import CmpInfo, TraceElement, TraceRes
@@ -35,9 +45,6 @@ __all__ += [
     "Colorizer",
     "ColorizerSummary",
     "ColorizerReadWrite",
-    "CrashTriage",
-    "CrashTriagePrinter",
-    "CrashTriageVerification",
     "TraceExecution",
     "TraceElement",
     "TraceRes",
