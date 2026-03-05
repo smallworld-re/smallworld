@@ -536,8 +536,9 @@ class PowerPC(cpu.CPU):
             sprname: state.Register(("SPR_" + sprname).lower(), size=wordsize)
             for sprname in QemuPPCSPRNames
         }
-        for r in self.SPR.values():
+        for k,r in self.SPR.items():
             self.add(r)
+            setattr(self, k, r)
 
         # Machine State Register
         self.msr = state.Register("msr", size=wordsize)
