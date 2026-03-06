@@ -413,6 +413,7 @@
             pyFinal.pypanda
             pyFinal.unicornafl
             pyFinal.unicorn
+            pyFinal.angr
           ];
 
           # The pyproject-nix/uv2nix package set built by this flake for the current system.
@@ -431,6 +432,14 @@
               "smallworld-re"
               "pyghidra"
               "pypcode"
+              "angr"
+              "pyvex"
+              "cle"
+              "archinfo"
+              "ailment"
+              "claripy"
+              "pyxdia"
+              "uefi-firmware"
             ];
           };
 
@@ -438,6 +447,14 @@
             pyFinal: pyPrev:
             let
               converted = basePyOverlay pyFinal pyPrev;
+
+              angrFixed = converted.angr.overridePythonAttrs (old: {
+                postFixup = (old.postFixup or "") + ''
+                  # autoPatchelf only searches $dep/lib by default.
+                  # libpyvex.so is inside pyvex's site-packages, so add it explicitly.
+                  addAutoPatchelfSearchPath ${pyFinal.pyvex}
+                '';
+              });
 
               # Make `smallworld` (and `smallworld-re`) automatically pull in heavy/native
               # add-ons that downstream users often expect.
@@ -448,6 +465,7 @@
             in
             converted
             // {
+              angr = angrFixed;
               "smallworld-re" = smallworldWithAllDeps;
               smallworld = smallworldWithAllDeps;
             };
