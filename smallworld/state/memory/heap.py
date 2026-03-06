@@ -60,7 +60,7 @@ class Heap(memory.Memory):
         value = state.BytesValue(content, label)
         return self.allocate(value)
 
-    def allocate_ctype(self, content, label: str) -> int:
+    def allocate_ctype(self, content: state.CTypesAny, label: str) -> int:
         """Allocate space for and write structured bytes to the heap.
 
         Arguements:

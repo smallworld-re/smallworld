@@ -218,7 +218,7 @@ class Value(metaclass=abc.ABCMeta):
         return b""
 
     @classmethod
-    def from_ctypes(cls, ctype: typing.Any, label: str):
+    def from_ctypes(cls, ctype: CTypesAny, label: str):
         """Load from an existing ctypes value.
 
         Arguements:

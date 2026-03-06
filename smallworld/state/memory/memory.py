@@ -1,7 +1,10 @@
+import ctypes
 import os
 import typing
 
 import claripy
+
+from smallworld.exceptions.exceptions import ConfigurationError
 
 from ... import emulators, exceptions, platforms
 from .. import state
@@ -172,7 +175,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
                 if isinstance(segment, state.SymbolicValue):
                     raise exceptions.SymbolicValueError(
-                        f"Tried to write {len(data)} bytes at {hex(address)}.  Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
+                        f"Tried to write {len(data)} bytes at {hex(address)}. Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
                     )
 
                 contents = segment.to_bytes()
@@ -190,12 +193,18 @@ class Memory(state.Stateful, dict[int, state.Value]):
                         )
                         segment.set_content(as_int)
                     case _:
-                        # CTypeValue
-                        ctype_subclass = typing.cast(
-                            state.CTypesAny, segment.get_type()
-                        )
-                        as_ctype = ctype_subclass.from_buffer_copy(new_segment_bytes)
-                        segment.set_content(as_ctype)
+                        # Check for CTypeValue
+                        segment_content = segment.get_content()
+                        if isinstance(segment_content, ctypes.Structure) or isinstance(
+                            segment_content, ctypes.Union
+                        ):
+                            segment_type = segment_content.__class__
+                            as_ctype = segment_type.from_buffer_copy(new_segment_bytes)
+                            segment.set_content(as_ctype)
+                        else:
+                            raise ConfigurationError(
+                                f"Data at {hex(segment_start)} - {hex(segment_end)} has indeterminate type {segment.get_type()}."
+                            )
 
         gap_end = self.address + self.size
         if data_start <= gap_end and gap_start <= data_end:
