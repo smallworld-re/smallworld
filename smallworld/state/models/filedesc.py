@@ -207,7 +207,7 @@ class StdinFileDescriptor(FileDescriptor):
     """
 
     def __init__(self):
-        super().__init__("stdin", readable=True)
+        super().__init__("/dev/pts/0", readable=True)
 
     @property
     def _backing(self) -> typing.IO:
@@ -221,7 +221,7 @@ class StdoutFileDescriptor(FileDescriptor):
     """
 
     def __init__(self):
-        super().__init__("stdout", writable=True)
+        super().__init__("/dev/pts/0", writable=True)
 
     @property
     def _backing(self) -> typing.IO:
@@ -235,7 +235,7 @@ class StderrFileDescriptor(FileDescriptor):
     """
 
     def __init__(self):
-        super().__init__("stderr", writable=True)
+        super().__init__("/dev/pts/0", writable=True)
 
     @property
     def _backing(self) -> typing.IO:
@@ -261,9 +261,9 @@ class FileDescriptorManager:
     There can absolutely be ABI-specific subclasses.
     """
 
-    _singletons: typing.Dict[typing.Tuple[Platform, ABI], "FileDescriptorManager"] = (
-        dict()
-    )
+    _singletons: typing.Dict[
+        typing.Tuple[Platform, ABI], "FileDescriptorManager"
+    ] = dict()
 
     def __init__(self):
         # Enables full FS modeling.
@@ -278,6 +278,21 @@ class FileDescriptorManager:
         self._fds[0] = StdinFileDescriptor()
         self._fds[1] = StdoutFileDescriptor()
         self._fds[2] = StderrFileDescriptor()
+
+    def _get_free_fd(self) -> int:
+        # Get the next free file descriptor,
+        # or raise an exception if we're out.
+
+        # Limited to 256 file descriptors thanks to shenanigans with FILE * management.
+        # If you need more than 256 file descriptors in a micro-execution context,
+        # I have many questions.
+
+        # There is probably a faster way to do this.
+        # I neither know nor care.
+        for fd in range(0, 1 << 8):
+            if fd not in self._fds:
+                return fd
+        raise FDIOError("Ran out of fds")
 
     def add_file(self, name: str, init: bytes = b"") -> None:
         """Add a file to the manager
@@ -346,41 +361,35 @@ class FileDescriptorManager:
         Returns:
             An integer file descriptor
         """
-
-        # Limited to 256 file descriptors thanks to shenanigans with FILE * management.
-        # If you need more than 256 file descriptors in a micro-execution context,
-        # I have many questions.
-        for fd in range(0, 1 << 8):
-            if fd not in self._fds:
-                if self.model_fs:
-                    if name not in self._files:
-                        if not create:
-                            raise FDIOError(
-                                f"{name} does not exist, and creation not specified"
-                            )
-                        self.add_file(name, b"")
-
-                    initial = self._files[name]
-
-                    if truncate:
-                        initial.truncate()
-
-                    self._fds[fd] = BytesFileDescriptor(
-                        name,
-                        initial,
-                        readable=readable,
-                        writable=writable,
-                        seekable=seekable,
+        fd = self._get_free_fd()
+        if self.model_fs:
+            if name not in self._files:
+                if not create:
+                    raise FDIOError(
+                        f"{name} does not exist, and creation not specified"
                     )
+                self.add_file(name, b"")
 
-                    if append:
-                        self._fds[fd].cursor = len(initial.getvalue())
-                else:
-                    self._fds[fd] = FileDescriptor(
-                        name, readable=readable, writable=writable, seekable=seekable
-                    )
-                return fd
-        raise FDIOError("Ran out of fds")
+            initial = self._files[name]
+
+            if truncate:
+                initial.truncate()
+
+            self._fds[fd] = BytesFileDescriptor(
+                name,
+                initial,
+                readable=readable,
+                writable=writable,
+                seekable=seekable,
+            )
+
+            if append:
+                self._fds[fd].cursor = len(initial.getvalue())
+        else:
+            self._fds[fd] = FileDescriptor(
+                name, readable=readable, writable=writable, seekable=seekable
+            )
+        return fd
 
     def close(self, fd: int) -> None:
         """Close a file
@@ -392,6 +401,43 @@ class FileDescriptorManager:
             raise FDIOError(f"Unknown fd {fd}")
 
         del self._fds[fd]
+
+    def dup(self, old_fd: int, new_fd: typing.Optional[int] = None) -> int:
+        """Duplicate a file descriptor
+
+        This will result in two integer fds that reference the same file stream;
+        operations performed on one fd will be reflected on the other fd.
+
+        This observes the same behavior as the dup() and dup2()
+        system calls:
+
+        - If new_fd is not specified, this will allocate the next available FD.
+        - If new_fd is specified:
+            - If new_fd is free, it will be assigned to the stream referenced by old_fd
+            - If new_fd is already open, it will be reassigned to the stream referenced by old_fd
+
+
+        Arguments:
+            old_fd: Integer file descriptor to duplicate
+            new_fd: Integer file descriptor to override, or None to allocate a new fd.
+
+        Returns:
+            The new integer fd
+
+        Raises:
+            FDIOError: If old_fd is not open, or old_fd or new_fd are not valid fds.
+        """
+
+        filedesc = self.get(old_fd)
+        if new_fd is None:
+            new_fd = self._get_free_fd()
+
+        if new_fd < 0 or new_fd >= 256:
+            raise FDIOError(f"Invalid new_fd: {new_fd}")
+
+        self._fds[new_fd] = filedesc
+
+        return new_fd
 
     def get(self, fd: int) -> FileDescriptor:
         """Get the file representaiton by its integer file descriptor
