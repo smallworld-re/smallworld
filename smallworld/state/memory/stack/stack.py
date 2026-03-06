@@ -65,7 +65,7 @@ class Stack(memory.Memory):
             The stack pointer after the push.
         """
 
-        value = state.IntegerValue(integer, size, label)
+        value = state.IntegerValue(integer, size, label, self.platform.byteorder)
         return self.push(value)
 
     def push_bytes(self, content: typing.Union[bytes, bytearray], label: str) -> int:
@@ -81,7 +81,7 @@ class Stack(memory.Memory):
         value = state.BytesValue(content, label)
         return self.push(value)
 
-    def push_ctype(self, content: typing.Any, label: str) -> int:
+    def push_ctype(self, content: state.CTypesAny, label: str) -> int:
         """Push some structured bytes to the stack.
 
         Arguments:
