@@ -53,6 +53,22 @@
         "type": "github"
       }
     },
+    "nixpkgs-25-11": {
+      "locked": {
+        "lastModified": 1772598333,
+        "narHash": "sha256-YaHht/C35INEX3DeJQNWjNaTcPjYmBwwjFJ2jdtr+5U=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "fabb8c9deee281e50b1065002c9828f2cf7b2239",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-25.11",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "nixpkgs-esp-dev": {
       "flake": false,
       "locked": {
@@ -178,13 +194,13 @@
     "root": {
       "inputs": {
         "nixpkgs": "nixpkgs",
+        "nixpkgs-25-11": "nixpkgs-25-11",
         "nixpkgs-esp-dev": "nixpkgs-esp-dev",
         "panda-ng": "panda-ng",
         "pyproject-build-systems": "pyproject-build-systems",
         "pyproject-nix": "pyproject-nix",
         "uv2nix": "uv2nix",
         "west2nix": "west2nix",
-        "zephyr": "zephyr",
         "zephyr-nix": "zephyr-nix"
       }
     },
@@ -214,7 +230,7 @@
     "west2nix": {
       "inputs": {
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-25-11"
         ],
         "zephyr-nix": [
           "zephyr-nix"
@@ -237,16 +253,16 @@
     "zephyr": {
       "flake": false,
       "locked": {
-        "lastModified": 1697797249,
-        "narHash": "sha256-72QFsKOWkF6BiP4XgZAXXSBcN4t6yvhAeXCpgCYrhe8=",
+        "lastModified": 1763048108,
+        "narHash": "sha256-NSv0utc4dqeJClldgFxezt0/qNJ1Xb0sh7zN5qa3uVk=",
         "owner": "zephyrproject-rtos",
         "repo": "zephyr",
-        "rev": "a6eef0ba3755f2530c5ce93524e5ac4f5be30194",
+        "rev": "3568e1b6d5cdd51a6b964a2a1d6d29200fea2056",
         "type": "github"
       },
       "original": {
         "owner": "zephyrproject-rtos",
-        "ref": "v3.5.0",
+        "ref": "v4.3.0",
         "repo": "zephyr",
         "type": "github"
       }
@@ -255,12 +271,10 @@
       "inputs": {
         "nix-github-actions": "nix-github-actions",
         "nixpkgs": [
-          "nixpkgs"
+          "nixpkgs-25-11"
         ],
         "pyproject-nix": "pyproject-nix_2",
-        "zephyr": [
-          "zephyr"
-        ]
+        "zephyr": "zephyr"
       },
       "locked": {
         "lastModified": 1767791772,

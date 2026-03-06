@@ -43,20 +43,17 @@
     # };
 
     # For building RTOS Demo
-    zephyr = {
-      url = "github:zephyrproject-rtos/zephyr/v3.5.0";
-      flake = false;
-    };
-
+    # NOTE: nixpkgs-unstable removed python310, which is
+    # required to build zephyr. So we pin nixpkgs to 25.11
+    # when building our RTOS Demo binary.
+    nixpkgs-25-11.url = "github:nixos/nixpkgs/nixos-25.11";
     zephyr-nix = {
       url = "github:adisbladis/zephyr-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.zephyr.follows = "zephyr";
+      inputs.nixpkgs.follows = "nixpkgs-25-11";
     };
-
     west2nix = {
       url = "github:adisbladis/west2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs.follows = "nixpkgs-25-11";
       inputs.zephyr-nix.follows = "zephyr-nix";
     };
   };
