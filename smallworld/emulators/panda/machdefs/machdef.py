@@ -27,7 +27,7 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
 
     _registers: typing.Dict[str, typing.Optional[str]] = {}
 
-    def panda_reg(self, name: str) -> str:
+    def panda_reg(self, name: str, panda_obj, panda_cpu) -> str:
         if name in self._registers:
             res = self._registers[name]
             if res is None:
@@ -40,7 +40,7 @@ class PandaMachineDef(metaclass=abc.ABCMeta):
                 f"Unknown register for {self.arch}:{self.byteorder}: {name}"
             )
 
-    def check_panda_reg(self, name: str) -> bool:
+    def check_panda_reg(self, name: str, panda_obj, panda_cpu) -> bool:
         """Convert a register name to panda cpu field, index, mask
 
         This must cover all names defined in the CPU state model

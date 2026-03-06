@@ -1,11 +1,23 @@
-from .angr import *  # noqa: F401, F403
-from .angr import __all__ as __angr__
+try:
+    from .angr import *  # noqa: F401, F403
+    from .angr import __all__ as __angr__
+except ImportError:
+    __angr__ = []
+
 from .emulator import *  # noqa: F401, F403
 from .emulator import __all__ as __emulator__
-from .ghidra import *  # noqa: F401, F403
-from .ghidra import __all__ as __pcode__
-from .unicorn import *  # noqa: F401, F403
-from .unicorn import __all__ as __unicorn__
+
+try:
+    from .ghidra import *  # noqa: F401, F403
+    from .ghidra import __all__ as __pcode__
+except ImportError:
+    __pcode__ = []
+
+try:
+    from .unicorn import *  # noqa: F401, F403
+    from .unicorn import __all__ as __unicorn__
+except ImportError:
+    __unicorn__ = []
 
 try:
     from .panda import *  # noqa: F401, F403
