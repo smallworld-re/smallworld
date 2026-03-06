@@ -450,15 +450,13 @@
             pyFinal: pyPrev:
             let
               converted = basePyOverlay pyFinal pyPrev;
-              
+
               angrFixed = converted.angr.overridePythonAttrs (old: {
-                postFixup =
-                  (old.postFixup or "")
-                  + ''
-                    # autoPatchelf only searches $dep/lib by default.
-                    # libpyvex.so is inside pyvex's site-packages, so add it explicitly.
-                    addAutoPatchelfSearchPath ${pyFinal.pyvex}
-                    '';
+                postFixup = (old.postFixup or "") + ''
+                  # autoPatchelf only searches $dep/lib by default.
+                  # libpyvex.so is inside pyvex's site-packages, so add it explicitly.
+                  addAutoPatchelfSearchPath ${pyFinal.pyvex}
+                '';
               });
 
               # Make `smallworld` (and `smallworld-re`) automatically pull in heavy/native
