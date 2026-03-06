@@ -42,7 +42,7 @@ dev = [
 
 [project.optional-dependencies]
 emu-angr = [
-    "angr>=9.2.102; python_version >= '3.10'",
+    "angr>=9.2.102",
 ]
 emu-ghidra = [
     "pyghidra>=3.0",
@@ -64,8 +64,3 @@ license-files = ["LICENSE.txt"]
 
 [tool.setuptools.packages.find]
 include = ["smallworld*"]
-
-[tool.uv]
-exclude-dependencies = [
-    "pandare2"
-]
