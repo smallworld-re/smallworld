@@ -32,19 +32,34 @@
       flake = false;
     };
 
+    # binaryninja = {
+    #   url = "github:jchv/nix-binary-ninja";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
+
+    # binjaZip = {
+    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #   flake = false;
+    # };
+
     # For building RTOS Demo
     # NOTE: nixpkgs-unstable removed python310, which is
     # required to build zephyr. So we pin nixpkgs to 25.11
     # when building our RTOS Demo binary.
     nixpkgs-25-11.url = "github:nixos/nixpkgs/nixos-25.11";
-    zephyr-nix.url = "github:adisbladis/zephyr-nix";
-    west2nix.url = "github:adisbladis/west2nix";
-    west2nix.inputs.nixpkgs.follows = "nixpkgs-25-11";
-    west2nix.inputs.zephyr-nix.follows = "zephyr-nix";
+    zephyr-nix = {
+      url = "github:adisbladis/zephyr-nix";
+      inputs.nixpkgs.follows = "nixpkgs-25-11";
+    };
+    west2nix = {
+      url = "github:adisbladis/west2nix";
+      inputs.nixpkgs.follows = "nixpkgs-25-11";
+      inputs.zephyr-nix.follows = "zephyr-nix";
+    };
   };
 
   outputs =
-    {
+    inputs@{
       self,
       nixpkgs,
       pyproject-nix,
@@ -60,6 +75,9 @@
       lib = nixpkgs.lib;
       systems = lib.systems.flakeExposed;
       forAllSystems = lib.genAttrs systems;
+
+      binaryninja = inputs.binaryninja or null;
+      binjaZip = inputs.binjaZip or null;
 
       pkgsFor = system: nixpkgs.legacyPackages.${system};
 
@@ -187,6 +205,17 @@
         in
         pythonSet.mkVirtualEnv "smallworld-re-env" deps
       );
+
+      bnUltimate = forAllSystems (
+        system:
+        if binaryninja != null && binjaZip != null then
+          let
+            bnPkgs = binaryninja.packages.${system};
+          in
+          bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+        else
+          null
+      );
     in
     rec {
       devShells = forAllSystems (
@@ -202,11 +231,15 @@
             qemu.${system}
             pkgs.ghidra
             pkgs.jdk
-          ];
+          ]
+          ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
+          bnPath = lib.optionalString (bnUltimate.${system} != null) "${bnUltimate.${system}}";
+
+          bnPythonPath = lib.optionalString (
+            bnUltimate.${system} != null
+          ) "${bnUltimate.${system}}/opt/binaryninja/python";
 
           GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-
-          # Used by the imperative shell's PYTHONPATH.
           smallworldBuilt = packages.${system}.default;
 
           # Shell that exposes `python312.withPackages (ps: [ ps.smallworld ])`.
@@ -244,7 +277,10 @@
             shellHook = ''
               unset PYTHONPATH
               export REPO_ROOT=$(git rev-parse --show-toplevel)
-            '';
+            ''
+            + lib.optionalString (bnUltimate.${system} != null) ''
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
           };
 
           imperative = pkgs.mkShell {
@@ -262,6 +298,8 @@
             shellHook = ''
               export PYTHONPATH="${smallworldBuilt}/${pythonSet.python.sitePackages}:${virtualenv}/${pythonSet.python.sitePackages}:$PYTHONPATH"
               unset SOURCE_DATE_EPOCH
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnPythonPath}:$PYTHONPATH
             '';
           };
         }
@@ -310,7 +348,9 @@
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           qemu = qemu.${system};
-
+          binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
+            default = bnUltimate.${system};
+          };
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";

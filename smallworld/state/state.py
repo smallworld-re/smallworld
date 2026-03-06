@@ -412,7 +412,7 @@ class Register(Value, Stateful):
                 )
             if isinstance(content, int) and content < 0:
                 logger.warn(
-                    "Converting content {hex(content)} of {self.name} to unsigned."
+                    f"Converting content {hex(content)} of {self.name} to unsigned."
                 )
                 content = content + (2 ** (self.size * 8))
             if isinstance(content, claripy.ast.bv.BV):
@@ -600,7 +600,7 @@ class FixedRegister(Register):
 
     def set_content(self, value: typing.Optional[typing.Any]):
         raise exceptions.ConfigurationError(
-            "Register {self.name} is fixed; it cannot be set"
+            f"Register {self.name} is fixed; it cannot be set"
         )
 
     def get_label(self) -> typing.Optional[str]:
