@@ -13,6 +13,16 @@ on:
         description: "Flake URI to override pandare input"
         required: false
         type: string
+      run-lint:
+        description: "Whether to run the Lint job"
+        required: false
+        type: boolean
+        default: true
+      run-downstream:
+        description: "Whether to run the Downstream-Flake job"
+        required: false
+        type: boolean
+        default: true
 
 env:
   TZ: UTC
@@ -31,6 +41,7 @@ jobs:
 
     steps:
       - name: Setup Nix Overrides
+        if: ${{ inputs.run-lint != false }}
         run: |
           OVERRIDES=""
           if [ -n "${{ inputs.panda-ng-override }}" ]; then
@@ -42,6 +53,7 @@ jobs:
           echo "FLAKE_OVERRIDES=$OVERRIDES" >> $GITHUB_ENV
 
       - uses: cachix/cachix-action@v15
+        if: ${{ inputs.run-lint != false }}
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
@@ -50,25 +62,26 @@ jobs:
         uses: actions/checkout@v3
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
+        if: ${{ inputs.run-lint != false && env.bot_token != '' }}
         with:
           token: ${{ secrets.BOT_TOKEN }}
 
       - name: Cache inputs
         env:
           cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
-        if: ${{ env.cachix_token != '' }}
+        if: ${{ inputs.run-lint != false && env.cachix_token != '' }}
         run: |
           nix run .#printInputsRecursive $FLAKE_OVERRIDES | cachix push smallworld
 
       - name: Build devshell
+        if: ${{ inputs.run-lint != false }}
         run: |
           nix -L develop $FLAKE_OVERRIDES -c true
 
       - name: Format
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
+        if: ${{ inputs.run-lint != false && env.bot_token != '' }}
         run: |
           nix develop $FLAKE_OVERRIDES -c isort . --profile black
           nix develop $FLAKE_OVERRIDES -c black ./
@@ -78,18 +91,19 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         env: 
           bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
+        if: ${{ inputs.run-lint != false && env.bot_token != '' }}
         with:
           commit_message: "style: isort and black"
           commit_author: GitHub Actions <actions@github.com>
 
       - name: Changes Detected
-        if: steps.ac.outputs.changes_detected == 'true'
+        if: ${{ inputs.run-lint != false && steps.ac.outputs.changes_detected == 'true' }}
         run: |
-            echo "Linters caused a commit.  Terminating run; tests will continue on next commit"
-            exit 1        
+          echo "Linters caused a commit.  Terminating run; tests will continue on next commit"
+          exit 1        
 
       - name: Lint
+        if: ${{ inputs.run-lint != false }}
         run: |
           nix develop $FLAKE_OVERRIDES -c isort --check --profile black .
           nix develop $FLAKE_OVERRIDES -c black --check ./
@@ -99,12 +113,13 @@ jobs:
 
       - name: Check Title
         # Only run this check if running natively in smallworld, skip if called downstream
-        if: github.repository == 'smallworld-re/smallworld'
+        if: ${{ inputs.run-lint != false && github.repository == 'smallworld-re/smallworld' }}
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: nix develop $FLAKE_OVERRIDES -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
       - name: Build Test Artifacts
+        if: ${{ inputs.run-lint != false }}
         run: |
           nix build .#tests $FLAKE_OVERRIDES
           nix build .#rtos_demo $FLAKE_OVERRIDES
@@ -154,11 +169,14 @@ jobs:
     needs: Lint
     steps:
       - uses: cachix/cachix-action@v15
+        if: ${{ inputs.run-downstream != false }}
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
       - uses: actions/checkout@v4
+        if: ${{ inputs.run-downstream != false }}
       - name: Test Flake
+        if: ${{ inputs.run-downstream != false }}
         run: |
           cd tests/downstream_flake
           nix flake update
