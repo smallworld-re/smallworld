@@ -141,6 +141,17 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
+      - name: Setup Nix Overrides
+        run: |
+          OVERRIDES=""
+          if [ -n "${{ inputs.panda-ng-override }}" ]; then
+            OVERRIDES="$OVERRIDES --override-input panda-ng ${{ inputs.panda-ng-override }}"
+          fi
+          if [ -n "${{ inputs.pandare-override }}" ]; then
+            OVERRIDES="$OVERRIDES --override-input pandare ${{ inputs.pandare-override }}"
+          fi
+          echo "FLAKE_OVERRIDES=$OVERRIDES" >> $GITHUB_ENV
+
       - uses: cachix/cachix-action@v15
         with:
           name: smallworld
@@ -149,8 +160,14 @@ jobs:
       - name: Run Example
         run: |
           cd examples
-          sed -i 's/github:smallworld-re\/smallworld/../' nix-harness.py
-          ./nix-harness.py 100
+          if [ -z "$FLAKE_OVERRIDES" ]; then
+            # No overrides: test the shebang functionality directly using the local flake
+            sed -i 's/github:smallworld-re\/smallworld/../' nix-harness.py
+            ./nix-harness.py 100
+          else
+            # Overrides present: bypass the shebang to inject dynamic flake overrides
+            nix develop .. $FLAKE_OVERRIDES -c python3 nix-harness.py 100
+          fi
   
   Downstream-Flake:
     runs-on: smallworld-arc
