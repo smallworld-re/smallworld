@@ -49,65 +49,31 @@ machine.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 
 # We support PANDA-ng, Ghidra, Unicorn, and angr. Not all emulators support all platforms. They all share the same API.
+emulators = [
+    smallworld.emulators.PandaEmulator(platform),
+    smallworld.emulators.GhidraEmulator(platform),
+    smallworld.emulators.UnicornEmulator(platform),
+    smallworld.emulators.AngrEmulator(platform)
+]
 
-# Create a PANDA-ng emulator.
-panda_ng = smallworld.emulators.PandaEmulator(platform)
+# Configure angr to use linear exploration
+emulators[3].enable_linear()
 
-# Emulate our machine
-panda_machine = machine.emulate(panda_ng)
+expected_r3 = 1 if input_arg == 100 else 0
 
-# # read out r3
-panda_r3 = panda_machine.get_cpu().r3.get()
+for emulator in emulators:
+    name = emulator.__class__.__name__
+    logging.info(f"Emulating with {name}...")
+    
+    # Emulate our machine
+    emu_machine = machine.emulate(emulator)
 
-# check that our function behaves the way we expect
-if (input_arg == 100) and (panda_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (panda_r3 != 0):
-    sys.exit(1)
+    # Read out r3
+    actual_r3 = emu_machine.get_cpu().r3.get()
 
-# Create a Ghidra emulator.
-ghidra = smallworld.emulators.GhidraEmulator(platform)
-
-# Emulate our machine
-ghidra_machine = machine.emulate(ghidra)
-
-# read out r3
-ghidra_r3 = ghidra_machine.get_cpu().r3.get()
-
-# check that our function behaves the way we expect
-if (input_arg == 100) and (ghidra_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (ghidra_r3 != 0):
-    sys.exit(1)
-
-
-# Create a Unicorn emulator.
-unicorn = smallworld.emulators.UnicornEmulator(platform)
-
-# Emulate our machine
-unicorn_machine = machine.emulate(unicorn)
-
-# read out r3
-unicorn_r3 = unicorn_machine.get_cpu().r3.get()
-
-# check that our function behaves the way we expect
-if (input_arg == 100) and (unicorn_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (unicorn_r3 != 0):
-    sys.exit(1)
-
-# Create an angr emulator.
-angr = smallworld.emulators.AngrEmulator(platform)
-angr.enable_linear()
-
-# Emulate our machine
-angr_machine = machine.emulate(angr)
-
-# read out r3
-angr_r3 = angr_machine.get_cpu().r3.get()
-
-# check that our function behaves the way we expect
-if (input_arg == 100) and (angr_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (angr_r3 != 0):
-    sys.exit(1)
+    # Check that our function behaves the way we expect
+    if actual_r3 != expected_r3:
+        logging.error(f"{name} failed: expected r3={expected_r3}, got r3={actual_r3}")
+        sys.exit(1)
+        
+    logging.info(f"{name} succeeded.")
