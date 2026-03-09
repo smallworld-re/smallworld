@@ -40,18 +40,6 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - name: Setup Nix Overrides
-        if: ${{ inputs.run-lint != false }}
-        run: |
-          OVERRIDES=""
-          if [ -n "${{ inputs.panda-ng-override }}" ]; then
-            OVERRIDES="$OVERRIDES --override-input panda-ng ${{ inputs.panda-ng-override }}"
-          fi
-          if [ -n "${{ inputs.pandare-override }}" ]; then
-            OVERRIDES="$OVERRIDES --override-input pandare ${{ inputs.pandare-override }}"
-          fi
-          echo "FLAKE_OVERRIDES=$OVERRIDES" >> $GITHUB_ENV
-
       - uses: cachix/cachix-action@v15
         if: ${{ inputs.run-lint != false }}
         with:
@@ -71,21 +59,21 @@ jobs:
           cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
         if: ${{ inputs.run-lint != false && env.cachix_token != '' }}
         run: |
-          nix run .#printInputsRecursive $FLAKE_OVERRIDES | cachix push smallworld
+          nix run .#printInputsRecursive | cachix push smallworld
 
       - name: Build devshell
         if: ${{ inputs.run-lint != false }}
         run: |
-          nix -L develop $FLAKE_OVERRIDES -c true
+          nix -L develop -c true
 
       - name: Format
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ inputs.run-lint != false && env.bot_token != '' }}
         run: |
-          nix develop $FLAKE_OVERRIDES -c isort . --profile black
-          nix develop $FLAKE_OVERRIDES -c black ./
-          nix develop $FLAKE_OVERRIDES -c treefmt -f nixfmt --no-cache
+          nix develop -c isort . --profile black
+          nix develop -c black ./
+          nix develop -c treefmt -f nixfmt --no-cache
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -105,24 +93,24 @@ jobs:
       - name: Lint
         if: ${{ inputs.run-lint != false }}
         run: |
-          nix develop $FLAKE_OVERRIDES -c isort --check --profile black .
-          nix develop $FLAKE_OVERRIDES -c black --check ./
-          nix develop $FLAKE_OVERRIDES -c flake8 ./
-          nix develop $FLAKE_OVERRIDES -c mypy --explicit-package-bases --ignore-missing-imports ./
-          nix develop $FLAKE_OVERRIDES -c treefmt -f nixfmt --ci
+          nix develop -c isort --check --profile black .
+          nix develop -c black --check ./
+          nix develop -c flake8 ./
+          nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
+          nix develop -c treefmt -f nixfmt --ci
 
       - name: Check Title
         # Only run this check if running natively in smallworld, skip if called downstream
         if: ${{ inputs.run-lint != false && github.repository == 'smallworld-re/smallworld' }}
         env:
           TITLE: ${{ github.event.pull_request.title }}
-        run: nix develop $FLAKE_OVERRIDES -c bash .github/workflows/scripts/conventional.sh "$TITLE"
+        run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
 
       - name: Build Test Artifacts
         if: ${{ inputs.run-lint != false }}
         run: |
-          nix build .#tests $FLAKE_OVERRIDES
-          nix build .#rtos_demo $FLAKE_OVERRIDES
+          nix build .#tests
+          nix build .#rtos_demo
 
   Unit-Test:
     runs-on: smallworld-arc
