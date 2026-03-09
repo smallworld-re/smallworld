@@ -70,7 +70,7 @@ class Executable(memory.RawMemory):
             raise NotImplementedError(
                 "Absolutely not.  Get your symbolic code out of here."
             )
-        emulator.write_code(address, value.to_bytes(emulator.platform.byteorder))
+        emulator.write_code(address, value.to_bytes())
 
     @classmethod
     def from_elf(

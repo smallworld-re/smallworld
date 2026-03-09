@@ -130,16 +130,24 @@ gdata[58] = smallworld.state.BytesValue(b"\x00\x00", "buf.msg.hdr.f")
 # and the total number of characters and delimiters can't exceed 256.
 # NOTE: I concretized the characters for later examples;
 # they trigger forks due to character class checks.
-gdata[60] = smallworld.state.IntegerValue(2, 1, "buf.a.item.0.text.0.len")
+gdata[60] = smallworld.state.IntegerValue(
+    2, 1, "buf.a.item.0.text.0.len", code.platform.byteorder
+)
 gdata[61] = smallworld.state.BytesValue(b"a", "buf.a.item.0.text.0.0")
 gdata[62] = smallworld.state.BytesValue(b"b", "buf.a.item.0.text.0.1")
-gdata[63] = smallworld.state.IntegerValue(0, 1, "buf.a.item.0.text.1.len")
+gdata[63] = smallworld.state.IntegerValue(
+    0, 1, "buf.a.item.0.text.1.len", code.platform.byteorder
+)
 gdata[64] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.a")
 gdata[66] = smallworld.state.SymbolicValue(2, None, None, "buf.a.item.0.b")
-gdata[68] = smallworld.state.IntegerValue(2, 1, "buf.b.item.0.text.0.len")
+gdata[68] = smallworld.state.IntegerValue(
+    2, 1, "buf.b.item.0.text.0.len", code.platform.byteorder
+)
 gdata[69] = smallworld.state.BytesValue(b"c", "buf.b.item.0.text.0.0")
 gdata[70] = smallworld.state.BytesValue(b"d", "buf.b.item.0.text.0.1")
-gdata[71] = smallworld.state.IntegerValue(0, 1, "buf.b.item.0.text.1.len")
+gdata[71] = smallworld.state.IntegerValue(
+    0, 1, "buf.b.item.0.text.1.len", code.platform.byteorder
+)
 gdata[72] = smallworld.state.SymbolicValue(2, None, None, "buf.b.item.0.a")
 gdata[74] = smallworld.state.SymbolicValue(2, None, None, "buf.b.item.0.b")
 gdata[76] = smallworld.state.SymbolicValue(4, None, None, "buf.b.item.0.c")
@@ -154,7 +162,7 @@ gdata[88] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.6
 gdata[89] = smallworld.state.SymbolicValue(1, None, None, "buf.b.item.0.buffer.7")
 gdata[90] = smallworld.state.SymbolicValue(470, None, None, "buf")
 # Offset into buffer
-gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
+gdata[560] = smallworld.state.IntegerValue(0, 8, "off", code.platform.byteorder, False)
 
 # Configure arguments
 # arg 0: pointer to buf
