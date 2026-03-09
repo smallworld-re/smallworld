@@ -182,16 +182,35 @@ class FileDescriptorManager:
             self._filestars[filestar] = FileStar(fd, self._fds[fd])
             return filestar
         except FDIOOutOfFileStars as e:
-            self.close(fd)
+            self._fds[fd].close()
+            del self._fds[fd]
             raise e
 
-    def close(self, fd: int) -> None:
-        if fd not in self._fds:
-            raise FDIOInvalid(f"{fd} is not a valid file descriptor")
-
-        self._fds[fd].close()
-
     def dup(self, old_fd: int, new_fd: typing.Optional[int] = None) -> int:
+        """Duplicate a file descriptor
+
+        This will result in two integer fds that reference the same file stream;
+        operations performed on one fd will be reflected on the other fd.
+
+        This observes the same behavior as the dup() and dup2()
+        system calls:
+
+        - If new_fd is not specified, this will allocate the next available FD.
+        - If new_fd is specified:
+            - If new_fd is free, it will be assigned to the stream referenced by old_fd
+            - If new_fd is already open, it will be reassigned to the stream referenced by old_fd
+
+
+        Arguments:
+            old_fd: Integer file descriptor to duplicate
+            new_fd: Integer file descriptor to override, or None to allocate a new fd.
+
+        Returns:
+            The new integer fd
+
+        Raises:
+            FDIOError: If old_fd is not open, or old_fd or new_fd are not valid fds.
+        """
         if new_fd is None:
             new_fd = self._get_free_fd()
 
@@ -205,16 +224,41 @@ class FileDescriptorManager:
         return new_fd
 
     def get_fd(self, fd: int) -> BasicIO:
+        """Get the file representaiton by its integer file descriptor
+
+        Arguments:
+            fd: The integer file descriptor
+
+        Returns:
+            The file representation tied to 'fd'.
+        """
         if fd not in self._fds:
             raise FDIOInvalid(f"Unknown fd {fd}")
         return self._fds[fd]
 
     def get_filestar(self, filestar: int) -> BasicIO:
+        """Get the file representaiton by its integer handle
+
+        Arguments:
+            filestar: The integer file handle
+
+        Returns:
+            The file representation tied to 'filestar'.
+        """
         if filestar not in self._filestars:
             raise FDIOInvalid(f"Unknown FILE * {hex(filestar)}")
         return self._filestars[filestar]
 
     def rename(self, old: str, new: str) -> None:
+        """Rename a file.
+
+        As of now, there is no actual file tree support;
+        the name is merely used as a label.
+
+        Arguments:
+            old: The current name of the file
+            new: The new name of the file
+        """
         if old not in self._files:
             raise FDIOInvalid(f"Unknown file {old}")
 
@@ -222,6 +266,16 @@ class FileDescriptorManager:
         del self._files[old]
 
     def remove(self, name: str) -> bool:
+        """Remove a file
+
+        As of now, there is no actual file tree support;
+        the name is merely used as a label.
+
+        Arguments:
+            name: Name of the file to remove
+        Returns:
+            True if model_fs is not set, or if the file was removed
+        """
         if name not in self._files:
             return False
         del self._files[name]
