@@ -94,8 +94,8 @@ class Fclose(StdioModel):
         assert isinstance(ptr, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(ptr)
-            self._fdmgr.close(fd)
+            file = self._fdmgr.get_filestar(ptr)
+            file.close()
             self.set_return_value(emulator, 0)
         except FDIOError:
             self.set_return_value(emulator, -1)
@@ -116,8 +116,7 @@ class Feof(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             print(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
@@ -156,10 +155,8 @@ class Clearerr(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
-            print(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -194,8 +191,7 @@ class Fgetc(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             print(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
@@ -230,8 +226,7 @@ class Fgets(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
@@ -271,7 +266,7 @@ class Fopen(StdioModel):
 
         try:
             readable, writable, create, truncate, append = self._parse_mode(filemode)
-            fd = self._fdmgr.open(
+            filestar = self._fdmgr.fopen(
                 filepath,
                 readable=readable,
                 writable=writable,
@@ -284,7 +279,6 @@ class Fopen(StdioModel):
             self.set_return_value(emulator, 0)
             return
 
-        filestar = self._fdmgr.fd_to_filestar(fd)
         self.set_return_value(emulator, filestar)
 
 
@@ -312,22 +306,17 @@ class Freopen(StdioModel):
 
         filemode = bytes2.decode("utf-8")
 
-        # FIXME: Not all files are seekable.
-        # For now, assume this one is.
-        seekable = True
-
         # Reset the access mode on the file
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
             readable, writable, _, _, _ = self._parse_mode(filemode)
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
 
-        file.readable = readable
-        file.writable = writable
-        file.seekable = seekable
+        # FIXME: This should raise an exception if we're not allowed to reset permissions
+        file._readable = readable
+        file._writable = writable
 
         # Redirect the file if name is not NULL
         if name != 0:
@@ -335,7 +324,7 @@ class Freopen(StdioModel):
             bytes1 = emulator.read_memory(name, len1)
             filepath = bytes1.decode("utf-8")
 
-            file.name = filepath
+            file._name = filepath
 
         self.set_return_value(emulator, filestar)
 
@@ -363,8 +352,7 @@ class Fprintf(StdioModel):
         output_bytes = output.encode("utf-8")
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -391,8 +379,7 @@ class Fputc(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -422,8 +409,7 @@ class Fputs(StdioModel):
         strbytes = emulator.read_memory(ptr, strlen)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -459,8 +445,7 @@ class Fread(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -499,8 +484,7 @@ class Fscanf(StdioModel):
         fmt = fmt_bytes.decode("utf-8")
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -531,8 +515,7 @@ class Fseek(StdioModel):
         assert isinstance(offset, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -555,8 +538,7 @@ class Ftell(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
 
@@ -580,8 +562,7 @@ class Fgetpos(StdioModel):
         assert isinstance(ptr, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
 
@@ -623,8 +604,7 @@ class Fsetpos(StdioModel):
         assert isinstance(ptr, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
 
@@ -677,8 +657,7 @@ class Fwrite(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
 
             data = emulator.read_memory(src, size * amt)
             file.write(data)
@@ -713,8 +692,7 @@ class Ungetc(StdioModel):
         assert isinstance(char, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
             file.ungetc(char)
         except FDIOError:
             self.set_return_value(emulator, -1)
@@ -738,7 +716,7 @@ class Getchar(StdioModel):
         fd = 0
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
 
@@ -763,7 +741,7 @@ class Gets(StdioModel):
 
         try:
             fd = 0
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
@@ -794,9 +772,9 @@ class Printf(StdioModel):
         output = parse_printf_format(self, fmt, emulator)
         output_bytes = output.encode("utf-8")
 
-        fd = 1
         try:
-            file = self._fdmgr.get(fd)
+            fd = 1
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -832,7 +810,7 @@ class Putchar(StdioModel):
         fd = 1
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -865,7 +843,7 @@ class Puts(StdioModel):
         fd = 1
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -979,8 +957,7 @@ class Rewind(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            fd = self._fdmgr.filestar_to_fd(filestar)
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             return
 
@@ -1007,7 +984,7 @@ class Scanf(StdioModel):
 
         try:
             fd = 0
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
