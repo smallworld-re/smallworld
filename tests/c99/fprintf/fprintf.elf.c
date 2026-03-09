@@ -74,7 +74,7 @@
 
 #define TEST(fmt, exp, ...) \
     do { \
-        fprintf((FILE *)0x47492a01, fmt, __VA_ARGS__); \
+        fprintf((FILE *)0x46492a01, fmt, __VA_ARGS__); \
         puts(""); \
     } while(0)
 

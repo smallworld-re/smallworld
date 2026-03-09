@@ -26,9 +26,9 @@ class FileDescriptorManager:
         self._fds[1] = StdoutIO("/dev/pty/0")
         self._fds[2] = StderrIO("/dev/pty/0")
 
-        self._filestars[0x46442A00] = FileStar(0, self._fds[0])
-        self._filestars[0x46442A01] = FileStar(1, self._fds[1])
-        self._filestars[0x46442A02] = FileStar(2, self._fds[2])
+        self._filestars[0x46492A00] = FileStar(0, self._fds[0])
+        self._filestars[0x46492A01] = FileStar(1, self._fds[1])
+        self._filestars[0x46492A02] = FileStar(2, self._fds[2])
 
     def _get_free_fd(self) -> int:
         for fd in range(0, 1 << 31):
@@ -46,10 +46,10 @@ class FileDescriptorManager:
 
     def _get_free_filestar(self) -> int:
         # FILE * pointers are handled as tokens in the range
-        # 0x46442A00 - 0x46442AFF
+        # 0x46492A00 - 0x46442AFF
 
         for i in range(0, 1 << 8):
-            filestar = 0x46442A00 | i
+            filestar = 0x46492A00 | i
 
             if filestar not in self._filestars:
                 return filestar

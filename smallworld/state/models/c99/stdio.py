@@ -1,3 +1,4 @@
+import logging
 import random
 import string
 import typing
@@ -5,10 +6,12 @@ import typing
 from .... import emulators, exceptions
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel
-from ..filedesc import FDIOError, FileDescriptorManager
+from ..filedesc import BasicIO, FDIOError, FileDescriptorManager
 from .fmt_print import parse_printf_format
 from .fmt_scan import FileIntake, StringIntake, handle_scanf_format
 from .utils import _emu_strlen
+
+logger = logging.getLogger(__name__)
 
 
 class StdioModel(CStdModel):
@@ -80,6 +83,33 @@ class StdioModel(CStdModel):
         return out
 
 
+def read_string(file: BasicIO, size: int = -1) -> bytes:
+    """Read a newline-terminated string from this file
+
+    Arguments
+        file: File from which to read
+        size: Maximum number of bytes to read.  Defaults to as many as possible
+
+    Returns:
+        String read from file
+    """
+    out = b""
+    size -= 1
+    while size != 0:
+        c = file.read(1)
+        if len(c) < 1:
+            break
+        out += c
+
+        if c == b"\n":
+            break
+
+        if size > 0:
+            size -= 1
+    out += b"\0"
+    return out
+
+
 class Fclose(StdioModel):
     name = "fclose"
 
@@ -98,6 +128,7 @@ class Fclose(StdioModel):
             file.close()
             self.set_return_value(emulator, 0)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {ptr:x}")
             self.set_return_value(emulator, -1)
 
 
@@ -118,7 +149,7 @@ class Feof(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
-            print(f"Failed looking up filestar {filestar:x}")
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -157,6 +188,7 @@ class Clearerr(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -193,17 +225,16 @@ class Fgetc(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
-            print(f"Failed looking up filestar {filestar:x}")
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
         try:
-            data = file.read(1, ungetc=True)
+            data = file.read(1)
         except Exception as e:
-            print(f"Failed reading from {file.name}: {e}")
+            logger.exception(f"Failed reading from filestar {filestar:x}")
             raise e
 
-        print(f"Returning {data[0]:x}")
         self.set_return_value(emulator, data[0])
 
 
@@ -228,10 +259,11 @@ class Fgets(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, 0)
             return
 
-        data = file.read_string(size)
+        data = read_string(file, size)
         emulator.write_memory(dst, data)
         self.set_return_value(emulator, dst)
 
@@ -276,6 +308,7 @@ class Fopen(StdioModel):
                 seekable=seekable,
             )
         except FDIOError:
+            logger.exception(f"Failed opening {filepath} for {filemode}")
             self.set_return_value(emulator, 0)
             return
 
@@ -311,6 +344,7 @@ class Freopen(StdioModel):
             file = self._fdmgr.get_filestar(filestar)
             readable, writable, _, _, _ = self._parse_mode(filemode)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, 0)
             return
 
@@ -354,6 +388,7 @@ class Fprintf(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -381,6 +416,7 @@ class Fputc(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -411,6 +447,7 @@ class Fputs(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -447,6 +484,7 @@ class Fread(StdioModel):
         try:
             file = self._fdmgr.get(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -486,6 +524,7 @@ class Fscanf(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -517,6 +556,7 @@ class Fseek(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -540,7 +580,9 @@ class Ftell(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
+            return
 
         self.set_return_value(emulator, file.cursor)
 
@@ -564,7 +606,9 @@ class Fgetpos(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
+            return
 
         # Okay, this is a pain.
         # fpos_t is platform-specific.
@@ -606,7 +650,9 @@ class Fsetpos(StdioModel):
         try:
             file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
+            logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
+            return
 
         # Okay, this is a pain.
         # fpos_t is platform-specific.
@@ -662,6 +708,7 @@ class Fwrite(StdioModel):
             data = emulator.read_memory(src, size * amt)
             file.write(data)
         except FDIOError:
+            logger.exception(f"Failed writing to filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -695,6 +742,7 @@ class Ungetc(StdioModel):
             file = self._fdmgr.get_filestar(filestar)
             file.ungetc(char)
         except FDIOError:
+            logger.exception(f"Failed ungetc on filestar {filestar:x}")
             self.set_return_value(emulator, -1)
             return
 
@@ -719,6 +767,7 @@ class Getchar(StdioModel):
             file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
+            return
 
         data = file.read(1, ungetc=True)
 
@@ -746,7 +795,7 @@ class Gets(StdioModel):
             self.set_return_value(emulator, 0)
             return
 
-        data = file.read_string()
+        data = read_string(file)
         emulator.write_memory(dst, data)
         self.set_return_value(emulator, dst)
 

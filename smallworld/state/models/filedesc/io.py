@@ -361,7 +361,7 @@ class StdoutIO(StdStreamIO):
     """Pickleable wrapper around host's stdout"""
 
     def __init__(self, name: str):
-        super().__init__(name, True, False, False, False, True)
+        super().__init__(name, False, True, False, False, True)
 
     @property
     def _stream(self) -> typing.IO:
@@ -372,7 +372,7 @@ class StderrIO(StdStreamIO):
     """Pickleable wrapper around host's stderr"""
 
     def __init__(self, name: str):
-        super().__init__(name, True, False, False, False, True)
+        super().__init__(name, False, True, False, False, True)
 
     @property
     def _stream(self) -> typing.IO:
