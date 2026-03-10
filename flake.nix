@@ -171,8 +171,6 @@
           virtualEnvDev = devPythonSet.mkVirtualEnv "smallworld-re-dev-env" deps;
           virtualEnvProd = pythonSet.mkVirtualEnv "smallworld-re-env" deps;
 
-          qemu = panda-ng.packages.${system}.qemu;
-
           bnUltimate =
             if binaryninja != null && binjaZip != null then
               binaryninja.packages.${system}.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
@@ -189,7 +187,6 @@
           toolInputs = [
             pkgs.z3
             pkgs.aflplusplus
-            qemu
             pkgs.ghidra
             pkgs.jdk
           ]
@@ -209,7 +206,6 @@
             virtualEnvProd
             ;
           inherit
-            qemu
             bnUltimate
             toolInputs
             bnPythonPath
@@ -229,7 +225,6 @@
           sys = perSystem.${system};
 
           toolDeps = [
-            sys.qemu
             final.aflplusplus
             final.z3
           ];
@@ -470,7 +465,6 @@
           inherit printInputsRecursive tests rtos_demo;
           default = sys.pythonSet.smallworld-re;
           venv = sys.virtualEnvProd;
-          qemu = sys.qemu;
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";
@@ -482,7 +476,6 @@
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
                 pkgs.aflplusplus
-                sys.qemu
                 sys.virtualEnvProd
                 pkgs.ghidra
               ];
