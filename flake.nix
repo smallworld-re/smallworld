@@ -76,7 +76,12 @@
       systems = lib.systems.flakeExposed;
       forAllSystems = lib.genAttrs systems;
 
-      # --- Workspace / Fileset Setup ---
+      binaryninja = inputs.binaryninja or null;
+      binjaZip = inputs.binjaZip or null;
+
+      ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
+
+      # Workspace source selection: only the files needed to build the python project.
       root = ./.;
       fileset = lib.fileset.unions [
         ./pyproject.toml
@@ -84,7 +89,11 @@
         ./.python-version
         ./smallworld
       ];
-      rootString = builtins.unsafeDiscardStringContext (lib.fileset.toSource { inherit fileset root; });
+      rootString = builtins.unsafeDiscardStringContext (
+        lib.fileset.toSource {
+          inherit fileset root;
+        }
+      );
       rootPath = /. + rootString;
 
       workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
@@ -92,22 +101,18 @@
       deps = workspace.deps.all // emptyDeps;
 
       overlay = workspace.mkPyprojectOverlay { sourcePreference = "wheel"; };
-      editableOverlay = workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; };
 
-      # --- Optional Inputs ---
-      binaryninja = inputs.binaryninja or null;
-      binjaZip = inputs.binjaZip or null;
+      # Parse pyproject.toml to access dependency groups natively
+      project = pyproject-nix.lib.project.loadPyproject {
+        projectRoot = ./.;
+      };
 
-      ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
-
-      # --- Per-System Evaluation ---
-      # Centralizes the evaluation of packages, shells, and environments to reduce boilerplate
       perSystem = forAllSystems (
         system:
         let
-          # 1. Base packages without our overlay (prevents infinite recursion)
           basePkgs = nixpkgs.legacyPackages.${system};
-          python = basePkgs.python312;
+          basePython = basePkgs.python312;
+          qemu = panda-ng.packages.${system}.qemu;
 
           # 2. Prebuilt & uv2nix structures
           pythonNativeAddons =
@@ -142,21 +147,32 @@
             let
               hacks = basePkgs.callPackage pyproject-nix.build.hacks { };
               native = pythonNativeAddons {
-                pythonPkgs = python.pkgs;
-                unicornPy = python.pkgs.unicorn;
+                pythonPkgs = basePython.pkgs;
+                unicornPy = basePython.pkgs.unicorn;
               } basePkgs;
             in
             {
-              unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
-              unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
-              pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
-              colorama = hacks.nixpkgsPrebuilt { from = python.pkgs.colorama; };
+              unicorn = hacks.nixpkgsPrebuilt {
+                from = native.unicorn;
+              };
+
+              unicornafl = hacks.nixpkgsPrebuilt {
+                from = native.unicornafl;
+              };
+
+              pypanda = hacks.nixpkgsPrebuilt {
+                from = native.pypanda;
+              };
+
+              colorama = hacks.nixpkgsPrebuilt {
+                from = basePython.pkgs.colorama;
+              };
             };
 
           pythonSet =
             let
-              overrides = basePkgs.callPackage ./overrides.nix { inherit python; };
-              pyprojectPkgs = basePkgs.callPackage pyproject-nix.build.packages { inherit python; };
+              overrides = basePkgs.callPackage ./overrides.nix { python = basePython; };
+              pyprojectPkgs = basePkgs.callPackage pyproject-nix.build.packages { python = basePython; };
             in
             pyprojectPkgs.overrideScope (
               lib.composeManyExtensions [
@@ -167,13 +183,12 @@
               ]
             );
 
-          devPythonSet = pythonSet.overrideScope editableOverlay;
-          virtualEnvDev = devPythonSet.mkVirtualEnv "smallworld-re-dev-env" deps;
-          virtualEnvProd = pythonSet.mkVirtualEnv "smallworld-re-env" deps;
-
           bnUltimate =
             if binaryninja != null && binjaZip != null then
-              binaryninja.packages.${system}.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+              let
+                bnPkgs = binaryninja.packages.${system};
+              in
+              bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
             else
               null;
 
@@ -187,37 +202,60 @@
           toolInputs = [
             pkgs.z3
             pkgs.aflplusplus
+            qemu
             pkgs.ghidra
             pkgs.jdk
           ]
           ++ lib.optional (bnUltimate != null) bnUltimate;
 
-          bnPythonPath = lib.optionalString (bnUltimate != null) "${bnUltimate}/opt/binaryninja/python";
+          bnPythonPath = lib.optionalString (
+            bnUltimate != null
+          ) "${bnUltimate}/opt/binaryninja/python";
+
           GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
+
+          # Dynamically map the dev dependencies from pyproject.toml to standard python packages
+          devDeps = project.dependencyGroups.dev or [];
+          resolvePsDep = ps: dep:
+            let
+              name = dep.name;
+              nixName = builtins.replaceStrings ["-"] ["_"] name;
+              lowerNixName = lib.toLower nixName;
+            in
+              if ps ? ${name} then ps.${name}
+              else if ps ? ${nixName} then ps.${nixName}
+              else if ps ? ${lowerNixName} then ps.${lowerNixName}
+              else null;
+
+          pythonEnvDev = pkgs.python312.withPackages (ps: 
+            let
+              resolvedDev = builtins.filter (x: x != null) (builtins.map (resolvePsDep ps) devDeps);
+            in [ ps.smallworld-re ] ++ resolvedDev
+          );
+
+          pythonEnvProd = pkgs.python312.withPackages (ps: [ ps.smallworld-re ]);
 
         in
         {
           inherit
             basePkgs
             pkgs
+            basePython
+            qemu
+            pythonNativeAddons
+            prebuilts
             pythonSet
-            devPythonSet
-            virtualEnvDev
-            virtualEnvProd
-            ;
-          inherit
+            pythonEnvDev
+            pythonEnvProd
             bnUltimate
             toolInputs
             bnPythonPath
-            GHIDRA_INSTALL_DIR
-            ;
-          inherit pythonNativeAddons prebuilts;
+            GHIDRA_INSTALL_DIR;
         }
       );
 
     in
-    {
-      # --- Nixpkgs Overlay ---
+    rec {
       overlays.default =
         final: prev:
         let
@@ -225,6 +263,7 @@
           sys = perSystem.${system};
 
           toolDeps = [
+            sys.qemu
             final.aflplusplus
             final.z3
           ];
@@ -357,29 +396,29 @@
           python312Packages = final.python312.pkgs;
         };
 
-      # --- Exports ---
-      pythonSet = forAllSystems (s: perSystem.${s}.pythonSet);
+      pythonSet = forAllSystems (system: perSystem.${system}.pythonSet);
       pythonDeps = deps;
-      prebuilts = forAllSystems (s: perSystem.${s}.prebuilts);
+      prebuilts = forAllSystems (system: perSystem.${system}.prebuilts);
 
-      formatter = forAllSystems (s: perSystem.${s}.basePkgs.nixfmt);
+      formatter = forAllSystems (system: (perSystem.${system}.basePkgs).nixfmt-rfc-style);
 
       devShells = forAllSystems (
         system:
         let
           sys = perSystem.${system};
           pkgs = sys.pkgs;
+          smallworldBuilt = packages.${system}.default;
         in
         {
           pythonEnv = pkgs.mkShell {
-            packages = [ (pkgs.python312.withPackages (ps: [ ps.smallworld ])) ];
+            packages = [ sys.pythonEnvProd ];
           };
 
           default = pkgs.mkShell {
             packages = [
-              sys.virtualEnvDev
+              sys.pythonEnvDev
               pkgs.uv
-              pkgs.nixfmt
+              pkgs.nixfmt-rfc-style
               pkgs.nixfmt-tree
             ]
             ++ sys.toolInputs;
@@ -387,7 +426,7 @@
             env = {
               GHIDRA_INSTALL_DIR = sys.GHIDRA_INSTALL_DIR;
               UV_NO_SYNC = "1";
-              UV_PYTHON = sys.devPythonSet.python.interpreter;
+              UV_PYTHON = "${sys.pythonEnvDev}/bin/python";
               UV_PYTHON_DOWNLOADS = "never";
             };
 
@@ -405,9 +444,9 @@
 
           imperative = pkgs.mkShell {
             packages = [
-              sys.pythonSet.python
-              sys.pythonSet.pip
-              sys.pythonSet.setuptools
+              pkgs.python312
+              pkgs.python312Packages.pip
+              pkgs.python312Packages.setuptools
             ]
             ++ sys.toolInputs;
 
@@ -416,7 +455,7 @@
             };
 
             shellHook = ''
-              export PYTHONPATH="${sys.pythonSet.smallworld-re}/${sys.pythonSet.python.sitePackages}:${sys.virtualEnvDev}/${sys.pythonSet.python.sitePackages}:$PYTHONPATH"
+              export PYTHONPATH="${smallworldBuilt}/${pkgs.python312.sitePackages}:$PYTHONPATH"
               unset SOURCE_DATE_EPOCH
             ''
             + lib.optionalString (sys.bnUltimate != null) ''
@@ -463,8 +502,13 @@
         in
         {
           inherit printInputsRecursive tests rtos_demo;
-          default = sys.pythonSet.smallworld-re;
-          venv = sys.virtualEnvProd;
+
+          default = sys.pkgs.python312Packages.smallworld-re;
+          env = sys.pythonEnvProd;
+          qemu = sys.qemu;
+          binaryninja-ultimate = lib.optionalAttrs (sys.bnUltimate != null) {
+            default = sys.bnUltimate;
+          };
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";
@@ -476,7 +520,8 @@
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
                 pkgs.aflplusplus
-                sys.virtualEnvProd
+                sys.qemu
+                sys.pythonEnvProd
                 pkgs.ghidra
               ];
               pathsToLink = [
@@ -489,9 +534,6 @@
               Cmd = [ "/bin/sh" ];
             };
           };
-        }
-        // lib.optionalAttrs (sys.bnUltimate != null) {
-          binaryninja-ultimate = sys.bnUltimate;
         }
       );
     };
