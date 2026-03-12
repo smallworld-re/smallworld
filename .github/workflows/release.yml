@@ -48,6 +48,7 @@ jobs:
         run: |
           nix build .#tests
           tar -C tests -xvf result/test_binaries.tar
+          rm -rf result
           nix build .#rtos_demo
           cp result/zephyr.elf use_cases/rtos_demo/zephyr.elf
       - name: Build docs
