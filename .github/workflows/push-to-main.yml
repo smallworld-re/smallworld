@@ -2,8 +2,8 @@ name: Merge
 
 on:
   push:
-    branches: 
-      - main
+    #branches: 
+    #  - main
 
 jobs:
   Docs:
@@ -52,7 +52,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           # publish_branch: pages
-          publish_dir: docs/build/documentation
+          publish_dir: build/documentation
           # destination_dir: main
           exclude_assets: .gitignore
 
