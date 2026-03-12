@@ -5,13 +5,11 @@ on:
 
 jobs:
   Docs:
+
     runs-on: smallworld-arc    
-    steps:
-      #- uses: cachix/cachix-action@v15
-      #  with:
-      #    name: smallworld
-      #    authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-          
+
+    steps:          
+
       - name: Checkout
         uses: actions/checkout@v3
         env:
@@ -19,14 +17,6 @@ jobs:
         if: ${{ env.bot_token != '' }}
         with:
           token: ${{ secrets.BOT_TOKEN }}
-
-      # blah blah blah blah blasdhfjk
-      #- name: Cache inputs
-      #  env:
-      #    cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
-      #  if: ${{ env.cachix_token != '' }}
-      #  run: |
-      #    nix run .#printInputsRecursive | cachix push smallworld
 
       - name: Build devshell
         run: |
