@@ -1,8 +1,15 @@
-name: Release
+#name: Release
+name: Push
 
 on:
-  release: 
-    types: [released]
+  push:
+
+#    branches: 
+#      - main
+#   push:
+#      main
+#  release: 
+#    types: [released]
 
 jobs:
   Deploy:
