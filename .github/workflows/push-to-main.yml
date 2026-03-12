@@ -45,8 +45,7 @@ jobs:
       - name: Build docs I really hope
         run: |
           # we have to enter the dev shell for sphinx-build to work?
-          nix develop 
-          sphinx-build -W -b html docs build/documentation
+          nix develop -c "sphinx-build -W -b html docs build/documentation"
 
       - uses: peaceiris/actions-gh-pages@v4
         with:
