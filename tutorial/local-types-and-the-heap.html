@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Local Types and the Heap &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Modeling and Hooking" href="modeling-and-hooking/index.html" />
+    <link rel="prev" title="Linking a PE" href="program-loading/pe-linking.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="local-types-and-the-heap">
+<span id="tutorial-heap"></span><h1>Local Types and the Heap<a class="headerlink" href="#local-types-and-the-heap" title="Link to this heading">¶</a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
+<p>In this tutorial, you will learn how to handle struct data types and
+allocate heap memory in SmallWorld. To demonstrate, we will examine
+the AMD64 assembly below. This code iterates over a doubly-linked list,
+stops on the first node marked as empty, and overwrites its data with
+a given input value. We will use SmallWorld to construct a doubly-linked
+list on the heap as an input to this code. Then, we will observe the
+output state to confirm that it worked as expected.</p>
+<div class="highlight-NASM notranslate"><div class="highlight"><pre><span></span><span class="k">BITS</span><span class="w"> </span><span class="mi">64</span><span class="c1">;</span>
+<span class="c1">;typedef struct node {</span>
+<span class="c1">;    int data;</span>
+<span class="c1">;    node* next;</span>
+<span class="c1">;    node* prev;</span>
+<span class="c1">;    int empty;</span>
+<span class="c1">;};</span>
+
+<span class="c1">;void function(node* n, int a) {</span>
+<span class="c1">;    node* curr = n;</span>
+<span class="c1">;    while (!(curr -&gt; empty)) {</span>
+<span class="c1">;        if (curr -&gt; data % 2 == 0){</span>
+<span class="c1">;            curr = curr -&gt; next;</span>
+<span class="c1">;        } else {</span>
+<span class="c1">;            curr = curr -&gt; prev;</span>
+<span class="c1">;        }</span>
+<span class="c1">;    }</span>
+<span class="w">    </span>
+<span class="c1">;    curr -&gt; data = a;</span>
+<span class="c1">;    return;</span>
+<span class="c1">;}</span>
+
+
+<span class="nl">function:</span>
+<span class="w">        </span><span class="nf">jmp</span><span class="w">     </span><span class="nv">.L7</span>
+<span class="nl">.L4:</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">rax</span><span class="p">,</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">8</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">test</span><span class="w">    </span><span class="kt">BYTE</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="p">],</span><span class="w"> </span><span class="mi">1</span>
+<span class="w">        </span><span class="nf">cmovne</span><span class="w">  </span><span class="nb">rax</span><span class="p">,</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">16</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">rdi</span><span class="p">,</span><span class="w"> </span><span class="nb">rax</span>
+<span class="nl">.L7:</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="kt">DWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">24</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">test</span><span class="w">    </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="nb">eax</span>
+<span class="w">        </span><span class="nf">je</span><span class="w">      </span><span class="nv">.L4</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="kt">DWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="p">],</span><span class="w"> </span><span class="nb">esi</span>
+</pre></div>
+</div>
+</section>
+<section id="local-types">
+<h2>Local Types<a class="headerlink" href="#local-types" title="Link to this heading">¶</a></h2>
+<p>The example code defines a struct type <code class="docutils literal notranslate"><span class="pre">node</span></code> which may be chained
+together to form a doubly-linked list. Each <code class="docutils literal notranslate"><span class="pre">node</span></code> contains some
+integer <code class="docutils literal notranslate"><span class="pre">data</span></code>, a pointer to the <code class="docutils literal notranslate"><span class="pre">next</span></code> element in the list, a
+pointer to the <code class="docutils literal notranslate"><span class="pre">prev</span></code> element in the list, and an integer flag
+to mark the node as <code class="docutils literal notranslate"><span class="pre">empty</span></code>.</p>
+<p>When analyzing this program, we may want to read or manipulate the
+contents of nodes using their type interface. However, when the code
+is compiled, this type information is replaced with hard-coded offsets
+from the base address of a given <code class="docutils literal notranslate"><span class="pre">node</span></code>. In order to interact with
+structured data, we need to define its shape in our harness.</p>
+<p>In SmallWorld, we accomplish this using the <a class="reference external" href="https://docs.python.org/3/library/ctypes.html">ctypes</a> library. We
+begin by creating a new class, <code class="docutils literal notranslate"><span class="pre">StructNode</span></code>, which extends ctypes’
+<code class="docutils literal notranslate"><span class="pre">LittleEndianStructure</span></code>. We set the <code class="docutils literal notranslate"><span class="pre">_pack_</span></code> field to 8 to
+indicate that struct fields should be aligned to 8 bytes. Note that
+the endianness and struct packing size are platform-dependent.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">StructNode</span><span class="p">(</span><span class="n">ctypes</span><span class="o">.</span><span class="n">LittleEndianStructure</span><span class="p">):</span>
+    <span class="n">_pack_</span> <span class="o">=</span> <span class="mi">8</span>
+</pre></div>
+</div>
+<p>Next, we define the fields of the <code class="docutils literal notranslate"><span class="pre">node</span></code> structure. Each field is
+defined as a tuple consisting of the field’s name and type. We include
+a <code class="docutils literal notranslate"><span class="pre">&quot;padding_0x4&quot;</span></code> field after the 4-byte <code class="docutils literal notranslate"><span class="pre">&quot;data&quot;</span></code> field to ensure
+that the <code class="docutils literal notranslate"><span class="pre">&quot;next&quot;</span></code> field is properly 8-byte aligned. For pointer types
+(<code class="docutils literal notranslate"><span class="pre">&quot;next&quot;</span></code> and <code class="docutils literal notranslate"><span class="pre">&quot;prev&quot;</span></code>), we use the <code class="docutils literal notranslate"><span class="pre">create_typed_pointer</span></code> helper
+function in SmallWorld.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">StructNode</span><span class="o">.</span><span class="n">_fields_</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="p">(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int32</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;padding_0x4&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int32</span><span class="p">),</span>
+    <span class="p">(</span><span class="s2">&quot;next&quot;</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">extern</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">create_typed_pointer</span><span class="p">(</span><span class="n">StructNode</span><span class="p">)),</span>
+    <span class="p">(</span><span class="s2">&quot;prev&quot;</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">extern</span><span class="o">.</span><span class="n">ctypes</span><span class="o">.</span><span class="n">create_typed_pointer</span><span class="p">(</span><span class="n">StructNode</span><span class="p">)),</span>
+    <span class="p">(</span><span class="s2">&quot;empty&quot;</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">c_int32</span><span class="p">),</span>
+<span class="p">]</span>
+</pre></div>
+</div>
+<p>Now that we have our structure’s memory layout defined, we can create
+<code class="docutils literal notranslate"><span class="pre">StructNode</span></code> objects and set their fields like any other
+Python object. In the next section, we will learn how to allocate
+these objects on the heap in SmallWorld.</p>
+</section>
+<section id="heap-allocators">
+<h2>Heap Allocators<a class="headerlink" href="#heap-allocators" title="Link to this heading">¶</a></h2>
+<p>When harnessing a binary, it may be expected that some memory has already
+been allocated on the heap. In the case of our AMD64 example above,
+each <code class="docutils literal notranslate"><span class="pre">node</span></code> of the doubly-linked list must already be allocated on the
+heap with the <code class="docutils literal notranslate"><span class="pre">prev</span></code> and <code class="docutils literal notranslate"><span class="pre">next</span></code> fields pointing to its neighbors.
+Additionally, the <code class="docutils literal notranslate"><span class="pre">rdi</span></code> register must point to the head of the list.</p>
+<p>In SmallWorld, a <code class="docutils literal notranslate"><span class="pre">Heap</span></code> is a <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object with an interface for
+dynamic allocation. See <a class="reference internal" href="../concepts/state/memory/heap.html#heaps"><span class="std std-ref">Heaps</span></a> to learn more about heaps in SmallWorld.</p>
+<p>For this example, we will use a <code class="docutils literal notranslate"><span class="pre">BumpAllocator</span></code> heap. The snippet below
+constructs a new <code class="docutils literal notranslate"><span class="pre">BumpAllocator</span></code> with an address of <code class="docutils literal notranslate"><span class="pre">0x4000</span></code> and a size of
+<code class="docutils literal notranslate"><span class="pre">0x4000</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">heap</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">heap</span><span class="o">.</span><span class="n">BumpAllocator</span><span class="p">(</span><span class="mh">0x4000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can use our heap to allocate <code class="docutils literal notranslate"><span class="pre">StructNode</span></code> objects in SmallWorld.
+First, we convert our <code class="docutils literal notranslate"><span class="pre">StructNode</span></code> into a <code class="docutils literal notranslate"><span class="pre">Value</span></code> by using
+<code class="docutils literal notranslate"><span class="pre">Value.from_ctypes()</span></code>. Then, we use <code class="docutils literal notranslate"><span class="pre">heap.allocate()</span></code> to place our
+<code class="docutils literal notranslate"><span class="pre">Value</span></code> on the heap. This method returns the memory address of the
+allocated node, which can then be used to link the nodes together
+through their <code class="docutils literal notranslate"><span class="pre">next</span></code> and <code class="docutils literal notranslate"><span class="pre">prev</span></code> pointers.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">node_a</span> <span class="o">=</span> <span class="n">StructNode</span><span class="p">()</span>
+<span class="n">node_a</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">node_a</span><span class="o">.</span><span class="n">empty</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">node_a</span><span class="o">.</span><span class="n">prev</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">node_a_addr</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Value</span><span class="o">.</span><span class="n">from_ctypes</span><span class="p">(</span><span class="n">node_a</span><span class="p">,</span> <span class="s2">&quot;node a&quot;</span><span class="p">))</span>
+
+<span class="n">node_b</span> <span class="o">=</span> <span class="n">StructNode</span><span class="p">()</span>
+<span class="n">node_b</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">node_b</span><span class="o">.</span><span class="n">empty</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">node_b</span><span class="o">.</span><span class="n">next</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="n">node_b_addr</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Value</span><span class="o">.</span><span class="n">from_ctypes</span><span class="p">(</span><span class="n">node_b</span><span class="p">,</span> <span class="s2">&quot;node b&quot;</span><span class="p">))</span>
+
+<span class="n">node_a</span><span class="o">.</span><span class="n">next</span> <span class="o">=</span> <span class="n">node_b_addr</span>
+<span class="n">node_b</span><span class="o">.</span><span class="n">prev</span> <span class="o">=</span> <span class="n">node_a_addr</span>
+</pre></div>
+</div>
+</section>
+<section id="completing-our-harness">
+<h2>Completing Our Harness<a class="headerlink" href="#completing-our-harness" title="Link to this heading">¶</a></h2>
+<p>We have now defined the memory layout of our struct type, created a few
+linked <code class="docutils literal notranslate"><span class="pre">node</span></code> objects, and allocated those objects on our heap.
+The final step is to set the inputs of the function and observe the
+outputs.</p>
+<p>First, we set the <code class="docutils literal notranslate"><span class="pre">rdi</span></code> register to the address of node A, the head of
+the linked list. Then, we set <code class="docutils literal notranslate"><span class="pre">rsi</span></code> to an arbitrary value, in this case
+42, and expect it to appear in the data of the final node in our output
+state.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="n">node_a_addr</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsi</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="mi">42</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We add the lines below to step through our harness and observe the final
+CPU state. We expect <code class="docutils literal notranslate"><span class="pre">rdi</span></code> to iterate through the list and point to node
+B at the end. We also expect that the <code class="docutils literal notranslate"><span class="pre">data</span></code> field of node B will
+contain 42. To verify this, we extract the heap memory from our emulator
+and use <code class="docutils literal notranslate"><span class="pre">ctypes</span></code> to create a new <code class="docutils literal notranslate"><span class="pre">StructNode</span></code> from the bytes at node
+B’s address.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="o">*</span><span class="n">_</span><span class="p">,</span> <span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+
+<span class="n">final_cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;curr = </span><span class="si">{</span><span class="nb">hex</span><span class="p">(</span><span class="n">final_cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">get</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+<span class="n">heap</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+<span class="n">final_node_b_bytes</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">(</span><span class="n">node_b_addr</span><span class="p">,</span> <span class="n">ctypes</span><span class="o">.</span><span class="n">sizeof</span><span class="p">(</span><span class="n">StructNode</span><span class="p">))</span>
+<span class="n">final_node_b</span> <span class="o">=</span> <span class="n">StructNode</span><span class="o">.</span><span class="n">from_buffer_copy</span><span class="p">(</span><span class="n">final_node_b_bytes</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;node_b-&gt;data = </span><span class="si">{</span><span class="n">final_node_b</span><span class="o">.</span><span class="n">data</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now, running our harness, we can see that <code class="docutils literal notranslate"><span class="pre">rdi</span></code> has been advanced to
+point to node B and its <code class="docutils literal notranslate"><span class="pre">data</span></code> field has been set to 42. Our harness
+successfully operated on our structured data.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 struct.amd64.py
+emulation complete; encountered exit point or went out of bounds
+curr = 0x4020
+node_b-&gt;data = 42
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="program-loading/index.html">Loading Code</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Tutorials</a><ul>
+      <li>Previous: <a href="program-loading/pe-linking.html" title="previous chapter">Linking a PE</a></li>
+      <li>Next: <a href="modeling-and-hooking/index.html" title="next chapter">Modeling and Hooking</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

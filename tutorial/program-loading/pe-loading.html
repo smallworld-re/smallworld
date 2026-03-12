@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Loading a PE &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Loading a core dump" href="coredump-loading.html" />
+    <link rel="prev" title="Loading an ELF" href="elf-loading.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="loading-a-pe">
+<span id="tutorial-pe"></span><h1>Loading a PE<a class="headerlink" href="#loading-a-pe" title="Link to this heading">¶</a></h1>
+<p>In this tutorial, you will be guided through loading a PE32+ object file.</p>
+<p>Portable Executable (PE) is the file format Windows and
+UEFI bootloaders use to store code.  Like ELF,
+it contains the code and data for one executable
+or library, and the metadata detailing
+what the program loader needs to do to set up that code and data
+within a process.</p>
+<p>The original 32-bit version of the format is known as PE32;
+the extended 64-bit version is called PE32+.</p>
+<p>Consider the example <code class="docutils literal notranslate"><span class="pre">tests/pe/pe.pe.c</span></code>:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="c1">// Unusual number to help me find main()</span>
+<span class="w">    </span><span class="c1">// Getting debug info out of PEs is a bit of a chore.</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">out</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mh">0xc001d00d</span><span class="p">;</span>
+<span class="w">    </span><span class="n">puts</span><span class="p">(</span><span class="s">&quot;Hello, world!</span><span class="se">\n</span><span class="s">&quot;</span><span class="p">);</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">out</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This is “hello world”.  We can build it into a PE file
+using the MinGW version of GCC, since true Windows compilers
+are extremely annoying to actuate on other platforms:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>smallworld/tests
+make<span class="w"> </span>pe/pe.amd64.pe
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This requires a version of GCC targeting MinGW.
+On Debian and Ubuntu, this can be installed via the apt package
+<code class="docutils literal notranslate"><span class="pre">gcc-mingw-w64</span></code>.</p>
+</div>
+<p>In order to harness the code contained in a PE,
+we need to do at least the following:</p>
+<ul class="simple">
+<li><p>Follow the metadata in the PE to unpack the memory image inside</p></li>
+<li><p>Set execution to start at the correct place</p></li>
+</ul>
+<p>In this case, we will also need to provide
+some kind of implementation for <code class="docutils literal notranslate"><span class="pre">puts()</span></code>.</p>
+<section id="using-the-pe-loader">
+<h2>Using the PE loader<a class="headerlink" href="#using-the-pe-loader" title="Link to this heading">¶</a></h2>
+<p>SmallWorld includes a model of the basic features of a PE loader.
+To exercise it, you will need to use <code class="docutils literal notranslate"><span class="pre">Executable.from_pe()</span></code>, described in <a class="reference internal" href="../../concepts/state/memory/index.html#memory"><span class="std std-ref">Memory Objects</span></a>.</p>
+<p>PE files define a “preferred” load address,
+but usually include enough metadata for the program loader
+to use an alternate load address.</p>
+<p>Let’s take a look at our example:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ objdump -p pe.amd64.pe | head -n 20
+
+pe.amd64.pe:     file format pei-x86-64
+
+Characteristics 0x22
+	executable
+	large address aware
+
+Time/Date		Tue Jan  1 00:00:00 1980
+Magic			020b	(PE32+)
+MajorLinkerVersion	14
+MinorLinkerVersion	0
+SizeOfCode		0000000000021000
+SizeOfInitializedData	0000000000007e00
+SizeOfUninitializedData	0000000000000000
+AddressOfEntryPoint	00000000000013f0
+BaseOfCode		0000000000001000
+ImageBase		0000000140000000
+SectionAlignment	00001000
+FileAlignment		00000200
+MajorOSystemVersion	6
+</pre></div>
+</div>
+<p>The PE format nicely lists the image load address right in its header;
+the default is <code class="docutils literal notranslate"><span class="pre">0x140000000</span></code>. If we don’t specify a load address, it will be loaded here.
+For this harness, we chose to specify our own address at <code class="docutils literal notranslate"><span class="pre">0x10000</span></code>.
+The SmallWorld PE loader will handle relocating the code.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;pe.amd64.pe&quot;</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_pe</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x10000</span>
+    <span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="finding-main">
+<h2>Finding <code class="docutils literal notranslate"><span class="pre">main()</span></code><a class="headerlink" href="#finding-main" title="Link to this heading">¶</a></h2>
+<p>The next step is to figure out where we want to begin executing.</p>
+<p>Sadly, internal symbols are a deprecated feature on PE files;
+Windows and most MinGW binaries won’t have them,
+and SmallWorld doesn’t look for them.</p>
+<p>This is a case for manual RE.
+Inspecting the entrypoint routines in Ghidra
+tells us that the most probable candidate for <code class="docutils literal notranslate"><span class="pre">main()</span></code>
+is at offset <code class="docutils literal notranslate"><span class="pre">0x1000</span></code> in the file,
+or the start of the text segment.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">entrypoint</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="mh">0x1000</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="stubbing-out-the-runtime">
+<h2>Stubbing out the runtime<a class="headerlink" href="#stubbing-out-the-runtime" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>TODO: This bit is likely mingw-specific.  I need to take a look at an actual Windows binary.</p>
+</div>
+<p>If we tried to harness our program now, it would fail with an unmapped memory error.
+Let’s take a look at <code class="docutils literal notranslate"><span class="pre">main()</span></code> in a disassembler:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ objdump -d pe.amd64.pe | grep -A 10 &#39;140001000:&#39;
+   140001000:	55                   	push   %rbp
+   140001001:	48 83 ec 30          	sub    $0x30,%rsp
+   140001005:	48 8d 6c 24 30       	lea    0x30(%rsp),%rbp
+   14000100a:	e8 11 06 00 00       	call   0x140001620
+   14000100f:	c7 45 fc 00 00 00 00 	movl   $0x0,-0x4(%rbp)
+   140001016:	c7 45 f8 0d d0 01 c0 	movl   $0xc001d00d,-0x8(%rbp)
+   14000101d:	48 8d 0d dc 0f 02 00 	lea    0x20fdc(%rip),%rcx        # 0x140022000
+   140001024:	e8 a7 0d 02 00       	call   0x140021dd0
+   140001029:	8b 45 f8             	mov    -0x8(%rbp),%eax
+   14000102c:	48 83 c4 30          	add    $0x30,%rsp
+   140001030:	5d                   	pop    %rbp
+</pre></div>
+</div>
+<p>I recognize everything there except for the call to <code class="docutils literal notranslate"><span class="pre">0x1620</span></code>.
+Let’s look at it in a disassembler:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ objdump -d pe.amd64.pe | grep -A 10 &#39;140001620:&#39;
+   140001620:	55                   	push   %rbp
+   140001621:	56                   	push   %rsi
+   140001622:	57                   	push   %rdi
+   140001623:	53                   	push   %rbx
+   140001624:	48 83 ec 28          	sub    $0x28,%rsp
+   140001628:	48 8d 6c 24 20       	lea    0x20(%rsp),%rbp
+   14000162d:	80 3d 54 7a 02 00 00 	cmpb   $0x0,0x27a54(%rip)        # 0x140029088
+   140001634:	74 09                	je     0x14000163f
+   140001636:	48 83 c4 28          	add    $0x28,%rsp
+   14000163a:	5b                   	pop    %rbx
+   14000163b:	5f                   	pop    %rdi
+</pre></div>
+</div>
+<p>If we manually RE this function,
+we find that it’s just more runtime initialization
+that we really don’t care about modelling.</p>
+<p>Thankfully, it doesn’t return anything or otherwise modify the caller,
+so we can easily use SmallWorld’s function hooking feature
+to stub it out:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Configure __main model</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InitModel</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;__main&quot;</span>
+    <span class="n">platform</span> <span class="o">=</span> <span class="n">platform</span>
+    <span class="n">abi</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">NONE</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emulator</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Return</span>
+        <span class="k">pass</span>
+
+
+<span class="n">init</span> <span class="o">=</span> <span class="n">InitModel</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="mh">0x1620</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">init</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="putting-it-all-together">
+<h2>Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Link to this heading">¶</a></h2>
+<p>Using what we now know about the PE loader and our particular executable,
+we can build a complete harness in <code class="docutils literal notranslate"><span class="pre">pe.amd64.py</span></code>.
+This will load our file, as well as set up the main stack,
+and hook <code class="docutils literal notranslate"><span class="pre">puts()</span></code>.  See <a class="reference internal" href="../modeling-and-hooking/pe-relocation.html#tutorial-hooking-pe"><span class="std std-ref">this tutorial</span></a> for a more complete guide on how
+to hook a function, and <a class="reference internal" href="pe-linking.html#tutorial-pe-linking"><span class="std std-ref">this tutorial</span></a> for how to
+handle external function references in a PE file.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="c1"># Set up logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Define the platform</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Create a CPU</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load and add code into the state</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="vm">__file__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.pe&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_pe</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x10000</span>
+    <span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Create a stack and add it to the state</span>
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mh">0x10101010</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">())</span>
+
+
+<span class="c1"># Configure _main model</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">InitModel</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;__main&quot;</span>
+    <span class="n">platform</span> <span class="o">=</span> <span class="n">platform</span>
+    <span class="n">abi</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">NONE</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emulator</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Return</span>
+        <span class="k">pass</span>
+
+
+<span class="n">init</span> <span class="o">=</span> <span class="n">InitModel</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="mh">0x1620</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">init</span><span class="p">)</span>
+
+
+<span class="c1"># Configure puts model</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">PutsModel</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;puts&quot;</span>
+    <span class="n">platform</span> <span class="o">=</span> <span class="n">platform</span>
+    <span class="n">abi</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">NONE</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">emulator</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Reading a block of memory from angr will fail,</span>
+        <span class="c1"># since values beyond the string buffer&#39;s bounds</span>
+        <span class="c1"># are guaranteed to be symbolic.</span>
+        <span class="c1">#</span>
+        <span class="c1"># Thus, we must step one byte at a time.</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">read_register</span><span class="p">(</span><span class="s2">&quot;rcx&quot;</span><span class="p">)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">read_memory_content</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">SymbolicValueError</span><span class="p">:</span>
+            <span class="n">b</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">while</span> <span class="n">b</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">b</span> <span class="o">!=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x00</span><span class="s2">&quot;</span><span class="p">:</span>
+            <span class="n">v</span> <span class="o">=</span> <span class="n">v</span> <span class="o">+</span> <span class="n">b</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="n">emulator</span><span class="o">.</span><span class="n">read_memory_content</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">SymbolicValueError</span><span class="p">:</span>
+                <span class="n">b</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="n">b</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">SymbolicValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Symbolic byte at </span><span class="si">{</span><span class="nb">hex</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+
+
+<span class="n">puts</span> <span class="o">=</span> <span class="n">PutsModel</span><span class="p">(</span><span class="mh">0x10000000</span><span class="p">)</span>
+<span class="n">code</span><span class="o">.</span><span class="n">update_import</span><span class="p">(</span><span class="s2">&quot;api-ms-win-crt-stdio-l1-1-0.dll&quot;</span><span class="p">,</span> <span class="s2">&quot;puts&quot;</span><span class="p">,</span> <span class="n">puts</span><span class="o">.</span><span class="n">_address</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">puts</span><span class="p">)</span>
+
+<span class="c1"># Set entrypoint to &quot;main&quot;</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="mh">0x1000</span><span class="p">)</span>
+
+<span class="c1"># Emulate</span>
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="mh">0x1031</span><span class="p">)</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+<span class="c1"># for m in machine.step(emulator):</span>
+<span class="c1">#    pass</span>
+</pre></div>
+</div>
+<p>Here is what running the harness looks like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 pe.amd64.py
+[+] starting emulation at 0x11000
+[+] emulation complete
+puts IAT at 25eb8 or 260ce
+b&#39;Hello, world!\n&#39;
+</pre></div>
+</div>
+<p>We see “Hello, world!”, so we have successfully harnessed <code class="docutils literal notranslate"><span class="pre">pe.amd64.pe</span></code>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+  <li><a href="index.html">Loading Code</a><ul>
+      <li>Previous: <a href="elf-loading.html" title="previous chapter">Loading an ELF</a></li>
+      <li>Next: <a href="coredump-loading.html" title="next chapter">Loading a core dump</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>smallworld.analyses &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="smallworld.exceptions" href="smallworld.exceptions.html" />
+    <link rel="prev" title="smallworld.state.memory.code" href="smallworld.state.memory.code.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-smallworld.analyses">
+<span id="smallworld-analyses"></span><h1>smallworld.analyses<a class="headerlink" href="#module-smallworld.analyses" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.Analysis">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">Analysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hinter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hinter</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.Analysis" title="Link to this definition">¶</a></dt>
+<dd><p>An analysis that emits some information about some code, possibly to help with harnessing.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.Analysis.run">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.analyses.Analysis.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.analyses.Analysis.description">
+<span class="property"><span class="k"><span class="pre">abstract</span></span><span class="w"> </span><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">description</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#smallworld.analyses.Analysis.description" title="Link to this definition">¶</a></dt>
+<dd><p>A description of this analysis.</p>
+<p>Descriptions should be a single sentence, lowercase, with no final
+punctuation for proper formatting.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.analyses.Analysis.name">
+<span class="property"><span class="k"><span class="pre">abstract</span></span><span class="w"> </span><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#smallworld.analyses.Analysis.name" title="Link to this definition">¶</a></dt>
+<dd><p>The name of this analysis.</p>
+<p>Names should be kebab-case, all lowercase, no whitespace for proper
+formatting.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.analyses.Analysis.version">
+<span class="property"><span class="k"><span class="pre">abstract</span></span><span class="w"> </span><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">version</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#smallworld.analyses.Analysis.version" title="Link to this definition">¶</a></dt>
+<dd><p>The version string for this analysis.</p>
+<p>We recommend using <a class="reference external" href="https://semver.org/">Semantic Versioning</a></p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.FieldDetectionAnalysis">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">FieldDetectionAnalysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.FieldDetectionAnalysis" title="Link to this definition">¶</a></dt>
+<dd><p>Detect fields on full path exploration</p>
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.analyses.FieldDetectionAnalysis.emulator">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">emulator</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span><a class="headerlink" href="#smallworld.analyses.FieldDetectionAnalysis.emulator" title="Link to this definition">¶</a></dt>
+<dd><p>The emulator to run
+Underlays need the overlay to define the emulator.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.FieldDetectionAnalysis.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.FieldDetectionAnalysis.execute" title="Link to this definition">¶</a></dt>
+<dd><p>Exercise the emulator</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.FieldDetectionAnalysis.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.FieldDetectionAnalysis.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedFieldDetectionAnalysis">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">ForcedFieldDetectionAnalysis</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">trace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ForcedFieldDetectionAnalysis" title="Link to this definition">¶</a></dt>
+<dd><dl class="py property">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedFieldDetectionAnalysis.emulator">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">emulator</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span><a class="headerlink" href="#smallworld.analyses.ForcedFieldDetectionAnalysis.emulator" title="Link to this definition">¶</a></dt>
+<dd><p>The emulator to run
+Underlays need the overlay to define the emulator.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedFieldDetectionAnalysis.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ForcedFieldDetectionAnalysis.execute" title="Link to this definition">¶</a></dt>
+<dd><p>Exercise the emulator</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedFieldDetectionAnalysis.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ForcedFieldDetectionAnalysis.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedExecution">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">ForcedExecution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">trace</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ForcedExecution" title="Link to this definition">¶</a></dt>
+<dd><p>Forced execution using angr</p>
+<p>This allows you to emulate arbitrary program slices
+by forcing the emulator to visit specific instructions,
+ignoring the normal program control flow.</p>
+<p>NOTE: This is not compatible with all architectures.
+The architecture needs to support single-stepping;
+delay slot architectures such as MIPS can’t
+be single-stepped by angr.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>platform</strong> – The platform you want to emulate</p></li>
+<li><p><strong>trace</strong> – The list of program counter addresses you want to visit</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedExecution.emulator">
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">emulator</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span><a class="headerlink" href="#smallworld.analyses.ForcedExecution.emulator" title="Link to this definition">¶</a></dt>
+<dd><p>The emulator to run
+Underlays need the overlay to define the emulator.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedExecution.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ForcedExecution.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.ForcedExecution.execute">
+<span class="sig-name descname"><span class="pre">execute</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ForcedExecution.execute" title="Link to this definition">¶</a></dt>
+<dd><p>Exercise the emulator</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.CrashTriage">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">CrashTriage</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.CrashTriage" title="Link to this definition">¶</a></dt>
+<dd><p>An analysis to ID potential causes of a crash.</p>
+<p>Concrete emulators like Unicorn and Panda
+are great at finding crashes, but they don’t preserve
+enough data to really explain why a crash happened.
+You got a null pointer dereference.  Okay, why?
+Where did that null pointer come from?
+What was the program doing to cause it?</p>
+<p>On the other hand, angr’s symbolic executor
+can provide extremely detailed machine-readable
+information about how the code and data
+reached a particular state,
+but getting it to identify crash conditions
+isn’t always easy.</p>
+<p>The solution is a dual harness approach:</p>
+<ul class="simple">
+<li><p>Run the harness once in Unicorn to get
+an immediate cause and execution trace</p></li>
+<li><p>Run the harness again in angr to replay
+the execution trace.</p></li>
+<li><p>Examine the final state from angr
+to get a diagnosis for the crash.</p></li>
+</ul>
+<p>Here are the kinds of hints produced by this analysis:</p>
+<dl class="simple">
+<dt>TriageNormalExit:</dt><dd><p>Execution exited at an exit point,
+indicating there was no crash.</p>
+</dd>
+<dt>TriageNormalTooLong:</dt><dd><p>Execution exceeded the specified maximum number of steps
+without encountering a crash.</p>
+</dd>
+<dt>TriageOOB:</dt><dd><p>Execution went out of bounds, or left mapped memory.</p>
+</dd>
+<dt>TriageIllegal:</dt><dd><p>Execution encountered an illegal instruction</p>
+</dd>
+<dt>TriageTrap:</dt><dd><p>Execution halted because of an unhandled
+hardware interrupt/trap/exception/fault</p>
+</dd>
+<dt>TriageMemory:</dt><dd><p>Execution halted because of an illegal memory access.
+This will include a field specifying the kind of access:
+read, write, or fetch.</p>
+</dd>
+</dl>
+<p>Each hint contains the execution trace it followed,
+as well as a diagnosis.
+The diagnosis will either contain details about the crash,
+or indicate that angr stopped before reaching it.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.CrashTriage.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.analyses.CrashTriage.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.CrashTriagePrinter">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">CrashTriagePrinter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">hinter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Hinter</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.CrashTriagePrinter" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.CrashTriagePrinter.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.CrashTriagePrinter.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.CrashTriageVerification">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">CrashTriageVerification</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_steps</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">TriageHint</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hint_attrs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Dict</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Any</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagnosis_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">Diagnosis</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">halt_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">Halt</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">halt_kind</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">halt_target</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">illegal_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Type</span><span class="p"><span class="pre">[</span></span><span class="pre">IllegalInstr</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mem_access</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">MemoryAccess</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.CrashTriageVerification" title="Link to this definition">¶</a></dt>
+<dd><p>Verification hooking for CrashTriage.</p>
+<p>This confirms that a use of the crash triage analyzer
+produces a specific equivalence class of cause
+and diagnosis.</p>
+<p>It’s mostly useful for testing purposes;
+I didn’t want to rewrite this in each
+of the integration test scripts.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.CrashTriageVerification.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.CrashTriageVerification.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.Colorizer">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">Colorizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">exec_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_insns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">200</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_color</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.Colorizer" title="Link to this definition">¶</a></dt>
+<dd><p>A simple kind of data flow analysis via tracking distinct values
+(colors) and employing instruction use/def analysis</p>
+<p>We run a single micro-execution of the code, given the input (to
+<cite>run</cite> method) machine state, single-stepping instructions and
+interposing for analysis before and after each instruction to
+check values dynamically read / written by each instruction.  We
+maintain a “colors” map from these dynamic values to when/where we
+first observed them. This map is initially empty. Before emulating
+an instruction, we examine the values (registers and memory) it
+will read. If any are not in the colors map, that is the initial
+sighting of that value and we emit a hint to that effect and add a
+color to the map. If any color is already in the map, then that is
+a def-use flow from the time or place at which that value was
+first observed to this instruction. Similarly, after emulating an
+instruction, we examine every value written to a register or
+memory. If a value is not in the colors map, it is a new, computed
+result and we hint about its creation and add it to the map. If it
+is in the colors map, we do nothing since it just a copy.</p>
+<p>Here are the kinds of hints output by this analysis</p>
+<p>DynamicRegisterValueHint
+– about value in a register at a particular instruction in the trace</p>
+<p>DynamicMemoryValueHint
+– about a value in memory at a particular instruction in the trace</p>
+<p>These can be “new” values if that is first time we have seen that
+color (dynamic value).  Or they can be not-new, meaning this is a
+use of that value previously observed, i.e. a data flow.</p>
+<p>They can also be reads or writes.</p>
+<p>Note: Why is there a min_color in constructor to Colorizer?  A
+color (here) is just a dynamic value that we think might be kinda
+unique and thus we can intuit data flows when we see it used in
+multiple places. Obviously, a color of 0 is not helpful. If you
+see 0 in two places it’s unlikely that means there was a
+dataflow. But this begs the question: what is a reasonable minimum
+acceptable color for intuiting data flows?  0-10 seems like they
+can’t be good colors?  Here, our default value for min color is
+0x80: this is fairly conservative and can be lowered.  Note that
+generally, we use <cite>randomize_unitialized</cite>, above, to set 2, 4, and
+8-byte registers and memory lvals to random numbers that will work
+well as colors.  These are unlikely to be &lt; 0x80.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>exec_id</strong> – An integer used to identify this execution, if needed</p></li>
+<li><p><strong>num_insns</strong> – The number of instructions to micro-execute</p></li>
+<li><p><strong>min_color</strong> – see above, min dyn value to be a color</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.Colorizer.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.analyses.Colorizer.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.ColorizerSummary">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">ColorizerSummary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ColorizerSummary" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.ColorizerSummary.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ColorizerSummary.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.ColorizerReadWrite">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">ColorizerReadWrite</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ColorizerReadWrite" title="Link to this definition">¶</a></dt>
+<dd><p>Collect color hints from Colorizer and turn them into a kind of
+dynamic def-&gt;use (write-&gt;read) graph that can be used to figure
+out how a value at an instruction is derived from inputs.</p>
+<p>How does this work?</p>
+<p>Well, we first collect all the dynamic value hints output by the
+colorizer.</p>
+<p>The “new” ones are hints in which a dynamic value is first
+observed along an execution trace. These are per-micro-execution
+colors.  They are normalized across micro-executions to get a set
+of keys that correspond to colors.  This normalization is done by
+<cite>compute_dv_key</cite>.  And the mapping from dynamic value hint to key
+via that function can be mapped, further, to unique colors with
+dvkey2num[key].</p>
+<p>Note: these “new” hints can actually be reads <em>or</em> writes.  A read
+can be use of a register value or a read of a value from
+memory. Both of these could contain new values and thus new
+per-execution colors. But a write, which can be to a register or
+to memory, can also be a new value (if computation occured in the
+instruction to get a new value).</p>
+<p>Next, we find edges in the graph as between where a new value was
+first seen and any place it was seen to be used. The edges are
+between the keys described above and thus are normalized across
+micro executions.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.ColorizerReadWrite.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.ColorizerReadWrite.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.TraceExecution">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">TraceExecution</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_insns</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1234567</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.TraceExecution" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.TraceExecution.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.analyses.TraceExecution.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.TraceElement">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">TraceElement</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pc</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mnemonic</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">op_str</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cmp</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">smallworld.instructions.instructions.RegisterOperand</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">smallworld.instructions.bsid.BSIDMemoryReferenceOperand</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">branch</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">immediates</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.TraceElement" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.TraceRes">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">TraceRes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.TraceRes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.LoopDetection">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">LoopDetection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_iter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.LoopDetection" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.LoopDetection.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.analyses.LoopDetection.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.analyses.CoverageFrontier">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.analyses.</span></span><span class="sig-name descname"><span class="pre">CoverageFrontier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.analyses.CoverageFrontier" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.analyses.CoverageFrontier.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">machine</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.state.html#smallworld.state.Machine" title="smallworld.state.state.Machine"><span class="pre">Machine</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.analyses.CoverageFrontier.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run the analysis.</p>
+<p>This function <strong>should not</strong> modify the provided Machine. Instead, it
+should be coppied before modification.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>machine</strong> – A machine state object on which this analysis should run.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="smallworld.html">smallworld</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.logging.html">smallworld.logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.hinting.html">smallworld.hinting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.platforms.html">smallworld.platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.emulators.html">smallworld.emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.html">smallworld.state</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.cpus.html">smallworld.state.cpus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.models.html">smallworld.state.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.html">smallworld.state.memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.stack.html">smallworld.state.memory.stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.heap.html">smallworld.state.memory.heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.code.html">smallworld.state.memory.code</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">smallworld.analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.exceptions.html">smallworld.exceptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.extern.ctypes.html">smallworld.extern.ctypes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Reference</a><ul>
+      <li>Previous: <a href="smallworld.state.memory.code.html" title="previous chapter">smallworld.state.memory.code</a></li>
+      <li>Next: <a href="smallworld.exceptions.html" title="next chapter">smallworld.exceptions</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

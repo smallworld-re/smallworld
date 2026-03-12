@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Loading Code &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Loading an ELF" href="elf-loading.html" />
+    <link rel="prev" title="Mapping Memory" href="../mapping-memory.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="loading-code">
+<h1>Loading Code<a class="headerlink" href="#loading-code" title="Link to this heading">¶</a></h1>
+<p>The <a class="reference internal" href="../../getting_started/harnessing-a-simple-program.html#tutorial-basic"><span class="std std-ref">basic tutorial</span></a> covers loading code from a raw byte stream.
+SmallWorld also supports loading and linking several common object file formats.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="elf-loading.html">Loading an ELF</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="elf-loading.html#using-the-elf-loader">Using the ELF Loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-loading.html#finding-the-entrypoint">Finding the entrypoint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-loading.html#adding-bounds">Adding Bounds</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-loading.html#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pe-loading.html">Loading a PE</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pe-loading.html#using-the-pe-loader">Using the PE loader</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pe-loading.html#finding-main">Finding <code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="pe-loading.html#stubbing-out-the-runtime">Stubbing out the runtime</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pe-loading.html#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="coredump-loading.html">Loading a core dump</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="coredump-loading.html#id1">Loading a core dump</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coredump-loading.html#applying-registers">Applying registers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coredump-loading.html#avoiding-the-trap">Avoiding the trap</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="coredump-loading.html#stepping-past-the-trap">Stepping past the trap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="coredump-loading.html#removing-the-trap">Removing the trap</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="coredump-loading.html#putting-it-all-together">Putting it all together</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coredump-loading.html#handling-missing-segments">Handling missing segments</a></li>
+<li class="toctree-l2"><a class="reference internal" href="coredump-loading.html#known-limitations">Known Limitations</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="vxworks-loading.html">Loading a VXWorks image</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="vxworks-loading.html#using-the-vxworks-loader">Using the VXWorks loader</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="elf-linking.html">Linking an ELF</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="elf-linking.html#specifying-dynamic-dependencies">Specifying dynamic dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-linking.html#loading-multiple-elfs">Loading multiple ELFs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-linking.html#linking-elfs">Linking ELFs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-linking.html#finding-main">Finding <code class="docutils literal notranslate"><span class="pre">main()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="elf-linking.html#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="pe-linking.html">Linking a PE</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="pe-linking.html#specifying-dynamic-dependencies">Specifying dynamic dependencies</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pe-linking.html#loading-multiple-pes">Loading multiple PEs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pe-linking.html#linking-pes">Linking PEs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="pe-linking.html#putting-it-all-together">Putting it all together</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+      <li>Previous: <a href="../mapping-memory.html" title="previous chapter">Mapping Memory</a></li>
+      <li>Next: <a href="elf-loading.html" title="next chapter">Loading an ELF</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

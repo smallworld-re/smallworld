@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>SmallWorld at a Glance &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Installation Guide" href="install-guide/index.html" />
+    <link rel="prev" title="Getting Started" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="smallworld-at-a-glance">
+<h1>SmallWorld at a Glance<a class="headerlink" href="#smallworld-at-a-glance" title="Link to this heading">¶</a></h1>
+<p>SmallWorld is an environment for streamlined harnessing of binaries for the
+purpose of dynamic analysis. We imagine that you have code that you got from
+somewhere. You may want to analyze it statically, with Ghidra or IDA Pro. But,
+at some point, you are likely to want to actually <em>run</em> the code and even do so
+under some kind of analysis that tracks or collects information
+programmatically. For example, you may want to do some coverage-guided fuzzing.
+Or run a PANDA taint analysis. A prerequisite for running code is <em>harnessing</em>
+the code, meaning arranging for its various inputs and initial conditions and
+dynamic requirements to be met.</p>
+<p>SmallWorld includes a suite of APIs to facilitate harnessing. Additionally,
+SmallWorld has analyses tailored to guiding the creation of harnesses, e.g.,
+which emulate code under inspection to determine what its “inputs” are and how
+they are used by the code, indicating type and semantics.</p>
+<p>SmallWorld is written in Python, and currently makes use of <a class="reference external" href="https://www.unicorn-engine.org/">Unicorn</a>, <a class="reference external" href="https://www.capstone-engine.org/">Capstone</a>, and <a class="reference external" href="https://angr.io/">angr</a>. Unicorn
+is used to emulate various instruction set architectures.  More specifically,
+however, SmallWorld uses Unicorn for <em>micro-execution</em>, an analytic technique
+in which short stretches of code are run under possibly random initial
+conditions to determine inputs and outputs, structure layouts, etc. Capstone
+provides disassembly support, and angr is used to provide a variety of
+harnessing-guiding hints.</p>
+<p>The basic workflow for SmallWorld is as follows</p>
+<ol class="arabic simple">
+<li><p>Start with a stock harnessing script that assumes little or nothing about
+the code and its requirements to run.</p></li>
+<li><p>Run stock SmallWorld analyses against the code using current harness to
+generate <em>hints</em> explaining what is wrong or incomplete about the way it runs
+given the harness.</p></li>
+<li><p>Examine hints either manually or with higher level analyses and use that as
+a guide refining the harnessing script.</p></li>
+<li><p>Iterate until the harness is stable and/or some other fitness criterion is
+met.</p></li>
+</ol>
+<a class="reference internal image-reference" href="../_images/SmallWorld-Workflow.png"><img alt="../_images/SmallWorld-Workflow.png" src="../_images/SmallWorld-Workflow.png" width="600" />
+</a>
+<p>Now that you have a harness for the code, you can use it to for any purpose
+that requires actually executing the code, which could be fuzzing, debugging,
+or reverse engineering.  As SmallWorld matures, we will add examples of these
+applications built out of code harnessed using the APIs and informed by the
+analyses in this repository.</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Getting Started</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">SmallWorld at a Glance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install-guide/index.html">Installation Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="harnessing-a-simple-program.html">Harnessing a Simple Program</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Getting Started</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Getting Started</a></li>
+      <li>Next: <a href="install-guide/index.html" title="next chapter">Installation Guide</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

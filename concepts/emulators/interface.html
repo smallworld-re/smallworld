@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Common Emulator Interface &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Unicorn Backend" href="unicorn.html" />
+    <link rel="prev" title="Emulators" href="index.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="common-emulator-interface">
+<span id="emulators-interface"></span><h1>Common Emulator Interface<a class="headerlink" href="#common-emulator-interface" title="Link to this heading">¶</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This interface very closely mirrors the <a class="reference internal" href="../state/index.html#state"><span class="std std-ref">Machine State</span></a> interface,
+to the point it may not be obvious why SmallWorld has a
+separate machine state representation at all.</p>
+<p>There are two benefits of having this separation:</p>
+<ol class="arabic simple">
+<li><p>Analyses may perform many emulation runs with slight modifications between each.
+It’s much easier to store a single <code class="docutils literal notranslate"><span class="pre">Machine</span></code> object
+than to have to capture and re-run code to populate an <code class="docutils literal notranslate"><span class="pre">Emulator</span></code> for every run.</p></li>
+<li><p>There are a number of little gotchas and backend-specific pieces of boilerplate
+necessary when populating or accessing an <code class="docutils literal notranslate"><span class="pre">Emulator</span></code> directly.
+The state interface captures many of them.</p></li>
+</ol>
+</div>
+<section id="available-emulators">
+<h2>Available Emulators<a class="headerlink" href="#available-emulators" title="Link to this heading">¶</a></h2>
+<p>All emulators are subclasses of <code class="docutils literal notranslate"><span class="pre">Emulator</span></code>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code>: Interface for the <a class="reference internal" href="angr.html#angr"><span class="std std-ref">angr</span></a> backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code>: Interface for the <a class="reference internal" href="ghidra.html#ghidra"><span class="std std-ref">ghidra</span></a> backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">PandaEmulator</span></code>: Interface for the <a class="reference internal" href="panda.html#panda"><span class="std std-ref">panda</span></a> backend.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code>: Interface for the <a class="reference internal" href="unicorn.html#unicorn"><span class="std std-ref">unicorn</span></a> backend.</p></li>
+</ul>
+</div></blockquote>
+<p>These all take a single <code class="docutils literal notranslate"><span class="pre">Platform</span></code> object as an argument to their constructor.</p>
+<p>While this interface works hard to unify behavior across emulators,
+these are all very different tools with different sets
+of supported features and “gotchas”.
+Please see the docs for the specific backends for details.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Not all backends support all platforms,
+or all features of all platforms.</p>
+<p>See <a class="reference internal" href="../platforms/support.html#platforms-support"><span class="std std-ref">Supported Platforms</span></a> for exact details of which
+backends support which platforms.</p>
+</div>
+</section>
+<section id="execution-control">
+<h2>Execution Control<a class="headerlink" href="#execution-control" title="Link to this heading">¶</a></h2>
+<p>Emulators support three modes of execution:</p>
+<p><code class="docutils literal notranslate"><span class="pre">Emulator.run()</span></code> emulates code continuously until one of the following happens:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Execution encounters a code boundary (exit point or bounds).</p></li>
+<li><p>An event handler raises <code class="docutils literal notranslate"><span class="pre">EmulationStop</span></code>, or one of its subclasses.</p></li>
+</ul>
+</div></blockquote>
+<p>Any other exceptions will get passed up to the caller.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Emulator.step()</span></code> emulates a single instruction at the current program counter.
+All exceptions are raised to the caller.
+This includes exceptions indicating a clean exit,
+namely <code class="docutils literal notranslate"><span class="pre">EmulationStop</span></code> and its subclasses.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Emulator.step_block()</span></code> emulates a single basic block at the current program counter.
+All exceptions are raised to the caller.
+This includes exceptions indicating a clean exit,
+namely <code class="docutils literal notranslate"><span class="pre">EmulationStop</span></code> and its subclasses.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The different backends have slightly different
+basic block identification algorithms;
+<code class="docutils literal notranslate"><span class="pre">Emulator.step_block()</span></code> is not guaranteed to
+advance through the same code in the same way for all backends.</p>
+</div>
+</section>
+<section id="exit-points-and-bounds">
+<h2>Exit Points and Bounds<a class="headerlink" href="#exit-points-and-bounds" title="Link to this heading">¶</a></h2>
+<p>Emulators allow a harness to support two mechanisms
+for bounding execution: exit points and bounds.</p>
+<p>An exit point is an address which, if executed, will cause execution to stop.
+Note that execution stops before the instruction at the exit point is executed.
+There is currently no concept of an “exit-after point” in SmallWorld.</p>
+<p>Exit points can be on any address, including one outside valid memory.
+This is useful for exiting on return from the top-level function,
+or detecting a call to a non-existent library.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>The <a class="reference internal" href="panda.html#panda"><span class="std std-ref">Panda Backend</span></a> backend does not support exit points on unmapped memory.
+This will likely be fixed with the next major update.</p>
+</div>
+<p>Harnesses or analyses may manually add exit points to the emulator
+using <code class="docutils literal notranslate"><span class="pre">Emulator.add_exit_point()</span></code>.  They may inspect the currently-registered
+exit points using <code class="docutils literal notranslate"><span class="pre">Emulator.get_exit_points()</span></code>.</p>
+<p>Bounds are ranges of addresses that the emulator is allowed to execute.
+If the current program counter is not in any of the ranges specified,
+emulation will stop.</p>
+<p>If no bounds are specified, all mapped memory is considered “in bounds”.
+Note that, for emulators that treat unmapped memory accesses as errors,
+executing an unmapped instruction will be reported as
+an unmapped memory access, not as out-of-bounds execution.</p>
+<p>Harnesses or analyses may manually add a memory range to the execution bounds
+using <code class="docutils literal notranslate"><span class="pre">Emulator.add_bound()</span></code>.  They may inspect the current bounds using
+<code class="docutils literal notranslate"><span class="pre">Emulator.get_bounds()</span></code>, or remove a region from the execution bounds
+using <code class="docutils literal notranslate"><span class="pre">Emulator.remove_bound()</span></code> (the range does not need to match a specifc added bound.)</p>
+</section>
+<section id="accessing-registers">
+<h2>Accessing Registers<a class="headerlink" href="#accessing-registers" title="Link to this heading">¶</a></h2>
+<p>Harnesses and analyses may access an emulator’s register state using
+<code class="docutils literal notranslate"><span class="pre">Emulator.read_register()</span></code> and <code class="docutils literal notranslate"><span class="pre">Emulator.write_register()</span></code>
+Register state is represented as an integer in host byte order,
+and is converted to and from guest byte order automatically.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Registers with more complicated data types (floating-point or structured data)
+are not represented specially.  It’s up to the harness or analysis
+to convert the integral value into a more appropriate format.</p>
+<p>There are a very small number of exceptions;
+see the docs for specific backends for details.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Symbolic values produced by angr can’t be represented as integers,
+and need special handling.</p>
+<p>This special handling is performed automatically
+by the <a class="reference internal" href="../state/index.html#state"><span class="std std-ref">Machine State</span></a> interface. It’s only a concern
+when interacting directly with an <code class="docutils literal notranslate"><span class="pre">Emulator</span></code>.</p>
+<p>See the docs for the <a class="reference internal" href="angr.html#angr"><span class="std std-ref">angr backend</span></a> for details.</p>
+</div>
+<p>Emulators may also support a concept of labels (see <a class="reference internal" href="../state/values.html#values"><span class="std std-ref">Values in Smallworld</span></a> for details),
+which may be accessed via <code class="docutils literal notranslate"><span class="pre">Emulator.read_register_label()</span></code>
+and <code class="docutils literal notranslate"><span class="pre">Emulator.write_register_label()</span></code>.
+See the docs for specific backends for details on label support.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>There may be more than one popular naming convention or style
+for the registers of a specific platform.</p>
+<p>Consult the <code class="docutils literal notranslate"><span class="pre">PlatformDefinition</span></code> class for a specific platform
+(see <a class="reference internal" href="../platforms/platforms.html#platforms"><span class="std std-ref">Describing a Platform</span></a>) for the convention SmallWorld uses.</p>
+</div>
+</section>
+<section id="mapping-memory">
+<h2>Mapping Memory<a class="headerlink" href="#mapping-memory" title="Link to this heading">¶</a></h2>
+<p>SmallWorld emulators maintain a crude model of a memory map.</p>
+<p>This allows emulators to detect out-of-bounds memory accesses;
+exactly how this is handled is back-end specific.
+See the docs for the specific back-ends.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>SmallWorld does not currently support a notion
+of permissions on mapped memory regions.
+All mapped regions are assumed to allow read, write, and execute.</p>
+</div>
+<p>This is handled opaquely by the <a class="reference internal" href="../state/index.html#state"><span class="std std-ref">Machine State</span></a> interface;
+any part of the machine state that needs
+mapped memory will request it when the machine state
+is applied to the emulator.</p>
+<p>Harnesses and analyses may manually add additional memory to the memory map using
+<code class="docutils literal notranslate"><span class="pre">Emulator.map_memory()</span></code>, which takes an address and a size.
+Addresses and sizes do not need to be page-aligned.</p>
+<p>Harnesses and analyses may fetch the current memory map
+from an emulator using <code class="docutils literal notranslate"><span class="pre">Emulator.get_memory_map()</span></code>.
+This will return a list of <code class="docutils literal notranslate"><span class="pre">Tuple[int,</span> <span class="pre">int]</span></code>
+of the form <code class="docutils literal notranslate"><span class="pre">(start,</span> <span class="pre">end)</span></code>.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Modifying the memory map of a running emulator
+is untested, and may produce undefined behavior.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The resolution of the memory map differs between backends.
+If a backend maps memory in pages, it will
+automatically page-align requested regions.</p>
+<p>See the docs for the specific backends for details.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>SmallWorld emulators don’t readily support
+separate interactions with physical and virtual memory:</p>
+<ol class="arabic simple">
+<li><p>Most backends don’t support the necessary
+privileged features to manage virtual-to-physical memory mapping.</p></li>
+<li><p>Managing virtual memory would usually require
+adding a large chunk of a live OS to your harness,
+defeating the purpose of micro execution.</p></li>
+</ol>
+<p>By default, SmallWorld emulators will support as close to
+a full virtual address space as possible, although
+some emulators may present slightly different
+memory layouts for some platforms.
+See the docs for the specific backends for details.</p>
+</div>
+</section>
+<section id="accessing-memory">
+<h2>Accessing Memory<a class="headerlink" href="#accessing-memory" title="Link to this heading">¶</a></h2>
+<p>Harnesses and analyses may access an emulator’s memory state using
+<code class="docutils literal notranslate"><span class="pre">Emulator.read_memory()</span></code> and <code class="docutils literal notranslate"><span class="pre">Emulator.write_memory()</span></code>.
+Memory state is represented as <code class="docutils literal notranslate"><span class="pre">bytes</span></code> objects.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Symbolic values produced by angr can’t be represented as bytes,
+and need special handling.</p>
+<p>This special handling is performed automatically
+by the <a class="reference internal" href="../state/index.html#state"><span class="std std-ref">Machine State</span></a> interface; it’s only a concern
+when interacting directly with an <code class="docutils literal notranslate"><span class="pre">Emulator</span></code>.</p>
+<p>See the docs for <a class="reference internal" href="angr.html#angr"><span class="std std-ref">Angr Backend</span></a> for details.</p>
+</div>
+<p>This interface will obey the current memory map, as supported by the backend.
+Accessing memory not mapped via <code class="docutils literal notranslate"><span class="pre">Emulator.map_memory()</span></code> may raise an exception.</p>
+<p>This interface will obey platform-specific configuration, as supported by the backend.
+All backends default to a “safe” state; a harness does not need to provide
+any platform-specific configuration to perform basic memory accesses.
+If a harness does provide such configuration,
+memory acceses may raise an exception if they violate the configured parameters,
+or if the configuration is invalid.</p>
+<p>There is a separate function for writing
+executable instruction information, <code class="docutils literal notranslate"><span class="pre">Emulator.write_code()</span></code>.
+For all currently-supported platforms,
+this has the exact same effect on machine state as <code class="docutils literal notranslate"><span class="pre">Emulator.write_memory()</span></code>.</p>
+<p>However, some emulators, namely angr, load code differently from data.
+See the docs for specific backends.</p>
+</section>
+<section id="event-handlers">
+<h2>Event Handlers<a class="headerlink" href="#event-handlers" title="Link to this heading">¶</a></h2>
+<p>SmallWorld emulators accept handlers for a variety of events:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Instruction execution</p></li>
+<li><p>Function calls</p></li>
+<li><p>Memory accesses</p></li>
+<li><p>System calls</p></li>
+<li><p>Interrupts</p></li>
+</ul>
+</div></blockquote>
+<p>Not every backend supports all event types.
+see the docs for specific backends for details.</p>
+<p>All callback functions receive an <code class="docutils literal notranslate"><span class="pre">Emulator</span></code>
+as their first parameter.  The callback
+can use that <code class="docutils literal notranslate"><span class="pre">Emulator</span></code> to modify machine state,
+including the current program counter.</p>
+<p>Attempting to modify the emulator’s memory map,
+or start execution will result in undefined behavior.</p>
+<p>A callback can raise an <code class="docutils literal notranslate"><span class="pre">EmulationStop</span></code> exception
+to halt emulation gracefully.</p>
+<section id="instruction-execution">
+<h3>Instruction Execution<a class="headerlink" href="#instruction-execution" title="Link to this heading">¶</a></h3>
+<p>Harnesses or analyses can register callbacks to trigger
+before a specific instruction gets executed using
+<code class="docutils literal notranslate"><span class="pre">InstructionHookable.hook_instruction()</span></code>.</p>
+<p>This takes the address of the instruction,
+and a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.</p>
+<p>Aside from any explicit modifications made by the callback,
+an instruction event handler will not modify emulator state,
+or the bound instruction’s execution.</p>
+<p>The callback will only trigger if the program counter
+specifically equals the bound address.
+(This is rarely a problem, but can happen
+with certain ISAs that allow optional prefixes.)</p>
+<p>Only one callback can be registered for a specific program counter.
+Attempting to register more than one callback
+will raise an exception.</p>
+<p>A callback can be removed from an instruction
+using <code class="docutils literal notranslate"><span class="pre">InstructionHookable.unhook_instruction()</span></code>.</p>
+<p>Harnesses or analyses can also use
+<code class="docutils literal notranslate"><span class="pre">InstructionHookable.hook_instructions()</span></code> to register a callback
+that will trigger on every instruction.</p>
+<p>Only one such callback can be applied to an <code class="docutils literal notranslate"><span class="pre">Emulator</span></code>.
+Attempting to apply a second callback will raise an exception.</p>
+<p>A global instruction callback can be removed
+using <code class="docutils literal notranslate"><span class="pre">InstructionHookable.unhook_instructions()</span></code>.</p>
+</section>
+<section id="function-calls">
+<h3>Function Calls<a class="headerlink" href="#function-calls" title="Link to this heading">¶</a></h3>
+<p>Harnesses or analyses can register callbacks
+that replace an instruction with a function model
+using <code class="docutils literal notranslate"><span class="pre">FunctionHookable.hook_function()</span></code>.</p>
+<p>This takes the address of the instruction,
+and a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.</p>
+<p>The emulator will not execute the replaced instruction;
+instead, it will execute the callback,
+and then mimic a platform-appropriate “return” operation,
+as if the instruction were the start of a larger function that then returned.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Even though the replaced instruction gets skipped,
+it must still be in mapped memory.</p>
+</div>
+<p>Only one function model can be registered for  a specific instruction.
+Attempting to register more than one model will raise an exeception.</p>
+<p>An instruction model can be removed using <code class="docutils literal notranslate"><span class="pre">FunctionHookable.unhook_function()</span></code>.</p>
+</section>
+<section id="memory-reads">
+<h3>Memory Reads<a class="headerlink" href="#memory-reads" title="Link to this heading">¶</a></h3>
+<p>Harnesses or analyses can use <code class="docutils literal notranslate"><span class="pre">MemoryReadHookable.hook_memory_read()</span></code>
+to register a callback that triggers when a specific address range is read.</p>
+<p>This takes the starting address of the memory region,
+the size in bytes of the memory region,
+and a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator,</span> <span class="pre">int,</span> <span class="pre">int,</span> <span class="pre">bytes)</span> <span class="pre">-&gt;</span> <span class="pre">Optional[bytes]</span></code>.</p>
+<p>The callback receives the start address of the read, the size of the read,
+and the data that was read as a <code class="docutils literal notranslate"><span class="pre">bytes</span></code> object.</p>
+<p>The callback can return <code class="docutils literal notranslate"><span class="pre">None</span></code> to allow the read to proceed normally,
+or return a <code class="docutils literal notranslate"><span class="pre">bytes</span></code> object of the same size as the original read
+to override the result of the read operation.</p>
+<p>A read callback can be removed from the emulator using
+<code class="docutils literal notranslate"><span class="pre">MemoryReadHookable.unhook_memory_read()</span></code>.</p>
+<p>Harnesses or analyses can use <code class="docutils literal notranslate"><span class="pre">MemoryReadHookable.hook_memory_reads()</span></code>
+to register a callback that triggers when any memory is read.
+The callback has the same semantics as the one for <code class="docutils literal notranslate"><span class="pre">MemoryReadHookable.hook_memory_read()</span></code></p>
+<p>Only one global read callback can exist at once.
+Attempting to register a second will raise an exception.</p>
+<p>Multiple global or specific read callbacks can apply
+to a particular read operation.  The order they are invoked is not guaranteed.
+If a callback modifies the data read, it will override
+the data passed to any pending callbacks.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Memory read callbacks will trigger if any part
+of a read overlaps any part of the hooked memory region.</p>
+<p>The whole access will be reported to the callback,
+including bytes outside the hooked region.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>A hooked memory region must be mapped,
+or the access will trigger an exception
+before it triggers the callback.</p>
+</div>
+</section>
+<section id="memory-writes">
+<h3>Memory Writes<a class="headerlink" href="#memory-writes" title="Link to this heading">¶</a></h3>
+<p>Harnesses or analyses can use <code class="docutils literal notranslate"><span class="pre">MemoryWriteHookable.hook_memory_write()</span></code>
+to register a callback that triggers when a specific address range is written.</p>
+<p>This takes the starting address of the memory region,
+the size in bytes of the memory region,
+and a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator,</span> <span class="pre">int,</span> <span class="pre">int,</span> <span class="pre">bytes)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.</p>
+<p>The callback receives the start address of the write, the size of the write,
+and the data that will be written as a <code class="docutils literal notranslate"><span class="pre">bytes</span></code> object.</p>
+<p>A write callback can be removed from the emulator using
+<code class="docutils literal notranslate"><span class="pre">MemoryWriteHookable.unhook_memory_write()</span></code>.</p>
+<p>Harnesses or analyses can use <code class="docutils literal notranslate"><span class="pre">MemoryWriteHookable.hook_memory_writes()</span></code>
+to register a callback that triggers when any memory is written.
+The callback has the same semantics as the one for <code class="docutils literal notranslate"><span class="pre">MemoryWriteHookable.hook_memory_write()</span></code></p>
+<p>Only one global write callback can exist at once.
+Attempting to register a second will raise an exception.</p>
+<p>Multiple global or specific write callbacks can apply
+to a particular read operation.  The order they are invoked is not guaranteed.</p>
+<p>Write callbacks can’t modify the data written,
+but they can store their own internal state
+and make it available to a corresponding read callback.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Memory write callbacks will trigger if any part
+of a write overlaps any part of the hooked memory region.</p>
+<p>The whole access will be reported to the callback,
+including bytes outside the hooked region.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>A hooked memory region must be mapped,
+or the access will trigger an exception
+before it triggers the callback.</p>
+</div>
+</section>
+<section id="system-calls">
+<h3>System Calls<a class="headerlink" href="#system-calls" title="Link to this heading">¶</a></h3>
+<p>Harnesses and models can use <code class="docutils literal notranslate"><span class="pre">SyscallHookable.hook_syscall()</span></code>
+to hook specific system calls encountered by the emulator.</p>
+<p>This takes a system call number,
+and a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.
+(It is assumed the callback was written with a specific syscall in mind.)</p>
+<p>Only one callback can be registered for a specific system call number.
+Attempting to add another will raise an exception.</p>
+<p>A callback for a specific system call can be removed using
+<code class="docutils literal notranslate"><span class="pre">SyscallHookable.unhook_syscall()</span></code>.</p>
+<p>Harnesses and models can use <code class="docutils literal notranslate"><span class="pre">SyscallHookable.hook_syscalls()</span></code>
+to hook all system calls.
+This takes a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator,</span> <span class="pre">int)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.
+The callback receives the system call number as its second parameter.</p>
+<p>Only one callback can be registered for all system calls.
+Attempting to add another will raise an exception.</p>
+<p>Global system call hooks can be removed using
+<code class="docutils literal notranslate"><span class="pre">SyscallHookable.unhook_syscalls()</span></code>.</p>
+<p>Emulating an unhooked system call will cause the emulator to raise an exception.</p>
+<p>By default, emulating a hooked system call will have no effect;
+the emulator will continue at the instruction immediately following the system call.</p>
+<p>The callback can modify machine state freely,
+and cause emulation to resume at a different instruction by setting the program counter.</p>
+<p>Both global and specific system call handlers can be registered at the same time.
+The order in which the callbacks fire is not guaranteed.</p>
+</section>
+<section id="interrupts">
+<h3>Interrupts<a class="headerlink" href="#interrupts" title="Link to this heading">¶</a></h3>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>SmallWorld has an interface for interrupt hooking,
+but it appears to be non-functional right now.</p>
+</div>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Emulators</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Emulators</a></li>
+      <li>Next: <a href="unicorn.html" title="next chapter">Unicorn Backend</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

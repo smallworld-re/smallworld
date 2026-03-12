@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Object File Loaders &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../../about.html" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Event Handlers" href="../hooks/hooks.html" />
+    <link rel="prev" title="Executables" href="executables.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="object-file-loaders">
+<h1>Object File Loaders<a class="headerlink" href="#object-file-loaders" title="Link to this heading">¶</a></h1>
+<p>Subclasses of <code class="docutils literal notranslate"><span class="pre">Executable</span></code> support loading object files.
+These are structured binary files that provide
+a large amount of information to a program loader:</p>
+<ul class="simple">
+<li><p>Specify platform details to ensure compatibility.</p></li>
+<li><p>Specify how to lay out the memory image for this program or library.</p></li>
+<li><p>Provide initial data for parts of memory that have initial data.</p></li>
+<li><p>Provide an entry point address, if the image is executable</p></li>
+<li><p>Provide relocation information, if the image is position-independent.</p></li>
+<li><p>Provide information about required libraries and other runtime linking requirements.</p></li>
+<li><p>Provide information on imported and exported symbols.</p></li>
+<li><p>Provide runtime-specific information, such as the location of initializer routines.</p></li>
+</ul>
+<p>Currently, SmallWorld supports the following formats:</p>
+<ul class="simple">
+<li><p><strong>ELF</strong>: Used by Linux (and many other platforms) for executables and shared objects.</p></li>
+<li><p><strong>PE32+</strong>: Used by Windows (and a few other platforms) for executables and DLLs.</p></li>
+</ul>
+<p>Such objects should be instantiated using helpers on <code class="docutils literal notranslate"><span class="pre">Executable</span></code>,
+namely <code class="docutils literal notranslate"><span class="pre">Executable.from_elf()</span></code> and <code class="docutils literal notranslate"><span class="pre">Executable.from_pe()</span></code></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>SmallWorld doesn’t really provide an interface for introspecting
+the metadata of an object file.
+It’s assumed that the harness author has access to better
+dedicated inspection tools like objdump or Ghidra.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>ELF files can also represent “relocatable objects”,
+which only contain logical program layout information,
+and are waiting for a linker to finalize them into a physical image.</p>
+<p>Relocatable objects include <code class="docutils literal notranslate"><span class="pre">.o</span></code> files produced as intermediate compilation
+artifacts or components of a <code class="docutils literal notranslate"><span class="pre">.a</span></code> static library, as well as
+<code class="docutils literal notranslate"><span class="pre">.ko</span></code> files holding kernel modules.</p>
+<p>The SmallWorld ELF loader currently doesn’t handle relocatable objects;
+it requires parsing a different, slightly more complex
+set of metadata from a fully-linked ELF.</p>
+</div>
+<section id="platform-verification">
+<h2>Platform Verification<a class="headerlink" href="#platform-verification" title="Link to this heading">¶</a></h2>
+<p>Object file representations indicate to a certain resolution
+which platform the code inside them is compatible with.</p>
+<p>The harness can use the optional <code class="docutils literal notranslate"><span class="pre">platform</span></code> argument
+to <code class="docutils literal notranslate"><span class="pre">Executable.from_elf()</span></code> or <code class="docutils literal notranslate"><span class="pre">Executable.from_pe()</span></code> to specify a required platform.
+If the platform from the header doesn’t match,
+the loader will raise an exception.</p>
+<p>The harness can also leave the <code class="docutils literal notranslate"><span class="pre">platform</span></code> argument blank,
+and allow the loader to determine its own platform.
+The derived platform will be available at the <code class="docutils literal notranslate"><span class="pre">platform</span></code> attribute
+of the resulting object.</p>
+</section>
+<section id="load-address">
+<h2>Load Address<a class="headerlink" href="#load-address" title="Link to this heading">¶</a></h2>
+<p>Object files can specify a base address for their memory image,
+or allow the program loader to determine one at runtime.</p>
+<p>The harness can specify a load address via the optional <code class="docutils literal notranslate"><span class="pre">address</span></code>
+parameter to <code class="docutils literal notranslate"><span class="pre">Executable.from_elf()</span></code> or <code class="docutils literal notranslate"><span class="pre">Executable.from_pe()</span></code>.</p>
+<p>This works differently for ELF and PE files:</p>
+<ul class="simple">
+<li><p><strong>ELF:</strong> ELF files that specify a load address generally must be loaded at that address.
+If not, the harness must provide an address.  If both or neither specify a load address,
+the parser will raise an exception.</p></li>
+<li><p><strong>PE32+:</strong> PE files nearly always specify a load address that is nearly always optional.
+The harness may specify a load address, otherwise the parser will default to the
+load address in the file.</p></li>
+</ul>
+</section>
+<section id="memory-layout">
+<h2>Memory Layout<a class="headerlink" href="#memory-layout" title="Link to this heading">¶</a></h2>
+<p>Once successfully loaded, an object file representation
+will act as a <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object with one <code class="docutils literal notranslate"><span class="pre">Value</span></code> per allocated segment
+in the specified memory image.</p>
+<p>This will properly handle both file-backed and zero-initialized (BSS) segments.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>SmallWorld’s object file loaders build a memory image
+as it exists raw from the object file.
+It does not duplicate any runtime initialization.</p>
+<p>The problem is that certain libraries are relatively unusable
+without runtime initialization.  Glibc relies on runtime initializers
+to populate data structures for thread-local storage, the heap, the locale subsystem,
+and a host of other critical subsystems.
+Manually piecing together the data structures for the entire ptmalloc heap
+will require a harness of extraordinary complexity.</p>
+<p>SmallWorld provides two alternatives:</p>
+<ul class="simple">
+<li><p>Using function models to approximate the impacted functions in Python.</p></li>
+<li><p>Starting emulation from a core dump.</p></li>
+</ul>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>PE32+ files have overlapping initialized segments.
+This is normal, and the overlap always contains the same data.
+This case is handled correctly by the accessor functions on <code class="docutils literal notranslate"><span class="pre">Memory</span></code>,
+as well as when applying the <code class="docutils literal notranslate"><span class="pre">Executable</span></code> to an emulator.</p>
+<p>Be aware of this if you try to manually modify the <code class="docutils literal notranslate"><span class="pre">Value</span></code> objects.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Object file representations will apply executable segments
+to emulators as code, and non-executable segments as data.</p>
+</div>
+</section>
+<section id="entry-point">
+<h2>Entry Point<a class="headerlink" href="#entry-point" title="Link to this heading">¶</a></h2>
+<p>Object file representations present the entrypoint
+specified in the file via the <code class="docutils literal notranslate"><span class="pre">entrypoint</span></code> property.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The entrypoint of most desktop application binaries will point
+to runtime initializers that are a) extremely difficult to micro-execute,
+and b) very rarely interesting.</p>
+<p>See tutorials on how to harness an <a class="reference internal" href="../../../tutorial/program-loading/elf-loading.html#tutorial-elf"><span class="std std-ref">ELF</span></a>
+or a <a class="reference internal" href="../../../tutorial/program-loading/pe-loading.html#tutorial-pe"><span class="std std-ref">PE</span></a> starting at <code class="docutils literal notranslate"><span class="pre">main</span></code>.</p>
+</div>
+</section>
+<section id="bounds">
+<h2>Bounds<a class="headerlink" href="#bounds" title="Link to this heading">¶</a></h2>
+<p>Object file representations derive execution bounds
+for the loaded image based on the locations of the executable segments.</p>
+<p>The list of ranges will be exposed via the <code class="docutils literal notranslate"><span class="pre">bounds</span></code> property of the <code class="docutils literal notranslate"><span class="pre">Executable</span></code>.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Bounds are NOT transferred to a <code class="docutils literal notranslate"><span class="pre">Machine</span></code> when the <code class="docutils literal notranslate"><span class="pre">Executable</span></code> is added,
+nor are they applied to the emulator when the <code class="docutils literal notranslate"><span class="pre">Machine</span></code> is applied.</p>
+<p>This makes it easier for a harness to constrain execution
+to a small part of a program or library,
+or to leave execution unconstrained.</p>
+</div>
+</section>
+<section id="linking-and-loading">
+<h2>Linking and Loading<a class="headerlink" href="#linking-and-loading" title="Link to this heading">¶</a></h2>
+<p>Aside from laying out memory, the other major responsibility
+of an object file is to provide the metadata needed for runtime linking.</p>
+<p>These concepts work almost completely differently for ELF and PE32+ files,
+and so are presented separately.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>As a micro-execution framework, SmallWorld’s linker and loader models are optional.
+An <code class="docutils literal notranslate"><span class="pre">Executable</span></code> can be included in a harness with some or all of its symbols
+left undefined.</p>
+<p>Accessing an undefined symbol will have very platform-specific
+and somewhat difficult-to-diagnose undefined behavior.</p>
+</div>
+<section id="pe32-relocations">
+<h3>PE32+ Relocations<a class="headerlink" href="#pe32-relocations" title="Link to this heading">¶</a></h3>
+<p>PE32+ files have a concept of relocations,
+but they are exclusively used to adjust a program if loaded at a non-standard load address.</p>
+<p>SmallWorld handles these opaquely when the <code class="docutils literal notranslate"><span class="pre">Executable</span></code> gets initialized.</p>
+</section>
+<section id="pe32-imports-and-exports">
+<h3>PE32+ Imports and Exports<a class="headerlink" href="#pe32-imports-and-exports" title="Link to this heading">¶</a></h3>
+<p>PE32+ runtime linking is (usually) extremely simple.</p>
+<p>A DLL will expose exports, which are a list of identifiable addresses
+that other files can reference.  This includes things like function or global variable addresses.</p>
+<p>An executable or DLL will expose “imports”, which are identifiers (string names or integer ordinals)
+into a specific DLL’s exports.</p>
+<p>At runtime, the linker reads each import for a file and finds the corresponding export
+on the specified DLL.  It then copies the address for that export into
+the relevant import address table (IAT) entry.  The code will read that address
+out of the IAT when it wants to access that export.</p>
+<p>SmallWorld has two methods to populate the IAT of a PE32+ file.</p>
+<p>The first is <code class="docutils literal notranslate"><span class="pre">PEExecutable.update_import()</span></code>.
+This takes the name of the DLL, a name or ordinal of an import,
+and the integer value to write into the IAT.
+It will raise an exception if the specified import
+doesn’t exist.</p>
+<p>The second is <code class="docutils literal notranslate"><span class="pre">PEExecutable.link_pe()</span></code>.
+This takes a second <code class="docutils literal notranslate"><span class="pre">PEExecutable</span></code> object and updates
+any imports in the first PE that have corresponding exports in the second PE.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>PE32+ exports may actually be “forwarded”, i.e.: alias an export in another DLL.
+SmallWorld currently does not support this feature.</p>
+</div>
+<p>See <a class="reference internal" href="../../../tutorial/program-loading/pe-loading.html#tutorial-pe"><span class="std std-ref">Loading a PE</span></a> for a tutorial on building a harness that loads a PE,
+and <a class="reference internal" href="../../../tutorial/program-loading/pe-linking.html#tutorial-pe-linking"><span class="std std-ref">Linking a PE</span></a> for a tutorial on building a harness
+that loads and links multiple PEs.</p>
+</section>
+<section id="elf-symbols-and-relocations">
+<h3>ELF Symbols and Relocations<a class="headerlink" href="#elf-symbols-and-relocations" title="Link to this heading">¶</a></h3>
+<p>ELF files represent all cross-references as symbols,
+essentially named variables within the file metadata.
+These serve a lot of purposes, including marking exports,
+indicating required imports, and just generally indicating
+interesting locations and metadata within the file.</p>
+<p>SmallWorld harnesses can access symbols within an ELF
+using <code class="docutils literal notranslate"><span class="pre">ELFExecutable.get_symbol_value()</span></code>
+and <code class="docutils literal notranslate"><span class="pre">ELFExecutable.get_symbol_size()</span></code>.
+These both take a string specifying the symbol’s name,
+and will raise an exception if the symbol doesn’t exist.</p>
+<p>Any time an image uses an undefined symbol,
+the ELF will include a relocation entry
+indicating how the image should change when the program loader defines it.</p>
+<p>Exactly what kinds of relocations are available,
+how they are specified in the ELF file,
+and how they are used by the program loader is entirely platform specific.
+Currently, only common, relatively simple relocation types are supported by SmallWorld.</p>
+<p>SmallWorld has two methods to populate a symbol and update its relocations.</p>
+<p>The first is <code class="docutils literal notranslate"><span class="pre">ELFExecutable.update_symbol_value()</span></code>
+It takes the name of a symbol, and the new integer value.
+It will overwrite the value of the symbol recorded in the <code class="docutils literal notranslate"><span class="pre">ELFExecutable</span></code>,
+and apply any relocations associated with the symbol.
+It will raise an exception if there is no symbol with that
+name in the ELF, if the symbol has an associated relocation
+that SmallWorld can’t handle, or (in rare cases) where there
+are multiple symbols with the same name in the ELF.</p>
+<p>The second is <code class="docutils literal notranslate"><span class="pre">ELFExecutable.link_elf()</span></code>
+This takes a second <code class="docutils literal notranslate"><span class="pre">ELFExecutable</span></code>,
+and updates all undefined symbols in the first ELF
+with the values of defined symbols that share the same name
+in the second ELF.
+It will raise an exception if any symbol has an associated
+relocation that SmallWorld can’t handle.
+It will skip a symbol if there’s more than one
+symbol with that name in the first ELF.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>ELF symbols are not bound to a library like PE32+ symbols.
+It’s either assumed that there is only one symbol with a specific name
+in an entire process, or the linker will just pick the first copy it sees.</p>
+<p>SmallWorld’s model works exactly the same;
+whichever symbol matches first is the one that will stick.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>SmallWorld’s ELF linker is currently very basic.</p>
+<p>It will work for common dynamically-linked programs and libraries,
+but the full set of features available for runtime linking
+is absurdly complicated.  Please inform the Smallworld team
+if you need a feature we don’t yet model.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Some platforms define a “copy” relocation.
+Whereas most relocations compute some value from the symbol and write that into the image
+copy relocations compute an address based off the symbol, dereference that,
+and copy the retrieved data into the image.</p>
+<p>This is extremely annoying to model in a harness,
+since the <code class="docutils literal notranslate"><span class="pre">ELFExecutable</span></code> objects don’t have access to a complete memory image,
+and in a number of cases, the relevant memory gets initialized at runtime,
+between program start and dynamic symbol resolution.</p>
+<p>Currently, SmallWorld breaks the spec a bit, and allows the harness
+to specify the ultimate value, instead of an address pointing to the ultimate value.</p>
+<p>It is currently up to the harness author to identify when a symbol is referenced
+by a copy relocation.</p>
+</div>
+<p>See <a class="reference internal" href="../../../tutorial/program-loading/elf-loading.html#tutorial-elf"><span class="std std-ref">Loading an ELF</span></a> for a tutorial on building a harness that loads an ELF,
+and <a class="reference internal" href="../../../tutorial/program-loading/elf-linking.html#tutorial-elf-linking"><span class="std std-ref">Linking an ELF</span></a> for a tutorial on building a harness
+that loads and links multiple ELFs.</p>
+</section>
+</section>
+<section id="core-dump-loader">
+<h2>Core Dump Loader<a class="headerlink" href="#core-dump-loader" title="Link to this heading">¶</a></h2>
+<p>SmallWorld supports loading Linux core dumps.
+These are modified versions of <code class="docutils literal notranslate"><span class="pre">ELFExecutable</span></code>, loaded
+using <code class="docutils literal notranslate"><span class="pre">Executable.from_elf_core()</span></code></p>
+<p>Linux core files are very simple ELF files,
+with an extra metadata struct that specifies register state
+at the moment the core dump was created.</p>
+<p>While core dumps are usually created when a program irretrievably fails,
+manually-created core dumps are an amazing way to harness a complex process.</p>
+<p>See <a class="reference internal" href="../../../tutorial/program-loading/coredump-loading.html#tutorial-coredump"><span class="std std-ref">Loading a core dump</span></a> for a tutorial on building a harness around a core dump.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Concepts</a><ul>
+  <li><a href="../index.html">Machine State</a><ul>
+  <li><a href="index.html">Memory Objects</a><ul>
+      <li>Previous: <a href="executables.html" title="previous chapter">Executables</a></li>
+      <li>Next: <a href="../hooks/hooks.html" title="next chapter">Event Handlers</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

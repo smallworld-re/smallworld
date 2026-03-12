@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Colorizer Analysis Tutorial &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Fuzzing" href="../fuzzing.html" />
+    <link rel="prev" title="Coverage Frontier Analysis Tutorial" href="coverage-frontier.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="colorizer-analysis-tutorial">
+<span id="colorizer-tutorial"></span><h1>Colorizer Analysis Tutorial<a class="headerlink" href="#colorizer-analysis-tutorial" title="Link to this heading">¶</a></h1>
+<p>We will solve the same problem twice using both <code class="docutils literal notranslate"><span class="pre">Colorizer</span></code> and
+<code class="docutils literal notranslate"><span class="pre">ColorizerReadWrite</span></code> analyses.</p>
+<section id="take-1-colorizer">
+<h2>Take 1: Colorizer<a class="headerlink" href="#take-1-colorizer" title="Link to this heading">¶</a></h2>
+<p>The following function <code class="docutils literal notranslate"><span class="pre">call_sys</span></code> illustrates one way in which the
+colorizer analysis can be of use.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>[0x00001060]&gt; pdf @ sym.call_sys
+            ; CALL XREF from sub.main_1243 @ 0x1260(x)
+┌ 250: sym.call_sys (int64_t arg1);
+│ `- args(rdi) vars(6:sp[0x10..0x30])
+│           0x00001149      55             push rbp
+│           0x0000114a      4889e5         mov rbp, rsp
+│           0x0000114d      4883ec30       sub rsp, 0x30
+│           0x00001151      48897dd8       mov qword [var_28h], rdi    ; arg1
+│           0x00001155      488b45d8       mov rax, qword [var_28h]
+│           0x00001159      488945f8       mov qword [string], rax
+│           0x0000115d      488b45f8       mov rax, qword [string]
+│           0x00001161      48c1e818       shr rax, 0x18
+│           0x00001165      8945ec         mov dword [var_14h], eax
+│           0x00001168      c745e80900..   mov dword [var_18h], 9
+│           0x0000116f      8b45ec         mov eax, dword [var_14h]
+│           0x00001172      488d158b0e..   lea rdx, str.n_d_n          ; 0x2004 ; &quot;n=%d\n&quot;
+│           0x00001179      89c6           mov esi, eax
+│           0x0000117b      4889d7         mov rdi, rdx                ; const char *format
+│           0x0000117e      b800000000     mov eax, 0
+│           0x00001183      e8b8feffff     call sym.imp.printf         ; int printf(const char *format)
+│           0x00001188      488b45f8       mov rax, qword [string]
+│           0x0000118c      488d15770e..   lea rdx, str.a_lX_n         ; 0x200a ; &quot;a=%lX\n&quot;
+│           0x00001193      4889c6         mov rsi, rax
+│           0x00001196      4889d7         mov rdi, rdx                ; const char *format
+│           0x00001199      b800000000     mov eax, 0
+│           0x0000119e      e89dfeffff     call sym.imp.printf         ; int printf(const char *format)
+│           0x000011a3      b8efbeadde     mov eax, 0xdeadbeef
+│           0x000011a8      483145f8       xor qword [string], rax
+│           0x000011ac      c745f40000..   mov dword [var_ch], 0
+│       ┌─&lt; 0x000011b3      eb21           jmp 0x11d6
+│       │   ; CODE XREF from sym.call_sys @ 0x11dc(x)
+│      ┌──&gt; 0x000011b5      8b45f4         mov eax, dword [var_ch]
+│      ╎│   0x000011b8      4898           cdqe
+│      ╎│   0x000011ba      488d148500..   lea rdx, [rax*4]
+│      ╎│   0x000011c2      488d05772e..   lea rax, obj.mints          ; 0x4040 ; U&quot;=J`\W9J\x1a\v&quot;
+│      ╎│   0x000011c9      8b0402         mov eax, dword [rdx + rax]
+│      ╎│   0x000011cc      4898           cdqe
+│      ╎│   0x000011ce      480145f8       add qword [string], rax
+│      ╎│   0x000011d2      8345f401       add dword [var_ch], 1
+│      ╎│   ; CODE XREF from sym.call_sys @ 0x11b3(x)
+│      ╎└─&gt; 0x000011d6      8b45f4         mov eax, dword [var_ch]
+│      ╎    0x000011d9      3b45e8         cmp eax, dword [var_18h]
+│      └──&lt; 0x000011dc      7cd7           jl 0x11b5
+│           0x000011de      488b45f8       mov rax, qword [string]
+│           0x000011e2      488d15210e..   lea rdx, str.a_lX_n         ; 0x200a ; &quot;a=%lX\n&quot;
+│           0x000011e9      4889c6         mov rsi, rax
+│           0x000011ec      4889d7         mov rdi, rdx                ; const char *format
+│           0x000011ef      b800000000     mov eax, 0
+│           0x000011f4      e847feffff     call sym.imp.printf         ; int printf(const char *format)
+│           0x000011f9      8b45e8         mov eax, dword [var_18h]
+│           0x000011fc      83e801         sub eax, 1
+│           0x000011ff      8945f0         mov dword [var_10h], eax
+│       ┌─&lt; 0x00001202      eb21           jmp 0x1225
+│       │   ; CODE XREF from sym.call_sys @ 0x1229(x)
+│      ┌──&gt; 0x00001204      8b45f0         mov eax, dword [var_10h]
+│      ╎│   0x00001207      4898           cdqe
+│      ╎│   0x00001209      488d148500..   lea rdx, [rax*4]
+│      ╎│   0x00001211      488d05282e..   lea rax, obj.mints          ; 0x4040 ; U&quot;=J`\W9J\x1a\v&quot;
+│      ╎│   0x00001218      8b0402         mov eax, dword [rdx + rax]
+│      ╎│   0x0000121b      4898           cdqe
+│      ╎│   0x0000121d      482945f8       sub qword [string], rax
+│      ╎│   0x00001221      836df001       sub dword [var_10h], 1
+│      ╎│   ; CODE XREF from sym.call_sys @ 0x1202(x)
+│      ╎└─&gt; 0x00001225      837df000       cmp dword [var_10h], 0
+│      └──&lt; 0x00001229      79d9           jns 0x1204
+│           0x0000122b      b8efbeadde     mov eax, 0xdeadbeef
+│           0x00001230      483145f8       xor qword [string], rax
+│           0x00001234      488b45f8       mov rax, qword [string]
+│           0x00001238      4889c7         mov rdi, rax                ; const char *string
+│           0x0000123b      e8f0fdffff     call sym.imp.system         ; int system(const char *string)
+│           0x00001240      90             nop
+│           0x00001241      c9             leave
+└           0x00001242      c3             ret
+</pre></div>
+</div>
+<p>There is a call to the libc function <code class="docutils literal notranslate"><span class="pre">system</span></code> near the end of this
+function, at instruction <code class="docutils literal notranslate"><span class="pre">0x123b</span></code> . However, it is hard to tell what
+argument is being passed to it, i.e.  what string is being pointed to.
+That is because the code has been obfuscated. But we can use the
+<code class="docutils literal notranslate"><span class="pre">Colorizer</span></code> to defeat this obfuscation directly, via dynamic
+execution and tracking values or colors.</p>
+<p>First, we need to harness this function. This is something you have
+seen before, but here is the kind of code that will do this.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses</span><span class="w"> </span><span class="kn">import</span> <span class="n">Colorizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses.colorizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">randomize_uninitialized</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.hinting.hints</span><span class="w"> </span><span class="kn">import</span> <span class="n">DynamicRegisterValueHint</span>
+
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># configure the platform for emulation</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="n">base_address</span> <span class="o">=</span> <span class="mh">0x0</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+    <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;c-example&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">),</span> <span class="n">address</span><span class="o">=</span><span class="n">base_address</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x10000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+<span class="n">rsp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">rsp</span><span class="p">)</span>
+
+<span class="n">entry_point</span> <span class="o">=</span> <span class="mh">0x1149</span> <span class="o">+</span> <span class="n">base_address</span>
+
+<span class="c1"># call to &quot;system&quot;</span>
+<span class="n">exit_point</span> <span class="o">=</span> <span class="mh">0x123B</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entry_point</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+
+<span class="n">printf</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+    <span class="s2">&quot;printf&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">SYSTEMV</span><span class="p">,</span> <span class="mh">0x1040</span> <span class="o">+</span> <span class="n">base_address</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">printf</span><span class="p">)</span>
+<span class="n">printf</span><span class="o">.</span><span class="n">allow_imprecise</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">code</span><span class="o">.</span><span class="n">update_symbol_value</span><span class="p">(</span><span class="s2">&quot;printf&quot;</span><span class="p">,</span> <span class="n">printf</span><span class="o">.</span><span class="n">_address</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A few things to point out here. First, we set, as our exit point, the
+call to <code class="docutils literal notranslate"><span class="pre">system</span></code>, because we want to see the color of the value in
+the argument to the call. That is, what we want to know is what is the
+dynamic value in <code class="docutils literal notranslate"><span class="pre">rdi</span></code> when we reach <code class="docutils literal notranslate"><span class="pre">0x123b</span> <span class="pre">call</span> <span class="pre">sym.imp.system</span></code>,
+and to determine where that value came from, if possible. So we can
+stop analyzing when we reach that call. Second, we arrange to model
+the calls to <code class="docutils literal notranslate"><span class="pre">printf</span></code> in this function. We set up the model to take
+over for calls to <code class="docutils literal notranslate"><span class="pre">0x1040</span> <span class="pre">+</span> <span class="pre">base_address</span></code>. This is not obvious in
+the above disassembly since radare glosses such calls as <code class="docutils literal notranslate"><span class="pre">call</span>
+<span class="pre">sym.imp.printf</span></code>. If you disassemble, instead, with <code class="docutils literal notranslate"><span class="pre">objdump</span></code> (or
+use Binary Ninja or Ghdira), you can see that the call is really to
+<code class="docutils literal notranslate"><span class="pre">0x1040</span></code>.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">119</span><span class="n">e</span><span class="p">:</span>   <span class="n">call</span>  <span class="mi">1040</span> <span class="o">&lt;</span><span class="n">printf</span><span class="nd">@plt</span><span class="o">&gt;</span>
+</pre></div>
+</div>
+<p>Modeling printf has two benefits. We will be able to see what gets
+printed, which might be useful, but, more important, the harness will
+not fail on them since libc is not actually available.</p>
+<p>We will use the colorizer twice, i.e. make two dynamic analyses of the
+function’s code. In the first, we determine the color for <code class="docutils literal notranslate"><span class="pre">rax</span></code> at
+the instruction immediately prior to the <code class="docutils literal notranslate"><span class="pre">system</span></code> call.  This is the
+value that gets copied into <code class="docutils literal notranslate"><span class="pre">rdi</span></code>, the argument to <code class="docutils literal notranslate"><span class="pre">system</span></code>.  Here
+is code that does this.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># first pass through to figure out color for rax/rdi</span>
+<span class="c1"># at instruction</span>
+<span class="c1">#   0x00001238      mov rdi, rax,</span>
+<span class="c1"># immediately prior to call to system.</span>
+
+<span class="n">the_color</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_hints</span><span class="p">(</span><span class="n">hint</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">the_color</span>  <span class="c1"># noqa</span>
+    <span class="k">if</span> <span class="n">hint</span><span class="o">.</span><span class="n">pc</span> <span class="o">==</span> <span class="mh">0x1238</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;First pass, color in rdi @ pc=0x</span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">color</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">the_color</span> <span class="o">=</span> <span class="n">hint</span><span class="o">.</span><span class="n">color</span>
+
+
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+<span class="n">hinter</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">DynamicRegisterValueHint</span><span class="p">,</span> <span class="n">collect_hints</span><span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We register a callback <code class="docutils literal notranslate"><span class="pre">collect_hints</span></code> to collect hints coming from
+the colorizer and then look specifically at the one that corresponds
+to <code class="docutils literal notranslate"><span class="pre">pc=0x1238</span></code> which copies <code class="docutils literal notranslate"><span class="pre">rax</span></code> into <code class="docutils literal notranslate"><span class="pre">rdi</span></code>. We save this color
+into the global <code class="docutils literal notranslate"><span class="pre">the_color</span></code>.</p>
+<p>In a second pass use of the colorizer, we determine when <code class="docutils literal notranslate"><span class="pre">the_color</span></code>
+was first observed, by looking for the hint involving it which has the
+message indicating that it is a <code class="docutils literal notranslate"><span class="pre">read-def</span></code> (see above), meaning it
+is the first observation.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine_copy</span><span class="p">,</span> <span class="mi">1234</span><span class="p">)</span>
+<span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+
+<span class="c1"># second pass to figure out when we first saw that color</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_hints2</span><span class="p">(</span><span class="n">hint</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">the_color</span>  <span class="c1"># noqa</span>
+    <span class="k">if</span> <span class="n">hint</span><span class="o">.</span><span class="n">color</span> <span class="o">==</span> <span class="n">the_color</span> <span class="ow">and</span> <span class="n">hint</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s2">&quot;read-def&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Second pass, first obs of color </span><span class="si">{</span><span class="n">the_color</span><span class="si">}</span><span class="s2"> is pc=0x</span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">, in </span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">reg_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This is done by another callback <code class="docutils literal notranslate"><span class="pre">collect_hints2</span></code>, which is looking
+the a hint involving <code class="docutils literal notranslate"><span class="pre">the_color</span></code> where that color is first observed.</p>
+<p>Note, in both passes we employ a call to <code class="docutils literal notranslate"><span class="pre">randomize_unitialized</span></code> to
+ensure that values will get nice looking colors if not initialized
+already, and we use the same seed so that the same colors will get
+assigned in both and the same trace will get executed.</p>
+<p>Here is the script in its entirety.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses</span><span class="w"> </span><span class="kn">import</span> <span class="n">Colorizer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses.colorizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">randomize_uninitialized</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.hinting.hints</span><span class="w"> </span><span class="kn">import</span> <span class="n">DynamicRegisterValueHint</span>
+
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># configure the platform for emulation</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="n">base_address</span> <span class="o">=</span> <span class="mh">0x0</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+    <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;c-example&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">),</span> <span class="n">address</span><span class="o">=</span><span class="n">base_address</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x10000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+<span class="n">rsp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">rsp</span><span class="p">)</span>
+
+<span class="n">entry_point</span> <span class="o">=</span> <span class="mh">0x1149</span> <span class="o">+</span> <span class="n">base_address</span>
+
+<span class="c1"># call to &quot;system&quot;</span>
+<span class="n">exit_point</span> <span class="o">=</span> <span class="mh">0x123B</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entry_point</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+
+<span class="n">printf</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+    <span class="s2">&quot;printf&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">SYSTEMV</span><span class="p">,</span> <span class="mh">0x1040</span> <span class="o">+</span> <span class="n">base_address</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">printf</span><span class="p">)</span>
+<span class="n">printf</span><span class="o">.</span><span class="n">allow_imprecise</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">code</span><span class="o">.</span><span class="n">update_symbol_value</span><span class="p">(</span><span class="s2">&quot;printf&quot;</span><span class="p">,</span> <span class="n">printf</span><span class="o">.</span><span class="n">_address</span><span class="p">)</span>
+
+<span class="c1"># first pass through to figure out color for rax/rdi</span>
+<span class="c1"># at instruction</span>
+<span class="c1">#   0x00001238      mov rdi, rax,</span>
+<span class="c1"># immediately prior to call to system.</span>
+
+<span class="n">the_color</span> <span class="o">=</span> <span class="kc">None</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_hints</span><span class="p">(</span><span class="n">hint</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">the_color</span>  <span class="c1"># noqa</span>
+    <span class="k">if</span> <span class="n">hint</span><span class="o">.</span><span class="n">pc</span> <span class="o">==</span> <span class="mh">0x1238</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;First pass, color in rdi @ pc=0x</span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2"> is </span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">color</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">the_color</span> <span class="o">=</span> <span class="n">hint</span><span class="o">.</span><span class="n">color</span>
+
+
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+<span class="n">hinter</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">DynamicRegisterValueHint</span><span class="p">,</span> <span class="n">collect_hints</span><span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">machine_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+<span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine_copy</span><span class="p">,</span> <span class="mi">1234</span><span class="p">)</span>
+<span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+
+<span class="c1"># second pass to figure out when we first saw that color</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_hints2</span><span class="p">(</span><span class="n">hint</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">the_color</span>  <span class="c1"># noqa</span>
+    <span class="k">if</span> <span class="n">hint</span><span class="o">.</span><span class="n">color</span> <span class="o">==</span> <span class="n">the_color</span> <span class="ow">and</span> <span class="n">hint</span><span class="o">.</span><span class="n">message</span> <span class="o">==</span> <span class="s2">&quot;read-def&quot;</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Second pass, first obs of color </span><span class="si">{</span><span class="n">the_color</span><span class="si">}</span><span class="s2"> is pc=0x</span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">, in </span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">reg_name</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+<span class="n">hinter</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">DynamicRegisterValueHint</span><span class="p">,</span> <span class="n">collect_hints2</span><span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">machine_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+<span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine_copy</span><span class="p">,</span> <span class="mi">1234</span><span class="p">)</span>
+<span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can run this script to answer the question “Where does the argument
+to <code class="docutils literal notranslate"><span class="pre">system</span></code> come from? It takes no arguments but we can filter the
+output to get just the operative parts which come from the print
+statements in those two hint callbacks.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 c-example.py 2&gt; /dev/null | egrep &#39;(First pass|Second pass)&#39;
+First pass, color in rdi @ pc=0x1238 is 8594311575614880821
+Second pass, first obs of color 8594311575614880821 is pc=0x1151, in rdi
+</pre></div>
+</div>
+<p>The script tells us that, for this trace, the value in <code class="docutils literal notranslate"><span class="pre">rdi</span></code> passed to
+<code class="docutils literal notranslate"><span class="pre">system</span></code> is the same as the value in <code class="docutils literal notranslate"><span class="pre">rdi</span></code> at the start of the function
+<code class="docutils literal notranslate"><span class="pre">call_sys</span></code>, i.e. in the instruction <code class="docutils literal notranslate"><span class="pre">0x00001151</span>&#160; <span class="pre">mov</span> <span class="pre">qword</span> <span class="pre">[var_28h],</span> <span class="pre">rdi</span></code>
+which copies the function argument into a local variable. traces.</p>
+</section>
+<section id="take-2-colorizerreadwrite">
+<h2>Take 2: ColorizerReadWrite<a class="headerlink" href="#take-2-colorizerreadwrite" title="Link to this heading">¶</a></h2>
+<p>We can take a somewhat more straightforward approach by making use of
+the <code class="docutils literal notranslate"><span class="pre">ColorizerReadWrite</span></code> analysis which allows us to ask derivation
+questions about instructions and values.</p>
+<p>The first part of the script, which harnesses the code to run is
+unchanged. And we don’t need to collect any hints, we simply run the
+colorizer and arrange for its hints to be passed to a
+<code class="docutils literal notranslate"><span class="pre">ColorizerReadWrite</span></code> object which will construct a read-&gt;write graph
+as described in <a class="reference internal" href="../../concepts/analyses/colorizer.html#colorizer-concept"><span class="std std-ref">Colorizer Concepts</span></a>.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">hinter</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+<span class="n">crw</span> <span class="o">=</span> <span class="n">ColorizerReadWrite</span><span class="p">(</span><span class="n">hinter</span><span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">machine_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+<span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine_copy</span><span class="p">,</span> <span class="mi">1234</span><span class="p">)</span>
+<span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+<span class="n">crw</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can now derive where the value in <code class="docutils literal notranslate"><span class="pre">rax</span></code> comes from at instruction
+<code class="docutils literal notranslate"><span class="pre">0x1238</span></code> with the code</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="c1"># directly ask for a derivation of the value in rax in instruction 0x1238</span>
+<span class="n">der</span> <span class="o">=</span> <span class="n">crw</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">derive</span><span class="p">(</span><span class="mh">0x1238</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">RegisterDef</span><span class="p">(</span><span class="s2">&quot;rax&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">der</span><span class="p">:</span>
+</pre></div>
+</div>
+<p>The complete script looks like this:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses</span><span class="w"> </span><span class="kn">import</span> <span class="n">Colorizer</span><span class="p">,</span> <span class="n">ColorizerReadWrite</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses.colorizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">randomize_uninitialized</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.platforms.defs.platformdef</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegisterDef</span>
+
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># configure the platform for emulation</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="n">base_address</span> <span class="o">=</span> <span class="mh">0x0</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+    <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;c-example&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">),</span> <span class="n">address</span><span class="o">=</span><span class="n">base_address</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x10000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+<span class="n">rsp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">rsp</span><span class="p">)</span>
+
+<span class="n">entry_point</span> <span class="o">=</span> <span class="mh">0x1149</span> <span class="o">+</span> <span class="n">base_address</span>
+
+<span class="c1"># call to &quot;system&quot;</span>
+<span class="n">exit_point</span> <span class="o">=</span> <span class="mh">0x123B</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entry_point</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+
+<span class="n">printf</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+    <span class="s2">&quot;printf&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">SYSTEMV</span><span class="p">,</span> <span class="mh">0x1040</span> <span class="o">+</span> <span class="n">base_address</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">printf</span><span class="p">)</span>
+<span class="n">printf</span><span class="o">.</span><span class="n">allow_imprecise</span> <span class="o">=</span> <span class="kc">True</span>
+<span class="n">code</span><span class="o">.</span><span class="n">update_symbol_value</span><span class="p">(</span><span class="s2">&quot;printf&quot;</span><span class="p">,</span> <span class="n">printf</span><span class="o">.</span><span class="n">_address</span><span class="p">)</span>
+
+<span class="c1"># New and interesting stuff follows:</span>
+
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+<span class="n">crw</span> <span class="o">=</span> <span class="n">ColorizerReadWrite</span><span class="p">(</span><span class="n">hinter</span><span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">machine_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+<span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine_copy</span><span class="p">,</span> <span class="mi">1234</span><span class="p">)</span>
+<span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+<span class="n">crw</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+
+<span class="c1"># directly ask for a derivation of the value in rax in instruction 0x1238</span>
+<span class="n">der</span> <span class="o">=</span> <span class="n">crw</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">derive</span><span class="p">(</span><span class="mh">0x1238</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">RegisterDef</span><span class="p">(</span><span class="s2">&quot;rax&quot;</span><span class="p">,</span> <span class="mi">8</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">der</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;derivation result is pc=0x</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">wr</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can run this (discarding the stderr output which is considerable) with</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 c-example3.py 2&gt; /dev/null
+n=1159780329
+a=774520D7E98D7C35
+a=774520D73720C51C
+derivation result is pc=0x1151: ReadInfo(info=RegisterInfo(color=3, is_new=True, register=RegisterDef(name=&#39;rdi&#39;, size=8)))
+</pre></div>
+</div>
+<p>We obtain the answer we wanted directly, namely that <code class="docutils literal notranslate"><span class="pre">rax</span></code> at
+<code class="docutils literal notranslate"><span class="pre">pc=0x1238</span></code> is directly derived from the value of <code class="docutils literal notranslate"><span class="pre">rdi</span></code> at
+<code class="docutils literal notranslate"><span class="pre">pc=0x1151</span></code> which is the input to the function.</p>
+</section>
+<section id="further-reading">
+<h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading">¶</a></h2>
+<p>See the <a class="reference internal" href="../../concepts/analyses/colorizer.html#colorizer-concept"><span class="std std-ref">Colorizer Concepts</span></a> page
+for more details.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../program-loading/index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+  <li><a href="index.html">Analyses</a><ul>
+      <li>Previous: <a href="coverage-frontier.html" title="previous chapter">Coverage Frontier Analysis Tutorial</a></li>
+      <li>Next: <a href="../fuzzing.html" title="next chapter">Fuzzing</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

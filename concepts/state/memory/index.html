@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Memory Objects &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../../about.html" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="Unstructured Memory" href="unstructured.html" />
+    <link rel="prev" title="The CPU Object" href="../cpu.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="memory-objects">
+<span id="memory"></span><h1>Memory Objects<a class="headerlink" href="#memory-objects" title="Link to this heading">¶</a></h1>
+<p>SmallWorld represents <code class="docutils literal notranslate"><span class="pre">Memory</span></code> objects as fixed-length sparse arrays of bytes.
+Each <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object includes a start address, a size, and an indication of the byte order.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>SmallWorld will allow you to add overlapping <code class="docutils literal notranslate"><span class="pre">Memory</span></code> objects to a harness.
+The results will be unpredictable, as the order in which they’re applied
+is not guaranteed.</p>
+</div>
+<section id="values-in-memory">
+<h2>Values in Memory<a class="headerlink" href="#values-in-memory" title="Link to this heading">¶</a></h2>
+<p>Data within the <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object is stored as a mapping
+from starting offset to <code class="docutils literal notranslate"><span class="pre">Value</span></code> objects holding the actual data.</p>
+<p>See <a class="reference internal" href="../values.html#values"><span class="std std-ref">Values in Smallworld</span></a> for more information on <code class="docutils literal notranslate"><span class="pre">Value</span></code> objects in general</p>
+<p>The most precise mechanism for laying out a memory region
+is to treat the <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object as a <code class="docutils literal notranslate"><span class="pre">Dict[int,</span> <span class="pre">Value]</span></code>,
+mapping an offset into the <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object to a <code class="docutils literal notranslate"><span class="pre">Value</span></code>.</p>
+<p>All <code class="docutils literal notranslate"><span class="pre">Memory</span></code> objects also support accessor methods to modify contents
+without having to manually manipulate the <code class="docutils literal notranslate"><span class="pre">Value</span></code> mapping.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Memory.read_bytes()</span></code> extracts a sequence of bytes
+from a <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object.  It takes the absolute starting address of the byte sequence,
+and its size in bytes. It returns a <code class="docutils literal notranslate"><span class="pre">bytes</span></code> object,
+and raises an exception if the requested range is outside the
+boundaries of the <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object, if part of the range is symbolic,
+or part of the range is uninitialized.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Memory.write_bytes()</span></code> modifies a sequence of bytes
+in a <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object.  It takes the absolute starting address of the range to modify,
+and a <code class="docutils literal notranslate"><span class="pre">bytes</span></code> object containing the data to overwrite.
+It will raise an exception if the requested sequence is outside the boundaries of the <code class="docutils literal notranslate"><span class="pre">Memory</span></code> object,
+or if part of the existing contents is symbolic.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Memory.read_int()</span></code> and <code class="docutils literal notranslate"><span class="pre">Memory.write_int()</span></code> perform the same operations,
+but with the output/input provided as integers.</p>
+<p>Some sub-classes may support additional helpers beyond this set.</p>
+</section>
+<section id="implementations">
+<h2>Implementations<a class="headerlink" href="#implementations" title="Link to this heading">¶</a></h2>
+<p>SmallWorld provides a number of subclasses of <code class="docutils literal notranslate"><span class="pre">Memory</span></code>
+representing different kinds of structured and unstructured memory:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="unstructured.html">Unstructured Memory</a></li>
+<li class="toctree-l1"><a class="reference internal" href="stack.html">Execution Stacks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="heap.html">Heaps</a></li>
+<li class="toctree-l1"><a class="reference internal" href="executables.html">Executables</a></li>
+<li class="toctree-l1"><a class="reference internal" href="objects.html">Object File Loaders</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#platform-verification">Platform Verification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#load-address">Load Address</a></li>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#memory-layout">Memory Layout</a></li>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#entry-point">Entry Point</a></li>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#bounds">Bounds</a></li>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#linking-and-loading">Linking and Loading</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="objects.html#pe32-relocations">PE32+ Relocations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="objects.html#pe32-imports-and-exports">PE32+ Imports and Exports</a></li>
+<li class="toctree-l3"><a class="reference internal" href="objects.html#elf-symbols-and-relocations">ELF Symbols and Relocations</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="objects.html#core-dump-loader">Core Dump Loader</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Concepts</a><ul>
+  <li><a href="../index.html">Machine State</a><ul>
+      <li>Previous: <a href="../cpu.html" title="previous chapter">The CPU Object</a></li>
+      <li>Next: <a href="unstructured.html" title="next chapter">Unstructured Memory</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

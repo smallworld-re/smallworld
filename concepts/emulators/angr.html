@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Angr Backend &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Panda Backend" href="panda.html" />
+    <link rel="prev" title="Unicorn Backend" href="unicorn.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="angr-backend">
+<span id="angr"></span><h1>Angr Backend<a class="headerlink" href="#angr-backend" title="Link to this heading">¶</a></h1>
+<p>angr is a user-space symbolic executor.
+This is a significantly different tool from the other emulators:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>It represents data as logical expressions,
+allowing it to reason over uninitialized or partially-initialized data.
+It also means that angr provides extremely high-fidelity
+data taint analysis natively.</p></li>
+<li><p>It can compute multiple possible outcomes from a single instruction,
+and explore all of them in parallel.</p></li>
+</ol>
+</div></blockquote>
+<p>These features make it an extremely powerful analysis tool,
+but using it to its full potential is much less intuitive than
+a concrete emulator.  It’s also the slowest of the included backends,
+at about 53 steps (instruction or block) a second.</p>
+<p>angr gets its platform support from two sources:
+Valgrind’s VEX IR, and Ghidra’s Pcode IR.
+There are essentially no outward-facing differences between the two IRs.</p>
+<section id="execution-control">
+<h2>Execution Control<a class="headerlink" href="#execution-control" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> has two execution modes.
+By default, the emulator will operate in full symbolic mode,
+exploring all possible program paths.
+This is tricky to constrain, and is best suited for analyses.</p>
+<p>Once full symbolic execution starts,
+most of the emulator interface
+won’t work if called directly on the root emulator;
+which machine state are you trying to access?</p>
+<p>Event callbacks are passed a stub subclass of <code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code>
+that wraps the single machine state which triggered the callback.
+This provides the same functionality you’d expect
+from a concrete emulator,
+except that it can’t hook or unhook functions,
+and it can’t run or step emulation.
+Any modifications the callback makes will only
+apply to the current machine state and its successors.</p>
+<p>In addition to standard event callbacks,
+a harness or analysis can access all active machine states at any time
+using <code class="docutils literal notranslate"><span class="pre">AngrEmulator.visit_states()</span></code>.
+This takes a callback of the form <code class="docutils literal notranslate"><span class="pre">callback(Emulator)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>,
+and calls the callback once on each state being considered by the emulator,
+using the same stub emulator as an event callback.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The emulator objects from callbacks are not valid
+once the callback returns.  Please don’t keep them.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> can also be switched to “linear mode” using <code class="docutils literal notranslate"><span class="pre">AngrEmulator.enable_linear()</span></code>.
+This stops emulation as soon as it would explore more than one machine state.
+In linear mode, it is possible to access emulator state once emulation starts.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> cannot single-step on platforms with delay slots,
+particularly MIPS and MIPS64.</p>
+</div>
+</section>
+<section id="exit-points-and-bounds">
+<h2>Exit Points and Bounds<a class="headerlink" href="#exit-points-and-bounds" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> supports exit points and bounds normally.
+It will treat execution of unmapped memory as an out-of-bounds access,
+and halt gracefully.</p>
+</section>
+<section id="accessing-registers">
+<h2>Accessing Registers<a class="headerlink" href="#accessing-registers" title="Link to this heading">¶</a></h2>
+<p>If a register contains concrete information,
+<code class="docutils literal notranslate"><span class="pre">read_register()</span></code> will operate normally.
+If the register contains a symbolic expression,
+it will raise a <code class="docutils literal notranslate"><span class="pre">SymbolicValueError</span></code>.</p>
+<p>It’s possible to access the symbolic expression using <code class="docutils literal notranslate"><span class="pre">Emulator.read_register_symbolic()</span></code>,
+and write back a symbolic expression using <code class="docutils literal notranslate"><span class="pre">Emulator.write_register_symbolic()</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Emulator.write_register_label()</span></code> has a special interaction with <code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code>.
+It will replace the contents of the register with a symbolic variable
+named after the label.  If the register was initialized,
+it will constrain the new variable to equal the expression it replaced.</p>
+<p>Operations on that variable will treat it like a variable;
+any computations using it will appear as expressions in terms of that variable.
+But, it will evaluate to the expression it replaced
+when computing conditional expressions or similar.</p>
+<p>This allows for an extremely powerful form of data tagging:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># Assume we configured an amd64 machine</span>
+<span class="c1"># with code which will execute</span>
+<span class="c1">#</span>
+<span class="c1">#     test  %rdi,%rdi</span>
+<span class="c1">#     cmove $0x2a,%rax</span>
+<span class="c1">#     inc   %rdi</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mh">0x0</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set_label</span><span class="p">(</span><span class="s2">&quot;input&quot;</span><span class="p">)</span>
+
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>  <span class="c1"># &lt;BV64 input + 0x1&gt;</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rax</span><span class="o">.</span><span class="n">get</span><span class="p">())</span>  <span class="c1"># 42</span>
+</pre></div>
+</div>
+</section>
+<section id="mapping-memory">
+<h2>Mapping Memory<a class="headerlink" href="#mapping-memory" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> optionally enforces memory mapping.</p>
+<p>angr itself does not enforce memory mapping,
+and a number of the techniques it uses to operate in the face
+of partially-initialized state rely on being able to co-opt unused memory.</p>
+<p>Harnesses and analyses that want to be notified of accesses outside of mapped memory
+can set the <code class="docutils literal notranslate"><span class="pre">error_on_unmapped</span></code> property to <code class="docutils literal notranslate"><span class="pre">True</span></code>.
+This will cause the emulator to raise standard exceptions on unmapped acceses.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> uses angr’s symbolic memory feature.</p>
+<p>This handles the case where the program dereferences a symbolic pointer.
+By default, angr will attempt to concretize a symbolic pointer.
+If this isn’t possible, it will generate an arbitrary unused address
+and bind the pointer expression to that address.</p>
+<p>This allows angr to continue exploring where a concrete emulator
+would be forced to abort, but it does have limitations.</p>
+<p>For one, it makes <code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> unsuited to the standard harnessing loop,
+since it doesn’t error immediately upon encountering uninitialized state.</p>
+<p>For another, the default concretization strategy is weak
+if applied to particularly complicated address expressions,
+and can lead to the executor exploring nonsensical program paths.</p>
+<p>Currently, this is configurable by modifying the angr memory plugins.</p>
+</div>
+</section>
+<section id="accessing-memory">
+<h2>Accessing Memory<a class="headerlink" href="#accessing-memory" title="Link to this heading">¶</a></h2>
+<p>Memory accesses behave the same as registers
+regarding symbolic values and labels.</p>
+<p><code class="docutils literal notranslate"><span class="pre">read_memory()</span></code> will fail if the requested range contains a symbolic value.
+<code class="docutils literal notranslate"><span class="pre">read_memory_symbolic()</span></code> and <code class="docutils literal notranslate"><span class="pre">write_memory_symbolic()</span></code> will allow
+accesses to memory using symbolic expressions.</p>
+<p><code class="docutils literal notranslate"><span class="pre">write_memory_label()</span></code> will perform the same kind of variable replacement
+as <code class="docutils literal notranslate"><span class="pre">write_register_label()</span></code>.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> is the one backend where <code class="docutils literal notranslate"><span class="pre">write_memory()</span></code> and <code class="docutils literal notranslate"><span class="pre">write_code()</span></code>
+behave differenly.</p>
+<p>angr uses a different memory backend to store code and data.
+Instruction fetches against memory managed by the “data” memory backend
+are inefficient to the point of being unusable
+in some relatively common edge cases,
+so it’s important to load code as code.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>The “code” memory backend is only configurable before
+the angr project is initialized.  This happens automatically
+if emulation is started or stepped, or can be triggered
+manually by calling <code class="docutils literal notranslate"><span class="pre">AngrEmulator.initialize()</span></code>.</p>
+<p>Once initialzation has happened,
+<code class="docutils literal notranslate"><span class="pre">write_code()</span></code> will switch to using the “data”
+memory backend, with all the performance caveats
+that entails.  Please load your code up front if at all possible.</p>
+</div>
+</section>
+<section id="event-handlers">
+<h2>Event Handlers<a class="headerlink" href="#event-handlers" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> supports the following event types:</p>
+<ul class="simple">
+<li><p>Instruction hooks</p></li>
+<li><p>Function models</p></li>
+<li><p>Memory accesses</p></li>
+<li><p>System calls</p></li>
+</ul>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> includes an additional set of memory access hooks
+for dealing with symbolic values: <code class="docutils literal notranslate"><span class="pre">hook_memory_read_symbolic</span></code> and
+<code class="docutils literal notranslate"><span class="pre">MemoryReadHookable.hook_memory_read_symbolic()</span></code> and
+<code class="docutils literal notranslate"><span class="pre">MemoryWriteHookable.hook_memory_write_symbolic()</span></code>.
+These operate in the exact same manner, except they
+use Claripy symbolic expressions instead of <code class="docutils literal notranslate"><span class="pre">bytes</span></code> objects.</p>
+<p>It’s still possible to register concrete memory access event handlers.
+If the symbolic value being read or written can be concretized,
+such handlers will operate normally.
+Otherwise, the emulator will raise an exception
+when it encounters this case.</p>
+</section>
+<section id="interacting-with-angr">
+<h2>Interacting with Angr<a class="headerlink" href="#interacting-with-angr" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Understanding this section is not necessary to write a normal harness.</strong></p>
+<p>The features described here are completely abstracted
+behind the AngrEmulator interface, and are only useful
+if you want to leverage angr itself for analysis.</p>
+<p>This section describes how to access the relevant objects,
+and any caveats regarding their access.
+Using them for analysis is an exercise left to other tutorials.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> itself exposes three angr objects as properties:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">proj</span></code>: The angr <code class="docutils literal notranslate"><span class="pre">Project</span></code> object that holds global configuration</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">mgr</span></code>: The angr <code class="docutils literal notranslate"><span class="pre">SimulationManager</span></code> object that tracks active states during execution</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">state</span></code>: The angr <code class="docutils literal notranslate"><span class="pre">SimState</span></code> object for the current machine state.
+(Only available before execution starts, during event hooks, or if linear execution is enabled.)</p></li>
+</ul>
+<p>Actually configuring the angr environment is a bit involved,
+and certain modifications must be made at specific points during initialization.
+For this purpose, <code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> takes two extra optional arguments to its constructor,
+<code class="docutils literal notranslate"><span class="pre">preinit</span></code> and <code class="docutils literal notranslate"><span class="pre">init</span></code>.  These are both of the form <code class="docutils literal notranslate"><span class="pre">callback(AngrEmulator)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">preinit</span></code> is called after <code class="docutils literal notranslate"><span class="pre">proj</span></code> is initialized.
+This allows modification of <code class="docutils literal notranslate"><span class="pre">proj</span></code> itself, or modifications to angr’s registered plugins,
+both of which must be performed before <code class="docutils literal notranslate"><span class="pre">mgr</span></code> and <code class="docutils literal notranslate"><span class="pre">state</span></code> are initialized.</p>
+<p><code class="docutils literal notranslate"><span class="pre">init</span></code> is called after <code class="docutils literal notranslate"><span class="pre">mgr</span></code> and <code class="docutils literal notranslate"><span class="pre">state</span></code> are initialized,
+and allows custom modifications to those structures.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>angr backend initialization doesn’t happen in the constructor.
+This is thanks to the whole code loading debacle described above.</p>
+<p>The actual procedure is as follows:</p>
+<ol class="arabic simple">
+<li><p>The harness initializes <code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code>.
+The angr environment is left uninitialized.</p></li>
+<li><p>The harness applies machine state to <code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code>.
+<code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> stores the data temporarily.</p></li>
+<li><p>The harness triggers <code class="docutils literal notranslate"><span class="pre">initialize()</span></code>,
+either by calling <code class="docutils literal notranslate"><span class="pre">run()</span></code>, <code class="docutils literal notranslate"><span class="pre">step()</span></code>, or <code class="docutils literal notranslate"><span class="pre">step_block()</span></code>,
+or by calling <code class="docutils literal notranslate"><span class="pre">initialize()</span></code> directly.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> initializes <code class="docutils literal notranslate"><span class="pre">proj</span></code>,
+and performs default configuration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> invokes the <code class="docutils literal notranslate"><span class="pre">preinit</span></code> callback, if provided.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> creates <code class="docutils literal notranslate"><span class="pre">state</span></code> and <code class="docutils literal notranslate"><span class="pre">mgr</span></code>,
+and performs default configuration.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> invokes the <code class="docutils literal notranslate"><span class="pre">init</span></code> callback, if provided.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">AngrEmulator</span></code> applies stored machine state to <code class="docutils literal notranslate"><span class="pre">state</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">initialize()</span></code> returns.</p></li>
+</ol>
+<p>Note that machine state from the harness is not available during the <code class="docutils literal notranslate"><span class="pre">init</span></code> callback.
+If an analysis needs to inspect or modify the angr objects
+with machine state applied, it should invoke <code class="docutils literal notranslate"><span class="pre">initialize()</span></code> manually.</p>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Emulators</a><ul>
+      <li>Previous: <a href="unicorn.html" title="previous chapter">Unicorn Backend</a></li>
+      <li>Next: <a href="panda.html" title="next chapter">Panda Backend</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

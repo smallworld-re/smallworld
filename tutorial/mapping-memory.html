@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Mapping Memory &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Loading Code" href="program-loading/index.html" />
+    <link rel="prev" title="Tutorials" href="index.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="mapping-memory">
+<span id="tutorial-mapping"></span><h1>Mapping Memory<a class="headerlink" href="#mapping-memory" title="Link to this heading">¶</a></h1>
+<p>In this tutorial, you will be guided through the steps
+to harness a snippet of binary code that requires memory,
+specifically a program stack.
+This time, we’ve got a total of three lines of assembly.</p>
+<div class="highlight-NASM notranslate"><div class="highlight"><pre><span></span><span class="k">BITS</span><span class="w"> </span><span class="mi">64</span><span class="c1">;</span>
+<span class="c1">; This function takes 7 64-bit arguments and returns the sum of the 1st (rdi), 3rd (rdx), 5th(r8), and 7th([rsp+8].</span>
+<span class="c1">; </span>
+<span class="w">        </span><span class="nf">add</span><span class="w">     </span><span class="nb">rdi</span><span class="p">,</span><span class="w"> </span><span class="nb">rdx</span>
+<span class="w">        </span><span class="nf">lea</span><span class="w">     </span><span class="nb">rax</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="nb">r8</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">add</span><span class="w">     </span><span class="nb">rax</span><span class="p">,</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rsp</span><span class="o">+</span><span class="mi">8</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>This example can be found in <code class="docutils literal notranslate"><span class="pre">tests/square/square.amd64.s</span></code>.
+You will need to run the following command
+to produce <code class="docutils literal notranslate"><span class="pre">tests/square/square.amd64.bin</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">smallworld</span><span class="o">/</span><span class="n">tests</span>
+<span class="n">make</span> <span class="n">square</span><span class="o">/</span><span class="n">square</span><span class="o">.</span><span class="n">amd64</span><span class="o">.</span><span class="n">bin</span>
+</pre></div>
+</div>
+<p>As in the first tutorial, we will use <code class="docutils literal notranslate"><span class="pre">basic_harness.py</span></code>
+to get an initial look at what the harness requires:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 examples/basic_harness.py tests/stack/stack.amd64.bin
+[+] seed=123456 digest of changes made to machine: 9fb43f6a9e58f4de95300b1d9bd9192a
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123457 digest of changes made to machine: 75958496f96ec41a114200a663eb7ea5
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123458 digest of changes made to machine: 9114b586cab688e3e2eaac7764d5ff3d
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123459 digest of changes made to machine: d8f683125ac66437da87e2a4147d92ef
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123460 digest of changes made to machine: d3ec6c1e68474fcf8988c62594e636a8
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123461 digest of changes made to machine: 9c8309440489f444ed253841cf9505d1
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123462 digest of changes made to machine: 8626e15c4f93a52b02b6fc07588ca5a9
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123463 digest of changes made to machine: 7378c46011e4c55bae506b6a74f819b5
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123464 digest of changes made to machine: 5accb97bcc9569d3998eedf946120964
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+[+] seed=123465 digest of changes made to machine: af522c74f58a93272e6d4dcd4de77271
+[!] emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+[+] captured trace of 3 instructions, res=TraceRes.ER_FAIL trace_digest=8b193141518456a42d3bf49a5ab2d731
+</pre></div>
+</div>
+<p>This reports failures due to unmapped memory.
+If we look back at our assembly, this makes sense.
+The final instruction dereferences memory relative to the register <code class="docutils literal notranslate"><span class="pre">rsp</span></code>.</p>
+<p>SmallWorld does not make any assumptions about what memory is available to the program.
+We have allocated code using <code class="docutils literal notranslate"><span class="pre">Executable.from_filepath()</span></code>,
+but <code class="docutils literal notranslate"><span class="pre">basic_harness.py</span></code> defines no other memory.</p>
+<p>To successfully harness, we need to create an execution stack, and add it to our harness.
+Details of this interface can be found in <a class="reference internal" href="../concepts/state/memory/index.html#memory"><span class="std std-ref">Memory Objects</span></a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Stack needs the following parameters:</span>
+<span class="c1">#</span>
+<span class="c1"># - The target platform; determines a few behaviors.</span>
+<span class="c1"># - The start address, here set to 0x2000</span>
+<span class="c1"># - The size, here set to 0x4000</span>
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>From the assembly, we know that our input is eight bytes wide,
+and starts eight bytes after the stack pointer.
+We need to push that value onto the stack, and set <code class="docutils literal notranslate"><span class="pre">rsp</span></code> appropriately:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Push our argument value onto the stack</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mh">0x44444444</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Push a fake return value onto the stack,</span>
+<span class="c1"># accounting for the 8-byte gap</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mh">0xFFFFFFFF</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;fake return address&quot;</span><span class="p">)</span>
+
+<span class="c1"># Configure the stack pointer</span>
+<span class="n">sp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We can create the script <code class="docutils literal notranslate"><span class="pre">tests/stack.amd64.py</span></code> to perform these changes:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="c1"># Set up logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Define the platform</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Create a CPU</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load and add code into the state</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="vm">__file__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.bin&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+    <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Create a stack and add it to the state</span>
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+
+<span class="c1"># Set the instruction pointer to the code entrypoint</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Initialize argument registers</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mh">0x11111111</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdx</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mh">0x22222222</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">r8</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mh">0x33333333</span><span class="p">)</span>
+
+<span class="c1"># Push a return address and an extra argument onto the stack</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mh">0x44444444</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mh">0xFFFFFFFF</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;fake return address&quot;</span><span class="p">)</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span>
+    <span class="mh">0x2500</span><span class="p">,</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xff\xff\xff\xff</span><span class="s2">&quot;</span>
+<span class="p">)</span>  <span class="c1"># ensure writing below sp won&#39;t modify sp</span>
+
+<span class="c1"># Configure the stack pointer</span>
+<span class="n">rsp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">rsp</span><span class="p">)</span>
+
+<span class="c1"># Emulate</span>
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">())</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+
+<span class="c1"># read out the final state</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">eax</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This harness doesn’t take arguments; it assigns fixed values
+<code class="docutils literal notranslate"><span class="pre">0x11111111</span></code>, <code class="docutils literal notranslate"><span class="pre">0x22222222</span></code>, <code class="docutils literal notranslate"><span class="pre">0x33333333</span></code>, and <code class="docutils literal notranslate"><span class="pre">0x44444444</span></code> to the relevant
+registers and memory.</p>
+<p>Here is what running the new harness looks like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 stack.amd64.py
+[+] starting emulation at 0x1000
+[+] emulation complete
+Reg(eax,4)=0xaaaaaaaa
+</pre></div>
+</div>
+<p>The sum of the four input numbers is <code class="docutils literal notranslate"><span class="pre">0xaaaaaaaa</span></code>, so we harnessed
+<code class="docutils literal notranslate"><span class="pre">stack.amd64.bin</span></code> completely.</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Mapping Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="program-loading/index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Tutorials</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Tutorials</a></li>
+      <li>Next: <a href="program-loading/index.html" title="next chapter">Loading Code</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

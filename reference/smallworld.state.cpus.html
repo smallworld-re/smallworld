@@ -1,0 +1,2094 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>smallworld.state.cpus &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="smallworld.state.models" href="smallworld.state.models.html" />
+    <link rel="prev" title="smallworld.state" href="smallworld.state.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-smallworld.state.cpus">
+<span id="smallworld-state-cpus"></span><h1>smallworld.state.cpus<a class="headerlink" href="#module-smallworld.state.cpus" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">CPU</span></span><a class="headerlink" href="#smallworld.state.cpus.CPU" title="Link to this definition">¶</a></dt>
+<dd><p>A CPU state object.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.CPU.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.CPU.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.CPU.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.CPU.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.CPU.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">AArch64</span></span><a class="headerlink" href="#smallworld.state.cpus.AArch64" title="Link to this definition">¶</a></dt>
+<dd><p>Auto-generated CPU state for aarch64:v8a:little</p>
+<p>Generated from Pcode language AARCH64:LE:64:v8A, and Unicorn package
+unicorn.arm64_const.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.AArch64.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.AArch64.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.AArch64.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AArch64.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AArch64.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">AMD64</span></span><a class="headerlink" href="#smallworld.state.cpus.AMD64" title="Link to this definition">¶</a></dt>
+<dd><p>Generic AMD64 CPU state model.</p>
+<p>Specific implementations support different vector extensions.
+Because of how smallworld works, an emulator can only support
+platforms if it supports all base registers.
+Since the AVX extensions keep adding registers under
+the old ones, we need new platforms.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.AMD64.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.AMD64.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.AMD64.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.AMD64.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.AMD64.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">ARMv5T</span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T" title="Link to this definition">¶</a></dt>
+<dd><p>CPU Model for ARMv5t little-endian.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv5T.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv5T.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">ARMv6M</span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M" title="Link to this definition">¶</a></dt>
+<dd><p>CPU Model for ARMv6-M little-endian.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6M.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6M.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">ARMv6MThumb</span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb" title="Link to this definition">¶</a></dt>
+<dd><p>CPU Model for ARMv6-M little-endian in thumb mode.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv6MThumb.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv6MThumb.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">ARMv7M</span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M" title="Link to this definition">¶</a></dt>
+<dd><p>CPU Model for ARMv7-M little-endian.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7M.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7M.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">ARMv7R</span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R" title="Link to this definition">¶</a></dt>
+<dd><p>CPU Model for ARMv7-R little-endian.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7R.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7R.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">ARMv7A</span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A" title="Link to this definition">¶</a></dt>
+<dd><p>CPU Model for ARMv7-A little-endian.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.ARMv7A.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.ARMv7A.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">I386</span></span><a class="headerlink" href="#smallworld.state.cpus.I386" title="Link to this definition">¶</a></dt>
+<dd><p>i386 CPU state model.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.I386.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.I386.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.I386.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.I386.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.I386.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">LoongArch64</span></span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.LoongArch64.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.LoongArch64.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">MIPS64EL</span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL" title="Link to this definition">¶</a></dt>
+<dd><p>Auto-generated CPU state for mips:mips32:little.</p>
+<p>Generated from Pcode language MIPS:LE:32:default, and Unicorn package
+unicorn.mips_const.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64EL.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64EL.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">MIPS64BE</span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE" title="Link to this definition">¶</a></dt>
+<dd><p>Auto-generated CPU state for mips:mips32:big.</p>
+<p>Generated from Pcode language MIPS:BE:32:default, and Unicorn package
+unicorn.mips_const.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPS64BE.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPS64BE.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">MIPSEL</span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL" title="Link to this definition">¶</a></dt>
+<dd><p>Auto-generated CPU state for mips:mips32:little.</p>
+<p>Generated from Pcode language MIPS:LE:32:default, and Unicorn package
+unicorn.mips_const.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSEL.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSEL.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">MIPSBE</span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE" title="Link to this definition">¶</a></dt>
+<dd><p>Auto-generated CPU state for mips:mips32:big.</p>
+<p>Generated from Pcode language MIPS:BE:32:default, and Unicorn package
+unicorn.mips_const.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MIPSBE.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MIPSBE.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">MSP430</span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">MSP430X</span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430X" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.MSP430X.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.MSP430X.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">PowerPC32</span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32" title="Link to this definition">¶</a></dt>
+<dd><p>CPU state for 32-bit PowerPC.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC32.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC32.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">PowerPC64</span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64" title="Link to this definition">¶</a></dt>
+<dd><p>CPU state for 64-bit PowerPC.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.PowerPC64.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.PowerPC64.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">RISCV64</span></span><a class="headerlink" href="#smallworld.state.cpus.RISCV64" title="Link to this definition">¶</a></dt>
+<dd><p>CPU state for riscv64</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.RISCV64.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.RISCV64.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">XTensaBE</span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaBE.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaBE.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.cpus.</span></span><span class="sig-name descname"><span class="pre">XTensaEL</span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL" title="Link to this definition">¶</a></dt>
+<dd><dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.add">
+<span class="sig-name descname"><span class="pre">add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.add" title="Link to this definition">¶</a></dt>
+<dd><p>Add an element.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.clear">
+<span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.clear" title="Link to this definition">¶</a></dt>
+<dd><p>This is slow (creates N new iterators!) but effective.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.discard">
+<span class="sig-name descname"><span class="pre">discard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">item</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.discard" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element.  Do not raise an exception if absent.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.for_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">for_platform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.for_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get a CPU object for a given platform specifier.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>platform</strong> – The platform specificer for the desired CPU object.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An instance of the desired CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.get_platform">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get_platform</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.get_platform" title="Link to this definition">¶</a></dt>
+<dd><p>Get the platform object for this CPU.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The platform object for this CPU.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.isdisjoint">
+<span class="sig-name descname"><span class="pre">isdisjoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.isdisjoint" title="Link to this definition">¶</a></dt>
+<dd><p>Return True if two sets have a null intersection.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.pop">
+<span class="sig-name descname"><span class="pre">pop</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.pop" title="Link to this definition">¶</a></dt>
+<dd><p>Return the popped value.  Raise KeyError if empty.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.cpus.XTensaEL.remove">
+<span class="sig-name descname"><span class="pre">remove</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.cpus.XTensaEL.remove" title="Link to this definition">¶</a></dt>
+<dd><p>Remove an element. If not a member, raise a KeyError.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="smallworld.html">smallworld</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.logging.html">smallworld.logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.hinting.html">smallworld.hinting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.platforms.html">smallworld.platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.emulators.html">smallworld.emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.html">smallworld.state</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">smallworld.state.cpus</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.models.html">smallworld.state.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.html">smallworld.state.memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.stack.html">smallworld.state.memory.stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.heap.html">smallworld.state.memory.heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.code.html">smallworld.state.memory.code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.analyses.html">smallworld.analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.exceptions.html">smallworld.exceptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.extern.ctypes.html">smallworld.extern.ctypes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Reference</a><ul>
+      <li>Previous: <a href="smallworld.state.html" title="previous chapter">smallworld.state</a></li>
+      <li>Next: <a href="smallworld.state.models.html" title="next chapter">smallworld.state.models</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

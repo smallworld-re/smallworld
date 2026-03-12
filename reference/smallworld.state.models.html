@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>smallworld.state.models &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="smallworld.state.memory" href="smallworld.state.memory.html" />
+    <link rel="prev" title="smallworld.state.cpus" href="smallworld.state.cpus.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="module-smallworld.state.models">
+<span id="smallworld-state-models"></span><h1>smallworld.state.models<a class="headerlink" href="#module-smallworld.state.models" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.models.Hook">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.models.</span></span><span class="sig-name descname"><span class="pre">Hook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">function</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Callable</span><span class="p"><span class="pre">[</span></span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.Hook" title="Link to this definition">¶</a></dt>
+<dd><p>Hook a particular instruction with a function.</p>
+<p>Runs the function provided when the emulator reaches (but has not
+yet executed) the instruction at a particular address.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>address</strong> – The address of the instruction.</p></li>
+<li><p><strong>function</strong> – The function to run.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Hook.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Hook.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Hook.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Hook.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.models.Breakpoint">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.models.</span></span><span class="sig-name descname"><span class="pre">Breakpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.Breakpoint" title="Link to this definition">¶</a></dt>
+<dd><p>An interactive breakpoint.</p>
+<p>Stops execution at the specified address and opens an interactive
+shell, as specified in the self.interact method.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>address</strong> – The address of the breakpoint.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Breakpoint.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Breakpoint.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Breakpoint.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Breakpoint.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.models.PDBBreakpoint">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.models.</span></span><span class="sig-name descname"><span class="pre">PDBBreakpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.PDBBreakpoint" title="Link to this definition">¶</a></dt>
+<dd><p>A PDB interactive breakpoint.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.PDBBreakpoint.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.PDBBreakpoint.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.PDBBreakpoint.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.PDBBreakpoint.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.models.PythonShellBreakpoint">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.models.</span></span><span class="sig-name descname"><span class="pre">PythonShellBreakpoint</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.PythonShellBreakpoint" title="Link to this definition">¶</a></dt>
+<dd><p>A Python shell interactive breakpoint.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.PythonShellBreakpoint.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.PythonShellBreakpoint.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.PythonShellBreakpoint.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.PythonShellBreakpoint.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.models.Model">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.models.</span></span><span class="sig-name descname"><span class="pre">Model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.Model" title="Link to this definition">¶</a></dt>
+<dd><p>A runtime function model implemented in Python.</p>
+<p>If execution reaches the given address, call the function assigned
+to self.model, instead of any code at that address in the
+emulator, and return. This is most often used to model an external
+function, e.g., libc <cite>fread</cite>. It is the responsibility of the
+model to read arguments and generate reasonable return values.</p>
+<p>Some models require static scratch space to operate.
+The quantity is stored in the ‘static_space_required’ attribute.
+If true, the harness must set the ‘static_buffer_address’ property
+of this model object.  The model will take care of mapping
+a buffer of the appropriate size at that address.</p>
+<p>A harness doesn’t need to include a <cite>Memory</cite> object
+for a static buffer.  A harness can include such an object
+if it wants to initialize that memory with a specific value, or if it
+wants to inspect the contents of that buffer via <cite>Machine.extract()</cite></p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>address</strong> – The address to model.</p>
+</dd>
+</dl>
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.name">
+<span class="property"><span class="k"><span class="pre">abstract</span></span><span class="w"> </span><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">name</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">str</span></span><a class="headerlink" href="#smallworld.state.models.Model.name" title="Link to this definition">¶</a></dt>
+<dd><p>A name for this model, e.g., fread or ioctl.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.platform">
+<span class="property"><span class="k"><span class="pre">abstract</span></span><span class="w"> </span><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">platform</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span><a class="headerlink" href="#smallworld.state.models.Model.platform" title="Link to this definition">¶</a></dt>
+<dd><p>The platform for which this model is defined.</p>
+</dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.abi">
+<span class="property"><span class="k"><span class="pre">abstract</span></span><span class="w"> </span><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">abi</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.ABI" title="smallworld.platforms.platforms.ABI"><span class="pre">ABI</span></a></span><a class="headerlink" href="#smallworld.state.models.Model.abi" title="Link to this definition">¶</a></dt>
+<dd><p>The ABI according to which this model works.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.lookup">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">lookup</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">abi</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.ABI" title="smallworld.platforms.platforms.ABI"><span class="pre">ABI</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.Model.lookup" title="Link to this definition">¶</a></dt>
+<dd><p>Instantiate a model by name, platform, and ABI.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>name</strong> – The name of the model.</p></li>
+<li><p><strong>platform</strong> – The platform for which this model is defined.</p></li>
+<li><p><strong>abi</strong> – The ABI according to which this model works.</p></li>
+<li><p><strong>address</strong> – The instruction address which the model will hook.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The fully instantiated model.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Model.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.model">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Model.model" title="Link to this definition">¶</a></dt>
+<dd><p>This is the implementation of the model for the named function.</p>
+<p>Note that implementation will have to make use of knowledge of
+the ABI to obtain arguments and return results, as well as
+modeling the semantics of the modeled functions appropriately.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.get_return_address">
+<span class="sig-name descname"><span class="pre">get_return_address</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pop</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#smallworld.state.models.Model.get_return_address" title="Link to this definition">¶</a></dt>
+<dd><p>Read this model’s return address, or pop the return address from the stack.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Model.run" title="Link to this definition">¶</a></dt>
+<dd><p>Run a model and mimic return</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.Model.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.Model.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="smallworld.state.models.MemoryMappedModel">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">smallworld.state.models.</span></span><span class="sig-name descname"><span class="pre">MemoryMappedModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.models.MemoryMappedModel" title="Link to this definition">¶</a></dt>
+<dd><p>A model of a memory-mapped IO device dealing with concrete values</p>
+<p>This lets you specify alternate handler routines
+for reads and writes within a range of memory addressess,
+bypassing the emulator’s normal memory model.
+As the name suggests, this is useful for modeling
+MMIO devices, where accessing a particular address
+actually accesses a register of a peripheral device.</p>
+<p>The callback routines on_read() and on_write()
+will trigger on any access within the specified range;
+one MemoryMappedModel can handle multiple registers,
+allowing you to model an entire device, or even a set of adjacent devices
+in one object.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>address</strong> – Starting address of the MMIO region</p></li>
+<li><p><strong>size</strong> – Size of the MMIO region in bytes</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.MemoryMappedModel.on_read">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">on_read</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">addr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unused</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">bytes</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.MemoryMappedModel.on_read" title="Link to this definition">¶</a></dt>
+<dd><p>Callback handling reads from an MMIO register</p>
+<p>NOTE: Results must be encoded in the emulator’s byte order.</p>
+<p>NOTE: Attempting to access memory in this MMIO range
+inside this handler will produce undefined behavior.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>emu</strong> – The emulator object mediating this operation</p></li>
+<li><p><strong>addr</strong> – The start address of the read operation</p></li>
+<li><p><strong>size</strong> – The number of bytes read</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><cite>size</cite> bytes containing the result of the modeled read</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.MemoryMappedModel.on_write">
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">on_write</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emu</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">addr</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bytes</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.MemoryMappedModel.on_write" title="Link to this definition">¶</a></dt>
+<dd><p>Callback handling writes to an MMIO register</p>
+<p>NOTE: <cite>value</cite> will be encoded in the emulator’s byte order.</p>
+<p>NOTE: Attempting to access memory in this MMIO range
+inside this handler will produce undefined behavior.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>emu</strong> – The emulator object mediating this operation</p></li>
+<li><p><strong>addr</strong> – The start address of the write operation</p></li>
+<li><p><strong>size</strong> – The number of bytes written</p></li>
+<li><p><strong>value</strong> – The bytes written</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.MemoryMappedModel.extract">
+<span class="sig-name descname"><span class="pre">extract</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.MemoryMappedModel.extract" title="Link to this definition">¶</a></dt>
+<dd><p>Load state from an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator from which to load</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.models.MemoryMappedModel.apply">
+<span class="sig-name descname"><span class="pre">apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">emulator</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.emulators.html#smallworld.emulators.Emulator" title="smallworld.emulators.emulator.Emulator"><span class="pre">Emulator</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#smallworld.state.models.MemoryMappedModel.apply" title="Link to this definition">¶</a></dt>
+<dd><p>Apply state to an emulator.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>emulator</strong> – The emulator to which state should applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="smallworld.html">smallworld</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.logging.html">smallworld.logging</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.hinting.html">smallworld.hinting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.platforms.html">smallworld.platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.emulators.html">smallworld.emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.html">smallworld.state</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.cpus.html">smallworld.state.cpus</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">smallworld.state.models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.html">smallworld.state.memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.stack.html">smallworld.state.memory.stack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.heap.html">smallworld.state.memory.heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.state.memory.code.html">smallworld.state.memory.code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.analyses.html">smallworld.analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.exceptions.html">smallworld.exceptions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="smallworld.extern.ctypes.html">smallworld.extern.ctypes</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Reference</a><ul>
+      <li>Previous: <a href="smallworld.state.cpus.html" title="previous chapter">smallworld.state.cpus</a></li>
+      <li>Next: <a href="smallworld.state.memory.html" title="next chapter">smallworld.state.memory</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

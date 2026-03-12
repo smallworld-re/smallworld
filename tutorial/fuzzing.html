@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Fuzzing &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Reference" href="../reference/index.html" />
+    <link rel="prev" title="Colorizer Analysis Tutorial" href="analyses/colorizer.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="fuzzing">
+<span id="id1"></span><h1>Fuzzing<a class="headerlink" href="#fuzzing" title="Link to this heading">¶</a></h1>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Link to this heading">¶</a></h2>
+<p>In this tutorial you will be guided through building a simple fuzzing harness
+and fuzzing it with <a class="reference external" href="https://aflplus.plus/">AFL++</a>. It assumes you are already familiar with building a SmallWorld
+harness and with <a class="reference external" href="https://aflplus.plus/">AFL++</a>. For this tutorial we will be using a very simple binary that reads
+four bytes (which we’re going to pretend is a size) and exits if they are 11 or less, then reads
+the next four bytes and compares them one-by-one to the values 98, 97, 100, and 33 exiting if
+they are not equal. If it makes it through all of the compares it crashes by writing to an
+unmapped address.</p>
+<div class="highlight-NASM notranslate"><div class="highlight"><pre><span></span><span class="k">BITS</span><span class="w"> </span><span class="mi">64</span><span class="c1">; </span>
+
+<span class="nl">vuln:</span>
+<span class="w">        </span><span class="nf">cmp</span><span class="w">     </span><span class="kt">DWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="p">],</span><span class="w"> </span><span class="mi">11</span>
+<span class="w">        </span><span class="nf">jbe</span><span class="w">     </span><span class="nv">.L5</span>
+<span class="w">        </span><span class="nf">cmp</span><span class="w">     </span><span class="kt">BYTE</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">4</span><span class="p">],</span><span class="w"> </span><span class="mi">98</span>
+<span class="w">        </span><span class="nf">je</span><span class="w">      </span><span class="nv">.L7</span>
+<span class="nl">.L3:</span>
+<span class="w">        </span><span class="nf">xor</span><span class="w">     </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="nb">eax</span>
+<span class="w">        </span><span class="nf">jmp</span><span class="w">     </span><span class="nv">.FAKERET</span>
+<span class="nl">.L7:</span>
+<span class="w">        </span><span class="nf">cmp</span><span class="w">     </span><span class="kt">BYTE</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">5</span><span class="p">],</span><span class="w"> </span><span class="mi">97</span>
+<span class="w">        </span><span class="nf">jne</span><span class="w">     </span><span class="nv">.L3</span>
+<span class="w">        </span><span class="nf">cmp</span><span class="w">     </span><span class="kt">BYTE</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">6</span><span class="p">],</span><span class="w"> </span><span class="mi">100</span>
+<span class="w">        </span><span class="nf">jne</span><span class="w">     </span><span class="nv">.L3</span>
+<span class="w">        </span><span class="nf">cmp</span><span class="w">     </span><span class="kt">BYTE</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">7</span><span class="p">],</span><span class="w"> </span><span class="mi">33</span>
+<span class="w">        </span><span class="nf">jne</span><span class="w">     </span><span class="nv">.L3</span>
+<span class="w">        </span><span class="nf">movsx</span><span class="w">   </span><span class="nb">rax</span><span class="p">,</span><span class="w"> </span><span class="kt">BYTE</span><span class="w"> </span><span class="p">[</span><span class="nb">rdi</span><span class="o">+</span><span class="mi">8</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">ds</span><span class="p">:</span><span class="mi">305419896</span><span class="p">],</span><span class="w"> </span><span class="nb">rax</span>
+<span class="w">        </span><span class="nf">jmp</span><span class="w">     </span><span class="nv">.L3</span>
+<span class="nl">.L5:</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="o">-</span><span class="mi">1</span>
+<span class="nl">.FAKERET:</span>
+<span class="w">        </span><span class="nf">nop</span>
+</pre></div>
+</div>
+<p>The source for this example can be found in the <code class="docutils literal notranslate"><span class="pre">tests/fuzz</span></code> directory of the
+repository in the file <code class="docutils literal notranslate"><span class="pre">fuzz.amd64.s</span></code>. This file can be assembled with <code class="docutils literal notranslate"><span class="pre">nasm</span></code>
+with the command <code class="docutils literal notranslate"><span class="pre">nasm</span> <span class="pre">fuzz.amd64.bin</span> <span class="pre">-o</span> <span class="pre">fuzz.amd64.bin</span></code>.</p>
+</section>
+<section id="building-our-harness">
+<h2>Building Our Harness<a class="headerlink" href="#building-our-harness" title="Link to this heading">¶</a></h2>
+<p>Now we need to build a SmallWorld harness for this code. First, we begin be
+initializing the machine, platform, cpu, and code. This is done in the same way
+as any other SmallWorld harness.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;fuzz.amd64.bin&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">(),</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span>
+<span class="p">)</span>
+<span class="n">heap</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">heap</span><span class="o">.</span><span class="n">BumpAllocator</span><span class="p">(</span><span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Next, we need somewhere for our input to live. We’re going to use a heap to make
+things easy. After we create the heap, we’re going to put some example input on
+it.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">heap</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">heap</span><span class="o">.</span><span class="n">BumpAllocator</span><span class="p">(</span><span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+
+<span class="n">user_input</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;goodgoodgood&quot;</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+
+<span class="n">size_addr</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">allocate_integer</span><span class="p">(</span>
+    <span class="nb">len</span><span class="p">(</span><span class="n">user_input</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;user input size&quot;</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Then we need to set our registers and add everthing to our machine. We set <cite>rip</cite>
+to <cite>0x1000</cite> (where we mapped the code) and <cite>rdi</cite> to point to our input.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">input_addr</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">allocate_bytes</span><span class="p">(</span><span class="n">user_input</span><span class="p">,</span> <span class="s2">&quot;user input&quot;</span><span class="p">)</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="mh">0x1000</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="n">size_addr</span><span class="p">)</span>
+
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now for the part where most of the work happens. <a class="reference external" href="https://aflplus.plus/">AFL++</a> is going to generate an input
+and hand it to our harness. However, that input is just a series of bytes. We need to
+apply that input to our machine. In order to do that we define a callback function.
+The parameters to this callback are specified in the <a class="reference external" href="https://aflplus.plus/">AFL++</a> documentation for
+<a class="reference external" href="https://github.com/AFLplusplus/AFLplusplus/blob/stable/unicorn_mode/README.md">Unicorn mode</a>. Briefly, the <cite>uc</cite> is a <a class="reference external" href="https://www.unicorn-engine.org/docs/tutorial.html">Unicorn emulator object</a> which you can use to
+write the input to memory or registers and <cite>input</cite> is the input generated by <a class="reference external" href="https://aflplus.plus/">AFL++</a> as
+a Python <cite>bytes</cite>. If the input given by <a class="reference external" href="https://aflplus.plus/">AFL++</a> won’t work for your case then you can
+return <cite>False</cite> to skip it.</p>
+<p>For our example we will check to make sure the input isn’t bigger than our heap and then
+just write it to the address of our input.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">input_callback</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">persistent_round</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mh">0x1000</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+</pre></div>
+</div>
+<p>All that’s left is to start our emulation. SmallWorld only supports fuzzing with our
+<cite>UnicornEmulator</cite>. The only other difference that we end with <cite>machine.fuzz()</cite> and pass
+in out input callback.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>
+
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="mi">55</span><span class="p">)</span>
+
+<span class="n">machine</span><span class="o">.</span><span class="n">fuzz</span><span class="p">(</span><span class="n">emulator</span><span class="p">,</span> <span class="n">input_callback</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>And that’s it. If we put it all together, we have:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/usr/bin/env python3</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="p">(</span><span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="s2">&quot;fuzz.amd64.bin&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">(),</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span>
+<span class="p">)</span>
+<span class="n">heap</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">heap</span><span class="o">.</span><span class="n">BumpAllocator</span><span class="p">(</span><span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+
+<span class="n">user_input</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;goodgoodgood&quot;</span><span class="p">,</span> <span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+
+<span class="n">size_addr</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">allocate_integer</span><span class="p">(</span>
+    <span class="nb">len</span><span class="p">(</span><span class="n">user_input</span><span class="p">),</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;user input size&quot;</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+<span class="n">input_addr</span> <span class="o">=</span> <span class="n">heap</span><span class="o">.</span><span class="n">allocate_bytes</span><span class="p">(</span><span class="n">user_input</span><span class="p">,</span> <span class="s2">&quot;user input&quot;</span><span class="p">)</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="mh">0x1000</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="n">size_addr</span><span class="p">)</span>
+
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">heap</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">input_callback</span><span class="p">(</span><span class="n">uc</span><span class="p">,</span> <span class="nb">input</span><span class="p">,</span> <span class="n">persistent_round</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">input</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mh">0x1000</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="n">uc</span><span class="o">.</span><span class="n">mem_write</span><span class="p">(</span><span class="n">size_addr</span><span class="p">,</span> <span class="nb">input</span><span class="p">)</span>
+
+
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="mi">55</span><span class="p">)</span>
+
+<span class="n">machine</span><span class="o">.</span><span class="n">fuzz</span><span class="p">(</span><span class="n">emulator</span><span class="p">,</span> <span class="n">input_callback</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="running-with-afl">
+<h2>Running With AFL++<a class="headerlink" href="#running-with-afl" title="Link to this heading">¶</a></h2>
+<p>To run our harness with <a class="reference external" href="https://aflplus.plus/">AFL++</a> using a command such as the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>afl-fuzz<span class="w"> </span>-t<span class="w"> </span><span class="m">10000</span><span class="w"> </span>-U<span class="w"> </span>-m<span class="w"> </span>none<span class="w"> </span>-i<span class="w"> </span>inputs<span class="w"> </span>-o<span class="w"> </span>outputs<span class="w"> </span>--<span class="w"> </span>python3<span class="w"> </span>our_fuzz_harness.py<span class="w"> </span>@@
+</pre></div>
+</div>
+<p>and you should see a TUI that looks like this:</p>
+<div class="highlight-none notranslate"><div class="highlight"><pre><span></span>
+           american fuzzy lop ++4.35c {default} (python3) [explore]
+┌─ process timing ────────────────────────────────────┬─ overall results ────┐
+│        run time : 1 days, 20 hrs, 1 min, 46 sec     │  cycles done : 1205  │
+│   last new find : 1 days, 17 hrs, 14 min, 29 sec    │ corpus count : 5     │
+│last saved crash : 0 days, 12 hrs, 54 min, 20 sec    │saved crashes : 1     │
+│ last saved hang : none seen yet                     │  saved hangs : 0     │
+├─ cycle progress ─────────────────────┬─ map coverage┴──────────────────────┤
+│  now processing : 4.1787 (80.0%)     │    map density : 0.01% / 0.02%      │
+│  runs timed out : 0 (0.00%)          │ count coverage : 1.00 bits/tuple    │
+├─ stage progress ─────────────────────┼─ findings in depth ─────────────────┤
+│  now trying : havoc                  │ favored items : 5 (100.00%)         │
+│ stage execs : 33/120 (27.50%)        │  new edges on : 5 (100.00%)         │
+│ total execs : 339k                   │ total crashes : 4 (1 saved)         │
+│  exec speed : 2.15/sec (zzzz...)     │  total tmouts : 0 (0 saved)         │
+├─ fuzzing strategy yields ────────────┴─────────────┬─ item geometry ───────┤
+│   bit flips : 0/0, 0/0, 0/0                        │    levels : 5         │
+│  byte flips : 0/0, 0/0, 0/0                        │   pending : 0         │
+│ arithmetics : 0/0, 0/0, 0/0                        │  pend fav : 0         │
+│  known ints : 0/0, 0/0, 0/0                        │ own finds : 4         │
+│  dictionary : 0/0, 0/0, 0/0, 0/0                   │  imported : 0         │
+│havoc/splice : 5/339k, 0/0                          │ stability : 100.00%   │
+│py/custom/rq : unused, unused, unused, unused       ├───────────────────────┘
+│    trim/eff : 75.00%/18, n/a                       │          [cpu000: 50%]
+└─ strategy: exploit ────────── state: finished... ──┘
+</pre></div>
+</div>
+<p>See the <a class="reference external" href="https://aflplus.plus/">AFL++</a> documentation for a more complete listing to all of the arguments and options.</p>
+</section>
+<section id="breakdown-of-an-input">
+<h2>Breakdown of an Input<a class="headerlink" href="#breakdown-of-an-input" title="Link to this heading">¶</a></h2>
+<p>Now, lets look at an input the crashed our program. Using <cite>xxd</cite> we have the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>00000000: ff7f 0000 6261 6421                      ....bad!
+</pre></div>
+</div>
+<p>As you can see, the first four bytes <cite>ff7f 0000</cite> are an integer greater than 11. Then we have
+the bytes <cite>0x62</cite> (98), <cite>0x61</cite> (97), <cite>0x64</cite> (100), and <cite>0x21</cite> (33) which spells <cite>bad!</cite> in ascii.
+Note that this input matches what was required as discussed in the introduction of this tutorial.</p>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h2>
+<p>If you are interested in a more in depth tutorial on using SmallWorld for vulnerability
+research (including fuzzing), then checkout our in depth tutorial on using SmallWorld to
+analyize an RTOS found in the repo under <cite>use_cases/rtos_demo</cite>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="program-loading/index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="analyses/index.html">Analyses</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Tutorials</a><ul>
+      <li>Previous: <a href="analyses/colorizer.html" title="previous chapter">Colorizer Analysis Tutorial</a></li>
+      <li>Next: <a href="../reference/index.html" title="next chapter">Reference</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

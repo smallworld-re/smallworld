@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Trace Execution Analysis &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Coverage Frontier Analysis" href="coverage-frontier.html" />
+    <link rel="prev" title="Analyses" href="index.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="trace-execution-analysis">
+<span id="trace-execution-concept"></span><h1>Trace Execution Analysis<a class="headerlink" href="#trace-execution-analysis" title="Link to this heading">¶</a></h1>
+<p>The <code class="docutils literal notranslate"><span class="pre">TraceExecution</span></code> analysis class allows you to capture a single
+execution trace for some code. Given an initial machine state passed
+to its <code class="docutils literal notranslate"><span class="pre">run</span></code> method, the analysis uses the Unicorn emulator to
+execute one instruction at a time, single-stepping through the code
+until doing so raises an exception.</p>
+<p>For each instruction, the analysis constructs a <code class="docutils literal notranslate"><span class="pre">TraceElement</span></code>
+object consisting of instruction address and mnemonics as well as
+details about branch and comparison instructions (for those
+instructions). The analysis collects these in a list which represents
+the trace. This list and other information get bundled into the
+<code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code>, along with the exception that was thrown to
+end the trace. This hint is the main output of this analysis. There
+are more details about these classes below.</p>
+<p>Two known exceptions are explicitly caught whilst single-stepping:
+<code class="docutils literal notranslate"><span class="pre">EmulationBounds</span></code> and <code class="docutils literal notranslate"><span class="pre">EmulationExitPoint</span></code>. These both indicate
+the emulator should halt, as it has finished executing the required
+code (and is about to walk off into other or missing code). Other
+possible exceptions of interest that are not caught explicitly are
+subclasses of <code class="docutils literal notranslate"><span class="pre">EmulationError</span></code> listed and explained in the
+<code class="docutils literal notranslate"><span class="pre">smallworld.exceptions</span></code> source and include invalid read/write of
+memory (typically due to an address being unmapped). The exception
+which ended the trace is obviously diagnostic and is captured by the
+analysis and saved in the <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code>.</p>
+<p>One way to build upon this analysis is to register a function to
+receive the <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code> and then doing something with it.</p>
+<p>Another way to use this analysis is to registering functions to be run
+before and after an instruction execution. This is done with</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="n">TraceExecution</span><span class="o">.</span><span class="n">register_cb</span><span class="p">(</span><span class="n">cb_point</span><span class="p">,</span> <span class="n">cb_function</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>We provide an example of using this callback in the
+<a class="reference internal" href="../../tutorial/analyses/trace-execution.html#trace-execution-tutorial"><span class="std std-ref">TraceExecution Analysis tutorial</span></a>.</p>
+<p>For a even more detailed worked example, you can study the source code for
+the <code class="docutils literal notranslate"><span class="pre">Colorizer</span></code> analysis works, which employs these callbacks.</p>
+<p>For an example of an analysis that uses the <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code> you
+can study the source code for the <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analysis, as
+well as looking at the <a class="reference internal" href="../../tutorial/analyses/coverage-frontier.html#coverage-frontier-tutorial"><span class="std std-ref">tutorial</span></a>
+for that.</p>
+<section id="the-traceexecutionhint">
+<h2>The TraceExecutionHint<a class="headerlink" href="#the-traceexecutionhint" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code> has the following structure</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TraceExecutionHint</span><span class="p">(</span><span class="n">TypeHint</span><span class="p">):</span>
+    <span class="n">trace</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">TraceElement</span><span class="p">]</span>
+    <span class="n">trace_digest</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">seed</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">emu_result</span><span class="p">:</span> <span class="n">TraceRes</span>
+    <span class="n">exception</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">Optional</span><span class="p">[</span><span class="ne">Exception</span><span class="p">]</span>
+    <span class="n">exception_class</span><span class="p">:</span> <span class="nb">str</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">trace_digest</span></code> is an md5 sum that will be different for
+different sequences of program counters.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">seed</span></code> is a value that
+can be set to indicate the PRNG seed to use to reproduce this trace,
+given various random choices made in setting up the environment (this
+could mean a call to
+<code class="docutils literal notranslate"><span class="pre">smallworld.analyses.colorizer.randomize_uninitialized</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">emu_results</span></code> is used to indicate how the trace ended:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">TraceRes</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
+    <span class="n">ER_NONE</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="n">ER_BOUNDS</span> <span class="o">=</span> <span class="mi">1</span>      <span class="c1"># hit execution bound or exit point</span>
+    <span class="n">ER_MAX_INSNS</span> <span class="o">=</span> <span class="mi">2</span>   <span class="c1"># hit max number of instructions</span>
+    <span class="n">ER_FAIL</span> <span class="o">=</span> <span class="mi">3</span>        <span class="c1"># some kind of emulation failure</span>
+</pre></div>
+</div>
+<p>Note that the actual exception that ended the trace is also stored in <code class="docutils literal notranslate"><span class="pre">exception</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">trace</span></code> member is a list of <code class="docutils literal notranslate"><span class="pre">TraceElement</span></code> objects, one for
+each instruction executed.  These have the following structure.</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">TraceElement</span><span class="p">:</span>
+    <span class="n">pc</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">ic</span><span class="p">:</span> <span class="nb">int</span>          <span class="c1"># instruction count</span>
+    <span class="n">mnemonic</span><span class="p">:</span> <span class="nb">str</span>    <span class="c1"># these next two are from Capstone</span>
+    <span class="n">op_str</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">cmp</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">CmpInfo</span><span class="p">]</span>
+    <span class="n">branch</span><span class="p">:</span> <span class="nb">bool</span>                  <span class="c1"># true iff this instruction is a branch</span>
+    <span class="n">immediates</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span>  <span class="c1"># list of immediate operands in this instruction</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">CmpInfo</span></code> is a union of three possibilities:
+<code class="docutils literal notranslate"><span class="pre">RegisterOperand</span></code>, <code class="docutils literal notranslate"><span class="pre">BSIDMemoryReferenceOperand</span></code>, and <code class="docutils literal notranslate"><span class="pre">int</span></code> and
+the intent is that it can represent the semantics of operands that are
+registers, memory read or writes, and immediates.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Analyses</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Analyses</a></li>
+      <li>Next: <a href="coverage-frontier.html" title="next chapter">Coverage Frontier Analysis</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

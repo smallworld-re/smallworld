@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Values in Smallworld &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="The Machine Object" href="machine.html" />
+    <link rel="prev" title="Machine State" href="index.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="values-in-smallworld">
+<span id="values"></span><h1>Values in Smallworld<a class="headerlink" href="#values-in-smallworld" title="Link to this heading">¶</a></h1>
+<p>All leaf-level machine state in SmallWorld is represented as <code class="docutils literal notranslate"><span class="pre">Value</span></code> objects.
+Each <code class="docutils literal notranslate"><span class="pre">Value</span></code> represents a fixed-size sequence of bytes somewhere in the machine.</p>
+<section id="contents">
+<h2>Contents<a class="headerlink" href="#contents" title="Link to this heading">¶</a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Value</span></code> has contents.  This is the data that will get written into machine state
+when the value is applied to an emulator.</p>
+<p>If the contents are <code class="docutils literal notranslate"><span class="pre">None</span></code>, the value is considered uninitialized.
+Otherwise, the allowed data type depends on the specific part of machine state being modeled.
+Generally, registers contain integers, and memory contains bytes.</p>
+</section>
+<section id="labels">
+<h2>Labels<a class="headerlink" href="#labels" title="Link to this heading">¶</a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Value</span></code> can have a label.  This allows harness authors to attach semantic meaning
+to a particular <code class="docutils literal notranslate"><span class="pre">Value</span></code>.</p>
+<p>Concrete emulators do not consider labels.
+An <code class="docutils literal notranslate"><span class="pre">Analysis</span></code> based on a dynamic emulator can use a label to mark interesting data for analysis,
+but it otherwise has no meaning, and will be invalidated as soon as emulation begins.</p>
+<p>Symbolic executors use labels to create bound and unbound variables.
+When a <code class="docutils literal notranslate"><span class="pre">Value</span></code> with a label is loaded into a symbolic executor,
+the sequence of bytes tied to that <code class="docutils literal notranslate"><span class="pre">Value</span></code> are populated with a variable
+named after the label.</p>
+<p>If the <code class="docutils literal notranslate"><span class="pre">Value</span></code> also has contents, the executor “binds” that variable
+to the contents, asserting that the variable must equal the contents of the value.</p>
+</section>
+<section id="data-types">
+<h2>Data Types<a class="headerlink" href="#data-types" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Values</span></code> can have data types, based off <code class="docutils literal notranslate"><span class="pre">ctypes</span></code> objects.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>This feature has not been exercised in a very long time,
+and will probably be removed.</p>
+</div>
+</section>
+<section id="implementations">
+<h2>Implementations<a class="headerlink" href="#implementations" title="Link to this heading">¶</a></h2>
+<p>SmallWorld includes three basic <code class="docutils literal notranslate"><span class="pre">Value</span></code> classes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">BytesValue</span></code> stores its contents as a <code class="docutils literal notranslate"><span class="pre">bytes</span></code> object.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">IntegerValue</span></code> stores its contents as an integer.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">SymbolcValue</span></code> has no contents; it’s a placeholder for uninitialized data.</p></li>
+</ul>
+</div></blockquote>
+<p>Registers are also <code class="docutils literal notranslate"><span class="pre">Values</span></code>.  See <a class="reference internal" href="cpu.html#cpu"><span class="std std-ref">The CPU Object</span></a> for more information.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Machine State</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">Machine State</a></li>
+      <li>Next: <a href="machine.html" title="next chapter">The Machine Object</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

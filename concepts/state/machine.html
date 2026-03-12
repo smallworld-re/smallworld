@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>The Machine Object &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="The CPU Object" href="cpu.html" />
+    <link rel="prev" title="Values in Smallworld" href="values.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="the-machine-object">
+<span id="machine"></span><h1>The Machine Object<a class="headerlink" href="#the-machine-object" title="Link to this heading">¶</a></h1>
+<p>The root of SmallWorld’s machine state representation is the <code class="docutils literal notranslate"><span class="pre">Machine</span></code> object.
+All pieces of the harness environment are added to the machine,
+which then mediates how those pieces are added to or lifted from the back-end emulator.</p>
+<section id="adding-state-to-a-machine">
+<h2>Adding State to a Machine<a class="headerlink" href="#adding-state-to-a-machine" title="Link to this heading">¶</a></h2>
+<p>All parts of the harness state are added to a <code class="docutils literal notranslate"><span class="pre">Machine</span></code> using <code class="docutils literal notranslate"><span class="pre">Machine.add()</span></code>.</p>
+<p>State objects are loaded into a <code class="docutils literal notranslate"><span class="pre">Machine</span></code> by reference,
+meaning you can create a part of the machine state,
+register it with the machine, and then continue to modify it.</p>
+<p>The following is a basic example of adding a CPU to a machine</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Machine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.platforms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Architecture</span><span class="p">,</span> <span class="n">Byteorder</span><span class="p">,</span> <span class="n">Platform</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">Machine</span><span class="p">()</span>
+
+<span class="n">platform</span> <span class="o">=</span> <span class="n">Platform</span><span class="p">(</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span><span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Continue configuring `cpu` and `machine`, and eventually use them for an experiment</span>
+</pre></div>
+</div>
+</section>
+<section id="applying-and-extracting-a-machine">
+<h2>Applying and Extracting a Machine<a class="headerlink" href="#applying-and-extracting-a-machine" title="Link to this heading">¶</a></h2>
+<p>A machine can transfer its contents to an emulator using <code class="docutils literal notranslate"><span class="pre">Machine.apply()</span></code>.</p>
+<p>Unlike <code class="docutils literal notranslate"><span class="pre">Machine.add()</span></code>, most components of a harness are copied by value.
+Updating the original object afterward will not update the emulator’s state.</p>
+<p>The exception to this are hook objects; they are registered with the emulator,
+but are not copied.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.apply()</span></code> does not clear any state already applied to the emulator.
+Reusing an emulator for multiple experiments may cause very interesting
+exceptions or failure modes.</p>
+</div>
+<p>A machine can also copy the contents of an emulator into itself using <code class="docutils literal notranslate"><span class="pre">Machine.extract()</span></code>.</p>
+<p>This will overwrite most of the contents of the current machine, with the following exceptions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Event hook objects are not extracted.</p></li>
+<li><p>Symbolic path constraints (angr only).</p></li>
+<li><p><strong>TODO</strong>: Figure out what else doesn’t get extracted.</p></li>
+</ul>
+</div></blockquote>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>The <a class="reference internal" href="../emulators/angr.html#angr"><span class="std std-ref">angr backend</span></a> can explore multiple program paths at one time.
+If run in this mode, invoking <code class="docutils literal notranslate"><span class="pre">Machine.extract()</span></code> on the emulator
+will fail; which machine state are you trying to extract?</p>
+<p>There’s a separate interface on the angr emulator class
+that allows for traversal of the available machine states.
+See the docs for the <a class="reference internal" href="../emulators/angr.html#angr"><span class="std std-ref">angr backend</span></a> for more information.</p>
+</div>
+<p>The following code uses <code class="docutils literal notranslate"><span class="pre">Machine.apply()</span></code> to provision an emulator,
+and <code class="docutils literal notranslate"><span class="pre">Machine.extract()</span></code> to read back results</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.emulators</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnicornEmulator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Executable</span><span class="p">,</span> <span class="n">Machine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.platforms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Architecture</span><span class="p">,</span> <span class="n">Byteorder</span><span class="p">,</span> <span class="n">Platform</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Set up the CPU</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">Platform</span><span class="p">(</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span><span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load a piece of code.</span>
+<span class="c1"># Assume this will store 0x2a in rax when done.</span>
+<span class="n">exe_path</span> <span class="o">=</span> <span class="s2">&quot;/fake/exe/path.bin&quot;</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span><span class="n">exe_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Set the machine to start emulating at the start of the code.</span>
+<span class="c1"># Assume this is the correct entry point.</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Specify execution bounds</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_bound</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">())</span>
+
+<span class="c1"># Create an emulator and emulate</span>
+<span class="n">emu</span> <span class="o">=</span> <span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">emu</span><span class="p">)</span>
+<span class="n">emu</span><span class="o">.</span><span class="n">run</span><span class="p">()</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="n">emu</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rax</span><span class="p">)</span>  <span class="c1"># (rax, 8)=0x2a</span>
+</pre></div>
+</div>
+</section>
+<section id="accessing-extracted-state">
+<h2>Accessing Extracted State<a class="headerlink" href="#accessing-extracted-state" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This interface is pretty incomplete.  You can help by proposing expansions.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Machine</span></code> includes several helpers to assist in inspecting the data
+inside an extracted machine.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.get_cpu()</span></code> extracts a <code class="docutils literal notranslate"><span class="pre">CPU</span></code> object from the machine,
+allowing the harness to inspect registers.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.get_elfs()</span></code> extracts all ELF executable representations,
+allowing the harness to inspect all memory covered by their segments.</p>
+</section>
+<section id="execution-helpers">
+<h2>Execution Helpers<a class="headerlink" href="#execution-helpers" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">Machine</span></code> supplies several helper functions for performing
+common workflows involving <code class="docutils literal notranslate"><span class="pre">apply()</span></code> and <code class="docutils literal notranslate"><span class="pre">extract()</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.emulate()</span></code> applies the <code class="docutils literal notranslate"><span class="pre">Machine</span></code> to an emulator,
+runs the emulator until it exits, deep-copies the <code class="docutils literal notranslate"><span class="pre">Machine</span></code>,
+and extracts emulator state into the copy.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.step()</span></code> applies the <code class="docutils literal notranslate"><span class="pre">Machine</span></code> to an emulator,
+and then single-steps the emulator until it stops,
+generating a new <code class="docutils literal notranslate"><span class="pre">Machine</span></code> after each instruction.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.step()</span></code> can get very memory-hungry,
+since each new <code class="docutils literal notranslate"><span class="pre">Machine</span></code> wil contain a full copy
+of all memory ranges specified in the harness.
+This is fine for a hundred byte piece of shellcode,
+but adds up very quickly when harnessing a 4 GB
+embedded firmware image.</p>
+<p>Consider interacting directly with the <code class="docutils literal notranslate"><span class="pre">Emulator</span></code> object
+to control code exploration in this case.</p>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.analyze()</span></code> passes the machine into an <code class="docutils literal notranslate"><span class="pre">Analysis</span></code> object
+for analysis.  See the docs on <a class="reference internal" href="../analyses/index.html#analyses"><span class="std std-ref">analyses</span></a> for more information.</p>
+<p><code class="docutils literal notranslate"><span class="pre">Machine.fuzz()</span></code> leverages <code class="docutils literal notranslate"><span class="pre">unicornafl</span></code> to fuzz the harness.
+See the <a class="reference internal" href="../../tutorial/fuzzing.html#fuzzing"><span class="std std-ref">fuzzing tutorial</span></a> for more information.</p>
+<p>The following is the apply/extract example rewritten to use <code class="docutils literal notranslate"><span class="pre">Machine.emulate()</span></code></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.emulators</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnicornEmulator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Executable</span><span class="p">,</span> <span class="n">Machine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.platforms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Architecture</span><span class="p">,</span> <span class="n">Byteorder</span><span class="p">,</span> <span class="n">Platform</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Set up the CPU</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">Platform</span><span class="p">(</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span><span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load a piece of code.</span>
+<span class="c1"># Assume this will store 0x2a in rax when done.</span>
+<span class="n">exe_path</span> <span class="o">=</span> <span class="s2">&quot;/fake/exe/path.bin&quot;</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span><span class="n">exe_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Set the machine to start emulating at the start of the code.</span>
+<span class="c1"># Assume this is the correct entry point.</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Specify execution bounds</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_bound</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> <span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">())</span>
+
+<span class="c1"># Create an emulator and emulate</span>
+<span class="n">emu</span> <span class="o">=</span> <span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emu</span><span class="p">)</span>
+<span class="n">final_cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">final_cpu</span><span class="o">.</span><span class="n">rax</span><span class="p">)</span>  <span class="c1"># (rax, 8)=0x2a</span>
+</pre></div>
+</div>
+</section>
+<section id="exit-points">
+<h2>Exit Points<a class="headerlink" href="#exit-points" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">Machine</span></code> class stores exit points for the harness.</p>
+<p>An exit point is an address which, if executed, will cause execution to stop.
+Note that execution stops before the instruction at the exit point is executed.
+There is currently no concept of an “exit-after point” in SmallWorld.</p>
+<p>Exit points can be on any address, including one outside valid memory.
+This is useful for exiting on return from the top-level function,
+or detecting a call to a non-existent library.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>The <a class="reference internal" href="../emulators/panda.html#panda"><span class="std std-ref">panda backend</span></a> doesn’t allow exit points on unmapped memory.
+This will likely be fixed with the next major update.</p>
+</div>
+<p>The following is an example of specifying an exit point on a false return</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.emulators</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnicornEmulator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Executable</span><span class="p">,</span> <span class="n">Machine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.platforms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Architecture</span><span class="p">,</span> <span class="n">Byteorder</span><span class="p">,</span> <span class="n">Platform</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Using aarch64, since it&#39;s easy to specify a return address</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">Platform</span><span class="p">(</span><span class="n">Architecture</span><span class="o">.</span><span class="n">AARCH64</span><span class="p">,</span> <span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span><span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load a piece of code.</span>
+<span class="c1"># Assume it contains a function that returns</span>
+<span class="n">exe_path</span> <span class="o">=</span> <span class="s2">&quot;/fake/exe/path.bin&quot;</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span><span class="n">exe_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Set the machine to start emulating at the start of the code.</span>
+<span class="c1"># Assume this is the correct entry point.</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Configure the link register with a spurious address,</span>
+<span class="c1"># and set an exit point on that address.</span>
+<span class="n">exit_point</span> <span class="o">=</span> <span class="mh">0xdead0000</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">lr</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+
+<span class="c1"># Create an emulator and emulate.</span>
+<span class="n">emu</span> <span class="o">=</span> <span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emu</span><span class="p">)</span>
+<span class="n">final_cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+
+<span class="c1"># The final program counter should be the spurious return.</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">final_cpu</span><span class="o">.</span><span class="n">pc</span><span class="p">)</span> <span class="c1"># (pc,8)=0xdead0000</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Users who are used to Unicorn will be used to
+the emulator requiring an exit point in order to run.</p>
+<p>SmallWorld is engineered so that an exit point isn’t required,
+even when running with the <a class="reference internal" href="../emulators/unicorn.html#unicorn"><span class="std std-ref">unicorn backend</span></a>.</p>
+</div>
+</section>
+<section id="bounds">
+<h2>Bounds<a class="headerlink" href="#bounds" title="Link to this heading">¶</a></h2>
+<p>The <code class="docutils literal notranslate"><span class="pre">Machine</span></code> class also stores program boundaries.</p>
+<p>These are ranges of addresses that are valid to execute;
+emulation will stop gracefully if it encounters a program counter
+outside these ranges or, for symbolic executors, an unconstrained program counter.</p>
+<p>If no bounds are specified, emulation will consider any concrete address in-bounds.
+Emulation will still stop if the program leaves mapped memory
+or tries to execute an invalid instruction.</p>
+<p>The following example constrains a program’s execution using bounds alone.
+This is useful if you don’t know exactly where a program will exit,
+but do know what parts of memory are code that you want to explore:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.emulators</span><span class="w"> </span><span class="kn">import</span> <span class="n">UnicornEmulator</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Executable</span><span class="p">,</span> <span class="n">Machine</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.platforms</span><span class="w"> </span><span class="kn">import</span> <span class="n">Architecture</span><span class="p">,</span> <span class="n">Byteorder</span><span class="p">,</span> <span class="n">Platform</span>
+
+<span class="n">machine</span> <span class="o">=</span> <span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Using aarch64, since it&#39;s easy to specify a return address</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">Platform</span><span class="p">(</span><span class="n">Architecture</span><span class="o">.</span><span class="n">AARCH64</span><span class="p">,</span> <span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span><span class="p">)</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load a piece of code.</span>
+<span class="c1"># Assume it contains a function that returns</span>
+<span class="n">exe_path</span> <span class="o">=</span> <span class="s2">&quot;/fake/exe/path.bin&quot;</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span><span class="n">exe_path</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Set the machine to start emulating at the start of the code.</span>
+<span class="c1"># Assume this is the correct entry point.</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Configure the link register with a spurious address,</span>
+<span class="c1"># and set an exit point on that address.</span>
+<span class="n">exit_point</span> <span class="o">=</span> <span class="mh">0xdead0000</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">lr</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+
+<span class="c1"># Create an emulator and emulate.</span>
+<span class="n">emu</span> <span class="o">=</span> <span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emu</span><span class="p">)</span>
+<span class="n">final_cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+
+<span class="c1"># The final program counter should be the spurious return.</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">final_cpu</span><span class="o">.</span><span class="n">pc</span><span class="p">)</span> <span class="c1"># (pc,8)=0xdead0000</span>
+</pre></div>
+</div>
+</section>
+<section id="constraints">
+<h2>Constraints<a class="headerlink" href="#constraints" title="Link to this heading">¶</a></h2>
+<p>A <code class="docutils literal notranslate"><span class="pre">Machine</span></code> can accept symbolic constraint expressions using <code class="docutils literal notranslate"><span class="pre">Machine.add_constraints()</span></code></p>
+<p>A constraint is an expression that some emulators (currently, only angr) can use
+to limit the possible values of uninitialized variables without fully committing to one value.
+This is useful for placing conditions on your initial program state,
+without over-constraining the value and risking missing interesting
+program paths.</p>
+<p>A symbolic executor will also build up constraints
+based on the choices the program made in resolving conditional operations.
+It’s possible to examine these constraints using <code class="docutils literal notranslate"><span class="pre">Machine.get_constraints()</span></code></p>
+<p>Other parts of machine state will imply constraints;
+a <code class="docutils literal notranslate"><span class="pre">Value</span></code> with a label and contents will create stating that
+the label must equal the contents of the <code class="docutils literal notranslate"><span class="pre">Value</span></code>.
+These will not show up in <code class="docutils literal notranslate"><span class="pre">Machine.get_constraints()</span></code> before
+the machine is applied to an emulator, but they will show up if the machine is extracted.</p>
+<p>Constraints are represented as Claripy expression objects.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>TODO: Write a tutorial for this; interpreting Claripy gets a bit involved.</p>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Machine State</a><ul>
+      <li>Previous: <a href="values.html" title="previous chapter">Values in Smallworld</a></li>
+      <li>Next: <a href="cpu.html" title="next chapter">The CPU Object</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

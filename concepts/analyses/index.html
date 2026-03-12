@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Analyses &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Trace Execution Analysis" href="trace-execution.html" />
+    <link rel="prev" title="Ghidra Backend" href="../emulators/ghidra.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="analyses">
+<span id="id1"></span><h1>Analyses<a class="headerlink" href="#analyses" title="Link to this heading">¶</a></h1>
+<p>SmallWorld provides a simple interface for encapsulating
+analyses that take, as input, the machine state representation.
+These can be <em>static</em> analyses, meaning the code is examined
+but not run.
+Or they can be <em>dynamic</em> analyses which will run the code,
+using the input <code class="docutils literal notranslate"><span class="pre">Machine</span></code> to specify the initial state of
+memory and registers.
+Dynamic analysis will, additionally, employ instrumentation to
+monitor execution and collect side information.</p>
+<p>Each analysis should create a subclass of <code class="docutils literal notranslate"><span class="pre">Analysis</span></code>.
+This interface is incredibly free-form;
+it includes a single method <code class="docutils literal notranslate"><span class="pre">Analysis.run()</span></code>,
+which takes a <code class="docutils literal notranslate"><span class="pre">Machine</span></code> object and performs whatever analyses
+the class implements.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Analyses should not mutate the <code class="docutils literal notranslate"><span class="pre">Machine</span></code> they are passed.</p>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">Analysis.run()</span></code> method, notably, returns <code class="docutils literal notranslate"><span class="pre">None</span></code>.
+This is because analyses are intended to use <code class="docutils literal notranslate"><span class="pre">Hints</span></code> to
+communicate any results, making them available for
+additional processing.</p>
+<p>The constructor for the <code class="docutils literal notranslate"><span class="pre">Analysis</span></code> class takes a <code class="docutils literal notranslate"><span class="pre">Hinter</span></code>
+object, which is stored in <code class="docutils literal notranslate"><span class="pre">self.hinter</span></code>.</p>
+<section id="hints">
+<h2>Hints<a class="headerlink" href="#hints" title="Link to this heading">¶</a></h2>
+<p>Conceptually, hints are simply statements of discovery made by an
+analysis.
+The idea is that a given analysis will generate a number of discrete
+discoveries – hints – about the nature of some code.
+Hints can be collected, composed, and synthesized into even richer
+insights, which can go into logs or reports for direct human
+consumption or can, themselves, become higher-level hints intended
+for downstream analysis.</p>
+<p>Take, as an example, the <code class="docutils literal notranslate"><span class="pre">CodeCoverage</span></code> analysis class.
+Given some SmallWorld harness that sets up the initial environment for
+execution and packs it into a <code class="docutils literal notranslate"><span class="pre">Machine</span></code> object, this analysis will
+execute code using the Unicorn emulator until it hits an exit point,
+steps outside a specified code bound, or raises an exception,
+collecting counts for every instruction program counter encountered.
+This coverage information (a dictionary mapping program counters to
+counts) is included as part of the <code class="docutils literal notranslate"><span class="pre">CoverageHint</span></code> that is emitted
+by this analysis.</p>
+<p>Hints are packaged as data classes that subclass <code class="docutils literal notranslate"><span class="pre">Hint</span></code>.</p>
+<p>Analyses designed to consume hints use the specific <code class="docutils literal notranslate"><span class="pre">Hint</span></code> subclass to
+filter the hints they want.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Data inside of a <code class="docutils literal notranslate"><span class="pre">Hint</span></code> is passed by reference and is
+never marshalled, so a <code class="docutils literal notranslate"><span class="pre">Hint</span></code> can contain arbitrarily-large
+or complex information.</p>
+</div>
+<p>SmallWorld includes a library of <code class="docutils literal notranslate"><span class="pre">Hint</span></code> subclasses covering
+information relevant to evaluating a SmallWorld harness.
+Analyses are encouraged to use existing hint subclasses,
+although they may create their own if necessary.</p>
+<p>Hinting is implemented as a basic pub-sub system via the <code class="docutils literal notranslate"><span class="pre">Hinter</span></code> class.
+An <code class="docutils literal notranslate"><span class="pre">Analysis</span></code> takes, as input to its constructor, a <code class="docutils literal notranslate"><span class="pre">Hinter</span></code> object.
+This is subsequently available in <code class="docutils literal notranslate"><span class="pre">self.hinter</span></code> and can be used with
+<code class="docutils literal notranslate"><span class="pre">self.hinter.send()</span></code> to publish a hint for consumption, and
+<code class="docutils literal notranslate"><span class="pre">self.hinter.register()</span></code> to register a callback that will fire if a
+specific class of hint is received.
+The callback will be of the form <code class="docutils literal notranslate"><span class="pre">callback(Hint)</span> <span class="pre">-&gt;</span> <span class="pre">None</span></code>.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Callbacks are only triggered on an exact class match.
+If a callback is registered to a given <code class="docutils literal notranslate"><span class="pre">Hint</span></code> class,
+and an analysis sends a subclass, the callback will not fire.</p>
+</div>
+<p>The following is a basic example of two dependent analyses
+that communicate via <code class="docutils literal notranslate"><span class="pre">Hint</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.hinting</span><span class="w"> </span><span class="kn">import</span> <span class="n">Hint</span><span class="p">,</span> <span class="n">Hinter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyses</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.state</span><span class="w"> </span><span class="kn">import</span> <span class="n">Machine</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FirstAHint</span><span class="p">(</span><span class="n">Hint</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">FirstAnalysis</span><span class="p">(</span><span class="n">Analysis</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;first-analysis&quot;</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;An analysis that sends hints&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">machine</span><span class="p">:</span> <span class="n">Machine</span><span class="p">):</span>
+        <span class="c1"># Send a hint when we start.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hinter</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">FirstAHint</span><span class="p">(</span>
+            <span class="n">message</span><span class="o">=</span><span class="s2">&quot;Hello, world!&quot;</span>
+        <span class="p">))</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">SecondAnalysis</span><span class="p">(</span><span class="n">Analysis</span><span class="p">):</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;second-analysis&quot;</span>
+    <span class="n">version</span> <span class="o">=</span> <span class="s2">&quot;0&quot;</span>
+    <span class="n">description</span> <span class="o">=</span> <span class="s2">&quot;An analysis that listens for hints&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_hint</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">hint</span><span class="p">:</span> <span class="n">Hint</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hint: </span><span class="si">{</span><span class="n">hint</span><span class="o">.</span><span class="n">message</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">machine</span><span class="p">:</span> <span class="n">Machine</span><span class="p">):</span>
+        <span class="c1"># Listen for hints of type Hint.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hinter</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">FirstAHint</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">on_hint</span><span class="p">)</span>
+
+<span class="c1"># Set up the hinter</span>
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">Hinter</span><span class="p">()</span>
+
+<span class="c1"># Prepare the dependent analysis;</span>
+<span class="c1"># should return without doing anything.</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">SecondAnalysis</span><span class="p">(</span><span class="n">hinter</span><span class="p">))</span>
+
+<span class="c1"># Run the base analysis.</span>
+<span class="c1"># Should cause SecondAnalysis to print &quot;Hello, World!&quot;</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">analyze</span><span class="p">(</span><span class="n">FirstAnalysis</span><span class="p">(</span><span class="n">hinter</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>For a more realistic example of how analyses can compose, consider
+studying the communication of hints between <code class="docutils literal notranslate"><span class="pre">TraceExecution</span></code> and
+<code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">TraceExecution</span></code> analysis is somewhat like <code class="docutils literal notranslate"><span class="pre">CodeCoverage</span></code>, in
+that it takes the initial code execution environment specified by the
+<code class="docutils literal notranslate"><span class="pre">Machine</span></code> object passed, as input, to the <code class="docutils literal notranslate"><span class="pre">self.run()</span></code> method,
+and uses this to execute code.
+The output for <code class="docutils literal notranslate"><span class="pre">TraceExecution</span></code> is a <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code>
+which includes the sequence of instructions executed, along wih
+information about comparison and branch instructions encountered,
+as well as indications about how a trace ended (in an exception
+or simply because execution reached a proscribed bound).
+The <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analyses registers a callback on the
+<code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code>, collecting these hints across multiple
+executions and analyzing them, in aggregate to determine which
+branches in code are encountered but only ever go one way
+(are half-covered).
+These branches, or <em>coverage frontier</em> are interesting for
+targeted fuzzing or other activities.</p>
+</section>
+<section id="smallworld-analyses">
+<h2>SmallWorld Analyses<a class="headerlink" href="#smallworld-analyses" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="trace-execution.html">Trace Execution Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="trace-execution.html#the-traceexecutionhint">The TraceExecutionHint</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="coverage-frontier.html">Coverage Frontier Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="coverage-frontier.html#the-coveragefrontier-hint">The CoverageFrontier Hint</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="colorizer.html">Colorizer Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="colorizer.html#colorizer-summary-analysis">Colorizer Summary Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="colorizer.html#colorizer-write-read-analysis">Colorizer Write Read Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="colorizer.html#tutorials">Tutorials</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="crash-triage.html">Crash Triage Analysis</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="crash-triage.html#taxonomy-of-crashes-in-smallworld">Taxonomy of Crashes in SmallWorld</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#not-reproducible">Not Reproducible</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#out-of-bounds-execution">Out of Bounds Execution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#illegal-operation">Illegal Operation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#memory-error">Memory Error</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#hardware-exception">Hardware Exception</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="crash-triage.html#data-tracing-by-symbolic-execution">Data Tracing by Symbolic Execution</a></li>
+<li class="toctree-l2"><a class="reference internal" href="crash-triage.html#diagnosing-crashes">Diagnosing Crashes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#early-termination">Early Termination</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#diagnosing-out-of-bounds">Diagnosing Out of Bounds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#diagnosing-illegal-instructions">Diagnosing Illegal Instructions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#diagnosing-memory-errors">Diagnosing Memory Errors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#diagnosing-unconstrained-expressions">Diagnosing Unconstrained Expressions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="crash-triage.html#diagnosing-traps">Diagnosing Traps</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+      <li>Previous: <a href="../emulators/ghidra.html" title="previous chapter">Ghidra Backend</a></li>
+      <li>Next: <a href="trace-execution.html" title="next chapter">Trace Execution Analysis</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Coverage Frontier Analysis Tutorial &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Colorizer Analysis Tutorial" href="colorizer.html" />
+    <link rel="prev" title="TraceExecution Analysis Tutorial" href="trace-execution.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="coverage-frontier-analysis-tutorial">
+<span id="coverage-frontier-tutorial"></span><h1>Coverage Frontier Analysis Tutorial<a class="headerlink" href="#coverage-frontier-analysis-tutorial" title="Link to this heading">¶</a></h1>
+<p>Say you have a function and you want to determine, for some set of
+concrete inputs, which conditionals are only ever taken in one
+direction. This is sometimes called the “coverage frontier” and the
+<a class="reference internal" href="../../concepts/analyses/coverage-frontier.html#coverage-frontier-concept"><span class="std std-ref">concept is described at more length elsewhere</span></a> in these docs.  Why would you want to
+know that?  Well, if the set of inputs is large then the coverage
+frontier tells you exactly which conditionals are not well served by
+those inputs, since they are only ever taken in one direction.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analysis computes exactly this; for some set
+of execution traces (each of which generates a <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code>),
+it analyses the sequences of instructions to identify conditionals
+that are <em>half-covered</em>, meaning only one branch is ever taken.
+These are the coverage frontier.</p>
+<p>For this tutorial, you will consider a program that contains the
+following function <code class="docutils literal notranslate"><span class="pre">foo</span></code> which takes a single argument (in the
+<code class="docutils literal notranslate"><span class="pre">edi</span></code> register).</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>┌ 31: sym.foo (int64_t arg1);
+│ `- args(rdi) vars(1:sp[0xc..0xc])
+│           0x00001149      55             push rbp
+│           0x0000114a      4889e5         mov rbp, rsp
+│           0x0000114d      897dfc         mov dword [var_4h], edi     ; arg1
+│           0x00001150      8b45fc         mov eax, dword [var_4h]
+│           0x00001153      83e001         and eax, 1
+│           0x00001156      85c0           test eax, eax
+│       ┌─&lt; 0x00001158      7507           jne 0x1161
+│       │   0x0000115a      b824000000     mov eax, 0x24               ; &#39;$&#39;
+│      ┌──&lt; 0x0000115f      eb05           jmp 0x1166
+│      ││   ; CODE XREF from sym.foo @ 0x1158(x)
+│      │└─&gt; 0x00001161      b842000000     mov eax, 0x42               ; &#39;B&#39;
+│      │    ; CODE XREF from sym.foo @ 0x115f(x)
+│      └──&gt; 0x00001166      5d             pop rbp
+└           0x00001167      c3             ret
+[0x00001060]&gt;
+</pre></div>
+</div>
+<p>The argument is copied into <cite>eax</cite>
+and tested to determine if it is odd or even, which is used to decide
+the conditional branch at <code class="docutils literal notranslate"><span class="pre">0x1158</span></code>. The function returns either
+<code class="docutils literal notranslate"><span class="pre">0x24</span></code> or <code class="docutils literal notranslate"><span class="pre">0x42</span></code> based on the whether or not the argument <code class="docutils literal notranslate"><span class="pre">edi</span></code>
+is even. Given how this function operates, if you execute it just
+once, you should see just one of the branches of <code class="docutils literal notranslate"><span class="pre">0x1158</span></code> execute.
+In this case, <code class="docutils literal notranslate"><span class="pre">0x1158</span></code> is certain to be in the coverage frontier.
+However, if you execute the function more than once with both odd and
+even inputs, or if you just run it a lot of times with random inputs,
+then it is very likely to hit both branches, meaning <code class="docutils literal notranslate"><span class="pre">0x1158</span></code> will
+not be in the coverage frontier.</p>
+<p>There is a script in the SmallWorld test suite used to exercise and
+verify the <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analysis. This script harnesses the
+function <code class="docutils literal notranslate"><span class="pre">foo</span></code> above (setting the entry point to <code class="docutils literal notranslate"><span class="pre">0x1149</span></code>), in the
+program <code class="docutils literal notranslate"><span class="pre">cf</span></code> that is pre-compiled in that testing directory.  The
+script contains a lot that is either boilerplate or relevant only to
+testing.  Let’s focus on the parts of it that make use of the
+<code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code>. First, there is code that sets up a hinter and
+creates the <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analysis object.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span>    <span class="n">hinter</span> <span class="o">=</span> <span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+    <span class="n">hinter</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">CoverageFrontierHint</span><span class="p">,</span> <span class="n">collect_hints</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The script registers a function to collect the
+<code class="docutils literal notranslate"><span class="pre">CoverageFrontierHint</span></code> that is output by the analysis. Only one such
+hint will be output by the analysis when it is run.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">hints</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_hints</span><span class="p">(</span><span class="n">hint</span><span class="p">):</span>
+</pre></div>
+</div>
+<p>The script creates <code class="docutils literal notranslate"><span class="pre">num_micro_exec</span></code> traces, using the
+<code class="docutils literal notranslate"><span class="pre">TraceExecution</span></code> analysis. For each, a different and random value is
+assigned to <code class="docutils literal notranslate"><span class="pre">rdi</span></code> which is the input to the function <code class="docutils literal notranslate"><span class="pre">foo</span></code>.  Each
+of these runs of <code class="docutils literal notranslate"><span class="pre">TraceExecution</span></code> will output a <code class="docutils literal notranslate"><span class="pre">TraceExecutionHint</span></code>
+that is consumed by the <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analysis.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span>    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_micro_exec</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">micro exec number </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">te</span> <span class="o">=</span> <span class="n">TraceExecution</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="n">num_insns</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">machine_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+        <span class="n">cpu</span> <span class="o">=</span> <span class="n">machine_copy</span><span class="o">.</span><span class="n">get_cpus</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># choose random value for the input to this function</span>
+        <span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mh">0xFFFFFF</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>After all these traces have been created and hinted, we run the <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> analysis</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span>    <span class="c1"># NB: covg frontier `run` method doesnt actually use the machine input</span>
+    <span class="c1"># it just works from TraceExecution hints.</span>
+    <span class="n">cf</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The upshot of all this should be that we collect a single
+<code class="docutils literal notranslate"><span class="pre">CoverageFrontierHint</span></code> which will be in the global <code class="docutils literal notranslate"><span class="pre">hint[0]</span></code>.
+This hint’s <code class="docutils literal notranslate"><span class="pre">coverage_frontier</span></code> set is output with code like this
+(where <code class="docutils literal notranslate"><span class="pre">h</span> <span class="pre">=</span> <span class="pre">hint[0]</span></code>).</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span>    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">pc</span> <span class="ow">in</span> <span class="n">h</span><span class="o">.</span><span class="n">coverage_frontier</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">pc</span> <span class="ow">in</span> <span class="n">e</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="n">pc</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span>
+</pre></div>
+</div>
+<p>Here is the complete script, which contains some code to harness the
+<code class="docutils literal notranslate"><span class="pre">cf</span></code> program as well as some needed for testing.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">copy</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld</span><span class="w"> </span><span class="kn">import</span> <span class="n">hinting</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>  <span class="c1"># Colorizer, ColorizerReadWrite, ColorizerSummary</span>
+    <span class="n">CoverageFrontier</span><span class="p">,</span>
+    <span class="n">TraceExecution</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.hinting.hints</span><span class="w"> </span><span class="kn">import</span> <span class="n">CoverageFrontierHint</span>
+
+<span class="c1"># setup logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># configure the platform for emulation</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># create a CPU and add it to the machine</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="n">path</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+    <span class="nb">open</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">/cf&quot;</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">),</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x000</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Create a stack and add it to the state</span>
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x10000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+<span class="n">rsp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">rsp</span><span class="p">)</span>
+
+<span class="n">entry_point</span> <span class="o">=</span> <span class="mh">0x1149</span>
+<span class="n">exit_point</span> <span class="o">=</span> <span class="mh">0x1167</span>
+
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entry_point</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exit_point</span><span class="p">)</span>
+
+
+<span class="n">hints</span> <span class="o">=</span> <span class="p">[]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">collect_hints</span><span class="p">(</span><span class="n">hint</span><span class="p">):</span>
+    <span class="n">hints</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">hint</span><span class="p">)</span>
+
+
+<span class="c1"># num_micro_exec   How many micro executions.</span>
+<span class="c1"># num_insn:        how many (max) instructions to execute from entry</span>
+<span class="c1"># seed:            seed for RNG</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">test</span><span class="p">(</span><span class="n">num_micro_exec</span><span class="p">,</span> <span class="n">num_insns</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+    <span class="k">global</span> <span class="n">hints</span>
+
+    <span class="n">hints</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">hinter</span> <span class="o">=</span> <span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+    <span class="n">hinter</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">CoverageFrontierHint</span><span class="p">,</span> <span class="n">collect_hints</span><span class="p">)</span>
+    <span class="n">cf</span> <span class="o">=</span> <span class="n">CoverageFrontier</span><span class="p">(</span><span class="n">hinter</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_micro_exec</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">micro exec number </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">seed</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">te</span> <span class="o">=</span> <span class="n">TraceExecution</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="n">num_insns</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span> <span class="o">+</span> <span class="n">i</span><span class="p">)</span>
+        <span class="n">machine_copy</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+        <span class="n">cpu</span> <span class="o">=</span> <span class="n">machine_copy</span><span class="o">.</span><span class="n">get_cpus</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="c1"># choose random value for the input to this function</span>
+        <span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set_content</span><span class="p">(</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mh">0xFFFFFF</span><span class="p">))</span>
+        <span class="n">te</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">machine_copy</span><span class="p">)</span>
+
+    <span class="c1"># NB: covg frontier `run` method doesnt actually use the machine input</span>
+    <span class="c1"># it just works from TraceExecution hints.</span>
+    <span class="n">cf</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">machine</span><span class="p">)</span>
+
+    <span class="n">h</span> <span class="o">=</span> <span class="n">hints</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="n">e</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">from_pc</span><span class="p">,</span> <span class="n">to_pc_list</span> <span class="ow">in</span> <span class="n">h</span><span class="o">.</span><span class="n">edges</span><span class="p">:</span>
+        <span class="n">e</span><span class="p">[</span><span class="n">from_pc</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_pc_list</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;0x</span><span class="si">{</span><span class="n">from_pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">from_pc</span> <span class="ow">in</span> <span class="n">h</span><span class="o">.</span><span class="n">branches</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; [branch] &quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot; -&gt; [&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">to_pc</span> <span class="ow">in</span> <span class="n">to_pc_list</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; 0x</span><span class="si">{</span><span class="n">to_pc_list</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;]&quot;</span><span class="p">)</span>
+
+    <span class="nb">print</span><span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;Coverage frontier for </span><span class="si">{</span><span class="n">h</span><span class="o">.</span><span class="n">num_traces</span><span class="si">}</span><span class="s2"> traces contains </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">h</span><span class="o">.</span><span class="n">coverage_frontier</span><span class="p">)</span><span class="si">}</span><span class="s2"> branches&quot;</span>
+    <span class="p">)</span>
+    <span class="k">for</span> <span class="n">pc</span> <span class="ow">in</span> <span class="n">h</span><span class="o">.</span><span class="n">coverage_frontier</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="n">pc</span> <span class="ow">in</span> <span class="n">e</span>
+        <span class="k">assert</span> <span class="nb">len</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="n">pc</span><span class="p">])</span> <span class="o">==</span> <span class="mi">1</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  half-covered branch @ 0x</span><span class="si">{</span><span class="n">pc</span><span class="si">:</span><span class="s2">x</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">hints</span>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">num_micro_exec</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+        <span class="n">num_insns</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span>
+        <span class="n">seed</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Error in one or more args&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;Usage: colorizer_test.py num_insns buflen fortytwos seed</span>
+<span class="s2">num_micro_exec  How many micro executions.</span>
+<span class="s2">num_insns:       How many (max) instructions to execute from entry for each micro exec.</span>
+<span class="s2">seed:           Seed for random number generator.&quot;&quot;&quot;</span><span class="p">)</span>
+        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">_</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">num_micro_exec</span><span class="p">,</span> <span class="n">num_insns</span><span class="p">,</span> <span class="n">seed</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The script takes three arguments.
+The first is the number of micro-executions or <em>traces</em> to run, each of
+which is an execution of the function <code class="docutils literal notranslate"><span class="pre">foo</span></code>.
+The second sets a maximum number of instructions to execute.
+The third argument is a seed for the random number generator.</p>
+<p>If we run script, asking it to create a <em>single</em> trace, as noted
+earlier, we can only execute one branch of the <code class="docutils literal notranslate"><span class="pre">jne</span></code> at <code class="docutils literal notranslate"><span class="pre">0x1158</span></code>,
+so the coverage frontier will contain that branch instruction.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 coverage_frontier_test.py 1 100 1233 2&gt; /dev/null
+0x1149 -&gt; [ 0x114a]
+0x114a -&gt; [ 0x114d]
+0x114d -&gt; [ 0x1150]
+0x1150 -&gt; [ 0x1153]
+0x1153 -&gt; [ 0x1156]
+0x1156 -&gt; [ 0x1158]
+0x1158 [branch]  -&gt; [ 0x115a]
+0x115a -&gt; [ 0x115f]
+0x115f -&gt; [ 0x1166]
+Coverage frontier for 1 traces contains 1 branches
+  half-covered branch @ 0x1158
+</pre></div>
+</div>
+<p>And if we ask for three or more traces, with this same seed, we
+will have enough execution diversity to have hit both branches,
+and our coverage frontier will be empty.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 coverage_frontier_test.py 3 100 1233 2&gt; /dev/null
+0x1149 -&gt; [ 0x114a]
+0x114a -&gt; [ 0x114d]
+0x114d -&gt; [ 0x1150]
+0x1150 -&gt; [ 0x1153]
+0x1153 -&gt; [ 0x1156]
+0x1156 -&gt; [ 0x1158]
+0x1158 [branch]  -&gt; [ 0x115a 0x115a]
+0x115a -&gt; [ 0x115f]
+0x115f -&gt; [ 0x1166]
+0x1161 -&gt; [ 0x1166]
+Coverage frontier for 3 traces contains 0 branches
+</pre></div>
+</div>
+<p>The function <code class="docutils literal notranslate"><span class="pre">foo</span></code> is not a complicated one; consider it a toy
+example.  If it were much larger or more complicated, then
+determining, merely by inspection, what conditionals were likely to
+easily covered would be very difficult. The <code class="docutils literal notranslate"><span class="pre">CoverageFrontier</span></code> can
+figure this out for you directly.</p>
+<section id="further-reading">
+<h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading">¶</a></h2>
+<p>See the <a class="reference internal" href="../../concepts/analyses/coverage-frontier.html#coverage-frontier-concept"><span class="std std-ref">CoverageFrontier Concepts</span></a> page
+for more details.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../program-loading/index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+  <li><a href="index.html">Analyses</a><ul>
+      <li>Previous: <a href="trace-execution.html" title="previous chapter">TraceExecution Analysis Tutorial</a></li>
+      <li>Next: <a href="colorizer.html" title="next chapter">Colorizer Analysis Tutorial</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Full Installation with Nix &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Full Environment with Docker" href="docker.html" />
+    <link rel="prev" title="Minimal Install with PyPI" href="pypi.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="full-installation-with-nix">
+<span id="installation-nix"></span><h1>Full Installation with Nix<a class="headerlink" href="#full-installation-with-nix" title="Link to this heading">¶</a></h1>
+<p><a class="reference external" href="https://nixos.org/">Nix</a> is a “declarative build environment”.
+Think of it like Python virtualenv, but it also works for native binaries,
+and is far stricter in defining dependencies.</p>
+<p>Activating the Nix environment drops you into a new shell.
+You will have access to all programs normally available on your computer,
+but will also have tools like AFL++, Panda, and the cross compilers
+required by SmallWorld.  You will also be in a managed Python environment
+with SmallWorld already configured.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The Python environment built by Nix will override any virtualenv or similar
+that you had outside of Nix.  You will have to re-import
+any other packages you want to use in conjunction with SmallWorld.
+See below for more details.</p>
+</div>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h2>
+<p>The only prerequisite for the Nix environment is <a class="reference external" href="https://nixos.org/">Nix</a> itself
+with flakes enabled. We recommend the <a class="reference external" href="https://docs.determinate.systems/determinate-nix/">Determinate Systems nix installer</a>.</p>
+</section>
+<section id="full-install-as-a-nix-package">
+<h2>Full Install as a Nix Package<a class="headerlink" href="#full-install-as-a-nix-package" title="Link to this heading">¶</a></h2>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>TODO: We currently don’t publish a Nix package.</p>
+</div>
+</section>
+<section id="full-install-from-source">
+<h2>Full Install from Source<a class="headerlink" href="#full-install-from-source" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This approach requires full internet access to pull down
+SmallWorld’s dependencies from Nix.</p>
+</div>
+<p>SmallWorld source is available from  <a class="reference external" href="https://github.com/smallworld-re/smallworld">from GitHub</a></p>
+<p>To clone the source code, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>git@github.com:smallworld-re/smallworld.git
+</pre></div>
+</div>
+<p>From there, you have a choice of two Nix environments.
+Follow the instructions in one of the following sections
+to activate the shell you want.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>These two environments don’t coexist peacefully.
+Please pick one that suits your needs, and stick with it.</p>
+</div>
+<section id="imperative-environment">
+<h3>Imperative Environment<a class="headerlink" href="#imperative-environment" title="Link to this heading">¶</a></h3>
+<p>The imperative environment is designed for users;
+it will present you with a Python venv that’s pre-populated
+with SmallWorld and all of its dependencies.</p>
+<p>The following command will open a nix shell
+with the imperative environment configured:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>smallworld
+nix<span class="w"> </span>develop.#imperative
+</pre></div>
+</div>
+<p>You can access <code class="docutils literal notranslate"><span class="pre">pip</span></code> using <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span></code> as the base command,
+and are free to install your own packages.
+These will not modify SmallWorld’s configuration,
+and will persist if you close and reopen the nix imperative shell.</p>
+</section>
+<section id="development-environment">
+<h3>Development Environment<a class="headerlink" href="#development-environment" title="Link to this heading">¶</a></h3>
+<p>The development environment is designed for SmallWorld developers.
+It offers more features for tracking changes to the SmallWorld environment,
+at the cost of some flexibility.</p>
+<p>The following command will open a nix shell
+with the develipment environment configured:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>smallworld
+nix<span class="w"> </span>develop
+</pre></div>
+</div>
+<p>The only difference here is that you must use <code class="docutils literal notranslate"><span class="pre">uv</span></code> to manage the Python environment.
+Changes to your python environment are tracked by <code class="docutils literal notranslate"><span class="pre">uv</span></code>,
+and will automatically update <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code>,
+as well as the nix configuration in order to track native libraries.</p>
+</section>
+</section>
+<section id="building-example-binaries">
+<h2>Building Example Binaries<a class="headerlink" href="#building-example-binaries" title="Link to this heading">¶</a></h2>
+<p>To build all examples, execute the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nix<span class="w"> </span>build<span class="w"> </span>.#tests
+tar<span class="w"> </span>-C<span class="w"> </span>tests<span class="w"> </span>-xvf<span class="w"> </span>result/test_binaries.tar
+</pre></div>
+</div>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Getting Started</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../smallworld-at-a-glance.html">SmallWorld at a Glance</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Installation Guide</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../harnessing-a-simple-program.html">Harnessing a Simple Program</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Getting Started</a><ul>
+  <li><a href="index.html">Installation Guide</a><ul>
+      <li>Previous: <a href="pypi.html" title="previous chapter">Minimal Install with PyPI</a></li>
+      <li>Next: <a href="docker.html" title="next chapter">Full Environment with Docker</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

@@ -1,0 +1,4 @@
+smallworld
+----------
+
+.. automodule:: smallworld

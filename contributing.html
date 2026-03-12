@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Contributing &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=27fed22d" />
+    <script src="_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="about.html" />
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="About" href="about.html" />
+    <link rel="prev" title="smallworld.extern.ctypes" href="reference/smallworld.extern.ctypes.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="contributing">
+<h1>Contributing<a class="headerlink" href="#contributing" title="Link to this heading">¶</a></h1>
+<p>We’d love to have people contribute to SmallWorld.
+It’s a fully open-source project, and we welcome bug reports and
+pull requests on <a class="reference external" href="https://github.com/smallworld-re/smallworld">GitHub</a>.</p>
+<section id="bug-reports">
+<h2>Bug Reports<a class="headerlink" href="#bug-reports" title="Link to this heading">¶</a></h2>
+<p>To file a bug report, please use the SmallWorld
+<a class="reference external" href="https://github.com/smallworld-re/smallworld/issues">issue page</a>.</p>
+</section>
+<section id="contribution-lifecycle">
+<h2>Contribution Lifecycle<a class="headerlink" href="#contribution-lifecycle" title="Link to this heading">¶</a></h2>
+<p>SmallWorld follows a very standard GitHub contribution life cycle.</p>
+<p>For external contributors, it works as follows:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>Create a fork of the SmallWorld repository</p></li>
+<li><p>Clone your fork</p></li>
+<li><p>Set up your development environment</p></li>
+<li><p>Develop your feature or fix</p></li>
+<li><p>Push your work to a branch on your fork</p></li>
+<li><p>Open a PR on the root SmallWorld repository, merging your branch into main.</p></li>
+<li><p>While the PR is not accepted, address feedback and failed tests.</p></li>
+<li><p>Celebrate!</p></li>
+</ol>
+</div></blockquote>
+<p>Members of the smallworld organization can work directly off of branches
+on the root repository, rather than having to create a fork.</p>
+</section>
+<section id="development-environment">
+<h2>Development Environment<a class="headerlink" href="#development-environment" title="Link to this heading">¶</a></h2>
+<p>The “Complete Installation” section of the <a class="reference internal" href="getting_started/install-guide/index.html#installation"><span class="std std-ref">Installation Guide</span></a>
+will set up a full development environment environment for SmallWorld.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>SmallWorld’s full development environment is only tested for Ubuntu 22.04 on an amd64 processor:</p>
+<ul class="simple">
+<li><p>Many of the optional dependencies require Linux, amd64, or both.</p></li>
+<li><p>Some of the optional tools are binary distributions which may be bound to Ubuntu 22.04.</p></li>
+<li><p>For some very strange reason, Ubuntu 22.04 on arm64
+is missing a number of cross-compiler packages needed to build the integration tests.</p></li>
+</ul>
+<p>Development on other platforms is possible
+if you only need Unicorn and angr, and rely on the CI/CD server to run tests.</p>
+</div>
+</section>
+<section id="code-style">
+<h2>Code Style<a class="headerlink" href="#code-style" title="Link to this heading">¶</a></h2>
+<p>SmallWorld uses a few code style tools to help with basic maintenance.
+These can be installed as pre-commit hooks.  To enable, run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pre-commit<span class="w"> </span>install
+</pre></div>
+</div>
+<p>This will force you to address linter, bug checker, and typechecker errors before committing.
+The CI/CD process will reject a PR that doesn’t pass the linter checks.</p>
+</section>
+<section id="testing">
+<h2>Testing<a class="headerlink" href="#testing" title="Link to this heading">¶</a></h2>
+<p>SmallWorld includes both unit tests to exercise basic non-emulation features,
+and integration tests to exercise the emulators themselves.</p>
+<p>Our Philosophy:</p>
+<blockquote>
+<div><ol class="arabic simple">
+<li><p>If you add a feature, add a test case.</p></li>
+<li><p>If you find a bug, fix it, and add a test case.</p></li>
+<li><p>If you add a test case, exercise all relevant platforms and emulators.</p></li>
+</ol>
+</div></blockquote>
+<section id="unit-tests">
+<h3>Unit Tests<a class="headerlink" href="#unit-tests" title="Link to this heading">¶</a></h3>
+<p>SmallWorld’s unit tests live in <code class="docutils literal notranslate"><span class="pre">smallworld/tests/unit.py</span></code>.</p>
+<p>This is your bog-standard unit test suite built using Python’s unit test package.
+Add a test here if you add a new data structure or non-emulation feature.</p>
+</section>
+<section id="integration-tests">
+<h3>Integration Tests<a class="headerlink" href="#integration-tests" title="Link to this heading">¶</a></h3>
+<p>SmallWorld’s integration tests are a collection of self-contained harness scripts
+found in the subdirectories of <code class="docutils literal notranslate"><span class="pre">smallworld/tests</span></code>.</p>
+<p>These exercise specific features of the SmallWorld toolkit.
+These serve as a combination test suite and example library.</p>
+<p>Add test cases here to exercise one of the following:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>A new feature of an emulator</p></li>
+<li><p>A new analysis</p></li>
+<li><p>A new library function model</p></li>
+<li><p>A bug found and fixed in an emulator</p></li>
+</ul>
+</div></blockquote>
+<p>In general, exercise the test case for as many platforms as are relevant.
+If it’s a basic feature test, test for each relevant platform/emulator pair.
+This equates to a ton of test scripts, but they will share a huge amount of code.
+<code class="docutils literal notranslate"><span class="pre">xargs</span> <span class="pre">|</span> <span class="pre">sed</span> <span class="pre">-i</span></code> is your friend.</p>
+<p>The actual driver for the integration tests is at <code class="docutils literal notranslate"><span class="pre">smallworld/tests/integration.py</span></code>.
+This uses Python’s unit test package to drive the individual scripts.
+By now, there are plenty of examples to copy from.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Do not try to run the complete integration test suite locally.</p>
+<p>As of this writing, there are over two thousand test scripts,
+which <code class="docutils literal notranslate"><span class="pre">integration.py</span></code> does not parallelize.
+It can take over a day for the test suite to run manually.</p>
+<p>Run any immediately-relevant tests yourself,
+and allow the CI/CD system to run the rest.
+It’s set up in parallel, and will take less than 20 minutes to complete.</p>
+</div>
+</section>
+<section id="compiling-the-integration-tests">
+<h3>Compiling the Integration Tests<a class="headerlink" href="#compiling-the-integration-tests" title="Link to this heading">¶</a></h3>
+<p>SmallWorld’s test suite includes a very large number of example programs.
+If you installed via the installer script,
+the necessary toolchains will already be installed on your computer.</p>
+<p>If you did not install via the script, then your system probably can’t support
+building the integration test suite.</p>
+<p>To build the test binaries, run the following:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>smallworld/tests
+make<span class="w"> </span>clean<span class="w"> </span>all<span class="w">               </span><span class="c1"># Make the main integration tests</span>
+<span class="nb">ulimit</span><span class="w"> </span>-c<span class="w"> </span>unlimited<span class="w">          </span><span class="c1"># Enable core dumps</span>
+make<span class="w"> </span>-C<span class="w"> </span>./elf_core<span class="w"> </span>clean<span class="w"> </span>all<span class="w"> </span><span class="c1"># Build the ELF core dump tests</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>If you set up your development environment in a docker container,
+you may not be able to build the elf core tests,
+due to how Docker overrides the <code class="docutils literal notranslate"><span class="pre">ulimit</span></code> command.</p>
+</div>
+</section>
+</section>
+<section id="pull-requests">
+<h2>Pull Requests<a class="headerlink" href="#pull-requests" title="Link to this heading">¶</a></h2>
+<p>Creating a pull request for SmallWorld works as normal for GitHub.</p>
+<p>A memeber of the SmallWorld team will have to vet each commit in your PR
+before it’s approved to run through CI/CD.  Please be patient with us.</p>
+<p>Once approved, the system will automatically run all linters, unit tests and integration tests.
+This total process can take between ten and twenty minutes depending on system load.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="reference/index.html">Reference</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="reference/smallworld.extern.ctypes.html" title="previous chapter">smallworld.extern.ctypes</a></li>
+      <li>Next: <a href="about.html" title="next chapter">About</a></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

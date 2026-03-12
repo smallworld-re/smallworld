@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Linking an ELF &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Linking a PE" href="pe-linking.html" />
+    <link rel="prev" title="Loading a VXWorks image" href="vxworks-loading.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="linking-an-elf">
+<span id="tutorial-elf-linking"></span><h1>Linking an ELF<a class="headerlink" href="#linking-an-elf" title="Link to this heading">¶</a></h1>
+<p>In this tutorial, you will be guided through
+loading and linking multiple ELF object files.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This tutorial builds on <a class="reference internal" href="elf-loading.html#tutorial-elf"><span class="std std-ref">Loading an ELF</span></a>;
+it’s highly recommended you read it first.</p>
+</div>
+<p>On desktop or server Linux systems, the majority of ELF executables
+will be dynamically-linked.  This means some of their code is referenced
+from other ELF files, known as “shared objects”.</p>
+<p>The kernel ELF loader isn’t sufficient to load a dynamically-linked program;
+it needs a utility called the Runtime Link Editor (RTLD) to
+load the required shared objects and resolve any cross-referenced between them.</p>
+<p>SmallWorld doesn’t require that you fully link a dynamic executable,
+but you may want to harness code that calls a function
+or references data from a shared obejct.</p>
+<p>Consider the example <code class="docutils literal notranslate"><span class="pre">tests/link_elf/link_elf.elf.c</span></code> and <code class="docutils literal notranslate"><span class="pre">tests/link_elf/link_elf.so.c</span></code></p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdlib.h&gt;</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">argc</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">argv</span><span class="p">[])</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">argc</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">-1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">atoi</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stddef.h&gt;</span>
+<span class="kt">long</span><span class="w"> </span><span class="nf">strtol</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">**</span><span class="n">endptr</span><span class="p">,</span><span class="w"> </span><span class="kt">int</span><span class="w"> </span><span class="n">base</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">sign</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="kt">long</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+
+<span class="w">    </span><span class="c1">// NOTE: This is not a complete implementation.</span>
+<span class="w">    </span><span class="c1">// The real one will handle endptr and base.</span>
+
+<span class="w">    </span><span class="k">if</span><span class="p">(</span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nb">NULL</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+
+<span class="w">    </span><span class="k">if</span><span class="p">(</span><span class="o">*</span><span class="n">arg</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="sc">&#39;-&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">sign</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">-1l</span><span class="p">;</span>
+<span class="w">        </span><span class="n">arg</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span><span class="w">    </span>
+
+<span class="w">    </span><span class="k">while</span><span class="p">(</span><span class="o">*</span><span class="n">arg</span><span class="w"> </span><span class="o">&gt;=</span><span class="w"> </span><span class="sc">&#39;0&#39;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="o">*</span><span class="n">arg</span><span class="w"> </span><span class="o">&lt;=</span><span class="w"> </span><span class="sc">&#39;9&#39;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="n">res</span><span class="w"> </span><span class="o">*=</span><span class="w"> </span><span class="mi">10</span><span class="p">;</span>
+<span class="w">        </span><span class="n">res</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="p">(</span><span class="kt">long</span><span class="p">)((</span><span class="o">*</span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="sc">&#39;0&#39;</span><span class="p">);</span>
+<span class="w">        </span><span class="n">arg</span><span class="o">++</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">res</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">sign</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">atoi</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="kt">char</span><span class="w"> </span><span class="o">*</span><span class="n">arg</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="n">strtol</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span><span class="w"> </span><span class="nb">NULL</span><span class="p">,</span><span class="w"> </span><span class="mi">10</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>This is an artifical example, with <code class="docutils literal notranslate"><span class="pre">link_elf.so.c</span></code> providing <code class="docutils literal notranslate"><span class="pre">atoi</span></code>,
+which is usually provided by glibc.
+The glibc version of <code class="docutils literal notranslate"><span class="pre">atoi</span></code> is significantly more complicated,
+and is actually pretty difficult to micro-execute.</p>
+<p>(Note we actually need to provide <code class="docutils literal notranslate"><span class="pre">atoi</span></code> and <code class="docutils literal notranslate"><span class="pre">strtol</span></code>;
+in later versions of glibc, <code class="docutils literal notranslate"><span class="pre">atoi</span></code> is just an alias for <code class="docutils literal notranslate"><span class="pre">strtol</span></code>.
+This will come back to bite us later.)</p>
+<p>You can build these into <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.elf</span></code> and <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.so</span></code>
+using the following commands:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span><span class="w"> </span>smallworld/tests
+make<span class="w"> </span>link_elf/link_elf.amd64.elf<span class="w"> </span>link_elf/link_elf.amd64.so
+</pre></div>
+</div>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Unlike previous tests, this requires <code class="docutils literal notranslate"><span class="pre">gcc</span></code> to compile and assemble.</p>
+<p>This will only work correctly on an amd64 host;
+on another platform, <code class="docutils literal notranslate"><span class="pre">gcc</span></code> will target the wrong architecture.</p>
+</div>
+<section id="specifying-dynamic-dependencies">
+<h2>Specifying dynamic dependencies<a class="headerlink" href="#specifying-dynamic-dependencies" title="Link to this heading">¶</a></h2>
+<p>The first part of the dynamic linking process is identifying
+necessary shared objects.</p>
+<p>SmallWorld leaves this process up to the harness author,
+allowing them to provide specific versions of any required shared objects,
+or to leave out shared objects that won’t be relevant to the harness.</p>
+<p>We can get a list of the shared objects required by an executable
+or shared object using <code class="docutils literal notranslate"><span class="pre">readelf</span> <span class="pre">-d</span></code>.  Let’s try this with <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.elf</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ readelf -d link_elf.amd64.elf
+
+Dynamic section at offset 0x520 contains 21 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x000000000000001e (FLAGS)              BIND_NOW
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW PIE
+ 0x0000000000000015 (DEBUG)              0x0
+ 0x0000000000000007 (RELA)               0x3e0
+ 0x0000000000000008 (RELASZ)             24 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x0000000000000017 (JMPREL)             0x3f8
+ 0x0000000000000002 (PLTRELSZ)           24 (bytes)
+ 0x0000000000000003 (PLTGOT)             0x2678
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000006 (SYMTAB)             0x2e8
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000005 (STRTAB)             0x3a4
+ 0x000000000000000a (STRSZ)              57 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x368
+ 0x0000000000000004 (HASH)               0x384
+ 0x000000006ffffff0 (VERSYM)             0x330
+ 0x000000006ffffffe (VERNEED)            0x338
+ 0x000000006fffffff (VERNEEDNUM)         1
+ 0x0000000000000000 (NULL)               0x0
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">NEEDED</span></code> tag specifies the names of the required shared objects.
+In this case, we only need <code class="docutils literal notranslate"><span class="pre">libc.so.6</span></code>, which we will substitute
+with <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.so</span></code> for ease of harnessing.</p>
+</section>
+<section id="loading-multiple-elfs">
+<h2>Loading multiple ELFs<a class="headerlink" href="#loading-multiple-elfs" title="Link to this heading">¶</a></h2>
+<p>Loading multiple ELF files is as simple as calling the elf loader multiple times,
+and adding multiple objects to the <code class="docutils literal notranslate"><span class="pre">Machine</span></code>.</p>
+<p>Shared objects are almost always position-independent,
+so the harness will need to specify a load address.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">filename</span> <span class="o">=</span> <span class="s2">&quot;link_elf.amd64.elf&quot;</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x400000</span>
+    <span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="n">libname</span> <span class="o">=</span> <span class="s2">&quot;link_elf.amd64.elf&quot;</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">libname</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">lib</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x800000</span>
+    <span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="linking-elfs">
+<h2>Linking ELFs<a class="headerlink" href="#linking-elfs" title="Link to this heading">¶</a></h2>
+<p>The final step is to resolve the cross-references between
+our binaries, a process called “linking”.</p>
+<p>The ELF linker is an extremely simple algorithm
+with a lot of extremely complicated details.</p>
+<p>Each dynamically-linkable ELF defines a set of symbols,
+essentially named variables.  Some of these are left undefined,
+representing references to code or data in another ELF file.</p>
+<p>Each ELF also defines a list (two lists, actually)
+of relocations.  These are internal cross-references
+describing how assigning a value to an undefined symbol
+should change data in the loaded image:</p>
+<ul class="simple">
+<li><p>How many bits should the relocated value overwrite?</p></li>
+<li><p>Should the symbol value itself be written,
+or do we want to write the result of a computation?</p></li>
+<li><p>Will this value need space allocated
+in a dynamic data structure?</p></li>
+</ul>
+<p>On Linux, the rtld runs before your application code,
+finds matching defined and undefined symbols,
+and performs the necessary fixups defined in the relocations.</p>
+<p>SmallWorld offers a few interfaces for simulating this process.</p>
+<p>A harness can link a specific symbol by updating its value;
+the ELF model will perform all necessary relocations opaquely:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">atoi</span> <span class="o">=</span> <span class="n">lib</span><span class="o">.</span><span class="n">get_symbol_value</span><span class="p">(</span><span class="s2">&quot;atoi&quot;</span><span class="p">)</span>
+<span class="n">code</span><span class="o">.</span><span class="n">update_symbol_value</span><span class="p">(</span><span class="s2">&quot;atoi&quot;</span><span class="p">,</span> <span class="n">atoi</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This method is also useful if a harness needs to provide its own address,
+say for a function hook (for more information, see <a class="reference internal" href="../modeling-and-hooking/index.html#tutorial-hooking"><span class="std std-ref">Modeling and Hooking</span></a>):</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">atoi</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+    <span class="s2">&quot;atoi&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">SYSTEMV</span><span class="p">,</span> <span class="mh">0x10000</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">atoi</span><span class="p">)</span>
+<span class="n">code</span><span class="o">.</span><span class="n">update_symbol_value</span><span class="p">(</span><span class="s2">&quot;atoi&quot;</span><span class="p">,</span> <span class="n">atoi</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Beware that the link-level interface
+of some binaries may not match their public API.
+Case in point: in the version of glibc this example was written against,
+<code class="docutils literal notranslate"><span class="pre">atoi</span></code> was a true function.  In a recent update,
+it’s become a macro that actually calls <code class="docutils literal notranslate"><span class="pre">strtol</span></code>.
+The code above would not be resilient to this change.</p>
+<p>SmallWorld also offers a method <code class="docutils literal notranslate"><span class="pre">ElfExecutable.link_elf()</span></code>
+to perform this operation for every undefined symbol
+in a destination ELF which has a corresponding defined symbol
+in a source elf:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Link code and lib against themselves.</span>
+<span class="c1">#</span>
+<span class="c1"># By default, the Linux compiler will always call a dynamic function</span>
+<span class="c1"># indirectly using the platform&#39;s dynamic call mechanism,</span>
+<span class="c1"># even when calling a function in the same ELF.</span>
+<span class="n">code</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">all_syms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">lib</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">all_syms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Link code against lib to resolve actual dependencies.</span>
+<span class="n">code</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that this requires a bit of care from the harness
+when loading multiple ELFs.
+If a symbol is defined in more than one shared obejct,
+it will take the first version it finds.</p>
+</section>
+<section id="finding-main">
+<h2>Finding <code class="docutils literal notranslate"><span class="pre">main()</span></code><a class="headerlink" href="#finding-main" title="Link to this heading">¶</a></h2>
+<p>A harness can take advantage of the symbol information in an ELF
+to start execution at places other than the file’s entrypoint.</p>
+<p>Even if you want to run the program from the beginning,
+the entrypoint of a Linux application ELF
+points not to application code, but to the C runtime initializer.
+This is a) insanely complicated to harness,
+and b) completely uninteresting for most analyses.</p>
+<p>In this example, we want to start executing from <code class="docutils literal notranslate"><span class="pre">main()</span></code>.
+We can look up the address of <code class="docutils literal notranslate"><span class="pre">main()</span></code> like so:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">entrypoint</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">get_symbol_value</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Many ELF files are “stripped”;
+they have all metadata not absolutely essential
+for the kernel program loader and rtld removed
+in order to save space, or to bamboozle analysts.</p>
+<p>The symbols defining internal functions like <code class="docutils literal notranslate"><span class="pre">main()</span></code>
+fall into the category of “non-essential”,
+so this technique won’t always work.</p>
+</div>
+</section>
+<section id="putting-it-all-together">
+<h2>Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Link to this heading">¶</a></h2>
+<p>Using what we’ve learned about the ELF loader and linker model,
+we can build <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.py</span></code>:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="c1"># Set up logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Define the platform</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Create a CPU</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load and add code into the state</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="vm">__file__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.elf&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x400000</span>
+    <span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="n">libname</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="vm">__file__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.so&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">libname</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">lib</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x800000</span>
+    <span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+
+<span class="n">lib</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+<span class="n">code</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+<span class="n">lib</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">lib</span><span class="p">,</span> <span class="n">all_syms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">code</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">all_syms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">code</span><span class="o">.</span><span class="n">link_elf</span><span class="p">(</span><span class="n">lib</span><span class="p">)</span>
+
+<span class="c1"># Load and add code from lib.</span>
+<span class="c1"># Pray to pudding that</span>
+
+<span class="c1"># Set entrypoint from the ELF</span>
+<span class="n">entrypoint</span> <span class="o">=</span> <span class="n">code</span><span class="o">.</span><span class="n">get_symbol_value</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">)</span>
+
+<span class="c1"># Create a stack and add it to the state</span>
+<span class="n">stack</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">stack</span><span class="o">.</span><span class="n">Stack</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">,</span> <span class="mh">0x2000</span><span class="p">,</span> <span class="mh">0x4000</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">stack</span><span class="p">)</span>
+
+<span class="c1"># Push a string onto the stack</span>
+<span class="n">string</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
+<span class="n">string</span> <span class="o">+=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\0</span><span class="s2">&quot;</span>
+<span class="n">string</span> <span class="o">+=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\0</span><span class="s2">&quot;</span> <span class="o">*</span> <span class="p">(</span><span class="mi">16</span> <span class="o">-</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">string</span><span class="p">)</span> <span class="o">%</span> <span class="mi">16</span><span class="p">))</span>
+
+<span class="n">stack</span><span class="o">.</span><span class="n">push_bytes</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">str_addr</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+
+<span class="c1"># Push argv</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># NULL terminator</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="n">str_addr</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># pointer to string</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mh">0x10101010</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>  <span class="c1"># Bogus pointer to argv[0]</span>
+
+<span class="c1"># Push address of argv</span>
+<span class="n">argv</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="n">argv</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Push argc</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+
+<span class="c1"># Push fake return</span>
+<span class="c1"># Make it an exit point</span>
+<span class="n">exitpoint</span> <span class="o">=</span> <span class="n">entrypoint</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_symbol_size</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+<span class="n">stack</span><span class="o">.</span><span class="n">push_integer</span><span class="p">(</span><span class="n">exitpoint</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">exitpoint</span><span class="p">)</span>
+
+
+<span class="c1"># Configure the stack pointer</span>
+<span class="n">sp</span> <span class="o">=</span> <span class="n">stack</span><span class="o">.</span><span class="n">get_pointer</span><span class="p">()</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">sp</span><span class="p">)</span>
+
+<span class="c1"># Set argument registers</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">argv</span><span class="p">)</span>
+
+<span class="c1"># Emulate</span>
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="c1"># Use code bounds from the ELF</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">bound</span> <span class="ow">in</span> <span class="n">code</span><span class="o">.</span><span class="n">bounds</span><span class="p">:</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add_bound</span><span class="p">(</span><span class="n">bound</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bound</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+<span class="k">for</span> <span class="n">bound</span> <span class="ow">in</span> <span class="n">lib</span><span class="o">.</span><span class="n">bounds</span><span class="p">:</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add_bound</span><span class="p">(</span><span class="n">bound</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">bound</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+<span class="n">final_cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+
+<span class="nb">print</span><span class="p">(</span><span class="n">final_cpu</span><span class="o">.</span><span class="n">rax</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This includes code for linking an ELF,
+as well as setting up the stack and registers
+to provide <code class="docutils literal notranslate"><span class="pre">argc</span></code> and <code class="docutils literal notranslate"><span class="pre">argv</span></code> to <code class="docutils literal notranslate"><span class="pre">main()</span></code>.</p>
+<p>Here is what running this harness looks like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 link_elf.amd64.py 42
+[+] starting emulation at 0x4014c0
+[+] emulation complete
+Reg(rax,8)=0x2a
+</pre></div>
+</div>
+<p>Since <code class="docutils literal notranslate"><span class="pre">0x2a</span></code> is the integer version of 42,
+we have successfully harnessed <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.elf</span></code>
+and <code class="docutils literal notranslate"><span class="pre">link_elf.amd64.so</span></code></p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+  <li><a href="index.html">Loading Code</a><ul>
+      <li>Previous: <a href="vxworks-loading.html" title="previous chapter">Loading a VXWorks image</a></li>
+      <li>Next: <a href="pe-linking.html" title="next chapter">Linking a PE</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

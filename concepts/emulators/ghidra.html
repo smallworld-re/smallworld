@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Ghidra Backend &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Analyses" href="../analyses/index.html" />
+    <link rel="prev" title="Panda Backend" href="panda.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="ghidra-backend">
+<span id="ghidra"></span><h1>Ghidra Backend<a class="headerlink" href="#ghidra-backend" title="Link to this heading">¶</a></h1>
+<p>Ghidra provides a user-space concrete emulator based on its Pcode language models.</p>
+<p>Pcode models a huge number of ISAs, offering far greater language support
+than the other concrete emulators.  It’s also very focused on user-space features,
+making it a little more abstract and in some ways more forgiving than QEMU-based emulators.</p>
+<p>The downside is that the Pcode language models vary wildly in their fidelity,
+and exercising an unsupported or partially-supported feature will simply produce incorrect behavior,
+rather than reporting an error.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Using <code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> requires an operation Ghidra installation,
+and requires that the environment variable <code class="docutils literal notranslate"><span class="pre">GHIDRA_INSTALL_DIR</span></code>
+contain the path to that install directory.</p>
+<p>See the installation docs for more information
+about setting up Ghidra for use with smallworld.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Using <code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> requires launching a Java Virtual Machine
+in the background of your python process.</p>
+<p>This is done once the first time you call the <code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code>
+constructor, and may take about ten seconds to complete.</p>
+</div>
+<section id="execution-control">
+<h2>Execution Control<a class="headerlink" href="#execution-control" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> supports <code class="docutils literal notranslate"><span class="pre">run()</span></code> and <code class="docutils literal notranslate"><span class="pre">step()</span></code> normally.</p>
+<p>It does not support <code class="docutils literal notranslate"><span class="pre">step_block()</span></code>; the underlying emulator
+operates strictly on instructions.  Invoking <code class="docutils literal notranslate"><span class="pre">step_block()</span></code> will raise an exception.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator.step()</span></code> may execute more than one instruction.</p>
+<p>This only happens on instructions with delay slots;
+the emulator must execute the instruction and its delay slot
+as a single step.</p>
+</div>
+</section>
+<section id="exit-points-and-bounds">
+<h2>Exit Points and Bounds<a class="headerlink" href="#exit-points-and-bounds" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> supports exit points and bounds normally.
+It will treat execution of unmapped memory as an out-of-bounds execution.</p>
+</section>
+<section id="accessing-registers">
+<h2>Accessing Registers<a class="headerlink" href="#accessing-registers" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> supports normal register access.</p>
+<p>Setting labels on registers has no effect on <code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code>,
+and the labels are not preserved after execution starts.</p>
+</section>
+<section id="mapping-memory">
+<h2>Mapping Memory<a class="headerlink" href="#mapping-memory" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> enforces its memory map.
+Accesses to unmapped memory will produce an exception,
+reporting either an unmapped “read”, “write”, or “fetch” (for an unmapped program counter.)</p>
+<p>The memory map works on a byte resolution.</p>
+</section>
+<section id="accessing-memory">
+<h2>Accessing Memory<a class="headerlink" href="#accessing-memory" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> supports normal memory accesses.</p>
+<p>Setting labels on memory has no effect on <code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code>,
+and labels are not preserved once execution begins.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>TODO: How well-supported are ISA features that change memory layout,
+like x86 segmentation?</p>
+</div>
+</section>
+<section id="event-handlers">
+<h2>Event Handlers<a class="headerlink" href="#event-handlers" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> supports the following event types:</p>
+<ul class="simple">
+<li><p>Instruction Hooks</p></li>
+<li><p>Function Models</p></li>
+<li><p>Memory Accesses</p></li>
+</ul>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p><code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> hooks behave oddly around delay slot instructions.</p>
+<p>Instruction hooks will not fire if attached to an instruction in a delay slot.</p>
+<p>Memory accesses that occur in a delay slot will report the program counter
+for the parent instruction, although all other machine state will be correct.</p>
+</div>
+</section>
+<section id="interacting-with-ghidra">
+<h2>Interacting with Ghidra<a class="headerlink" href="#interacting-with-ghidra" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Understanding this section is not necessary to write a normal harness.</strong></p>
+<p>The features described here are completely abstracted
+behind the <code class="docutils literal notranslate"><span class="pre">GhidraEmulator</span></code> interface, and are only useful
+if you want to leverage Unicorn for analysis.</p>
+<p>This section describes how to access the relevant objects,
+and any caveats regarding their access.
+Using them for analysis is an exercise left to other tutorials.</p>
+</div>
+<p>It’s possible to access the Ghidra emulator instance directly
+via the property <code class="docutils literal notranslate"><span class="pre">GhidraEmulator._emu</span></code>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Emulators</a><ul>
+      <li>Previous: <a href="panda.html" title="previous chapter">Panda Backend</a></li>
+      <li>Next: <a href="../analyses/index.html" title="next chapter">Analyses</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

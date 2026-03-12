@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Loading a core dump &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Loading a VXWorks image" href="vxworks-loading.html" />
+    <link rel="prev" title="Loading a PE" href="pe-loading.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="loading-a-core-dump">
+<span id="tutorial-coredump"></span><h1>Loading a core dump<a class="headerlink" href="#loading-a-core-dump" title="Link to this heading">¶</a></h1>
+<p>One of the big limitations of micro-execution is that it is blind
+to any kind of state built up by the program before your start point.
+Normally, the harness has to build up that state explicitly.</p>
+<p>However, there is another option, and that’s to load a memory dump
+from a live program.</p>
+<p>Linux and similar platforms can automatically produce “core dumps”
+on certain kinds of program failures, or command a debugger
+to produce a similar file.</p>
+<p>This file is a modified ELF that contains the memory image
+of the faulting process, as well as the values of registers
+at the time of the fault.  Perfect for setting up a harness!</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Windows can produce similar memory dumps.
+SmallWorld does not yet support loading them.</p>
+</div>
+<p>Consider the program <code class="docutils literal notranslate"><span class="pre">elf_core.elf.c</span></code>:</p>
+<div class="highlight-C notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdio.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;stdlib.h&gt;</span>
+<span class="cp">#include</span><span class="w"> </span><span class="cpf">&lt;sys/procfs.h&gt;</span>
+
+<span class="kt">char</span><span class="w"> </span><span class="n">input_word</span><span class="p">[</span><span class="mi">64</span><span class="p">];</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">x</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span><span class="w"> </span><span class="p">{</span>
+
+<span class="w">    </span><span class="k">if</span><span class="p">(</span><span class="n">fscanf</span><span class="p">(</span><span class="n">stdin</span><span class="p">,</span><span class="w"> </span><span class="s">&quot;%63s&quot;</span><span class="p">,</span><span class="w"> </span><span class="n">input_word</span><span class="p">)</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">return</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="k">for</span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">i</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="n">__builtin_trap</span><span class="p">();</span>
+<span class="w">        </span><span class="p">}</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="w">    </span><span class="n">puts</span><span class="p">(</span><span class="n">input_word</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">__builtin_trap()</span></code> statement
+puts some kind of illegal or faulting instruction
+between the <code class="docutils literal notranslate"><span class="pre">fscanf</span></code> and the <code class="docutils literal notranslate"><span class="pre">puts</span></code>.
+We want to use that as our starting point for emulation,
+and just explore the results of the <code class="docutils literal notranslate"><span class="pre">puts</span></code>,
+without having to deal with the machinations of <code class="docutils literal notranslate"><span class="pre">fscanf</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>In practice, a program won’t put a nice <code class="docutils literal notranslate"><span class="pre">__builtin_trap()</span></code>
+right where you need it.
+You will need to modify the binary
+to inject a faulting instruction yourself.</p>
+</div>
+<p>You can turn this program into a core dump as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build the test program</span>
+<span class="nb">cd</span><span class="w"> </span>smallworld/tests
+make<span class="w"> </span>elf_core/elf_core.amd64.elf
+
+<span class="c1"># Enable core dumps</span>
+<span class="nb">ulimit</span><span class="w"> </span>-c<span class="w"> </span>unlimited
+
+<span class="c1"># Create the core dump</span>
+<span class="nb">cd</span><span class="w"> </span>smallworld/tests/elf_core
+make<span class="w"> </span>elf_core.amd64.elf.core
+</pre></div>
+</div>
+<p>In order to build a harness around this file,
+we need to do the following:</p>
+<ul class="simple">
+<li><p>Follow the metadata in the core file to unpack the memory image inside.</p></li>
+<li><p>Load the registers from the core dump.</p></li>
+<li><p>Avoid or replace the trapping instruction so we can keep emulating.</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Generating these core dumps requires a good bit of setup.</p>
+<p>The Makefile assumes the default GCC targets amd64 linux.
+It also needs user-mode QEMU and multiarch gdb
+to actuate the program.</p>
+<p>If you are running SmallWorld in a container,
+<code class="docutils literal notranslate"><span class="pre">ulimit</span> <span class="pre">-c</span></code> will probably fail; Docker and similar environments
+do not let containers modify ulimits internally.
+Most platforms have some mechanism for setting ulimits
+when you launch a container.
+See your specific container solution’s documentation for details.</p>
+<p>If you’re running on an IT-managed system,
+core dumps may be redirected to a reporting tool.
+You will need to alter <code class="docutils literal notranslate"><span class="pre">/proc/sys/kernel/core_pattern</span></code>
+to contain the following:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">core</span>
+</pre></div>
+</div>
+<p>By default, Linux does not dump file-backed pages,
+such as the .text sections of a binary.
+In theory, setting <code class="docutils literal notranslate"><span class="pre">/proc/${pid}/coredump_filter</span></code>
+to “0x3f” should fix this problem, but it didn’t work in testing.</p>
+<p>The SmallWorld team advocates consulting your IT team
+before elevating container privileges or altering auditing facilities.
+Please harness responsibly.</p>
+</div>
+<section id="id1">
+<h2>Loading a core dump<a class="headerlink" href="#id1" title="Link to this heading">¶</a></h2>
+<p>Core files are just slightly extended ELFs.
+We can take a look at our core dump with <code class="docutils literal notranslate"><span class="pre">readelf</span> <span class="pre">-l</span></code>:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ readelf -l elf_core.amd64.elf.core
+
+Elf file type is CORE (Core file)
+Entry point 0x0
+There are 23 program headers, starting at offset 64
+
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  NOTE           0x0000000000000548 0x0000000000000000 0x0000000000000000
+                 0x0000000000000344 0x0000000000000000         0x0
+  LOAD           0x0000000000001000 0x00007fffedf19000 0x0000000000000000
+                 0x0000000000103000 0x0000000000103000  RW     0x1000
+  LOAD           0x0000000000104000 0x00007fffee01c000 0x0000000000000000
+                 0x0000000000028000 0x0000000000028000  R      0x1000
+  LOAD           0x000000000012c000 0x00007fffee044000 0x0000000000000000
+                 0x0000000000181000 0x0000000000181000  R E    0x1000
+  LOAD           0x00000000002ad000 0x00007fffee1c5000 0x0000000000000000
+                 0x000000000004f000 0x000000000004f000  R      0x1000
+  LOAD           0x00000000002fc000 0x00007fffee214000 0x0000000000000000
+                 0x0000000000004000 0x0000000000004000  R      0x1000
+  LOAD           0x0000000000300000 0x00007fffee218000 0x0000000000000000
+                 0x0000000000002000 0x0000000000002000  RW     0x1000
+  LOAD           0x0000000000302000 0x00007fffee21a000 0x0000000000000000
+                 0x000000000000d000 0x000000000000d000  RW     0x1000
+  LOAD           0x000000000030f000 0x00007fffee227000 0x0000000000000000
+                 0x0000000000004000 0x0000000000004000  RW     0x1000
+  LOAD           0x0000000000313000 0x00007fffee22b000 0x0000000000000000
+                 0x0000000000000000 0x0000000000001000  R E    0x1000
+  LOAD           0x0000000000313000 0x00007fffee22c000 0x0000000000000000
+                 0x0000000000001000 0x0000000000001000  R      0x1000
+  LOAD           0x0000000000314000 0x00007fffee22d000 0x0000000000000000
+                 0x000000000002b000 0x000000000002b000  R E    0x1000
+  LOAD           0x000000000033f000 0x00007fffee258000 0x0000000000000000
+                 0x000000000000b000 0x000000000000b000  R      0x1000
+  LOAD           0x000000000034a000 0x00007fffee263000 0x0000000000000000
+                 0x0000000000002000 0x0000000000002000  R      0x1000
+  LOAD           0x000000000034c000 0x00007fffee265000 0x0000000000000000
+                 0x0000000000001000 0x0000000000001000  RW     0x1000
+  LOAD           0x000000000034d000 0x00007fffee266000 0x0000000000000000
+                 0x0000000000001000 0x0000000000001000  RW     0x1000
+  LOAD           0x000000000034e000 0x00007fffee267000 0x0000000000000000
+                 0x0000000000000000 0x0000000000001000         0x1000
+  LOAD           0x000000000034e000 0x00007fffee268000 0x0000000000000000
+                 0x0000000000800000 0x0000000000800000  RW     0x1000
+  LOAD           0x0000000000b4e000 0x00007fffeea68000 0x0000000000000000
+                 0x0000000000001000 0x0000000000001000  R      0x1000
+  LOAD           0x0000000000b4f000 0x00007fffeea69000 0x0000000000000000
+                 0x0000000000000000 0x0000000000001000  R E    0x1000
+  LOAD           0x0000000000b4f000 0x00007fffeea6a000 0x0000000000000000
+                 0x0000000000001000 0x0000000000001000  R      0x1000
+  LOAD           0x0000000000b50000 0x00007fffeea6b000 0x0000000000000000
+                 0x0000000000001000 0x0000000000001000  RW     0x1000
+  LOAD           0x0000000000b51000 0xffffffffff600000 0x0000000000000000
+                 0x0000000000000000 0x0000000000001000    E    0x1000
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">NOTE</span></code> segment will contain the register map.
+The <code class="docutils literal notranslate"><span class="pre">LOAD</span></code> segments define blocks of memory from the core file
+that must get loaded at specific addresses in memory to rebuild the
+original program’s memory image.</p>
+<p>SmallWorld includes an extended version of its ELF loader
+that will also extract the register map.
+You can access this via <code class="docutils literal notranslate"><span class="pre">Executable.from_elf_core()</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="c1"># Load the core dump</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf_core</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>As with normal ELFs, the loader uses the <code class="docutils literal notranslate"><span class="pre">platform</span></code> argument
+to verify that the expected platform is being loaded.
+The harness can leave that argument blank,
+and the <code class="docutils literal notranslate"><span class="pre">platform</span></code> property of the <code class="docutils literal notranslate"><span class="pre">ElfCoreExecutable</span></code> object
+will contain the platform derived by the loader.</p>
+<p>Unlike normal ELFs, core files are always fixed-position.</p>
+</section>
+<section id="applying-registers">
+<h2>Applying registers<a class="headerlink" href="#applying-registers" title="Link to this heading">¶</a></h2>
+<p>Actually applying register state from a core dump to a <code class="docutils literal notranslate"><span class="pre">CPU</span></code>
+is extremely straightforward, but must be done explicitly in a harness:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">code</span><span class="o">.</span><span class="n">populate_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="avoiding-the-trap">
+<h2>Avoiding the trap<a class="headerlink" href="#avoiding-the-trap" title="Link to this heading">¶</a></h2>
+<p>If we were to start emulating now,
+we’d get the same illegal instruction trap that killed
+the program to begin with.</p>
+<p>There are two possible approaches to solve this.</p>
+<section id="stepping-past-the-trap">
+<h3>Stepping past the trap<a class="headerlink" href="#stepping-past-the-trap" title="Link to this heading">¶</a></h3>
+<p>If the trapping instruction was part of the original program,
+and we know we will never pass this point again,
+we can simply advance the program counter past it.</p>
+<p>SmallWorld doesn’t include a facility for disassembling code directly,
+but there are already very good tools to get us the information we need.</p>
+<p>For this demo, the Makefile produced a second file <code class="docutils literal notranslate"><span class="pre">elf_core.amd64.elf.registers</span></code>
+that contains the register values at the time of the original crash:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">rax</span>            <span class="mh">0x1</span>                 <span class="mi">1</span>
+<span class="n">rbx</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">rcx</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">rdx</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">rsi</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">rdi</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">rbp</span>            <span class="mh">0x7fffeea65ac0</span>      <span class="mh">0x7fffeea65ac0</span>
+<span class="n">rsp</span>            <span class="mh">0x7fffeea65ab0</span>      <span class="mh">0x7fffeea65ab0</span>
+<span class="n">r8</span>             <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">r9</span>             <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">r10</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">r11</span>            <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">r12</span>            <span class="mh">0x7fffeea65be8</span>      <span class="mi">140737197267944</span>
+<span class="n">r13</span>            <span class="mh">0x1</span>                 <span class="mi">1</span>
+<span class="n">r14</span>            <span class="mh">0x7fffee265000</span>      <span class="mi">140737188876288</span>
+<span class="n">r15</span>            <span class="mh">0x7fffee2662f0</span>      <span class="mi">140737188881136</span>
+<span class="n">rip</span>            <span class="mh">0x7fffeea695bf</span>      <span class="mh">0x7fffeea695bf</span> <span class="o">&lt;</span><span class="n">main</span><span class="o">+</span><span class="mi">79</span><span class="o">&gt;</span>
+<span class="n">eflags</span>         <span class="mh">0x246</span>               <span class="p">[</span> <span class="n">PF</span> <span class="n">ZF</span> <span class="n">IF</span> <span class="p">]</span>
+<span class="n">cs</span>             <span class="mh">0x33</span>                <span class="mi">51</span>
+<span class="n">ss</span>             <span class="mh">0x2b</span>                <span class="mi">43</span>
+<span class="n">ds</span>             <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">es</span>             <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">fs</span>             <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">gs</span>             <span class="mh">0x0</span>                 <span class="mi">0</span>
+<span class="n">fs_base</span>        <span class="mh">0x7fffee019740</span>      <span class="mi">140737186469696</span>
+<span class="n">gs_base</span>        <span class="mh">0x0</span>                 <span class="mi">0</span>
+</pre></div>
+</div>
+<p>Here, we see that <code class="docutils literal notranslate"><span class="pre">rip</span></code> is <code class="docutils literal notranslate"><span class="pre">0x7ffff6a7a55c</span></code>.
+Now, if we remember the output of <code class="docutils literal notranslate"><span class="pre">readelf</span> <span class="pre">-l</span></code>,
+the file size of that segment was zero.
+By default, core dumps don’t include the executable segments
+of code</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ objdump -d elf_core.amd64.elf.core | grep &#39;5b8:&#39;
+    7fffee04a5b8:	31 ff                	xor    %edi,%edi
+    7fffee0505b8:	4c 8b 6d b0          	mov    -0x50(%rbp),%r13
+    7fffee0545b8:	80 f9 ff             	cmp    $0xff,%cl
+    7fffee0565b8:	48 63 ff             	movslq %edi,%rdi
+    7fffee0605b8:	4d 39 e7             	cmp    %r12,%r15
+    7fffee0615b8:	40 0f 95 c6          	setne  %sil
+    7fffee0625b8:	75 7d                	jne    0x7fffee062637
+    7fffee0645b8:	48 c1 f8 02          	sar    $0x2,%rax
+    7fffee0675b8:	41 b9 01 00 00 00    	mov    $0x1,%r9d
+    7fffee06b5b8:	49 8d 5a 01          	lea    0x1(%r10),%rbx
+    7fffee0705b8:	41 8b 04 84          	mov    (%r12,%rax,4),%eax
+    7fffee0755b8:	4a 8d 44 02 ff       	lea    -0x1(%rdx,%r8,1),%rax
+    7fffee07a5b8:	c3                   	ret
+    7fffee07b5b8:	0f 29 55 80          	movaps %xmm2,-0x80(%rbp)
+    7fffee07c5b8:	c3                   	ret
+    7fffee0855b8:	44 8b 8d 48 fb ff ff 	mov    -0x4b8(%rbp),%r9d
+    7fffee08c5b8:	48 8b bd 88 f9 ff ff 	mov    -0x678(%rbp),%rdi
+    7fffee0945b8:	0f 87 32 02 00 00    	ja     0x7fffee0947f0
+    7fffee0965b8:	0f 84 77 08 00 00    	je     0x7fffee096e35
+    7fffee0975b8:	45 31 c0             	xor    %r8d,%r8d
+    7fffee09f5b8:	48 89 d0             	mov    %rdx,%rax
+    7fffee0a25b8:	c7 07 01 00 00 00    	movl   $0x1,(%rdi)
+    7fffee0a35b8:	48 8b 05 21 48 17 00 	mov    0x174821(%rip),%rax        # 0x7fffee217de0
+    7fffee0a85b8:	48 39 ca             	cmp    %rcx,%rdx
+    7fffee0aa5b8:	c9                   	leave
+    7fffee0ac5b8:	41 56                	push   %r14
+    7fffee0ae5b8:	31 d2                	xor    %edx,%edx
+    7fffee0b25b8:	81 e6 00 80 00 00    	and    $0x8000,%esi
+    7fffee0b45b8:	75 ae                	jne    0x7fffee0b4568
+    7fffee0bd5b8:	83 7f 08 00          	cmpl   $0x0,0x8(%rdi)
+    7fffee0c05b8:	a8 02                	test   $0x2,%al
+    7fffee0c35b8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    7fffee0c95b8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    7fffee0cc5b8:	48 21 cf             	and    %rcx,%rdi
+    7fffee0cf5b8:	c3                   	ret
+    7fffee0d35b8:	89 c8                	mov    %ecx,%eax
+    7fffee0d45b8:	45 31 c0             	xor    %r8d,%r8d
+    7fffee0d75b8:	48 83 ef c0          	sub    $0xffffffffffffffc0,%rdi
+    7fffee0d95b8:	48 01 cf             	add    %rcx,%rdi
+    7fffee0dc5b8:	66 0f 6f 0e          	movdqa (%rsi),%xmm1
+    7fffee0dd5b8:	f7 c2 00 e0 00 00    	test   $0xe000,%edx
+    7fffee0e25b8:	f7 c2 00 fe 00 00    	test   $0xfe00,%edx
+    7fffee0e35b8:	c3                   	ret
+    7fffee0e45b8:	75 16                	jne    0x7fffee0e45d0
+    7fffee0e55b8:	74 26                	je     0x7fffee0e55e0
+    7fffee0eb5b8:	49 83 c1 18          	add    $0x18,%r9
+    7fffee0ee5b8:	48 89 c7             	mov    %rax,%rdi
+    7fffee0f85b8:	0f 84 03 e3 ff ff    	je     0x7fffee0f68c1
+    7fffee1015b8:	48 89 95 78 ff ff ff 	mov    %rdx,-0x88(%rbp)
+    7fffee1035b8:	41 0f b6 41 01       	movzbl 0x1(%r9),%eax
+    7fffee1075b8:	4c 89 db             	mov    %r11,%rbx
+    7fffee1085b8:	4c 89 f7             	mov    %r14,%rdi
+    7fffee10c5b8:	5d                   	pop    %rbp
+    7fffee10f5b8:	48 63 f6             	movslq %esi,%rsi
+    7fffee1125b8:	48 83 c2 02          	add    $0x2,%rdx
+    7fffee1135b8:	48 8d 7b 02          	lea    0x2(%rbx),%rdi
+    7fffee1155b8:	48 8d 35 28 e4 0c 00 	lea    0xce428(%rip),%rsi        # 0x7fffee1e39e7
+    7fffee11c5b8:	89 c3                	mov    %eax,%ebx
+    7fffee1265b8:	48 83 c4 20          	add    $0x20,%rsp
+    7fffee12c5b8:	49 89 06             	mov    %rax,(%r14)
+    7fffee12f5b8:	85 c0                	test   %eax,%eax
+    7fffee1335b8:	48 83 ec 50          	sub    $0x50,%rsp
+    7fffee1355b8:	79 16                	jns    0x7fffee1355d0
+    7fffee1365b8:	31 c0                	xor    %eax,%eax
+    7fffee13b5b8:	49 83 fc 02          	cmp    $0x2,%r12
+    7fffee13c5b8:	0f 84 32 e2 ff ff    	je     0x7fffee13a7f0
+    7fffee13d5b8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    7fffee1415b8:	31 ff                	xor    %edi,%edi
+    7fffee1435b8:	48 63 ff             	movslq %edi,%rdi
+    7fffee1445b8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    7fffee1455b8:	89 f8                	mov    %edi,%eax
+    7fffee1475b8:	74 1f                	je     0x7fffee1475d9
+    7fffee1485b8:	41 89 c1             	mov    %eax,%r9d
+    7fffee1495b8:	e8 33 ae ef ff       	call   0x7fffee0443f0
+    7fffee14a5b8:	72 15                	jb     0x7fffee14a5cf
+    7fffee14c5b8:	ba 05 00 00 00       	mov    $0x5,%edx
+    7fffee14e5b8:	48 8d 15 e1 8b f8 ff 	lea    -0x7741f(%rip),%rdx        # 0x7fffee0d71a0
+    7fffee15b5b8:	41 83 f8 04          	cmp    $0x4,%r8d
+    7fffee15c5b8:	0f 82 82 00 00 00    	jb     0x7fffee15c640
+    7fffee15e5b8:	0f 84 df 00 00 00    	je     0x7fffee15e69d
+    7fffee15f5b8:	48 8d bd 10 fe ff ff 	lea    -0x1f0(%rbp),%rdi
+    7fffee1615b8:	31 f6                	xor    %esi,%esi
+    7fffee1745b8:	64 48 8b 04 25 28 00 	mov    %fs:0x28,%rax
+    7fffee1755b8:	4c 89 95 e8 f6 ff ff 	mov    %r10,-0x918(%rbp)
+    7fffee1775b8:	0f 1f 84 00 00 00 00 	nopl   0x0(%rax,%rax,1)
+    7fffee17f5b8:	c3                   	ret
+    7fffee1845b8:	b8 01 00 00 00       	mov    $0x1,%eax
+    7fffee1875b8:	45 85 e4             	test   %r12d,%r12d
+    7fffee18c5b8:	48 8b bb a0 00 00 00 	mov    0xa0(%rbx),%rdi
+    7fffee18d5b8:	4a 8b 3c e0          	mov    (%rax,%r12,8),%rdi
+    7fffee1905b8:	b8 01 00 00 00       	mov    $0x1,%eax
+    7fffee1955b8:	bf 05 00 00 00       	mov    $0x5,%edi
+    7fffee1965b8:	ba 20 00 00 00       	mov    $0x20,%edx
+    7fffee1975b8:	48 85 c0             	test   %rax,%rax
+    7fffee19f5b8:	c4 41 7d fc c2       	vpaddb %ymm10,%ymm0,%ymm8
+    7fffee1a05b8:	41 89 c1             	mov    %eax,%r9d
+    7fffee1a25b8:	c5 fe 7f 4f 01       	vmovdqu %ymm1,0x1(%rdi)
+    7fffee1a45b8:	8d b4 0f 81 00 00 00 	lea    0x81(%rdi,%rcx,1),%esi
+    7fffee1a65b8:	c4 c1 7d fc d0       	vpaddb %ymm8,%ymm0,%ymm2
+    7fffee1ab5b8:	48 01 f8             	add    %rdi,%rax
+    7fffee1ad5b8:	01 00 00 00 
+    7fffee1ae5b8:	74 cd                	je     0x7fffee1ae587
+    7fffee1b25b8:	48 8d 04 87          	lea    (%rdi,%rax,4),%rax
+    7fffee1b55b8:	00 00 00 00 
+    7fffee1ba5b8:	83 f9 06             	cmp    $0x6,%ecx
+    7fffee1c15b8:	4d 89 cf             	mov    %r9,%r15
+    7fffee1c35b8:	31 db                	xor    %ebx,%ebx
+    7fffee22d5b8:	ba 9c 01 00 00       	mov    $0x19c,%edx
+    7fffee22e5b8:	41 55                	push   %r13
+    7fffee2335b8:	31 ff                	xor    %edi,%edi
+    7fffee2355b8:	49 8b 84 24 e8 02 00 	mov    0x2e8(%r12),%rax
+    7fffee2365b8:	44 8b ad 2c fc ff ff 	mov    -0x3d4(%rbp),%r13d
+    7fffee23a5b8:	00 00 00 00 
+    7fffee23e5b8:	4c 8d 71 0b          	lea    0xb(%rcx),%r14
+    7fffee2415b8:	4c 8b ad 78 ff ff ff 	mov    -0x88(%rbp),%r13
+    7fffee2485b8:	8b 1d 82 c5 01 00    	mov    0x1c582(%rip),%ebx        # 0x7fffee264b40
+    7fffee24f5b8:	00 
+    7fffee2525b8:	45 31 d2             	xor    %r10d,%r10d
+    7fffee2545b8:	48 c7 c1 10 00 00 00 	mov    $0x10,%rcx
+    7fffee2555b8:	66 0f da 40 10       	pminub 0x10(%rax),%xmm0
+    7fffee2565b8:	00 00 00 00
+</pre></div>
+</div>
+<p>Our trap is thanks to a <code class="docutils literal notranslate"><span class="pre">ud2</span></code> instruction, which is two bytes long.
+We could repair the program counter thusly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">entrypoint</span> <span class="o">=</span> <span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="mi">2</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">entrypoint</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="removing-the-trap">
+<h3>Removing the trap<a class="headerlink" href="#removing-the-trap" title="Link to this heading">¶</a></h3>
+<p>If we expect to encounter this code again,
+or if we had to replace an existing instruction in the program
+in order to add our trap, simply advancing the program counter won’t help.
+We will need to rewrite the instruction bytes to remove the trap entirely.</p>
+<p>If we replaced an existing instruction, we will know the specific bytes we want to write back.
+Otherwise, we will need to use the disassembler as above to learn the number of bytes to rewrite.</p>
+<p>In this example, we know the <code class="docutils literal notranslate"><span class="pre">ud2</span></code> instruction is two bytes long,
+and it did not replace an existing instruction,
+so we want to replace it with a two-byte NOP.</p>
+<p>In SmallWorld, <code class="docutils literal notranslate"><span class="pre">Executables</span></code> are just memory, so we can use the
+bytes accessors from the <code class="docutils literal notranslate"><span class="pre">Memory</span></code> class to perform our modification quickly:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># 2-byte x86 NOP.</span>
+<span class="n">nop</span> <span class="o">=</span> <span class="sa">b</span><span class="s1">&#39;</span><span class="se">\x66\x90</span><span class="s1">&#39;</span>
+<span class="n">code</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">nop</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Some ISAs present instructions in native byte order,
+so an instruction on a little-endian system will appear backwards in memory.
+Be careful of this when manually rewriting code.</p>
+</div>
+</section>
+</section>
+<section id="putting-it-all-together">
+<h2>Putting it all together<a class="headerlink" href="#putting-it-all-together" title="Link to this heading">¶</a></h2>
+<p>Combined, this can be found in the script <code class="docutils literal notranslate"><span class="pre">actuate/elf_core.amd64.py</span></code>:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="c1"># Set up logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Define the platform</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Create a CPU</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load and add core file into the state</span>
+<span class="n">filepath</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="n">filepath</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.elf.core&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="p">)</span>
+<span class="n">filename</span> <span class="o">=</span> <span class="p">(</span><span class="n">filepath</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">as_posix</span><span class="p">()</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf_core</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">)</span>
+    <span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+    <span class="n">code</span><span class="o">.</span><span class="n">populate_cpu</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load the original binary so we can copy .text</span>
+<span class="c1"># I can&#39;t get my system to dump the executable segments.</span>
+<span class="n">origname</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.core&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">origname</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">orig</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span>
+        <span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="n">code</span><span class="o">.</span><span class="n">address</span>
+    <span class="p">)</span>
+
+<span class="c1"># The core file reserves space before the true load address for its metadata.</span>
+<span class="n">code_offset</span> <span class="o">=</span> <span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">-</span> <span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFF000</span>
+<span class="n">code</span><span class="p">[</span><span class="n">code_offset</span><span class="p">]</span> <span class="o">=</span> <span class="n">orig</span><span class="p">[</span><span class="mh">0x0</span><span class="p">]</span>
+
+<span class="c1"># Replace the instruction bytes at rip with a nop</span>
+<span class="n">nop</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\x66\x90</span><span class="s2">&quot;</span>
+<span class="n">code</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">(),</span> <span class="n">nop</span><span class="p">)</span>
+
+<span class="c1"># Set up a puts handler</span>
+<span class="c1"># puts address recovered from manual RE</span>
+<span class="n">puts_addr</span> <span class="o">=</span> <span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">&amp;</span> <span class="mh">0xFFFFFFFFFFFFF000</span><span class="p">)</span> <span class="o">|</span> <span class="mh">0x610</span>
+<span class="n">puts</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">Model</span><span class="o">.</span><span class="n">lookup</span><span class="p">(</span>
+    <span class="s2">&quot;puts&quot;</span><span class="p">,</span> <span class="n">platform</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">ABI</span><span class="o">.</span><span class="n">SYSTEMV</span><span class="p">,</span> <span class="n">puts_addr</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">puts</span><span class="p">)</span>
+
+<span class="c1"># Add an exit point</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="mh">0x23</span><span class="p">)</span>
+
+<span class="c1"># Emulate</span>
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Aside from loading the core dump and patching bytes,
+the only other step is to hook <code class="docutils literal notranslate"><span class="pre">puts</span></code>;
+we may have the process memory, but we don’t have a system call model.</p>
+<p>Here is what running the harness looks like:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 elf_core.amd64.py
+The current binary doesn&#39;t have a section header
+[+] starting emulation at 0x7fffeea695bf
+[+] emulation complete
+foobar
+</pre></div>
+</div>
+</section>
+<section id="handling-missing-segments">
+<h2>Handling missing segments<a class="headerlink" href="#handling-missing-segments" title="Link to this heading">¶</a></h2>
+<p>As mentioned above, Linux won’t dump file-backed read-only segments;
+it assumes you already have the data.</p>
+<p>(There is theoretically way to enable these segments in dumps,
+but it may be blocked by other security policies.)</p>
+<p>If this happens, we can replace the data by loading the executable
+segment out of our original binary:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">origname</span> <span class="o">=</span> <span class="n">filename</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.core&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">origname</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">orig</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_elf</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span> <span class="n">address</span><span class="o">=</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># The core file reserves space before the true load address for its metadata.</span>
+<span class="c1">#</span>
+<span class="c1"># NOTE: You may need to adjust the masking depending on the segment&#39;s offset.</span>
+<span class="n">code_offset</span> <span class="o">=</span> <span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">-</span> <span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xfffffffffffff000</span>
+<span class="n">code</span><span class="p">[</span><span class="n">code_offset</span><span class="p">]</span> <span class="o">=</span> <span class="n">orig</span><span class="p">[</span><span class="mh">0x0</span><span class="p">]</span>
+</pre></div>
+</div>
+<p>When tested, this wasn’t the case for amd64 binaries,
+but it was the case for all other architectures.
+See any other example <code class="docutils literal notranslate"><span class="pre">elf_core_actuate.$ARCH.py</span></code> for examples of this working.</p>
+</section>
+<section id="known-limitations">
+<h2>Known Limitations<a class="headerlink" href="#known-limitations" title="Link to this heading">¶</a></h2>
+<p>On some platforms, core dumps exercise features that not all emulators support.</p>
+<ul class="simple">
+<li><p>amd64 core dumps include the <code class="docutils literal notranslate"><span class="pre">rflags</span></code> register, which angr doesn’t represent directly</p></li>
+<li><p>i386 core dumps include the <code class="docutils literal notranslate"><span class="pre">eflags</span></code> register, which angr doesn’t represent directly</p></li>
+<li><p>i386 core dumps include segment registers, which require complex setup for Panda and Unicorn</p></li>
+</ul>
+<p>Additionally, extracting the full machine state from Ghidra or angr can take a while.
+If you don’t need the final machine state,
+use <code class="docutils literal notranslate"><span class="pre">Machine.apply()</span></code> paired with <code class="docutils literal notranslate"><span class="pre">emulator.run()</span></code>.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../modeling-and-hooking/index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+  <li><a href="index.html">Loading Code</a><ul>
+      <li>Previous: <a href="pe-loading.html" title="previous chapter">Loading a PE</a></li>
+      <li>Next: <a href="vxworks-loading.html" title="next chapter">Loading a VXWorks image</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

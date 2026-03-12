@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Harnessing a Simple Program &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
+    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../about.html" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Concepts" href="../concepts/index.html" />
+    <link rel="prev" title="Full Environment with Docker" href="install-guide/docker.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="harnessing-a-simple-program">
+<span id="tutorial-basic"></span><h1>Harnessing a Simple Program<a class="headerlink" href="#harnessing-a-simple-program" title="Link to this heading">¶</a></h1>
+<p>In this tutorial you will be guided through the steps to harness a
+very simple snippet of binary code. Here it is, weighing in at only
+two lines of x86 assembly.</p>
+<div class="highlight-NASM notranslate"><div class="highlight"><pre><span></span><span class="k">BITS</span><span class="w"> </span><span class="mi">64</span><span class="c1">;</span>
+<span class="c1">; This is a function that just squares a number. </span>
+<span class="c1">; It takes a 32-bit argument in edi and returns the 32-bit product in eax.</span>
+<span class="c1">; If we can&#39;t run this, we can&#39;t run anything.</span>
+<span class="w">        </span><span class="nf">imul</span><span class="w">    </span><span class="nb">edi</span><span class="p">,</span><span class="w"> </span><span class="nb">edi</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">eax</span><span class="p">,</span><span class="w"> </span><span class="nb">edi</span>
+</pre></div>
+</div>
+<p>The source for this example can be found in the <code class="docutils literal notranslate"><span class="pre">tests</span></code> directory of
+the repository, in the file <code class="docutils literal notranslate"><span class="pre">square.amd64.s</span></code>. There are a number of
+other small assembly examples there along with it. There is also a
+<code class="docutils literal notranslate"><span class="pre">Makefile</span></code> in that directory and you will have to run <code class="docutils literal notranslate"><span class="pre">make</span></code> there
+in order to generate the binary code used in this and other tutorials
+involving those tests. Once you have run <code class="docutils literal notranslate"><span class="pre">make</span></code>, the corresponding
+binary, which we will harness in this tutorial, will be in the file
+<code class="docutils literal notranslate"><span class="pre">square.amd64.bin</span></code>.</p>
+<p>A reasonable first step in harnessing is to run SmallWorld’s basic
+harness script which assumes nothing about the code, and tries to run
+it a bunch of times to see what it can deduce. That script,
+<code class="docutils literal notranslate"><span class="pre">basic_harness.py</span></code>, lives in the <code class="docutils literal notranslate"><span class="pre">examples</span></code> directory. It is
+fairly simple, so let’s have a look at it.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">typing</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld</span><span class="w"> </span><span class="kn">import</span> <span class="n">hinting</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses</span><span class="w"> </span><span class="kn">import</span> <span class="n">Colorizer</span><span class="p">,</span> <span class="n">ColorizerReadWrite</span><span class="p">,</span> <span class="n">ColorizerSummary</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">smallworld.analyses.colorizer</span><span class="w"> </span><span class="kn">import</span> <span class="n">randomize_uninitialized</span>
+
+<span class="c1"># setup logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># configure the platform for emulation</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># create a CPU and add it to the machine</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+
+<span class="c1"># create an executable and add it to the machine</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span>
+<span class="p">)</span>
+
+<span class="c1"># set start instruction for analysis and an &quot;exit point&quot; at which to</span>
+<span class="c1"># stop</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">pc</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">())</span>
+
+<span class="c1"># add code and cpu to the machine</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="n">hinter</span> <span class="o">=</span> <span class="n">hinting</span><span class="o">.</span><span class="n">Hinter</span><span class="p">()</span>
+
+<span class="n">analyses</span><span class="p">:</span> <span class="n">typing</span><span class="o">.</span><span class="n">List</span><span class="p">[</span><span class="n">smallworld</span><span class="o">.</span><span class="n">analyses</span><span class="o">.</span><span class="n">Analysis</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">ColorizerSummary</span><span class="p">(</span><span class="n">hinter</span><span class="p">),</span>
+    <span class="n">ColorizerReadWrite</span><span class="p">(</span><span class="n">hinter</span><span class="p">),</span>
+<span class="p">]</span>
+
+<span class="n">seed</span> <span class="o">=</span> <span class="mi">123456</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">ColorizerSummary</span><span class="p">(</span><span class="n">hinter</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="n">i</span><span class="p">)</span>
+    <span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine</span><span class="p">,</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+<span class="c1"># Technically, an analysis takes a `machine` arg but this one doesn&#39;t</span>
+<span class="c1"># actually use it for anythihng.  This is because it just listens for</span>
+<span class="c1"># colorizer hints.</span>
+<span class="n">cs</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>After the imports, the script sets up logging. Logging is probably
+self-explanatory (change level to <code class="docutils literal notranslate"><span class="pre">logging.DEBUG</span></code> to get lots of
+low-level output).</p>
+<p>Next, the script asserts an appropriate <strong>platform</strong>. This is a
+SmallWorld concept which, essentially, establishes various aspects of
+the CPU that will be used to execute instructions. The platform is
+used, in this script, to actually create the virutal CPU SmallWorld
+will use with this code:
+<code class="docutils literal notranslate"><span class="pre">cpu</span> <span class="pre">=</span> <span class="pre">smallworld.state.cpus.CPU.for_platform(platform)</span></code>
+Note: <cite>platform</cite> is also used by other parts of SmallWorld, such as
+its analyses, to know endianness, register widths and names, etc.</p>
+<p>The cpu <strong>state</strong> is yet another SmallWorld concept (it is explained in
+<a class="reference internal" href="../concepts/state/index.html#state"><span class="std std-ref">Machine State</span></a>). You can think of it as a place to set up registers and
+memory (which comes with convenient stack and heap abstractions) with
+specific initial values in a way that is agnostic to details about any
+particular dynamic analysis employing a particular emulator or
+engine. Thus, the same state could be applied to a Unicorn
+emulator or a angr engine or a PANDA engine or …</p>
+<p>The script next loads the code from the file <code class="docutils literal notranslate"><span class="pre">square.amd64.bin</span></code> and
+sets its base address to 0x1000, with the lines</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Then, the script sets the instruction address at which to start
+dynamic analysis with <code class="docutils literal notranslate"><span class="pre">cpu.pc.set(code.address)</span></code> and also defines an
+exit point for an emulator to know when to stop with
+<code class="docutils literal notranslate"><span class="pre">machine.add_exit_point(code.address</span> <span class="pre">+</span> <span class="pre">code.get_capacity())</span></code>.</p>
+<p>Once created, <code class="docutils literal notranslate"><span class="pre">code</span></code> and <code class="docutils literal notranslate"><span class="pre">cpu</span></code> are added to the SmallWorld
+<code class="docutils literal notranslate"><span class="pre">machine</span></code>. This is another SmallWorld construct; the <strong>machine</strong>
+represents all initial analysis state including register contents
+specific to the included cpu and any memory contents.</p>
+<p>Next, hinting is set up. <strong>Hinting</strong> is also a SmallWorld
+concept. Hints and analyses are described in detail in <a class="reference internal" href="../concepts/analyses/index.html#analyses"><span class="std std-ref">Analyses</span></a> but the basic
+idea is that SmallWorld includes various analyses that are intended to
+provide hints that can guide the creation of a code harness. Hints can
+be read by a human or consumed by other, higher-level analyses.
+Here, we create a hinter
+and arrange for the method <code class="docutils literal notranslate"><span class="pre">collect_hints</span></code> to be called when either
+a <code class="docutils literal notranslate"><span class="pre">DynamicRegisterValueHint</span></code> or a
+<code class="docutils literal notranslate"><span class="pre">DynamicRegisterValueSummaryHint</span></code> is generated by some
+analysis. That method just prints out the hint.</p>
+<p>The <cite>basic_harness.py</cite> script employs an analysis called the
+<em>colorizer</em> which is a kind of poor person’s dynamic taint
+analysis. Registers are initialized with large random values and
+data flows are inferred when those values are observed being used by
+subsequent instructions. This can tell us lots of things, but, here,
+it will tell us simply what register(s) are inputs for this code.</p>
+<p>The colorizer runs code with random intial state. This means the code
+can run differently (follow a different path) each time. Each run is a
+<cite>micro execution</cite> (inspired by the paper “Micro execution” <a class="footnote-reference brackets" href="#a" id="id1" role="doc-noteref"><span class="fn-bracket">[</span>1<span class="fn-bracket">]</span></a>). This
+script performs ten micro executions, randomizing uninitialzed
+registers before each with the code</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">seed</span> <span class="o">=</span> <span class="mi">123456</span>
+<span class="n">cs</span> <span class="o">=</span> <span class="n">ColorizerSummary</span><span class="p">(</span><span class="n">hinter</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">c</span> <span class="o">=</span> <span class="n">Colorizer</span><span class="p">(</span><span class="n">hinter</span><span class="p">,</span> <span class="n">num_insns</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">exec_id</span><span class="o">=</span><span class="n">i</span><span class="p">)</span>
+    <span class="n">perturbed_machine</span> <span class="o">=</span> <span class="n">randomize_uninitialized</span><span class="p">(</span><span class="n">machine</span><span class="p">,</span> <span class="n">seed</span> <span class="o">+</span> <span class="n">i</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="n">c</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">perturbed_machine</span><span class="p">)</span>
+<span class="n">cs</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The <cite>ColorizerSummary</cite> analysis summarizes hints across
+micro executions. It “runs” after all the colorizer micro executions
+and catches all hints output by other analyses connected to the same
+hinter.</p>
+<p>Note that all of the setup performed is entirely generic; this script
+assumes nothing about the binary to be harnessed. To run the script we
+just provide a single argument, the binary, to get the commandline
+<code class="docutils literal notranslate"><span class="pre">python3</span> <span class="pre">basic_harnesss.py</span> <span class="pre">square.amd64.bin</span></code>.</p>
+<p>Here is what that outputs</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 examples/basic_harness.py tests/square/square.amd64.bin
+[+] seed=123456 digest of changes made to machine: 9fb43f6a9e58f4de95300b1d9bd9192a
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123457 digest of changes made to machine: 75958496f96ec41a114200a663eb7ea5
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123458 digest of changes made to machine: 9114b586cab688e3e2eaac7764d5ff3d
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123459 digest of changes made to machine: d8f683125ac66437da87e2a4147d92ef
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123460 digest of changes made to machine: d3ec6c1e68474fcf8988c62594e636a8
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123461 digest of changes made to machine: 9c8309440489f444ed253841cf9505d1
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123462 digest of changes made to machine: 8626e15c4f93a52b02b6fc07588ca5a9
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123463 digest of changes made to machine: 7378c46011e4c55bae506b6a74f819b5
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123464 digest of changes made to machine: 5accb97bcc9569d3998eedf946120964
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+[+] seed=123465 digest of changes made to machine: af522c74f58a93272e6d4dcd4de77271
+[+] captured trace of 2 instructions, res=TraceRes.ER_BOUNDS trace_digest=8d4c60d453cccdb02972044161367778
+</pre></div>
+</div>
+<p>The output contains a lot of hints but we only need to look at the
+<em>Summary</em> ones, which are hints that were emitted by multiple
+micro executions. This is the final three lines in that output.  A
+<cite>read-def-summary</cite> hint corresponds to a “color” or random value in a
+register that is used by an instruction that was not seen before. This
+means it is an input to this block of code. There is only one such
+hint output by <cite>basic_harness.py</cite></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="o">+</span><span class="p">]</span> <span class="n">DynamicRegisterValueSummaryHint</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s1">&#39;read-def-summary&#39;</span><span class="p">,</span> <span class="n">pc</span><span class="o">=</span><span class="mi">4096</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">use</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">new</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">num_micro_executions</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">reg_name</span><span class="o">=</span><span class="s1">&#39;edi&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The out tells us that the register <code class="docutils literal notranslate"><span class="pre">edi</span></code> is an input to this
+snippet of code and should really be set explicitly. We can now create
+a new script <code class="docutils literal notranslate"><span class="pre">square.amd64.py</span></code> which harnesses <code class="docutils literal notranslate"><span class="pre">square.amd64.bin</span></code>
+perfectly, exposing <code class="docutils literal notranslate"><span class="pre">edi</span></code> as a command-line argument.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="c1"># Set up logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Define the platform</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Create a CPU</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load and add code into the state</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="vm">__file__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.bin&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+    <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Set the instruction pointer to the code entrypoint</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Initialize argument registers</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+
+<span class="c1"># Emulate</span>
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">())</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+
+<span class="c1"># read out the final state</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">hex</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">eax</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>
+</pre></div>
+</div>
+<p>And here is what it looks like to run that script, setting <code class="docutils literal notranslate"><span class="pre">edi</span></code> to
+42 initially.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 ../../tests/square/square.amd64.py 42
+[+] starting emulation at 0x1000
+[+] emulation complete
+0x6e4
+</pre></div>
+</div>
+<p>Since <code class="docutils literal notranslate"><span class="pre">42*42=1764</span></code> which is <code class="docutils literal notranslate"><span class="pre">0x6e4</span></code> we have harnessed
+<code class="docutils literal notranslate"><span class="pre">square.amd64.bin</span></code> completely.</p>
+<p class="rubric">Footnotes</p>
+<aside class="footnote-list brackets">
+<aside class="footnote brackets" id="a" role="doc-footnote">
+<span class="label"><span class="fn-bracket">[</span><a role="doc-backlink" href="#id1">1</a><span class="fn-bracket">]</span></span>
+<p>“Micro execution”, Patrice Godefroid, Proceedings of the 36th International Conference on Software Engineering, 2014.</p>
+</aside>
+</aside>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Getting Started</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="smallworld-at-a-glance.html">SmallWorld at a Glance</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install-guide/index.html">Installation Guide</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Harnessing a Simple Program</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+  <li><a href="index.html">Getting Started</a><ul>
+      <li>Previous: <a href="install-guide/docker.html" title="previous chapter">Full Environment with Docker</a></li>
+      <li>Next: <a href="../concepts/index.html" title="next chapter">Concepts</a></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

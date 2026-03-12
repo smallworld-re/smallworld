@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Memory Hooking &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Analyses" href="../analyses/index.html" />
+    <link rel="prev" title="Function Hooking with PE Imports" href="pe-relocation.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="memory-hooking">
+<h1>Memory Hooking<a class="headerlink" href="#memory-hooking" title="Link to this heading">¶</a></h1>
+<p>In this tutorial, you will be guided through the steps
+to hook memory accesses, and model a basic DMA device.</p>
+<p>Consider the example <code class="docutils literal notranslate"><span class="pre">tests/dma/dma.amd64.s</span></code>:</p>
+<div class="highlight-NASM notranslate"><div class="highlight"><pre><span></span><span class="k">BITS</span><span class="w"> </span><span class="mi">64</span><span class="c1">;</span>
+<span class="c1">; DMA example modelling a hardware divisor unit:</span>
+<span class="c1">; - Write 64-bit numerator to 0x50014000</span>
+<span class="c1">; - Write 64-bit denominator to 0x50014008</span>
+<span class="c1">; - Read 64-bit quotient from 0x50014010</span>
+
+<span class="nl">divide:</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">rdx</span><span class="p">,</span><span class="w"> </span><span class="mh">0x50014000</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdx</span><span class="p">],</span><span class="w"> </span><span class="nb">rdi</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mh">0x8</span><span class="p">],</span><span class="w"> </span><span class="nb">rsi</span>
+<span class="w">        </span><span class="nf">mov</span><span class="w">     </span><span class="nb">rax</span><span class="p">,</span><span class="w"> </span><span class="kt">QWORD</span><span class="w"> </span><span class="p">[</span><span class="nb">rdx</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mh">0x10</span><span class="p">]</span>
+<span class="w">        </span><span class="nf">hlt</span>
+</pre></div>
+</div>
+<p>The code here is very obtuse; it writes two values
+at fixed addresses, and then reads back a value from another address.
+None of these addresses are reasonable, as far as we know.</p>
+<p>This is an example of Direct Memory Access,
+where a piece of memory isn’t backed by RAM,
+but rather serves as an interface to a hardware peripheral or a software module.</p>
+<p>In this case, our device is a hardware integer divisor,
+and the addresses mean the following:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">0x50014000</span></code>: Numerator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0x50014008</span></code>: Denominator</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0x50014010</span></code>: Quotient</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">0x50014018</span></code>: Modulus (unused in this test).</p></li>
+</ul>
+<p>Loading the denominator triggers the device
+to update the values presented in the quotient and modulus registers.</p>
+<p>(This may seem contrived, but it’s actually common on arm32 boards,
+since the ISA lacks an integer division instruction.)</p>
+<p>To harness this piece of code, we need to do the following:</p>
+<ul class="simple">
+<li><p>Assign argument values to <code class="docutils literal notranslate"><span class="pre">rdi</span></code> (numerator) and <code class="docutils literal notranslate"><span class="pre">rsi</span></code> (denominator).</p></li>
+<li><p>Hook on reads and writes in the range <code class="docutils literal notranslate"><span class="pre">[</span> <span class="pre">0x50014000</span> <span class="pre">-</span> <span class="pre">0x50014020</span> <span class="pre">)</span></code></p></li>
+</ul>
+<p>To do this, we need a subclass of <code class="docutils literal notranslate"><span class="pre">MemoryMappedModel</span></code>,
+which will mimic the behavior described above.</p>
+<p>Let’s define that class.  To start, we will need to set up a little state.
+We need to store the current state of the divisor device in our class,
+and it would be nice to remember where each of the registers is
+so we don’t need to compute it every time:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">HDivModel</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">mmio</span><span class="o">.</span><span class="n">MemoryMappedModel</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nbytes</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="c1"># This model starts at address, and extends for 4 nbytes-sized registers.</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span> <span class="o">=</span> <span class="n">nbytes</span>
+        <span class="c1"># Pre-compute the addresses of our registers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_addr</span> <span class="o">=</span> <span class="n">address</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">3</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">4</span>
+
+        <span class="c1"># Save the values of the registers as our denominators.</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quotient</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="o">=</span> <span class="mi">0</span>
+</pre></div>
+</div>
+<p>Next, we need to define the <code class="docutils literal notranslate"><span class="pre">on_read</span></code> and <code class="docutils literal notranslate"><span class="pre">on_write</span></code> handlers for our class.</p>
+<p>let’s consider the writes we need to hook.
+We need to detect any writes into the <code class="docutils literal notranslate"><span class="pre">nbytes</span></code> bytes
+at the numerator and denominator registers.</p>
+<p>We need to be careful, and handle partial writes to the registers.
+Some ISAs won’t be able to write large integers all at once,
+and some emulators - particularly Unicorn - will break up
+larger writes into multiple events.  Our <code class="docutils literal notranslate"><span class="pre">on_write</span></code> function should look something like this:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">on_write</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span> <span class="n">emu</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">,</span> <span class="n">addr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_addr</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+        <span class="n">num_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">numerator</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">))</span>
+        <span class="n">num_bytes</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">num_bytes</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span><span class="p">:</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+        <span class="n">den_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denominator</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">))</span>
+        <span class="n">den_bytes</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">den_bytes</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># TODO: I have no idea how the real thing handles DIV0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">quotient</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AnalysisError</span><span class="p">(</span>
+            <span class="s2">&quot;Unexpected write to MMIO register {hex(addr)}&quot;</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p>This example is based off a real device that didn’t provide a full spec for this unit,
+so some behaviors, like an explicit write of zero, are guesswork.</p>
+<p>Now, let’s consider hooking reads.
+We need to handle reads to the quotient and modulus registers,
+with the same concerns about partial reads as we had about partial writes.
+Our <code class="docutils literal notranslate"><span class="pre">on_read</span></code> function should look something like this:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span><span class="w"> </span><span class="nf">on_read</span><span class="p">(</span>
+    <span class="bp">self</span><span class="p">,</span> <span class="n">emu</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">,</span> <span class="n">addr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">bytes</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">quotient</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+    <span class="k">elif</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_addr</span><span class="p">:</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AnalysisError</span><span class="p">(</span>
+            <span class="s2">&quot;Unexpected read from MMIO register {hex(addr)}&quot;</span>
+        <span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, we need to initialize our model, and add it to the harness.
+It’s pretty clear from the assembly that our device
+starts at <code class="docutils literal notranslate"><span class="pre">0x50014000</span></code>, and that the DMA registers are eight bytes each.</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="n">hdiv</span> <span class="o">=</span> <span class="n">HDivModel</span><span class="p">(</span><span class="mh">0x50014000</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hdiv</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>All together, this harness can be found in <code class="docutils literal notranslate"><span class="pre">tests/dma/dma.amd64.py</span></code>:</p>
+<div class="highlight-Python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">smallworld</span>
+
+<span class="c1"># Set up logging and hinting</span>
+<span class="n">smallworld</span><span class="o">.</span><span class="n">logging</span><span class="o">.</span><span class="n">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+
+<span class="c1"># Define the platform</span>
+<span class="n">platform</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Platform</span><span class="p">(</span>
+    <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Architecture</span><span class="o">.</span><span class="n">X86_64</span><span class="p">,</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">platforms</span><span class="o">.</span><span class="n">Byteorder</span><span class="o">.</span><span class="n">LITTLE</span>
+<span class="p">)</span>
+
+<span class="c1"># Create a machine</span>
+<span class="n">machine</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">Machine</span><span class="p">()</span>
+
+<span class="c1"># Create a CPU</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">cpus</span><span class="o">.</span><span class="n">CPU</span><span class="o">.</span><span class="n">for_platform</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">cpu</span><span class="p">)</span>
+
+<span class="c1"># Load and add code into the state</span>
+<span class="n">code</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">code</span><span class="o">.</span><span class="n">Executable</span><span class="o">.</span><span class="n">from_filepath</span><span class="p">(</span>
+    <span class="vm">__file__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.py&quot;</span><span class="p">,</span> <span class="s2">&quot;.bin&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.angr&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.panda&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+    <span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;.pcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+    <span class="n">address</span><span class="o">=</span><span class="mh">0x1000</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">code</span><span class="p">)</span>
+
+<span class="c1"># Set the instruction pointer to the code entrypoint</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">code</span><span class="o">.</span><span class="n">address</span><span class="p">)</span>
+
+<span class="c1"># Initialize argument registers</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rdi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+<span class="n">cpu</span><span class="o">.</span><span class="n">rsi</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">2</span><span class="p">]))</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">HDivModel</span><span class="p">(</span><span class="n">smallworld</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">models</span><span class="o">.</span><span class="n">mmio</span><span class="o">.</span><span class="n">MemoryMappedModel</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">nbytes</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">4</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span> <span class="o">=</span> <span class="n">nbytes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num_addr</span> <span class="o">=</span> <span class="n">address</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">2</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">3</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">end_addr</span> <span class="o">=</span> <span class="n">address</span> <span class="o">+</span> <span class="n">nbytes</span> <span class="o">*</span> <span class="mi">4</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">quotient</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="o">=</span> <span class="mi">0</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_read</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">emu</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">,</span> <span class="n">addr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">bytes</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">quotient</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">end_addr</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">rem_addr</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AnalysisError</span><span class="p">(</span>
+                <span class="s2">&quot;Unexpected read from MMIO register {hex(addr)}&quot;</span>
+            <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">on_write</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">emu</span><span class="p">:</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">Emulator</span><span class="p">,</span> <span class="n">addr</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">bytes</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_addr</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+            <span class="n">num_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">numerator</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">))</span>
+            <span class="n">num_bytes</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">num_bytes</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">addr</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span> <span class="ow">and</span> <span class="n">addr</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">quo_addr</span><span class="p">:</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">addr</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">den_addr</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">size</span>
+            <span class="n">den_bytes</span> <span class="o">=</span> <span class="nb">bytearray</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">denominator</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">reg_size</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">))</span>
+            <span class="n">den_bytes</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">den_bytes</span><span class="p">,</span> <span class="s2">&quot;little&quot;</span><span class="p">)</span>
+
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># TODO: I have no idea how the real thing handles DIV0</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">quotient</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">numerator</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">denominator</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">exceptions</span><span class="o">.</span><span class="n">AnalysisError</span><span class="p">(</span>
+                <span class="s2">&quot;Unexpected write to MMIO register {hex(addr)}&quot;</span>
+            <span class="p">)</span>
+
+
+<span class="n">hdiv</span> <span class="o">=</span> <span class="n">HDivModel</span><span class="p">(</span><span class="mh">0x50014000</span><span class="p">,</span> <span class="mi">8</span><span class="p">)</span>
+<span class="n">machine</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">hdiv</span><span class="p">)</span>
+
+<span class="c1"># Emulate</span>
+<span class="n">emulator</span> <span class="o">=</span> <span class="n">smallworld</span><span class="o">.</span><span class="n">emulators</span><span class="o">.</span><span class="n">UnicornEmulator</span><span class="p">(</span><span class="n">platform</span><span class="p">)</span>
+<span class="n">emulator</span><span class="o">.</span><span class="n">add_exit_point</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">rip</span><span class="o">.</span><span class="n">get</span><span class="p">()</span> <span class="o">+</span> <span class="n">code</span><span class="o">.</span><span class="n">get_capacity</span><span class="p">())</span>
+<span class="n">final_machine</span> <span class="o">=</span> <span class="n">machine</span><span class="o">.</span><span class="n">emulate</span><span class="p">(</span><span class="n">emulator</span><span class="p">)</span>
+
+<span class="c1"># read out the final state</span>
+<span class="n">cpu</span> <span class="o">=</span> <span class="n">final_machine</span><span class="o">.</span><span class="n">get_cpu</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="nb">hex</span><span class="p">(</span><span class="n">cpu</span><span class="o">.</span><span class="n">eax</span><span class="o">.</span><span class="n">get</span><span class="p">()))</span>
+</pre></div>
+</div>
+<p>If this works, we can feed it two numbers, and it should output the quotient.
+Let’s try it.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 dma.amd64.py 10 2
+[+] starting emulation at 0x1000
+[+] emulation complete
+0x5
+</pre></div>
+</div>
+<p>Ten divided by two is in fact five,
+so we have successfully harnessed <code class="docutils literal notranslate"><span class="pre">dma.amd64.bin</span></code>.</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../concepts/index.html">Concepts</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Tutorials</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../mapping-memory.html">Mapping Memory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../program-loading/index.html">Loading Code</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../local-types-and-the-heap.html">Local Types and the Heap</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Modeling and Hooking</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../fuzzing.html">Fuzzing</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Tutorials</a><ul>
+  <li><a href="index.html">Modeling and Hooking</a><ul>
+      <li>Previous: <a href="pe-relocation.html" title="previous chapter">Function Hooking with PE Imports</a></li>
+      <li>Next: <a href="../analyses/index.html" title="next chapter">Analyses</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

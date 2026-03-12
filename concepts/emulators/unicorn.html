@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Unicorn Backend &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Angr Backend" href="angr.html" />
+    <link rel="prev" title="Common Emulator Interface" href="interface.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="unicorn-backend">
+<span id="unicorn"></span><h1>Unicorn Backend<a class="headerlink" href="#unicorn-backend" title="Link to this heading">¶</a></h1>
+<p>Unicorn is a user-space concrete emulator based on QEMU.</p>
+<p>Unlike <code class="docutils literal notranslate"><span class="pre">qemu-user</span></code>, Unicorn is fully self-contained;
+it doesn’t depend on the host kernel or library environment.
+Unicorn is one of the simplest emulators to use,
+one of the fastest, and is the only emulator
+that currently supports fuzzing via AFL.</p>
+<section id="execution-control">
+<h2>Execution Control<a class="headerlink" href="#execution-control" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> supports the standard execution control functions.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Unicorn needs some extra configuration when dealing with
+platforms that include multiple ISAs.
+The only currently-supported example is arm32, which supports ARM and THUMB.</p>
+<p>The function <code class="docutils literal notranslate"><span class="pre">UnicornEmulator.set_thumb()</span></code> allows a harness to specify
+that the current machine state should be interpreted using the THUMB isa.
+The mode will be tracked internally as code executes,
+and can be referenced using <code class="docutils literal notranslate"><span class="pre">UnicornEmulator.get_thumb()</span></code>.</p>
+<p>Both of these functions will fail if the emulator
+is configured for a platform other than arm32.</p>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator.step()</span></code> may execute more than one instruction.</p>
+<p>This only happens on instructions with delay slots;
+the emulator must execute the instruction and its delay slot
+as a single step.</p>
+</div>
+</section>
+<section id="exit-points-and-bounds">
+<h2>Exit Points and Bounds<a class="headerlink" href="#exit-points-and-bounds" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> supports exit points and bounds normally.
+It will treat execution of unmapped memory as a memory error,
+although it does support unmapped exit points.</p>
+</section>
+<section id="accessing-registers">
+<h2>Accessing Registers<a class="headerlink" href="#accessing-registers" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> supports normal register access.</p>
+<p>Setting labels on registers has no effect on <code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code>,
+and the labels are not preserved after execution starts.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Unicorn supports some control registers,
+such as the x86 segmentation and parts of the MMU control registers.</p>
+<p>Configuring these in smallworld is difficult,
+since they must be configured in a specific order,
+or else produce an inconsistent state that will cause an exception.</p>
+<p>The <a class="reference internal" href="../state/index.html#state"><span class="std std-ref">Machine State</span></a> interface is not precise enough to perform this configuration,
+since it doesn’t guarantee the order in which registers are applied.</p>
+</div>
+</section>
+<section id="mapping-memory">
+<h2>Mapping Memory<a class="headerlink" href="#mapping-memory" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> enforces its memory map.
+Accesses to unmapped memory will produce an exception,
+reporting either an unmapped “read”, “write”, or “fetch” (for an unmapped program counter.)</p>
+<p>The memory map works on a page (4096 byte) resolution.</p>
+</section>
+<section id="accessing-memory">
+<h2>Accessing Memory<a class="headerlink" href="#accessing-memory" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> supports normal memory accesses.</p>
+<p>Setting labels on memory has no effect on <code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code>,
+and labels are not preserved once execution begins.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>TODO: How well-supported are ISA features that change memory layout,
+like x86 segmentation?</p>
+</div>
+</section>
+<section id="event-handlers">
+<h2>Event Handlers<a class="headerlink" href="#event-handlers" title="Link to this heading">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> supports the following event types:</p>
+<ul class="simple">
+<li><p>Instruction Hooks</p></li>
+<li><p>Function Models</p></li>
+<li><p>Memory Accesses</p></li>
+</ul>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Unicorn also has an interface for interrupt hooking,
+but it is non-functional.</p>
+</div>
+<p>These have no special behaviors.</p>
+</section>
+<section id="interacting-with-unicorn">
+<h2>Interacting with Unicorn<a class="headerlink" href="#interacting-with-unicorn" title="Link to this heading">¶</a></h2>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><strong>Understanding this section is not necessary to write a normal harness.</strong></p>
+<p>The features described here are completely abstracted
+behind the <code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> interface, and are only useful
+if you want to leverage Unicorn for analysis.</p>
+<p>This section describes how to access the relevant objects,
+and any caveats regarding their access.
+Using them for analysis is an exercise left to other tutorials.</p>
+</div>
+<p>It’s possible to access the Unicorn emulator directly
+via the property <code class="docutils literal notranslate"><span class="pre">UnicornEmulator.engine</span></code>.
+This will be fully initialized when the <code class="docutils literal notranslate"><span class="pre">UnicornEmulator</span></code> object is constructed.</p>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Emulators</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../analyses/index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Emulators</a><ul>
+      <li>Previous: <a href="interface.html" title="previous chapter">Common Emulator Interface</a></li>
+      <li>Next: <a href="angr.html" title="next chapter">Angr Backend</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

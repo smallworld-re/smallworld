@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Crash Triage Analysis &#8212; SmallWorld 2.0.2 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
+    <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
+    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="author" title="About these documents" href="../../about.html" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Tutorials" href="../../tutorial/index.html" />
+    <link rel="prev" title="Colorizer Analysis" href="colorizer.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="crash-triage-analysis">
+<span id="analyses-crash-triage"></span><h1>Crash Triage Analysis<a class="headerlink" href="#crash-triage-analysis" title="Link to this heading">¶</a></h1>
+<p>SmallWorld provides a simple analysis for diagnosing crashes in harnessed code.</p>
+<p>Concrete emulators like Unicorn are great at identifying crashes,
+but diagnosing exactly why the crash happened is a pain;
+by the time you encounter a NULL pointer,
+you’ve lost the context necessary to figure out
+how that NULL got into that operand.</p>
+<section id="taxonomy-of-crashes-in-smallworld">
+<h2>Taxonomy of Crashes in SmallWorld<a class="headerlink" href="#taxonomy-of-crashes-in-smallworld" title="Link to this heading">¶</a></h2>
+<p>Before we can diagnose a crash,
+we need to define when a crash actually happens.</p>
+<section id="not-reproducible">
+<h3>Not Reproducible<a class="headerlink" href="#not-reproducible" title="Link to this heading">¶</a></h3>
+<p>The program exited in a way this analysis considers “normal”.
+The harness provided does not cause a crash,
+at least not deterministically.</p>
+<ul class="simple">
+<li><p>Program exited normally via <code class="docutils literal notranslate"><span class="pre">exit()</span></code> or something similar</p></li>
+<li><p>Program counter hit an exit point</p></li>
+<li><p>Program tried to execute a modeled function marked as unsupported or imprecise</p></li>
+<li><p>Emulation exceeded a specified number of steps</p></li>
+</ul>
+</section>
+<section id="out-of-bounds-execution">
+<h3>Out of Bounds Execution<a class="headerlink" href="#out-of-bounds-execution" title="Link to this heading">¶</a></h3>
+<p>The program went outside of some definition of execution bounds.</p>
+<ul class="simple">
+<li><p>Program counter went outside execution bounds</p></li>
+<li><p>Program counter went outside mapped memory</p></li>
+<li><p>Program counter was determined from uninitialized data</p></li>
+</ul>
+<p>The choice to treat execution bounds and exit points separately
+differs from standard SmallWorld harness semantics.</p>
+</section>
+<section id="illegal-operation">
+<h3>Illegal Operation<a class="headerlink" href="#illegal-operation" title="Link to this heading">¶</a></h3>
+<p>The program tried to execute an instruction that’s deemed illegal by the platform</p>
+<ul class="simple">
+<li><p>Program tried to execute garbage bytes</p></li>
+<li><p>Program tried to execute a valid instruction that is always illegal, like x86’s <code class="docutils literal notranslate"><span class="pre">ud2</span></code></p></li>
+<li><p>Program tried to execute a valid instruction with malformed operands</p></li>
+<li><p>Program tried to execute a valid instruction in an invalid context</p></li>
+<li><p>Program tried to execute a valid instruction unsupported by the emulator</p></li>
+</ul>
+</section>
+<section id="memory-error">
+<h3>Memory Error<a class="headerlink" href="#memory-error" title="Link to this heading">¶</a></h3>
+<p>The program tried to perform an illegal memory access</p>
+<p>SmallWorld recognizes three kinds of memory accesses</p>
+<ul class="simple">
+<li><p>Data read</p></li>
+<li><p>Data write</p></li>
+<li><p>Instruction fetch</p></li>
+</ul>
+<p>Each of these can fail for one of the following reasons:</p>
+<ul class="simple">
+<li><p>Memory accessed was outside the memory map</p></li>
+<li><p>Memory accessed did not permit that kind of access</p></li>
+<li><p>Address accessed violated the alignment rules for the operation</p></li>
+<li><p>Address accessed was determined from uninitialized data</p></li>
+</ul>
+<p>Note that “fetch” errors overlap with out of bounds execution errors;
+exactly which kind of crash will get reported depends on the platform.
+This is further complicated by the fact that not all platforms
+have separate concepts of “read” and “fetch”,
+so interpreting a crash will require some platform-specific knowledge.</p>
+</section>
+<section id="hardware-exception">
+<h3>Hardware Exception<a class="headerlink" href="#hardware-exception" title="Link to this heading">¶</a></h3>
+<p>The program encountered a hardware exception other than
+a memory error or illegal operation.</p>
+<p>Any further distinction will depend on both the platform,
+and on the emulator implementation.</p>
+</section>
+</section>
+<section id="data-tracing-by-symbolic-execution">
+<h2>Data Tracing by Symbolic Execution<a class="headerlink" href="#data-tracing-by-symbolic-execution" title="Link to this heading">¶</a></h2>
+<p>Much of the previous taxonomy can be readily detected with concrete emulation.
+There are two big limitations:</p>
+<ol class="arabic simple">
+<li><p>Concrete emulators can’t easily distinguish uninitialized values from initialized ones.</p></li>
+<li><p>Concrete emulators can’t easily trace data back to the initial machine state from whence it’s computed.</p></li>
+</ol>
+<p>What we need is a kind of high-precision data flow analysis
+that can express values relevant to a crash in terms of initial machine state.
+It turns out SmallWorld already has one, in the form of angr.</p>
+<p>A symbolic executor represents data in bit vector logic.
+Values are fixed-width bit strings that can be concrete values,
+named variables, or arbitrarily complicated expressions combining
+values and variables.</p>
+<p>The primary reason for using this representation is to
+allow the executor to explore multiple program paths;
+if faced with a conditional branch, it can test
+whether each branch could be possible,
+then create a separate path for each possible branch,
+constraining the conditional to be true or false
+depending on which branch is being explored.</p>
+<p>A side-effect of this system is that a value computed from named variables
+will be an expression in terms of those variables.</p>
+<p>Consider the following amd64 code snippet:</p>
+<div class="highlight-nasm notranslate"><div class="highlight"><pre><span></span><span class="nf">mov</span><span class="w"> </span><span class="nb">rax</span><span class="p">,</span><span class="nb">rdi</span>
+<span class="nf">add</span><span class="w"> </span><span class="nb">rax</span><span class="p">,</span><span class="nb">rsi</span>
+</pre></div>
+</div>
+<p>If you assign <code class="docutils literal notranslate"><span class="pre">rdi</span></code> to be a 64-bit variable named <code class="docutils literal notranslate"><span class="pre">arg1</span></code>,
+and <code class="docutils literal notranslate"><span class="pre">rsi</span></code> to be a 64-bit variable named <code class="docutils literal notranslate"><span class="pre">arg2</span></code>,
+executing these two instructions will give <code class="docutils literal notranslate"><span class="pre">rax</span></code> the value <code class="docutils literal notranslate"><span class="pre">&lt;BV64</span> <span class="pre">arg1</span> <span class="pre">+</span> <span class="pre">arg2&gt;</span></code>,
+that is, a 64-bit expression representing the sum of <code class="docutils literal notranslate"><span class="pre">arg1</span></code> and <code class="docutils literal notranslate"><span class="pre">arg2</span></code>.
+Not only can you tell the origin of the data,
+you can also tell how it was used to compute the final value.</p>
+<p>Additionally, the constraint mechanism used to guide path exploration
+can be used to bind variables to specific values.
+If you bind <code class="docutils literal notranslate"><span class="pre">arg1</span></code> and <code class="docutils literal notranslate"><span class="pre">arg2</span></code> to 64-bit values representing the integer “2”,
+the expression <code class="docutils literal notranslate"><span class="pre">&lt;BV64</span> <span class="pre">arg1</span> <span class="pre">+</span> <span class="pre">arg2&gt;</span></code> will always behave as the integer “4”.</p>
+<p>Combined, this makes single-path symbolic execution an extremely powerful analysis tool.
+It allows us to add labels to the concrete parts of an initial machine state,
+and to watch how those labels propagate as the program executes.</p>
+<p>It also gives us a very clear indication of when a program is using uninitialized machine state.
+Uninitialized registers and memory regions are initialized with default variables by angr.
+These can be used by a post-mortem analysis to identify values computed from uninitialized data,
+plus SmallWorld’s angr backend can be configured to halt if it tries
+to jump to an unconstrained program counter,
+dereferences an unconstrained memory address,
+or encounters a conditional branch
+where the guard expression depends on uninitialized data.</p>
+</section>
+<section id="diagnosing-crashes">
+<h2>Diagnosing Crashes<a class="headerlink" href="#diagnosing-crashes" title="Link to this heading">¶</a></h2>
+<p>The key limitation with angr is that it’s not really great at detecting many kinds of crashes.
+For one, it just doesn’t model as much of the hardware as Unicorn or Panda.
+For two, several features that facilitate exploring under-constrained program paths
+make it difficult to identify certain kinds of errors.</p>
+<p>Thus, SmallWorld’s crash triage analysis uses both Unicorn and angr
+in tandem to diagnose crashes:</p>
+<ol class="arabic simple">
+<li><p>Label all machine state that was not already labeled by the harness author.
+Assign default labels to registers and memory based on their names/addresses.</p></li>
+<li><p>Run the harness through Unicorn to see if it produces a crash.
+Remember the exection trace, or sequence of instructions taken by Unicorn.
+Also remember any details from the crash, such as offending operands for memory errors.</p></li>
+<li><p>If a crash actually happened, re-run the harness through angr up to the point before the failing instruction.</p></li>
+<li><p>If angr exited early or did not follow the trace, report that finding.</p></li>
+<li><p>If angr reaches the crashing instruction, perform a crash-specific analysis to try and diagnose.</p></li>
+</ol>
+<p>This process will generate a single hint that’s a subclass of <code class="docutils literal notranslate"><span class="pre">TriageHint</span></code>.
+The exact type of the hint matches the failure case detected by Unicorn.</p>
+<p>Each hint will include a <code class="docutils literal notranslate"><span class="pre">Diagnosis</span></code> object,
+which will either be a <code class="docutils literal notranslate"><span class="pre">DiagnosisEarly</span></code> object detailing
+why angr didn’t successfully reproduce the trace from Unicorn,
+or a crash-specific diagnosis.</p>
+<section id="early-termination">
+<h3>Early Termination<a class="headerlink" href="#early-termination" title="Link to this heading">¶</a></h3>
+<p>It’s very possible that angr will not duplicate the same execution trace as Unicorn.</p>
+<ul class="simple">
+<li><p>The program counter at a particular step was different between Unicorn and angr</p></li>
+<li><p>The prorgam encountered an instruction angr couldn’t emulate</p></li>
+<li><p>The program encountered an unconstrained conditional branch</p></li>
+<li><p>The program tried to dereference an unconstrained address</p></li>
+</ul>
+<p>Early crashes due to illegal instructions are expected.
+angr’s symbolic executor is based on either Vex (Valgrind’s IR),
+or Pcode (Ghidra’s low-level IR).
+Both are very aggressively user-space focused,
+and will not support the same set of operations as Unicorn’s QEMU backend.</p>
+<p>Unconstrained dereferences and conditional branches are the most interesting;
+they indicate that the program path to the crash
+was only reached thanks to uninitialized machine state,
+almost certainly meaning the harness was incomplete.</p>
+</section>
+<section id="diagnosing-out-of-bounds">
+<h3>Diagnosing Out of Bounds<a class="headerlink" href="#diagnosing-out-of-bounds" title="Link to this heading">¶</a></h3>
+<p>All forms of out-of-bounds execution can be detected
+by examining the program counter of the state reached
+after replaying the trace through angr.</p>
+<p>First, test if there is a single possible evaluation
+for the program counter.  If not, it depends on uninitialized data,
+which is almost certainly why we saw out-of-bounds execution in Unicorn.
+See “Diagnosing Unconstrained Expressions” below for more details.</p>
+<p>If it does evaluate to a single concrete value,
+test it against the program bounds and memory map.
+If it’s outside some notion of execution bounds,
+then we can confirm the report we got from Unicorn.</p>
+<p>Confirmed out-of-bounds execution hints will include a <code class="docutils literal notranslate"><span class="pre">DiagnosisOOBConfirmed</span></code>
+object, containing a <code class="docutils literal notranslate"><span class="pre">Halt</span></code> object describing why emulation halted.</p>
+<p>If it is concrete and is in bounds, something odd is happening.
+Report that we’re unable to confirm the failure
+by including a <code class="docutils literal notranslate"><span class="pre">DiagnosisOOBUnconfirmed</span></code> object in the hint.</p>
+</section>
+<section id="diagnosing-illegal-instructions">
+<h3>Diagnosing Illegal Instructions<a class="headerlink" href="#diagnosing-illegal-instructions" title="Link to this heading">¶</a></h3>
+<p>Diagnosing illegal instructions is tricky,
+since we’re dealing with three separate definitions of what makes
+an instruction legal or illegal:</p>
+<ul class="simple">
+<li><p>Unicorn’s execution engine</p></li>
+<li><p>angr’s program lifter (Vex or Pcode)</p></li>
+<li><p>Whatever disassembler is exposed by angr</p></li>
+</ul>
+<p>None of these three definitions are perfectly accurate to real hardware,
+so we need to make some best-guess approximations.</p>
+<p>These details are captured in subclasses of <code class="docutils literal notranslate"><span class="pre">IllegalInstr</span></code>,
+which is used by both <code class="docutils literal notranslate"><span class="pre">DiagnosisIllegal</span></code>
+when Unicorn detects an illegal instruction,
+and <code class="docutils literal notranslate"><span class="pre">DiagnosisEarlyIllegal</span></code> when angr terminates early
+due to an illegal instruction.</p>
+<p>The first check is whether the instruction is decodable.
+For this, the analysis uses the disassembler.
+If it can’t disassemble the instruction at all,
+then we assume this is gibberish,
+and report <code class="docutils literal notranslate"><span class="pre">IllegalInstrNoDecode</span></code>.</p>
+<p>The second check is whether angr can lift
+the instruction into something sensical.
+Both emulators indicate a decoding failure
+using the control flow type <code class="docutils literal notranslate"><span class="pre">Ijk_NoDecode</span></code>.
+If we see an <code class="docutils literal notranslate"><span class="pre">IjkNoDecode</span></code> edge at the end of the lifted IR,
+we know that angr considers the instruction illegal,
+and report <code class="docutils literal notranslate"><span class="pre">IllegalInstrConfirmed</span></code>.
+Otherwise, we report <code class="docutils literal notranslate"><span class="pre">IllegalInstrUnconfirmed</span></code>.</p>
+<p>Using the lifter isn’t precise, since Vex isn’t always consistent
+in labeling illegal instructions with <code class="docutils literal notranslate"><span class="pre">Ijk_NoDecode</span></code>.</p>
+</section>
+<section id="diagnosing-memory-errors">
+<h3>Diagnosing Memory Errors<a class="headerlink" href="#diagnosing-memory-errors" title="Link to this heading">¶</a></h3>
+<p>Diagnosing memory failures precisely parallels diagnosing an out-of-bounds execution.
+Instead of examining the program counter at the state,
+we look at the invalid operands reported by Unicorn’s error handler.</p>
+<p>We assume that each of them might evaluate to a memory address,
+and check for the following conditions:</p>
+<ul class="simple">
+<li><p>The operand is constrained to a single value, and falls within the memory map</p></li>
+<li><p>The operand is constrained to a single value, and falls outside the memory map</p></li>
+<li><p>The operand evaluates to more than one value, and is unconstrained</p></li>
+<li><p>The operand evaluates to no values, and is unsatisfiable given the current path constraints</p></li>
+</ul>
+<p>These are collected into a <code class="docutils literal notranslate"><span class="pre">DiagnosisMemory</span></code> object.
+Safe and unmapped operands are reported along with their expression,
+and the concrete value they represent.
+Unconstrained and unsatisfiable arguments are just reported with the details of the expression.</p>
+<p>See “Diagnosing Unconstrained Expressions” for details.</p>
+</section>
+<section id="diagnosing-unconstrained-expressions">
+<h3>Diagnosing Unconstrained Expressions<a class="headerlink" href="#diagnosing-unconstrained-expressions" title="Link to this heading">¶</a></h3>
+<p>When presented with an expression responsible for a fault, usually a memory address,
+we want to be able to tell what parts of initial machine state contributed to that value.</p>
+<p>This relies on the first step of labeling all initial machine state.
+We can recognize three kinds of labels:</p>
+<ul class="simple">
+<li><p>Semantic labels provided by the harness author</p></li>
+<li><p>Generated labels for initialized registers and memory</p></li>
+<li><p>Generated labels for uninitialized registers and memory</p></li>
+</ul>
+<p>Any value built up from initial machine state will be an expression
+in terms of these variables, allowing us to identify
+places where the original harness was either incomplete or incorrect.</p>
+<p>Harness authors can also explicitly initialize certain values as “symbolic”;
+they have a label, but no initial value.
+This will cause the analysis to report if the program tries to use that value.</p>
+<p>All of this is captured in an <code class="docutils literal notranslate"><span class="pre">Expression</span></code> object
+used by several of the hint and diagnosis classes.
+It includes the raw Claripy expression being examined,
+an analysis of the portions of the harness that contributed to it,
+and, for simpler values, the precise memory region it represents.</p>
+<p>Note one key limitation: It’s not feasible to label executable memory.
+Using data from labeled memory requires evaluating it through angr’s solver.
+This is fine when dealing with register-sized pieces of data,
+but angr’s lifter will try to concretize up to a page of memory
+when building a basic block.
+In practice, this slows execution down from about fifty instructions per second,
+to less than one instruction per second.</p>
+</section>
+<section id="diagnosing-traps">
+<h3>Diagnosing Traps<a class="headerlink" href="#diagnosing-traps" title="Link to this heading">¶</a></h3>
+<p>Diagnosing traps other than illegal instruction
+and memory failures is currently unsupported.</p>
+<p>Each platform has its own set of traps,
+and the details of when a particular instruction
+could raise a particular trap are entirely
+implementation-specific.  Consider integer divide-by-zero:</p>
+<ul class="simple">
+<li><p>amd64 and i386 raise a specific “div0” exception</p></li>
+<li><p>aarch64, armel, and armhf do not raise any exception; x divided by zero equals zero</p></li>
+<li><p>The mips variants raise a generic “trap” exception that’s indistinguishable from an illegal instruction</p></li>
+</ul>
+<p>Further more, Unicorn is incredibly inconsistent
+in how it handles and reports traps.</p>
+<p>For now, the analysis just confirms that
+it reaches the correct instruction.</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">SmallWorld</a></h1>
+
+
+
+
+
+
+
+
+
+<search id="searchbox" style="display: none" role="search">
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="Search"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script><h3>Navigation</h3>
+<p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../getting_started/index.html">Getting Started</a></li>
+<li class="toctree-l1 current"><a class="reference internal" href="../index.html">Concepts</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../platforms/index.html">Platforms</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../state/index.html">Machine State</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../emulators/index.html">Emulators</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html">Analyses</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorial/index.html">Tutorials</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../reference/index.html">Reference</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Concepts</a><ul>
+  <li><a href="index.html">Analyses</a><ul>
+      <li>Previous: <a href="colorizer.html" title="previous chapter">Colorizer Analysis</a></li>
+      <li>Next: <a href="../../tutorial/index.html" title="next chapter">Tutorials</a></li>
+  </ul></li>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2023, MIT Lincoln Laboratory.
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>
