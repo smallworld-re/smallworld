@@ -38,10 +38,9 @@ jobs:
           nix build .#rtos_demo
           cp result/zephyr.elf use_cases/rtos_demo/zephyr.elf
 
-      - name: Build docs I really hope
+      - name: Build docs
         run: |
-          # we have to enter the dev shell for sphinx-build to work?
-          nix develop -c "sphinx-build -W -b html docs build/documentation"
+          nix develop -c sphinx-build -W -b html docs build/documentation
 
       - uses: peaceiris/actions-gh-pages@v4
         with:
