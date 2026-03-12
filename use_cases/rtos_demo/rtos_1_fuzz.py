@@ -16,7 +16,6 @@ log = logging.getLogger("smallworld")
 # Machine
 machine = smallworld.state.Machine()
 
-# Code
 # Load from Binary Ninja database; platform, base address, sections,
 # symbols, and executable bounds are all derived automatically.
 code = smallworld.state.memory.code.Executable.from_bndb("./zephyr.bndb")
@@ -30,9 +29,8 @@ machine.add(cpu)
 emulator = smallworld.emulators.UnicornEmulator(code.platform)
 
 # Entry point / exit point
-# Both symbols are resolved directly from the database.
 entry_point = code.get_symbol_value("smallworld_bug")
-exit_point = 0x103DD8  # End of smallworld_bug
+exit_point = 0x103DD0  # End of smallworld_bug, found via reverse engineering
 cpu.pc.set(entry_point)
 emulator.add_exit_point(exit_point)
 
