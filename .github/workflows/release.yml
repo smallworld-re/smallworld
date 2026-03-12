@@ -72,7 +72,7 @@ jobs:
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # publish_branch: pages
+          publish_branch: github-pages
           publish_dir: build/documentation
           # destination_dir: main
           exclude_assets: .gitignore
