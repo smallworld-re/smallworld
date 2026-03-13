@@ -1,19 +1,36 @@
-"""Assumptions
+"""Simple detection of loops given traces.
 
-Listens for TraceExecution hints.
-Examines each for evidence of loops.
+Assumptions:
+
+* Listens for TraceExecution hints. 
+
+* Examines each for evidence of loops.
+
+* Loops have a head (first instruction) and are succeeded by
+  instructions (at higher pc) which have back-edges to the loops.
+  Yes, this disincludes repz and any other single-instruction loops.
+  This is a graph-based analysis
 
 A loop has a *head* (first instruction, target of back-edge).
 
-We also define, for each loop, a number of *strands*, which are
-sequences of instructions starting at loop head and ending at
-back-edge to loop head.
+For a particular iteration of a loop, we define a *strand* for that
+loop which is a sequence of instructions starting at loop head and
+ending at back-edge to loop head.
+
+For each head there is one or more strands (since there can be
+branches and loops within that loop.
 
 This analysis examines one or more TraceExecution hints, identifies
 loop head + strands in each, and collects all strands for same head.
 
 Thus, it should, given enough traces with enough coverage, fully
 characterize all loops in code.
+
+Output is zero or more LoopHint(s). Each of these contains loop head
+instruction address, plus any strands discovered for that loop.
+
+XXX Um, just realized that this analysis will likely *NOT* work quite
+right if loops are nested!  TO DO.
 
 """
 
