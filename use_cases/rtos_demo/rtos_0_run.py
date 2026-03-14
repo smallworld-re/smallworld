@@ -14,9 +14,9 @@ log = logging.getLogger("smallworld")
 # Machine
 machine = smallworld.state.Machine()
 
-# Code
-zephyr_elf = open("./zephyr.elf", "rb")
-code = smallworld.state.memory.code.Executable.from_elf(zephyr_elf, page_size=1)
+# Load from Binary Ninja database; platform, base address, sections,
+# symbols, and executable bounds are all derived automatically.
+code = smallworld.state.memory.code.Executable.from_bndb("./zephyr.bndb")
 machine.add(code)
 
 # CPU
@@ -28,7 +28,7 @@ emulator = smallworld.emulators.UnicornEmulator(code.platform)
 
 # Entry point / exit point
 entry_point = code.get_symbol_value("smallworld_bug")
-exit_point = 0x103DD8  # End of smallworld_bug, found via reverse engineering
+exit_point = 0x103DD0  # End of smallworld_bug, found via reverse engineering
 cpu.pc.set(entry_point)
 emulator.add_exit_point(exit_point)
 
@@ -62,5 +62,5 @@ for step in machine.step(emulator):
 
 # Extract changes to buffer
 buffer_memory.extract(emulator)
-output_bytes = buffer_memory.to_bytes()
+output_bytes = buffer_memory.to_bytes(byteorder=code.platform.byteorder)
 print(f"Buffer: {output_bytes!r}")
