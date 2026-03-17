@@ -31,6 +31,7 @@ class Access(CStdModel):
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
         raise NotImplementedError("access() is not implemented")
 
 
@@ -848,7 +849,7 @@ class Getlogin(ProcInfoModel):
         self.set_return_value(emulator, self.static_buffer_address)
 
 
-class Getlogin_r(ProcInfoModel):
+class GetloginR(ProcInfoModel):
     # int *getlogin_r(char *, size_t)
     argument_types = [ArgumentType.POINTER, ArgumentType.SIZE_T]
     return_type = ArgumentType.POINTER
@@ -1916,3 +1917,89 @@ class Write(FDModel):
             self.set_return_value(emulator, len(data))
         except FDIOError:
             self.set_return_value(emulator, -1)
+
+
+__all__ = [
+    "Access",
+    "Alarm",
+    "Brk",
+    "Chdir",
+    "Chroot",
+    "Chown",
+    "Close",
+    "Confstr",
+    "Crypt",
+    "Ctermid",
+    "Cuserid",
+    "Dup",
+    "Dup2",
+    "Encrypt",
+    "Execl",
+    "Execle",
+    "Execlp",
+    "Execv",
+    "Execvp",
+    "Execve",
+    "Fchown",
+    "Fchdir",
+    "Fdatasync",
+    "Fork",
+    "Fpathconf",
+    "Fsync",
+    "Ftruncate",
+    "Getcwd",
+    "Getegid",
+    "Geteuid",
+    "Getgid",
+    "Getgroups",
+    "Gethostid",
+    "Getlogin",
+    "GetloginR",
+    "Getopt",
+    "Getpgid",
+    "Getpgrp",
+    "Getpid",
+    "Getppid",
+    "Getsid",
+    "Getuid",
+    "Getwd",
+    "Isatty",
+    "Lchown",
+    "Link",
+    "Lockf",
+    "Lseek",
+    "Nice",
+    "Pathconf",
+    "Pause",
+    "Pipe",
+    "Pread",
+    "PthreadAtfork",
+    "Pwrite",
+    "Read",
+    "Readlink",
+    "Rmdir",
+    "Sbrk",
+    "Setegid",
+    "Seteuid",
+    "Setgid",
+    "Setpgid",
+    "Setpgrp",
+    "Setregid",
+    "Setreuid",
+    "Setsid",
+    "Sleep",
+    "Swab",
+    "Symlink",
+    "Sync",
+    "Sysconf",
+    "Tcgetpgrp",
+    "TCsetpgrp",
+    "Truncate",
+    "Ttyname",
+    "TtynameR",
+    "Ularm",
+    "Unlink",
+    "Usleep",
+    "Vfork",
+    "Write",
+]

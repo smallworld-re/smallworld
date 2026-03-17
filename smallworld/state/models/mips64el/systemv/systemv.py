@@ -2,6 +2,14 @@ import struct
 
 from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdCallingContext, CStdModel
+from ...posix.filedesc import POSIXFileDescriptorManager
+
+
+class FileDescriptorManager(POSIXFileDescriptorManager):
+    platform = platforms.Platform(
+        platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
+    )
+    abi = platforms.ABI.SYSTEMV
 
 
 class MIPS64ELSysVCallingContext(CStdCallingContext):

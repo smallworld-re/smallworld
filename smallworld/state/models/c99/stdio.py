@@ -231,9 +231,10 @@ class Fgetc(StdioModel):
 
         try:
             data = file.read(1)
-        except Exception as e:
+        except FDIOError:
             logger.exception(f"Failed reading from filestar {filestar:x}")
-            raise e
+            self.set_return_value(emulator, -1)
+            return
 
         self.set_return_value(emulator, data[0])
 
@@ -292,20 +293,15 @@ class Fopen(StdioModel):
         filepath = bytes1.decode("utf-8")
         filemode = bytes2.decode("utf-8")
 
-        # FIXME: Not all files are seekable.
-        # For now, assume this one is.
-        seekable = True
-
         try:
             readable, writable, create, truncate, append = self._parse_mode(filemode)
             filestar = self._fdmgr.fopen(
                 filepath,
-                readable=readable,
-                writable=writable,
-                create=create,
-                truncate=truncate,
-                append=append,
-                seekable=seekable,
+                readable,
+                writable,
+                create,
+                truncate,
+                append,
             )
         except FDIOError:
             logger.exception(f"Failed opening {filepath} for {filemode}")
@@ -482,7 +478,7 @@ class Fread(StdioModel):
         assert isinstance(filestar, int)
 
         try:
-            file = self._fdmgr.get(filestar)
+            file = self._fdmgr.get_filestar(filestar)
         except FDIOError:
             logger.exception(f"Failed looking up filestar {filestar:x}")
             self.set_return_value(emulator, -1)
@@ -492,7 +488,8 @@ class Fread(StdioModel):
         for i in range(0, amt):
             data = file.read(size)
             if len(data) != size:
-                file.cursor -= len(data)
+                if file.seekable():
+                    file.seek(-len(data), 1)
                 break
 
             emulator.write_memory(dst, data)
@@ -584,7 +581,10 @@ class Ftell(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
-        self.set_return_value(emulator, file.cursor)
+        if not file.seekable():
+            self.set_return_value(emulator, -1)
+        else:
+            self.set_return_value(emulator, file.tell())
 
 
 class Fgetpos(StdioModel):
@@ -618,10 +618,17 @@ class Fgetpos(StdioModel):
         #
         # If you read from inside this, I grump at you.
 
+        try:
+            raw = file.tell()
+        except FDIOError:
+            # File is not seekable
+            self.set_return_value(emulator, -1)
+            return
+
         if self.platform.byteorder == Byteorder.LITTLE:
-            data = file.cursor.to_bytes(8, "little")
+            data = raw.to_bytes(8, "little")
         elif self.platform.byteorder == Byteorder.BIG:
-            data = file.cursor.to_bytes(8, "big")
+            data = raw.to_bytes(8, "big")
         else:
             raise exceptions.ConfigurationError(
                 f"Can't encode int for byteorder {self.platform.byteorder}"
@@ -672,9 +679,11 @@ class Fsetpos(StdioModel):
             raise exceptions.ConfigurationError(
                 f"Can't encode int for byteorder {self.platform.byteorder}"
             )
-
-        file.seek(pos, 0)
-        self.set_return_value(emulator, 0)
+        if not file.seekable():
+            self.set_return_value(emulator, -1)
+        else:
+            file.seek(pos, 0)
+            self.set_return_value(emulator, 0)
 
 
 class Fwrite(StdioModel):
@@ -761,15 +770,14 @@ class Getchar(StdioModel):
 
         # Use stdin
         # TODO: If someone changes the struct pointed to by stdin, we're in trouble.
-        fd = 0
 
         try:
-            file = self._fdmgr.get_fd(fd)
+            file = self._fdmgr.get_filestar(self._fdmgr.stdin_filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
 
-        data = file.read(1, ungetc=True)
+        data = file.read(1)
 
         self.set_return_value(emulator, data[0])
 
@@ -788,9 +796,11 @@ class Gets(StdioModel):
 
         assert isinstance(dst, int)
 
+        # Use stdin
+        # TODO: If anyone changes the filestar in stdin, we're screwed
+
         try:
-            fd = 0
-            file = self._fdmgr.get_fd(fd)
+            file = self._fdmgr.get_filestar(self._fdmgr.stdin_filestar)
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
@@ -822,8 +832,7 @@ class Printf(StdioModel):
         output_bytes = output.encode("utf-8")
 
         try:
-            fd = 1
-            file = self._fdmgr.get_fd(fd)
+            file = self._fdmgr.get_filestar(self._fdmgr.stdout_filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -856,10 +865,9 @@ class Putchar(StdioModel):
 
         # Use stdout
         # TODO: If someone changes the FILE * in stdout, we're in trouble.
-        fd = 1
 
         try:
-            file = self._fdmgr.get_fd(fd)
+            file = self._fdmgr.get_filestar(self._fdmgr.stdout_filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -889,10 +897,9 @@ class Puts(StdioModel):
 
         # Use stdout
         # TODO: If someone changes the FILE * in stdout, we're in trouble.
-        fd = 1
 
         try:
-            file = self._fdmgr.get_fd(fd)
+            file = self._fdmgr.get_filestar(self._fdmgr.stdout_filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -1010,7 +1017,7 @@ class Rewind(StdioModel):
         except FDIOError:
             return
 
-        file.cursor = 0
+        file.seek(0, 0)
 
 
 class Scanf(StdioModel):
@@ -1032,8 +1039,7 @@ class Scanf(StdioModel):
         fmt = fmt_bytes.decode("utf-8")
 
         try:
-            fd = 0
-            file = self._fdmgr.get_fd(fd)
+            file = self._fdmgr.get_filestar(self._fdmgr.stdin_filestar)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -1152,20 +1158,18 @@ class Tmpfile(StdioModel):
         name = self._generate_tmpnam()
 
         try:
-            fd = self._fdmgr.open(
+            filestar = self._fdmgr.fopen(
                 name,
-                readable=True,
-                writable=True,
-                create=True,
-                truncate=False,
-                append=False,
-                seekable=True,
+                True,
+                True,
+                True,
+                False,
+                False,
             )
         except FDIOError:
             self.set_return_value(emulator, 0)
             return
 
-        filestar = self._fdmgr.fd_to_filestar(fd)
         self.set_return_value(emulator, filestar)
 
 

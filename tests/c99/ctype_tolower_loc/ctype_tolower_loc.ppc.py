@@ -44,7 +44,7 @@ sp = stack.get_pointer()
 cpu.sp.set(sp)
 
 # Configure the heap
-heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
+heap = smallworld.state.memory.heap.BumpAllocator(0x80000, 0x1000)
 machine.add(heap)
 
 exit_model = smallworld.state.models.Model.lookup(

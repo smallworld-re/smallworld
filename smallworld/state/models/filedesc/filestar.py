@@ -1,4 +1,4 @@
-from .exceptions import FDIOBadRead
+from .exceptions import FDIOUnsupported
 from .io import BasicIO
 
 
@@ -69,7 +69,7 @@ class FileStar(BasicIO):
 
     def ungetc(self, c: int) -> None:
         if not self._readable:
-            raise FDIOBadRead(f"File {self.name} must be readable to use ungetc")
+            raise FDIOUnsupported(f"File {self.name} must be readable to use ungetc")
         self._ungetc_buffer = bytes([c]) + self._ungetc_buffer
 
 

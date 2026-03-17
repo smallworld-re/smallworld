@@ -19,44 +19,26 @@ class FDIOOutOfFDs(FDIOError):
     pass
 
 
+class FDIOUnsupported(FDIOError):
+    """Program tried to do something with an FD that it doesn't support"""
+
+    pass
+
+
 class FDIOInvalid(FDIOError):
     """Program passed an invalid integer fd or FILE * to the FDIO model"""
 
     pass
 
 
-class FDIOAccess(FDIOError):
+class FDIOUnsuported(FDIOError):
     """Program tried a forbidden operation on a file"""
 
     pass
 
 
-class FDIOClosed(FDIOAccess):
+class FDIOClosed(FDIOError):
     """Program tried to access a closed FD"""
-
-    pass
-
-
-class FDIOBadRead(FDIOAccess):
-    """Program tried to read an unreadable file"""
-
-    pass
-
-
-class FDIOBadSeek(FDIOAccess):
-    """Program tried to seek an unseekable file"""
-
-    pass
-
-
-class FDIOBadTruncate(FDIOAccess):
-    """Program tried to truncate an untruncatable file"""
-
-    pass
-
-
-class FDIOBadWrite(FDIOAccess):
-    """Program tried to write an unwritable file"""
 
     pass
 
@@ -78,12 +60,8 @@ __all__ = [
     "FDIOOutOfFileStars",
     "FDIOOutOfFDs",
     "FDIOInvalid",
-    "FDIOAccess",
+    "FDIOUnsupported",
     "FDIOClosed",
-    "FDIOBadRead",
-    "FDIOBadSeek",
-    "FDIOBadTruncate",
-    "FDIOBadWrite",
     "FDIOFSError",
     "FDIOUnknownFile",
 ]

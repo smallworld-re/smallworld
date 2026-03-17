@@ -1,14 +1,34 @@
+import abc
 import io
 import typing
 
 from ....platforms import ABI, Platform
-from .exceptions import FDIOInvalid, FDIOOutOfFDs, FDIOOutOfFileStars, FDIOUnknownFile
+from ....utils import find_subclass
+from .exceptions import (
+    FDIOClosed,
+    FDIOInvalid,
+    FDIOOutOfFDs,
+    FDIOOutOfFileStars,
+    FDIOUnknownFile,
+)
 from .filestar import FileStar
 from .io import BasicIO, BytesIO, StderrIO, StdinIO, StdoutIO
 
 
-class FileDescriptorManager:
+class FileDescriptorManager(abc.ABC):
     """Manager for wrangling file descriptors and FILE structs"""
+
+    @property
+    @abc.abstractmethod
+    def platform(self) -> Platform:
+        """Platform this implementations supports"""
+        raise NotImplementedError("Abstract method")
+
+    @property
+    @abc.abstractmethod
+    def abi(self) -> ABI:
+        """ABI this implementation supports"""
+        raise NotImplementedError("Abstract method")
 
     _singletons: typing.Dict[
         typing.Tuple[Platform, ABI], "FileDescriptorManager"
@@ -22,10 +42,16 @@ class FileDescriptorManager:
             str, typing.Union[io.BytesIO, typing.Callable[[str, bool, bool], BasicIO]]
         ] = dict()
 
+        # Populate default stdstream file descriptors
         self._fds[0] = StdinIO("/dev/pty/0")
         self._fds[1] = StdoutIO("/dev/pty/0")
         self._fds[2] = StderrIO("/dev/pty/0")
 
+        self.stdin_filestar = 0x46492A00
+        self.stdout_filestar = 0x46492A01
+        self.stderr_filestar = 0x46492A02
+
+        # Populate default stdstream filestars
         self._filestars[0x46492A00] = FileStar(0, self._fds[0])
         self._filestars[0x46492A01] = FileStar(1, self._fds[1])
         self._filestars[0x46492A02] = FileStar(2, self._fds[2])
@@ -63,7 +89,7 @@ class FileDescriptorManager:
     def add_file(
         self,
         name: str,
-        backing: typing.Union[bytes, typing.Callable[[str, bool, bool], BasicIO]],
+        backing: typing.Union[bytes, typing.Callable[[str, bool, bool], BasicIO]] = b"",
     ):
         """Add a file to the mock file system
 
@@ -234,6 +260,10 @@ class FileDescriptorManager:
         """
         if fd not in self._fds:
             raise FDIOInvalid(f"Unknown fd {fd}")
+
+        if self._fds[fd].closed:
+            raise FDIOClosed(f"fd {fd} is closed")
+
         return self._fds[fd]
 
     def get_filestar(self, filestar: int) -> BasicIO:
@@ -298,8 +328,9 @@ class FileDescriptorManager:
             An instance of the manager for the platform
         """
         if (platform, abi) not in cls._singletons:
-            # TODO: Actually implement this when I have multiple implementations
-            cls._singletons[(platform, abi)] = cls()
+            cls._singletons[(platform, abi)] = find_subclass(
+                cls, lambda x: x.platform == platform and x.abi == abi
+            )
         return cls._singletons[(platform, abi)]
 
 

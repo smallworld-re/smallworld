@@ -4,13 +4,7 @@ import io
 import sys
 import typing
 
-from .exceptions import (
-    FDIOBadRead,
-    FDIOBadSeek,
-    FDIOBadTruncate,
-    FDIOBadWrite,
-    FDIOClosed,
-)
+from .exceptions import FDIOClosed, FDIOUnsupported
 
 
 class BasicIO:
@@ -51,6 +45,7 @@ class BasicIO:
         self._isatty = isatty
 
         self._closed = False
+        self._eof = False
 
     def on_read(self, n: int) -> bytes:
         """Callback for handling read operations.
@@ -64,7 +59,7 @@ class BasicIO:
         Returns:
             The bytes read from the model
         """
-        raise NotImplementedError("File {self.name} does not support reading")
+        raise FDIOUnsupported("File {self.name} does not support reading")
 
     def on_seek(self, offset: int, whence: int) -> int:
         """Callback for handling seek operations.
@@ -141,6 +136,14 @@ class BasicIO:
     def name(self) -> str:
         return self._name
 
+    @property
+    def eof(self) -> bool:
+        return self._eof
+
+    @eof.setter
+    def eof(self, val: bool) -> None:
+        self._eof = val
+
     def __enter__(self) -> typing.BinaryIO:
         raise NotImplementedError("__enter__ not supported")
 
@@ -173,9 +176,12 @@ class BasicIO:
             raise FDIOClosed(f"File {self.name} is closed")
 
         if not self._readable:
-            raise FDIOBadRead(f"File {self.name} is not readable")
+            raise FDIOUnsupported(f"File {self.name} is not readable")
 
-        return self.on_read(n)
+        data = self.on_read(n)
+        if len(data) < n:
+            self._eof = True
+        return data
 
     def readable(self) -> bool:
         if self.closed:
@@ -194,7 +200,7 @@ class BasicIO:
             raise FDIOClosed(f"File {self.name} is closed")
 
         if not self._seekable:
-            raise FDIOBadSeek(f"File {self.name} is not seekable")
+            raise FDIOUnsupported(f"File {self.name} is not seekable")
 
         return self.on_seek(offset, whence)
 
@@ -202,14 +208,14 @@ class BasicIO:
         if self.closed:
             raise FDIOClosed(f"File {self.name} is closed")
 
-        return True
+        return self._seekable
 
     def tell(self) -> int:
         if self.closed:
             raise FDIOClosed(f"File {self.name} is closed")
 
         if not self._seekable:
-            raise FDIOBadSeek(f"File {self.name} is not seekable")
+            raise FDIOUnsupported(f"File {self.name} is not seekable")
 
         return self.on_tell()
 
@@ -218,10 +224,10 @@ class BasicIO:
             raise FDIOClosed(f"File {self.name} is closed")
 
         if not self._writable:
-            raise FDIOBadWrite(f"File {self.name} must be writable to truncate")
+            raise FDIOUnsupported(f"File {self.name} must be writable to truncate")
 
         if not self._truncatable:
-            raise FDIOBadTruncate(f"File {self.name} is not truncatable")
+            raise FDIOUnsupported(f"File {self.name} is not truncatable")
 
         # Python allows you to truncate to the current cursor value
         # by specifying None as the size
@@ -241,7 +247,7 @@ class BasicIO:
             raise FDIOClosed(f"File {self.name} is closed")
 
         if not self._writable:
-            raise FDIOBadWrite(f"File {self.name} is not writable")
+            raise FDIOUnsupported(f"File {self.name} is not writable")
 
         return self.on_write(data)
 
@@ -273,7 +279,9 @@ class BytesIO(BasicIO):
 
     def on_read(self, n: int) -> bytes:
         self._parent.seek(self._cursor, 0)
-        return self._parent.read(n)
+        out = self._parent.read(n)
+        self._cursor += len(out)
+        return out
 
     def on_seek(self, offset: int, whence: int) -> int:
         if whence == 0:
@@ -298,7 +306,9 @@ class BytesIO(BasicIO):
 
     def on_write(self, data: bytes) -> int:
         self._parent.seek(self._cursor, 0)
-        return self._parent.write(data)
+        out = self._parent.write(data)
+        self._cursor += out
+        return out
 
     def dup(self) -> BasicIO:
         return BytesIO(
