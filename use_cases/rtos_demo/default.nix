@@ -28,7 +28,6 @@ stdenv.mkDerivation {
     gitMinimal
     cmake
     ninja
-    pkgs.python3Packages.jsonschema
   ];
 
   dontUseCmakeConfigure = true;
