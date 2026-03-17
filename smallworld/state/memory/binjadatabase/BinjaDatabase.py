@@ -1,3 +1,4 @@
+import logging as lg
 import typing
 
 from binaryninja import BinaryView, load
@@ -7,6 +8,8 @@ from ....platforms import Architecture, Byteorder, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
+
+logger = lg.getLogger(__name__)
 
 # Mapping from Binary Ninja architecture/platform names to internal Architecture enums.
 # Keys are substrings matched against bv.arch.name and bv.platform.name.
@@ -169,7 +172,7 @@ class BinjaDatabase(Executable):
         if self._user_base is None:
             self._file_base = bv.start
             if self._file_base == 0:
-                print("Warning: BinaryView base address is 0")
+                logger.warning("Warning: BinaryView base address is 0")
             self.address = self._file_base
         else:
             # User-supplied base overrides whatever Binary Ninja detected.

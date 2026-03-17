@@ -1,3 +1,4 @@
+import logging as lg
 import typing
 
 from binaryninja import BinaryView, SectionDescriptorList, load
@@ -7,6 +8,32 @@ from ....platforms import Architecture, Byteorder, Platform, PlatformDef
 from ....utils import RangeCollection
 from ...state import BytesValue
 from ..code import Executable
+
+logger = lg.getLogger(__name__)
+
+ARCH_MAP: typing.Dict[str, Architecture] = {
+    # PowerPC
+    "vxworks-ppc32": Architecture.POWERPC32,
+    "ppc32": Architecture.POWERPC32,
+    "vxworks-ppc64": Architecture.POWERPC64,
+    "ppc64": Architecture.POWERPC64,
+    # ARM 32-bit — Binary Ninja only reports armv7 for VXWorks; no finer
+    # distinction is available.  Defaulting to v7m (microcontroller) since
+    # VXWorks targets embedded hardware, but could be v7r (real-time)
+    "vxworks-armv7": Architecture.ARM_V7M,
+    "armv7": Architecture.ARM_V7M,
+    # MIPS — VXWorks supports both big- and little-endian MIPS32;
+    # endianness is handled separately, so both map to the same Architecture.
+    "vxworks-mipsel32": Architecture.MIPS32,
+    "mipsel32": Architecture.MIPS32,
+    "vxworks-mips32": Architecture.MIPS32,
+    "mips32": Architecture.MIPS32,
+    # x86
+    "vxworks-x86": Architecture.X86_32,
+    "x86": Architecture.X86_32,
+    "vxworks-x86-64": Architecture.X86_64,
+    "x86-64": Architecture.X86_64,
+}
 
 
 class VXWorksImage(Executable):
@@ -41,9 +68,6 @@ class VXWorksImage(Executable):
 
         # Read the entire image out of the file
         image = file.read()
-
-        # path = "/path/to/image_vx6_ppc_big_endian.bin"
-        # with load(path, update_analysis=False) as bv:
 
         # Create BinaryView from in-memory content
         bv = load(image, update_analysis=False)
@@ -94,7 +118,7 @@ class VXWorksImage(Executable):
             # Binja doesn't tell you which subversion of ARM, only has 7,
             # So we're guessing because it's VXWorks
             # Doesn't seem to distinguish well between subtypes
-            # We're guessing it's 'R' for RTOS, but could me M for Embedded
+            # We're guessing it's M for Embedded, but could be R for RTOS
             return Platform(Architecture.ARM_V7M, endianness)
         elif bv.platform.name in (
             "vxworks-mipsel32",
@@ -114,20 +138,14 @@ class VXWorksImage(Executable):
         if self._user_base is None:
             self._file_base = bv.start
             if self._file_base == 0:
-                print("File entry_point set to 0")
+                logger.warning("File entry_point set to 0")
             self.address = self._file_base
         else:
             # User base can override binja base detection
             self.address = self._user_base
 
-    def _rebase_file(self, val: int):
-        # Rebase an offset from file-relative to image-relative
-        res = val + self.address
-        return res
-
     def _map_sections(self, bv: BinaryView, image: bytes):
         # SDL will auto-shift parameters by the base address passed
-        # sdl = SectionDescriptorList(0)
         sdl = SectionDescriptorList(bv.start)
         for sec in bv.sections.values():
             sdl.append(
@@ -163,23 +181,24 @@ class VXWorksImage(Executable):
 
             sect_value = BytesValue(sect_data, None)
 
-            # if section['name'] == '.text':
-            if True:
-                print(
-                    f"\x1b[34m{section['name']} section ({hex(sect_addr)}-{hex(sect_addr + sect_size)}) first 8 bytes : {sect_data[:4].hex().lower()} {sect_data[4:8].hex().lower()}\x1b[0m"
-                )
+            logger.debug(
+                f"\x1b[34m{section['name']} section ({hex(sect_addr)}-{hex(sect_addr + sect_size)}) first 8 bytes : {sect_data[:4].hex().lower()} {sect_data[4:8].hex().lower()}\x1b[0m"
+            )
 
-            # if sect_addr is less than base offset would be NICE to use, but may not work reliably
-            # if one of the sect addresses should be less than image base, can interpret as offset then
-            # Why are you the way that you are? Why does this make sense?
-            # this is correct because SMWO later self adjusts for base address
+            # This seems unintuitive, but SMWO later self adjusts for base address
             self[sect_addr - self.address] = sect_value
-            # self[sect_addr] = sect_value  # this is incorrect
 
     def _map_bounds(self, bv: BinaryView):
         for seg in bv.segments:
             if seg.executable:
                 self.bounds.add_range((seg.start, seg.end))
+
+    @staticmethod
+    def _get_func_end(bv: BinaryView, address: int) -> typing.Optional[int]:
+        func = bv.get_function_at(address)
+        if func is None:
+            return None
+        return func.highest_address + 1
 
     def _extract_symbols(self, bv: BinaryView) -> None:
         for sym_list in bv.symbols.values():
@@ -191,6 +210,7 @@ class VXWorksImage(Executable):
                         "short_name": sym.short_name,
                         "raw_name": sym.raw_name,
                         "address": sym.address,
+                        "func_end": self._get_func_end(bv, sym.address),
                         "type": str(sym.type),  # SymbolType Enum
                         "binding": str(sym.binding),  # SymbolBinding Enum
                         "namespace": sym.namespace.name if sym.namespace else None,
@@ -200,3 +220,28 @@ class VXWorksImage(Executable):
                         "raw_repr": repr(sym),
                     }
                 )
+
+    def get_symbol_value(self, name: str) -> int:
+        """Return the address of the first symbol matching *name*.
+
+        Checks ``name``, ``full_name``, and ``short_name`` fields so that
+        both mangled and demangled lookups work.
+
+        Raises:
+            KeyError: if no symbol with that name exists in the database.
+        """
+        for sym in self._symbols:
+            if name in (sym["name"], sym["full_name"], sym["short_name"]):
+                return sym["address"]
+        raise KeyError(f"Symbol {name!r} not found in database")
+
+    def get_function_end(self, name: str) -> int:
+        for sym in self._symbols:
+            if name in (sym["name"], sym["full_name"], sym["short_name"]):
+                end = sym.get("func_end")
+                if end is None:
+                    raise KeyError(
+                        f"Symbol {name!r} is not a function or has no known end"
+                    )
+                return end
+        raise KeyError(f"Symbol {name!r} not found in database")
