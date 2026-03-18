@@ -6,7 +6,7 @@
 
 Easier harnessing of code for analysis!
 
-![SmallWorld Logo](/docs/SmallWorld.svg)
+<img src="/docs/SmallWorld.svg" alt="SmallWorld Logo" width="75%">
 
 ## Quick Start
 Our documentation is currently being updated. To get up and running quickly try the following:
