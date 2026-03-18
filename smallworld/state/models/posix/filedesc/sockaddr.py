@@ -77,6 +77,9 @@ class SockaddrUn(Sockaddr):
     def __hash__(self):
         return hash(self.name)
 
+    def __repr__(self):
+        return f"AF_UNIX:{self.name}"
+
 
 class SockaddrIn(Sockaddr):
     family = 2
@@ -107,15 +110,22 @@ class SockaddrIn(Sockaddr):
 
         return out
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return (
             isinstance(other, SockaddrIn)
             and self.addr == other.addr
             and self.port == other.port
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.addr, self.port))
+
+    def __repr__(self) -> str:
+        a = (self.addr >> 24) & 0xFF
+        b = (self.addr >> 16) & 0xFF
+        c = (self.addr >> 8) & 0xFF
+        d = (self.addr) & 0xFF
+        return f"AF_INET:{a}.{b}.{c}.{d}:{self.port}"
 
 
 class SockaddrIn6(Sockaddr):
@@ -159,7 +169,7 @@ class SockaddrIn6(Sockaddr):
         out += self.scopeid.to_bytes(4, "big")
         return out
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return (
             isinstance(other, SockaddrIn6)
             and self.addr == other.addr
@@ -168,8 +178,13 @@ class SockaddrIn6(Sockaddr):
             and self.scopeid == other.scopeid
         )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash((self.addr, self.port, self.flowinfo, self.scopeid))
+
+    def __repr__(self) -> str:
+        fields = [self.addr[2 * i] << 8 + self.addr[2 * i + 1] for i in range(0, 8)]
+        field_str = ":".join(map(lambda x: f"{x:04x}", fields))
+        return f"AF_INET6:{field_str}:{self.port}"
 
 
 __all__ = ["Sockaddr", "SockaddrUn", "SockaddrIn", "SockaddrIn6"]

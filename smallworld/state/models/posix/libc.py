@@ -3,7 +3,7 @@ import typing
 
 from ..c99.libc import C99Libc
 from ..model import Model
-from . import libgen, signal, sys, unistd
+from . import arpa, libgen, signal, sys, unistd
 
 
 class POSIXLibc(C99Libc):
@@ -11,7 +11,7 @@ class POSIXLibc(C99Libc):
     def function_names(self) -> typing.List[str]:
         out = super().function_names
 
-        for module in (libgen, signal, sys, unistd):
+        for module in (arpa, libgen, signal, sys, unistd):
             for clsname, cls in inspect.getmembers(
                 module,
                 lambda x: inspect.isclass(x)
@@ -19,6 +19,8 @@ class POSIXLibc(C99Libc):
                 and isinstance(x.name, str),
             ):
                 out.append(cls.name)
+
+        print(out)
         return out
 
 

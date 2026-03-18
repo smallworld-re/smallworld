@@ -265,15 +265,16 @@ class BytesIO(BasicIO):
     def __init__(
         self,
         name: str,
-        data: io.BytesIO,
         readable: bool,
         writable: bool,
         seekable: bool,
         truncatable: bool,
         isatty: bool,
+        data: typing.Optional[io.BytesIO] = None,
         cursor: int = 0,
     ):
         super().__init__(name, readable, writable, seekable, truncatable, isatty)
+        assert data is not None
         self._parent = data
         self._cursor = cursor
 
@@ -313,12 +314,12 @@ class BytesIO(BasicIO):
     def dup(self) -> BasicIO:
         return BytesIO(
             self._name,
-            self._parent,
             self._readable,
             self._writable,
             self._seekable,
             self._truncatable,
             self._isatty,
+            self._parent,
             self._cursor,
         )
 

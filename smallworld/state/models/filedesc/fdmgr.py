@@ -1,5 +1,6 @@
 import abc
 import io
+import logging
 import typing
 
 from ....platforms import ABI, Platform
@@ -13,6 +14,8 @@ from .exceptions import (
 )
 from .filestar import FileStar
 from .io import BasicIO, BytesIO, StderrIO, StdinIO, StdoutIO
+
+logger = logging.getLogger(__name__)
 
 
 class FileDescriptorManager(abc.ABC):
@@ -149,12 +152,12 @@ class FileDescriptorManager(abc.ABC):
             # Assume truncatable and seekable, and not a TTY
             stream = BytesIO(
                 name,
-                backing,
                 readable,
                 writable,
                 True,
                 True,
                 False,
+                data=backing,
             )
         else:
             # File specified as a constructor.
@@ -328,6 +331,7 @@ class FileDescriptorManager(abc.ABC):
             An instance of the manager for the platform
         """
         if (platform, abi) not in cls._singletons:
+            logger.debug(f"New fdmgr for {platform}, {abi}")
             cls._singletons[(platform, abi)] = find_subclass(
                 cls, lambda x: x.platform == platform and x.abi == abi
             )

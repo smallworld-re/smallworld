@@ -4,7 +4,7 @@ import sys
 import smallworld
 
 # Set up logging and hinting
-smallworld.logging.setup_logging(level=logging.INFO)
+smallworld.logging.setup_logging(level=logging.DEBUG)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
@@ -29,7 +29,7 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 machine.add(code)
 
 # Set the instruction pointer to the code entrypoint
-cpu.pc.set(code.address)
+cpu.pc.set(code.address + 0x80000000)
 
 # Initialize argument registers
 cpu.a0.set(int(sys.argv[1]))

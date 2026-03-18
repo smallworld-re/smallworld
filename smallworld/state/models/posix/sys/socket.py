@@ -21,7 +21,7 @@ class FDModel(CStdModel):
 
 
 class Accept(FDModel):
-    name = "access"
+    name = "accept"
 
     # int accept(int, struct sockaddr *, socklen_ *)
     argument_types = [ArgumentType.INT, ArgumentType.POINTER, ArgumentType.POINTER]

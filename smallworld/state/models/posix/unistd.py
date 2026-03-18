@@ -181,7 +181,8 @@ class Close(FDModel):
         assert isinstance(fd, int)
 
         try:
-            self._fdmgr.close(fd)
+            file = self._fdmgr.get_fd(fd)
+            file.close()
             self.set_return_value(emulator, 0)
         except FDIOError:
             self.set_return_value(emulator, -1)
@@ -1313,7 +1314,7 @@ class Read(FDModel):
         assert isinstance(size, int)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
             data = file.read(size)
             emulator.write_memory(buf, data)
             self.set_return_value(emulator, len(data))

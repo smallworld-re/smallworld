@@ -19,9 +19,11 @@ class Htons(CStdModel):
 
         if self.platform.byteorder == Byteorder.LITTLE:
             # Convert little to big endian
-            arg = ((arg & 0xFF) << 8) | ((arg & 0xFF00) >> 8)
+            out = ((arg & 0xFF) << 8) | ((arg & 0xFF00) >> 8)
+        else:
+            out = arg
 
-        self.set_return_value(emulator, arg)
+        self.set_return_value(emulator, out)
 
 
 class Ntohs(Htons):
@@ -30,7 +32,7 @@ class Ntohs(Htons):
 
 
 class Htonl(CStdModel):
-    name = "htons"
+    name = "htonl"
 
     # uint32_t htons(uint32_t)
     argument_types = [ArgumentType.UINT]

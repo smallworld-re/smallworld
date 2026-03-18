@@ -29,7 +29,7 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 machine.add(code)
 
 # Set the instruction pointer to the code entrypoint
-cpu.pc.set(code.address)
+cpu.pc.set(code.address + 0x80000000)
 
 # Initialize argument registers
 cpu.a0.set(int(sys.argv[1]))
@@ -38,6 +38,7 @@ cpu.a0.set(int(sys.argv[1]))
 emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
+print([(hex(a), hex(b)) for a, b in emulator.get_memory_map()])
 
 # read out the final state
 cpu = final_machine.get_cpu()

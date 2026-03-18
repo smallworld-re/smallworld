@@ -1,7 +1,7 @@
 import logging
 import typing
 
-from ...filedesc import BasicIO, FDIOClosed, FDIOUnsupported
+from ...filedesc import BasicIO, BytesIO, FDIOClosed, FDIOUnsupported
 from .sockaddr import Sockaddr
 
 logger = logging.getLogger(__name__)
@@ -11,9 +11,15 @@ class SocketIO(BasicIO):
     """Model of a socket"""
 
     def __init__(
-        self, name: str, domain: int, type: int, protocol: int, interactive: bool
+        self,
+        name: str,
+        domain: int,
+        type: int,
+        protocol: int,
+        interactive: bool,
+        **kwargs,
     ):
-        super().__init__(name, interactive, interactive, False, False, False)
+        super().__init__(name, interactive, interactive, False, False, False, **kwargs)
 
         self.domain = domain
         self.type = type
@@ -46,6 +52,10 @@ class SocketIO(BasicIO):
             raise FDIOUnsupported("Socket does not support sending")
 
         return self.on_send(data, peername)
+
+
+class BytesSocketIO(SocketIO, BytesIO):
+    pass
 
 
 __all__ = ["SocketIO"]

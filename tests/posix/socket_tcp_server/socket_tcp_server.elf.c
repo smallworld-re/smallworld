@@ -2,10 +2,12 @@
 #include <netinet/in.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 int main() {
+    int                *good        = (int *)(size_t)0xdead0;
     int                 fd          = -1;
     int                 connfd      = -1;
     struct sockaddr_in  addr        = { 0 };
@@ -42,6 +44,7 @@ int main() {
     n = read(connfd, buf, sizeof(buf));
     if(n < 0) {
         puts("Failed reading from connection");
+        close(connfd);
         close(fd);
         exit(1);
     }
@@ -49,9 +52,16 @@ int main() {
     buf[n] = '\0';
 
     printf("Got %s from connection\n", buf);
+    if (strcmp(buf, "Hello, world!")) {
+        puts("FAILURE");
+        close(connfd);
+        close(fd);
+        exit(1);
+    }
+    puts("SUCCESS!");
 
     close(connfd);
     close(fd);
 
-    return 0;
+    return *good;
 }

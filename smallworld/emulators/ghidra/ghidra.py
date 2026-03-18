@@ -50,17 +50,17 @@ class GhidraEmulator(AbstractGhidraEmulator):
         self._memory_map = utils.RangeCollection()
 
         # Instruction hooking callbacks
-        self._instructions_hook: typing.Optional[typing.Callable[[Emulator], None]] = (
-            None
-        )
-        self._instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
-            dict()
-        )
+        self._instructions_hook: typing.Optional[
+            typing.Callable[[Emulator], None]
+        ] = None
+        self._instruction_hooks: typing.Dict[
+            int, typing.Callable[[Emulator], None]
+        ] = dict()
 
         # Function hooking callbacks
-        self._function_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
-            dict()
-        )
+        self._function_hooks: typing.Dict[
+            int, typing.Callable[[Emulator], None]
+        ] = dict()
 
         # Memory hooking callbacks
         self._mem_reads_hook: typing.Optional[
@@ -410,7 +410,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Step!
         pc = self.read_register_content(self.platdef.pc_register)
-        log.info(f"Stepping through {hex(pc)}")
+        log.debug(f"Stepping through {hex(pc)}")
         if not self._memory_map.contains_value(pc):
             raise exceptions.EmulationFetchUnmappedFailure(
                 "Fetched unmapped memory", pc, address=pc
