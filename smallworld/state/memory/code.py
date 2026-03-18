@@ -175,5 +175,34 @@ class Executable(memory.RawMemory):
             file, user_base=address, platform=platform, ignore_platform=ignore_platform
         )
 
+    @classmethod
+    def from_bndb(
+        cls,
+        path: str,
+        address: typing.Optional[int] = None,
+        platform: typing.Optional[Platform] = None,
+        ignore_platform: bool = False,
+    ):
+        """Load an executable from a Binary Ninja database (.bndb) or any
+        file that Binary Ninja can open.
+
+        Arguments:
+            path: Filesystem path to a ``.bndb`` file (or raw binary /
+                  ELF / PE / Mach-O / etc.).
+            address: Optional base address override.  When *None* the base
+                     recorded in the BinaryView is used.
+            platform: Optional platform; when given the detected platform
+                      is verified against it.
+            ignore_platform: Skip platform identification and verification.
+
+        Returns:
+            An Executable parsed from the given Binary Ninja database.
+        """
+        from .binjadatabase import BinjaDatabase
+
+        return BinjaDatabase(
+            path, user_base=address, platform=platform, ignore_platform=ignore_platform
+        )
+
 
 __all__ = ["Executable"]
