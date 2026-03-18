@@ -3878,6 +3878,11 @@ class POSIXDirnameTests(NoArgLibraryModelTest):
     function = "dirname"
 
 
+class POSIXSocketTCPServerTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "socket_tcp_server"
+
+
 class TraceExecutionTests(ScriptIntegrationTest):
     def test_trace_is_correct_1(self):
         stdout, stderr = self.command(
