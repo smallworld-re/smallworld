@@ -6,6 +6,8 @@
 
 Easier harnessing of code for analysis!
 
+![SmallWorld Logo](/docs/SmallWorld.svg)
+
 ## Quick Start
 Our documentation is currently being updated. To get up and running quickly try the following:
 
