@@ -1604,7 +1604,7 @@ class Swab(CStdModel):
         for i in range(0, size, 2):
             data = emulator.read_memory(src + i, 2)
             data = bytes([data[1], data[0]])
-            emulator.write_memory(dst + i, 2)
+            emulator.write_memory(dst + i, data)
 
 
 class Symlink(CStdModel):
