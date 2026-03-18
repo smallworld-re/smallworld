@@ -13,7 +13,7 @@ logger = lg.getLogger(__name__)
 
 # Mapping from Binary Ninja architecture/platform names to internal Architecture enums.
 # Keys are substrings matched against bv.arch.name and bv.platform.name.
-_ARCH_MAP: typing.Dict[str, Architecture] = {
+ARCH_MAP: typing.Dict[str, Architecture] = {
     # PowerPC
     "ppc64": Architecture.POWERPC64,
     "powerpc64": Architecture.POWERPC64,
@@ -38,6 +38,7 @@ _ARCH_MAP: typing.Dict[str, Architecture] = {
     "mips": Architecture.MIPS32,  # fallback
     # x86
     "x86_64": Architecture.X86_64,
+    "x86-64": Architecture.X86_64,
     "x86": Architecture.X86_32,
     # RISC-V
     "riscv64": Architecture.RISCV64,
@@ -56,12 +57,16 @@ class BinjaDatabase(Executable):
     """Executable loaded from an arbitrary Binary Ninja database (.bndb) or
     any file that Binary Ninja can open via ``binaryninja.load()``.
 
+    Platform, base address, section layout, executable bounds, and symbol table
+    are all derived automatically from the database. Supports ELF, PE, Mach-O,
+    raw binaries, and any other format Binary Ninja can parse.
+
     Arguments:
         path: Filesystem path to a ``.bndb`` file (or raw binary / ELF / PE / etc.)
         platform: Optional platform override; when given the detected platform
                   is verified against it.
         ignore_platform: Skip platform identification and verification entirely.
-        user_base: Optional base address override.  When *None* the base
+        user_base: Optional base address override. When *None* the base
                    recorded in the BinaryView is used.
     """
 
@@ -136,9 +141,21 @@ class BinjaDatabase(Executable):
     def _platform_for_bv(bv: BinaryView) -> Platform:
         """Derive an internal :class:`Platform` from the BinaryView metadata.
 
-        Inspects ``bv.arch.name`` (and falls back to ``bv.platform.name``)
-        so that this works for ELF, PE, Mach-O, raw, and VxWorks images
-        alike.
+        Inspects ``bv.arch.name`` first (most reliable), then falls back to
+        ``bv.platform.name``. Keys in :data:`ARCH_MAP` are matched as substrings
+        of the candidate name, sorted longest-first so that more specific entries
+        (e.g. ``ppc64``) match before shorter fallbacks (e.g. ``ppc``). This
+        approach should work across ELF, PE, Mach-O, raw, and VxWorks images.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to inspect.
+
+        Returns:
+            The detected :class:`Platform`.
+
+        Raises:
+            ConfigurationError: If no candidate name matches any entry in
+                                 :data:`ARCH_MAP`.
         """
         if bv.endianness == bv.endianness.BigEndian:
             endianness = Byteorder.BIG
@@ -157,9 +174,9 @@ class BinjaDatabase(Executable):
             name_lower = name.lower()
             # Check from most-specific to least-specific by sorting key
             # length descending so "ppc64" matches before "ppc".
-            for key in sorted(_ARCH_MAP, key=len, reverse=True):
+            for key in sorted(ARCH_MAP, key=len, reverse=True):
                 if key in name_lower:
-                    return Platform(_ARCH_MAP[key], endianness)
+                    return Platform(ARCH_MAP[key], endianness)
 
         names = ", ".join(candidates) if candidates else "<unknown>"
         raise ConfigurationError(f"Unsupported architecture: {names}. ")
@@ -169,6 +186,15 @@ class BinjaDatabase(Executable):
     # ------------------------------------------------------------------
 
     def _determine_base(self, bv: BinaryView):
+        """Set the image base address from the BinaryView or a user override.
+
+        When no user base is provided, the base is taken from ``bv.start``.
+        A warning is logged if the detected base is zero, which may indicate
+        that Binary Ninja failed to detect a load address.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to inspect.
+        """
         if self._user_base is None:
             self._file_base = bv.start
             if self._file_base == 0:
@@ -185,9 +211,16 @@ class BinjaDatabase(Executable):
     def _map_sections(self, bv: BinaryView):
         """Map every section recorded in the BinaryView into *self*.
 
-        Instead of slicing raw file bytes we use ``bv.read()`` which works
-        correctly for both freshly-loaded binaries and saved ``.bndb`` files
-        where the original file may no longer be adjacent.
+        Reads section content via ``bv.read()`` rather than slicing raw file
+        bytes, which ensures correctness for both freshly-loaded binaries and
+        saved ``.bndb`` files where the original file may not be present.
+        Sections shorter than their declared size (e.g. ``.bss``) are
+        zero-padded. Content is stored at offsets relative to the image base
+        so that downstream consumers can apply the base themselves.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to read section metadata and
+                content from.
         """
         for sec in bv.sections.values():
             sect_addr = sec.start
@@ -215,6 +248,15 @@ class BinjaDatabase(Executable):
     # ------------------------------------------------------------------
 
     def _map_bounds(self, bv: BinaryView):
+        """Populate executable bounds from the BinaryView's segment flags.
+
+        Iterates over all segments in the BinaryView and adds any segment
+        marked executable to :attr:`bounds`. These bounds constrain which
+        addresses the emulator will treat as valid code.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to read segment metadata from.
+        """
         for seg in bv.segments:
             if seg.executable:
                 self.bounds.add_range((seg.start, seg.end))
@@ -223,7 +265,37 @@ class BinjaDatabase(Executable):
     # Symbol extraction
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _get_func_end(bv: BinaryView, address: int) -> typing.Optional[int]:
+        """Return the first address past the last instruction of the function at *address*.
+
+        Looks up the function at *address* in the BinaryView and returns
+        ``highest_address + 1``. Returns *None* if no function exists at that
+        address (e.g. for data symbols or unanalysed regions).
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to query.
+            address: The entry point address of the function.
+
+        Returns:
+            The first address past the function's last instruction, or *None*
+            if no function exists at *address*.
+        """
+        func = bv.get_function_at(address)
+        if func is None:
+            return None
+        return func.highest_address + 1
+
     def _extract_symbols(self, bv: BinaryView) -> None:
+        """Extract all symbols from the BinaryView into :attr:`_symbols`.
+
+        Populates :attr:`_symbols` with a dict for each symbol containing its
+        name variants, address, type, binding, and — for function symbols — the
+        first address past its last instruction via :meth:`_get_func_end`.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to read symbols from.
+        """
         for sym_list in bv.symbols.values():
             for sym in sym_list:
                 self._symbols.append(
@@ -233,8 +305,9 @@ class BinjaDatabase(Executable):
                         "short_name": sym.short_name,
                         "raw_name": sym.raw_name,
                         "address": sym.address,
-                        "type": str(sym.type),
-                        "binding": str(sym.binding),
+                        "func_end": self._get_func_end(bv, sym.address),
+                        "type": str(sym.type),  # SymbolType Enum
+                        "binding": str(sym.binding),  # SymbolBinding Enum
                         "namespace": sym.namespace.name if sym.namespace else None,
                         "ordinal": sym.ordinal,
                         "auto": sym.auto,
@@ -255,4 +328,32 @@ class BinjaDatabase(Executable):
         for sym in self._symbols:
             if name in (sym["name"], sym["full_name"], sym["short_name"]):
                 return sym["address"]
+        raise KeyError(f"Symbol {name!r} not found in database")
+
+    def get_function_end(self, name: str) -> int:
+        """Return the first address past the last instruction of the named function.
+
+        Looks up the function by symbol name and returns the address immediately
+        following its final instruction, suitable for use as an emulator exit point.
+        Checks ``name``, ``full_name``, and ``short_name`` fields so that both
+        mangled and demangled lookups should work.
+
+        Arguments:
+            name: The symbol name of the function to look up.
+
+        Returns:
+            The first address past the function's last instruction.
+
+        Raises:
+            KeyError: If no symbol with that name exists in the database, or if the
+                    symbol exists but is not a function (e.g. a data label).
+        """
+        for sym in self._symbols:
+            if name in (sym["name"], sym["full_name"], sym["short_name"]):
+                end = sym.get("func_end")
+                if end is None:
+                    raise KeyError(
+                        f"Symbol {name!r} is not a function or has no known end"
+                    )
+                return end
         raise KeyError(f"Symbol {name!r} not found in database")

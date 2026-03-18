@@ -37,13 +37,19 @@ ARCH_MAP: typing.Dict[str, Architecture] = {
 
 
 class VXWorksImage(Executable):
-    """Executable loaded from VXWorks
+    """Executable loaded from a VxWorks firmware image.
+
+    Uses Binary Ninja to parse the image, auto-detecting platform, base address,
+    section layout, executable bounds, and symbol table. Supports VxWorks 5 and 6
+    images that include a symbol table for PowerPC, ARM, MIPS, and x86 targets.
 
     Arguments:
-        file: File-like object containing the image
-        platform: Optional platform; used for header verification
-        ignore_platform: Do not try to ID or verify platform from headers
-        user_base: Optional user-specified base address
+        file: File-like object containing the raw firmware image.
+        platform: Optional platform override; when given the detected platform
+                  is verified against it.
+        ignore_platform: Skip platform identification and verification entirely.
+        user_base: Optional base address override. When *None* the base recorded
+                   in the BinaryView is used.
     """
 
     def __init__(
@@ -105,36 +111,49 @@ class VXWorksImage(Executable):
 
         bv.file.close()
 
-    def _platform_for_hdr(self, bv: BinaryView):
+    @staticmethod
+    def _platform_for_hdr(bv: BinaryView) -> Platform:
+        """Derive an internal :class:`Platform` from the BinaryView metadata.
+
+        Performs an exact lookup of ``bv.platform.name`` against :data:`ARCH_MAP`.
+        VxWorks platform names are well-defined and finite, so exact matching is
+        preferred over the substring matching used for generic binaries.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to inspect.
+
+        Returns:
+            The detected :class:`Platform`.
+
+        Raises:
+            ConfigurationError: If the BinaryView has no platform set, or if the
+                                 platform name is not present in :data:`ARCH_MAP`.
+        """
         if bv.endianness == bv.endianness.BigEndian:
             endianness = Byteorder.BIG
         else:
             endianness = Byteorder.LITTLE
-        if bv.platform.name in ("vxworks-ppc32", "ppc32"):
-            return Platform(Architecture.POWERPC32, endianness)
-        elif bv.platform.name in ("vxworks-ppc64", "ppc64"):
-            return Platform(Architecture.POWERPC64, endianness)
-        elif bv.platform.name in ("vxworks-armv7", "armv7"):
-            # Binja doesn't tell you which subversion of ARM, only has 7,
-            # So we're guessing because it's VXWorks
-            # Doesn't seem to distinguish well between subtypes
-            # We're guessing it's M for Embedded, but could be R for RTOS
-            return Platform(Architecture.ARM_V7M, endianness)
-        elif bv.platform.name in (
-            "vxworks-mipsel32",
-            "mipsel32",
-            "vxworks-mips32",
-            "mips32",
-        ):
-            return Platform(Architecture.MIPS32, endianness)
-        elif bv.platform.name in ("vxworks-x86", "x86"):
-            return Platform(Architecture.X86_32, endianness)
-        elif bv.platform.name in ("vxworks-x86-64", "x86-64"):
-            return Platform(Architecture.X86_64, endianness)
-        else:
-            raise ConfigurationError(f"Unsupported machine type {bv.platform.name}")
+
+        name = bv.platform.name if bv.platform is not None else None
+        if name is None:
+            raise ConfigurationError("BinaryView has no platform set")
+
+        arch = ARCH_MAP.get(name)
+        if arch is None:
+            raise ConfigurationError(f"Unsupported machine type {name!r}")
+
+        return Platform(arch, endianness)
 
     def _determine_base(self, bv: BinaryView):
+        """Set the image base address from the BinaryView or a user override.
+
+        When no user base is provided, the base is taken from ``bv.start``.
+        A warning is logged if the detected base is zero, which may indicate
+        that Binary Ninja failed to detect a load address.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to inspect.
+        """
         if self._user_base is None:
             self._file_base = bv.start
             if self._file_base == 0:
@@ -145,6 +164,20 @@ class VXWorksImage(Executable):
             self.address = self._user_base
 
     def _map_sections(self, bv: BinaryView, image: bytes):
+        """Map every section from the firmware image into *self*.
+
+        Uses :class:`~binaryninja.SectionDescriptorList` to enumerate sections
+        and reads their content from the raw *image* bytes. Sections shorter than
+        their declared size are zero-padded to fill the remainder (e.g. ``.bss``).
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to read section metadata from.
+            image: The raw firmware image bytes, used to slice section content.
+
+        Raises:
+            ConfigurationError: If a section's data exceeds its declared size,
+                                 which would indicate a malformed image.
+        """
         # SDL will auto-shift parameters by the base address passed
         sdl = SectionDescriptorList(bv.start)
         for sec in bv.sections.values():
@@ -189,18 +222,50 @@ class VXWorksImage(Executable):
             self[sect_addr - self.address] = sect_value
 
     def _map_bounds(self, bv: BinaryView):
+        """Populate executable bounds from the BinaryView's segment flags.
+
+        Iterates over all segments in the BinaryView and adds any segment marked
+        executable to :attr:`bounds`. These bounds constrain which addresses the
+        emulator will treat as valid code.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to read segment metadata from.
+        """
         for seg in bv.segments:
             if seg.executable:
                 self.bounds.add_range((seg.start, seg.end))
 
     @staticmethod
     def _get_func_end(bv: BinaryView, address: int) -> typing.Optional[int]:
+        """Return the first address past the last instruction of the function at *address*.
+
+        Looks up the function at *address* in the BinaryView and returns
+        ``highest_address + 1``. Returns *None* if no function exists at that
+        address (e.g. for data symbols or unanalysed regions).
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to query.
+            address: The entry point address of the function.
+
+        Returns:
+            The first address past the function's last instruction, or *None* if
+            no function exists at *address*.
+        """
         func = bv.get_function_at(address)
         if func is None:
             return None
         return func.highest_address + 1
 
     def _extract_symbols(self, bv: BinaryView) -> None:
+        """Extract all symbols from the BinaryView into :attr:`_symbols`.
+
+        Populates :attr:`_symbols` with a dict for each symbol containing its
+        name variants, address, type, binding, and — for function symbols — the
+        first address past its last instruction via :meth:`_get_func_end`.
+
+        Arguments:
+            bv: The Binary Ninja BinaryView to read symbols from.
+        """
         for sym_list in bv.symbols.values():
             for sym in sym_list:
                 self._symbols.append(
@@ -227,8 +292,14 @@ class VXWorksImage(Executable):
         Checks ``name``, ``full_name``, and ``short_name`` fields so that
         both mangled and demangled lookups work.
 
+        Arguments:
+            name: The symbol name to look up.
+
+        Returns:
+            The address of the matching symbol.
+
         Raises:
-            KeyError: if no symbol with that name exists in the database.
+            KeyError: If no symbol with that name exists in the image.
         """
         for sym in self._symbols:
             if name in (sym["name"], sym["full_name"], sym["short_name"]):
@@ -236,6 +307,23 @@ class VXWorksImage(Executable):
         raise KeyError(f"Symbol {name!r} not found in database")
 
     def get_function_end(self, name: str) -> int:
+        """Return the first address past the last instruction of the named function.
+
+        Looks up the function by symbol name and returns the address immediately
+        following its final instruction, suitable for use as an emulator exit point.
+        Checks ``name``, ``full_name``, and ``short_name`` fields so that both
+        mangled and demangled lookups should work.
+
+        Arguments:
+            name: The symbol name of the function to look up.
+
+        Returns:
+            The first address past the function's last instruction.
+
+        Raises:
+            KeyError: If no symbol with that name exists in the database, or if the
+                    symbol exists but is not a function (e.g. a data label).
+        """
         for sym in self._symbols:
             if name in (sym["name"], sym["full_name"], sym["short_name"]):
                 end = sym.get("func_end")
