@@ -358,10 +358,12 @@
                 pkgs.dockerTools.binSh
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
+                pkgs.coreutils-full
                 pkgs.aflplusplus
                 qemu.${system}
                 virtualenv
                 pkgs.ghidra
+                pkgs.jre
               ];
               pathsToLink = [
                 "/bin"
@@ -371,6 +373,10 @@
             };
             config = {
               Cmd = [ "/bin/sh" ];
+              Env = [
+                "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+                "JAVA_HOME=${pkgs.jre}"
+              ];
             };
           };
         }
