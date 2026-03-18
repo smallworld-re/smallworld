@@ -22,7 +22,7 @@ import smallworld
 # ── CLI args ──────────────────────────────────────────────────────────
 
 if len(sys.argv) < 2:
-    print(f"Usage: {sys.argv[0]} <path.bndb> [<original_binary>]")
+    print(f"Usage: {sys.argv[0]} <path.bndb>")
     sys.exit(1)
 
 bndb_path = sys.argv[1]
@@ -69,9 +69,9 @@ kringle_thing_end = (
 # Executable bounds come from the bndb's segment flags automatically,
 # but if you need to restrict to specific functions you can override:
 code.bounds.clear()
-code.bounds.add_range((kringle_thing_start, kringle_things_end))
+code.bounds.add_range((0x801753EC, 0x80175464))
 
-exit_point = kringle_things_end
+exit_point = 0x80175464
 
 # ── CPU ───────────────────────────────────────────────────────────────
 

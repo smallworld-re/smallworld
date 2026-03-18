@@ -167,7 +167,9 @@ The program `harness.py` in this directory harnesses `kringle_things`
 and `kringle_thing`, and then runs them in order to extract the data
 section after it has been decrypted, after which, it injects decrypted
 data section into a new version of the binary that would be nicer to
-open in ghidra. Here's how that script works from top to bottom.
+open in ghidra. There's also a `binja_harness.py` that shows
+the same steps but loads the file from a Binary Ninja database file (`.bndb`).
+Here's how the scripts works from top to bottom.
 
 We start with a little boilerplate code.
 
