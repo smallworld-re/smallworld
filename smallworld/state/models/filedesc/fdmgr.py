@@ -33,9 +33,9 @@ class FileDescriptorManager(abc.ABC):
         """ABI this implementation supports"""
         raise NotImplementedError("Abstract method")
 
-    _singletons: typing.Dict[
-        typing.Tuple[Platform, ABI], "FileDescriptorManager"
-    ] = dict()
+    _singletons: typing.Dict[typing.Tuple[Platform, ABI], "FileDescriptorManager"] = (
+        dict()
+    )
 
     def __init__(self):
         self._fds = dict()
