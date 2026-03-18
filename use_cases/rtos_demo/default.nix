@@ -17,7 +17,7 @@ stdenv.mkDerivation {
   name = "rtos-demo-elf";
 
   nativeBuildInputs = [
-    (zephyr.sdk.override {
+    (zephyr.sdk-0_17.override {
       targets = [
         "arm-zephyr-eabi"
       ];
@@ -28,7 +28,6 @@ stdenv.mkDerivation {
     gitMinimal
     cmake
     ninja
-    pkgs.python3Packages.jsonschema
   ];
 
   dontUseCmakeConfigure = true;
@@ -36,8 +35,8 @@ stdenv.mkDerivation {
   src = pkgs.fetchgit {
     name = "zephyr";
     url = "https://github.com/zephyrproject-rtos/zephyr";
-    rev = "e7ae93b39fcb04661e0b03d6c9b86ebc968403d9";
-    hash = "sha256-eCAPKPalYa0cW1HC1xRw1CzSdqmazMLLTzjbhHq/TYI=";
+    rev = "79e6e32f7904a38cd28c53c0fbbda94c4c05b2f7";
+    hash = "sha256-wNG5DsPh0XbunZd7PahGvPahUAVRtVovkEQt02AvXdE=";
   };
 
   patches = [
