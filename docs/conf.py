@@ -22,7 +22,7 @@ import smallworld
 # -- Project information -----------------------------------------------------
 
 project = "SmallWorld"
-copyright = f"2023, {smallworld.__author__}"
+copyright = f"2026, {smallworld.__author__}"
 author = smallworld.__author__
 
 # The short X.Y version
