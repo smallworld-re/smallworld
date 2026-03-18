@@ -45,7 +45,7 @@ cpu.sp.set(sp)
 
 # Configure libc
 libc = smallworld.state.models.posix.POSIXLibc(
-    0x10000,
+    0x40000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
 )

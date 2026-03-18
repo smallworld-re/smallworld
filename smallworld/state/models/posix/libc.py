@@ -20,7 +20,6 @@ class POSIXLibc(C99Libc):
             ):
                 out.append(cls.name)
 
-        print(out)
         return out
 
 
