@@ -1,4 +1,4 @@
-from .....posix.socket import (
+from .....posix.sys.socket import (
     Accept,
     Bind,
     Connect,

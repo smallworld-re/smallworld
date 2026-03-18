@@ -30,9 +30,9 @@ class FileDescriptorManager(abc.ABC):
         """ABI this implementation supports"""
         raise NotImplementedError("Abstract method")
 
-    _singletons: typing.Dict[typing.Tuple[Platform, ABI], "FileDescriptorManager"] = (
-        dict()
-    )
+    _singletons: typing.Dict[
+        typing.Tuple[Platform, ABI], "FileDescriptorManager"
+    ] = dict()
 
     def __init__(self):
         self._fds = dict()
@@ -52,9 +52,9 @@ class FileDescriptorManager(abc.ABC):
         self.stderr_filestar = 0x46492A02
 
         # Populate default stdstream filestars
-        self._filestars[0x46492A00] = FileStar(0, self._fds[0])
-        self._filestars[0x46492A01] = FileStar(1, self._fds[1])
-        self._filestars[0x46492A02] = FileStar(2, self._fds[2])
+        self._filestars[0x46492A00] = FileStar(0, self._fds)
+        self._filestars[0x46492A01] = FileStar(1, self._fds)
+        self._filestars[0x46492A02] = FileStar(2, self._fds)
 
     def _get_free_fd(self) -> int:
         for fd in range(0, 1 << 31):
@@ -205,7 +205,7 @@ class FileDescriptorManager(abc.ABC):
         try:
             # Allocate a FILE * handle, and wrap the new file stream.
             filestar = self._get_free_filestar()
-            self._filestars[filestar] = FileStar(fd, self._fds[fd])
+            self._filestars[filestar] = FileStar(fd, self._fds)
             return filestar
         except FDIOOutOfFileStars as e:
             self._fds[fd].close()

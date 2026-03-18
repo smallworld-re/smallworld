@@ -1,3 +1,5 @@
+import typing
+
 from .exceptions import FDIOUnsupported
 from .io import BasicIO
 
@@ -13,7 +15,8 @@ class FileStar(BasicIO):
     will have very interesting results
     """
 
-    def __init__(self, fileno: int, parent: BasicIO):
+    def __init__(self, fileno: int, parents: typing.Dict[int, BasicIO]):
+        parent = parents[fileno]
         super().__init__(
             parent._name,
             parent._readable,
@@ -22,17 +25,21 @@ class FileStar(BasicIO):
             parent._truncatable,
             parent._isatty,
         )
-        self._parent = parent
+        self._parents = parents
         self._fileno = fileno
         self._ungetc_buffer: bytes = b""
 
     @property
+    def parent(self) -> BasicIO:
+        return self._parents[self._fileno]
+
+    @property
     def closed(self) -> bool:
-        return self._parent.closed
+        return self.parent.closed
 
     def close(self) -> None:
         super().close()
-        self._parent.close()
+        self.parent.close()
 
     def fileno(self) -> int:
         return self._fileno
@@ -51,21 +58,21 @@ class FileStar(BasicIO):
                 n -= len(out)
 
         if n != 0:
-            out += self._parent.on_read(n)
+            out += self.parent.on_read(n)
 
         return out
 
     def on_seek(self, offset: int, whence: int) -> int:
-        return self._parent.seek(offset, whence)
+        return self.parent.seek(offset, whence)
 
     def on_tell(self) -> int:
-        return self._parent.tell()
+        return self.parent.tell()
 
     def on_write(self, data: bytes) -> int:
         # Mixing writes with ungetc produces undefined behavior.
         # By observation, this means segfaults;
         # normal software will not require handling this.
-        return self._parent.on_write(data)
+        return self.parent.on_write(data)
 
     def ungetc(self, c: int) -> None:
         if not self._readable:

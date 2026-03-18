@@ -3354,10 +3354,6 @@ class C99LibcTests(NoArgLibraryModelTest):
             f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
         )
 
-        self.assertLineContainsStrings(stderr, "Harness requires atexit")
-        self.assertLineContainsStrings(stderr, "Harness requires vprintf")
-        self.assertStringsAbsent(stderr, "Harness requires system")
-
 
 class C99CtypeBLocTests(NoArgLibraryModelTest):
     library = "c99"

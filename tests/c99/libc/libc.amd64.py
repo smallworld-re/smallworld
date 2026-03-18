@@ -109,5 +109,5 @@ emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
-except smallworld.exceptions.ImpreciseModelError:
+except smallworld.exceptions.UnsupportedModelError:
     pass

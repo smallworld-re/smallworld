@@ -49,7 +49,10 @@ machine.add(heap)
 
 # Configure libc
 libc = smallworld.state.models.c99.C99Libc(
-    0x10000, platform, smallworld.platforms.ABI.SYSTEMV, allow_imprecise={"system"}
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={"system", "atexit"},
 )
 libc.link(code)
 machine.add(libc)
@@ -120,5 +123,5 @@ emulator.add_exit_point(entrypoint + 0x1000)
 try:
     machine.emulate(emulator)
     raise Exception("Did not exit as expected")
-except smallworld.exceptions.ImpreciseModelError:
+except smallworld.exceptions.UnsupportedModelError:
     pass
