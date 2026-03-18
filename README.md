@@ -6,8 +6,9 @@
 
 Easier harnessing of code for analysis!
 
-<img src="/docs/SmallWorld.svg" alt="SmallWorld Logo" width="75%">
-
+<div align="center">
+  <img src="/docs/SmallWorld.svg" alt="SmallWorld Logo" width="75%">
+</div>
 ## Quick Start
 Our documentation is currently being updated. To get up and running quickly try the following:
 
