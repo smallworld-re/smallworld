@@ -66,7 +66,9 @@ class PandaEmulator(
         # be careful in callbacks
         # If we want to support repeated panda instances we need to make this a subprocess, not thread
 
-        def __init__(self, manager, thread_state):
+        def __init__(
+            self, manager, thread_state, arg_overrides: typing.Dict[str, str] = {}
+        ):
             super().__init__(daemon=True)
             self.manager = manager
             self.platdef = platforms.PlatformDef.for_platform(self.manager.platform)
@@ -74,6 +76,7 @@ class PandaEmulator(
             self.state = thread_state
             self.panda = None
             self.hook_return = None
+            self.arg_overrides = arg_overrides
 
         # Functions to update state, this prob should be changed
         def setup_state(self, cpu):
@@ -86,17 +89,52 @@ class PandaEmulator(
         def get_panda_args_from_machdef(self):
             panda_args = []
 
-            if hasattr(self.machdef, "machine"):
+            if "machine" in self.arg_overrides:
+                panda_args.extend(["-M", self.arg_overrides["machine"]])
+            elif hasattr(self.machdef, "machine"):
                 panda_args.extend(["-M", self.machdef.machine])
             else:
                 panda_args.extend(["-M", "configurable"])
 
-            if hasattr(self.machdef, "cpu"):  # != "":
+            if "cpu" in self.arg_overrides:
+                panda_args.extend(["-cpu", self.arg_overrides["cpu"]])
+            elif hasattr(self.machdef, "cpu"):  # != "":
                 panda_args.extend(["-cpu", self.machdef.cpu])
 
-            panda_args.extend(["-nographic"])
+            if self.arg_overrides.get("nographic", True):
+                panda_args.extend(["-nographic"])
+
             # At some point we can send something in that only supports singlestep?
-            # panda_args.extend(["singlestep"])
+            if self.arg_overrides.get("singlestep", False):
+                panda_args.extend(["-singlestep"])
+
+            debug_log_file = self.arg_overrides.get("debug_log_file", None)
+            debug_log_flags = [
+                "in_asm",
+                "int",
+                "cpu",
+                "op",
+                "exec",
+                "nochain",
+                "op_plugin",
+            ]
+
+            if "debug_log_flags" in self.arg_overrides:
+                # Supplying debug_log_flags without debug_log_name gets default
+                if debug_log_file is None:
+                    debug_log_file = (
+                        f"./smallworld-panda-{self.machdef.panda_arch}-debug.log"
+                    )
+                debug_log_flags = self.arg_overrides["debug_log_flags"]
+
+            if debug_log_file is not None:
+                panda_args += [
+                    "-d",
+                    ",".join(debug_log_flags),
+                    "-D",
+                    debug_log_file,
+                ]
+
             return panda_args
 
         def run(self):
@@ -197,7 +235,7 @@ class PandaEmulator(
 
                 if not self.manager.current_instruction():
                     # report error if function hooking is enabled?
-                    pass
+                    return True
                 logger.debug(f"\t{self.manager.current_instruction()}")
                 self.hook_return = pc + self.manager.current_instruction().size
 
@@ -334,7 +372,9 @@ class PandaEmulator(
                 # Clear the event for the next iteration
                 self.manager.run_panda = False
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(
+        self, platform: platforms.Platform, arg_overrides: typing.Dict[str, str] = {}
+    ):
         super().__init__(platform=platform)
 
         self.PAGE_SIZE = 0x1000
@@ -353,7 +393,9 @@ class PandaEmulator(
         self.cpu = None
         self.pc: int = 0
 
-        self.panda_thread = self.PandaThread(self, self.ThreadState.SETUP)
+        self.panda_thread = self.PandaThread(
+            self, self.ThreadState.SETUP, arg_overrides=arg_overrides
+        )
         self.panda_thread.start()
 
         self.disassembler = capstone.Cs(
@@ -372,19 +414,30 @@ class PandaEmulator(
     def read_register_content(self, name: str) -> int:
         # If we are reading a "pc" reg, refer to the manager's notion of PC
         # QEMU thinks in blocks, so the register contained in self.cpu will be inaccurate.
-        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg(
+            "pc", self.panda_thread.panda, self.cpu
+        ):
             return self.pc
 
-        if not self.panda_thread.machdef.check_panda_reg(name):
+        if not self.panda_thread.machdef.check_panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        ):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
-        name = self.panda_thread.machdef.panda_reg(name)
+        panda_reg_name = self.panda_thread.machdef.panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        )
 
         try:
-            return self.panda_thread.panda.arch.get_reg(self.cpu, name)
+            if self.panda_thread.panda:
+                return self.panda_thread.panda.arch.get_reg(self.cpu, panda_reg_name)
+            else:
+                raise exceptions.EmulationError("PANDA not started")
         except:
-            raise exceptions.AnalysisError(f"Failed reading {name} (id: {name})")
+            raise exceptions.AnalysisError(
+                f"Failed reading {panda_reg_name} (id: {name})"
+            )
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -398,30 +451,46 @@ class PandaEmulator(
                 "This emulator cannot handle bitvector expressions"
             )
 
-        if name == "pc" or name == self.panda_thread.machdef.panda_reg("pc"):
+        if name == "pc" or name == self.panda_thread.machdef.panda_reg(
+            "pc", self.panda_thread.panda, self.cpu
+        ):
             # This is my internal pc
             self.pc = content
-            self.panda_thread.panda.arch.set_pc(self.cpu, content)
+            if self.panda_thread.panda:
+                self.panda_thread.panda.arch.set_pc(self.cpu, content)
+            else:
+                raise exceptions.EmulationError("PANDA not started")
             return
 
-        if not self.panda_thread.machdef.check_panda_reg(name):
+        if not self.panda_thread.machdef.check_panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        ):
             raise exceptions.UnsupportedRegisterError(
                 f"Panda doesn't support register {name} for {self.platform}"
             )
 
-        name = self.panda_thread.machdef.panda_reg(name)
+        panda_reg_name = self.panda_thread.machdef.panda_reg(
+            name, self.panda_thread.panda, self.cpu
+        )
         try:
-            self.panda_thread.panda.arch.set_reg(self.cpu, name, content)
+            if self.panda_thread.panda:
+                self.panda_thread.panda.arch.set_reg(self.cpu, panda_reg_name, content)
+            else:
+                raise exceptions.EmulationError("PANDA not started")
         except:
-            raise exceptions.AnalysisError(f"Failed writing {name} (id: {name})")
+            raise exceptions.AnalysisError(
+                f"Failed writing {panda_reg_name} (id: {name})"
+            )
 
-        logger.debug(f"set register {name}={content}")
+        logger.debug(f"set register {panda_reg_name} (id: {name}) = {content}")
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
             raise ValueError(f"{size} is too large (max: {sys.maxsize})")
-
-        return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
+        if self.panda_thread.panda:
+            return self.panda_thread.panda.virtual_memory_read(self.cpu, address, size)
+        else:
+            raise exceptions.EmulationError("PANDA not started")
 
     def map_memory(self, address: int, size: int) -> None:
         def page_down(address):
@@ -452,11 +521,14 @@ class PandaEmulator(
             logger.info(
                 f"Mapping at {hex(start_page * self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
             )
-            self.panda_thread.panda.map_memory(
-                f"{start_page * self.PAGE_SIZE}",
-                page_size * self.PAGE_SIZE,
-                start_page * self.PAGE_SIZE,
-            )
+            if self.panda_thread.panda:
+                self.panda_thread.panda.map_memory(
+                    f"{start_page * self.PAGE_SIZE}",
+                    page_size * self.PAGE_SIZE,
+                    start_page * self.PAGE_SIZE,
+                )
+            else:
+                raise exceptions.EmulationError("PANDA not started")
         # Make sure we add our new region to our mapped_pages
         self.mapped_pages.add_range(region)
 
@@ -514,18 +586,24 @@ class PandaEmulator(
         # is past the end of the list being sliced.
         if address % self.PAGE_SIZE != 0:
             block_size = address % self.PAGE_SIZE
-            self.panda_thread.panda.physical_memory_write(
-                address, content[0:block_size]
-            )
+            if self.panda_thread.panda:
+                self.panda_thread.panda.physical_memory_write(
+                    address, content[0:block_size]
+                )
+            else:
+                raise exceptions.EmulationError("PANDA not started")
 
             offset += block_size
             size -= block_size
 
         while size > 0:
             block_address = address + offset
-            self.panda_thread.panda.physical_memory_write(
-                block_address, content[offset : offset + self.PAGE_SIZE]
-            )
+            if self.panda_thread.panda:
+                self.panda_thread.panda.physical_memory_write(
+                    block_address, content[offset : offset + self.PAGE_SIZE]
+                )
+            else:
+                raise exceptions.EmulationError("PANDA not started")
 
             offset += self.PAGE_SIZE
             size -= self.PAGE_SIZE

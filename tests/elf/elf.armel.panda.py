@@ -68,7 +68,7 @@ cpu.lr.set(exitpoint)
 machine.add_exit_point(exitpoint)
 
 # Emulate
-emulator = smallworld.emulators.UnicornEmulator(platform)
+emulator = smallworld.emulators.PandaEmulator(platform)
 
 # Use code bounds from the ELF
 for bound in code.bounds:

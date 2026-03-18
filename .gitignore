@@ -13,6 +13,7 @@ build/
 venv/
 .venv/
 .venv-imperative/
+tmp/
 core.*
 /result
 /docs/build

@@ -121,12 +121,16 @@ gdata[58] = smallworld.state.SymbolicValue(2, None, None, "buf.msg.hdr.f")
 # This is a sequence of zero or more run-length-encoded strings.
 # Strings can be of length 0 - 63,
 # and the total number of characters can't exceed 255
-gdata[60] = smallworld.state.IntegerValue(1, 1, "buf.struct.item0.len")
+gdata[60] = smallworld.state.IntegerValue(
+    1, 1, "buf.struct.item0.len", code.platform.byteorder
+)
 gdata[61] = smallworld.state.SymbolicValue(1, None, None, "buf.struct.item0.0")
-gdata[62] = smallworld.state.IntegerValue(0, 1, "buf.struct.item1.len")
+gdata[62] = smallworld.state.IntegerValue(
+    0, 1, "buf.struct.item1.len", code.platform.byteorder
+)
 gdata[63] = smallworld.state.SymbolicValue(497, None, None, "buf")
 # Offset into buffer
-gdata[560] = smallworld.state.IntegerValue(0, 8, "off", False)
+gdata[560] = smallworld.state.IntegerValue(0, 8, "off", code.platform.byteorder, False)
 
 # Configure arguments
 # arg 0: pointer to buf
