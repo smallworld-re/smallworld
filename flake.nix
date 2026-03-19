@@ -32,15 +32,15 @@
       flake = false;
     };
 
-    # binaryninja = {
-    #   url = "github:jchv/nix-binary-ninja";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
+     binaryninja = {
+       url = "github:jchv/nix-binary-ninja";
+       inputs.nixpkgs.follows = "nixpkgs";
+     };
 
-    # binjaZip = {
-    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
-    #   flake = false;
-    # };
+     binjaZip = {
+       url = "path:./binaryninja_linux_stable_ultimate.zip";
+       flake = false;
+     };
 
     # For building RTOS Demo
     zephyr-nix = {
@@ -276,6 +276,8 @@
               export REPO_ROOT=$(git rev-parse --show-toplevel)
             ''
             + lib.optionalString (bnUltimate.${system} != null) ''
+
+
               export BINJA_PATH=${bnUltimate.${system}}
               export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
           };
@@ -364,16 +366,22 @@
                 virtualenv
                 pkgs.ghidra
                 pkgs.jre
+                pkgs.unzip
+                pkgs.dbus.lib
+                pkgs.stdenv.cc.cc.lib
               ];
               pathsToLink = [
                 "/bin"
                 "/etc"
                 "/var"
+                "/lib"
               ];
             };
             config = {
               Cmd = [ "/bin/sh" ];
               Env = [
+                "LD_LIBRARY_PATH=/lib" 
+                "BN_LICENSE=${BN_LICENSE}"
                 "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
                 "JAVA_HOME=${pkgs.jre}"
               ];
