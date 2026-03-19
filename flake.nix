@@ -253,10 +253,7 @@
           smallworldBuilt = packages.${system}.default;
 
           # Shell that exposes `python312.withPackages (ps: [ ps.smallworld ])`.
-          pythonEnvPkgs = import nixpkgs {
-            inherit system;
-            overlays = [ overlays.default ];
-          };
+          pythonEnvPkgs = pkgs.extend overlays.default;
           pythonEnv = pythonEnvPkgs.mkShell {
             packages = [
               (pythonEnvPkgs.python312.withPackages (ps: [ ps.smallworld ]))
