@@ -74,8 +74,7 @@ code.update_symbol_value("putchar", putchar_model._address)
 fdmgr = smallworld.state.models.filedesc.FileDescriptorManager.for_platform(
     platform, smallworld.platforms.ABI.SYSTEMV
 )
-fdmgr.model_fs = True
-stdin = fdmgr.open("stdout", False, True, True, False, False, False)
+stdin = fdmgr.open("stdout", False, True, True, False, False)
 fdmgr._fds[1] = fdmgr._fds[stdin]
 
 

@@ -410,7 +410,7 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         # Step!
         pc = self.read_register_content(self.platdef.pc_register)
-        log.info(f"Stepping through {hex(pc)}")
+        log.debug(f"Stepping through {hex(pc)}")
         if not self._memory_map.contains_value(pc):
             raise exceptions.EmulationFetchUnmappedFailure(
                 "Fetched unmapped memory", pc, address=pc

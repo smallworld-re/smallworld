@@ -19,7 +19,9 @@ heap = smallworld.state.memory.heap.BumpAllocator(0x2000, 0x4000)
 
 user_input = str.encode("goodgoodgood", "utf-8")
 
-size_addr = heap.allocate_integer(len(user_input), 4, "user input size")
+size_addr = heap.allocate_integer(
+    len(user_input), 4, "user input size", smallworld.platforms.Byteorder.LITTLE
+)
 input_addr = heap.allocate_bytes(user_input, "user input")
 
 cpu.rip.set_content(0x1000)

@@ -157,6 +157,9 @@ jobs:
             - testsuite: C99ClearerrTests
             - testsuite: C99ClockTests
             - testsuite: C99CtimeTests
+            - testsuite: C99CtypeBLocTests
+            - testsuite: C99CtypeTolowerLocTests
+            - testsuite: C99CtypeToupperLocTests
             - testsuite: C99DifftimeTests
             - testsuite: C99ExitTests
             - testsuite: C99FcloseTests
@@ -226,6 +229,8 @@ jobs:
             - testsuite: C99TimeTests
             - testsuite: C99TmpfileTests
             - testsuite: C99TmpnamTests
+            - testsuite: C99TolowerTests
+            - testsuite: C99ToupperTests
             - testsuite: C99UngetcTests
             - testsuite: CheckedDoubleFreeTests
             - testsuite: CheckedReadTests
@@ -260,6 +265,7 @@ jobs:
             - testsuite: POSIXSigfillsetTests
             - testsuite: POSIXSigpendingTests
             - testsuite: POSIXSigprocmaskTests
+            - testsuite: POSIXSocketTCPServerTests
             - testsuite: RelaTests
             - testsuite: RTOSDemoTests
             - testsuite: SquareTests

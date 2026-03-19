@@ -3,6 +3,7 @@ from . import (
     amd64,
     armel,
     armhf,
+    c99,
     i386,
     loongarch64,
     m68k,
@@ -10,6 +11,7 @@ from . import (
     mips64,
     mips64el,
     mipsel,
+    posix,
     powerpc,
     riscv64,
 )
@@ -23,6 +25,7 @@ __all__ = __model__ + [
     "amd64",
     "armel",
     "armhf",
+    "c99",
     "i386",
     "loongarch64",
     "m68k",
@@ -30,6 +33,7 @@ __all__ = __model__ + [
     "mipsel",
     "mips64",
     "mips64el",
+    "posix",
     "powerpc",
     "riscv64",
 ]

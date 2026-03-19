@@ -70,7 +70,7 @@ class Executable(memory.RawMemory):
             raise NotImplementedError(
                 "Absolutely not.  Get your symbolic code out of here."
             )
-        emulator.write_code(address, value.to_bytes(emulator.platform.byteorder))
+        emulator.write_code(address, value.to_bytes())
 
     @classmethod
     def from_elf(
@@ -152,6 +152,56 @@ class Executable(memory.RawMemory):
 
         return PEExecutable(
             file, user_base=address, platform=platform, ignore_platform=ignore_platform
+        )
+
+    @classmethod
+    def from_vxworks(
+        cls,
+        file: typing.BinaryIO,
+        address: typing.Optional[int] = None,
+        platform: typing.Optional[Platform] = None,
+        ignore_platform: bool = False,
+    ):
+        """Load a VXWorks executable from a firmware capture.
+        Arguments:
+            file: The open file-like object from which to read.
+            address: The address where this executable should be loaded.
+        Returns:
+            An Executable parsed from the given VXWorks image.
+        """
+        from .vxworks import VXWorksImage
+
+        return VXWorksImage(
+            file, user_base=address, platform=platform, ignore_platform=ignore_platform
+        )
+
+    @classmethod
+    def from_bndb(
+        cls,
+        path: str,
+        address: typing.Optional[int] = None,
+        platform: typing.Optional[Platform] = None,
+        ignore_platform: bool = False,
+    ):
+        """Load an executable from a Binary Ninja database (.bndb) or any
+        file that Binary Ninja can open.
+
+        Arguments:
+            path: Filesystem path to a ``.bndb`` file (or raw binary /
+                  ELF / PE / Mach-O / etc.).
+            address: Optional base address override.  When *None* the base
+                     recorded in the BinaryView is used.
+            platform: Optional platform; when given the detected platform
+                      is verified against it.
+            ignore_platform: Skip platform identification and verification.
+
+        Returns:
+            An Executable parsed from the given Binary Ninja database.
+        """
+        from .binjadatabase import BinjaDatabase
+
+        return BinjaDatabase(
+            path, user_base=address, platform=platform, ignore_platform=ignore_platform
         )
 
 

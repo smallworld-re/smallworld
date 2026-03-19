@@ -411,7 +411,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         self,
         index: int,
         emulator: emulators.Emulator,
-        value: int | float,
+        value: typing.Union[int, float],
     ):
         # There are some cases where passing floats is not supported
         if self.argument_types[index] in [ArgumentType.FLOAT, ArgumentType.DOUBLE]:
@@ -806,7 +806,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 f"Returning unhandled type {self.return_type}"
             )
 
-    def get_return_value(self, emulator: emulators.Emulator) -> int | float | None:
+    def get_return_value(
+        self, emulator: emulators.Emulator
+    ) -> typing.Union[int, float, None]:
         """Get return value, according to the appropriate return type"""
         if self.return_type == ArgumentType.VOID:
             # We're void.

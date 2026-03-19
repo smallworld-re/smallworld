@@ -28,7 +28,7 @@ emulator = smallworld.emulators.UnicornEmulator(code.platform)
 
 # Entry point / exit point
 entry_point = code.get_symbol_value("smallworld_bug")
-exit_point = 0x103DD8  # End of smallworld_bug, found via reverse engineering
+exit_point = 0x103E38  # End of smallworld_bug, found via reverse engineering
 cpu.pc.set(entry_point)
 emulator.add_exit_point(exit_point)
 
@@ -62,5 +62,5 @@ for step in machine.step(emulator):
 
 # Extract changes to buffer
 buffer_memory.extract(emulator)
-output_bytes = buffer_memory.to_bytes(byteorder=code.platform.byteorder)
+output_bytes = buffer_memory.to_bytes()
 print(f"Buffer: {output_bytes!r}")

@@ -32,18 +32,22 @@
       flake = false;
     };
 
-    # For building RTOS Demo
-    zephyr = {
-      url = "github:zephyrproject-rtos/zephyr/v3.5.0";
-      flake = false;
-    };
+    # binaryninja = {
+    #   url = "github:jchv/nix-binary-ninja";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
 
+    # binjaZip = {
+    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #   flake = false;
+    # };
+
+    # For building RTOS Demo
     zephyr-nix = {
       url = "github:adisbladis/zephyr-nix";
       inputs.nixpkgs.follows = "nixpkgs";
-      inputs.zephyr.follows = "zephyr";
+      inputs.pyproject-nix.follows = "pyproject-nix";
     };
-
     west2nix = {
       url = "github:adisbladis/west2nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -52,7 +56,7 @@
   };
 
   outputs =
-    {
+    inputs@{
       self,
       nixpkgs,
       pyproject-nix,
@@ -68,6 +72,9 @@
       lib = nixpkgs.lib;
       systems = lib.systems.flakeExposed;
       forAllSystems = lib.genAttrs systems;
+
+      binaryninja = inputs.binaryninja or null;
+      binjaZip = inputs.binjaZip or null;
 
       pkgsFor = system: nixpkgs.legacyPackages.${system};
 
@@ -195,6 +202,17 @@
         in
         pythonSet.mkVirtualEnv "smallworld-re-env" deps
       );
+
+      bnUltimate = forAllSystems (
+        system:
+        if binaryninja != null && binjaZip != null then
+          let
+            bnPkgs = binaryninja.packages.${system};
+          in
+          bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+        else
+          null
+      );
     in
     rec {
       devShells = forAllSystems (
@@ -210,11 +228,15 @@
             qemu.${system}
             pkgs.ghidra
             pkgs.jdk
-          ];
+          ]
+          ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
+          bnPath = lib.optionalString (bnUltimate.${system} != null) "${bnUltimate.${system}}";
+
+          bnPythonPath = lib.optionalString (
+            bnUltimate.${system} != null
+          ) "${bnUltimate.${system}}/opt/binaryninja/python";
 
           GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-
-          # Used by the imperative shell's PYTHONPATH.
           smallworldBuilt = packages.${system}.default;
 
           # Shell that exposes `python312.withPackages (ps: [ ps.smallworld ])`.
@@ -252,7 +274,10 @@
             shellHook = ''
               unset PYTHONPATH
               export REPO_ROOT=$(git rev-parse --show-toplevel)
-            '';
+            ''
+            + lib.optionalString (bnUltimate.${system} != null) ''
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
           };
 
           imperative = pkgs.mkShell {
@@ -270,6 +295,8 @@
             shellHook = ''
               export PYTHONPATH="${smallworldBuilt}/${pythonSet.python.sitePackages}:${virtualenv}/${pythonSet.python.sitePackages}:$PYTHONPATH"
               unset SOURCE_DATE_EPOCH
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnPythonPath}:$PYTHONPATH
             '';
           };
         }
@@ -318,7 +345,9 @@
           default = pythonSet.smallworld-re;
           venv = virtualenv;
           qemu = qemu.${system};
-
+          binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
+            default = bnUltimate.${system};
+          };
           dockerImage = pkgs.dockerTools.buildImage {
             name = "smallworld-re";
             tag = "latest";
@@ -329,10 +358,12 @@
                 pkgs.dockerTools.binSh
                 pkgs.dockerTools.caCertificates
                 pkgs.dockerTools.fakeNss
+                pkgs.coreutils-full
                 pkgs.aflplusplus
                 qemu.${system}
                 virtualenv
                 pkgs.ghidra
+                pkgs.jre
               ];
               pathsToLink = [
                 "/bin"
@@ -342,6 +373,10 @@
             };
             config = {
               Cmd = [ "/bin/sh" ];
+              Env = [
+                "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+                "JAVA_HOME=${pkgs.jre}"
+              ];
             };
           };
         }
@@ -381,6 +416,7 @@
             pyFinal.pypanda
             pyFinal.unicornafl
             pyFinal.unicorn
+            pyFinal.angr
           ];
 
           # The pyproject-nix/uv2nix package set built by this flake for the current system.
@@ -399,6 +435,14 @@
               "smallworld-re"
               "pyghidra"
               "pypcode"
+              "angr"
+              "pyvex"
+              "cle"
+              "archinfo"
+              "ailment"
+              "claripy"
+              "pyxdia"
+              "uefi-firmware"
             ];
           };
 
@@ -406,6 +450,14 @@
             pyFinal: pyPrev:
             let
               converted = basePyOverlay pyFinal pyPrev;
+
+              angrFixed = converted.angr.overridePythonAttrs (old: {
+                postFixup = (old.postFixup or "") + ''
+                  # autoPatchelf only searches $dep/lib by default.
+                  # libpyvex.so is inside pyvex's site-packages, so add it explicitly.
+                  addAutoPatchelfSearchPath ${pyFinal.pyvex}
+                '';
+              });
 
               # Make `smallworld` (and `smallworld-re`) automatically pull in heavy/native
               # add-ons that downstream users often expect.
@@ -416,6 +468,7 @@
             in
             converted
             // {
+              angr = angrFixed;
               "smallworld-re" = smallworldWithAllDeps;
               smallworld = smallworldWithAllDeps;
             };
