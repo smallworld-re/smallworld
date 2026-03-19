@@ -8,29 +8,21 @@ on:
 jobs:
   Deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
     env:
       TZ: UTC
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-      - name: Install
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .[development] -c constraints.txt
+      - uses: actions/checkout@vr6
+      - uses: astral-sh/setup-uv@v7
+      - name: Install Python 3.12
+        run: uv python install 3.12
       - name: Build
+        run: uv build
+      - name: Publish
         env:
-          PIP_CONSTRAINT: constraints.txt
-        run: |
-          python -m pip install --upgrade build
-          python -m build
-      - name: Deploy
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
-
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish
   Docs:
     runs-on: smallworld-arc    
     steps:          
