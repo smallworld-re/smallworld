@@ -5,11 +5,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TraceExecution Analysis Tutorial &#8212; SmallWorld 2.0.2 documentation</title>
+    <title>TraceExecution Analysis Tutorial &#8212; SmallWorld 3.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=27fed22d" />
-    <script src="../../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../../_static/documentation_options.js?v=acc74ff5"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="author" title="About these documents" href="../../about.html" />
@@ -241,7 +241,7 @@ Here, 10000 will be enough.</p>
 For example, if you wanted to try 7, you would type <code class="docutils literal notranslate"><span class="pre">python</span>
 <span class="pre">te-example</span> <span class="pre">7</span></code>.  Here is the output for inputs of 1 through 6.</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 te-example.py 1
-WARNING  | 2026-03-12 23:35:34,208 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+WARNING  | 2026-03-19 20:08:03,213 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
 function input = 1
 @ pc=0x1185 eax=4
 @ pc=0x1185 eax=2
@@ -249,13 +249,13 @@ function input = 1
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 te-example.py 2
-WARNING  | 2026-03-12 23:35:36,518 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+WARNING  | 2026-03-19 20:08:06,140 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
 function input = 2
 @ pc=0x1185 eax=1
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 te-example.py 3
-WARNING  | 2026-03-12 23:35:38,850 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+WARNING  | 2026-03-19 20:08:09,078 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
 function input = 3
 @ pc=0x1185 eax=10
 @ pc=0x1185 eax=5
@@ -267,14 +267,14 @@ function input = 3
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 te-example.py 4
-WARNING  | 2026-03-12 23:35:41,193 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+WARNING  | 2026-03-19 20:08:11,930 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
 function input = 4
 @ pc=0x1185 eax=2
 @ pc=0x1185 eax=1
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 te-example.py 5
-WARNING  | 2026-03-12 23:35:43,522 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+WARNING  | 2026-03-19 20:08:14,936 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
 function input = 5
 @ pc=0x1185 eax=16
 @ pc=0x1185 eax=8
@@ -284,7 +284,7 @@ function input = 5
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python3 te-example.py 6
-WARNING  | 2026-03-12 23:35:45,857 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
+WARNING  | 2026-03-19 20:08:17,975 | smallworld.emulators.unicorn.unicorn | emulation stopped - reason: Invalid memory read (UC_ERR_READ_UNMAPPED)
 function input = 6
 @ pc=0x1185 eax=3
 @ pc=0x1185 eax=10
@@ -379,7 +379,7 @@ for more details.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2023, MIT Lincoln Laboratory.
+      &#169;1980, MIT Lincoln Laboratory.
       
     </div>
 

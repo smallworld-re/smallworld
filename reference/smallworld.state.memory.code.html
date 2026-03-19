@@ -5,11 +5,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>smallworld.state.memory.code &#8212; SmallWorld 2.0.2 documentation</title>
+    <title>smallworld.state.memory.code &#8212; SmallWorld 3.0.0 documentation</title>
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=5ecbeea2" />
     <link rel="stylesheet" type="text/css" href="../_static/basic.css?v=b08954a9" />
     <link rel="stylesheet" type="text/css" href="../_static/alabaster.css?v=27fed22d" />
-    <script src="../_static/documentation_options.js?v=c2377ec0"></script>
+    <script src="../_static/documentation_options.js?v=acc74ff5"></script>
     <script src="../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="author" title="About these documents" href="../about.html" />
@@ -138,6 +138,29 @@ file parsing, if supported.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
 <dd class="field-odd"><p>An Executable parsed from the given VXWorks image.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="smallworld.state.memory.code.Executable.from_bndb">
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">from_bndb</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">address</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="smallworld.platforms.html#smallworld.platforms.Platform" title="smallworld.platforms.platforms.Platform"><span class="pre">Platform</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ignore_platform</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#smallworld.state.memory.code.Executable.from_bndb" title="Link to this definition">¶</a></dt>
+<dd><p>Load an executable from a Binary Ninja database (.bndb) or any
+file that Binary Ninja can open.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>path</strong> – Filesystem path to a <code class="docutils literal notranslate"><span class="pre">.bndb</span></code> file (or raw binary /
+ELF / PE / Mach-O / etc.).</p></li>
+<li><p><strong>address</strong> – Optional base address override.  When <em>None</em> the base
+recorded in the BinaryView is used.</p></li>
+<li><p><strong>platform</strong> – Optional platform; when given the detected platform
+is verified against it.</p></li>
+<li><p><strong>ignore_platform</strong> – Skip platform identification and verification.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>An Executable parsed from the given Binary Ninja database.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -391,7 +414,7 @@ This will fail if any sub-region of the existing memory is symbolic.</p>
       <div class="clearer"></div>
     </div>
     <div class="footer">
-      &#169;2023, MIT Lincoln Laboratory.
+      &#169;1980, MIT Lincoln Laboratory.
       
     </div>
 
