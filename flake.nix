@@ -381,7 +381,6 @@
               Cmd = [ "/bin/sh" ];
               Env = [
                 "LD_LIBRARY_PATH=/lib" 
-                "BN_LICENSE=${BN_LICENSE}"
                 "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
                 "JAVA_HOME=${pkgs.jre}"
               ];
