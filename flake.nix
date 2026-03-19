@@ -135,6 +135,26 @@
 
       qemu = forAllSystems (system: panda-ng.packages.${system}.qemu);
 
+      devTools = forAllSystems (
+        system:
+        let
+          pkgs = pkgsFor system;
+          baseCommon = [
+            pkgs.aflplusplus
+            qemu.${system}
+          ];
+        in
+        {
+          inherit baseCommon;
+          ghidra = pkgs.ghidra;
+          jdk = pkgs.jdk;
+          jre = pkgs.jre;
+          z3 = pkgs.z3;
+          shell = baseCommon ++ [ pkgs.z3 pkgs.ghidra pkgs.jdk ];
+          docker = baseCommon ++ [ pkgs.ghidra pkgs.jre ];
+        }
+      );
+
       prebuilts = forAllSystems (
         system: _final: _prev:
         let
@@ -221,22 +241,15 @@
           pkgs = pkgsFor system;
           pythonSet = pythonSets.${system}.overrideScope editableOverlay;
           virtualenv = virtualEnvDev.${system};
-
-          toolInputs = [
-            pkgs.z3
-            pkgs.aflplusplus
-            qemu.${system}
-            pkgs.ghidra
-            pkgs.jdk
-          ]
-          ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
+          tools = devTools.${system};
+          toolInputs = tools.shell ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
           bnPath = lib.optionalString (bnUltimate.${system} != null) "${bnUltimate.${system}}";
 
           bnPythonPath = lib.optionalString (
             bnUltimate.${system} != null
           ) "${bnUltimate.${system}}/opt/binaryninja/python";
 
-          GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
+          GHIDRA_INSTALL_DIR = ghidraInstallDir tools.ghidra;
           smallworldBuilt = packages.${system}.default;
 
           # Shell that exposes `python312.withPackages (ps: [ ps.smallworld ])`.
@@ -353,18 +366,20 @@
             tag = "latest";
             copyToRoot = pkgs.buildEnv {
               name = "smallworld-root";
-              paths = [
-                pkgs.dockerTools.usrBinEnv
-                pkgs.dockerTools.binSh
-                pkgs.dockerTools.caCertificates
-                pkgs.dockerTools.fakeNss
-                pkgs.coreutils-full
-                pkgs.aflplusplus
-                qemu.${system}
-                virtualenv
-                pkgs.ghidra
-                pkgs.jre
-              ];
+              paths =
+                [
+                  pkgs.dockerTools.usrBinEnv
+                  pkgs.dockerTools.binSh
+                  pkgs.dockerTools.caCertificates
+                  pkgs.dockerTools.fakeNss
+                  pkgs.coreutils-full
+                ]
+                ++ devTools.${system}.docker
+                ++ [
+                  virtualenv
+                  devTools.${system}.ghidra
+                  devTools.${system}.jre
+                ];
               pathsToLink = [
                 "/bin"
                 "/etc"
@@ -374,8 +389,8 @@
             config = {
               Cmd = [ "/bin/sh" ];
               Env = [
-                "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-                "JAVA_HOME=${pkgs.jre}"
+                "GHIDRA_INSTALL_DIR=${ghidraInstallDir devTools.${system}.ghidra}"
+                "JAVA_HOME=${devTools.${system}.jre}"
               ];
             };
           };
