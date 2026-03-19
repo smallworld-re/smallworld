@@ -380,7 +380,7 @@
             config = {
               Cmd = [ "/bin/sh" ];
               Env = [
-                "LD_LIBRARY_PATH=/lib" 
+                "LD_LIBRARY_PATH=/lib"
                 "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
                 "JAVA_HOME=${pkgs.jre}"
               ];
