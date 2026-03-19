@@ -222,7 +222,7 @@ class M68KMachineDef(UnicornMachineDef):
             # Treat as illegal instruction
             code = intno - M68KExcp.EXCP_TRAP0
             logger.debug(f"Trap instruction, code {code}")
-            raise unicorn.UcError(unicorn.ERR_INSN_INVALID)
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
 
         elif intno in (
             M68KExcp.EXCP_FP_BSUN,
@@ -247,7 +247,7 @@ class M68KMachineDef(UnicornMachineDef):
             # MMU error
             # Treat as illegal instruction fault?
             logger.debug(f"MMU error {M68KExcp(intno).name}")
-            raise unicorn.UcError(unicorn.ERR_INSN_INVALID)
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
         elif intno in (M68KExcp.EXCP_RTE, M68KExcp.EXCP_HALT_INSN):
             # I don't think these are real exceptions.
             logger.error(

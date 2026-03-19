@@ -78,7 +78,7 @@ class UnicornEmulator(
         self.platform = platform
         self.platdef = platforms.PlatformDef.for_platform(self.platform)
         self.machdef = UnicornMachineDef.for_platform(self.platform)
-        self.engine = unicorn.Uc(
+        self.engine = unicorn.Uc(  # type: ignore[call-arg]
             self.machdef.uc_arch, self.machdef.uc_mode, cpu=self.machdef.uc_cpu
         )
         self.disassembler = capstone.Cs(
