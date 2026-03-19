@@ -21,7 +21,9 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x400
 
 user_input = str.encode("goodgoodgood", "utf-8")
 
-size_addr = heap.allocate_integer(len(user_input), 4, "user input size")
+size_addr = heap.allocate_integer(
+    len(user_input), 4, "user input size", smallworld.platforms.Byteorder.BIG
+)
 input_addr = heap.allocate_bytes(user_input, "user input")
 
 cpu.pc.set_content(0x1000)

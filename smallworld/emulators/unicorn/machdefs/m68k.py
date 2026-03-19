@@ -237,7 +237,7 @@ class M68KMachineDef(UnicornMachineDef):
             # Floating-point error.
             # Treat as illegal instruction
             logger.debug(f"Floating point error {M68KExcp(intno).name}")
-            raise unicorn.UcError(unicorn.ERR_INSN_INVALID)
+            raise unicorn.UcError(unicorn.UC_ERR_INSN_INVALID)
 
         elif intno in (
             M68KExcp.EXCP_MMU_CONF,
