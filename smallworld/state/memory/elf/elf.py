@@ -704,7 +704,7 @@ class ElfExecutable(Executable):
                     "ELF specifies a dynamic relocation table, but not DT_RELENT"
                 )
 
-            is_rel = True
+            is_rela = False
             reloff = self._dtags[DT_REL]
             relsz = self._dtags[DT_RELSZ]
             relent = self._dtags[DT_RELENT]
@@ -716,7 +716,7 @@ class ElfExecutable(Executable):
             for i in range(0, relsz // relent):
                 rel = ElfRela.from_bytes(
                     i,
-                    is_rel,
+                    is_rela,
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
                     image,

@@ -398,6 +398,12 @@ class LoongArch64ErrnoResolver(ErrnoResolver):
     # la64 uses generic errno
 
 
+class M68KErrnoResolver(ErrnoResolver):
+    platform = Platform(Architecture.M68K, Byteorder.BIG)
+    abi = ABI.SYSTEMV
+    # la64 uses generic errno
+
+
 class MIPSErrnoResolver(ErrnoResolver):
     abi = ABI.SYSTEMV
     # MIPS Absolutely doesn't use generic errno

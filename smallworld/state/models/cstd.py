@@ -588,7 +588,6 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             if on_stack:
                 # Stored on the stack; read from memory
                 addr = emulator.read_register(sp) + arg_offset
-                print(f"Fetching argument {index} from {arg_offset:x} -> {addr:x}")
                 data = emulator.read_memory(addr, self._four_byte_stack_size)
                 if self.platform.byteorder == Byteorder.BIG:
                     intval = int.from_bytes(data, "big")
@@ -853,12 +852,17 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     ) -> None:
         """Overwrite the return address of this model, or push a return address to the stack."""
 
-        if self.platform.architecture == platforms.Architecture.X86_32:
-            # i386: overwrite a 4-byte value on the stack
-            sp = emulator.read_register("esp")
+        if self.platform.architecture in (
+            platforms.Architecture.X86_32,
+            platforms.Architecture.M68K,
+        ):
+            assert hasattr(emulator, "platdef")
+            platdef = emulator.platdef
+            # i386, m68k: overwrite a 4-byte value on the stack
+            sp = emulator.read_register(platdef.sp_register)
             if push:
                 sp -= 4
-                emulator.write_register("esp", sp)
+                emulator.write_register(platdef.sp_register, sp)
             if self.platform.byteorder == platforms.Byteorder.LITTLE:
                 as_bytes = int.to_bytes(address, 4, "little")
             elif self.platform.byteorder == platforms.Byteorder.BIG:

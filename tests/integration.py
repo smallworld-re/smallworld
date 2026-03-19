@@ -3397,6 +3397,9 @@ class AbsLibraryModelTest(ScriptIntegrationTest):
     def test_la64(self):
         self.run_test("la64")
 
+    def test_m68k(self):
+        self.run_test("m68k")
+
     def test_mips(self):
         self.run_test("mips")
 
@@ -3553,6 +3556,11 @@ class C99LlabsTests(NoArgLibraryModelTest):
 class C99MallocTests(NoArgLibraryModelTest):
     library = "c99"
     function = "malloc"
+
+
+class C99MemchrTests(LibraryModelTest):
+    library = "c99"
+    function = "memchr"
 
 
 class C99MemcmpTests(LibraryModelTest):

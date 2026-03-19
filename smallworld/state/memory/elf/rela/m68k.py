@@ -3,6 +3,7 @@ from .....exceptions import ConfigurationError
 from ..structs import ElfRela
 from .rela import ElfRelocator
 
+R_68K_32 = 1
 R_68K_GLOB_DAT = 20
 R_68K_JMP_SLOT = 21
 R_68K_RELATIVE = 22
@@ -15,7 +16,8 @@ class M68KElfRelocator(ElfRelocator):
 
     def _compute_value(self, rela: ElfRela, elf):
         if (
-            rela.type == R_68K_GLOB_DAT
+            rela.type == R_68K_32
+            or rela.type == R_68K_GLOB_DAT
             or rela.type == R_68K_JMP_SLOT
             or rela.type == R_68K_RELATIVE
         ):

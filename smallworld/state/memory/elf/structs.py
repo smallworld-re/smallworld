@@ -140,6 +140,10 @@ class ElfRela:
             r_type = r_info & 0xFFFFFFFF
             r_symbol = r_info >> 32
 
+        if r_symbol < 0 or r_symbol >= len(symtab):
+            raise ValueError(
+                f"Bad symbol number: {r_symbol} ({len(symtab)} symbols in table)"
+            )
         symbol = symtab[r_symbol]
 
         return ElfRela(
