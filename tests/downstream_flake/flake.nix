@@ -17,10 +17,7 @@
     let
       system = "x86_64-linux"; # change if needed (e.g. aarch64-darwin)
 
-      pkgs = import nixpkgs {
-        inherit system;
-        overlays = [ smallworld.overlays.default ];
-      };
+      pkgs = nixpkgs.legacyPackages.${system}.extend smallworld.overlays.default;
 
       python = pkgs.python312;
       pythonEnv = python.withPackages (ps: [
