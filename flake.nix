@@ -150,8 +150,15 @@
           jdk = pkgs.jdk;
           jre = pkgs.jre;
           z3 = pkgs.z3;
-          shell = baseCommon ++ [ pkgs.z3 pkgs.ghidra pkgs.jdk ];
-          docker = baseCommon ++ [ pkgs.ghidra pkgs.jre ];
+          shell = baseCommon ++ [
+            pkgs.z3
+            pkgs.ghidra
+            pkgs.jdk
+          ];
+          docker = baseCommon ++ [
+            pkgs.ghidra
+            pkgs.jre
+          ];
         }
       );
 
@@ -529,20 +536,19 @@
             tag = "latest";
             copyToRoot = pkgs.buildEnv {
               name = "smallworld-root";
-              paths =
-                [
-                  pkgs.dockerTools.usrBinEnv
-                  pkgs.dockerTools.binSh
-                  pkgs.dockerTools.caCertificates
-                  pkgs.dockerTools.fakeNss
-                  pkgs.coreutils-full
-                ]
-                ++ devTools.${system}.docker
-                ++ [
-                  virtualenv
-                  devTools.${system}.ghidra
-                  devTools.${system}.jre
-                ];
+              paths = [
+                pkgs.dockerTools.usrBinEnv
+                pkgs.dockerTools.binSh
+                pkgs.dockerTools.caCertificates
+                pkgs.dockerTools.fakeNss
+                pkgs.coreutils-full
+              ]
+              ++ devTools.${system}.docker
+              ++ [
+                virtualenv
+                devTools.${system}.ghidra
+                devTools.${system}.jre
+              ];
               pathsToLink = [
                 "/bin"
                 "/etc"
