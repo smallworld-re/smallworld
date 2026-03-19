@@ -128,9 +128,9 @@ class ElfRela:
 
         res = struct.unpack_from(pattern, image, offset=offset)
         if is_rela:
-            (r_offset, r_info, r_addend) = res
+            r_offset, r_info, r_addend = res
         else:
-            (r_offset, r_info) = res
+            r_offset, r_info = res
             r_addend = 0
 
         if elfclass == 1:
