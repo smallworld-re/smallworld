@@ -45,7 +45,7 @@ cpu.sp.set(sp)
 
 # Configure libc
 libc = smallworld.state.models.posix.POSIXLibc(
-    0x40000,
+    0x80000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
 )
@@ -103,7 +103,7 @@ dead = DeadModel()
 machine.add(dead)
 
 # Emulate
-emulator = smallworld.emulators.GhidraEmulator(platform)
+emulator = smallworld.emulators.UnicornEmulator(platform)
 emulator.add_exit_point(0)
 try:
     machine.emulate(emulator)
