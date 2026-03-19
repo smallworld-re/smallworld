@@ -208,6 +208,7 @@ class Model(Hook):
             raise exceptions.ConfigurationError(
                 f"Invoked model for {self.name}, which is imprecise"
             )
+        logger.debug(f"Executing model for {self.name}")
 
     def get_return_address(self, emulator: emulators.Emulator, pop=False) -> int:
         """Read this model's return address, or pop the return address from the stack."""

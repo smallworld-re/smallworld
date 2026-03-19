@@ -89,7 +89,7 @@ fdmgr = smallworld.state.models.filedesc.FileDescriptorManager.for_platform(
     platform, smallworld.platforms.ABI.SYSTEMV
 )
 fdmgr.model_fs = True
-fdmgr.add_file("/tmp/foobar", init=b"foobar")
+fdmgr.add_file("/tmp/foobar", b"foobar")
 
 
 # Create a type of exception only I will generate

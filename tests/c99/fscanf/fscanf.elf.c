@@ -191,7 +191,7 @@ int main() {
 
     char                strval[16] = { 0 };
 
-    FILE               *file = (FILE *)0x47492a00;
+    FILE               *file = (FILE *)0x46492a00;
     
     TEST("%d", " 42", intval, (int)42, "%d\n");
  

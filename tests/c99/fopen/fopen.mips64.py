@@ -65,6 +65,12 @@ fopen_model.allow_imprecise = True
 # Relocate puts
 code.update_symbol_value("fopen", fopen_model._address)
 
+# Add the file to the file system model
+fdmgr = smallworld.state.models.filedesc.FileDescriptorManager.for_platform(
+    platform, smallworld.platforms.ABI.SYSTEMV
+)
+fdmgr.add_file("/tmp/foobar")
+
 
 # Create a type of exception only I will generate
 class FailExitException(Exception):

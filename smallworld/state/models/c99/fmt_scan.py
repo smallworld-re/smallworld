@@ -6,7 +6,7 @@ from .... import exceptions
 from ....emulators import Emulator
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
-from ..filedesc import FileDescriptor
+from ..filedesc import FileStar
 
 
 class FormatConversionError(Exception):
@@ -46,12 +46,12 @@ class FileIntake(Intake):
     That is, a file modeled by the stdio models.
     """
 
-    def __init__(self, file: FileDescriptor):
+    def __init__(self, file: FileStar):
         super().__init__()
         self.file = file
 
     def peek(self) -> str:
-        data = self.file.read(1, ungetc=True)
+        data = self.file.read(1)
         if len(data) == 0:
             raise InputEndedError()
 
@@ -70,7 +70,7 @@ class FileIntake(Intake):
         self.cursor -= len(data)
 
     def pop(self) -> None:
-        self.file.read(1, ungetc=True)
+        self.file.read(1)
         self.cursor += 1
 
 

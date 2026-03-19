@@ -1,5 +1,13 @@
 from ..... import emulators, platforms
 from ...cstd import ArgumentType, CStdCallingContext, CStdModel
+from ...posix.filedesc import POSIXFileDescriptorManager
+
+
+class FileDescriptorManager(POSIXFileDescriptorManager):
+    platform = platforms.Platform(
+        platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+    )
+    abi = platforms.ABI.SYSTEMV
 
 
 class I386SysVCallingContext(CStdCallingContext):

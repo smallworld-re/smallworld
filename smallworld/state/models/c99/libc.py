@@ -9,10 +9,6 @@ from . import signal, stdio, stdlib, string, time
 
 
 class C99Libc(ElfModelLibrary):
-    alt_names = {
-        "__cxa_atexit": "atexit",
-    }
-
     def __init__(
         self,
         address: int,
@@ -37,6 +33,10 @@ class C99Libc(ElfModelLibrary):
             calloc_model.heap = heap
             realloc_model.heap = heap
             free_model.heap = heap
+
+    @property
+    def alt_names(self) -> typing.Dict[str, str]:
+        return {"__cxa_atexit": "atexit"}
 
     @property
     def function_names(self) -> typing.List[str]:

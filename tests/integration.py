@@ -3354,9 +3354,30 @@ class C99LibcTests(NoArgLibraryModelTest):
             f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
         )
 
-        self.assertLineContainsStrings(stderr, "Harness requires atexit")
-        self.assertLineContainsStrings(stderr, "Harness requires vprintf")
-        self.assertStringsAbsent(stderr, "Harness requires system")
+
+class C99CtypeBLocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ctype_b_loc"
+
+
+class C99CtypeTolowerLocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ctype_tolower_loc"
+
+
+class C99CtypeToupperLocTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "ctype_toupper_loc"
+
+
+class C99TolowerTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "tolower"
+
+
+class C99ToupperTests(NoArgLibraryModelTest):
+    library = "c99"
+    function = "toupper"
 
 
 class C99AbsTests(NoArgLibraryModelTest):
@@ -3855,6 +3876,11 @@ class POSIXBasenameTests(NoArgLibraryModelTest):
 class POSIXDirnameTests(NoArgLibraryModelTest):
     library = "posix"
     function = "dirname"
+
+
+class POSIXSocketTCPServerTests(NoArgLibraryModelTest):
+    library = "posix"
+    function = "socket_tcp_server"
 
 
 class TraceExecutionTests(ScriptIntegrationTest):

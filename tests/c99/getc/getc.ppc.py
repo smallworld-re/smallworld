@@ -64,7 +64,7 @@ code.update_symbol_value("getc", getc_model._address)
 # Create a fake stdin
 fake_stdin = smallworld.state.memory.Memory(0x200000, 4)
 fake_stdin[0] = smallworld.state.IntegerValue(
-    0x47492A00, 4, None, smallworld.platforms.Byteorder.BIG, False
+    0x46492A00, 4, None, smallworld.platforms.Byteorder.BIG, False
 )
 machine.add(fake_stdin)
 
