@@ -5,6 +5,7 @@ from .cpu import *  # noqa: F401, F403
 from .cpu import __all__ as __cpu__
 from .i386 import I386
 from .loongarch import LoongArch64
+from .m68k import M68K
 from .mips import MIPSBE, MIPSEL
 from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
@@ -23,6 +24,7 @@ __all__ = __cpu__ + [
     "ARMv7A",
     "I386",
     "LoongArch64",
+    "M68K",
     "MIPS64EL",
     "MIPS64BE",
     "MIPSEL",

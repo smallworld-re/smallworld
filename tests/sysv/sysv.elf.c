@@ -9,6 +9,7 @@ void foo(
     unsigned long long b, 
     ...
     ) {
+    unsigned long long a1 = x + y;
     return;
 }
 

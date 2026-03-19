@@ -269,6 +269,9 @@ class CallTestsGhidra(CallTests):
     def test_call_la64_pcode(self):
         self.run_test("la64.pcode", signext=True)
 
+    def test_call_m68k_pcode(self):
+        self.run_test("m68k.pcode")
+
     def test_call_mips_pcode(self):
         self.run_test("mips.pcode")
 
@@ -341,6 +344,9 @@ class CallTestsUnicorn(CallTests):
 
     def test_call_i386(self):
         self.run_test("i386")
+
+    def test_call_m68k(self):
+        self.run_test("m68k")
 
     def test_call_mips(self):
         self.run_test("mips")
@@ -439,6 +445,12 @@ class DMATests(ScriptIntegrationTest):
 
     def test_dma_la64_pcode(self):
         self.run_test("la64.pcode")
+
+    def test_dma_m68k(self):
+        self.run_test("m68k")
+
+    def test_dma_m68k_pcode(self):
+        self.run_test("m68k.pcode")
 
     def test_dma_mips(self):
         self.run_test("mips")
@@ -613,6 +625,12 @@ class SquareTests(ScriptIntegrationTest):
     def test_square_i386_pcode(self):
         self.run_test(arch="i386.pcode")
 
+    def test_square_m68k(self):
+        self.run_test(arch="m68k")
+
+    def test_square_m68k_pcode(self):
+        self.run_test(arch="m68k.pcode")
+
     def test_square_mips(self):
         self.run_test(arch="mips")
 
@@ -785,6 +803,12 @@ class RecursionTests(ScriptIntegrationTest):
 
     def test_la64_pcode(self):
         self.run_test("la64.pcode")
+
+    def test_recursion_m68k(self):
+        self.run_test("m68k")
+
+    def test_recursion_m68k_pcode(self):
+        self.run_test("m68k.pcode")
 
     def test_recursion_mips(self):
         self.run_test("mips")
@@ -963,6 +987,12 @@ class StackTests(ScriptIntegrationTest):
     def test_stack_la64_pcode(self):
         self.run_test("la64.pcode", reg="a0", res="0xffff")
 
+    def test_stack_m68k(self):
+        self.run_test("m68k", reg="d0")
+
+    def test_stack_m68k_pcode(self):
+        self.run_test("m68k.pcode", reg="d0")
+
     def test_stack_mips(self):
         self.run_test("mips", reg="v0", res="0xaaaa")
 
@@ -1140,6 +1170,9 @@ class BranchTestsGhidra(BranchTests):
     def test_branch_la64_pcode(self):
         self.run_branch("la64.pcode", reg="a0")
 
+    def test_branch_m68k_pcode(self):
+        self.run_branch("m68k.pcode", reg="d0")
+
     def test_branch_mips_pcode(self):
         self.run_branch("mips.pcode", reg="v0")
 
@@ -1218,6 +1251,9 @@ class BranchTestsUnicorn(BranchTests):
 
     def test_branch_i386(self):
         self.run_branch("i386")
+
+    def test_branch_m68k(self):
+        self.run_branch("m68k", reg="d0")
 
     def test_branch_mips(self):
         self.run_branch("mips", reg="v0")
@@ -1315,6 +1351,12 @@ class StrlenTests(ScriptIntegrationTest):
 
     def test_strlen_la64_pcode(self):
         self.run_test("la64.pcode")
+
+    def test_strlen_m68k(self):
+        self.run_test("m68k")
+
+    def test_strlen_m68k_pcode(self):
+        self.run_test("m68k.pcode")
 
     def test_strlen_mips(self):
         self.run_test("mips")
@@ -1480,6 +1522,12 @@ class HookingTests(ScriptIntegrationTest):
 
     def test_hooking_la64_pcode(self):
         self.run_test("la64.pcode")
+
+    def test_hooking_m68k(self):
+        self.run_test("m68k")
+
+    def test_hooking_m68k_pcode(self):
+        self.run_test("m68k.pcode")
 
     def test_hooking_mips(self):
         self.run_test("mips")
@@ -1656,6 +1704,12 @@ class MemhookTests(ScriptIntegrationTest):
     def test_la64_ghidra(self):
         self.run_test_64("la64.ghidra")
 
+    def test_m68k(self):
+        self.run_test_32("m68k")
+
+    def test_m68k_pcode(self):
+        self.run_test_32("m68k.pcode")
+
     def test_mips(self):
         self.run_test_32("mips")
 
@@ -1794,6 +1848,12 @@ class ElfTests(ScriptIntegrationTest):
 
     def test_elf_la64_pcode(self):
         self.run_test("la64.pcode")
+
+    def test_elf_m68k(self):
+        self.run_test("m68k")
+
+    def test_elf_m68k_pcode(self):
+        self.run_test("m68k.pcode")
 
     def test_elf_mips(self):
         self.run_test("mips")
@@ -1952,6 +2012,12 @@ class RelaTests(ScriptIntegrationTest):
     def test_rela_la64_pcode(self):
         self.run_test("la64.pcode")
 
+    def test_rela_m68k(self):
+        self.run_test("m68k")
+
+    def test_rela_m68k_pcode(self):
+        self.run_test("m68k.pcode")
+
     def test_rela_mips(self):
         self.run_test("mips")
 
@@ -2096,6 +2162,12 @@ class LinkElfTests(ScriptIntegrationTest):
 
     def test_link_elf_la64_pcode(self):
         self.run_test("la64.pcode")
+
+    def test_link_elf_m68k(self):
+        self.run_test("m68k")
+
+    def test_link_elf_m68k_pcode(self):
+        self.run_test("m68k.pcode")
 
     def test_link_elf_mips(self):
         self.run_test("mips")
@@ -2640,6 +2712,12 @@ class StaticBufferTests(ScriptIntegrationTest):
     def test_la64_pcode(self):
         self.run_test("la64.pcode")
 
+    def test_m68k(self):
+        self.run_test("m68k")
+
+    def test_m68k_pcode(self):
+        self.run_test("m68k.pcode")
+
     def test_mips(self):
         self.run_test("mips")
 
@@ -2854,6 +2932,12 @@ class ExitpointTests(ScriptIntegrationTest):
     def test_la64_pcode(self):
         self.run_test("la64.pcode")
 
+    def test_m68k(self):
+        self.run_test("m68k")
+
+    def test_m68k_pcode(self):
+        self.run_test("m68k.pcode")
+
     def test_mips(self):
         self.run_test("mips")
 
@@ -3014,6 +3098,12 @@ class UnmappedTests(ScriptIntegrationTest):
     def test_la64_pcode(self):
         self.run_test("la64.pcode")
 
+    def test_m68k(self):
+        self.run_test("m68k")
+
+    def test_m68k_pcode(self):
+        self.run_test("m68k.pcode")
+
     def test_mips(self):
         self.run_test("mips")
 
@@ -3171,6 +3261,12 @@ class FuzzTests(ScriptIntegrationTest):
             ],
         )
 
+    def test_fuzz_m68k(self):
+        self.run_fuzz("m68k")
+
+    def test_afl_m68k(self):
+        self.run_afl("m68k", ["021692:1", "022192:1", "059686:1"])
+
     def test_fuzz_mips(self):
         self.run_fuzz("mips")
 
@@ -3239,6 +3335,9 @@ class SysVModelTests(ScriptIntegrationTest):
     def test_la64(self):
         self.run_test("la64")
 
+    def test_m68k(self):
+        self.run_test("m68k")
+
     def test_mips(self):
         self.run_test("mips")
 
@@ -3297,6 +3396,9 @@ class AbsLibraryModelTest(ScriptIntegrationTest):
 
     def test_la64(self):
         self.run_test("la64")
+
+    def test_m68k(self):
+        self.run_test("m68k")
 
     def test_mips(self):
         self.run_test("mips")
@@ -3454,6 +3556,11 @@ class C99LlabsTests(NoArgLibraryModelTest):
 class C99MallocTests(NoArgLibraryModelTest):
     library = "c99"
     function = "malloc"
+
+
+class C99MemchrTests(LibraryModelTest):
+    library = "c99"
+    function = "memchr"
 
 
 class C99MemcmpTests(LibraryModelTest):

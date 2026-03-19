@@ -9,6 +9,7 @@ from .arm import (
     ARMv7RMachineDef,
 )
 from .i386 import i386MachineDef
+from .m68k import M68KMachineDef
 from .machdef import UnicornMachineDef
 from .mips import (
     MIPS64BEMachineDef,
@@ -29,6 +30,7 @@ __all__ = [
     "ARMv7MMachineDef",
     "ARMv7RMachineDef",
     "i386MachineDef",
+    "M68KMachineDef",
     "MIPSBEMachineDef",
     "MIPSELMachineDef",
     "MIPS64BEMachineDef",

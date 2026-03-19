@@ -269,6 +269,21 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         """Size of a double on the stack"""
         raise NotImplementedError()
 
+    def _return_pointer(self, emulator: emulators.Emulator, val: int) -> None:
+        """Return a pointer type
+
+        On m68k, the return register changes
+        depending on if you're returning a value or address.
+        """
+        if ArgumentType.POINTER in self._four_byte_types:
+            self._return_4_byte(emulator, val)
+        elif ArgumentType.POINTER in self._eight_byte_types:
+            self._return_8_byte(emulator, val)
+        else:
+            raise ConfigurationError(
+                f"Pointer is neither a 4 nor 8 byte integer on {self.platform}"
+            )
+
     @abc.abstractmethod
     def _return_4_byte(self, emulator: emulators.Emulator, val: int) -> None:
         """Return a four-byte type"""
@@ -748,6 +763,15 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             self._return_double(emulator, val)
             return
 
+        if self.return_type == ArgumentType.POINTER:
+            # We're a pointer
+            if not isinstance(val, int):
+                raise exceptions.ConfigurationError(
+                    f"Trying to return {type(val)} as a pointer"
+                )
+            self._return_pointer(emulator, val)
+            return
+
         # All other types are integral
         if not isinstance(val, int):
             raise exceptions.ConfigurationError(
@@ -828,12 +852,17 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
     ) -> None:
         """Overwrite the return address of this model, or push a return address to the stack."""
 
-        if self.platform.architecture == platforms.Architecture.X86_32:
-            # i386: overwrite a 4-byte value on the stack
-            sp = emulator.read_register("esp")
+        if self.platform.architecture in (
+            platforms.Architecture.X86_32,
+            platforms.Architecture.M68K,
+        ):
+            assert hasattr(emulator, "platdef")
+            platdef = emulator.platdef
+            # i386, m68k: overwrite a 4-byte value on the stack
+            sp = emulator.read_register(platdef.sp_register)
             if push:
                 sp -= 4
-                emulator.write_register("esp", sp)
+                emulator.write_register(platdef.sp_register, sp)
             if self.platform.byteorder == platforms.Byteorder.LITTLE:
                 as_bytes = int.to_bytes(address, 4, "little")
             elif self.platform.byteorder == platforms.Byteorder.BIG:

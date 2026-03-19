@@ -28,6 +28,9 @@ class UnicornMachineDef(metaclass=abc.ABCMeta):
         """The Unicorn architecture ID"""
         return 0
 
+    uc_cpu: typing.Optional[int] = None
+    """The Unicorn CPU ID, if needed"""
+
     @property
     @abc.abstractmethod
     def uc_mode(self) -> int:
