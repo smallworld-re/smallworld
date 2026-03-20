@@ -41,7 +41,7 @@ in
   });
 
   # Map PyPI's z3-solver to nixpkgs' z3 Python bindings
-  z3-solver = python.pkgs.z3;
-
+  z3-solver = python.pkgs.z3-solver;
+  
 }
 // mappedBuildSystemOverrides
