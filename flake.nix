@@ -350,33 +350,37 @@
           binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
             default = bnUltimate.${system};
           };
-          dockerImage = pkgs.dockerTools.buildImage {
-            name = "smallworld-re";
-            tag = "latest";
-            copyToRoot = pkgs.buildEnv {
-              name = "smallworld-root";
-              paths = [
-                pkgs.dockerTools.usrBinEnv
-                pkgs.dockerTools.binSh
-                pkgs.dockerTools.caCertificates
-                pkgs.dockerTools.fakeNss
-                pkgs.coreutils-full
-                pkgs.aflplusplus
-                qemu.${system}
-                virtualenv
-                pkgs.ghidra
-                pkgs.jre
-                pkgs.unzip
-                pkgs.dbus.lib
-                pkgs.stdenv.cc.cc.lib
-              ];
-              pathsToLink = [
-                "/bin"
-                "/etc"
-                "/var"
-                "/lib"
-              ];
-            };
+          dockerImage =
+            let
+              bn = bnUltimate.${system};
+              hasBinja = bn != null;
+            in
+            pkgs.dockerTools.buildImage {
+              name = "smallworld-re";
+              tag = "latest";
+              copyToRoot = pkgs.buildEnv {
+                name = "smallworld-root";
+                paths = [
+                  pkgs.dockerTools.usrBinEnv
+                  pkgs.dockerTools.binSh
+                  pkgs.dockerTools.caCertificates
+                  pkgs.dockerTools.fakeNss
+                  pkgs.aflplusplus
+                  pkgs.coreutils
+                  qemu.${system}
+                  virtualenv
+                  pkgs.ghidra
+                  pkgs.unzip
+                  pkgs.dbus.lib
+                  pkgs.stdenv.cc.cc.lib
+                ] ++ lib.optional hasBinja bn;
+                pathsToLink = [
+                  "/bin"
+                  "/etc"
+                  "/var"
+                  "/lib"
+                ] ++ lib.optional hasBinja "/opt";
+              };
             config = {
               Cmd = [ "/bin/sh" ];
               Env = [
