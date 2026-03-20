@@ -373,23 +373,25 @@
                   pkgs.unzip
                   pkgs.dbus.lib
                   pkgs.stdenv.cc.cc.lib
-                ] ++ lib.optional hasBinja bn;
+                ]
+                ++ lib.optional hasBinja bn;
                 pathsToLink = [
                   "/bin"
                   "/etc"
                   "/var"
                   "/lib"
-                ] ++ lib.optional hasBinja "/opt";
+                ]
+                ++ lib.optional hasBinja "/opt";
               };
-            config = {
-              Cmd = [ "/bin/sh" ];
-              Env = [
-                "LD_LIBRARY_PATH=/lib"
-                "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-                "JAVA_HOME=${pkgs.jre}"
-              ];
+              config = {
+                Cmd = [ "/bin/sh" ];
+                Env = [
+                  "LD_LIBRARY_PATH=/lib"
+                  "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+                  "JAVA_HOME=${pkgs.jre}"
+                ];
+              };
             };
-          };
         }
       );
 
