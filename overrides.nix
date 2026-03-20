@@ -40,5 +40,11 @@ in
     nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.unicorn ];
   });
 
+  z3-solver = python.pkgs.z3-solver;
+
+  claripy = prev.claripy.overrideAttrs (old: {
+    propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [ python.pkgs.z3-solver ];
+  });
+
 }
 // mappedBuildSystemOverrides

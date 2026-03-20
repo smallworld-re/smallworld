@@ -15,7 +15,7 @@ dependencies = [
     "jsons>=1.6.3",
     "lief>=0.17.2",
     "setuptools>=80.9.0",
-    "pycparser>=2.18,<3.0",
+    "pycparser==2.21",
     "networkx>=3.2.1",
     "claripy>=9.2.102",
 ]
@@ -51,7 +51,7 @@ emu-panda = [
     "pandare2",
 ]
 emu-unicorn = [
-    "unicorn>=2.1.3",
+    "unicorn>=2.1.4",
 ]
 emu-all = [
     "smallworld-re[emu-angr,emu-ghidra,emu-panda,emu-unicorn]",
