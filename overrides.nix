@@ -43,7 +43,6 @@ in
   z3-solver = python.pkgs.z3-solver;
 
   claripy = prev.claripy.overrideAttrs (old: {
-    pythonRemoveDeps = (old.pythonRemoveDeps or [ ]) ++ [ "z3-solver" ];
     propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [ python.pkgs.z3-solver ];
   });
 
