@@ -40,8 +40,15 @@ in
     nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.unicorn ];
   });
 
-  # Map PyPI's z3-solver to nixpkgs' z3 Python bindings
   z3-solver = python.pkgs.z3-solver;
 
+<<<<<<< HEAD
+=======
+  claripy = prev.claripy.overrideAttrs (old: {
+    pythonRemoveDeps = (old.pythonRemoveDeps or [ ]) ++ [ "z3-solver" ];
+    propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ [ python.pkgs.z3-solver ];
+  });
+
+>>>>>>> 623d7c38 (added claripy z3)
 }
 // mappedBuildSystemOverrides
