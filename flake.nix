@@ -32,15 +32,15 @@
       flake = false;
     };
 
-    # binaryninja = {
-    #   url = "github:jchv/nix-binary-ninja";
-    #   inputs.nixpkgs.follows = "nixpkgs";
-    # };
+    #  binaryninja = {
+    #    url = "github:jchv/nix-binary-ninja";
+    #    inputs.nixpkgs.follows = "nixpkgs";
+    #  };
 
-    # binjaZip = {
-    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
-    #   flake = false;
-    # };
+    #  binjaZip = {
+    #    url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #    flake = false;
+    #  };
 
     # For building RTOS Demo
     zephyr-nix = {
@@ -276,6 +276,8 @@
               export REPO_ROOT=$(git rev-parse --show-toplevel)
             ''
             + lib.optionalString (bnUltimate.${system} != null) ''
+
+
               export BINJA_PATH=${bnUltimate.${system}}
               export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
           };
@@ -348,37 +350,48 @@
           binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
             default = bnUltimate.${system};
           };
-          dockerImage = pkgs.dockerTools.buildImage {
-            name = "smallworld-re";
-            tag = "latest";
-            copyToRoot = pkgs.buildEnv {
-              name = "smallworld-root";
-              paths = [
-                pkgs.dockerTools.usrBinEnv
-                pkgs.dockerTools.binSh
-                pkgs.dockerTools.caCertificates
-                pkgs.dockerTools.fakeNss
-                pkgs.coreutils-full
-                pkgs.aflplusplus
-                qemu.${system}
-                virtualenv
-                pkgs.ghidra
-                pkgs.jre
-              ];
-              pathsToLink = [
-                "/bin"
-                "/etc"
-                "/var"
-              ];
+          dockerImage =
+            let
+              bn = bnUltimate.${system};
+              hasBinja = bn != null;
+            in
+            pkgs.dockerTools.buildImage {
+              name = "smallworld-re";
+              tag = "latest";
+              copyToRoot = pkgs.buildEnv {
+                name = "smallworld-root";
+                paths = [
+                  pkgs.dockerTools.usrBinEnv
+                  pkgs.dockerTools.binSh
+                  pkgs.dockerTools.caCertificates
+                  pkgs.dockerTools.fakeNss
+                  pkgs.aflplusplus
+                  pkgs.coreutils
+                  qemu.${system}
+                  virtualenv
+                  pkgs.ghidra
+                  pkgs.unzip
+                  pkgs.dbus.lib
+                  pkgs.stdenv.cc.cc.lib
+                ]
+                ++ lib.optional hasBinja bn;
+                pathsToLink = [
+                  "/bin"
+                  "/etc"
+                  "/var"
+                  "/lib"
+                ]
+                ++ lib.optional hasBinja "/opt";
+              };
+              config = {
+                Cmd = [ "/bin/sh" ];
+                Env = [
+                  "LD_LIBRARY_PATH=/lib"
+                  "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+                  "JAVA_HOME=${pkgs.jre}"
+                ];
+              };
             };
-            config = {
-              Cmd = [ "/bin/sh" ];
-              Env = [
-                "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-                "JAVA_HOME=${pkgs.jre}"
-              ];
-            };
-          };
         }
       );
 
