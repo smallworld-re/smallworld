@@ -32,15 +32,15 @@
       flake = false;
     };
 
-    #  binaryninja = {
-    #    url = "github:jchv/nix-binary-ninja";
-    #    inputs.nixpkgs.follows = "nixpkgs";
-    #  };
+     binaryninja = {
+       url = "github:jchv/nix-binary-ninja";
+       inputs.nixpkgs.follows = "nixpkgs";
+     };
 
-    #  binjaZip = {
-    #    url = "path:./binaryninja_linux_stable_ultimate.zip";
-    #    flake = false;
-    #  };
+     binjaZip = {
+       url = "path:./binaryninja_linux_stable_ultimate.zip";
+       flake = false;
+     };
 
     # For building RTOS Demo
     zephyr-nix = {
@@ -373,6 +373,25 @@
                   pkgs.unzip
                   pkgs.dbus.lib
                   pkgs.stdenv.cc.cc.lib
+                  pkgs.bash           # ~30 MB  - full bash shell
+                  pkgs.vim
+                  pkgs.nano           # ~5 MB   - very lightweight editor
+                  pkgs.findutils      # ~2 MB   - find, xargs
+                  pkgs.gnugrep        # ~3 MB   - grep
+                  pkgs.gnused         # ~2 MB   - sed
+                  pkgs.gawk           # ~3 MB   - awk
+                  pkgs.less           # ~2 MB   - pager
+                  pkgs.which          # ~1 MB   - trivial
+                  pkgs.file           # ~6 MB   - file type detection (includes magic db)
+                  pkgs.tree           # ~1 MB   - directory listing
+                  pkgs.curl           # ~15 MB  - pulls in openssl, libnghttp2, etc.
+                  pkgs.wget           # ~10 MB  - similar TLS deps, some overlap with curl
+                  pkgs.procps         # ~5 MB   - ps, top, free
+                  pkgs.iproute2       # ~10 MB  - ip, ss (network stack)
+                  pkgs.netcat         # ~1 MB   - nc
+                  pkgs.strace         # ~3 MB   - syscall tracing
+                  pkgs.gnutar         # ~3 MB   - tar
+                  pkgs.gzip           # ~1 MB   - gzip/gunzip
                 ]
                 ++ lib.optional hasBinja bn;
                 pathsToLink = [
