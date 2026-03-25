@@ -136,8 +136,6 @@ class UnicornEmulator(
                 self.engine.emu_stop()
                 raise exceptions.EmulationExitpoint
 
-            logger.info(f"Considering {address:x}")
-
             # Check single-step conditions.
             #
             # This callback gets invoked before the instruction is emulated.
@@ -186,6 +184,8 @@ class UnicornEmulator(
                     # This instruction is a normal instruction.
                     # The next instruction will be outside the current step.
                     self.state = EmulatorState.STEP
+
+            logger.debug(f"Stepping through {self.current_instruction()}")
 
             # run instruciton hooks
             if self.all_instructions_hook:
@@ -532,6 +532,7 @@ class UnicornEmulator(
             raise exceptions.SymbolicValueError(
                 "This emulator cannot handle bitvector expressions"
             )
+        logger.debug(f"Writing {len(content)} to {address:x}")
 
         if len(content) > sys.maxsize:
             raise ValueError(f"{len(content)} is too large (max: {sys.maxsize})")
@@ -539,7 +540,6 @@ class UnicornEmulator(
         if not len(content):
             raise ValueError("memory write cannot be empty")
 
-        logger.debug(f"Writing {len(content)} to {address:x}")
         try:
             # print(f"write_memory: {content}")
             self.engine.mem_write(address, content)

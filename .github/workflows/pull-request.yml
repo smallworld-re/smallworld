@@ -270,6 +270,7 @@ jobs:
             - testsuite: RTOSDemoTests
             - testsuite: SquareTests
             - testsuite: StackTests
+            - testsuite: StaticRelaTests
             - testsuite: StrlenTests
             - testsuite: StructureTests
             - testsuite: SyscallTests

@@ -53,8 +53,12 @@ class Accept(FDModel):
         # This should be guaranteed by accept()
         assert connsock.peername is not None
 
-        emulator.write_memory(addr, connsock.peername.to_bytes(byteorder))
-        emulator.write_memory(addrlen, connsock.peername.size.to_bytes(4, byteorder))
+        if addr != 0:
+            emulator.write_memory(addr, connsock.peername.to_bytes(byteorder))
+        if addrlen != 0:
+            emulator.write_memory(
+                addrlen, connsock.peername.size.to_bytes(4, byteorder)
+            )
 
         self.set_return_value(emulator, connfd)
 

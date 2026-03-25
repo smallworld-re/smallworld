@@ -50,6 +50,11 @@ PT_HIOS = 0x6FFFFFFF  # End of OS-specific types
 PT_LOPROC = 0x70000000  # Start of processor-specific types
 PT_HIPROC = 0x7FFFFFFF  # End of processor-specific types
 
+# Section header flags
+SHF_WRITE = 0x1  # Section is writable
+SHF_ALLOC = 0x2  # Section occupies memory durring execution
+SHF_EXECINSTR = 0x4  # Section is executable
+
 # Program header flags
 PF_X = 0x1  # Segment is executable
 PF_W = 0x2  # Segment is writable
@@ -109,6 +114,7 @@ class ElfExecutable(Executable):
         self._user_base = user_base
         self._file_base = 0
         self._segments: typing.Dict[int, typing.Tuple[int, int]] = dict()
+        self._section_offsets: typing.Dict[int, int] = dict()
 
         # Lief struct.
         # We can't keep it around forever, since it's not copyable.
@@ -165,87 +171,20 @@ class ElfExecutable(Executable):
             # If we have a platform, we can relocate
             self._relocator = ElfRelocator.for_platform(self.platform)
 
-        # Figure out if this file is loadable.
-        # If there are program headers, it's loadable.
-        # This doesn't support .ko files, are relocatable objects,
-        # and have no program headers.
-        if ehdr.program_header_offset == 0:
-            # No program headers; not a loadable ELF.
-            raise ConfigurationError("ELF is not loadable")
-
-        if ehdr.program_header_offset >= len(image):
-            # Obviously-invalid program headers
-            raise ConfigurationError(
-                f"Invalid program header offset {hex(ehdr.program_header_offset)}"
-            )
-
         # Determine the file base address.
         self._file_base = elf.imagebase
         self._determine_base()
 
-        for phdr in elf.segments:
-            log.debug(f"{phdr}")
-            phdr_type = phdr.type.value & 0xFFFFFFFF
-            if phdr_type == PT_LOAD:
-                # Loadable segment
-                # Map its data into memory
-                self._segments[phdr.virtual_address] = (
-                    phdr.file_offset,
-                    phdr.physical_size,
-                )
-                self._map_segment(phdr, image)
-            elif phdr_type == PT_DYNAMIC:
-                # Dynamic linking metadata.
-                # This ELF needs dynamic linking
-                log.debug("Program includes dynamic linking metadata")
-            elif phdr_type == PT_INTERP:
-                # Program interpreter
-                # This completely changes how program loading works.
-                # Whether you care is a different matter.
-                interp = image[phdr.file_offset : phdr.file_offset + phdr.physical_size]
-                log.debug(f"Program specifies interpreter {interp!r}")
-            elif phdr_type == PT_NOTE:
-                # Auxiliary information
-                # Possibly useful for comparing machine/OS type.
-                pass
-            elif phdr_type == PT_PHDR:
-                # Program header self-reference
-                # Useful for the dynamic linker, but not for us
-                pass
-            elif phdr_type == PT_TLS:
-                # TLS Segment
-                # Your analysis is about to get nasty :(
-                log.debug("Program includes thread-local storage")
-            elif phdr_type == PT_GNU_EH_FRAME:
-                # Exception handler frame.
-                # GCC puts one of these in everything.  Do we care?
-                pass
-            elif phdr_type == PT_GNU_STACK:
-                # Stack executability
-                # If this is missing, assume executable stack
-                log.debug("Program specifies stack permissions")
-            elif phdr_type == PT_GNU_RELRO:
-                # Read-only after relocation
-                # Only the dynamic linker should write this data.
-                log.debug("Program specifies RELRO data")
-            elif phdr_type == PT_GNU_PROPERTY:
-                # GNU property segment
-                # Contains extra metadata which I'm not sure anything uses
-                pass
-            elif phdr_type >= PT_LOOS and phdr_type <= PT_HIOS:
-                # Unknown OS-specific program header
-                # Either this is a weird ISA that extends the generic GNU ABI,
-                # or this isn't a Linux ELF.
-                log.warn(f"Unknown OS-specific program header: {phdr_type:08x}")
-            elif phdr_type >= PT_LOPROC and phdr_type <= PT_HIPROC:
-                # Unknown machine-specific program header
-                # This is probably a non-Intel ISA.
-                # Most of these are harmless, serving to tell the RTLD
-                # where to find machine-specific metadata
-                log.warn(f"Unknown machine-specific program header: {phdr_type:08x}")
-            else:
-                # Unknown program header outside the allowed custom ranges
-                log.warn(f"Invalid program header: {phdr_type:08x}")
+        # Load this file.
+        # Prefer to use the program headers if available,
+        # since that's what the kernel will be using.
+        # Otherwise, patch something together from the section headers.
+        if ehdr.program_header_offset == 0:
+            # No program headers; not a loadable ELF.
+            self._load_from_shdrs(elf, image)
+        else:
+            # Program headers; it's a loadable ELF.
+            self._load_from_phdrs(elf, image)
 
         # Compute the final total capacity
         for offset, value in self.items():
@@ -403,6 +342,10 @@ class ElfExecutable(Executable):
         # If both base addresses are specified,
         # or neither is specified, it's a configuratione rror.
 
+        if self._file_base in ((1 << 32) - 1, (1 << 64) - 1):
+            # This is lief's way of saying the file has no load address.
+            self._file_base = 0
+
         if self._user_base is None:
             # No user base requested
             if self._file_base == 0:
@@ -447,6 +390,78 @@ class ElfExecutable(Executable):
             f"Virutal address {val:x} is not in any loaded segment"
         )
 
+    def _load_from_phdrs(self, elf, image):
+        ehdr = elf.header
+        if ehdr.program_header_offset >= len(image):
+            # Obviously-invalid program headers
+            raise ConfigurationError(
+                f"Invalid section header offset {hex(ehdr.section_header_offset)}"
+            )
+
+        for phdr in elf.segments:
+            log.debug(f"{phdr}")
+            phdr_type = phdr.type.value & 0xFFFFFFFF
+            if phdr_type == PT_LOAD:
+                # Loadable segment
+                # Map its data into memory
+                self._segments[phdr.virtual_address] = (
+                    phdr.file_offset,
+                    phdr.physical_size,
+                )
+                self._map_segment(phdr, image)
+            elif phdr_type == PT_DYNAMIC:
+                # Dynamic linking metadata.
+                # This ELF needs dynamic linking
+                log.debug("Program includes dynamic linking metadata")
+            elif phdr_type == PT_INTERP:
+                # Program interpreter
+                # This completely changes how program loading works.
+                # Whether you care is a different matter.
+                interp = image[phdr.file_offset : phdr.file_offset + phdr.physical_size]
+                log.debug(f"Program specifies interpreter {interp!r}")
+            elif phdr_type == PT_NOTE:
+                # Auxiliary information
+                # Possibly useful for comparing machine/OS type.
+                pass
+            elif phdr_type == PT_PHDR:
+                # Program header self-reference
+                # Useful for the dynamic linker, but not for us
+                pass
+            elif phdr_type == PT_TLS:
+                # TLS Segment
+                # Your analysis is about to get nasty :(
+                log.debug("Program includes thread-local storage")
+            elif phdr_type == PT_GNU_EH_FRAME:
+                # Exception handler frame.
+                # GCC puts one of these in everything.  Do we care?
+                pass
+            elif phdr_type == PT_GNU_STACK:
+                # Stack executability
+                # If this is missing, assume executable stack
+                log.debug("Program specifies stack permissions")
+            elif phdr_type == PT_GNU_RELRO:
+                # Read-only after relocation
+                # Only the dynamic linker should write this data.
+                log.debug("Program specifies RELRO data")
+            elif phdr_type == PT_GNU_PROPERTY:
+                # GNU property segment
+                # Contains extra metadata which I'm not sure anything uses
+                pass
+            elif phdr_type >= PT_LOOS and phdr_type <= PT_HIOS:
+                # Unknown OS-specific program header
+                # Either this is a weird ISA that extends the generic GNU ABI,
+                # or this isn't a Linux ELF.
+                log.warn(f"Unknown OS-specific program header: {phdr_type:08x}")
+            elif phdr_type >= PT_LOPROC and phdr_type <= PT_HIPROC:
+                # Unknown machine-specific program header
+                # This is probably a non-Intel ISA.
+                # Most of these are harmless, serving to tell the RTLD
+                # where to find machine-specific metadata
+                log.warn(f"Unknown machine-specific program header: {phdr_type:08x}")
+            else:
+                # Unknown program header outside the allowed custom ranges
+                log.warn(f"Invalid program header: {phdr_type:08x}")
+
     def _map_segment(self, phdr, image):
         # Compute segment boundaries
         seg_start = self._page_align(phdr.file_offset, up=False)
@@ -484,6 +499,79 @@ class ElfExecutable(Executable):
             seg_value._size == seg_size
         ), f"Expected {seg_size:x} bytes, got {seg_value._size:x}"
         self[seg_addr - self.address] = seg_value
+
+    def _load_from_shdrs(self, elf, image):
+        text = b""
+        data = b""
+        rodata = b""
+
+        section_text_offsets: typing.Dict[int, int] = dict()
+        section_data_offsets: typing.Dict[int, int] = dict()
+        section_rodata_offsets: typing.Dict[int, int] = dict()
+
+        # Basically every architecture needs a GOT;
+        # they will have relocations that reference either the GOT itself,
+        # or a symbol's GOT slot
+
+        for index in range(0, len(elf.sections)):
+            section = elf.sections[index]
+
+            if (section.flags & SHF_ALLOC) == 0:
+                # Section is not allocated;
+                # It's metadata that won't get referenced later.
+                continue
+
+            if (section.flags & SHF_EXECINSTR) != 0:
+                # Section is executable
+                skew = len(text) % section.alignment
+                if skew != 0:
+                    text += b"\0" * (section.alignment - skew)
+                section_text_offsets[index] = len(data)
+                text += image[
+                    section.file_offset : section.file_offset + section.original_size
+                ]
+            elif (section.flags & SHF_WRITE) != 0:
+                # Section is writable
+                skew = len(data) % section.alignment
+                if skew != 0:
+                    data += b"\0" * (section.alignment - skew)
+                section_data_offsets[index] = len(data)
+                data += image[
+                    section.file_offset : section.file_offset + section.original_size
+                ]
+            else:
+                # Section is read-only
+                skew = len(rodata) % section.alignment
+                if skew != 0:
+                    rodata += b"\0" * (section.alignment - skew)
+                section_rodata_offsets[index] = len(rodata)
+                rodata += image[
+                    section.file_offset : section.file_offset + section.original_size
+                ]
+
+        text_offset = 0
+        rodata_offset = self._page_align(text_offset + len(text), up=True)
+        data_offset = self._page_align(rodata_offset + len(rodata), up=True)
+
+        for index in section_text_offsets:
+            self._section_offsets[index] = section_text_offsets[index] + text_offset
+
+        for index in section_rodata_offsets:
+            self._section_offsets[index] = section_rodata_offsets[index] + rodata_offset
+
+        for index in section_data_offsets:
+            self._section_offsets[index] = section_data_offsets[index] + data_offset
+
+        if len(text) > 0:
+            self[text_offset] = BytesValue(text, None)
+        if len(rodata) > 0:
+            self[rodata_offset] = BytesValue(rodata, None)
+        if len(data) > 0:
+            self[data_offset] = BytesValue(data, None)
+
+        for sym in elf.symbols:
+            if sym.shndx in self._section_offsets:
+                sym.value += self._section_offsets[sym.shndx]
 
     def _extract_dtags(self, elf):
         for dt in elf.dynamic_entries:
@@ -538,6 +626,8 @@ class ElfExecutable(Executable):
             self._syms_by_name.setdefault(sym.name, list()).append(sym)
             lief_to_elf[s] = sym
 
+            idx += 1
+
         if (
             self.platform.architecture == Architecture.MIPS32
             or self.platform.architecture == Architecture.MIPS64
@@ -588,6 +678,9 @@ class ElfExecutable(Executable):
         # Okay, lief's relocation parsing is an embarrassing disaster.
         # I'm taking over because I know how to read C structs, dammit.
 
+        jmpreloff = 0
+        dynreloff = 0
+
         # Handle .rel(a).plt
         if DT_JMPREL in self._dtags:
             # We need three dynamic tags to define .rel(a).plt:
@@ -630,7 +723,7 @@ class ElfExecutable(Executable):
                     pltrelent = 16
 
             # Find the table within the image.
-            offset = self._virtual_to_physical(elf, jmprel)
+            jmpreloff = self._virtual_to_physical(elf, jmprel)
 
             # Parse the table
             for i in range(0, pltrelsz // pltrelent):
@@ -640,7 +733,7 @@ class ElfExecutable(Executable):
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
                     image,
-                    offset,
+                    jmpreloff,
                     baseaddr,
                     self._dynamic_symbols,
                 )
@@ -670,7 +763,7 @@ class ElfExecutable(Executable):
             relaent = self._dtags[DT_RELAENT]
 
             # Find the table within the image
-            offset = self._virtual_to_physical(elf, relaoff)
+            dynreloff = self._virtual_to_physical(elf, relaoff)
 
             # Parse the table
             for i in range(0, relasz // relaent):
@@ -680,7 +773,7 @@ class ElfExecutable(Executable):
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
                     image,
-                    offset,
+                    dynreloff,
                     baseaddr,
                     self._dynamic_symbols,
                 )
@@ -710,7 +803,7 @@ class ElfExecutable(Executable):
             relent = self._dtags[DT_RELENT]
 
             # Find the table within the image
-            offset = self._virtual_to_physical(elf, reloff)
+            dynreloff = self._virtual_to_physical(elf, reloff)
 
             # Parse the table
             for i in range(0, relsz // relent):
@@ -720,33 +813,43 @@ class ElfExecutable(Executable):
                     elf.header.identity_class.value,
                     elf.header.identity_data.value,
                     image,
-                    offset,
+                    dynreloff,
                     baseaddr,
                     self._dynamic_symbols,
                 )
                 rel.symbol.relas.append(rel)
                 self._dynamic_relas.append(rel)
 
-        # FIXME: Do I actually test this anywhere???
-        for r in elf.object_relocations:
-            if r.symbol is None:
-                continue
-            sym = lief_to_elf[r.symbol]
-            # Lief royally screws up relocation entries
-            r_type = r.info
-            if elf.header.identity_class.value == 1:
-                r_type &= 0xFF
-            else:
-                r_type &= 0xFFFFFFFF
-            rela = ElfRela(
-                is_rela=r.is_rela,
-                offset=r.address + baseaddr,
-                type=r.type & 0xFFFF,
-                symbol=sym,
-                addend=r.addend,
-            )
-            sym.relas.append(rela)
-            self._static_relas.append(rela)
+        # Handle static relocations
+        for section in elf.sections:
+            if section.type in (section.TYPE.REL, section.TYPE.RELA):
+                is_rela = section.type == section.TYPE.RELA
+                if section.information not in self._section_offsets:
+                    # This links to a non-allocated section,
+                    # or the program was loaded through the phdrs
+                    # and we're just using the dynamic metadata.
+                    continue
+
+                # Static relocations are relative to the section they relocate,
+                # so we need to know the section offset.
+                for i in range(0, section.size // section.entry_size):
+                    rela = ElfRela.from_bytes(
+                        i,
+                        is_rela,
+                        elf.header.identity_class.value,
+                        elf.header.identity_data.value,
+                        image,
+                        section.offset,
+                        baseaddr,
+                        self._static_symbols,
+                        r_offset_rebase=self._section_offsets[section.information],
+                    )
+                    rela.symbol.relas.append(rela)
+                    self._static_relas.append(rela)
+
+        for sym in self._static_symbols:
+            if sym.shndx in self._section_offsets:
+                self.update_symbol_value(sym, sym.value, rebase=False)
 
         if len(self._dynamic_symbols) > 0:
             # Any rela tied to the NULL symbol needs to be relocated
@@ -861,6 +964,8 @@ class ElfExecutable(Executable):
         # Mark this symbol as defined
         for sym in syms:
             sym.defined = True
+
+        log.debug(f"Updating {syms}")
 
         if self._relocator is not None:
             for sym in syms:
