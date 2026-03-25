@@ -1,4 +1,5 @@
 import abc
+import itertools
 import logging
 import typing
 
@@ -71,7 +72,7 @@ class ElfModelLibrary(Memory):
         raise NotImplementedError()
 
     def link(self, elf: ElfExecutable) -> None:
-        for rela in elf._dynamic_relas:
+        for rela in itertools.chain(elf._dynamic_relas, elf._static_relas):
             sym = rela.symbol
             if sym.name == "":
                 # This isn't a real symbol

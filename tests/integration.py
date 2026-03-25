@@ -2092,6 +2092,63 @@ class RelaTests(ScriptIntegrationTest):
     # NOTE: xtensa doesn't have a glibc, so this test doesn't do.
 
 
+class StaticRelaTests(ScriptIntegrationTest):
+    def run_test(self, arch):
+        stdout, _ = self.command(f"python3 static_rela/static_rela.{arch}.py foobar")
+        self.assertLineContainsStrings(stdout, "foobar")
+
+    @unittest.skip("Missing some critical relocation types for aarch64")
+    def test_aarch64(self):
+        self.run_test("aarch64")
+
+    def test_amd64(self):
+        self.run_test("amd64")
+
+    @unittest.skip("Missing some critical relocation types for armel")
+    def test_armel(self):
+        self.run_test("armel")
+
+    @unittest.skip("Missing some critical relocation types for armhf")
+    def test_armhf(self):
+        self.run_test("armhf")
+
+    @unittest.skip("Missing some critical relocation types for i386")
+    def test_i386(self):
+        self.run_test("i386")
+
+    @unittest.skip("Missing some critical relocation types for la64")
+    def test_la64(self):
+        self.run_test("la64")
+
+    @unittest.skip("Missing some critical relocation types for m68k")
+    def test_m68k(self):
+        self.run_test("m68k")
+
+    @unittest.skip("Missing some critical relocation types for mips")
+    def test_mips(self):
+        self.run_test("mips")
+
+    @unittest.skip("Missing some critical relocation types for mipsel")
+    def test_mipsel(self):
+        self.run_test("mipsel")
+
+    @unittest.skip("Missing some critical relocation types for mips64")
+    def test_mips64(self):
+        self.run_test("mips64")
+
+    @unittest.skip("Missing some critical relocation types for mips64el")
+    def test_mips64el(self):
+        self.run_test("mips64el")
+
+    @unittest.skip("Missing some critical relocation types for ppc")
+    def test_ppc(self):
+        self.run_test("ppc")
+
+    @unittest.skip("Missing some critical relocation types for riscv64")
+    def test_riscv64(self):
+        self.run_test("riscv64")
+
+
 class LinkElfTests(ScriptIntegrationTest):
     def run_test(self, arch):
         stdout, _ = self.command(f"python3 link_elf/link_elf.{arch}.py 42")

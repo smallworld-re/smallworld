@@ -107,6 +107,7 @@ class ElfRela:
         offset: int,
         baseaddr: int,
         symtab: typing.List["ElfSymbol"],
+        r_offset_rebase: int = 0,
     ):
         # Lief has done something weird with their rela parsing.
         #
@@ -132,6 +133,8 @@ class ElfRela:
         else:
             r_offset, r_info = res
             r_addend = 0
+
+        r_offset += r_offset_rebase
 
         if elfclass == 1:
             r_type = r_info & 0xFF
