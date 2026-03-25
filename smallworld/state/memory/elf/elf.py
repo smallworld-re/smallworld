@@ -391,10 +391,11 @@ class ElfExecutable(Executable):
         )
 
     def _load_from_phdrs(self, elf, image):
-        if elf.ehdr.program_header_offset >= len(image):
+        ehdr = elf.header
+        if ehdr.program_header_offset >= len(image):
             # Obviously-invalid program headers
             raise ConfigurationError(
-                f"Invalid section header offset {hex(elf.ehdr.section_header_offset)}"
+                f"Invalid section header offset {hex(ehdr.section_header_offset)}"
             )
 
         for phdr in elf.segments:
