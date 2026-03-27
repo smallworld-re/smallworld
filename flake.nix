@@ -123,7 +123,13 @@
             ./smallworld
           ];
         in
-        /. + builtins.unsafeDiscardStringContext (lib.fileset.toSource { inherit fileset; root = ./.; });
+        /.
+        + builtins.unsafeDiscardStringContext (
+          lib.fileset.toSource {
+            inherit fileset;
+            root = ./.;
+          }
+        );
 
       # Load the workspace. This parses pyproject.toml and uv.lock.
       workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
@@ -133,7 +139,11 @@
       # "prebuiltNames" are packages we build from source (not from wheels),
       # so we give them empty dependency lists to avoid uv2nix trying to
       # fetch them from PyPI.
-      prebuiltNames = [ "unicornafl" "pypanda" "unicorn" ];
+      prebuiltNames = [
+        "unicornafl"
+        "pypanda"
+        "unicorn"
+      ];
       deps = workspace.deps.all // lib.genAttrs prebuiltNames (_: [ ]);
 
       # =====================================================================
@@ -164,7 +174,9 @@
             rev = "mmio_map_pc_sync";
             hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
           };
-          patchedUnicorn = unicorn.overrideAttrs (_: { src = patchedUnicornSrc; });
+          patchedUnicorn = unicorn.overrideAttrs (_: {
+            src = patchedUnicornSrc;
+          });
           patchedUnicornPy = unicornPy.override { unicorn = patchedUnicorn; };
         in
         {
@@ -224,7 +236,6 @@
       # devShell, overlay, and Docker image.
       # =====================================================================
 
-
       toolDeps = forAllSystems (
         system:
         let
@@ -271,10 +282,14 @@
           virtualenv = pythonSets.${system}.mkVirtualEnv "smallworld-re-dev-env" deps;
 
           defaultShell = pkgs.mkShell {
-            packages =
-              [ virtualenv pkgs.uv pkgs.nixfmt pkgs.nixfmt-tree ]
-              ++ toolDeps.${system}
-              ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
+            packages = [
+              virtualenv
+              pkgs.uv
+              pkgs.nixfmt
+              pkgs.nixfmt-tree
+            ]
+            ++ toolDeps.${system}
+            ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
 
             env = {
               GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
@@ -282,16 +297,15 @@
 
             hardeningDisable = [ "all" ];
 
-            shellHook =
-              ''
-                unset PYTHONPATH
-                export REPO_ROOT=$(git rev-parse --show-toplevel)
-              ''
-              + lib.optionalString (bnUltimate.${system} != null) ''
+            shellHook = ''
+              unset PYTHONPATH
+              export REPO_ROOT=$(git rev-parse --show-toplevel)
+            ''
+            + lib.optionalString (bnUltimate.${system} != null) ''
 
-                export BINJA_PATH=${bnUltimate.${system}}
-                export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH
-              '';
+              export BINJA_PATH=${bnUltimate.${system}}
+              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH
+            '';
           };
         in
         {
@@ -364,22 +378,26 @@
               tag = "latest";
               copyToRoot = pkgs.buildEnv {
                 name = "smallworld-root";
-                paths =
-                  [
-                    pkgs.dockerTools.usrBinEnv
-                    pkgs.dockerTools.binSh
-                    pkgs.dockerTools.caCertificates
-                    pkgs.dockerTools.fakeNss
-                    pkgs.coreutils
-                    pkgs.unzip
-                    pkgs.dbus.lib
-                    pkgs.stdenv.cc.cc.lib
-                    virtualenv
-                  ]
-                  ++ toolDeps.${system}
-                  ++ lib.optional hasBinja bn;
-                pathsToLink = [ "/bin" "/etc" "/var" "/lib" ]
-                  ++ lib.optional hasBinja "/opt";
+                paths = [
+                  pkgs.dockerTools.usrBinEnv
+                  pkgs.dockerTools.binSh
+                  pkgs.dockerTools.caCertificates
+                  pkgs.dockerTools.fakeNss
+                  pkgs.coreutils
+                  pkgs.unzip
+                  pkgs.dbus.lib
+                  pkgs.stdenv.cc.cc.lib
+                  virtualenv
+                ]
+                ++ toolDeps.${system}
+                ++ lib.optional hasBinja bn;
+                pathsToLink = [
+                  "/bin"
+                  "/etc"
+                  "/var"
+                  "/lib"
+                ]
+                ++ lib.optional hasBinja "/opt";
               };
               config = {
                 Cmd = [ "/bin/sh" ];
@@ -405,11 +423,31 @@
           pythonSet = pythonSets.${system};
           hacks = final.callPackage pyproject-nix.build.hacks { };
 
-          # Convert all uv2nix packages to nixpkgs format, except prebuilts
-          # (which don't produce wheels and are handled separately below).
+          # Convert selected uv2nix packages to nixpkgs format.
+          # Only packages that don't exist in nixpkgs (or need the uv2nix
+          # version) should be listed here. Converting ALL packages causes
+          # infinite recursion because the converted versions conflict with
+          # the nixpkgs originals' dependency graphs.
+          # Prebuilts (unicorn, pypanda, etc.) are excluded because they
+          # don't produce wheels — they're handled by nativeOverlay below.
           basePyOverlay = hacks.toNixpkgs {
             inherit pythonSet;
-            packages = name: !(builtins.elem name prebuiltNames);
+            packages = [
+              "smallworld-re"
+              # angr ecosystem (not in nixpkgs)
+              "angr"
+              "archinfo"
+              "ailment"
+              "claripy"
+              "cle"
+              "pyvex"
+              # ghidra ecosystem (not in nixpkgs)
+              "pyghidra"
+              "pypcode"
+              "pyxdia"
+              # other deps not in nixpkgs
+              "uefi-firmware"
+            ];
           };
 
           # Overlay that converts uv2nix packages and patches angr/smallworld.
@@ -431,7 +469,13 @@
               smallworldFull = (converted."smallworld-re").overridePythonAttrs (old: {
                 propagatedBuildInputs =
                   (old.propagatedBuildInputs or [ ])
-                  ++ (with pyFinal; [ pyghidra pypanda unicornafl unicorn angr ])
+                  ++ (with pyFinal; [
+                    pyghidra
+                    pypanda
+                    unicornafl
+                    unicorn
+                    angr
+                  ])
                   ++ toolDeps.${system};
               });
             in
@@ -491,7 +535,10 @@
                     final.buildEnv {
                       name = "${env.name}-smallworld-full";
                       paths = [ env ] ++ toolDeps.${system};
-                      pathsToLink = [ "/bin" "/nix-support" ];
+                      pathsToLink = [
+                        "/bin"
+                        "/nix-support"
+                      ];
                       ignoreCollisions = true;
 
                       postBuild = ''
