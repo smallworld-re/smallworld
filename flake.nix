@@ -133,7 +133,7 @@
       # "prebuiltNames" are packages we build from source (not from wheels),
       # so we give them empty dependency lists to avoid uv2nix trying to
       # fetch them from PyPI.
-      prebuiltNames = [ "unicornafl" "pypanda" "colorama" "unicorn" ];
+      prebuiltNames = [ "unicornafl" "pypanda" "unicorn" ];
       deps = workspace.deps.all // lib.genAttrs prebuiltNames (_: [ ]);
 
       # =====================================================================
@@ -191,7 +191,6 @@
           unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
           unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
           pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
-          colorama = hacks.nixpkgsPrebuilt { from = python.pkgs.colorama; };
         }
       );
 
