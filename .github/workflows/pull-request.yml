@@ -20,13 +20,13 @@ jobs:
       changes_detected: ${{ steps.ac.outputs.changes_detected }}
 
     steps:
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
           
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
@@ -54,7 +54,7 @@ jobs:
           nix develop -c treefmt -f nixfmt --no-cache
 
       - id: ac
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7.1.0
         env: 
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
@@ -90,11 +90,11 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run Unit Tests
         run: |
           cd tests
@@ -104,11 +104,11 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Run Example
         run: |
           cd examples
@@ -119,11 +119,11 @@ jobs:
     runs-on: smallworld-arc
     needs: Lint
     steps:
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test Flake
         run: |
           cd tests/downstream_flake
@@ -279,11 +279,11 @@ jobs:
             - testsuite: ThumbTests
             - testsuite: UnmappedTests
       steps:
-      - uses: cachix/cachix-action@v15
+      - uses: cachix/cachix-action@v17
         with:
           name: smallworld
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build Artifacts
         run: |
           nix build .#tests

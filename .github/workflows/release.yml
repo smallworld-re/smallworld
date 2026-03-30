@@ -27,7 +27,7 @@ jobs:
     runs-on: smallworld-arc    
     steps:          
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
