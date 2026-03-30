@@ -8,7 +8,7 @@ jobs:
   Build-Container:
     runs-on: smallworld-arc
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
 
       - name: Trust Registry Cert
         run: |
@@ -35,7 +35,7 @@ jobs:
               http = true
 
       - name: Build Docker Image
-        uses: docker/build-push-action@v6.18.0
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
