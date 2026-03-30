@@ -436,9 +436,17 @@
               "smallworld-re"
               # angr ecosystem (not in nixpkgs)
               "angr"
+              "archinfo"
+              "ailment"
+              "claripy"
+              "cle"
+              "pyvex"
               # ghidra ecosystem (not in nixpkgs)
               "pyghidra"
               "pypcode"
+              "pyxdia"
+              # other deps not in nixpkgs
+              "uefi-firmware"
             ];
           };
 
