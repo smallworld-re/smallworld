@@ -1,12 +1,11 @@
 import abc
+import typing
 
-try:
-    from typing import override
-except ImportError:
+_F = typing.TypeVar("_F", bound=typing.Callable[..., typing.Any])
 
-    def override(method):
-        return method
 
+def override(method: _F) -> _F:
+    return method
 
 from ... import platforms, utils
 from .. import state

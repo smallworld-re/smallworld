@@ -67,6 +67,10 @@ license-files = ["LICENSE.txt"]
 [tool.setuptools.packages.find]
 include = ["smallworld*"]
 
+[tool.mypy]
+disable_error_code = ["annotation-unchecked"]
+exclude = '^(build|ci|docs|examples|smallworld_re\.egg-info|tests|unicornafl-build|use_cases|\.mypy_cache)/'
+
 [tool.uv]
 exclude-dependencies = [
     "pandare2"
