@@ -26,7 +26,7 @@ jobs:
           authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
           
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
@@ -99,6 +99,22 @@ jobs:
         run: |
           cd tests
           nix develop .. -c python3 unit.py -v
+
+  Python-3.9-Compat:
+    runs-on: smallworld-arc
+    needs: Lint
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9.6"
+          cache: pip
+      - name: Install SmallWorld On Python 3.9.6
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install '.[emu-unicorn]'
+      - name: Run Python 3.9.6 Compatibility Smoke Test
+        run: python tests/python39/python39_compat.py
 
   Example-Test:
     runs-on: smallworld-arc
