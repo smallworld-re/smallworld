@@ -184,27 +184,26 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 new_segment_bytes = prefix + part + suffix
 
                 # set content
-                match segment:
-                    case state.BytesValue():
-                        segment.set_content(new_segment_bytes)
-                    case state.IntegerValue():
-                        as_int = int.from_bytes(
-                            new_segment_bytes, segment.byteorder.value
+                if isinstance(segment, state.BytesValue):
+                    segment.set_content(new_segment_bytes)
+                elif isinstance(segment, state.IntegerValue):
+                    as_int = int.from_bytes(
+                        new_segment_bytes, segment.byteorder.value
+                    )
+                    segment.set_content(as_int)
+                else:
+                    # Check for CTypeValue
+                    segment_content = segment.get_content()
+                    if isinstance(segment_content, ctypes.Structure) or isinstance(
+                        segment_content, ctypes.Union
+                    ):
+                        segment_type = segment_content.__class__
+                        as_ctype = segment_type.from_buffer_copy(new_segment_bytes)
+                        segment.set_content(as_ctype)
+                    else:
+                        raise ConfigurationError(
+                            f"Data at {hex(segment_start)} - {hex(segment_end)} has indeterminate type {segment.get_type()}."
                         )
-                        segment.set_content(as_int)
-                    case _:
-                        # Check for CTypeValue
-                        segment_content = segment.get_content()
-                        if isinstance(segment_content, ctypes.Structure) or isinstance(
-                            segment_content, ctypes.Union
-                        ):
-                            segment_type = segment_content.__class__
-                            as_ctype = segment_type.from_buffer_copy(new_segment_bytes)
-                            segment.set_content(as_ctype)
-                        else:
-                            raise ConfigurationError(
-                                f"Data at {hex(segment_start)} - {hex(segment_end)} has indeterminate type {segment.get_type()}."
-                            )
 
         gap_end = self.address + self.size
         if data_start <= gap_end and gap_start <= data_end:

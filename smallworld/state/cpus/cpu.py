@@ -1,5 +1,10 @@
 import abc
-from typing import override
+
+try:
+    from typing import override
+except ImportError:
+    def override(method):
+        return method
 
 from ... import platforms, utils
 from .. import state

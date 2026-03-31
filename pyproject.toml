@@ -14,7 +14,9 @@ dependencies = [
     "capstone>=5.0.3",
     "jsons>=1.6.3",
     "lief>=0.17.2",
-    "setuptools>=80.9.0",
+    # Python 3.9 resolves claripy to z3-solver 4.10.2.0, which still imports
+    # pkg_resources. setuptools 82 removed pkg_resources from the wheel.
+    "setuptools>=80.9.0,<81; python_version < '3.10'",
     "pycparser>=2.18,<3.0",
     "networkx>=3.2.1",
     "claripy>=9.2.102",
