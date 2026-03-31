@@ -420,11 +420,10 @@
                   name: enabledExtras:
                   let
                     rawPkg = pythonSet.${name};
-                    selectedDeps =
-                      lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
-                        [ (rawPkg.dependencies or { }) ]
-                        ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
-                      );
+                    selectedDeps = lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
+                      [ (rawPkg.dependencies or { }) ]
+                      ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
+                    );
                     depNames = builtins.attrNames selectedDeps;
                   in
                   lib.unique (
@@ -435,8 +434,7 @@
                   );
 
                 rawSmallworld = pythonSet.smallworld-re;
-                pypandaModule =
-                  if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
+                pypandaModule = if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
                 smallworldDepNames = resolveLockedDependencyNames "smallworld-re" smallworldExtras;
                 # uv2nix records runtime Python dependencies in a `dependencies`
                 # attrset. Convert that closure into propagated Python module
