@@ -1,5 +1,5 @@
-from importlib import metadata
 import logging
+from importlib import metadata
 
 import smallworld
 
