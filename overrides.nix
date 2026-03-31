@@ -26,21 +26,23 @@ let
 
   # A small group of packages all need the same setuptools fix.
   setuptoolsOverrides = builtins.listToAttrs (
-    map (name: {
-      inherit name;
-      value = addSetuptools name;
-    }) [
-      "arpy"
-      "bitarray"
-      "cppheaderparser"
-      "future"
-      "markupsafe"
-      "mulpyplexer"
-      "pypcode"
-      "pyxbe"
-      "pyyaml"
-      "timeout-decorator"
-    ]
+    map
+      (name: {
+        inherit name;
+        value = addSetuptools name;
+      })
+      [
+        "arpy"
+        "bitarray"
+        "cppheaderparser"
+        "future"
+        "markupsafe"
+        "mulpyplexer"
+        "pypcode"
+        "pyxbe"
+        "pyyaml"
+        "timeout-decorator"
+      ]
   );
 in
 setuptoolsOverrides
