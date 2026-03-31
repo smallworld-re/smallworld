@@ -1,28 +1,32 @@
+from importlib import metadata
 import logging
 import sys
 
+import colorama
 import smallworld
 
-if len(sys.argv) != 2:
-    print("You need to provide a number as an argument")
+if len(sys.argv) > 2:
+    print("Provide at most one numeric argument")
     sys.exit(1)
 
-try:
-    int(sys.argv[1])
-except ValueError:
-    print("You need to provide a number as an argument")
-    sys.exit(1)
+input_arg = 100
+if len(sys.argv) == 2:
+    try:
+        input_arg = int(sys.argv[1])
+    except ValueError:
+        print("Provide a numeric argument")
+        sys.exit(1)
 
 # Set up logging
 smallworld.logging.setup_logging(level=logging.INFO)
+colorama.init(autoreset=True)
+smallworld_version = metadata.version("smallworld-re")
+print(colorama.Fore.GREEN + f"mkPython imports ok (smallworld-re {smallworld_version})")
 
 # Define the platform. We support many platforms, but this is going to use a 32-bit PowerPC with bigendian byte order.
 platform = smallworld.platforms.Platform(
     smallworld.platforms.Architecture.POWERPC32, smallworld.platforms.Byteorder.BIG
 )
-
-# This will be the input to our function
-input_arg = int(sys.argv[1])
 
 # Create a machine to hold all of our state
 machine = smallworld.state.Machine()

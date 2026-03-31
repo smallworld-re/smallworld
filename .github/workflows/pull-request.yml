@@ -128,7 +128,7 @@ jobs:
         run: |
           cd tests/downstream_flake
           nix flake update
-          nix develop -c python3 test.py 100
+          nix run .
           
   Integration-Test:
       runs-on: smallworld-arc

@@ -183,54 +183,50 @@
         }
       );
 
-      # Convert the native packages above into the format uv2nix expects for
-      # already-built Python packages.
-      nativePrebuilts = forAllSystems (
-        system: _final: _prev:
-        let
-          pkgs = pkgsFor system;
-          python = basePython.${system};
-          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
-          native = pythonNativeAddons.${system} {
-            pythonPkgs = python.pkgs;
-            unicornPy = python.pkgs.unicorn;
-          } pkgs;
-        in
-        {
-          unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
-          unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
-          pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
-        }
-      );
-
-      # =====================================================================
-      # This is the final locked Python package set:
+      # Build the final locked Python package set for a given nixpkgs
+      # instance and interpreter:
       #   1. standard Python build tools
       #   2. packages from uv.lock
       #   3. local fixes from overrides.nix
       #   4. the native packages we build ourselves
       #
-      # `overrideScope` is the standard Nix way to layer package-set changes.
-      # Read it as: start with the uv2nix package set, then apply these
-      # adjustments in order.
-      # =====================================================================
-
-      pythonSets = forAllSystems (
-        system:
+      # Keeping this as a reusable function lets downstream helpers build the
+      # same package set against their own `pkgs`/`python` values without
+      # needing a top-level nixpkgs overlay.
+      mkPythonSet =
+        {
+          system,
+          pkgs ? pkgsFor system,
+          python ? pkgs.python312,
+        }:
         let
-          pkgs = pkgsFor system;
-          python = basePython.${system};
           pyprojectPkgs = pkgs.callPackage pyproject-nix.build.packages { inherit python; };
+          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
+          native = pythonNativeAddons.${system} {
+            pythonPkgs = python.pkgs;
+            unicornPy = python.pkgs.unicorn;
+          } pkgs;
+
+          nativePrebuilts =
+            _final: _prev:
+            {
+              unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
+              unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
+              pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
+            };
         in
         pyprojectPkgs.overrideScope (
           lib.composeManyExtensions [
             pyproject-build-systems.overlays.wheel
             (workspace.mkPyprojectOverlay { sourcePreference = "wheel"; })
             (pkgs.callPackage ./overrides.nix { inherit python; })
-            nativePrebuilts.${system}
+            nativePrebuilts
           ]
-        )
-      );
+        );
+
+      # Precompute the locked package set for each supported system. The rest
+      # of this flake reuses these cached package sets for its own outputs.
+      pythonSets = forAllSystems (system: mkPythonSet { inherit system; });
 
       # =====================================================================
       # Non-Python tools smallworld expects to find on PATH.
@@ -241,55 +237,196 @@
         let
           pkgs = pkgsFor system;
         in
-        [
-          pkgs.aflplusplus
+        # aflplusplus is not packaged for Apple Silicon macOS, so keep it out
+        # of that environment instead of making `nix develop` fail there.
+        lib.optional (system != "aarch64-darwin") pkgs.aflplusplus
+        ++ [
           pkgs.z3
           pkgs.ghidra
           pkgs.jdk
         ]
       );
 
-      # Build the runtime environment we want downstream users to consume:
-      # the locked Python virtualenv plus the native tools smallworld needs.
-      mkSmallworldEnv =
+      # Build a Python virtualenv directly from the locked package set.
+      # This is the "Python only" environment before we add non-Python tools.
+      mkLockedVirtualenv =
+        system: name: selectedDeps:
+        pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selectedDeps);
+
+      # Compose multiple environments into one and preserve their setup hooks.
+      # `extraSetupHook` lets us append a few exported variables afterwards.
+      mkBuildEnvWithHook =
         {
-          system,
           pkgs,
-          env,
-          name ? "${env.name}-smallworld-full",
+          name,
+          paths,
+          setupHookInputs ? [ ],
+          extraSetupHook ? "",
         }:
         pkgs.buildEnv {
-          inherit name;
-          paths = [ env ] ++ toolDeps.${system};
+          inherit name paths;
           pathsToLink = [
             "/bin"
             "/nix-support"
           ];
           ignoreCollisions = true;
 
-          postBuild = ''
-            # Keep the virtualenv setup hook, then append the extra runtime
-            # variables smallworld expects.
-            if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
-            mkdir -p "$out/nix-support"
-            if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
-            if [ -f "${env}/nix-support/setup-hook" ]; then
-              cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
-            else
+          postBuild =
+            ''
+              if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
+              mkdir -p "$out/nix-support"
+              if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
               : > "$out/nix-support/setup-hook"
-            fi
-            cat >> "$out/nix-support/setup-hook" <<'EOF'
+            ''
+            + lib.concatMapStrings (
+              hookInput: ''
+                if [ -f "${hookInput}/nix-support/setup-hook" ]; then
+                  cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
+                fi
+              ''
+            ) setupHookInputs
+            + lib.optionalString (extraSetupHook != "") ''
+              cat >> "$out/nix-support/setup-hook" <<'EOF'
+              ${extraSetupHook}
+              EOF
+            '';
+        };
+
+      # Build the runtime environment we want downstream users to consume:
+      # the locked Python virtualenv plus the native tools smallworld needs.
+      mkSmallworldEnv =
+        {
+          system,
+          env,
+          name ? "${env.name}-smallworld-full",
+        }:
+        let
+          pkgs = pkgsFor system;
+        in
+        mkBuildEnvWithHook {
+          inherit pkgs name;
+          paths = [ env ] ++ toolDeps.${system};
+          setupHookInputs = [ env ];
+          extraSetupHook = ''
             export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
             export JAVA_HOME=${pkgs.jdk}
-            EOF
           '';
         };
 
-      # Build a Python virtualenv directly from the locked package set.
-      # This is the "Python only" environment before we add non-Python tools.
-      mkLockedVirtualenv =
-        system: name: selectedDeps:
-        pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selectedDeps);
+      # Build the downstream-facing runtime environment. Downstream users can
+      # optionally layer extra nixpkgs Python packages on top without needing
+      # access to SmallWorld's internal package set.
+      mkDownstreamEnv =
+        {
+          system,
+          name ? "smallworld-re-env",
+          extraPythonPackages ? (_: [ ]),
+          extraPackages ? [ ],
+        }:
+        let
+          pkgs = pkgsFor system;
+          python = basePython.${system};
+          basePythonEnv = mkLockedVirtualenv system "${name}-python" runtimeDeps;
+          extraPython = extraPythonPackages python.pkgs;
+          extraPythonEnv =
+            if extraPython == [ ] then null else python.withPackages (_: extraPython);
+
+          pythonEnv =
+            if extraPythonEnv == null then
+              basePythonEnv
+            else
+              mkBuildEnvWithHook {
+                inherit pkgs;
+                name = "${name}-python";
+                paths = [
+                  basePythonEnv
+                  extraPythonEnv
+                ];
+                setupHookInputs = [ basePythonEnv ];
+                extraSetupHook = ''
+                  export PYTHONPATH=${extraPythonEnv}/${python.sitePackages}''${PYTHONPATH:+:$PYTHONPATH}
+                '';
+              };
+
+          smallworldEnv = mkSmallworldEnv {
+            inherit system;
+            env = pythonEnv;
+            inherit name;
+          };
+        in
+        if extraPackages == [ ] then
+          smallworldEnv
+        else
+          mkBuildEnvWithHook {
+            inherit pkgs name;
+            paths = [ smallworldEnv ] ++ extraPackages;
+            setupHookInputs = [ smallworldEnv ];
+          };
+
+      # Build a ready-to-use shell for downstream consumers. This wraps the
+      # assembled runtime environment so downstream flakes do not need to
+      # write their own `pkgs.mkShell` boilerplate just to add a few extras.
+      mkDownstreamShell =
+        {
+          system,
+          name ? "smallworld-shell",
+          extraPythonPackages ? (_: [ ]),
+          extraPackages ? [ ],
+          packages ? [ ],
+          env ? { },
+          shellHook ? "",
+        }:
+        let
+          pkgs = pkgsFor system;
+          smallworldEnv = mkDownstreamEnv {
+            inherit system extraPythonPackages extraPackages;
+            name = "${name}-env";
+          };
+        in
+        pkgs.mkShell {
+          packages = [ smallworldEnv ] ++ packages;
+          inherit env shellHook;
+        };
+
+      # Build a Python interpreter whose package set exposes SmallWorld as
+      # `ps.smallworld`, so downstream flakes can keep using
+      # `python.withPackages` without importing a global overlay.
+      mkDownstreamPython =
+        {
+          pkgs,
+          system ? pkgs.stdenv.hostPlatform.system,
+          python ? pkgs.python312,
+          packageOverrides ? (_: _: { }),
+        }:
+        let
+          pythonSet = mkPythonSet {
+            inherit system pkgs python;
+          };
+        in
+        python.override {
+          packageOverrides = lib.composeExtensions
+            (
+              py-final: _py-prev:
+              let
+                rawSmallworld = pythonSet.smallworld-re;
+                # uv2nix records runtime Python dependencies in a `dependencies`
+                # attrset. Convert that closure into propagated Python module
+                # dependencies so `python.withPackages` can import SmallWorld
+                # with its transitive imports available.
+                smallworldDeps = map (name: py-final.${name}) (builtins.attrNames rawSmallworld.dependencies);
+                smallworldModule = py-final.toPythonModule (rawSmallworld.overrideAttrs (old: {
+                  propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ smallworldDeps;
+                }));
+              in
+              {
+                # Provide both names so downstream code can choose the nicer
+                # `ps.smallworld` spelling while still matching the package name.
+                smallworld = smallworldModule;
+                "smallworld-re" = smallworldModule;
+              }
+            )
+            packageOverrides;
+        };
 
       # =====================================================================
       # Optional: Binary Ninja
@@ -366,9 +503,8 @@
           pkgs = pkgsFor system;
           pythonSet = pythonSets.${system};
           virtualenv = mkLockedVirtualenv system "smallworld-re-env" runtimeDeps;
-          smallworldEnv = mkSmallworldEnv {
-            inherit system pkgs;
-            env = virtualenv;
+          smallworldEnv = mkDownstreamEnv {
+            inherit system;
             name = "smallworld-re-env";
           };
 
@@ -455,6 +591,21 @@
           binaryninja-ultimate = bnUltimate.${system};
         }
       );
+
+      # A small helper library for downstream flakes.
+      lib = {
+        # Build the standard SmallWorld runtime environment, optionally with
+        # extra nixpkgs Python packages layered on top.
+        mkEnv = mkDownstreamEnv;
+
+        # Build a simple development shell around the standard runtime
+        # environment, with optional extra Python packages and shell tools.
+        mkShell = mkDownstreamShell;
+
+        # Build a Python interpreter whose `python.pkgs` set includes
+        # `smallworld`, without mutating the caller's nixpkgs import.
+        mkPython = mkDownstreamPython;
+      };
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
     };
