@@ -19,18 +19,12 @@
 
       pkgs = import nixpkgs {
         inherit system;
-        overlays = [ smallworld.overlays.default ];
       };
-
-      python = pkgs.python312;
-      pythonEnv = python.withPackages (ps: [
-        ps.smallworld
-      ]);
     in
     {
       devShells.${system}.default = pkgs.mkShell {
         packages = [
-          pythonEnv
+          smallworld.packages.${system}.default
         ];
       };
     };

@@ -1,13 +1,15 @@
 # Nix flake for smallworld-re.
 #
-# Key concepts for beginners:
-#   - A "flake" is a nix project with pinned dependencies (inputs) and defined outputs.
-#   - "inputs" are other flakes/repos this project depends on.
-#   - "outputs" are what this flake provides: dev shells, packages, overlays, etc.
-#   - `forAllSystems` makes every output work on linux, macOS, etc.
-#   - Python deps come from pyproject.toml + uv.lock via uv2nix -- not hardcoded here.
-#   - A few Python packages (the patched version of unicorn, pypanda, etc.) need native C libraries and can't be
-#     installed from wheels, so they are built from source as "prebuilts".
+# This file has one job: turn the Python project described by
+#   - pyproject.toml
+#   - uv.lock
+# into:
+#   - a ready-to-use package (`nix build`)
+#   - a development shell (`nix develop`)
+#
+# A few Python dependencies (unicorn, unicornafl, pypanda) need native C/C++
+# builds, so we build those ourselves and then insert them into the locked
+# package graph from `uv.lock`.
 {
   description = "smallworld-re";
 
@@ -74,11 +76,10 @@
   };
 
   # ==========================================================================
-  # Outputs — what this flake provides to the world.
+  # Outputs — what this flake provides.
   # ==========================================================================
   outputs =
     inputs@{
-      self,
       nixpkgs,
       pyproject-nix,
       uv2nix,
@@ -92,19 +93,20 @@
     let
       lib = nixpkgs.lib;
 
-      # Generate an attribute set with one entry per supported system
-      # (x86_64-linux, aarch64-linux, x86_64-darwin, etc.).
+      # Nix flakes usually build for more than one CPU/OS combination. This
+      # helper lets us define one output and have it expanded for every system.
       systems = lib.systems.flakeExposed;
       forAllSystems = lib.genAttrs systems;
 
-      # Shorthand to get nixpkgs for a given system.
+      # Short-hand for "give me nixpkgs for this system".
       pkgsFor = system: nixpkgs.legacyPackages.${system};
 
       # Optional Binary Ninja inputs (null when commented out above).
       binaryninja = inputs.binaryninja or null;
       binjaZip = inputs.binjaZip or null;
 
-      # Helper: given a ghidra derivation, return its install directory.
+      # Ghidra installs into a larger directory tree; this is the path the
+      # Python bindings expect.
       ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
       # =====================================================================
@@ -112,8 +114,8 @@
       # All Python dependency information lives in those files, not here.
       # =====================================================================
 
-      # Only copy the files uv2nix needs into the nix store (avoids
-      # rebuilding when unrelated files change).
+      # Only copy the files the Python build actually depends on. This keeps
+      # unrelated repo changes from forcing a full Python rebuild.
       workspaceRoot =
         let
           fileset = lib.fileset.unions [
@@ -134,11 +136,9 @@
       # Load the workspace. This parses pyproject.toml and uv.lock.
       workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
 
-      # The full dependency specification from pyproject.toml (including dev
-      # and optional groups like emu-angr, emu-ghidra, etc.).
-      # "prebuiltNames" are packages we build from source (not from wheels),
-      # so we give them empty dependency lists to avoid uv2nix trying to
-      # fetch them from PyPI.
+      # Load every dependency group from pyproject.toml. For the packages we
+      # build ourselves below, give uv2nix an empty placeholder so it does not
+      # also try to fetch them from PyPI.
       prebuiltNames = [
         "unicornafl"
         "pypanda"
@@ -147,16 +147,17 @@
       deps = workspace.deps.all // lib.genAttrs prebuiltNames (_: [ ]);
 
       # =====================================================================
-      # Native Python packages — these need C/C++ compilation and can't come
-      # from wheels. We build them from source and inject them as "prebuilts"
-      # into the uv2nix package set.
+      # Native Python packages — these need C/C++ compilation and cannot come
+      # straight from wheels. We build them from source and inject them into
+      # the uv2nix package set.
       # =====================================================================
 
       basePython = forAllSystems (system: (pkgsFor system).python312);
 
-      # Build a patched unicorn (fixes MIPS bug), unicornafl, and pypanda
-      # for the target system's Python. Returns a function that takes
-      # { pythonPkgs, unicornPy } and then nixpkgs, producing the three packages.
+      # Build the Python packages we cannot safely consume as wheels.
+      #
+      # Returned as a function so we can plug the same logic into different
+      # Python package sets later.
       pythonNativeAddons = forAllSystems (
         system:
         { pythonPkgs, unicornPy }:
@@ -186,9 +187,9 @@
         }
       );
 
-      # Wrap the native addons as uv2nix "prebuilts" so they slot into the
-      # uv2nix package set alongside the packages built from wheels.
-      prebuilts = forAllSystems (
+      # Convert the native packages above into the format uv2nix expects for
+      # already-built Python packages.
+      nativePrebuilts = forAllSystems (
         system: _final: _prev:
         let
           pkgs = pkgsFor system;
@@ -207,11 +208,15 @@
       );
 
       # =====================================================================
-      # Python package set — the final set combining:
-      #   1. Standard build systems (setuptools, etc.) from pyproject-build-systems
-      #   2. Packages resolved from pyproject.toml + uv.lock
-      #   3. Build fixes for specific packages (overrides.nix)
-      #   4. Native/prebuilt packages (unicorn, pypanda, etc.)
+      # This is the final locked Python package set:
+      #   1. standard Python build tools
+      #   2. packages from uv.lock
+      #   3. local fixes from overrides.nix
+      #   4. the native packages we build ourselves
+      #
+      # `overrideScope` is the standard Nix way to layer package-set changes.
+      # Read it as: start with the uv2nix package set, then apply these
+      # adjustments in order.
       # =====================================================================
 
       pythonSets = forAllSystems (
@@ -226,14 +231,13 @@
             pyproject-build-systems.overlays.wheel
             (workspace.mkPyprojectOverlay { sourcePreference = "wheel"; })
             (pkgs.callPackage ./overrides.nix { inherit python; })
-            prebuilts.${system}
+            nativePrebuilts.${system}
           ]
         )
       );
 
       # =====================================================================
-      # Non-Python tool dependencies — defined once, shared across the
-      # devShell, overlay, and Docker image.
+      # Non-Python tools smallworld expects to find on PATH.
       # =====================================================================
 
       toolDeps = forAllSystems (
@@ -248,6 +252,46 @@
           pkgs.jdk
         ]
       );
+
+      # Build the runtime environment we want downstream users to consume:
+      # the locked Python virtualenv plus the native tools smallworld needs.
+      mkSmallworldEnv =
+        {
+          system,
+          pkgs,
+          env,
+          name ? "${env.name}-smallworld-full",
+        }:
+        pkgs.buildEnv {
+          inherit name;
+          paths = [ env ] ++ toolDeps.${system};
+          pathsToLink = [
+            "/bin"
+            "/nix-support"
+          ];
+          ignoreCollisions = true;
+
+          postBuild = ''
+            # Keep the virtualenv setup hook, then append the extra runtime
+            # variables smallworld expects.
+            if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
+            mkdir -p "$out/nix-support"
+            if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
+            if [ -f "${env}/nix-support/setup-hook" ]; then
+              cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
+            else
+              : > "$out/nix-support/setup-hook"
+            fi
+            cat >> "$out/nix-support/setup-hook" <<'EOF'
+            export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
+            export JAVA_HOME=${pkgs.jdk}
+            EOF
+          '';
+        };
+
+      # Build a Python virtualenv directly from the locked package set.
+      # This is the "Python only" environment before we add non-Python tools.
+      mkLockedVirtualenv = system: name: pythonSets.${system}.mkVirtualEnv name deps;
 
       # =====================================================================
       # Optional: Binary Ninja
@@ -265,8 +309,7 @@
       );
 
     in
-    # `rec` lets outputs reference each other (devShells uses overlays.default).
-    rec {
+    {
 
       # =====================================================================
       # devShells — enter with `nix develop`
@@ -277,9 +320,9 @@
         let
           pkgs = pkgsFor system;
 
-          # A Python virtualenv with smallworld + all emulators + dev tools,
-          # built from pyproject.toml via uv2nix.
-          virtualenv = pythonSets.${system}.mkVirtualEnv "smallworld-re-dev-env" deps;
+          # The dev shell uses the same locked Python environment as the
+          # package output, plus a few developer-only tools.
+          virtualenv = mkLockedVirtualenv system "smallworld-re-dev-env";
 
           defaultShell = pkgs.mkShell {
             packages = [
@@ -316,7 +359,7 @@
       );
 
       # =====================================================================
-      # packages — build with `nix build .#<name>`
+      # Packages — build with `nix build .#<name>`
       # =====================================================================
 
       packages = forAllSystems (
@@ -324,8 +367,14 @@
         let
           pkgs = pkgsFor system;
           pythonSet = pythonSets.${system};
-          virtualenv = pythonSet.mkVirtualEnv "smallworld-re-env" deps;
+          virtualenv = mkLockedVirtualenv system "smallworld-re-env";
+          smallworldEnv = mkSmallworldEnv {
+            inherit system pkgs;
+            env = virtualenv;
+            name = "smallworld-re-env";
+          };
 
+          # Helper used by CI/debugging to print the full flake input closure.
           printInputsRecursive = pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
             import json
             import subprocess
@@ -355,223 +404,69 @@
             zephyr = zephyr-nix.packages.${system};
             west2nix = pkgs.callPackage west2nix.lib.mkWest2nix { };
           };
-        in
-        {
-          inherit printInputsRecursive tests rtos_demo;
 
-          # `nix build` with no target builds the smallworld Python package.
-          default = pythonSet.smallworld-re;
-          venv = virtualenv;
+          basePackages = {
+            inherit printInputsRecursive tests rtos_demo;
 
-          binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
-            default = bnUltimate.${system};
+            # `nix build` with no target gives you the assembled runtime env.
+            default = smallworldEnv;
+            inherit smallworldEnv;
+
+            # If you want just the Python package artifact, build this target
+            # explicitly with: nix build .#smallworld-re
+            "smallworld-re" = pythonSet.smallworld-re;
+
+            # Kept as a convenience when only the Python virtualenv is needed.
+            venv = virtualenv;
+
+            # Docker image containing smallworld + all tools.
+            dockerImage =
+              let
+                bn = bnUltimate.${system};
+                hasBinja = bn != null;
+              in
+              pkgs.dockerTools.buildImage {
+                name = "smallworld-re";
+                tag = "latest";
+                copyToRoot = pkgs.buildEnv {
+                  name = "smallworld-root";
+                  paths = [
+                    pkgs.dockerTools.usrBinEnv
+                    pkgs.dockerTools.binSh
+                    pkgs.dockerTools.caCertificates
+                    pkgs.dockerTools.fakeNss
+                    pkgs.coreutils
+                    pkgs.unzip
+                    pkgs.dbus.lib
+                    pkgs.stdenv.cc.cc.lib
+                    virtualenv
+                  ]
+                  ++ toolDeps.${system}
+                  ++ lib.optional hasBinja bn;
+                  pathsToLink = [
+                    "/bin"
+                    "/etc"
+                    "/var"
+                    "/lib"
+                  ]
+                  ++ lib.optional hasBinja "/opt";
+                };
+                config = {
+                  Cmd = [ "/bin/sh" ];
+                  Env = [
+                    "LD_LIBRARY_PATH=/lib"
+                    "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+                    "JAVA_HOME=${pkgs.jre}"
+                  ];
+                };
+              };
           };
-
-          # Docker image containing smallworld + all tools.
-          dockerImage =
-            let
-              bn = bnUltimate.${system};
-              hasBinja = bn != null;
-            in
-            pkgs.dockerTools.buildImage {
-              name = "smallworld-re";
-              tag = "latest";
-              copyToRoot = pkgs.buildEnv {
-                name = "smallworld-root";
-                paths = [
-                  pkgs.dockerTools.usrBinEnv
-                  pkgs.dockerTools.binSh
-                  pkgs.dockerTools.caCertificates
-                  pkgs.dockerTools.fakeNss
-                  pkgs.coreutils
-                  pkgs.unzip
-                  pkgs.dbus.lib
-                  pkgs.stdenv.cc.cc.lib
-                  virtualenv
-                ]
-                ++ toolDeps.${system}
-                ++ lib.optional hasBinja bn;
-                pathsToLink = [
-                  "/bin"
-                  "/etc"
-                  "/var"
-                  "/lib"
-                ]
-                ++ lib.optional hasBinja "/opt";
-              };
-              config = {
-                Cmd = [ "/bin/sh" ];
-                Env = [
-                  "LD_LIBRARY_PATH=/lib"
-                  "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-                  "JAVA_HOME=${pkgs.jre}"
-                ];
-              };
-            };
+        in
+        basePackages
+        // lib.optionalAttrs (bnUltimate.${system} != null) {
+          binaryninja-ultimate = bnUltimate.${system};
         }
       );
-
-      # =====================================================================
-      # Nixpkgs overlay — lets downstream consumers do:
-      #   pkgs.python312.withPackages (ps: [ ps.smallworld ])
-      # =====================================================================
-
-      overlays.default =
-        final: prev:
-        let
-          system = final.stdenv.hostPlatform.system;
-          pythonSet = pythonSets.${system};
-          hacks = final.callPackage pyproject-nix.build.hacks { };
-
-          # Convert selected uv2nix packages to nixpkgs format.
-          # Only packages that don't exist in nixpkgs (or need the uv2nix
-          # version) should be listed here. Converting ALL packages causes
-          # infinite recursion because the converted versions conflict with
-          # the nixpkgs originals' dependency graphs.
-          # Prebuilts (unicorn, pypanda, etc.) are excluded because they
-          # don't produce wheels — they're handled by nativeOverlay below.
-          basePyOverlay = hacks.toNixpkgs {
-            inherit pythonSet;
-            packages = [
-              "smallworld-re"
-              # angr ecosystem (not in nixpkgs)
-              "angr"
-              "archinfo"
-              "ailment"
-              "claripy"
-              "cle"
-              "pyvex"
-              # ghidra ecosystem (not in nixpkgs)
-              "pyghidra"
-              "pypcode"
-              "pyxdia"
-              # other deps not in nixpkgs
-              "uefi-firmware"
-            ];
-          };
-
-          # Overlay that converts uv2nix packages and patches angr/smallworld.
-          convertedOverlay =
-            pyFinal: pyPrev:
-            let
-              converted = basePyOverlay pyFinal pyPrev;
-
-              # angr needs pyvex's shared lib on the linker search path.
-              angrFixed = converted.angr.overridePythonAttrs (old: {
-                postFixup = (old.postFixup or "") + ''
-                  addAutoPatchelfSearchPath ${pyFinal.pyvex}
-                '';
-              });
-
-              # Make `ps.smallworld` automatically pull in all emulator
-              # backends and tool dependencies so downstream users get a
-              # batteries-included experience.
-              smallworldFull = (converted."smallworld-re").overridePythonAttrs (old: {
-                propagatedBuildInputs =
-                  (old.propagatedBuildInputs or [ ])
-                  ++ (with pyFinal; [
-                    pyghidra
-                    pypanda
-                    unicornafl
-                    unicorn
-                    angr
-                  ])
-                  ++ toolDeps.${system};
-              });
-            in
-            converted
-            // {
-              angr = angrFixed;
-              "smallworld-re" = smallworldFull;
-              smallworld = smallworldFull;
-            };
-
-          # Overlay that injects the native/prebuilt packages (patched
-          # unicorn, unicornafl, pypanda) into the nixpkgs Python set.
-          nativeOverlay =
-            pyFinal: pyPrev:
-            let
-              native = pythonNativeAddons.${system} {
-                pythonPkgs = pyFinal;
-                unicornPy = pyPrev.unicorn;
-              } (final // { inherit (prev) unicorn; });
-            in
-            {
-              inherit (native) unicorn unicornafl pypanda;
-            };
-
-          # Combine both overlays into one Python package overlay.
-          pyOverlay = final.lib.composeExtensions convertedOverlay nativeOverlay;
-        in
-        {
-          # Override python312 to include all smallworld packages.
-          python312 =
-            let
-              # Inject our Python package overlay into the python312 package set.
-              basePython = prev.python312.override (old: {
-                self = basePython;
-                packageOverrides = final.lib.composeExtensions (old.packageOverrides or (_: _: { })) pyOverlay;
-              });
-
-              # Wrap `withPackages` so that requesting smallworld/pyghidra
-              # automatically adds tool deps to PATH and sets env vars.
-              python = basePython // {
-                withPackages =
-                  f:
-                  let
-                    env = basePython.withPackages f;
-                    requested = f basePython.pkgs;
-                    needsTools = final.lib.any (
-                      p:
-                      let
-                        pname = p.pname or null;
-                      in
-                      pname == "smallworld-re" || pname == "pyghidra" || pname == "smallworld"
-                    ) requested;
-                  in
-                  if needsTools then
-                    # Wrap the Python env in a buildEnv that also has the
-                    # non-Python tools on PATH and sets GHIDRA_INSTALL_DIR.
-                    final.buildEnv {
-                      name = "${env.name}-smallworld-full";
-                      paths = [ env ] ++ toolDeps.${system};
-                      pathsToLink = [
-                        "/bin"
-                        "/nix-support"
-                      ];
-                      ignoreCollisions = true;
-
-                      postBuild = ''
-                        if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
-                        mkdir -p "$out/nix-support"
-                        if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
-                        if [ -f "${env}/nix-support/setup-hook" ]; then
-                          cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
-                        else
-                          : > "$out/nix-support/setup-hook"
-                        fi
-                        cat >> "$out/nix-support/setup-hook" <<'EOF'
-                        export GHIDRA_INSTALL_DIR=${ghidraInstallDir final.ghidra}
-                        export JAVA_HOME=${final.jre}
-                        EOF
-                      '';
-                    }
-                  else
-                    env;
-              };
-            in
-            python;
-
-          python312Packages = final.python312.pkgs;
-        };
-
-      # =====================================================================
-      # Exposed internals — used by downstream flakes and CI.
-      # =====================================================================
-
-      pythonSet = forAllSystems (system: pythonSets.${system});
-      pythonDeps = deps;
-      inherit prebuilts;
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);
     };
