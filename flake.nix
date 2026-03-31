@@ -207,13 +207,11 @@
             unicornPy = python.pkgs.unicorn;
           } pkgs;
 
-          nativePrebuilts =
-            _final: _prev:
-            {
-              unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
-              unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
-              pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
-            };
+          nativePrebuilts = _final: _prev: {
+            unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
+            unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
+            pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
+          };
         in
         pyprojectPkgs.overrideScope (
           lib.composeManyExtensions [
@@ -271,25 +269,22 @@
           ];
           ignoreCollisions = true;
 
-          postBuild =
-            ''
-              if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
-              mkdir -p "$out/nix-support"
-              if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
-              : > "$out/nix-support/setup-hook"
-            ''
-            + lib.concatMapStrings (
-              hookInput: ''
-                if [ -f "${hookInput}/nix-support/setup-hook" ]; then
-                  cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
-                fi
-              ''
-            ) setupHookInputs
-            + lib.optionalString (extraSetupHook != "") ''
-              cat >> "$out/nix-support/setup-hook" <<'EOF'
-              ${extraSetupHook}
-              EOF
-            '';
+          postBuild = ''
+            if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
+            mkdir -p "$out/nix-support"
+            if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
+            : > "$out/nix-support/setup-hook"
+          ''
+          + lib.concatMapStrings (hookInput: ''
+            if [ -f "${hookInput}/nix-support/setup-hook" ]; then
+              cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
+            fi
+          '') setupHookInputs
+          + lib.optionalString (extraSetupHook != "") ''
+            cat >> "$out/nix-support/setup-hook" <<'EOF'
+            ${extraSetupHook}
+            EOF
+          '';
         };
 
       # Build the runtime environment we want downstream users to consume:
@@ -328,8 +323,7 @@
           python = basePython.${system};
           basePythonEnv = mkLockedVirtualenv system "${name}-python" runtimeDeps;
           extraPython = extraPythonPackages python.pkgs;
-          extraPythonEnv =
-            if extraPython == [ ] then null else python.withPackages (_: extraPython);
+          extraPythonEnv = if extraPython == [ ] then null else python.withPackages (_: extraPython);
 
           pythonEnv =
             if extraPythonEnv == null then
@@ -404,28 +398,28 @@
           };
         in
         python.override {
-          packageOverrides = lib.composeExtensions
-            (
-              py-final: _py-prev:
-              let
-                rawSmallworld = pythonSet.smallworld-re;
-                # uv2nix records runtime Python dependencies in a `dependencies`
-                # attrset. Convert that closure into propagated Python module
-                # dependencies so `python.withPackages` can import SmallWorld
-                # with its transitive imports available.
-                smallworldDeps = map (name: py-final.${name}) (builtins.attrNames rawSmallworld.dependencies);
-                smallworldModule = py-final.toPythonModule (rawSmallworld.overrideAttrs (old: {
+          packageOverrides = lib.composeExtensions (
+            py-final: _py-prev:
+            let
+              rawSmallworld = pythonSet.smallworld-re;
+              # uv2nix records runtime Python dependencies in a `dependencies`
+              # attrset. Convert that closure into propagated Python module
+              # dependencies so `python.withPackages` can import SmallWorld
+              # with its transitive imports available.
+              smallworldDeps = map (name: py-final.${name}) (builtins.attrNames rawSmallworld.dependencies);
+              smallworldModule = py-final.toPythonModule (
+                rawSmallworld.overrideAttrs (old: {
                   propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ smallworldDeps;
-                }));
-              in
-              {
-                # Provide both names so downstream code can choose the nicer
-                # `ps.smallworld` spelling while still matching the package name.
-                smallworld = smallworldModule;
-                "smallworld-re" = smallworldModule;
-              }
-            )
-            packageOverrides;
+                })
+              );
+            in
+            {
+              # Provide both names so downstream code can choose the nicer
+              # `ps.smallworld` spelling while still matching the package name.
+              smallworld = smallworldModule;
+              "smallworld-re" = smallworldModule;
+            }
+          ) packageOverrides;
         };
 
       # =====================================================================

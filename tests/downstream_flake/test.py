@@ -1,8 +1,9 @@
-from importlib import metadata
 import logging
 import sys
+from importlib import metadata
 
 import colorama
+
 import smallworld
 
 if len(sys.argv) > 2:
