@@ -313,7 +313,7 @@ jobs:
           
   Results:
     runs-on: smallworld-arc
-    needs: [Lint, Unit-Test, Example-Test, Integration-Test, Downstream-Flake]
+    needs: [Lint, Unit-Test, Example-Test, Integration-Test, Downstream-Flake, Python39]
     if: always()
     steps:
       - name: Formatter committed – new run will verify
