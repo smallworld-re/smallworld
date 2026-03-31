@@ -187,9 +187,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 if isinstance(segment, state.BytesValue):
                     segment.set_content(new_segment_bytes)
                 elif isinstance(segment, state.IntegerValue):
-                    as_int = int.from_bytes(
-                        new_segment_bytes, segment.byteorder.value
-                    )
+                    as_int = int.from_bytes(new_segment_bytes, segment.byteorder.value)
                     segment.set_content(as_int)
                 else:
                     # Check for CTypeValue
