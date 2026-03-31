@@ -100,7 +100,7 @@ jobs:
           cd tests
           nix develop .. -c python3 unit.py -v
 
-  Python-3.9-Compat:
+  Python3.9:
     runs-on: smallworld-arc
     needs: Lint
     steps:
