@@ -51,66 +51,28 @@ cpu.r3.set(input_arg)
 machine.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 
-# We support PANDA-ng, Ghidra, Unicorn, and angr. Not all emulators support all platforms. They all share the same API.
-
-# Create a PANDA-ng emulator.
-panda_ng = smallworld.emulators.PandaEmulator(platform)
-
-# Emulate our machine
-panda_machine = machine.emulate(panda_ng)
-
-# # read out r3
-panda_r3 = panda_machine.get_cpu().r3.get()
-
-# check that our function behaves the way we expect
-if (input_arg == 100) and (panda_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (panda_r3 != 0):
-    sys.exit(1)
-
-# Create a Ghidra emulator.
-ghidra = smallworld.emulators.GhidraEmulator(platform)
-
-# Emulate our machine
-ghidra_machine = machine.emulate(ghidra)
-
-# read out r3
-ghidra_r3 = ghidra_machine.get_cpu().r3.get()
-
-# check that our function behaves the way we expect
-if (input_arg == 100) and (ghidra_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (ghidra_r3 != 0):
-    sys.exit(1)
+def assert_expected(name: str, result: int) -> None:
+    if (input_arg == 100) and (result != 1):
+        print(f"{name} produced r3={result}, expected 1")
+        sys.exit(1)
+    if (input_arg != 100) and (result != 0):
+        print(f"{name} produced r3={result}, expected 0")
+        sys.exit(1)
 
 
-# Create a Unicorn emulator.
-unicorn = smallworld.emulators.UnicornEmulator(platform)
+def check_emulator(name: str, emulator) -> None:
+    emulated_machine = machine.emulate(emulator)
+    result = emulated_machine.get_cpu().r3.get()
+    assert_expected(name, result)
 
-# Emulate our machine
-unicorn_machine = machine.emulate(unicorn)
 
-# read out r3
-unicorn_r3 = unicorn_machine.get_cpu().r3.get()
+# This mkPython downstream test should cover the emulator backends exposed by
+# the helper: Panda, Ghidra, Unicorn, and angr when the interpreter supports it.
 
-# check that our function behaves the way we expect
-if (input_arg == 100) and (unicorn_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (unicorn_r3 != 0):
-    sys.exit(1)
+check_emulator("panda", smallworld.emulators.PandaEmulator(platform))
+check_emulator("ghidra", smallworld.emulators.GhidraEmulator(platform))
+check_emulator("unicorn", smallworld.emulators.UnicornEmulator(platform))
 
-# Create an angr emulator.
 angr = smallworld.emulators.AngrEmulator(platform)
 angr.enable_linear()
-
-# Emulate our machine
-angr_machine = machine.emulate(angr)
-
-# read out r3
-angr_r3 = angr_machine.get_cpu().r3.get()
-
-# check that our function behaves the way we expect
-if (input_arg == 100) and (angr_r3 != 1):
-    sys.exit(1)
-elif (input_arg != 100) and (angr_r3 != 0):
-    sys.exit(1)
+check_emulator("angr", angr)

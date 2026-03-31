@@ -390,36 +390,109 @@
           pkgs,
           system ? pkgs.stdenv.hostPlatform.system,
           python ? pkgs.python312,
+          # Include the emulator backends downstream users usually expect from
+          # `ps.smallworld`. angr only supports Python 3.10+, so leave it out
+          # automatically on older interpreters.
+          smallworldExtras ? (
+            [
+              "emu-ghidra"
+              "emu-panda"
+              "emu-unicorn"
+            ]
+            ++ lib.optional (lib.versionAtLeast python.pythonVersion "3.10") "emu-angr"
+          ),
           packageOverrides ? (_: _: { }),
         }:
         let
           pythonSet = mkPythonSet {
             inherit system pkgs python;
           };
+          pythonWithSmallworld = python.override {
+            packageOverrides = lib.composeExtensions (
+              py-final: _py-prev:
+              let
+                # Resolve the full transitive dependency closure of one locked
+                # package from the uv2nix package set. Each dependency entry maps
+                # a package name to the extras that must be enabled on that
+                # dependency, so recurse through both direct dependencies and the
+                # enabled optional dependency groups.
+                resolveLockedDependencyNames =
+                  name: enabledExtras:
+                  let
+                    rawPkg = pythonSet.${name};
+                    selectedDeps =
+                      lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
+                        [ (rawPkg.dependencies or { }) ]
+                        ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
+                      );
+                    depNames = builtins.attrNames selectedDeps;
+                  in
+                  lib.unique (
+                    depNames
+                    ++ lib.flatten (
+                      map (depName: resolveLockedDependencyNames depName selectedDeps.${depName}) depNames
+                    )
+                  );
+
+                rawSmallworld = pythonSet.smallworld-re;
+                pypandaModule =
+                  if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
+                smallworldDepNames = resolveLockedDependencyNames "smallworld-re" smallworldExtras;
+                # uv2nix records runtime Python dependencies in a `dependencies`
+                # attrset. Convert that closure into propagated Python module
+                # dependencies so `python.withPackages` can import SmallWorld
+                # with its transitive imports available. PANDA is excluded from
+                # uv.lock, so add the locally built pypanda module by hand when
+                # the downstream interpreter asks for that extra.
+                smallworldDeps =
+                  map (name: py-final.toPythonModule pythonSet.${name}) smallworldDepNames
+                  ++ lib.optional (builtins.elem "emu-panda" smallworldExtras && pypandaModule != null) pypandaModule;
+                smallworldModule = py-final.toPythonModule (
+                  rawSmallworld.overrideAttrs (old: {
+                    propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ smallworldDeps;
+                  })
+                );
+              in
+              {
+                # Provide both names so downstream code can choose the nicer
+                # `ps.smallworld` spelling while still matching the package name.
+                smallworld = smallworldModule;
+                "smallworld-re" = smallworldModule;
+              }
+            ) packageOverrides;
+          };
         in
-        python.override {
-          packageOverrides = lib.composeExtensions (
-            py-final: _py-prev:
+        pythonWithSmallworld
+        // {
+          withPackages =
+            packageSelector:
             let
-              rawSmallworld = pythonSet.smallworld-re;
-              # uv2nix records runtime Python dependencies in a `dependencies`
-              # attrset. Convert that closure into propagated Python module
-              # dependencies so `python.withPackages` can import SmallWorld
-              # with its transitive imports available.
-              smallworldDeps = map (name: py-final.${name}) (builtins.attrNames rawSmallworld.dependencies);
-              smallworldModule = py-final.toPythonModule (
-                rawSmallworld.overrideAttrs (old: {
-                  propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ smallworldDeps;
-                })
-              );
+              baseEnv = pythonWithSmallworld.withPackages packageSelector;
             in
-            {
-              # Provide both names so downstream code can choose the nicer
-              # `ps.smallworld` spelling while still matching the package name.
-              smallworld = smallworldModule;
-              "smallworld-re" = smallworldModule;
-            }
-          ) packageOverrides;
+            pkgs.symlinkJoin {
+              name = baseEnv.name;
+              paths = [ baseEnv ];
+              nativeBuildInputs = [ pkgs.makeWrapper ];
+              postBuild = ''
+                mkdir -p "$out/nix-support"
+                if [ -f "${baseEnv}/nix-support/setup-hook" ]; then
+                  cat "${baseEnv}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
+                else
+                  : > "$out/nix-support/setup-hook"
+                fi
+
+                cat >> "$out/nix-support/setup-hook" <<'EOF'
+                export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
+                EOF
+
+                for python_bin in "$out"/bin/python*; do
+                  if [ -f "$python_bin" ] && [ -x "$python_bin" ]; then
+                    wrapProgram "$python_bin" \
+                      --set-default GHIDRA_INSTALL_DIR ${ghidraInstallDir pkgs.ghidra}
+                  fi
+                done
+              '';
+            };
         };
 
       # =====================================================================

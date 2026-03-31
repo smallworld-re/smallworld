@@ -44,7 +44,6 @@
         name = "downstream-flake-test";
         runtimeInputs = runtimeInputs;
         text = ''
-          export GHIDRA_INSTALL_DIR=${pkgs.ghidra}/lib/ghidra
           python ${./test.py} "$@"
         '';
       };
@@ -52,10 +51,6 @@
     {
       devShells.${system}.default = pkgs.mkShell {
         packages = runtimeInputs;
-
-        env = {
-          GHIDRA_INSTALL_DIR = "${pkgs.ghidra}/lib/ghidra";
-        };
       };
 
       packages.${system}.default = downstreamTest;
