@@ -18,6 +18,8 @@ jobs:
       - name: Update UV lock file
         run: uv lock --upgrade
       - uses: DeterminateSystems/determinate-nix-action@v3
+      - name: Update CI flake lock file
+        run: nix flake update ./ci
       - uses: DeterminateSystems/update-flake-lock@main
         with:
           pr-title: "chore: update nix flake inputs and uv lock file"

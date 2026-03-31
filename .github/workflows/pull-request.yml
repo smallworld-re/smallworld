@@ -83,8 +83,8 @@ jobs:
 
       - name: Build Test Artifacts
         run: |
-          nix build .#tests
-          nix build .#rtos_demo
+          nix build ./ci#tests
+          nix build ./ci#rtos_demo
 
   Unit-Test:
     runs-on: smallworld-arc
@@ -286,9 +286,9 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Artifacts
         run: |
-          nix build .#tests
+          nix build ./ci#tests
           tar -C tests -xvf result/test_binaries.tar
-          nix build .#rtos_demo
+          nix build ./ci#rtos_demo
           cp result/zephyr.elf use_cases/rtos_demo/zephyr.elf
       - name: Run Integration Tests
         run: |

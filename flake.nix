@@ -7,6 +7,9 @@
 #   - a ready-to-use package (`nix build`)
 #   - a development shell (`nix develop`)
 #
+# CI-only outputs such as test artifacts live in `./ci/flake.nix` so this
+# top-level flake stays focused on the user-facing package and dev environment.
+#
 # A few Python dependencies (unicorn, unicornafl, pypanda) need native C/C++
 # builds, so we build those ourselves and then insert them into the locked
 # package graph from `uv.lock`.
@@ -45,13 +48,6 @@
       url = "github:panda-re/panda-ng";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
-    # Xtensa cross-compiler (used only for building test binaries).
-    nixpkgs-esp-dev = {
-      url = "github:mirrexagon/nixpkgs-esp-dev";
-      flake = false;
-    };
-
     # Optional Binary Ninja support (uncomment both to enable).
     #  binaryninja = {
     #    url = "github:jchv/nix-binary-ninja";
@@ -62,17 +58,6 @@
     #    flake = false;
     #  };
 
-    # Zephyr RTOS tooling (used only for the rtos_demo use-case).
-    zephyr-nix = {
-      url = "github:adisbladis/zephyr-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.pyproject-nix.follows = "pyproject-nix";
-    };
-    west2nix = {
-      url = "github:adisbladis/west2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.zephyr-nix.follows = "zephyr-nix";
-    };
   };
 
   # ==========================================================================
@@ -85,9 +70,6 @@
       uv2nix,
       pyproject-build-systems,
       panda-ng,
-      nixpkgs-esp-dev,
-      zephyr-nix,
-      west2nix,
       ...
     }:
     let
@@ -136,15 +118,29 @@
       # Load the workspace. This parses pyproject.toml and uv.lock.
       workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
 
-      # Load every dependency group from pyproject.toml. For the packages we
-      # build ourselves below, give uv2nix an empty placeholder so it does not
-      # also try to fetch them from PyPI.
+      # The published package wants all emulator backends, but not the repo's
+      # development-only tools. The dev shell adds the `dev` group on top.
+      runtimeExtras = [ "emu-all" ];
+      devGroups = workspace.deps.groups.smallworld-re;
+
+      # uv2nix expects an attribute set of:
+      #   { <workspace-package-name> = [ enabled-extra-or-group names... ]; }
+      # These two selections drive the runtime package and the dev shell.
+      runtimeDeps = workspace.deps.default // {
+        smallworld-re = runtimeExtras;
+      };
+      devDeps = workspace.deps.default // {
+        smallworld-re = runtimeExtras ++ devGroups;
+      };
+
+      # For the packages we build ourselves below, give uv2nix an empty
+      # placeholder so it does not also try to fetch them from PyPI.
       prebuiltNames = [
         "unicornafl"
         "pypanda"
         "unicorn"
       ];
-      deps = workspace.deps.all // lib.genAttrs prebuiltNames (_: [ ]);
+      addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltNames (_: [ ]);
 
       # =====================================================================
       # Native Python packages — these need C/C++ compilation and cannot come
@@ -291,7 +287,9 @@
 
       # Build a Python virtualenv directly from the locked package set.
       # This is the "Python only" environment before we add non-Python tools.
-      mkLockedVirtualenv = system: name: pythonSets.${system}.mkVirtualEnv name deps;
+      mkLockedVirtualenv =
+        system: name: selectedDeps:
+        pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selectedDeps);
 
       # =====================================================================
       # Optional: Binary Ninja
@@ -322,7 +320,7 @@
 
           # The dev shell uses the same locked Python environment as the
           # package output, plus a few developer-only tools.
-          virtualenv = mkLockedVirtualenv system "smallworld-re-dev-env";
+          virtualenv = mkLockedVirtualenv system "smallworld-re-dev-env" devDeps;
 
           defaultShell = pkgs.mkShell {
             packages = [
@@ -367,7 +365,7 @@
         let
           pkgs = pkgsFor system;
           pythonSet = pythonSets.${system};
-          virtualenv = mkLockedVirtualenv system "smallworld-re-env";
+          virtualenv = mkLockedVirtualenv system "smallworld-re-env" runtimeDeps;
           smallworldEnv = mkSmallworldEnv {
             inherit system pkgs;
             env = virtualenv;
@@ -379,7 +377,9 @@
             import json
             import subprocess
 
-            obj = json.loads(subprocess.check_output(["nix", "flake", "archive", "--json"]))
+            obj = json.loads(
+                subprocess.check_output(["nix", "flake", "archive", "--json"])
+            )
 
 
             def print_node(node):
@@ -393,20 +393,8 @@
             print_node(obj)
           '';
 
-          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
-
-          tests = pkgs.callPackage ./tests {
-            inherit xtensaGcc;
-            x86_64_glibc_path = pkgs.glibc.outPath;
-          };
-
-          rtos_demo = pkgs.callPackage ./use_cases/rtos_demo {
-            zephyr = zephyr-nix.packages.${system};
-            west2nix = pkgs.callPackage west2nix.lib.mkWest2nix { };
-          };
-
           basePackages = {
-            inherit printInputsRecursive tests rtos_demo;
+            inherit printInputsRecursive;
 
             # `nix build` with no target gives you the assembled runtime env.
             default = smallworldEnv;
