@@ -449,11 +449,10 @@
                   name: enabledExtras:
                   let
                     rawPkg = pythonSet.${name};
-                    selectedDeps =
-                      lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
-                        [ (rawPkg.dependencies or { }) ]
-                        ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
-                      );
+                    selectedDeps = lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
+                      [ (rawPkg.dependencies or { }) ]
+                      ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
+                    );
                     depNames = builtins.attrNames selectedDeps;
                   in
                   lib.unique (
@@ -464,8 +463,7 @@
                   );
 
                 rawSmallworld = pythonSet.smallworld-re;
-                pypandaModule =
-                  if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
+                pypandaModule = if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
                 smallworldDepNames = resolveLockedDependencyNames "smallworld-re" smallworldExtras;
                 # uv2nix records runtime Python dependencies in a `dependencies`
                 # attrset. Convert that closure into propagated Python module
@@ -541,20 +539,24 @@
         }:
         let
           smallworldPython = mkDownstreamPython {
-            inherit pkgs system python smallworldExtras packageOverrides;
+            inherit
+              pkgs
+              system
+              python
+              smallworldExtras
+              packageOverrides
+              ;
           };
-          pythonEnv = smallworldPython.withPackages (
-            ps:
-            [ ps.smallworld ] ++ extraPythonPackages ps
-          );
+          pythonEnv = smallworldPython.withPackages (ps: [ ps.smallworld ] ++ extraPythonPackages ps);
         in
         pkgs.mkShell {
-          packages =
-            [ pythonEnv ]
-            ++ mkPythonToolDeps {
-              inherit pkgs smallworldExtras;
-            }
-            ++ packages;
+          packages = [
+            pythonEnv
+          ]
+          ++ mkPythonToolDeps {
+            inherit pkgs smallworldExtras;
+          }
+          ++ packages;
           env =
             mkPythonShellEnv {
               inherit pkgs smallworldExtras;
