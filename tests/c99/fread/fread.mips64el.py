@@ -47,32 +47,19 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'fread',
+        'strcmp',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-fread_model = smallworld.state.models.Model.lookup(
-    "fread", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(fread_model)
-fread_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fread", fread_model._address)
-
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strcmp", strcmp_model._address)
+libc.link(code)
+machine.add(libc)
 
 # Create a fake stdin
 # mips64el references the copy in libc, so we need to make our own

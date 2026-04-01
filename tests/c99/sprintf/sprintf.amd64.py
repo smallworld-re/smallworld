@@ -52,32 +52,19 @@ cpu.rsp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'strcmp',
+        'sprintf',
+        'puts',
+    },
 )
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strcmp", strcmp_model._address)
-
-sprintf_model = smallworld.state.models.Model.lookup(
-    "sprintf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(sprintf_model)
-sprintf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("sprintf", sprintf_model._address)
-
-puts_model = smallworld.state.models.Model.lookup(
-    "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
-)
-machine.add(puts_model)
-puts_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("puts", puts_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

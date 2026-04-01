@@ -64,23 +64,18 @@ cpu.a1.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'printf',
+        'puts',
+    },
 )
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("printf", printf_model._address)
-
-puts_model = smallworld.state.models.Model.lookup(
-    "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(puts_model)
-puts_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("puts", puts_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

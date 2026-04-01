@@ -49,50 +49,21 @@ cpu.rsp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'fsetpos',
+        'fopen',
+        'fwrite',
+        'fgetpos',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-fsetpos_model = smallworld.state.models.Model.lookup(
-    "fsetpos", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(fsetpos_model)
-fsetpos_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fsetpos", fsetpos_model._address)
-
-fopen_model = smallworld.state.models.Model.lookup(
-    "fopen", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(fopen_model)
-fopen_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fopen", fopen_model._address)
-
-fwrite_model = smallworld.state.models.Model.lookup(
-    "fwrite", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
-)
-machine.add(fwrite_model)
-fwrite_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fwrite", fwrite_model._address)
-
-fgetpos_model = smallworld.state.models.Model.lookup(
-    "fgetpos", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
-)
-machine.add(fgetpos_model)
-fgetpos_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fgetpos", fgetpos_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Set the FS model to active

@@ -48,33 +48,19 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x80000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'printf',
+        '__ctype_toupper_loc',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("printf", printf_model._address)
-
-ctype_toupper_loc_model = smallworld.state.models.Model.lookup(
-    "__ctype_toupper_loc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(ctype_toupper_loc_model)
-ctype_toupper_loc_model.allow_imprecise = True
-ctype_toupper_loc_model.static_buffer_address = heap.address
-
-# Relocate puts
-code.update_symbol_value("__ctype_toupper_loc", ctype_toupper_loc_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

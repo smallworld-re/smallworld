@@ -57,23 +57,18 @@ cpu.rsi.set(argv)
 sp = stack.get_pointer()
 cpu.rsp.set(sp)
 
-difftime_model = smallworld.state.models.Model.lookup(
-    "difftime", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'difftime',
+        'exit',
+    },
 )
-machine.add(difftime_model)
-difftime_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("difftime", difftime_model._address)
-
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

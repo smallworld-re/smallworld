@@ -48,15 +48,16 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-rand_model = smallworld.state.models.Model.lookup(
-    "rand", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={'rand'},
 )
-rand_model.heap = heap
-machine.add(rand_model)
-rand_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("rand", rand_model._address)
+libc.models['rand'].heap = heap
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

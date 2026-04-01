@@ -63,43 +63,20 @@ cpu.r4.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-ctime_model = smallworld.state.models.Model.lookup(
-    "ctime", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'ctime',
+        'exit',
+        'memset',
+        'strcmp',
+    },
 )
-ctime_model.static_buffer_address = 0x20000
-machine.add(ctime_model)
-ctime_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("ctime", ctime_model._address)
-
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-# PPC injects an implicit memset
-memset_model = smallworld.state.models.Model.lookup(
-    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(memset_model)
-memset_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("memset", memset_model._address)
-
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strcmp", strcmp_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

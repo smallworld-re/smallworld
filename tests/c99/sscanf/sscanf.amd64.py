@@ -45,50 +45,21 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 sp = stack.get_pointer()
 cpu.rsp.set(sp)
 
-sscanf_model = smallworld.state.models.Model.lookup(
-    "sscanf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'sscanf',
+        'printf',
+        'puts',
+        'strcmp',
+        'exit',
+    },
 )
-machine.add(sscanf_model)
-sscanf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("__isoc99_sscanf", sscanf_model._address)
-
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("printf", printf_model._address)
-
-puts_model = smallworld.state.models.Model.lookup(
-    "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(puts_model)
-puts_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("puts", puts_model._address)
-
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
-)
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate strcmp
-code.update_symbol_value("strcmp", strcmp_model._address)
-
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10014
-)
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate exit
-code.update_symbol_value("exit", exit_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

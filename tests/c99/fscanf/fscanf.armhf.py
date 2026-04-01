@@ -45,86 +45,25 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-fscanf_model = smallworld.state.models.Model.lookup(
-    "fscanf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'fscanf',
+        'printf',
+        'puts',
+        'strcmp',
+        'ungetc',
+        'getc',
+        'strlen',
+        'exit',
+        'memset',
+    },
 )
-machine.add(fscanf_model)
-fscanf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("__isoc99_fscanf", fscanf_model._address)
-
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("printf", printf_model._address)
-
-puts_model = smallworld.state.models.Model.lookup(
-    "puts", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(puts_model)
-puts_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("puts", puts_model._address)
-
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
-)
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate strcmp
-code.update_symbol_value("strcmp", strcmp_model._address)
-
-ungetc_model = smallworld.state.models.Model.lookup(
-    "ungetc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10014
-)
-machine.add(ungetc_model)
-ungetc_model.allow_imprecise = True
-
-# Relocate ungetc
-code.update_symbol_value("ungetc", ungetc_model._address)
-
-getc_model = smallworld.state.models.Model.lookup(
-    "getc", platform, smallworld.platforms.ABI.SYSTEMV, 0x1001C
-)
-machine.add(getc_model)
-getc_model.allow_imprecise = True
-
-# Relocate getc
-code.update_symbol_value("getc", getc_model._address)
-
-strlen_model = smallworld.state.models.Model.lookup(
-    "strlen", platform, smallworld.platforms.ABI.SYSTEMV, 0x10018
-)
-machine.add(strlen_model)
-strlen_model.allow_imprecise = True
-
-# Relocate strlen
-code.update_symbol_value("strlen", strlen_model._address)
-
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10020
-)
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate exit
-code.update_symbol_value("exit", exit_model._address)
-
-memset_model = smallworld.state.models.Model.lookup(
-    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10024
-)
-machine.add(memset_model)
-memset_model.allow_imprecise = True
-
-# Relocate memset
-code.update_symbol_value("memset", memset_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

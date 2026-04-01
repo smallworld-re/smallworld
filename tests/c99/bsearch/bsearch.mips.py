@@ -48,21 +48,18 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-# bsearch model
-bsearch_model = smallworld.state.models.Model.lookup(
-    "bsearch", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'bsearch',
+        'memcpy',
+    },
 )
-machine.add(bsearch_model)
-bsearch_model.allow_imprecise = True
-code.update_symbol_value("bsearch", bsearch_model._address)
-
-# memcpy model
-memcpy_model = smallworld.state.models.Model.lookup(
-    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
-)
-machine.add(memcpy_model)
-memcpy_model.allow_imprecise = True
-code.update_symbol_value("memcpy", memcpy_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

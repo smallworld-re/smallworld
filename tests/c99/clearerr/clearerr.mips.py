@@ -48,50 +48,21 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'clearerr',
+        'fopen',
+        'fread',
+        'feof',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-clearerr_model = smallworld.state.models.Model.lookup(
-    "clearerr", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(clearerr_model)
-clearerr_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("clearerr", clearerr_model._address)
-
-fopen_model = smallworld.state.models.Model.lookup(
-    "fopen", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(fopen_model)
-fopen_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fopen", fopen_model._address)
-
-fread_model = smallworld.state.models.Model.lookup(
-    "fread", platform, smallworld.platforms.ABI.SYSTEMV, 0x100010
-)
-machine.add(fread_model)
-fread_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fread", fread_model._address)
-
-feof_model = smallworld.state.models.Model.lookup(
-    "feof", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
-)
-machine.add(feof_model)
-feof_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("feof", feof_model._address)
+libc.link(code)
+machine.add(libc)
 
 # Set FS model to active
 fdmgr = smallworld.state.models.filedesc.FileDescriptorManager.for_platform(

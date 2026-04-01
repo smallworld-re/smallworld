@@ -47,20 +47,19 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-# qsort model
-qsort_model = smallworld.state.models.Model.lookup(
-    "qsort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'qsort',
+        'memcpy',
+    },
 )
-machine.add(qsort_model)
-qsort_model.allow_imprecise = True
-code.update_symbol_value("qsort", qsort_model._address)
-
-# memcpy model
-memcpy_model = smallworld.state.models.Model.lookup(
-    "memcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x4008E0
-)
-machine.add(memcpy_model)
-memcpy_model.allow_imprecise = True
+libc.models['memcpy']._address = 0x4008e0
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

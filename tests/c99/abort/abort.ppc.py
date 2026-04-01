@@ -43,14 +43,15 @@ stack.push_integer(0xFFFFFFFF, 8, "fake return address")
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-abort_model = smallworld.state.models.Model.lookup(
-    "abort", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={'abort'},
 )
-machine.add(abort_model)
-abort_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("abort", abort_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

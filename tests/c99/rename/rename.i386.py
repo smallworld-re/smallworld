@@ -49,32 +49,19 @@ cpu.esp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'rename',
+        'fopen',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-rename_model = smallworld.state.models.Model.lookup(
-    "rename", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(rename_model)
-rename_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("rename", rename_model._address)
-
-fopen_model = smallworld.state.models.Model.lookup(
-    "fopen", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(fopen_model)
-fopen_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fopen", fopen_model._address)
+libc.link(code)
+machine.add(libc)
 
 # Set FS model to active
 fdmgr = smallworld.state.models.filedesc.FileDescriptorManager.for_platform(

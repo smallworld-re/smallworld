@@ -47,32 +47,19 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'fgetc',
+        'printf',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-fgetc_model = smallworld.state.models.Model.lookup(
-    "fgetc", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(fgetc_model)
-fgetc_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fgetc", fgetc_model._address)
-
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("printf", fgetc_model._address)
+libc.link(code)
+machine.add(libc)
 
 # Create a fake stdin
 fake_stdin = smallworld.state.memory.Memory(0x200000, 4)

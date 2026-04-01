@@ -47,23 +47,18 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'fflush',
+    },
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-fflush_model = smallworld.state.models.Model.lookup(
-    "fflush", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(fflush_model)
-fflush_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("fflush", fflush_model._address)
+libc.link(code)
+machine.add(libc)
 
 # Create a fake stdout
 fake_stdout = smallworld.state.memory.Memory(0x20000, 4)

@@ -64,41 +64,20 @@ cpu.r1.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
-strncpy_model = smallworld.state.models.Model.lookup(
-    "strncpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
+# Configure libc
+libc = smallworld.state.models.c99.libc.C99Libc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'strncpy',
+        'strcmp',
+        'exit',
+        'strlen',
+    },
 )
-machine.add(strncpy_model)
-strncpy_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strncpy", strncpy_model._address)
-
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strcmp", strcmp_model._address)
-
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
-)
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-strlen_model = smallworld.state.models.Model.lookup(
-    "strlen", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
-)
-machine.add(strlen_model)
-strlen_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strlen", strlen_model._address)
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate
