@@ -58,6 +58,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'strtok',
         'memcpy',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

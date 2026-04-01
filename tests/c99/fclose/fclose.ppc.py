@@ -58,6 +58,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'fopen',
         'fgetc',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

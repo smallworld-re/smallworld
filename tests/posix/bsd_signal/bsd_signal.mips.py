@@ -48,23 +48,19 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.posix.POSIXLibc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'bsd_signal',
+    },
+    heap=heap,
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-bsd_signal_model = smallworld.state.models.Model.lookup(
-    "bsd_signal", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(bsd_signal_model)
-bsd_signal_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("bsd_signal", bsd_signal_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

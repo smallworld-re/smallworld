@@ -61,6 +61,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'fwrite',
         'fgetpos',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

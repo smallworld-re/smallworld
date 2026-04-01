@@ -56,9 +56,8 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'malloc',
         'free',
     },
+    heap=heap,
 )
-libc.models['malloc'].heap = heap
-libc.models['free'].heap = heap
 libc.link(code)
 machine.add(libc)
 

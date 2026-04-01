@@ -49,49 +49,22 @@ cpu.sp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.posix.POSIXLibc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'dirname',
+        'strcmp',
+        'strcpy',
+        'printf',
+    },
+    heap=heap,
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-dirname_model = smallworld.state.models.Model.lookup(
-    "dirname", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(dirname_model)
-dirname_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("dirname", dirname_model._address)
-strcmp_model = smallworld.state.models.Model.lookup(
-    "strcmp", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(strcmp_model)
-strcmp_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strcmp", strcmp_model._address)
-
-strcpy_model = smallworld.state.models.Model.lookup(
-    "strcpy", platform, smallworld.platforms.ABI.SYSTEMV, 0x1000C
-)
-machine.add(strcpy_model)
-strcpy_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("strcpy", strcpy_model._address)
-
-printf_model = smallworld.state.models.Model.lookup(
-    "printf", platform, smallworld.platforms.ABI.SYSTEMV, 0x10010
-)
-machine.add(printf_model)
-printf_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("printf", printf_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

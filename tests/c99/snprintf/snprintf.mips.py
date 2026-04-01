@@ -58,8 +58,8 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'snprintf',
         'puts',
     },
+    heap=heap,
 )
-libc.models['snprintf'].heap = heap
 libc.link(code)
 machine.add(libc)
 

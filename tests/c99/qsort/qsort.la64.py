@@ -56,6 +56,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'qsort',
         'memcpy',
     },
+    heap=heap,
 )
 libc.models['memcpy']._address = 0x4008e0
 libc.link(code)

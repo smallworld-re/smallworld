@@ -58,8 +58,8 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'realloc',
         'exit',
     },
+    heap=heap,
 )
-libc.models['realloc'].heap = heap
 libc.link(code)
 machine.add(libc)
 

@@ -60,6 +60,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'sprintf',
         'puts',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

@@ -59,6 +59,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'fread',
         'strcmp',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

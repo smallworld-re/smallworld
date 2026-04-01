@@ -56,9 +56,8 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'exit',
         'calloc',
     },
+    heap=heap,
 )
-libc.models['exit'].heap = heap
-libc.models['calloc'].heap = heap
 libc.link(code)
 machine.add(libc)
 

@@ -57,9 +57,8 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'rand',
         'srand',
     },
+    heap=heap,
 )
-libc.models['rand'].heap = heap
-libc.models['srand'].heap = heap
 libc.link(code)
 machine.add(libc)
 

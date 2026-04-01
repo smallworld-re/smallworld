@@ -49,32 +49,20 @@ cpu.rsp.set(sp)
 heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
 machine.add(heap)
 
-exit_model = smallworld.state.models.Model.lookup(
-    "exit", platform, smallworld.platforms.ABI.SYSTEMV, 0x10004
+# Configure libc
+libc = smallworld.state.models.posix.POSIXLibc(
+    0x10000,
+    platform,
+    smallworld.platforms.ABI.SYSTEMV,
+    allow_imprecise={
+        'exit',
+        'sigpending',
+        'memset',
+    },
+    heap=heap,
 )
-machine.add(exit_model)
-exit_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("exit", exit_model._address)
-
-sigpending_model = smallworld.state.models.Model.lookup(
-    "sigpending", platform, smallworld.platforms.ABI.SYSTEMV, 0x10000
-)
-machine.add(sigpending_model)
-sigpending_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("sigpending", sigpending_model._address)
-
-memset_model = smallworld.state.models.Model.lookup(
-    "memset", platform, smallworld.platforms.ABI.SYSTEMV, 0x10008
-)
-machine.add(memset_model)
-memset_model.allow_imprecise = True
-
-# Relocate puts
-code.update_symbol_value("memset", memset_model._address)
+libc.link(code)
+machine.add(libc)
 
 
 # Create a type of exception only I will generate

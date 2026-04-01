@@ -63,6 +63,10 @@ cpu.x1.set(argv)
 sp = stack.get_pointer()
 cpu.sp.set(sp)
 
+# Configure the heap
+heap = smallworld.state.memory.heap.BumpAllocator(0x20000, 0x1000)
+machine.add(heap)
+
 # Configure libc
 libc = smallworld.state.models.c99.libc.C99Libc(
     0x10000,
@@ -72,6 +76,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'fprintf',
         'puts',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

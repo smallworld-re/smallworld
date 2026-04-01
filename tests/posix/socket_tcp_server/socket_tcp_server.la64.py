@@ -52,6 +52,7 @@ libc = smallworld.state.models.posix.POSIXLibc(
     0x10000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

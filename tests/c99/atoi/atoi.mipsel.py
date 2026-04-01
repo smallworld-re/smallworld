@@ -57,6 +57,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
         'exit',
         'atoi',
     },
+    heap=heap,
 )
 libc.link(code)
 machine.add(libc)

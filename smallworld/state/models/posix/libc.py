@@ -8,6 +8,13 @@ from . import arpa, libgen, signal, sys, unistd
 
 class POSIXLibc(C99Libc):
     @property
+    def alt_names(self) -> typing.Dict[str, str]:
+        return {
+            **super().alt_names,
+            "__xpg_basename": "basename",
+        }
+
+    @property
     def function_names(self) -> typing.List[str]:
         out = super().function_names
 
