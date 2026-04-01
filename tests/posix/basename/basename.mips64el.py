@@ -53,11 +53,11 @@ libc = smallworld.state.models.posix.POSIXLibc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'exit',
-        'basename',
-        'strcmp',
-        'strcpy',
-        'printf',
+        "exit",
+        "basename",
+        "strcmp",
+        "strcpy",
+        "printf",
     },
     heap=heap,
 )

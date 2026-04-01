@@ -54,9 +54,9 @@ libc = smallworld.state.models.posix.POSIXLibc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'exit',
-        'sigpending',
-        'memset',
+        "exit",
+        "sigpending",
+        "memset",
     },
     heap=heap,
 )

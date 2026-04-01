@@ -54,7 +54,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     0x10000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
-    allow_imprecise={'qsort'},
+    allow_imprecise={"qsort"},
     heap=heap,
 )
 libc.link(code)

@@ -53,9 +53,9 @@ libc = smallworld.state.models.posix.POSIXLibc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'exit',
-        'pthread_sigmask',
-        'memset',
+        "exit",
+        "pthread_sigmask",
+        "memset",
     },
     heap=heap,
 )
