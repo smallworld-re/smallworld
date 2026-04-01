@@ -382,6 +382,42 @@
           inherit env shellHook;
         };
 
+      # The default emulator extras we expose from `mkPython`. Keep this in
+      # one place so the Python interpreter helper and the shell helper stay
+      # in sync.
+      defaultMkPythonExtras =
+        python:
+        [
+          "emu-ghidra"
+          "emu-panda"
+          "emu-unicorn"
+        ]
+        ++ lib.optional (lib.versionAtLeast python.pythonVersion "3.10") "emu-angr";
+
+      # `mkPython` itself only changes the Python interpreter. Some emulator
+      # backends also need native tools on PATH, so the shell helper adds those
+      # separately instead of making the interpreter helper do double duty.
+      mkPythonToolDeps =
+        {
+          pkgs,
+          smallworldExtras,
+        }:
+        lib.optionals (builtins.elem "emu-ghidra" smallworldExtras) [
+          pkgs.ghidra
+          pkgs.jdk
+        ];
+
+      # Ghidra also expects these environment variables when used from a shell.
+      mkPythonShellEnv =
+        {
+          pkgs,
+          smallworldExtras,
+        }:
+        lib.optionalAttrs (builtins.elem "emu-ghidra" smallworldExtras) {
+          GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
+          JAVA_HOME = pkgs.jdk;
+        };
+
       # Build a Python interpreter whose package set exposes SmallWorld as
       # `ps.smallworld`, so downstream flakes can keep using
       # `python.withPackages` without importing a global overlay.
@@ -393,14 +429,7 @@
           # Include the emulator backends downstream users usually expect from
           # `ps.smallworld`. angr only supports Python 3.10+, so leave it out
           # automatically on older interpreters.
-          smallworldExtras ? (
-            [
-              "emu-ghidra"
-              "emu-panda"
-              "emu-unicorn"
-            ]
-            ++ lib.optional (lib.versionAtLeast python.pythonVersion "3.10") "emu-angr"
-          ),
+          smallworldExtras ? defaultMkPythonExtras python,
           packageOverrides ? (_: _: { }),
         }:
         let
@@ -420,10 +449,11 @@
                   name: enabledExtras:
                   let
                     rawPkg = pythonSet.${name};
-                    selectedDeps = lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
-                      [ (rawPkg.dependencies or { }) ]
-                      ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
-                    );
+                    selectedDeps =
+                      lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
+                        [ (rawPkg.dependencies or { }) ]
+                        ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
+                      );
                     depNames = builtins.attrNames selectedDeps;
                   in
                   lib.unique (
@@ -434,7 +464,8 @@
                   );
 
                 rawSmallworld = pythonSet.smallworld-re;
-                pypandaModule = if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
+                pypandaModule =
+                  if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
                 smallworldDepNames = resolveLockedDependencyNames "smallworld-re" smallworldExtras;
                 # uv2nix records runtime Python dependencies in a `dependencies`
                 # attrset. Convert that closure into propagated Python module
@@ -491,6 +522,45 @@
                 done
               '';
             };
+        };
+
+      # Build a dev shell around `mkPython`. This is the convenient downstream
+      # entrypoint when callers want the `python.withPackages` workflow plus
+      # whatever native tools the selected emulator extras require.
+      mkDownstreamPythonShell =
+        {
+          pkgs,
+          system ? pkgs.stdenv.hostPlatform.system,
+          python ? pkgs.python312,
+          smallworldExtras ? defaultMkPythonExtras python,
+          packageOverrides ? (_: _: { }),
+          extraPythonPackages ? (_: [ ]),
+          packages ? [ ],
+          env ? { },
+          shellHook ? "",
+        }:
+        let
+          smallworldPython = mkDownstreamPython {
+            inherit pkgs system python smallworldExtras packageOverrides;
+          };
+          pythonEnv = smallworldPython.withPackages (
+            ps:
+            [ ps.smallworld ] ++ extraPythonPackages ps
+          );
+        in
+        pkgs.mkShell {
+          packages =
+            [ pythonEnv ]
+            ++ mkPythonToolDeps {
+              inherit pkgs smallworldExtras;
+            }
+            ++ packages;
+          env =
+            mkPythonShellEnv {
+              inherit pkgs smallworldExtras;
+            }
+            // env;
+          inherit shellHook;
         };
 
       # =====================================================================
@@ -670,6 +740,10 @@
         # Build a Python interpreter whose `python.pkgs` set includes
         # `smallworld`, without mutating the caller's nixpkgs import.
         mkPython = mkDownstreamPython;
+
+        # Build a shell around `mkPython`, including the native tools needed
+        # by the selected emulator extras.
+        mkPythonShell = mkDownstreamPythonShell;
       };
 
       formatter = forAllSystems (system: (pkgsFor system).nixfmt);

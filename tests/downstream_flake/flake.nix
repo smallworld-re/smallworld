@@ -24,18 +24,16 @@
       # `ps.smallworld`, so downstream projects can keep using
       # `python.withPackages` without importing a global overlay.
       python = smallworld.lib.mkPython { inherit pkgs; };
+      pythonExtras = ps: [ ps.colorama ];
 
-      pythonEnv = python.withPackages (ps: [
-        ps.colorama
-        ps.smallworld
-      ]);
+      pythonEnv = python.withPackages (ps: [ ps.smallworld ] ++ pythonExtras ps);
 
-      # Shared runtime used by both the shell and the runnable test package.
+      # The runnable test package only needs the mkPython env plus the native
+      # Ghidra toolchain. z3 already comes from the Python environment.
       runtimeInputs = [
         pythonEnv
         pkgs.ghidra
         pkgs.jdk
-        pkgs.z3
       ];
 
       # `nix run .` executes this wrapper, which in turn runs the downstream
@@ -49,8 +47,9 @@
       };
     in
     {
-      devShells.${system}.default = pkgs.mkShell {
-        packages = runtimeInputs;
+      devShells.${system}.default = smallworld.lib.mkPythonShell {
+        inherit pkgs;
+        extraPythonPackages = pythonExtras;
       };
 
       packages.${system}.default = downstreamTest;
