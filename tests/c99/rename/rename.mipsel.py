@@ -54,9 +54,9 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'exit',
-        'rename',
-        'fopen',
+        "exit",
+        "rename",
+        "fopen",
     },
 )
 libc.link(code)

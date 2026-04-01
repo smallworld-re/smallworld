@@ -49,7 +49,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     0x10000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
-    allow_imprecise={'exit'},
+    allow_imprecise={"exit"},
 )
 libc.link(code)
 machine.add(libc)

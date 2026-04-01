@@ -53,9 +53,9 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     0x10000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
-    allow_imprecise={'rand'},
+    allow_imprecise={"rand"},
 )
-libc.models['rand'].heap = heap
+libc.models["rand"].heap = heap
 libc.link(code)
 machine.add(libc)
 

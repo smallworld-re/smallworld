@@ -51,14 +51,14 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'fscanf',
-        'printf',
-        'puts',
-        'strcmp',
-        'ungetc',
-        'strlen',
-        'getc',
-        'exit',
+        "fscanf",
+        "printf",
+        "puts",
+        "strcmp",
+        "ungetc",
+        "strlen",
+        "getc",
+        "exit",
     },
 )
 libc.link(code)

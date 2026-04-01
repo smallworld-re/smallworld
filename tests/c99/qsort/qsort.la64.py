@@ -53,11 +53,11 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'qsort',
-        'memcpy',
+        "qsort",
+        "memcpy",
     },
 )
-libc.models['memcpy']._address = 0x4008e0
+libc.models["memcpy"]._address = 0x4008E0
 libc.link(code)
 machine.add(libc)
 

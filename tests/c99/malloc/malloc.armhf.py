@@ -54,9 +54,9 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     0x10000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
-    allow_imprecise={'malloc'},
+    allow_imprecise={"malloc"},
 )
-libc.models['malloc'].heap = heap
+libc.models["malloc"].heap = heap
 libc.link(code)
 machine.add(libc)
 

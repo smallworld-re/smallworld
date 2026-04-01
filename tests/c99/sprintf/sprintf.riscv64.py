@@ -59,12 +59,12 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'strcmp',
-        'sprintf',
-        'puts',
+        "strcmp",
+        "sprintf",
+        "puts",
     },
 )
-libc.models['sprintf'].heap = heap
+libc.models["sprintf"].heap = heap
 libc.link(code)
 machine.add(libc)
 

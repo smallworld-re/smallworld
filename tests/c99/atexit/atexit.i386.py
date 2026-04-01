@@ -55,12 +55,12 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'exit',
-        'atexit',
+        "exit",
+        "atexit",
     },
 )
-libc.models['exit'].heap = heap
-libc.models['atexit'].heap = heap
+libc.models["exit"].heap = heap
+libc.models["atexit"].heap = heap
 libc.link(code)
 machine.add(libc)
 

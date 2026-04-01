@@ -50,7 +50,7 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     0x10000,
     platform,
     smallworld.platforms.ABI.SYSTEMV,
-    allow_imprecise={'abort'},
+    allow_imprecise={"abort"},
 )
 libc.link(code)
 machine.add(libc)

@@ -69,10 +69,10 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'strftime',
-        'exit',
-        'memset',
-        'strcmp',
+        "strftime",
+        "exit",
+        "memset",
+        "strcmp",
     },
 )
 libc.link(code)
