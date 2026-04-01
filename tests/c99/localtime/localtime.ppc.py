@@ -65,10 +65,10 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'localtime',
-        'exit',
-        'memset',
-        'memcmp',
+        "localtime",
+        "exit",
+        "memset",
+        "memcmp",
     },
     heap=heap,
 )

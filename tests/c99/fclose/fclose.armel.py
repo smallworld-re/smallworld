@@ -53,10 +53,10 @@ libc = smallworld.state.models.c99.libc.C99Libc(
     platform,
     smallworld.platforms.ABI.SYSTEMV,
     allow_imprecise={
-        'exit',
-        'fclose',
-        'fopen',
-        'fgetc',
+        "exit",
+        "fclose",
+        "fopen",
+        "fgetc",
     },
     heap=heap,
 )
