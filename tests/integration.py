@@ -3477,6 +3477,8 @@ class AbsLibraryModelTest(ScriptIntegrationTest):
 
 
 class OneArgLibraryModelTest(AbsLibraryModelTest):
+    quiet: bool = False
+
     def run_test(self, extension, arch, byteorder):
         # These are all designed to either take no arguments,
         # or to run a positive test if fed "foobar"
