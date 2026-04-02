@@ -30,10 +30,7 @@ class PowerPCElfRelocator(ElfRelocator):
         elif rela.type == R_PPC_RELATIVE:
             val = elf.address + addend
             return val.to_bytes(self.addrsz, "big")
-        elif (
-            rela.type == R_PPC_GLOB_DAT
-            or rela.type == R_PPC_JUMP_SLOT
-        ):
+        elif rela.type == R_PPC_GLOB_DAT or rela.type == R_PPC_JUMP_SLOT:
             # Different semantics, all behave the same
             val = rela.symbol.value + rela.symbol.baseaddr + addend
             return val.to_bytes(self.addrsz, "big")

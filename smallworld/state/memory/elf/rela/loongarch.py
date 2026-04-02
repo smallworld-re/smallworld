@@ -19,10 +19,7 @@ class LoongArch64ElfRelocator(ElfRelocator):
     byteorder = platforms.Byteorder.LITTLE
 
     def _compute_value(self, rela: ElfRela, elf):
-        if (
-            rela.type == R_LARCH_JUMP_SLOT
-            or rela.type == R_LARCH_64
-        ):
+        if rela.type == R_LARCH_JUMP_SLOT or rela.type == R_LARCH_64:
             # Different semantics, all behave the same
             if rela.is_rela:
                 addend = rela.addend

@@ -47,11 +47,17 @@ R_X86_64_PLTOFF64 = 31  # Write L + A - GOT as a 64-bit GOT-relative PLT value.
 R_X86_64_SIZE32 = 32  # Write Z + A as a 32-bit value.
 R_X86_64_SIZE64 = 33  # Write Z + A as a 64-bit value.
 R_X86_64_GOTPC32_TLSDESC = 34  # PC-relative reference to a TLS descriptor in the GOT.
-R_X86_64_TLSDESC_CALL = 35  # Marker for the call instruction in a TLS descriptor sequence.
-R_X86_64_TLSDESC = 36  # TLS descriptor relocation; fills the descriptor pair in the GOT.
+R_X86_64_TLSDESC_CALL = (
+    35  # Marker for the call instruction in a TLS descriptor sequence.
+)
+R_X86_64_TLSDESC = (
+    36  # TLS descriptor relocation; fills the descriptor pair in the GOT.
+)
 R_X86_64_IRELATIVE = 37  # Write the return value of an IFUNC resolver located at B + A.
 R_X86_64_RELATIVE64 = 38  # Write B + A as a 64-bit relative relocation.
-R_X86_64_GOTPCRELX = 41  # Relaxable GOTPCREL form; may rewrite the instruction sequence.
+R_X86_64_GOTPCRELX = (
+    41  # Relaxable GOTPCREL form; may rewrite the instruction sequence.
+)
 R_X86_64_REX_GOTPCRELX = 42  # Relaxable GOTPCREL form with a known REX-prefix rewrite.
 R_X86_64_NUM = 43  # This and higher aren't valid
 
@@ -110,7 +116,9 @@ class AMD64ElfRelocator(ElfRelocator):
             return self._pack(elf.address + self._get_addend(rela, elf, 8), 8)
         elif rela.type == R_X86_64_GOTPCREL:
             # This relocation needs both the GOT base and the symbol's GOT slot.
-            self._missing_context(rela, "the GOT base and the symbol's GOT entry address")
+            self._missing_context(
+                rela, "the GOT base and the symbol's GOT entry address"
+            )
         elif rela.type == R_X86_64_32:
             return self._pack(symval + self._get_addend(rela, elf, 4), 4)
         elif rela.type == R_X86_64_32S:
@@ -131,7 +139,9 @@ class AMD64ElfRelocator(ElfRelocator):
             self._missing_context(rela, "the symbol's offset within its TLS block")
         elif rela.type == R_X86_64_TPOFF64:
             # Initial-exec/local-exec TLS offsets are relative to the thread pointer.
-            self._missing_context(rela, "the runtime thread-pointer-relative TLS offset")
+            self._missing_context(
+                rela, "the runtime thread-pointer-relative TLS offset"
+            )
         elif rela.type == R_X86_64_TLSGD:
             # General-dynamic TLS uses a two-entry GOT descriptor for the symbol.
             self._missing_context(rela, "the TLS GD descriptor's GOT entry addresses")
@@ -148,7 +158,9 @@ class AMD64ElfRelocator(ElfRelocator):
             )
         elif rela.type == R_X86_64_TPOFF32:
             # Initial-exec/local-exec TLS offsets are relative to the thread pointer.
-            self._missing_context(rela, "the runtime thread-pointer-relative TLS offset")
+            self._missing_context(
+                rela, "the runtime thread-pointer-relative TLS offset"
+            )
         elif rela.type == R_X86_64_PC64:
             return self._pack(symval + self._get_addend(rela, elf, 8) - rela.offset, 8)
         elif rela.type == R_X86_64_GOTOFF64:
@@ -162,7 +174,9 @@ class AMD64ElfRelocator(ElfRelocator):
             self._missing_context(rela, "the symbol's GOT entry address")
         elif rela.type == R_X86_64_GOTPCREL64:
             # This relocation needs both the GOT base and the symbol's GOT slot.
-            self._missing_context(rela, "the GOT base and the symbol's GOT entry address")
+            self._missing_context(
+                rela, "the GOT base and the symbol's GOT entry address"
+            )
         elif rela.type == R_X86_64_GOTPC64:
             # GOT-relative PC computations need the base address of the GOT.
             self._missing_context(rela, "the GOT base address")
@@ -184,7 +198,9 @@ class AMD64ElfRelocator(ElfRelocator):
             return b""
         elif rela.type == R_X86_64_TLSDESC:
             # TLS descriptors require descriptor contents and runtime resolver state.
-            self._missing_context(rela, "the TLS descriptor contents and resolver state")
+            self._missing_context(
+                rela, "the TLS descriptor contents and resolver state"
+            )
         elif rela.type == R_X86_64_IRELATIVE:
             # Indirect relative relocations require executing an IFUNC resolver
             # at load time and using its return value.

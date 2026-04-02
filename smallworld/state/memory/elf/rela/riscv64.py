@@ -17,10 +17,7 @@ class RISCV64ElfRelocator(ElfRelocator):
     byteorder = platforms.Byteorder.LITTLE
 
     def _compute_value(self, rela: ElfRela, elf):
-        if (
-            rela.type == R_RISCV_64
-            or rela.type == R_RISCV_JUMP_SLOT
-        ):
+        if rela.type == R_RISCV_64 or rela.type == R_RISCV_JUMP_SLOT:
             if rela.is_rela:
                 addend = rela.addend
             else:

@@ -15,11 +15,17 @@ R_AARCH64_NONE = 0  # No relocation; this entry is a marker only.
 R_AARCH64_P32_ABS32 = 1  # Write S + A as a 32-bit ILP32 absolute value.
 R_AARCH64_P32_COPY = 180  # Copy the symbol's runtime bytes into a 32-bit ILP32 slot.
 R_AARCH64_P32_GLOB_DAT = 181  # Populate a 32-bit ILP32 GOT slot with S + A.
-R_AARCH64_P32_JUMP_SLOT = 182  # Populate a 32-bit ILP32 PLT/GOT resolver slot with S + A.
-R_AARCH64_P32_RELATIVE = 183  # Write B + A into a 32-bit ILP32 slot; ignores the symbol value.
+R_AARCH64_P32_JUMP_SLOT = (
+    182  # Populate a 32-bit ILP32 PLT/GOT resolver slot with S + A.
+)
+R_AARCH64_P32_RELATIVE = (
+    183  # Write B + A into a 32-bit ILP32 slot; ignores the symbol value.
+)
 R_AARCH64_P32_TLS_DTPMOD = 184  # Write the TLS module ID for ILP32.
 R_AARCH64_P32_TLS_DTPREL = 185  # Write the symbol's ILP32 TLS-block-relative offset.
-R_AARCH64_P32_TLS_TPREL = 186  # Write the symbol's ILP32 thread-pointer-relative TLS offset.
+R_AARCH64_P32_TLS_TPREL = (
+    186  # Write the symbol's ILP32 thread-pointer-relative TLS offset.
+)
 R_AARCH64_P32_TLSDESC = 187  # Fill an ILP32 TLS descriptor pair in the GOT.
 R_AARCH64_P32_IRELATIVE = 188  # Write the IFUNC resolver result for ILP32.
 R_AARCH64_WITHDRAWN = 256  # Withdrawn relocation; treat as R_AARCH64_NONE.
@@ -30,11 +36,17 @@ R_AARCH64_PREL64 = 260  # Write S + A - P as a 64-bit PC-relative value.
 R_AARCH64_PREL32 = 261  # Write S + A - P as a 32-bit PC-relative value.
 R_AARCH64_PREL16 = 262  # Write S + A - P as a 16-bit PC-relative value.
 R_AARCH64_MOVW_UABS_G0 = 263  # Encode bits [15:0] of S + A into a MOV{Z,K}.
-R_AARCH64_MOVW_UABS_G0_NC = 264  # Encode bits [15:0] of S + A into a MOV{Z,K}; no overflow check.
+R_AARCH64_MOVW_UABS_G0_NC = (
+    264  # Encode bits [15:0] of S + A into a MOV{Z,K}; no overflow check.
+)
 R_AARCH64_MOVW_UABS_G1 = 265  # Encode bits [31:16] of S + A into a MOV{Z,K}.
-R_AARCH64_MOVW_UABS_G1_NC = 266  # Encode bits [31:16] of S + A into a MOV{Z,K}; no overflow check.
+R_AARCH64_MOVW_UABS_G1_NC = (
+    266  # Encode bits [31:16] of S + A into a MOV{Z,K}; no overflow check.
+)
 R_AARCH64_MOVW_UABS_G2 = 267  # Encode bits [47:32] of S + A into a MOV{Z,K}.
-R_AARCH64_MOVW_UABS_G2_NC = 268  # Encode bits [47:32] of S + A into a MOV{Z,K}; no overflow check.
+R_AARCH64_MOVW_UABS_G2_NC = (
+    268  # Encode bits [47:32] of S + A into a MOV{Z,K}; no overflow check.
+)
 R_AARCH64_MOVW_UABS_G3 = 269  # Encode bits [63:48] of S + A into a MOV{Z,K}.
 R_AARCH64_MOVW_SABS_G0 = 270  # Encode bits [15:0] of S + A into a MOV{N,Z}.
 R_AARCH64_MOVW_SABS_G1 = 271  # Encode bits [31:16] of S + A into a MOV{N,Z}.
@@ -42,16 +54,26 @@ R_AARCH64_MOVW_SABS_G2 = 272  # Encode bits [47:32] of S + A into a MOV{N,Z}.
 R_AARCH64_LD_PREL_LO19 = 273  # Encode S + A - P into an LDR literal immediate.
 R_AARCH64_ADR_PREL_LO21 = 274  # Encode S + A - P into an ADR immediate.
 R_AARCH64_ADR_PREL_PG_HI21 = 275  # Encode Page(S + A) - Page(P) into an ADRP immediate.
-R_AARCH64_ADR_PREL_PG_HI21_NC = 276  # Encode Page(S + A) - Page(P) into ADRP; no overflow check.
+R_AARCH64_ADR_PREL_PG_HI21_NC = (
+    276  # Encode Page(S + A) - Page(P) into ADRP; no overflow check.
+)
 R_AARCH64_ADD_ABS_LO12_NC = 277  # Encode bits [11:0] of S + A into an ADD immediate.
-R_AARCH64_LDST8_ABS_LO12_NC = 278  # Encode bits [11:0] of S + A into an 8-bit LD/ST offset.
+R_AARCH64_LDST8_ABS_LO12_NC = (
+    278  # Encode bits [11:0] of S + A into an 8-bit LD/ST offset.
+)
 R_AARCH64_TSTBR14 = 279  # Encode S + A - P into a TBZ/TBNZ immediate.
 R_AARCH64_CONDBR19 = 280  # Encode S + A - P into a conditional-branch immediate.
 R_AARCH64_JUMP26 = 282  # Encode S + A - P into a B immediate.
 R_AARCH64_CALL26 = 283  # Encode S + A - P into a BL immediate.
-R_AARCH64_LDST16_ABS_LO12_NC = 284  # Encode bits [11:1] of S + A into a 16-bit LD/ST offset.
-R_AARCH64_LDST32_ABS_LO12_NC = 285  # Encode bits [11:2] of S + A into a 32-bit LD/ST offset.
-R_AARCH64_LDST64_ABS_LO12_NC = 286  # Encode bits [11:3] of S + A into a 64-bit LD/ST offset.
+R_AARCH64_LDST16_ABS_LO12_NC = (
+    284  # Encode bits [11:1] of S + A into a 16-bit LD/ST offset.
+)
+R_AARCH64_LDST32_ABS_LO12_NC = (
+    285  # Encode bits [11:2] of S + A into a 32-bit LD/ST offset.
+)
+R_AARCH64_LDST64_ABS_LO12_NC = (
+    286  # Encode bits [11:3] of S + A into a 64-bit LD/ST offset.
+)
 R_AARCH64_MOVW_PREL_G0 = 287  # Encode bits [15:0] of S + A - P into a MOV{N,Z}.
 R_AARCH64_MOVW_PREL_G0_NC = 288  # Encode bits [15:0] of S + A - P into a MOVK.
 R_AARCH64_MOVW_PREL_G1 = 289  # Encode bits [31:16] of S + A - P into a MOV{N,Z}.
@@ -59,7 +81,9 @@ R_AARCH64_MOVW_PREL_G1_NC = 290  # Encode bits [31:16] of S + A - P into a MOVK.
 R_AARCH64_MOVW_PREL_G2 = 291  # Encode bits [47:32] of S + A - P into a MOV{N,Z}.
 R_AARCH64_MOVW_PREL_G2_NC = 292  # Encode bits [47:32] of S + A - P into a MOVK.
 R_AARCH64_MOVW_PREL_G3 = 293  # Encode bits [63:48] of S + A - P into a MOV{N,Z}.
-R_AARCH64_LDST128_ABS_LO12_NC = 299  # Encode bits [11:4] of S + A into a 128-bit LD/ST offset.
+R_AARCH64_LDST128_ABS_LO12_NC = (
+    299  # Encode bits [11:4] of S + A into a 128-bit LD/ST offset.
+)
 R_AARCH64_MOVW_GOTOFF_G0 = 300  # Encode bits [15:0] of G - GOT into a MOV{N,Z}.
 R_AARCH64_MOVW_GOTOFF_G0_NC = 301  # Encode bits [15:0] of G - GOT into a MOVK.
 R_AARCH64_MOVW_GOTOFF_G1 = 302  # Encode bits [31:16] of G - GOT into a MOV{N,Z}.
@@ -89,75 +113,147 @@ R_AARCH64_TLSLD_ADD_LO12_NC = 519  # Encode bits [11:0] of GLDM(S) into ADD.
 R_AARCH64_TLSLD_MOVW_G1 = 520  # Encode bits [31:16] of GLDM(S) - GOT into MOV{N,Z}.
 R_AARCH64_TLSLD_MOVW_G0_NC = 521  # Encode bits [15:0] of GLDM(S) - GOT into MOVK.
 R_AARCH64_TLSLD_LD_PREL19 = 522  # Encode GLDM(S) - P into an LDR literal immediate.
-R_AARCH64_TLSLD_MOVW_DTPREL_G2 = 523  # Encode bits [47:32] of DTPREL(S + A) into MOV{N,Z}.
-R_AARCH64_TLSLD_MOVW_DTPREL_G1 = 524  # Encode bits [31:16] of DTPREL(S + A) into MOV{N,Z}.
-R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC = 525  # Encode bits [31:16] of DTPREL(S + A) into MOVK.
-R_AARCH64_TLSLD_MOVW_DTPREL_G0 = 526  # Encode bits [15:0] of DTPREL(S + A) into MOV{N,Z}.
-R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC = 527  # Encode bits [15:0] of DTPREL(S + A) into MOVK.
+R_AARCH64_TLSLD_MOVW_DTPREL_G2 = (
+    523  # Encode bits [47:32] of DTPREL(S + A) into MOV{N,Z}.
+)
+R_AARCH64_TLSLD_MOVW_DTPREL_G1 = (
+    524  # Encode bits [31:16] of DTPREL(S + A) into MOV{N,Z}.
+)
+R_AARCH64_TLSLD_MOVW_DTPREL_G1_NC = (
+    525  # Encode bits [31:16] of DTPREL(S + A) into MOVK.
+)
+R_AARCH64_TLSLD_MOVW_DTPREL_G0 = (
+    526  # Encode bits [15:0] of DTPREL(S + A) into MOV{N,Z}.
+)
+R_AARCH64_TLSLD_MOVW_DTPREL_G0_NC = (
+    527  # Encode bits [15:0] of DTPREL(S + A) into MOVK.
+)
 R_AARCH64_TLSLD_ADD_DTPREL_HI12 = 528  # Encode bits [23:12] of DTPREL(S + A) into ADD.
 R_AARCH64_TLSLD_ADD_DTPREL_LO12 = 529  # Encode bits [11:0] of DTPREL(S + A) into ADD.
-R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC = 530  # Encode bits [11:0] of DTPREL(S + A) into ADD; no overflow check.
-R_AARCH64_TLSLD_LDST8_DTPREL_LO12 = 531  # Encode bits [11:0] of DTPREL(S + A) into an 8-bit LD/ST offset.
+R_AARCH64_TLSLD_ADD_DTPREL_LO12_NC = (
+    530  # Encode bits [11:0] of DTPREL(S + A) into ADD; no overflow check.
+)
+R_AARCH64_TLSLD_LDST8_DTPREL_LO12 = (
+    531  # Encode bits [11:0] of DTPREL(S + A) into an 8-bit LD/ST offset.
+)
 R_AARCH64_TLSLD_LDST8_DTPREL_LO12_NC = 532  # Encode bits [11:0] of DTPREL(S + A) into an 8-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLD_LDST16_DTPREL_LO12 = 533  # Encode bits [11:1] of DTPREL(S + A) into a 16-bit LD/ST offset.
+R_AARCH64_TLSLD_LDST16_DTPREL_LO12 = (
+    533  # Encode bits [11:1] of DTPREL(S + A) into a 16-bit LD/ST offset.
+)
 R_AARCH64_TLSLD_LDST16_DTPREL_LO12_NC = 534  # Encode bits [11:1] of DTPREL(S + A) into a 16-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLD_LDST32_DTPREL_LO12 = 535  # Encode bits [11:2] of DTPREL(S + A) into a 32-bit LD/ST offset.
+R_AARCH64_TLSLD_LDST32_DTPREL_LO12 = (
+    535  # Encode bits [11:2] of DTPREL(S + A) into a 32-bit LD/ST offset.
+)
 R_AARCH64_TLSLD_LDST32_DTPREL_LO12_NC = 536  # Encode bits [11:2] of DTPREL(S + A) into a 32-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLD_LDST64_DTPREL_LO12 = 537  # Encode bits [11:3] of DTPREL(S + A) into a 64-bit LD/ST offset.
+R_AARCH64_TLSLD_LDST64_DTPREL_LO12 = (
+    537  # Encode bits [11:3] of DTPREL(S + A) into a 64-bit LD/ST offset.
+)
 R_AARCH64_TLSLD_LDST64_DTPREL_LO12_NC = 538  # Encode bits [11:3] of DTPREL(S + A) into a 64-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSIE_MOVW_GOTTPREL_G1 = 539  # Encode bits [31:16] of GTPREL(S) - GOT into MOV{N,Z}.
-R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC = 540  # Encode bits [15:0] of GTPREL(S) - GOT into MOVK.
+R_AARCH64_TLSIE_MOVW_GOTTPREL_G1 = (
+    539  # Encode bits [31:16] of GTPREL(S) - GOT into MOV{N,Z}.
+)
+R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC = (
+    540  # Encode bits [15:0] of GTPREL(S) - GOT into MOVK.
+)
 R_AARCH64_TLSIE_ADR_GOTTPREL_PAGE21 = 541  # Encode Page(GTPREL(S)) - Page(P) into ADRP.
-R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC = 542  # Encode bits [11:3] of GTPREL(S) into a 64-bit LD/ST offset.
-R_AARCH64_TLSIE_LD_GOTTPREL_PREL19 = 543  # Encode GTPREL(S) - P into an LDR literal immediate.
-R_AARCH64_TLSLE_MOVW_TPREL_G2 = 544  # Encode bits [47:32] of TPREL(S + A) into MOV{N,Z}.
-R_AARCH64_TLSLE_MOVW_TPREL_G1 = 545  # Encode bits [31:16] of TPREL(S + A) into MOV{N,Z}.
+R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC = (
+    542  # Encode bits [11:3] of GTPREL(S) into a 64-bit LD/ST offset.
+)
+R_AARCH64_TLSIE_LD_GOTTPREL_PREL19 = (
+    543  # Encode GTPREL(S) - P into an LDR literal immediate.
+)
+R_AARCH64_TLSLE_MOVW_TPREL_G2 = (
+    544  # Encode bits [47:32] of TPREL(S + A) into MOV{N,Z}.
+)
+R_AARCH64_TLSLE_MOVW_TPREL_G1 = (
+    545  # Encode bits [31:16] of TPREL(S + A) into MOV{N,Z}.
+)
 R_AARCH64_TLSLE_MOVW_TPREL_G1_NC = 546  # Encode bits [31:16] of TPREL(S + A) into MOVK.
 R_AARCH64_TLSLE_MOVW_TPREL_G0 = 547  # Encode bits [15:0] of TPREL(S + A) into MOV{N,Z}.
 R_AARCH64_TLSLE_MOVW_TPREL_G0_NC = 548  # Encode bits [15:0] of TPREL(S + A) into MOVK.
 R_AARCH64_TLSLE_ADD_TPREL_HI12 = 549  # Encode bits [23:12] of TPREL(S + A) into ADD.
 R_AARCH64_TLSLE_ADD_TPREL_LO12 = 550  # Encode bits [11:0] of TPREL(S + A) into ADD.
-R_AARCH64_TLSLE_ADD_TPREL_LO12_NC = 551  # Encode bits [11:0] of TPREL(S + A) into ADD; no overflow check.
-R_AARCH64_TLSLE_LDST8_TPREL_LO12 = 552  # Encode bits [11:0] of TPREL(S + A) into an 8-bit LD/ST offset.
+R_AARCH64_TLSLE_ADD_TPREL_LO12_NC = (
+    551  # Encode bits [11:0] of TPREL(S + A) into ADD; no overflow check.
+)
+R_AARCH64_TLSLE_LDST8_TPREL_LO12 = (
+    552  # Encode bits [11:0] of TPREL(S + A) into an 8-bit LD/ST offset.
+)
 R_AARCH64_TLSLE_LDST8_TPREL_LO12_NC = 553  # Encode bits [11:0] of TPREL(S + A) into an 8-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLE_LDST16_TPREL_LO12 = 554  # Encode bits [11:1] of TPREL(S + A) into a 16-bit LD/ST offset.
+R_AARCH64_TLSLE_LDST16_TPREL_LO12 = (
+    554  # Encode bits [11:1] of TPREL(S + A) into a 16-bit LD/ST offset.
+)
 R_AARCH64_TLSLE_LDST16_TPREL_LO12_NC = 555  # Encode bits [11:1] of TPREL(S + A) into a 16-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLE_LDST32_TPREL_LO12 = 556  # Encode bits [11:2] of TPREL(S + A) into a 32-bit LD/ST offset.
+R_AARCH64_TLSLE_LDST32_TPREL_LO12 = (
+    556  # Encode bits [11:2] of TPREL(S + A) into a 32-bit LD/ST offset.
+)
 R_AARCH64_TLSLE_LDST32_TPREL_LO12_NC = 557  # Encode bits [11:2] of TPREL(S + A) into a 32-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLE_LDST64_TPREL_LO12 = 558  # Encode bits [11:3] of TPREL(S + A) into a 64-bit LD/ST offset.
+R_AARCH64_TLSLE_LDST64_TPREL_LO12 = (
+    558  # Encode bits [11:3] of TPREL(S + A) into a 64-bit LD/ST offset.
+)
 R_AARCH64_TLSLE_LDST64_TPREL_LO12_NC = 559  # Encode bits [11:3] of TPREL(S + A) into a 64-bit LD/ST offset; no overflow check.
 R_AARCH64_TLSDESC_LD_PREL19 = 560  # Encode TLSDESC - P into an LDR literal immediate.
 R_AARCH64_TLSDESC_ADR_PREL21 = 561  # Encode TLSDESC - P into an ADR immediate.
 R_AARCH64_TLSDESC_ADR_PAGE21 = 562  # Encode Page(TLSDESC) - Page(P) into ADRP.
-R_AARCH64_TLSDESC_LD64_LO12 = 563  # Encode bits [11:3] of TLSDESC into a 64-bit LD offset.
+R_AARCH64_TLSDESC_LD64_LO12 = (
+    563  # Encode bits [11:3] of TLSDESC into a 64-bit LD offset.
+)
 R_AARCH64_TLSDESC_ADD_LO12 = 564  # Encode bits [11:0] of TLSDESC into an ADD immediate.
 R_AARCH64_TLSDESC_OFF_G1 = 565  # Encode bits [31:16] of TLSDESC - GOT into MOV{N,Z}.
 R_AARCH64_TLSDESC_OFF_G0_NC = 566  # Encode bits [15:0] of TLSDESC - GOT into MOVK.
 R_AARCH64_TLSDESC_LDR = 567  # Relaxation marker for the TLS descriptor load.
-R_AARCH64_TLSDESC_ADD = 568  # Relaxation marker for the TLS descriptor address computation.
+R_AARCH64_TLSDESC_ADD = (
+    568  # Relaxation marker for the TLS descriptor address computation.
+)
 R_AARCH64_TLSDESC_CALL = 569  # Relaxation marker for the TLS descriptor BLR call.
-R_AARCH64_TLSLE_LDST128_TPREL_LO12 = 570  # Encode bits [11:4] of TPREL(S + A) into a 128-bit LD/ST offset.
+R_AARCH64_TLSLE_LDST128_TPREL_LO12 = (
+    570  # Encode bits [11:4] of TPREL(S + A) into a 128-bit LD/ST offset.
+)
 R_AARCH64_TLSLE_LDST128_TPREL_LO12_NC = 571  # Encode bits [11:4] of TPREL(S + A) into a 128-bit LD/ST offset; no overflow check.
-R_AARCH64_TLSLD_LDST128_DTPREL_LO12 = 572  # Encode bits [11:4] of DTPREL(S + A) into a 128-bit LD/ST offset.
+R_AARCH64_TLSLD_LDST128_DTPREL_LO12 = (
+    572  # Encode bits [11:4] of DTPREL(S + A) into a 128-bit LD/ST offset.
+)
 R_AARCH64_TLSLD_LDST128_DTPREL_LO12_NC = 573  # Encode bits [11:4] of DTPREL(S + A) into a 128-bit LD/ST offset; no overflow check.
 R_AARCH64_AUTH_ABS64 = 580  # Pointer-authenticated ABS64 relocation.
 R_AARCH64_AUTH_MOVW_GOTOFF_G0 = 581  # Encode bits [15:0] of the authenticated proxy address minus GOT into MOV{N,Z}.
-R_AARCH64_AUTH_MOVW_GOTOFF_G0_NC = 582  # Encode bits [15:0] of the authenticated proxy address minus GOT into MOVK.
+R_AARCH64_AUTH_MOVW_GOTOFF_G0_NC = (
+    582  # Encode bits [15:0] of the authenticated proxy address minus GOT into MOVK.
+)
 R_AARCH64_AUTH_MOVW_GOTOFF_G1 = 583  # Encode bits [31:16] of the authenticated proxy address minus GOT into MOV{N,Z}.
-R_AARCH64_AUTH_MOVW_GOTOFF_G1_NC = 584  # Encode bits [31:16] of the authenticated proxy address minus GOT into MOVK.
+R_AARCH64_AUTH_MOVW_GOTOFF_G1_NC = (
+    584  # Encode bits [31:16] of the authenticated proxy address minus GOT into MOVK.
+)
 R_AARCH64_AUTH_MOVW_GOTOFF_G2 = 585  # Encode bits [47:32] of the authenticated proxy address minus GOT into MOV{N,Z}.
-R_AARCH64_AUTH_MOVW_GOTOFF_G2_NC = 586  # Encode bits [47:32] of the authenticated proxy address minus GOT into MOVK.
+R_AARCH64_AUTH_MOVW_GOTOFF_G2_NC = (
+    586  # Encode bits [47:32] of the authenticated proxy address minus GOT into MOVK.
+)
 R_AARCH64_AUTH_MOVW_GOTOFF_G3 = 587  # Encode bits [63:48] of the authenticated proxy address minus GOT into MOV{N,Z}.
-R_AARCH64_AUTH_GOT_LD_PREL19 = 588  # Encode the authenticated proxy address minus P into an LDR literal immediate.
-R_AARCH64_AUTH_LD64_GOTOFF_LO15 = 589  # Encode the authenticated proxy address minus GOT into a 64-bit LD/ST offset.
-R_AARCH64_AUTH_ADR_GOT_PAGE = 590  # Encode Page(authenticated proxy) - Page(P) into ADRP.
+R_AARCH64_AUTH_GOT_LD_PREL19 = (
+    588  # Encode the authenticated proxy address minus P into an LDR literal immediate.
+)
+R_AARCH64_AUTH_LD64_GOTOFF_LO15 = (
+    589  # Encode the authenticated proxy address minus GOT into a 64-bit LD/ST offset.
+)
+R_AARCH64_AUTH_ADR_GOT_PAGE = (
+    590  # Encode Page(authenticated proxy) - Page(P) into ADRP.
+)
 R_AARCH64_AUTH_LD64_GOT_LO12_NC = 591  # Encode bits [11:3] of the authenticated proxy address into a 64-bit LD/ST offset.
 R_AARCH64_AUTH_LD64_GOTPAGE_LO15 = 592  # Encode the authenticated proxy address minus Page(GOT) into a 64-bit LD/ST offset.
-R_AARCH64_AUTH_GOT_ADD_LO12_NC = 593  # Encode bits [11:0] of the authenticated proxy address into ADD.
-R_AARCH64_AUTH_GOT_ADR_PREL_LO21 = 594  # Encode the authenticated proxy address minus P into ADR.
-R_AARCH64_AUTH_TLSDESC_ADR_PAGE21 = 595  # Encode Page(authenticated TLSDESC) - Page(P) into ADRP.
-R_AARCH64_AUTH_TLSDESC_LD64_LO12 = 596  # Encode bits [11:3] of the authenticated TLSDESC address into LD.
-R_AARCH64_AUTH_TLSDESC_ADD_LO12 = 597  # Encode bits [11:0] of the authenticated TLSDESC address into ADD.
+R_AARCH64_AUTH_GOT_ADD_LO12_NC = (
+    593  # Encode bits [11:0] of the authenticated proxy address into ADD.
+)
+R_AARCH64_AUTH_GOT_ADR_PREL_LO21 = (
+    594  # Encode the authenticated proxy address minus P into ADR.
+)
+R_AARCH64_AUTH_TLSDESC_ADR_PAGE21 = (
+    595  # Encode Page(authenticated TLSDESC) - Page(P) into ADRP.
+)
+R_AARCH64_AUTH_TLSDESC_LD64_LO12 = (
+    596  # Encode bits [11:3] of the authenticated TLSDESC address into LD.
+)
+R_AARCH64_AUTH_TLSDESC_ADD_LO12 = (
+    597  # Encode bits [11:0] of the authenticated TLSDESC address into ADD.
+)
 R_AARCH64_COPY = 1024  # Copy the symbol's runtime bytes into the relocation target.
 R_AARCH64_GLOB_DAT = 1025  # Populate a GOT slot with S + A.
 R_AARCH64_JUMP_SLOT = 1026  # Populate a PLT/GOT resolver slot with S + A.
@@ -168,7 +264,9 @@ R_AARCH64_TLS_TPREL = 1030  # Write the symbol's thread-pointer-relative TLS off
 R_AARCH64_TLSDESC = 1031  # Fill a TLS descriptor pair in the GOT.
 R_AARCH64_IRELATIVE = 1032  # Write the value returned by an IFUNC resolver at B + A.
 R_AARCH64_AUTH_RELATIVE = 1041  # Pointer-authenticated RELATIVE relocation.
-R_AARCH64_AUTH_GLOB_DAT = 1042  # Populate an authenticated GOT slot with a signed S + A.
+R_AARCH64_AUTH_GLOB_DAT = (
+    1042  # Populate an authenticated GOT slot with a signed S + A.
+)
 R_AARCH64_AUTH_TLSDESC = 1043  # Fill an authenticated TLS descriptor pair in the GOT.
 R_AARCH64_AUTH_IRELATIVE = 1044  # Pointer-authenticated IFUNC relocation.
 
@@ -334,9 +432,7 @@ class AArch64ElfRelocator(ElfRelocator):
             )
 
         imm16 = (~((value >> shift) & 0xFFFF)) & 0xFFFF
-        return self._pack_insn(
-            self._patch_mov_imm16(orig, imm16, movop=MOVW_OP_MOVN)
-        )
+        return self._pack_insn(self._patch_mov_imm16(orig, imm16, movop=MOVW_OP_MOVN))
 
     def _got_base(self, rela: ElfRela, elf) -> int:
         dtags = getattr(elf, "_dtags", {})
@@ -397,22 +493,16 @@ class AArch64ElfRelocator(ElfRelocator):
             return self._pack(value, 4)
         elif rela.type == R_AARCH64_P32_GLOB_DAT:
             value = symval + self._get_data_addend(rela, elf, 4)
-            self._check_range(
-                value, -(1 << 31), 1 << 32, rela, "32-bit P32_GLOB_DAT"
-            )
+            self._check_range(value, -(1 << 31), 1 << 32, rela, "32-bit P32_GLOB_DAT")
             return self._pack(value, 4)
         elif rela.type == R_AARCH64_P32_JUMP_SLOT:
             addend = rela.addend if rela.is_rela else 0
             value = symval + addend
-            self._check_range(
-                value, -(1 << 31), 1 << 32, rela, "32-bit P32_JUMP_SLOT"
-            )
+            self._check_range(value, -(1 << 31), 1 << 32, rela, "32-bit P32_JUMP_SLOT")
             return self._pack(value, 4)
         elif rela.type == R_AARCH64_P32_RELATIVE:
             value = elf.address + self._get_data_addend(rela, elf, 4)
-            self._check_range(
-                value, -(1 << 31), 1 << 32, rela, "32-bit P32_RELATIVE"
-            )
+            self._check_range(value, -(1 << 31), 1 << 32, rela, "32-bit P32_RELATIVE")
             return self._pack(value, 4)
         elif rela.type == R_AARCH64_P32_COPY:
             # Copy relocations need the bytes stored at the resolved symbol,
@@ -452,7 +542,9 @@ class AArch64ElfRelocator(ElfRelocator):
             self._check_range(value, -(1 << 15), 1 << 16, rela, "16-bit ABS16")
             return self._pack(value, 2)
         elif rela.type == R_AARCH64_PREL64:
-            return self._pack(symval + self._get_data_addend(rela, elf, 8) - rela.offset, 8)
+            return self._pack(
+                symval + self._get_data_addend(rela, elf, 8) - rela.offset, 8
+            )
         elif rela.type == R_AARCH64_PREL32:
             value = symval + self._get_data_addend(rela, elf, 4) - rela.offset
             self._check_range(value, -(1 << 31), 1 << 32, rela, "32-bit PREL32")
@@ -467,14 +559,14 @@ class AArch64ElfRelocator(ElfRelocator):
             return self._pack(value, 4)
         elif rela.type == R_AARCH64_GOTREL64:
             return self._pack(
-                symval + self._get_data_addend(rela, elf, 8) - self._got_base(rela, elf),
+                symval
+                + self._get_data_addend(rela, elf, 8)
+                - self._got_base(rela, elf),
                 8,
             )
         elif rela.type == R_AARCH64_GOTREL32:
             value = (
-                symval
-                + self._get_data_addend(rela, elf, 4)
-                - self._got_base(rela, elf)
+                symval + self._get_data_addend(rela, elf, 4) - self._got_base(rela, elf)
             )
             self._check_range(value, -(1 << 31), 1 << 31, rela, "32-bit GOTREL32")
             return self._pack(value, 4)
@@ -599,9 +691,7 @@ class AArch64ElfRelocator(ElfRelocator):
             value = symval + self._get_rela_addend(rela) - rela.offset
             self._check_range(value, -(1 << 20), 1 << 20, rela, "LD_PREL_LO19")
             self._check_aligned(value, 4, rela, "LD_PREL_LO19")
-            return self._pack_insn(
-                self._patch_imm19(self._read_insn(rela, elf), value)
-            )
+            return self._pack_insn(self._patch_imm19(self._read_insn(rela, elf), value))
         elif rela.type == R_AARCH64_ADR_PREL_LO21:
             value = symval + self._get_rela_addend(rela) - rela.offset
             self._check_range(value, -(1 << 20), 1 << 20, rela, "ADR_PREL_LO21")
@@ -612,9 +702,7 @@ class AArch64ElfRelocator(ElfRelocator):
             value = self._page(symval + self._get_rela_addend(rela)) - self._page(
                 rela.offset
             )
-            self._check_range(
-                value, -(1 << 32), 1 << 32, rela, "ADR_PREL_PG_HI21"
-            )
+            self._check_range(value, -(1 << 32), 1 << 32, rela, "ADR_PREL_PG_HI21")
             return self._pack_insn(
                 self._patch_adr_imm21(self._read_insn(rela, elf), value, page=True)
             )
@@ -670,9 +758,7 @@ class AArch64ElfRelocator(ElfRelocator):
             value = symval + self._get_rela_addend(rela) - rela.offset
             self._check_range(value, -(1 << 20), 1 << 20, rela, "CONDBR19")
             self._check_aligned(value, 4, rela, "CONDBR19")
-            return self._pack_insn(
-                self._patch_imm19(self._read_insn(rela, elf), value)
-            )
+            return self._pack_insn(self._patch_imm19(self._read_insn(rela, elf), value))
         elif rela.type == R_AARCH64_JUMP26:
             value = symval + self._get_rela_addend(rela) - rela.offset
             self._check_range(value, -(1 << 27), 1 << 27, rela, "JUMP26")
@@ -719,17 +805,13 @@ class AArch64ElfRelocator(ElfRelocator):
                     rela, elf, got_entry - got_base, 0, movk=True
                 )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G1:
-                return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 16, 32
-                )
+                return self._apply_mov_signed(rela, elf, got_entry - got_base, 16, 32)
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G1_NC:
                 return self._apply_mov_signed(
                     rela, elf, got_entry - got_base, 16, movk=True
                 )
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G2:
-                return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 32, 48
-                )
+                return self._apply_mov_signed(rela, elf, got_entry - got_base, 32, 48)
             elif rela.type == R_AARCH64_MOVW_GOTOFF_G2_NC:
                 return self._apply_mov_signed(
                     rela, elf, got_entry - got_base, 32, movk=True
@@ -759,9 +841,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_LD64_GOT_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "LD64_GOT_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(
-                        self._read_insn(rela, elf), got_entry, 3
-                    )
+                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
                 )
             else:
                 value = got_entry - self._page(got_base)
@@ -803,16 +883,17 @@ class AArch64ElfRelocator(ElfRelocator):
                 return self._pack_insn(
                     self._patch_adr_imm21(self._read_insn(rela, elf), value, page=True)
                 )
-            elif rela.type in (R_AARCH64_TLSGD_ADD_LO12_NC, R_AARCH64_TLSLD_ADD_LO12_NC):
+            elif rela.type in (
+                R_AARCH64_TLSGD_ADD_LO12_NC,
+                R_AARCH64_TLSLD_ADD_LO12_NC,
+            ):
                 return self._pack_insn(
                     self._patch_add_imm12(
                         self._read_insn(rela, elf), pair_base, shift12=False
                     )
                 )
             elif rela.type in (R_AARCH64_TLSGD_MOVW_G1, R_AARCH64_TLSLD_MOVW_G1):
-                return self._apply_mov_signed(
-                    rela, elf, pair_base - got_base, 16, 32
-                )
+                return self._apply_mov_signed(rela, elf, pair_base - got_base, 16, 32)
             elif rela.type in (R_AARCH64_TLSGD_MOVW_G0_NC, R_AARCH64_TLSLD_MOVW_G0_NC):
                 return self._apply_mov_signed(
                     rela, elf, pair_base - got_base, 0, movk=True
@@ -839,9 +920,7 @@ class AArch64ElfRelocator(ElfRelocator):
             )
             got_base = self._got_base(rela, elf)
             if rela.type == R_AARCH64_TLSIE_MOVW_GOTTPREL_G1:
-                return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 16, 32
-                )
+                return self._apply_mov_signed(rela, elf, got_entry - got_base, 16, 32)
             elif rela.type == R_AARCH64_TLSIE_MOVW_GOTTPREL_G0_NC:
                 return self._apply_mov_signed(
                     rela, elf, got_entry - got_base, 0, movk=True
@@ -857,9 +936,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_TLSIE_LD64_GOTTPREL_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "TLSIE_LD64_GOTTPREL_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(
-                        self._read_insn(rela, elf), got_entry, 3
-                    )
+                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
                 )
             else:
                 value = got_entry - rela.offset
@@ -923,9 +1000,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_TLSDESC_LD64_LO12:
                 self._check_aligned(desc_addr, 8, rela, "TLSDESC_LD64_LO12")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(
-                        self._read_insn(rela, elf), desc_addr, 3
-                    )
+                    self._patch_ldst_uimm12(self._read_insn(rela, elf), desc_addr, 3)
                 )
             elif rela.type == R_AARCH64_TLSDESC_ADD_LO12:
                 return self._pack_insn(
@@ -934,9 +1009,7 @@ class AArch64ElfRelocator(ElfRelocator):
                     )
                 )
             elif rela.type == R_AARCH64_TLSDESC_OFF_G1:
-                return self._apply_mov_signed(
-                    rela, elf, desc_addr - got_base, 16, 32
-                )
+                return self._apply_mov_signed(rela, elf, desc_addr - got_base, 16, 32)
             else:
                 return self._apply_mov_signed(
                     rela, elf, desc_addr - got_base, 0, movk=True
@@ -971,17 +1044,13 @@ class AArch64ElfRelocator(ElfRelocator):
                     rela, elf, got_entry - got_base, 0, movk=True
                 )
             elif rela.type == R_AARCH64_AUTH_MOVW_GOTOFF_G1:
-                return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 16, 32
-                )
+                return self._apply_mov_signed(rela, elf, got_entry - got_base, 16, 32)
             elif rela.type == R_AARCH64_AUTH_MOVW_GOTOFF_G1_NC:
                 return self._apply_mov_signed(
                     rela, elf, got_entry - got_base, 16, movk=True
                 )
             elif rela.type == R_AARCH64_AUTH_MOVW_GOTOFF_G2:
-                return self._apply_mov_signed(
-                    rela, elf, got_entry - got_base, 32, 48
-                )
+                return self._apply_mov_signed(rela, elf, got_entry - got_base, 32, 48)
             elif rela.type == R_AARCH64_AUTH_MOVW_GOTOFF_G2_NC:
                 return self._apply_mov_signed(
                     rela, elf, got_entry - got_base, 32, movk=True
@@ -1006,24 +1075,18 @@ class AArch64ElfRelocator(ElfRelocator):
                 )
             elif rela.type == R_AARCH64_AUTH_ADR_GOT_PAGE:
                 value = self._page(got_entry) - self._page(rela.offset)
-                self._check_range(
-                    value, -(1 << 32), 1 << 32, rela, "AUTH_ADR_GOT_PAGE"
-                )
+                self._check_range(value, -(1 << 32), 1 << 32, rela, "AUTH_ADR_GOT_PAGE")
                 return self._pack_insn(
                     self._patch_adr_imm21(self._read_insn(rela, elf), value, page=True)
                 )
             elif rela.type == R_AARCH64_AUTH_LD64_GOT_LO12_NC:
                 self._check_aligned(got_entry, 8, rela, "AUTH_LD64_GOT_LO12_NC")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(
-                        self._read_insn(rela, elf), got_entry, 3
-                    )
+                    self._patch_ldst_uimm12(self._read_insn(rela, elf), got_entry, 3)
                 )
             elif rela.type == R_AARCH64_AUTH_LD64_GOTPAGE_LO15:
                 value = got_entry - self._page(got_base)
-                self._check_range(
-                    value, 0, 1 << 15, rela, "AUTH_LD64_GOTPAGE_LO15"
-                )
+                self._check_range(value, 0, 1 << 15, rela, "AUTH_LD64_GOTPAGE_LO15")
                 self._check_aligned(value, 8, rela, "AUTH_LD64_GOTPAGE_LO15")
                 return self._pack_insn(
                     self._patch_ldst_uimm12(self._read_insn(rela, elf), value, 3)
@@ -1064,9 +1127,7 @@ class AArch64ElfRelocator(ElfRelocator):
             elif rela.type == R_AARCH64_AUTH_TLSDESC_LD64_LO12:
                 self._check_aligned(desc_addr, 8, rela, "AUTH_TLSDESC_LD64_LO12")
                 return self._pack_insn(
-                    self._patch_ldst_uimm12(
-                        self._read_insn(rela, elf), desc_addr, 3
-                    )
+                    self._patch_ldst_uimm12(self._read_insn(rela, elf), desc_addr, 3)
                 )
             else:
                 return self._pack_insn(

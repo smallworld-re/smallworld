@@ -54,7 +54,9 @@ R_ARM_BASE_ABS = 31  # Write B + A as a 32-bit base-relative absolute value.
 R_ARM_ALU_PCREL_7_0 = 32  # Obsolete Arm ADD/SUB PC-relative low-group relocation.
 R_ARM_ALU_PCREL_15_8 = 33  # Obsolete Arm ADD/SUB PC-relative middle-group relocation.
 R_ARM_ALU_PCREL_23_15 = 34  # Obsolete Arm ADD/SUB PC-relative high-group relocation.
-R_ARM_LDR_SBREL_11_0_NC = 35  # Deprecated Arm base-relative load/store low-group relocation.
+R_ARM_LDR_SBREL_11_0_NC = (
+    35  # Deprecated Arm base-relative load/store low-group relocation.
+)
 R_ARM_LDR_SBREL_11_0 = R_ARM_LDR_SBREL_11_0_NC  # Legacy elf.h name.
 R_ARM_ALU_SBREL_19_12_NC = 36  # Deprecated Arm base-relative middle-group relocation.
 R_ARM_ALU_SBREL_19_12 = R_ARM_ALU_SBREL_19_12_NC  # Legacy elf.h name.
@@ -111,7 +113,9 @@ R_ARM_MOVT_BREL = 85  # Encode S + A - B in an Arm MOVT immediate.
 R_ARM_MOVW_BREL = 86  # Encode a checked ((S + A) | T) - B in an Arm MOVW immediate.
 R_ARM_THM_MOVW_BREL_NC = 87  # Encode ((S + A) | T) - B in a Thumb MOVW immediate.
 R_ARM_THM_MOVT_BREL = 88  # Encode S + A - B in a Thumb MOVT immediate.
-R_ARM_THM_MOVW_BREL = 89  # Encode a checked ((S + A) | T) - B in a Thumb MOVW immediate.
+R_ARM_THM_MOVW_BREL = (
+    89  # Encode a checked ((S + A) | T) - B in a Thumb MOVW immediate.
+)
 R_ARM_TLS_GOTDESC = 90  # Experimental static TLSDESC GOT-entry relocation.
 R_ARM_TLS_CALL = 91  # Experimental static TLSDESC call marker.
 R_ARM_TLS_DESCSEQ = 92  # Experimental static TLSDESC relaxation marker.
@@ -158,8 +162,12 @@ R_ARM_PRIVATE_1_HI = 176  # End of the second private relocation range.
 R_ARM_RESERVED_1_LO = 177  # Start of the second unallocated standard range.
 R_ARM_RESERVED_1_HI = 248  # End of the second unallocated standard range.
 R_ARM_RXPC25 = 249  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
-R_ARM_RSBREL32 = 250  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
-R_ARM_THM_RPC22 = 251  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
+R_ARM_RSBREL32 = (
+    250  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
+)
+R_ARM_THM_RPC22 = (
+    251  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
+)
 R_ARM_RREL32 = 252  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
 R_ARM_RABS22 = 253  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
 R_ARM_RPC24 = 254  # Legacy non-AAELF ARM relocation; semantics are platform-specific.
@@ -386,7 +394,9 @@ class ArmElfRelocator(ElfRelocator):
 
     def _ror32(self, value: int, amount: int) -> int:
         amount %= 32
-        return ((value >> amount) | ((value << (32 - amount)) & 0xFFFFFFFF)) & 0xFFFFFFFF
+        return (
+            (value >> amount) | ((value << (32 - amount)) & 0xFFFFFFFF)
+        ) & 0xFFFFFFFF
 
     def _rol32(self, value: int, amount: int) -> int:
         amount %= 32
@@ -463,14 +473,18 @@ class ArmElfRelocator(ElfRelocator):
         patched |= imm & 0xFF
         return patched
 
-    def _patch_arm_add_sub(self, orig: int, value: int, rela: ElfRela, detail: str) -> int:
+    def _patch_arm_add_sub(
+        self, orig: int, value: int, rela: ElfRela, detail: str
+    ) -> int:
         imm12 = self._encode_arm_imm12(abs(value), rela, detail)
         opcode = ARM_OPCODE_ADD if value >= 0 else ARM_OPCODE_SUB
         return (orig & ~((0xF << 21) | 0xFFF)) | (opcode << 21) | imm12
 
     def _patch_arm_mov(self, orig: int, imm16: int) -> int:
-        return (orig & ~((0xF << 16) | 0xFFF)) | (((imm16 >> 12) & 0xF) << 16) | (
-            imm16 & 0xFFF
+        return (
+            (orig & ~((0xF << 16) | 0xFFF))
+            | (((imm16 >> 12) & 0xF) << 16)
+            | (imm16 & 0xFFF)
         )
 
     def _extract_thumb_mov_imm16(self, orig: int) -> int:
@@ -500,9 +514,7 @@ class ArmElfRelocator(ElfRelocator):
         hw1 = (orig >> 16) & 0xFFFF
         hw2 = orig & 0xFFFF
         hw1 = (hw1 & ~0x7FF) | (s << 10) | imm10
-        hw2 = (hw2 & ~((1 << 13) | (1 << 11) | 0x7FF)) | (j1 << 13) | (
-            j2 << 11
-        ) | imm11
+        hw2 = (hw2 & ~((1 << 13) | (1 << 11) | 0x7FF)) | (j1 << 13) | (j2 << 11) | imm11
         return (hw1 << 16) | hw2
 
     def _patch_thumb_jump19(self, orig: int, value: int) -> int:
@@ -516,9 +528,7 @@ class ArmElfRelocator(ElfRelocator):
         hw1 = (orig >> 16) & 0xFFFF
         hw2 = orig & 0xFFFF
         hw1 = (hw1 & ~((1 << 10) | 0x3F)) | (s << 10) | imm6
-        hw2 = (hw2 & ~((1 << 13) | (1 << 11) | 0x7FF)) | (j1 << 13) | (
-            j2 << 11
-        ) | imm11
+        hw2 = (hw2 & ~((1 << 13) | (1 << 11) | 0x7FF)) | (j1 << 13) | (j2 << 11) | imm11
         return (hw1 << 16) | hw2
 
     def _patch_thumb_mem12(self, orig: int, value: int, signed: bool) -> int:
@@ -607,7 +617,9 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type == R_ARM_ABS32:
             return self._pack(sym_t + self._get_data_addend(rela, elf, 4), 4)
         elif rela.type == R_ARM_REL32:
-            return self._pack(sym_t + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                sym_t + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type == R_ARM_ABS16:
             value = sym + self._get_data_addend(rela, elf, 2)
             self._check_range(value, -(1 << 15), 1 << 16, rela, "ABS16")
@@ -628,7 +640,9 @@ class ArmElfRelocator(ElfRelocator):
             got_base = self._got_base(rela, elf)
             return self._pack(sym_t + self._get_data_addend(rela, elf, 4) - got_base, 4)
         elif rela.type == R_ARM_BASE_PREL:
-            return self._pack(base + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                base + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type == R_ARM_GOT_BREL:
             got_entry = self._proxy_offset(
                 rela,
@@ -636,13 +650,17 @@ class ArmElfRelocator(ElfRelocator):
                 "the symbol's GOT entry address",
             )
             got_base = self._got_base(rela, elf)
-            return self._pack(got_entry + self._get_data_addend(rela, elf, 4) - got_base, 4)
+            return self._pack(
+                got_entry + self._get_data_addend(rela, elf, 4) - got_base, 4
+            )
         elif rela.type == R_ARM_BASE_ABS:
             return self._pack(base + self._get_data_addend(rela, elf, 4), 4)
         elif rela.type == R_ARM_ABS32_NOI:
             return self._pack(sym + self._get_data_addend(rela, elf, 4), 4)
         elif rela.type == R_ARM_REL32_NOI:
-            return self._pack(sym + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                sym + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type == R_ARM_PREL31:
             addend = (
                 rela.addend
@@ -676,7 +694,9 @@ class ArmElfRelocator(ElfRelocator):
                 (R_ARM_GLOB_DAT, R_ARM_JUMP_SLOT),
                 "the symbol's GOT entry address",
             )
-            return self._pack(got_entry + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                got_entry + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type == R_ARM_PLT32_ABS:
             # This relocation needs the absolute address of the symbol's PLT entry.
             # The current inputs expose only the resolved symbol value, not the PLT layout.
@@ -687,28 +707,36 @@ class ArmElfRelocator(ElfRelocator):
                 (R_ARM_TLS_DTPMOD32, R_ARM_TLS_DTPOFF32),
                 "the symbol's TLS GD GOT pair address",
             )
-            return self._pack(pair_base + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                pair_base + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type == R_ARM_TLS_LDM32:
             pair_base = self._tls_pair_base(
                 rela,
                 (R_ARM_TLS_DTPMOD32, R_ARM_TLS_DTPOFF32),
                 "the module's TLS LD GOT pair address",
             )
-            return self._pack(pair_base + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                pair_base + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type == R_ARM_TLS_IE32:
             got_entry = self._proxy_offset(
                 rela,
                 (R_ARM_TLS_TPOFF32,),
                 "the symbol's TLS IE GOT entry address",
             )
-            return self._pack(got_entry + self._get_data_addend(rela, elf, 4) - rela.offset, 4)
+            return self._pack(
+                got_entry + self._get_data_addend(rela, elf, 4) - rela.offset, 4
+            )
         elif rela.type in (R_ARM_TLS_LDO32, R_ARM_TLS_DTPOFF32):
             # Dynamic and local-dynamic TLS offsets need the final layout of the
             # module's TLS block.
             self._missing_context(rela, "the symbol's offset within its TLS block")
         elif rela.type in (R_ARM_TLS_LE32, R_ARM_TLS_TPOFF32):
             # Thread-pointer-relative TLS relocations need the runtime TLS layout.
-            self._missing_context(rela, "the symbol's thread-pointer-relative TLS offset")
+            self._missing_context(
+                rela, "the symbol's thread-pointer-relative TLS offset"
+            )
         elif rela.type == R_ARM_TLS_DTPMOD32:
             # TLS module relocations need the runtime-assigned TLS module ID.
             self._missing_context(rela, "the TLS module ID for the symbol")
@@ -723,7 +751,9 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type == R_ARM_TLS_DESC:
             # A TLSDESC relocation fills a descriptor pair in the GOT and needs
             # the descriptor contents and resolver state.
-            self._missing_context(rela, "the TLS descriptor contents and resolver state")
+            self._missing_context(
+                rela, "the TLS descriptor contents and resolver state"
+            )
         elif rela.type == R_ARM_IRELATIVE:
             # Indirect relative relocations require executing an IFUNC resolver
             # and writing back its return value.
@@ -732,11 +762,15 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type in (R_ARM_LDR_PC_G0, R_ARM_LDR_PC_G1, R_ARM_LDR_PC_G2):
             value = sym + self._get_arm_mem12_addend(rela, elf) - rela.offset
             abs_value = abs(value)
-            idx = {R_ARM_LDR_PC_G0: 0, R_ARM_LDR_PC_G1: 1, R_ARM_LDR_PC_G2: 2}[rela.type]
+            idx = {R_ARM_LDR_PC_G0: 0, R_ARM_LDR_PC_G1: 1, R_ARM_LDR_PC_G2: 2}[
+                rela.type
+            ]
             residual = self._arm_group_residual(abs_value, idx)
             self._check_range(residual, 0, 1 << 12, rela, "LDR_PC_Gn")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_mem12(orig, residual if value >= 0 else -residual))
+            return self._pack_arm32(
+                self._patch_arm_mem12(orig, residual if value >= 0 else -residual)
+            )
         elif rela.type == R_ARM_ABS12:
             value = sym + self._get_arm_mem12_addend(rela, elf)
             self._check_range(abs(value), 0, 1 << 12, rela, "ABS12")
@@ -748,9 +782,13 @@ class ArmElfRelocator(ElfRelocator):
             if sym_t & 1:
                 # Arm-state non-call branches to Thumb require either a veneer or
                 # interworking branch synthesis, which this loader does not emit.
-                self._missing_context(rela, "Arm-to-Thumb veneer/interworking branch generation")
+                self._missing_context(
+                    rela, "Arm-to-Thumb veneer/interworking branch generation"
+                )
             self._check_aligned(value, 4, rela, "Arm branch")
-            return self._pack_arm32(self._patch_arm_branch(self._read_arm32(rela, elf), value))
+            return self._pack_arm32(
+                self._patch_arm_branch(self._read_arm32(rela, elf), value)
+            )
         elif rela.type == R_ARM_CALL:
             value = sym_t + self._get_arm_branch_addend(rela, elf) - rela.offset
             orig = self._read_arm32(rela, elf)
@@ -759,7 +797,9 @@ class ArmElfRelocator(ElfRelocator):
                 self._check_aligned(value & ~1, 2, rela, "Arm BLX call")
                 return self._pack_arm32(self._patch_arm_blx(value))
             if (orig >> 28) == 0xF:
-                self._missing_context(rela, "Thumb-target interworking for an Arm BLX call")
+                self._missing_context(
+                    rela, "Thumb-target interworking for an Arm BLX call"
+                )
             self._check_range(value, -(1 << 25), 1 << 25, rela, "Arm BL call")
             self._check_aligned(value, 4, rela, "Arm BL call")
             return self._pack_arm32(self._patch_arm_branch(orig, value))
@@ -769,53 +809,92 @@ class ArmElfRelocator(ElfRelocator):
             if rela.type == R_ARM_ALU_PC_G0:
                 self._check_range(residual, 0, 1, rela, "ALU_PC_G0")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_add_sub(orig, group if value >= 0 else -group, rela, "ALU_PC_G0"))
+            return self._pack_arm32(
+                self._patch_arm_add_sub(
+                    orig, group if value >= 0 else -group, rela, "ALU_PC_G0"
+                )
+            )
         elif rela.type in (R_ARM_ALU_PCREL_15_8, R_ARM_ALU_PC_G1_NC, R_ARM_ALU_PC_G1):
             value = sym_t + self._get_arm_add_sub_addend(rela, elf) - rela.offset
             group, residual = self._arm_group_value(abs(value), 1)
             if rela.type == R_ARM_ALU_PC_G1:
                 self._check_range(residual, 0, 1, rela, "ALU_PC_G1")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_add_sub(orig, group if value >= 0 else -group, rela, "ALU_PC_G1"))
+            return self._pack_arm32(
+                self._patch_arm_add_sub(
+                    orig, group if value >= 0 else -group, rela, "ALU_PC_G1"
+                )
+            )
         elif rela.type in (R_ARM_ALU_PCREL_23_15, R_ARM_ALU_PC_G2):
             value = sym_t + self._get_arm_add_sub_addend(rela, elf) - rela.offset
             group, residual = self._arm_group_value(abs(value), 2)
             self._check_range(residual, 0, 1, rela, "ALU_PC_G2")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_add_sub(orig, group if value >= 0 else -group, rela, "ALU_PC_G2"))
-        elif rela.type in (R_ARM_LDR_SBREL_11_0_NC, R_ARM_LDR_SB_G0, R_ARM_LDR_SB_G1, R_ARM_LDR_SB_G2):
+            return self._pack_arm32(
+                self._patch_arm_add_sub(
+                    orig, group if value >= 0 else -group, rela, "ALU_PC_G2"
+                )
+            )
+        elif rela.type in (
+            R_ARM_LDR_SBREL_11_0_NC,
+            R_ARM_LDR_SB_G0,
+            R_ARM_LDR_SB_G1,
+            R_ARM_LDR_SB_G2,
+        ):
             value = sym + self._get_arm_mem12_addend(rela, elf) - base
             if rela.type == R_ARM_LDR_SBREL_11_0_NC:
                 residual = abs(value)
             else:
-                idx = {R_ARM_LDR_SB_G0: 0, R_ARM_LDR_SB_G1: 1, R_ARM_LDR_SB_G2: 2}[rela.type]
+                idx = {R_ARM_LDR_SB_G0: 0, R_ARM_LDR_SB_G1: 1, R_ARM_LDR_SB_G2: 2}[
+                    rela.type
+                ]
                 residual = self._arm_group_residual(abs(value), idx)
             self._check_range(residual, 0, 1 << 12, rela, "LDR_SB_Gn")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_mem12(orig, residual if value >= 0 else -residual))
-        elif rela.type in (R_ARM_ALU_SBREL_19_12_NC, R_ARM_ALU_SB_G1_NC, R_ARM_ALU_SB_G1):
+            return self._pack_arm32(
+                self._patch_arm_mem12(orig, residual if value >= 0 else -residual)
+            )
+        elif rela.type in (
+            R_ARM_ALU_SBREL_19_12_NC,
+            R_ARM_ALU_SB_G1_NC,
+            R_ARM_ALU_SB_G1,
+        ):
             value = sym_t + self._get_arm_add_sub_addend(rela, elf) - base
             group, residual = self._arm_group_value(abs(value), 1)
             if rela.type == R_ARM_ALU_SB_G1:
                 self._check_range(residual, 0, 1, rela, "ALU_SB_G1")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_add_sub(orig, group if value >= 0 else -group, rela, "ALU_SB_G1"))
+            return self._pack_arm32(
+                self._patch_arm_add_sub(
+                    orig, group if value >= 0 else -group, rela, "ALU_SB_G1"
+                )
+            )
         elif rela.type in (R_ARM_ALU_SBREL_27_20_CK, R_ARM_ALU_SB_G2):
             value = sym_t + self._get_arm_add_sub_addend(rela, elf) - base
             group, residual = self._arm_group_value(abs(value), 2)
             self._check_range(residual, 0, 1, rela, "ALU_SB_G2")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_add_sub(orig, group if value >= 0 else -group, rela, "ALU_SB_G2"))
+            return self._pack_arm32(
+                self._patch_arm_add_sub(
+                    orig, group if value >= 0 else -group, rela, "ALU_SB_G2"
+                )
+            )
         elif rela.type in (R_ARM_ALU_SB_G0_NC, R_ARM_ALU_SB_G0):
             value = sym_t + self._get_arm_add_sub_addend(rela, elf) - base
             group, residual = self._arm_group_value(abs(value), 0)
             if rela.type == R_ARM_ALU_SB_G0:
                 self._check_range(residual, 0, 1, rela, "ALU_SB_G0")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_add_sub(orig, group if value >= 0 else -group, rela, "ALU_SB_G0"))
+            return self._pack_arm32(
+                self._patch_arm_add_sub(
+                    orig, group if value >= 0 else -group, rela, "ALU_SB_G0"
+                )
+            )
         elif rela.type in (R_ARM_LDRS_PC_G0, R_ARM_LDRS_PC_G1, R_ARM_LDRS_PC_G2):
             value = sym + self._get_arm_mem8_addend(rela, elf) - rela.offset
-            idx = {R_ARM_LDRS_PC_G0: 0, R_ARM_LDRS_PC_G1: 1, R_ARM_LDRS_PC_G2: 2}[rela.type]
+            idx = {R_ARM_LDRS_PC_G0: 0, R_ARM_LDRS_PC_G1: 1, R_ARM_LDRS_PC_G2: 2}[
+                rela.type
+            ]
             residual = self._arm_group_residual(abs(value), idx)
             self._check_range(residual, 0, 1 << 8, rela, "LDRS_PC_Gn")
             orig = self._read_arm32(rela, elf)
@@ -824,7 +903,9 @@ class ArmElfRelocator(ElfRelocator):
             )
         elif rela.type in (R_ARM_LDRS_SB_G0, R_ARM_LDRS_SB_G1, R_ARM_LDRS_SB_G2):
             value = sym + self._get_arm_mem8_addend(rela, elf) - base
-            idx = {R_ARM_LDRS_SB_G0: 0, R_ARM_LDRS_SB_G1: 1, R_ARM_LDRS_SB_G2: 2}[rela.type]
+            idx = {R_ARM_LDRS_SB_G0: 0, R_ARM_LDRS_SB_G1: 1, R_ARM_LDRS_SB_G2: 2}[
+                rela.type
+            ]
             residual = self._arm_group_residual(abs(value), idx)
             self._check_range(residual, 0, 1 << 8, rela, "LDRS_SB_Gn")
             orig = self._read_arm32(rela, elf)
@@ -833,23 +914,33 @@ class ArmElfRelocator(ElfRelocator):
             )
         elif rela.type in (R_ARM_LDC_PC_G0, R_ARM_LDC_PC_G1, R_ARM_LDC_PC_G2):
             value = sym + self._get_arm_ldc_addend(rela, elf) - rela.offset
-            idx = {R_ARM_LDC_PC_G0: 0, R_ARM_LDC_PC_G1: 1, R_ARM_LDC_PC_G2: 2}[rela.type]
+            idx = {R_ARM_LDC_PC_G0: 0, R_ARM_LDC_PC_G1: 1, R_ARM_LDC_PC_G2: 2}[
+                rela.type
+            ]
             residual = self._arm_group_residual(abs(value), idx)
             self._check_aligned(residual, 4, rela, "LDC_PC_Gn")
             self._check_range(residual >> 2, 0, 1 << 8, rela, "LDC_PC_Gn")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_ldc(orig, residual if value >= 0 else -residual))
+            return self._pack_arm32(
+                self._patch_arm_ldc(orig, residual if value >= 0 else -residual)
+            )
         elif rela.type in (R_ARM_LDC_SB_G0, R_ARM_LDC_SB_G1, R_ARM_LDC_SB_G2):
             value = sym + self._get_arm_ldc_addend(rela, elf) - base
-            idx = {R_ARM_LDC_SB_G0: 0, R_ARM_LDC_SB_G1: 1, R_ARM_LDC_SB_G2: 2}[rela.type]
+            idx = {R_ARM_LDC_SB_G0: 0, R_ARM_LDC_SB_G1: 1, R_ARM_LDC_SB_G2: 2}[
+                rela.type
+            ]
             residual = self._arm_group_residual(abs(value), idx)
             self._check_aligned(residual, 4, rela, "LDC_SB_Gn")
             self._check_range(residual >> 2, 0, 1 << 8, rela, "LDC_SB_Gn")
             orig = self._read_arm32(rela, elf)
-            return self._pack_arm32(self._patch_arm_ldc(orig, residual if value >= 0 else -residual))
+            return self._pack_arm32(
+                self._patch_arm_ldc(orig, residual if value >= 0 else -residual)
+            )
         elif rela.type == R_ARM_MOVW_ABS_NC:
             value = sym_t + self._get_arm_mov_addend(rela, elf)
-            return self._pack_arm32(self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF))
+            return self._pack_arm32(
+                self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF)
+            )
         elif rela.type == R_ARM_MOVT_ABS:
             value = sym + self._get_arm_mov_addend(rela, elf)
             return self._pack_arm32(
@@ -857,7 +948,9 @@ class ArmElfRelocator(ElfRelocator):
             )
         elif rela.type == R_ARM_MOVW_PREL_NC:
             value = sym_t + self._get_arm_mov_addend(rela, elf) - rela.offset
-            return self._pack_arm32(self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF))
+            return self._pack_arm32(
+                self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF)
+            )
         elif rela.type == R_ARM_MOVT_PREL:
             value = sym + self._get_arm_mov_addend(rela, elf) - rela.offset
             return self._pack_arm32(
@@ -865,11 +958,15 @@ class ArmElfRelocator(ElfRelocator):
             )
         elif rela.type == R_ARM_MOVW_BREL_NC:
             value = sym_t + self._get_arm_mov_addend(rela, elf) - base
-            return self._pack_arm32(self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF))
+            return self._pack_arm32(
+                self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF)
+            )
         elif rela.type == R_ARM_MOVW_BREL:
             value = sym_t + self._get_arm_mov_addend(rela, elf) - base
             self._check_range(value, 0, 1 << 16, rela, "MOVW_BREL")
-            return self._pack_arm32(self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF))
+            return self._pack_arm32(
+                self._patch_arm_mov(self._read_arm32(rela, elf), value & 0xFFFF)
+            )
         elif rela.type == R_ARM_MOVT_BREL:
             value = sym + self._get_arm_mov_addend(rela, elf) - base
             return self._pack_arm32(
@@ -902,7 +999,9 @@ class ArmElfRelocator(ElfRelocator):
             self._check_aligned(value, 4, rela, "THM_ABS5")
             self._check_range(value, 0, 1 << 7, rela, "THM_ABS5")
             orig = self._read_thumb16(rela, elf)
-            return self._pack_thumb16((orig & ~(0x1F << 6)) | (((value >> 2) & 0x1F) << 6))
+            return self._pack_thumb16(
+                (orig & ~(0x1F << 6)) | (((value >> 2) & 0x1F) << 6)
+            )
         elif rela.type == R_ARM_THM_PC8:
             value = sym + self._get_thumb_pc8_addend(rela, elf) - (rela.offset & ~3)
             self._check_aligned(value, 4, rela, "THM_PC8")
@@ -913,17 +1012,25 @@ class ArmElfRelocator(ElfRelocator):
             if not (sym_t & 1):
                 # Thumb-to-Arm calls need BLX conversion or a veneer. The current
                 # loader does not synthesize those transitions.
-                self._missing_context(rela, "Thumb-to-Arm interworking call/veneer generation")
+                self._missing_context(
+                    rela, "Thumb-to-Arm interworking call/veneer generation"
+                )
             value = sym_t + self._get_thumb_bl_addend(rela, elf) - rela.offset
             self._check_range(value & ~1, -(1 << 24), 1 << 24, rela, "THM_CALL")
-            patched = self._patch_thumb_bl(self._read_thumb32(rela, elf), value & 0x01FFFFFE)
+            patched = self._patch_thumb_bl(
+                self._read_thumb32(rela, elf), value & 0x01FFFFFE
+            )
             return self._pack_thumb32(patched)
         elif rela.type == R_ARM_THM_JUMP24:
             if not (sym_t & 1):
-                self._missing_context(rela, "Thumb-to-Arm interworking jump/veneer generation")
+                self._missing_context(
+                    rela, "Thumb-to-Arm interworking jump/veneer generation"
+                )
             value = sym_t + self._get_thumb_bl_addend(rela, elf) - rela.offset
             self._check_range(value & ~1, -(1 << 24), 1 << 24, rela, "THM_JUMP24")
-            patched = self._patch_thumb_bl(self._read_thumb32(rela, elf), value & 0x01FFFFFE)
+            patched = self._patch_thumb_bl(
+                self._read_thumb32(rela, elf), value & 0x01FFFFFE
+            )
             return self._pack_thumb32(patched)
         elif rela.type == R_ARM_THM_MOVW_ABS_NC:
             value = sym_t + self._get_thumb_mov_addend(rela, elf)
@@ -933,7 +1040,9 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type == R_ARM_THM_MOVT_ABS:
             value = sym + self._get_thumb_mov_addend(rela, elf)
             return self._pack_thumb32(
-                self._patch_thumb_mov(self._read_thumb32(rela, elf), (value >> 16) & 0xFFFF)
+                self._patch_thumb_mov(
+                    self._read_thumb32(rela, elf), (value >> 16) & 0xFFFF
+                )
             )
         elif rela.type == R_ARM_THM_MOVW_PREL_NC:
             value = sym_t + self._get_thumb_mov_addend(rela, elf) - rela.offset
@@ -943,14 +1052,20 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type == R_ARM_THM_MOVT_PREL:
             value = sym + self._get_thumb_mov_addend(rela, elf) - rela.offset
             return self._pack_thumb32(
-                self._patch_thumb_mov(self._read_thumb32(rela, elf), (value >> 16) & 0xFFFF)
+                self._patch_thumb_mov(
+                    self._read_thumb32(rela, elf), (value >> 16) & 0xFFFF
+                )
             )
         elif rela.type == R_ARM_THM_JUMP19:
             if not (sym_t & 1):
-                self._missing_context(rela, "Thumb-to-Arm conditional jump veneer generation")
+                self._missing_context(
+                    rela, "Thumb-to-Arm conditional jump veneer generation"
+                )
             value = sym_t + self._get_thumb_jump19_addend(rela, elf) - rela.offset
             self._check_range(value & ~1, -(1 << 20), 1 << 20, rela, "THM_JUMP19")
-            patched = self._patch_thumb_jump19(self._read_thumb32(rela, elf), value & 0x001FFFFE)
+            patched = self._patch_thumb_jump19(
+                self._read_thumb32(rela, elf), value & 0x001FFFFE
+            )
             return self._pack_thumb32(patched)
         elif rela.type == R_ARM_THM_JUMP6:
             value = sym + self._get_thumb_jump6_addend(rela, elf) - rela.offset
@@ -968,10 +1083,16 @@ class ArmElfRelocator(ElfRelocator):
                 self._patch_thumb_adr(self._read_thumb32(rela, elf), value)
             )
         elif rela.type == R_ARM_THM_PC12:
-            value = sym + self._get_thumb_mem12_addend(rela, elf, signed=True) - (rela.offset & ~3)
+            value = (
+                sym
+                + self._get_thumb_mem12_addend(rela, elf, signed=True)
+                - (rela.offset & ~3)
+            )
             self._check_range(abs(value), 0, 1 << 12, rela, "THM_PC12")
             return self._pack_thumb32(
-                self._patch_thumb_mem12(self._read_thumb32(rela, elf), value, signed=True)
+                self._patch_thumb_mem12(
+                    self._read_thumb32(rela, elf), value, signed=True
+                )
             )
         elif rela.type == R_ARM_THM_JUMP11:
             value = sym + self._get_thumb_branch16_addend(rela, elf, 11) - rela.offset
@@ -993,7 +1114,9 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type == R_ARM_THM_MOVT_BREL:
             value = sym + self._get_thumb_mov_addend(rela, elf) - base
             return self._pack_thumb32(
-                self._patch_thumb_mov(self._read_thumb32(rela, elf), (value >> 16) & 0xFFFF)
+                self._patch_thumb_mov(
+                    self._read_thumb32(rela, elf), (value >> 16) & 0xFFFF
+                )
             )
         elif rela.type == R_ARM_THM_MOVW_BREL:
             value = sym_t + self._get_thumb_mov_addend(rela, elf) - base
@@ -1008,10 +1131,16 @@ class ArmElfRelocator(ElfRelocator):
                 "the symbol's GOT entry address",
             )
             got_base = self._got_base(rela, elf)
-            value = got_entry + self._get_thumb_mem12_addend(rela, elf, signed=False) - got_base
+            value = (
+                got_entry
+                + self._get_thumb_mem12_addend(rela, elf, signed=False)
+                - got_base
+            )
             self._check_range(value, 0, 1 << 12, rela, "THM_GOT_BREL12")
             return self._pack_thumb32(
-                self._patch_thumb_mem12(self._read_thumb32(rela, elf), value, signed=False)
+                self._patch_thumb_mem12(
+                    self._read_thumb32(rela, elf), value, signed=False
+                )
             )
         elif rela.type == R_ARM_THM_ALU_ABS_G0_NC:
             value = sym_t + self._get_thumb_imm8_addend(rela, elf)
@@ -1034,26 +1163,34 @@ class ArmElfRelocator(ElfRelocator):
             masked = value & 0x0001FFFE
             if not (-(1 << 16) <= value < (1 << 16)):
                 return self._pack_thumb32(THUMB_NOP_W)
-            return self._pack_thumb32(self._patch_thumb_bf(self._read_thumb32(rela, elf), masked, rela.type))
+            return self._pack_thumb32(
+                self._patch_thumb_bf(self._read_thumb32(rela, elf), masked, rela.type)
+            )
         elif rela.type == R_ARM_THM_BF12:
             value = sym_t + self._get_thumb_bf_addend(rela, elf, 13) - rela.offset
             masked = value & 0x00001FFE
             if not (-(1 << 12) <= value < (1 << 12)):
                 return self._pack_thumb32(THUMB_NOP_W)
-            return self._pack_thumb32(self._patch_thumb_bf(self._read_thumb32(rela, elf), masked, rela.type))
+            return self._pack_thumb32(
+                self._patch_thumb_bf(self._read_thumb32(rela, elf), masked, rela.type)
+            )
         elif rela.type == R_ARM_THM_BF18:
             value = sym_t + self._get_thumb_bf_addend(rela, elf, 19) - rela.offset
             masked = value & 0x0007FFFE
             if not (-(1 << 18) <= value < (1 << 18)):
                 return self._pack_thumb32(THUMB_NOP_W)
-            return self._pack_thumb32(self._patch_thumb_bf(self._read_thumb32(rela, elf), masked, rela.type))
+            return self._pack_thumb32(
+                self._patch_thumb_bf(self._read_thumb32(rela, elf), masked, rela.type)
+            )
 
         elif rela.type == R_ARM_TLS_LDO12:
             # Local-dynamic TLS offsets need the final layout of the module's TLS block.
             self._missing_context(rela, "the symbol's offset within its TLS block")
         elif rela.type == R_ARM_TLS_LE12:
             # Local-exec TLS offsets are relative to the runtime thread pointer.
-            self._missing_context(rela, "the symbol's thread-pointer-relative TLS offset")
+            self._missing_context(
+                rela, "the symbol's thread-pointer-relative TLS offset"
+            )
         elif rela.type == R_ARM_TLS_IE12GP:
             got_entry = self._proxy_offset(
                 rela,
@@ -1069,7 +1206,9 @@ class ArmElfRelocator(ElfRelocator):
         elif rela.type == R_ARM_TLS_GOTDESC:
             # The experimental static TLSDESC relocations need the descriptor slot
             # address and sequence semantics from the TLSDESC ABI extension.
-            self._missing_context(rela, "the TLSDESC GOT entry address and sequence semantics")
+            self._missing_context(
+                rela, "the TLSDESC GOT entry address and sequence semantics"
+            )
         elif rela.type in (
             R_ARM_TLS_CALL,
             R_ARM_TLS_DESCSEQ,
@@ -1080,17 +1219,26 @@ class ArmElfRelocator(ElfRelocator):
             # These relocations are sequence markers/relaxation tags for TLSDESC.
             return b""
 
-        elif rela.type in (R_ARM_GOTRELAX, R_ARM_GNU_VTENTRY, R_ARM_GNU_VTINHERIT, R_ARM_V4BX):
+        elif rela.type in (
+            R_ARM_GOTRELAX,
+            R_ARM_GNU_VTENTRY,
+            R_ARM_GNU_VTINHERIT,
+            R_ARM_V4BX,
+        ):
             # These relocations are optimization or compatibility markers and do not
             # require a data write in this loader.
             return b""
 
         elif rela.type == R_ARM_TARGET1:
             # TARGET1 is platform-defined as either ABS32 or REL32 for init/fini arrays.
-            self._missing_context(rela, "the platform-specific TARGET1 policy (ABS32 vs REL32)")
+            self._missing_context(
+                rela, "the platform-specific TARGET1 policy (ABS32 vs REL32)"
+            )
         elif rela.type == R_ARM_TARGET2:
             # TARGET2 is platform-defined and only meaningful to the runtime support library.
-            self._missing_context(rela, "the platform-specific TARGET2 relocation semantics")
+            self._missing_context(
+                rela, "the platform-specific TARGET2 relocation semantics"
+            )
 
         elif rela.type in (R_ARM_THM_SWI8, R_ARM_XPC25, R_ARM_THM_XPC22, R_ARM_ME_TOO):
             raise ConfigurationError(
@@ -1101,7 +1249,9 @@ class ArmElfRelocator(ElfRelocator):
             or R_ARM_PRIVATE_1_LO <= rela.type <= R_ARM_PRIVATE_1_HI
         ):
             # Private relocation ranges are interpreted by EI_OSABI / platform ABI rules.
-            self._missing_context(rela, "platform-specific private relocation semantics")
+            self._missing_context(
+                rela, "platform-specific private relocation semantics"
+            )
         elif (
             R_ARM_RESERVED_0_LO <= rela.type <= R_ARM_RESERVED_0_HI
             or R_ARM_RESERVED_1_LO <= rela.type <= R_ARM_RESERVED_1_HI

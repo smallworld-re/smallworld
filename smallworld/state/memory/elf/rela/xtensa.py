@@ -8,6 +8,7 @@ from .rela import ElfRelocator
 # author sees the unsupported relocation rather than silently receiving a wrong
 # value.
 
+
 class XtensaElfRelocator(ElfRelocator):
     arch = platforms.Architecture.XTENSA
     byteorder = platforms.Byteorder.LITTLE
