@@ -4,7 +4,7 @@ import logging
 import typing
 
 from ...emulators import Emulator
-from ...platforms import ABI, Platform
+from ...platforms import ABI, Platform, PlatformDef
 from ..memory import Memory
 from ..memory.elf import ElfExecutable
 from ..state import BytesValue
@@ -33,7 +33,11 @@ class ElfModelLibrary(Memory):
         self.platform = platform
         self.abi = abi
 
+        self.platdef = PlatformDef.for_platform(platform)
+
         self.models: typing.Dict[str, CStdModel] = dict()
+
+        self.variable_addrs: typing.Dict[str, int] = dict()
 
         address = address
         code_size = 0
@@ -52,6 +56,11 @@ class ElfModelLibrary(Memory):
 
         data_offset = code_size
 
+        for name, size in self.variables:
+            self.variable_addrs[name] = self.address + data_offset
+            self[data_offset] = BytesValue(b"\0" * size, None)
+            data_offset += size
+
         # This should be stable in supported versions of python
         for _, model in self.models.items():
             if model.static_space_required > 0:
@@ -60,6 +69,11 @@ class ElfModelLibrary(Memory):
                     b"\0" * model.static_space_required, None
                 )
                 data_offset += model.static_space_required
+
+    @property
+    @abc.abstractmethod
+    def variables(self) -> typing.List[typing.Tuple[str, int]]:
+        raise NotImplementedError()
 
     @property
     @abc.abstractmethod
@@ -79,6 +93,11 @@ class ElfModelLibrary(Memory):
                 continue
             if sym.defined:
                 # This relocation is already satisfied
+                continue
+
+            if sym.name in self.variable_addrs:
+                # This relocation references a variable
+                elf.update_symbol_value(sym.name, self.variable_addrs[sym.name])
                 continue
 
             if sym.name in self.models:

@@ -94,7 +94,7 @@
 
 int main() {
     char buf[128];
-    char *good = (char *)(size_t)0xdead;
+    char *good = (char *)(size_t)0xdead0;
     int bad = 0;
 
     puts("***Starting***");

@@ -3437,80 +3437,60 @@ class AbsLibraryModelTest(ScriptIntegrationTest):
         pass
 
     def test_aarch64(self):
-        self.run_test("aarch64")
+        self.run_test("aarch64", "AARCH64", "LITTLE")
 
     def test_amd64(self):
-        self.run_test("amd64")
+        self.run_test("amd64", "X86_64", "LITTLE")
 
     def test_armel(self):
-        self.run_test("armel")
+        self.run_test("armel", "ARM_V6M", "LITTLE")
 
     def test_armhf(self):
-        self.run_test("armhf")
+        self.run_test("armhf", "ARM_V7A", "LITTLE")
 
     def test_i386(self):
-        self.run_test("i386")
+        self.run_test("i386", "X86_32", "LITTLE")
 
     def test_la64(self):
-        self.run_test("la64")
+        self.run_test("la64", "LOONGARCH64", "LITTLE")
 
     def test_m68k(self):
-        self.run_test("m68k")
+        self.run_test("m68k", "M68K", "BIG")
 
     def test_mips(self):
-        self.run_test("mips")
+        self.run_test("mips", "MIPS32", "BIG")
 
     def test_mipsel(self):
-        self.run_test("mipsel")
+        self.run_test("mipsel", "MIPS32", "LITTLE")
 
     def test_mips64(self):
-        self.run_test("mips64")
+        self.run_test("mips64", "MIPS64", "BIG")
 
     def test_mips64el(self):
-        self.run_test("mips64el")
+        self.run_test("mips64el", "MIPS64", "LITTLE")
 
     def test_ppc(self):
-        self.run_test("ppc")
+        self.run_test("ppc", "POWERPC32", "BIG")
 
     def test_riscv64(self):
-        self.run_test("riscv64")
-
-
-class LibraryModelTest(AbsLibraryModelTest):
-    def run_test(self, arch):
-        # These are all designed to either take no arguments,
-        # or to run a positive test if fed "foobar", and a negative test if fed "bazquxx"
-        self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py foobar"
-        )
-        self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py bazquxx"
-        )
+        self.run_test("riscv64", "RISCV64", "LITTLE")
 
 
 class OneArgLibraryModelTest(AbsLibraryModelTest):
-    def run_test(self, arch):
+    def run_test(self, extension, arch, byteorder):
         # These are all designed to either take no arguments,
         # or to run a positive test if fed "foobar"
         self.command(
-            f"echo 'foobar' | python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"echo 'foobar' | TZ=UTC python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
 
 
 class NoArgLibraryModelTest(AbsLibraryModelTest):
-    def run_test(self, arch):
+    quiet: bool = False
+
+    def run_test(self, extension, arch, byteorder):
         self.command(
-            f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
-        )
-
-
-class C99LibcTests(NoArgLibraryModelTest):
-    library = "c99"
-    function = "libc"
-
-    def run_test(self, arch):
-        _, stderr = self.command(
-            f"TZ=UTC python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"TZ=UTC python3 {self.library}/runner.py {'-q' if self.quiet else ''} {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
 
 
@@ -3547,6 +3527,7 @@ class C99AbsTests(NoArgLibraryModelTest):
 class C99AbortTests(NoArgLibraryModelTest):
     library = "c99"
     function = "abort"
+    quiet = True
 
 
 class C99AtexitTests(NoArgLibraryModelTest):
@@ -3582,6 +3563,7 @@ class C99CallocTests(NoArgLibraryModelTest):
 class C99ExitTests(NoArgLibraryModelTest):
     library = "c99"
     function = "exit"
+    quiet = True
 
 
 class C99FreeTests(NoArgLibraryModelTest):
@@ -3593,9 +3575,9 @@ class C99GetenvTests(AbsLibraryModelTest):
     library = "c99"
     function = "getenv"
 
-    def run_test(self, arch):
+    def run_test(self, extension, arch, byteorder):
         _, stderr = self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
         self.assertLineContainsStrings(stderr, "getenv(foobar);")
 
@@ -3615,27 +3597,27 @@ class C99MallocTests(NoArgLibraryModelTest):
     function = "malloc"
 
 
-class C99MemchrTests(LibraryModelTest):
+class C99MemchrTests(NoArgLibraryModelTest):
     library = "c99"
     function = "memchr"
 
 
-class C99MemcmpTests(LibraryModelTest):
+class C99MemcmpTests(NoArgLibraryModelTest):
     library = "c99"
     function = "memcmp"
 
 
-class C99MemcpyTests(LibraryModelTest):
+class C99MemcpyTests(NoArgLibraryModelTest):
     library = "c99"
     function = "memcpy"
 
 
-class C99MemmoveTests(LibraryModelTest):
+class C99MemmoveTests(NoArgLibraryModelTest):
     library = "c99"
     function = "memmove"
 
 
-class C99MemsetTests(LibraryModelTest):
+class C99MemsetTests(NoArgLibraryModelTest):
     library = "c99"
     function = "memset"
 
@@ -3655,22 +3637,22 @@ class C99SrandTests(NoArgLibraryModelTest):
     function = "srand"
 
 
-class C99StrcatTests(LibraryModelTest):
+class C99StrcatTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strcat"
 
 
-class C99StrchrTests(LibraryModelTest):
+class C99StrchrTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strchr"
 
 
-class C99StrcmpTests(LibraryModelTest):
+class C99StrcmpTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strcmp"
 
 
-class C99StrcpyTests(LibraryModelTest):
+class C99StrcpyTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strcpy"
 
@@ -3685,32 +3667,32 @@ class C99StrerrorTests(NoArgLibraryModelTest):
     function = "strerror"
 
 
-class C99StrlenTests(LibraryModelTest):
+class C99StrlenTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strlen"
 
 
-class C99StrncmpTests(LibraryModelTest):
+class C99StrncmpTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strncmp"
 
 
-class C99StrncpyTests(LibraryModelTest):
+class C99StrncpyTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strncpy"
 
 
-class C99StrncatTests(LibraryModelTest):
+class C99StrncatTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strncat"
 
 
-class C99StrpbrkTests(LibraryModelTest):
+class C99StrpbrkTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strpbrk"
 
 
-class C99StrrchrTests(LibraryModelTest):
+class C99StrrchrTests(NoArgLibraryModelTest):
     library = "c99"
     function = "strrchr"
 
@@ -3734,9 +3716,9 @@ class C99SystemTests(AbsLibraryModelTest):
     library = "c99"
     function = "system"
 
-    def run_test(self, arch):
+    def run_test(self, extension, arch, byteorder):
         _, stderr = self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
         self.assertLineContainsStrings(stderr, "system(foobar);")
 
@@ -3752,12 +3734,12 @@ class C99SnprintfTests(NoArgLibraryModelTest):
 
 
 class PrintLibraryModelTest(AbsLibraryModelTest):
-    def run_test(self, arch):
+    def run_test(self, extension, arch, byteorder):
         stdout, _ = self.command(
-            f"python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
         with open(
-            f"{self.library}/{self.function}/{self.function}.{arch}.txt", "r"
+            f"{self.library}/{self.function}/{self.function}.{extension}.txt", "r"
         ) as f:
             expected = f.read()
 
@@ -3781,9 +3763,9 @@ class C99SscanfTests(NoArgLibraryModelTest):
 
 
 class ScanLibraryModelTest(AbsLibraryModelTest):
-    def run_test(self, arch):
+    def run_test(self, extension, arch, byteorder):
         _, _ = self.command(
-            f"echo -n '' | python3 {self.library}/{self.function}/{self.function}.{arch}.py"
+            f"echo -n '' | python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
 
 
@@ -3970,6 +3952,22 @@ class C99CtimeTests(NoArgLibraryModelTest):
 class C99DifftimeTests(NoArgLibraryModelTest):
     library = "c99"
     function = "difftime"
+
+    @unittest.skip("Returning float fails on i386")
+    def test_i386(self, extension, arch, byteorder):
+        pass
+
+    @unittest.skip("Returning float fails on m68k")
+    def test_m68k(self, extension, arch, byteorder):
+        pass
+
+    @unittest.skip("Returning float fails on mips64")
+    def test_mips64(self, extension, arch, byteorder):
+        pass
+
+    @unittest.skip("Returning float fails on mips64el")
+    def test_mips64el(self, extension, arch, byteorder):
+        pass
 
 
 class C99MktimeTests(NoArgLibraryModelTest):

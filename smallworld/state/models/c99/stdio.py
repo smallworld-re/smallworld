@@ -921,16 +921,7 @@ class Remove(StdioModel):
     imprecise = True
 
     def __init__(self, address: int):
-        self._allow_imprecise = False
         super().__init__(address)
-
-    @property
-    def allow_imprecise(self) -> bool:
-        return self._allow_imprecise or self._fdmgr.model_fs
-
-    @allow_imprecise.setter
-    def allow_imprecise(self, val: bool) -> None:
-        self._allow_imprecise = val
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
@@ -962,16 +953,7 @@ class Rename(StdioModel):
     imprecise = True
 
     def __init__(self, address: int):
-        self._allow_imprecise = False
         super().__init__(address)
-
-    @property
-    def allow_imprecise(self) -> bool:
-        return self._allow_imprecise or self._fdmgr.model_fs
-
-    @allow_imprecise.setter
-    def allow_imprecise(self, val: bool) -> None:
-        self._allow_imprecise = val
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)

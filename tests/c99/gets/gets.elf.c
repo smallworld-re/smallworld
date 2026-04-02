@@ -6,7 +6,7 @@
 #include <string.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     char buf[16];
     
     char *res = gets(buf);
