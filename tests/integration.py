@@ -3481,7 +3481,7 @@ class OneArgLibraryModelTest(AbsLibraryModelTest):
         # These are all designed to either take no arguments,
         # or to run a positive test if fed "foobar"
         self.command(
-            f"echo 'foobar' | TZ=UTC python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
+            f"echo 'foobar' | TZ=UTC python3 runner.py {'-q' if self.quiet else ''} {self.library}/{self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
 
 
@@ -3490,7 +3490,7 @@ class NoArgLibraryModelTest(AbsLibraryModelTest):
 
     def run_test(self, extension, arch, byteorder):
         self.command(
-            f"TZ=UTC python3 {self.library}/runner.py {'-q' if self.quiet else ''} {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
+            f"TZ=UTC python3 runner.py {'-q' if self.quiet else ''} {self.library}/{self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
 
 
@@ -3577,7 +3577,7 @@ class C99GetenvTests(AbsLibraryModelTest):
 
     def run_test(self, extension, arch, byteorder):
         _, stderr = self.command(
-            f"python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
+            f"python3 runner.py {self.library}/{self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
         self.assertLineContainsStrings(stderr, "getenv(foobar);")
 
@@ -3718,7 +3718,7 @@ class C99SystemTests(AbsLibraryModelTest):
 
     def run_test(self, extension, arch, byteorder):
         _, stderr = self.command(
-            f"python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
+            f"python3 runner.py {self.library}/{self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
         self.assertLineContainsStrings(stderr, "system(foobar);")
 
@@ -3736,7 +3736,7 @@ class C99SnprintfTests(NoArgLibraryModelTest):
 class PrintLibraryModelTest(AbsLibraryModelTest):
     def run_test(self, extension, arch, byteorder):
         stdout, _ = self.command(
-            f"python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
+            f"python3 runner.py {self.library}/{self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
         with open(
             f"{self.library}/{self.function}/{self.function}.{extension}.txt", "r"
@@ -3765,7 +3765,7 @@ class C99SscanfTests(NoArgLibraryModelTest):
 class ScanLibraryModelTest(AbsLibraryModelTest):
     def run_test(self, extension, arch, byteorder):
         _, _ = self.command(
-            f"echo -n '' | python3 {self.library}/runner.py {self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
+            f"echo -n '' | python3 runner.py {self.library}/{self.function}/{self.function}.{extension}.elf {arch} {byteorder}"
         )
 
 

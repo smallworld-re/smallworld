@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     sigset_t set = {0};
     set.__val[0] = 0x400;
     
