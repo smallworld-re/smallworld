@@ -578,6 +578,7 @@ class ArmElfRelocator(ElfRelocator):
                         return elf.address + section_offsets[idx]
 
         self._missing_context(rela, "the GOT base address")
+        raise Exception("Reached an unreachable line")
 
     def _proxy_offset(self, rela: ElfRela, proxy_types, detail: str) -> int:
         offsets = sorted({r.offset for r in rela.symbol.relas if r.type in proxy_types})
