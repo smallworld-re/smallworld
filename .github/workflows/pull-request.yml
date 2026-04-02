@@ -188,6 +188,7 @@ jobs:
             - testsuite: C99LlabsTests
             - testsuite: C99LocaltimeTests
             - testsuite: C99MallocTests
+            - testsuite: C99MemchrTests
             - testsuite: C99MemcmpTests
             - testsuite: C99MemcpyTests
             - testsuite: C99MemmoveTests

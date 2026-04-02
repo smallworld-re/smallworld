@@ -6,7 +6,7 @@ void myhandler(int arg) {
 }
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     void (*handler)(int) = signal(SIGSEGV, myhandler);
 
     handler = signal(SIGSEGV, SIG_DFL);

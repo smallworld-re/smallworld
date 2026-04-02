@@ -70,6 +70,6 @@ int main() {
         exit(1);
     }
 
-    int *dead = (int *)(size_t)0xdeadl;
+    int *dead = (int *)(size_t)0xdead0l;
     return *dead;
 }

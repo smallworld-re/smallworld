@@ -2,7 +2,7 @@
 #include <time.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     time_t time0 = 42;
     time_t time1 = 43;
     double expected = 1.0l;

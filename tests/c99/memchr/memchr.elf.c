@@ -1,14 +1,20 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 
-int main(int argc, char *argv[]) {
-    char *bad = (char *)(size_t)0xdead;
-    
+int main() {
+    char *bad = (char *)(size_t)0xdead0;
     char *data = NULL;
-    data = memchr(argv[1], 'o', 4);
-
-    if (data == NULL) {
-        return *bad;
+    // Expect return non-NULL
+    if(!(data = memchr("foobar", 'o', 4))) {
+        puts("Expected non-NULL, got NULL");
+        exit(1);
     }
-    exit(0);
+    // Expect return NULL
+    if(memchr("bazqux", 'o', 4)) {
+        puts("Expected NULL, got non-NULL");
+        exit(1);
+    }
+    // Test passed
+    return *bad;
 }

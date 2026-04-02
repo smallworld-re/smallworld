@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     int x = fgetc(stdin);
     if(x != 'f') {
         printf("Got %02x\n", x);

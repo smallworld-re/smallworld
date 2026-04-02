@@ -160,7 +160,7 @@
 
 int main() {
 
-    char *quit = (char *)(size_t)0xdead;
+    char *quit = (char *)(size_t)0xdead0;
     int res = 0;
     int bad = 0;
     int bad_str = 0;

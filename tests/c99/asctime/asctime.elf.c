@@ -3,7 +3,7 @@
 #include <string.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     struct tm st = {
         .tm_sec = 0,
         .tm_min = 9,
