@@ -6,7 +6,7 @@ int compare(const void* a, const void* b) {
 }
 
 int main() {
-    char *good = (char *)(size_t)0xdead;
+    char *good = (char *)(size_t)0xdead0;
     const int arr[ARR_LEN] = {-100, -20, 1, 2, 2, 3, 7, 20, 400, 30000};
 
     // success cases

@@ -1,7 +1,7 @@
 #include <stdlib.h>
 
 int main() {
-    char *good = (char *)(size_t)0xdead;
+    char *good = (char *)(size_t)0xdead0;
     int res = system("foobar");
     if(res) {
         exit(0);

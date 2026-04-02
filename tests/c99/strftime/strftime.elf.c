@@ -4,7 +4,7 @@
 #include <time.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     const char *fmt = "%a %A %b %B %c %C %d %D %e %F %g %G %h %H %I %j %k %l %m %M %n %P %r %s %S %t %T %u %U %V %w %W %x %X %y %Y %z %Z";
     const char *expected = "Sun Sunday Mar March Sun Mar 14 15:26:00 2025 20 14 03/14/25 14 2025-03-14 24 2024 Mar 15 03 001 15  3 03 26 \n pm 03:26:00 PM 1741965960 00 \t 15:26:00 7 01 52 0 00 03/14/25 15:26:00 25 2025 +0000 UTC";
     struct tm st = {

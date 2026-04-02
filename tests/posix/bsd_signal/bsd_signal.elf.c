@@ -7,7 +7,7 @@ void myhandler(int arg) {
 }
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     void (*handler)(int) = bsd_signal(SIGSEGV, myhandler);
 
     handler = bsd_signal(SIGSEGV, SIG_DFL);

@@ -5,7 +5,7 @@ int compare(const void* a, const void* b) {
 }
 
 int main() {
-    char *good = (char *)(size_t)0xdead;
+    char *good = (char *)(size_t)0xdead0;
 
     const int arr[10]    = {3, 2, 7, -100, 20, 2, 1, 30000, 400, -20};
     const int answer[10] = {-100, -20, 1, 2, 2, 3, 7, 20, 400, 30000};

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 int main() {
-    char *good = (char *)(size_t)0xdead;
+    char *good = (char *)(size_t)0xdead0;
     int res = 0;
     res = strcspn("foobar", "fo");
     if(res != 0) {

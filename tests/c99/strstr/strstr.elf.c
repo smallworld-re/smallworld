@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 int main() {
-    char *good = (char *)(size_t)0xdead;
+    char *good = (char *)(size_t)0xdead0;
     char *test = "foobar";
     char *res = strstr(test, "foo");
     if(res != test) {

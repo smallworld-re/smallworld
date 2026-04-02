@@ -1,15 +1,16 @@
 #include <string.h>
 #include <stdlib.h>
 
-int main(int argc, char *argv[]) {
-    char *bad = (char *)(size_t)0xdead;
+int main() {
+    char *bad = (char *)(size_t)0xdead0;
     char buf[6];
-    char *str = memcpy(buf, argv[1], 6);
+
+    char *str = memcpy(buf, "foobar", 6);
     if(str != buf) {
-        return *bad;
+        exit(1);
     }
     if(memcmp(buf, "foobar", 6)) {
-        return *bad;
+        exit(1);
     }
-    exit(0);
+    return *bad;
 }

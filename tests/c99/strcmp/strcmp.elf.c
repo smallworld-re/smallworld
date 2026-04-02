@@ -1,10 +1,14 @@
 #include <string.h>
 #include <stdlib.h>
 
-int main(int argc, char *argv[]) {
-    char *bad = (char *)(size_t)0xdead;
-    if(!strcmp(argv[1], "foobar")) {
-        exit(0);
+int main() {
+    char *bad = (char *)(size_t)0xdead0;
+    char buf[] = {
+        'f', 'o', 'o', 'b', 'a', 'r', '\0',
+        'b', 'a', 'z', 'q', 'u', 'x', '\0'
+    };
+    if(strcmp(buf, "foobar")) {
+        exit(1);
     }
     return *bad;
 }

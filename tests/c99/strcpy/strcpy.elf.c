@@ -1,16 +1,16 @@
 #include <stdlib.h>
 #include <string.h>
 
-int main(int argc, char *argv[]) {
-    char *bad = (char *)(size_t)0xdead;
+int main() {
+    char *bad = (char *)(size_t)0xdead0;
     char buf[8];
-    char *str = strcpy(buf, argv[1]);
+    char *str = strcpy(buf, "foobar");
     str[6] = '\0';
     if(str != buf) {
-        return *bad;
+        exit(1);
     }
-    if(strcmp(str, argv[1])) {
-        return *bad;
+    if(strcmp(str, "foobar")) {
+        exit(1);
     }
-    exit(0);
+    return *bad;
 }
