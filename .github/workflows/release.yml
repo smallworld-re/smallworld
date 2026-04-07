@@ -32,7 +32,7 @@ jobs:
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
         with:
-          token: ${{ secrets.BOT_TOKEN }}
+          token: ${{ secrets.BOT_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Build devshell
         run: |
           nix -L develop -c true
