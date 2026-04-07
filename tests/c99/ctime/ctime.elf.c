@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     time_t t = 1741964940;
     char *expected = "Fri Mar 14 15:09:00 2025\n";
     char *actual = ctime(&t);

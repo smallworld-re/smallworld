@@ -3,10 +3,14 @@ from .....exceptions import ConfigurationError
 from ..structs import ElfRela
 from .rela import ElfRelocator
 
-R_386_32 = 1  # Direct 32-bit
-R_386_GLOB_DAT = 6  # Create GOT entry
-R_386_JUMP_SLOT = 7  # Create PLT entry
-R_386_RELATIVE = 8  # Adjust by program base
+# ABI shorthand used in the comments below:
+#   A: addend
+#   B: base address where the image was loaded
+#   S: resolved symbol value
+R_386_32 = 1  # Write S + A as a 32-bit absolute value.
+R_386_GLOB_DAT = 6  # Populate a GOT slot with S.
+R_386_JUMP_SLOT = 7  # Populate a PLT/GOT resolver slot with S.
+R_386_RELATIVE = 8  # Write B + A; ignores the symbol value.
 R_386_NUM = 44  # This and higher aren't valid
 
 
@@ -25,11 +29,13 @@ class I386ElfRelocator(ElfRelocator):
         if (
             rela.type == R_386_GLOB_DAT
             or rela.type == R_386_JUMP_SLOT
-            or rela.type == R_386_RELATIVE
             or rela.type == R_386_32
         ):
             # Different semantics, all behave the same
             val = rela.symbol.value + rela.symbol.baseaddr + addend
+            return val.to_bytes(4, "little")
+        elif rela.type == R_386_RELATIVE:
+            val = elf.address + addend
             return val.to_bytes(4, "little")
         elif rela.type >= 0 and rela.type < R_386_NUM:
             raise ConfigurationError(

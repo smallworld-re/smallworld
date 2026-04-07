@@ -3,7 +3,7 @@
 #include <string.h>
 
 int main() {
-    int *good = (int *)(size_t)0xdead;
+    int *good = (int *)(size_t)0xdead0;
     char buf[16];
     
     size_t n = fread(buf, 15, 1, stdin);

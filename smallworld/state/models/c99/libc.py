@@ -3,9 +3,10 @@ import typing
 
 from ....platforms import ABI, Platform
 from ...memory.heap import Heap
+from ..filedesc import FileDescriptorManager
 from ..library import ElfModelLibrary
 from ..model import Model
-from . import signal, stdio, stdlib, string, time
+from . import ctype, signal, stdio, stdlib, string, time
 
 
 class C99Libc(ElfModelLibrary):
@@ -34,14 +35,42 @@ class C99Libc(ElfModelLibrary):
             realloc_model.heap = heap
             free_model.heap = heap
 
+            fdmgr = FileDescriptorManager.for_platform(platform, abi)
+            self.write_int(
+                self.variable_addrs["stdin"],
+                fdmgr.stdin_filestar,
+                self.platdef.address_size,
+                self.platform.byteorder,
+            )
+            self.write_int(
+                self.variable_addrs["stdout"],
+                fdmgr.stdout_filestar,
+                self.platdef.address_size,
+                self.platform.byteorder,
+            )
+            self.write_int(
+                self.variable_addrs["stderr"],
+                fdmgr.stderr_filestar,
+                self.platdef.address_size,
+                self.platform.byteorder,
+            )
+
     @property
     def alt_names(self) -> typing.Dict[str, str]:
-        return {"__cxa_atexit": "atexit"}
+        return {
+            "__cxa_atexit": "atexit",
+            "__isoc99_fscanf": "fscanf",
+            "__isoc23_fscanf": "fscanf",
+            "__isoc99_scanf": "scanf",
+            "__isoc23_scanf": "scanf",
+            "__isoc99_sscanf": "sscanf",
+            "__isoc23_sscanf": "sscanf",
+        }
 
     @property
     def function_names(self) -> typing.List[str]:
         out: typing.List[str] = list()
-        for module in (signal, stdio, stdlib, string, time):
+        for module in (ctype, signal, stdio, stdlib, string, time):
             for clsname, cls in inspect.getmembers(
                 module,
                 lambda x: inspect.isclass(x)
@@ -50,6 +79,14 @@ class C99Libc(ElfModelLibrary):
             ):
                 out.append(cls.name)
         return out
+
+    @property
+    def variables(self) -> typing.List[typing.Tuple[str, int]]:
+        return [
+            ("stdin", self.platdef.address_size),
+            ("stdout", self.platdef.address_size),
+            ("stderr", self.platdef.address_size),
+        ]
 
 
 __all__ = ["C99Libc"]

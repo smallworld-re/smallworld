@@ -326,7 +326,7 @@ class Memchr(CStdModel):
 
     # const void *memchr(const void *ptr, int value, size_t n);
     argument_types = [ArgumentType.POINTER, ArgumentType.INT, ArgumentType.SIZE_T]
-    return_type = ArgumentType.SIZE_T
+    return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)

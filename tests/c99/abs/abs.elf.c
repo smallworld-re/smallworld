@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 int main() {
-    char *bad = (char *)(size_t)0xdead;
+    char *bad = (char *)(size_t)0xdead0;
     int x = abs(-2);
     if(x != 2) {
         exit(0);
