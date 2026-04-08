@@ -41,15 +41,16 @@
         "panda-qemu-src": "panda-qemu-src"
       },
       "locked": {
-        "lastModified": 1774888919,
-        "narHash": "sha256-NKcs04Todw6kCv1PZx/reLbLsmX9NMouLwhk28c1hwM=",
-        "owner": "panda-re",
+        "lastModified": 1775661304,
+        "narHash": "sha256-UKf4gQzAKcTlDdniwsvFM9g7KbZc4OeWYt5Wh0l0dy4=",
+        "owner": "smallworld-re",
         "repo": "panda-ng",
-        "rev": "fdfbf0a53860ad8460953880814ddae61635a0c8",
+        "rev": "b4012ffac79c4fbb96d49c46d6564888ba8876b2",
         "type": "github"
       },
       "original": {
-        "owner": "panda-re",
+        "owner": "smallworld-re",
+        "ref": "macos",
         "repo": "panda-ng",
         "type": "github"
       }
