@@ -113,8 +113,41 @@
         {
           inherit tests rtos_demo;
         };
+
+      mkLinuxDevShell =
+        system:
+        let
+          pkgs = pkgsFor system;
+          artifacts = mkLinuxArtifacts system;
+        in
+        pkgs.mkShell {
+          inputsFrom = [
+            artifacts.tests
+            artifacts.rtos_demo
+          ];
+
+          env = {
+            AMD64_SYSROOT = x86LinuxPkgs.glibc.outPath;
+            AARCH64_SYSROOT = pkgs.pkgsCross.aarch64-multiplatform.glibc.outPath;
+            PPC_SYSROOT = pkgs.pkgsCross.ppc32.glibc.outPath;
+          };
+
+          shellHook = ''
+            export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache
+          '';
+        };
     in
     {
+      devShells = forAllSystems (
+        system:
+        if lib.hasSuffix "-linux" system then
+          {
+            default = mkLinuxDevShell system;
+          }
+        else
+          { }
+      );
+
       packages = forAllSystems (
         system:
         if lib.hasSuffix "-linux" system then
