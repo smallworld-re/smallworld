@@ -1,31 +1,22 @@
 # Nix flake for smallworld-re.
 #
-# This file has one job: turn the Python project described by
-#   - pyproject.toml
-#   - uv.lock
-# into:
-#   - a ready-to-use package (`nix build`)
-#   - a development shell (`nix develop`)
+# Reader's guide:
+# 1. Read `pyproject.toml` + `uv.lock` and turn them into Nix packages.
+# 2. Replace the few Python dependencies that need native compilation.
+# 3. Assemble the environments and shells users actually interact with.
+# 4. Export a small helper library for downstream flakes.
 #
-# CI-only outputs such as test artifacts live in `./ci/flake.nix` so this
-# top-level flake stays focused on the user-facing package and dev environment.
-#
-# A few Python dependencies (unicorn, unicornafl, pypanda) need native C/C++
-# builds, so we build those ourselves and then insert them into the locked
-# package graph from `uv.lock`.
+# If you are new to Nix, the most important idea is:
+# "inputs" says what external code we depend on, and "outputs" says what
+# commands like `nix build`, `nix develop`, and downstream flakes can use.
 {
   description = "smallworld-re";
 
-  # ==========================================================================
-  # Inputs — external dependencies fetched and pinned by nix.
-  # "follows" means "reuse the same copy as the parent" to avoid duplicates.
-  # ==========================================================================
+  # External inputs. `follows` means "reuse the parent's copy" so we do not
+  # accidentally pull in multiple versions of the same dependency tree.
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
-    # uv2nix reads pyproject.toml + uv.lock and turns them into nix packages.
-    # pyproject-nix provides the low-level build helpers it relies on.
-    # pyproject-build-systems provides standard Python build backends (setuptools, etc.).
     pyproject-nix = {
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -42,27 +33,23 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # PANDA-ng: a dynamic analysis / whole-system emulation platform.
-    # Provides the pypanda Python bindings.
+    # PANDA-ng provides the pypanda Python bindings.
     panda-ng = {
-      url = "github:panda-re/panda-ng";
+      url = "git+file:/Users/an24021/Projects/panda-ng/";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # Optional Binary Ninja support (uncomment both to enable).
-    #  binaryninja = {
-    #    url = "github:jchv/nix-binary-ninja";
-    #    inputs.nixpkgs.follows = "nixpkgs";
-    #  };
-    #  binjaZip = {
-    #    url = "path:./binaryninja_linux_stable_ultimate.zip";
-    #    flake = false;
-    #  };
 
+    # Optional Binary Ninja support (uncomment both to enable).
+    # binaryninja = {
+    #   url = "github:jchv/nix-binary-ninja";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
+    # binjaZip = {
+    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #   flake = false;
+    # };
   };
 
-  # ==========================================================================
-  # Outputs — what this flake provides.
-  # ==========================================================================
   outputs =
     inputs@{
       nixpkgs,
@@ -75,29 +62,48 @@
     let
       lib = nixpkgs.lib;
 
-      # Nix flakes usually build for more than one CPU/OS combination. This
-      # helper lets us define one output and have it expanded for every system.
-      systems = lib.systems.flakeExposed;
-      forAllSystems = lib.genAttrs systems;
+      # -------------------------------------------------------------------
+      # Basic helpers used everywhere else in the file.
+      # -------------------------------------------------------------------
 
-      # Short-hand for "give me nixpkgs for this system".
+      supportedSystems = lib.systems.flakeExposed;
+      forEachSystem = lib.genAttrs supportedSystems;
+
       pkgsFor = system: nixpkgs.legacyPackages.${system};
+      pythonFor = system: (pkgsFor system).python312;
 
-      # Optional Binary Ninja inputs (null when commented out above).
       binaryninja = inputs.binaryninja or null;
       binjaZip = inputs.binjaZip or null;
 
-      # Ghidra installs into a larger directory tree; this is the path the
-      # Python bindings expect.
       ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
-      # =====================================================================
-      # Python workspace — reads pyproject.toml + uv.lock via uv2nix.
-      # All Python dependency information lives in those files, not here.
-      # =====================================================================
+      # Small helper for the two environment variables Ghidra expects.
+      mkGhidraRuntime =
+        pkgs:
+        {
+          tools = [
+            pkgs.ghidra
+            pkgs.jdk
+          ];
 
-      # Only copy the files the Python build actually depends on. This keeps
-      # unrelated repo changes from forcing a full Python rebuild.
+          env = {
+            GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
+            JAVA_HOME = pkgs.jdk;
+          };
+
+          setupHook = ''
+            export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
+            export JAVA_HOME=${pkgs.jdk}
+          '';
+        };
+
+      # -------------------------------------------------------------------
+      # Read the Python workspace.
+      #
+      # We only copy the files that influence the Python package graph. That
+      # keeps unrelated edits from forcing a full rebuild.
+      # -------------------------------------------------------------------
+
       workspaceRoot =
         let
           fileset = lib.fileset.unions [
@@ -115,144 +121,173 @@
           }
         );
 
-      # Load the workspace. This parses pyproject.toml and uv.lock.
       workspace = uv2nix.lib.workspace.loadWorkspace { inherit workspaceRoot; };
 
-      # The published package wants all emulator backends, but not the repo's
-      # development-only tools. The dev shell adds the `dev` group on top.
-      runtimeExtras = [ "emu-all" ];
-      devGroups = workspace.deps.groups.smallworld-re;
+      selectWorkspaceDeps =
+        extras:
+        workspace.deps.default
+        // {
+          smallworld-re = extras;
+        };
 
-      # uv2nix expects an attribute set of:
-      #   { <workspace-package-name> = [ enabled-extra-or-group names... ]; }
-      # These two selections drive the runtime package and the dev shell.
-      runtimeDeps = workspace.deps.default // {
-        smallworld-re = runtimeExtras;
-      };
-      devDeps = workspace.deps.default // {
-        smallworld-re = runtimeExtras ++ devGroups;
-      };
+      # The published runtime wants every emulator backend. The development
+      # shell adds the project's `dev` dependency group on top.
+      runtimeSelection = selectWorkspaceDeps [ "emu-all" ];
+      devSelection = selectWorkspaceDeps ([ "emu-all" ] ++ workspace.deps.groups.smallworld-re);
 
-      # For the packages we build ourselves below, give uv2nix an empty
-      # placeholder so it does not also try to fetch them from PyPI.
-      prebuiltNames = [
+      # These packages are built locally below, so we hand uv2nix empty
+      # placeholders to stop it from also trying to fetch them from PyPI.
+      prebuiltPythonPackages = [
         "unicornafl"
         "pypanda"
         "unicorn"
       ];
-      addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltNames (_: [ ]);
 
-      # =====================================================================
-      # Native Python packages — these need C/C++ compilation and cannot come
-      # straight from wheels. We build them from source and inject them into
-      # the uv2nix package set.
-      # =====================================================================
+      addPrebuiltPlaceholders =
+        deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
 
-      basePython = forAllSystems (system: (pkgsFor system).python312);
+      # -------------------------------------------------------------------
+      # Build the Python packages that cannot safely come from wheels.
+      # -------------------------------------------------------------------
 
-      # Build the Python packages we cannot safely consume as wheels.
-      #
-      # Returned as a function so we can plug the same logic into different
-      # Python package sets later.
-      pythonNativeAddons = forAllSystems (
-        system:
-        { pythonPkgs, unicornPy }:
+      mkNativePythonAddons =
         {
-          fetchFromGitHub,
-          unicorn,
-          callPackage,
-          ...
+          system,
+          pythonPkgs,
+          unicornPy,
+          pkgs ? pkgsFor system,
         }:
         let
-          mkUnicornafl = callPackage ./unicornafl-build { };
-          patchedUnicornSrc = fetchFromGitHub {
+          mkUnicornafl = pkgs.callPackage ./unicornafl-build { };
+          patchedUnicornSrc = pkgs.fetchFromGitHub {
             owner = "appleflyerv3";
             repo = "unicorn";
             rev = "mmio_map_pc_sync";
             hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
           };
-          patchedUnicorn = unicorn.overrideAttrs (_: {
+          patchedUnicorn = pkgs.unicorn.overrideAttrs (_: {
             src = patchedUnicornSrc;
           });
-          patchedUnicornPy = unicornPy.override { unicorn = patchedUnicorn; };
         in
         {
-          unicorn = patchedUnicornPy;
+          unicorn = unicornPy.override { unicorn = patchedUnicorn; };
           unicornafl = mkUnicornafl pythonPkgs;
           pypanda = panda-ng.lib.${system}.pypandaBuilder pythonPkgs;
-        }
-      );
+        };
 
-      # Build the final locked Python package set for a given nixpkgs
-      # instance and interpreter:
-      #   1. standard Python build tools
-      #   2. packages from uv.lock
-      #   3. local fixes from overrides.nix
-      #   4. the native packages we build ourselves
+      # Build the locked Python package set for one system/interpreter.
       #
-      # Keeping this as a reusable function lets downstream helpers build the
-      # same package set against their own `pkgs`/`python` values without
-      # needing a top-level nixpkgs overlay.
+      # Order matters here:
+      # 1. start from pyproject/uv metadata,
+      # 2. add standard build backends,
+      # 3. apply our local package overrides,
+      # 4. replace a few packages with the native builds above.
       mkPythonSet =
         {
           system,
           pkgs ? pkgsFor system,
-          python ? pkgs.python312,
+          python ? pythonFor system,
         }:
         let
-          pyprojectPkgs = pkgs.callPackage pyproject-nix.build.packages { inherit python; };
-          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
-          native = pythonNativeAddons.${system} {
+          pyprojectPackages = pkgs.callPackage pyproject-nix.build.packages { inherit python; };
+          pyprojectHacks = pkgs.callPackage pyproject-nix.build.hacks { };
+
+          nativeAddons = mkNativePythonAddons {
+            inherit system pkgs;
             pythonPkgs = python.pkgs;
             unicornPy = python.pkgs.unicorn;
-          } pkgs;
+          };
 
-          nativePrebuilts = _final: _prev: {
-            unicorn = hacks.nixpkgsPrebuilt { from = native.unicorn; };
-            unicornafl = hacks.nixpkgsPrebuilt { from = native.unicornafl; };
-            pypanda = hacks.nixpkgsPrebuilt { from = native.pypanda; };
+          prebuiltOverlay = _final: _prev: {
+            unicorn = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicorn; };
+            unicornafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicornafl; };
+            pypanda = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.pypanda; };
           };
         in
-        pyprojectPkgs.overrideScope (
+        pyprojectPackages.overrideScope (
           lib.composeManyExtensions [
             pyproject-build-systems.overlays.wheel
             (workspace.mkPyprojectOverlay { sourcePreference = "wheel"; })
             (pkgs.callPackage ./overrides.nix { inherit python; })
-            nativePrebuilts
+            prebuiltOverlay
           ]
         );
 
-      # Precompute the locked package set for each supported system. The rest
-      # of this flake reuses these cached package sets for its own outputs.
-      pythonSets = forAllSystems (system: mkPythonSet { inherit system; });
+      # Precompute once so the outputs below can reuse the same locked package
+      # set instead of rebuilding the graph from scratch for every output.
+      pythonSets = forEachSystem (system: mkPythonSet { inherit system; });
 
-      # =====================================================================
-      # Non-Python tools smallworld expects to find on PATH.
-      # =====================================================================
+      # -------------------------------------------------------------------
+      # Helpers for environments created from the locked Python package set.
+      # -------------------------------------------------------------------
 
-      toolDeps = forAllSystems (
+      resolveLockedDependencyNames =
+        pythonSet: name: enabledExtras:
+        let
+          rawPackage = pythonSet.${name};
+          selectedDeps =
+            lib.zipAttrsWith (_depName: extrasLists: lib.unique (lib.flatten extrasLists)) (
+              [ (rawPackage.dependencies or { }) ]
+              ++ map (extra: rawPackage.optional-dependencies.${extra} or { }) enabledExtras
+            );
+          dependencyNames = builtins.attrNames selectedDeps;
+        in
+        lib.unique (
+          dependencyNames
+          ++ lib.flatten (
+            map (
+              dependencyName:
+              resolveLockedDependencyNames pythonSet dependencyName selectedDeps.${dependencyName}
+            ) dependencyNames
+          )
+        );
+
+      # Turn the locked `smallworld-re` package into a Python module that
+      # carries the transitive Python dependency closure expected by
+      # `python.withPackages`.
+      mkSmallworldPythonModule =
+        {
+          pythonSet,
+          py-final,
+          smallworldExtras,
+        }:
+        let
+          rawSmallworld = pythonSet.smallworld-re;
+
+          pypandaModule =
+            if pythonSet ? pypanda then
+              py-final.toPythonModule pythonSet.pypanda
+            else
+              null;
+
+          dependencyNames =
+            resolveLockedDependencyNames pythonSet "smallworld-re" smallworldExtras;
+
+          dependencyModules =
+            map (name: py-final.toPythonModule pythonSet.${name}) dependencyNames
+            ++ lib.optional (
+              builtins.elem "emu-panda" smallworldExtras && pypandaModule != null
+            ) pypandaModule;
+        in
+        py-final.toPythonModule (
+          rawSmallworld.overrideAttrs (old: {
+            propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ dependencyModules;
+          })
+        );
+
+      runtimeToolsFor =
         system:
         let
           pkgs = pkgsFor system;
+          ghidra = mkGhidraRuntime pkgs;
         in
-        # aflplusplus is not packaged for Apple Silicon macOS, so keep it out
-        # of that environment instead of making `nix develop` fail there.
+        # afl++ is not packaged for Apple Silicon macOS.
         lib.optional (system != "aarch64-darwin") pkgs.aflplusplus
-        ++ [
-          pkgs.z3
-          pkgs.ghidra
-          pkgs.jdk
-        ]
-      );
+        ++ [ pkgs.z3 ]
+        ++ ghidra.tools;
 
-      # Build a Python virtualenv directly from the locked package set.
-      # This is the "Python only" environment before we add non-Python tools.
-      mkLockedVirtualenv =
-        system: name: selectedDeps:
-        pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selectedDeps);
-
-      # Compose multiple environments into one and preserve their setup hooks.
-      # `extraSetupHook` lets us append a few exported variables afterwards.
+      # Compose multiple derivations into one environment while preserving the
+      # setup hooks they export. This is the main "glue" helper for the file.
       mkBuildEnvWithHook =
         {
           pkgs,
@@ -260,36 +295,52 @@
           paths,
           setupHookInputs ? [ ],
           extraSetupHook ? "",
-        }:
-        pkgs.buildEnv {
-          inherit name paths;
-          pathsToLink = [
+          extraPostBuild ? "",
+          pathsToLink ? [
             "/bin"
             "/nix-support"
-          ];
+          ],
+          nativeBuildInputs ? [ ],
+        }:
+        pkgs.buildEnv {
+          inherit
+            name
+            paths
+            pathsToLink
+            nativeBuildInputs
+            ;
           ignoreCollisions = true;
 
-          postBuild = ''
-            if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
-            mkdir -p "$out/nix-support"
-            if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
-            : > "$out/nix-support/setup-hook"
-          ''
-          + lib.concatMapStrings (hookInput: ''
-            if [ -f "${hookInput}/nix-support/setup-hook" ]; then
-              cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
-            fi
-          '') setupHookInputs
-          + lib.optionalString (extraSetupHook != "") ''
-            cat >> "$out/nix-support/setup-hook" <<'EOF'
-            ${extraSetupHook}
-            EOF
-          '';
+          postBuild =
+            ''
+              if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
+              mkdir -p "$out/nix-support"
+              if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
+              : > "$out/nix-support/setup-hook"
+            ''
+            + lib.concatMapStrings (
+              hookInput: ''
+                if [ -f "${hookInput}/nix-support/setup-hook" ]; then
+                  cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
+                fi
+              ''
+            ) setupHookInputs
+            + lib.optionalString (extraSetupHook != "") ''
+              cat >> "$out/nix-support/setup-hook" <<'EOF'
+              ${extraSetupHook}
+              EOF
+            ''
+            + extraPostBuild;
         };
 
-      # Build the runtime environment we want downstream users to consume:
-      # the locked Python virtualenv plus the native tools smallworld needs.
-      mkSmallworldEnv =
+      mkLockedVirtualenv =
+        system: name: selection:
+        pythonSets.${system}.mkVirtualEnv name (addPrebuiltPlaceholders selection);
+
+      # This is the main runtime environment smallworld users interact with:
+      # Python packages from the lockfile plus the native tools the project
+      # expects to find on PATH.
+      mkRuntimeEnv =
         {
           system,
           env,
@@ -297,20 +348,17 @@
         }:
         let
           pkgs = pkgsFor system;
+          ghidra = mkGhidraRuntime pkgs;
         in
         mkBuildEnvWithHook {
           inherit pkgs name;
-          paths = [ env ] ++ toolDeps.${system};
+          paths = [ env ] ++ runtimeToolsFor system;
           setupHookInputs = [ env ];
-          extraSetupHook = ''
-            export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
-            export JAVA_HOME=${pkgs.jdk}
-          '';
+          extraSetupHook = ghidra.setupHook;
         };
 
-      # Build the downstream-facing runtime environment. Downstream users can
-      # optionally layer extra nixpkgs Python packages on top without needing
-      # access to SmallWorld's internal package set.
+      # Downstream flakes sometimes want the standard SmallWorld runtime plus a
+      # few additional nixpkgs Python packages or shell tools.
       mkDownstreamEnv =
         {
           system,
@@ -320,46 +368,48 @@
         }:
         let
           pkgs = pkgsFor system;
-          python = basePython.${system};
-          basePythonEnv = mkLockedVirtualenv system "${name}-python" runtimeDeps;
+          python = pythonFor system;
+
+          lockedPythonEnv = mkLockedVirtualenv system "${name}-python" runtimeSelection;
+
           extraPython = extraPythonPackages python.pkgs;
-          extraPythonEnv = if extraPython == [ ] then null else python.withPackages (_: extraPython);
+          extraPythonEnv =
+            if extraPython == [ ] then
+              null
+            else
+              python.withPackages (_: extraPython);
 
           pythonEnv =
             if extraPythonEnv == null then
-              basePythonEnv
+              lockedPythonEnv
             else
               mkBuildEnvWithHook {
                 inherit pkgs;
                 name = "${name}-python";
                 paths = [
-                  basePythonEnv
+                  lockedPythonEnv
                   extraPythonEnv
                 ];
-                setupHookInputs = [ basePythonEnv ];
+                setupHookInputs = [ lockedPythonEnv ];
                 extraSetupHook = ''
                   export PYTHONPATH=${extraPythonEnv}/${python.sitePackages}''${PYTHONPATH:+:$PYTHONPATH}
                 '';
               };
 
-          smallworldEnv = mkSmallworldEnv {
-            inherit system;
+          runtimeEnv = mkRuntimeEnv {
+            inherit system name;
             env = pythonEnv;
-            inherit name;
           };
         in
         if extraPackages == [ ] then
-          smallworldEnv
+          runtimeEnv
         else
           mkBuildEnvWithHook {
             inherit pkgs name;
-            paths = [ smallworldEnv ] ++ extraPackages;
-            setupHookInputs = [ smallworldEnv ];
+            paths = [ runtimeEnv ] ++ extraPackages;
+            setupHookInputs = [ runtimeEnv ];
           };
 
-      # Build a ready-to-use shell for downstream consumers. This wraps the
-      # assembled runtime environment so downstream flakes do not need to
-      # write their own `pkgs.mkShell` boilerplate just to add a few extras.
       mkDownstreamShell =
         {
           system,
@@ -372,19 +422,20 @@
         }:
         let
           pkgs = pkgsFor system;
-          smallworldEnv = mkDownstreamEnv {
+          runtimeEnv = mkDownstreamEnv {
             inherit system extraPythonPackages extraPackages;
             name = "${name}-env";
           };
         in
         pkgs.mkShell {
-          packages = [ smallworldEnv ] ++ packages;
+          packages = [ runtimeEnv ] ++ packages;
           inherit env shellHook;
         };
 
-      # The default emulator extras we expose from `mkPython`. Keep this in
-      # one place so the Python interpreter helper and the shell helper stay
-      # in sync.
+      # -------------------------------------------------------------------
+      # Helpers for downstream callers who prefer `python.withPackages`.
+      # -------------------------------------------------------------------
+
       defaultMkPythonExtras =
         python:
         [
@@ -394,95 +445,61 @@
         ]
         ++ lib.optional (lib.versionAtLeast python.pythonVersion "3.10") "emu-angr";
 
-      # `mkPython` itself only changes the Python interpreter. Some emulator
-      # backends also need native tools on PATH, so the shell helper adds those
-      # separately instead of making the interpreter helper do double duty.
-      mkPythonToolDeps =
+      mkPythonRuntimeSupport =
         {
           pkgs,
           smallworldExtras,
         }:
-        lib.optionals (builtins.elem "emu-ghidra" smallworldExtras) [
-          pkgs.ghidra
-          pkgs.jdk
-        ];
+        let
+          ghidra = mkGhidraRuntime pkgs;
+          needsGhidra = builtins.elem "emu-ghidra" smallworldExtras;
+        in
+        {
+          paths = lib.optionals needsGhidra ghidra.tools;
+          env = lib.optionalAttrs needsGhidra ghidra.env;
+          setupHook = lib.optionalString needsGhidra ghidra.setupHook;
+          nativeBuildInputs = lib.optionals needsGhidra [ pkgs.makeWrapper ];
 
-      # Ghidra also expects these environment variables when used from a shell.
-      mkPythonShellEnv =
-        {
-          pkgs,
-          smallworldExtras,
-        }:
-        lib.optionalAttrs (builtins.elem "emu-ghidra" smallworldExtras) {
-          GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-          JAVA_HOME = pkgs.jdk;
+          extraPostBuild = lib.optionalString needsGhidra ''
+            for program in "$out"/bin/*; do
+              if [ -f "$program" ] && [ -x "$program" ]; then
+                wrapProgram "$program" \
+                  --set-default GHIDRA_INSTALL_DIR ${ghidra.env.GHIDRA_INSTALL_DIR} \
+                  --set-default JAVA_HOME ${ghidra.env.JAVA_HOME}
+              fi
+            done
+          '';
         };
 
-      # Build a Python interpreter whose package set exposes SmallWorld as
-      # `ps.smallworld`, so downstream flakes can keep using
-      # `python.withPackages` without importing a global overlay.
+      # Build a Python interpreter whose `python.pkgs` set exposes
+      # `smallworld`, but without requiring the caller to import a global
+      # nixpkgs overlay.
       mkDownstreamPython =
         {
           pkgs,
           system ? pkgs.stdenv.hostPlatform.system,
-          python ? pkgs.python312,
-          # Include the emulator backends downstream users usually expect from
-          # `ps.smallworld`. angr only supports Python 3.10+, so leave it out
-          # automatically on older interpreters.
+          python ? pythonFor system,
           smallworldExtras ? defaultMkPythonExtras python,
           packageOverrides ? (_: _: { }),
         }:
         let
+          runtimeSupport = mkPythonRuntimeSupport {
+            inherit pkgs smallworldExtras;
+          };
+
           pythonSet = mkPythonSet {
             inherit system pkgs python;
           };
+
           pythonWithSmallworld = python.override {
             packageOverrides = lib.composeExtensions (
               py-final: _py-prev:
               let
-                # Resolve the full transitive dependency closure of one locked
-                # package from the uv2nix package set. Each dependency entry maps
-                # a package name to the extras that must be enabled on that
-                # dependency, so recurse through both direct dependencies and the
-                # enabled optional dependency groups.
-                resolveLockedDependencyNames =
-                  name: enabledExtras:
-                  let
-                    rawPkg = pythonSet.${name};
-                    selectedDeps = lib.zipAttrsWith (_name: extrasLists: lib.unique (lib.flatten extrasLists)) (
-                      [ (rawPkg.dependencies or { }) ]
-                      ++ map (extra: rawPkg.optional-dependencies.${extra} or { }) enabledExtras
-                    );
-                    depNames = builtins.attrNames selectedDeps;
-                  in
-                  lib.unique (
-                    depNames
-                    ++ lib.flatten (
-                      map (depName: resolveLockedDependencyNames depName selectedDeps.${depName}) depNames
-                    )
-                  );
-
-                rawSmallworld = pythonSet.smallworld-re;
-                pypandaModule = if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
-                smallworldDepNames = resolveLockedDependencyNames "smallworld-re" smallworldExtras;
-                # uv2nix records runtime Python dependencies in a `dependencies`
-                # attrset. Convert that closure into propagated Python module
-                # dependencies so `python.withPackages` can import SmallWorld
-                # with its transitive imports available. PANDA is excluded from
-                # uv.lock, so add the locally built pypanda module by hand when
-                # the downstream interpreter asks for that extra.
-                smallworldDeps =
-                  map (name: py-final.toPythonModule pythonSet.${name}) smallworldDepNames
-                  ++ lib.optional (builtins.elem "emu-panda" smallworldExtras && pypandaModule != null) pypandaModule;
-                smallworldModule = py-final.toPythonModule (
-                  rawSmallworld.overrideAttrs (old: {
-                    propagatedBuildInputs = (old.propagatedBuildInputs or [ ]) ++ smallworldDeps;
-                  })
-                );
+                smallworldModule = mkSmallworldPythonModule {
+                  inherit pythonSet py-final smallworldExtras;
+                };
               in
               {
-                # Provide both names so downstream code can choose the nicer
-                # `ps.smallworld` spelling while still matching the package name.
                 smallworld = smallworldModule;
                 "smallworld-re" = smallworldModule;
               }
@@ -496,40 +513,23 @@
             let
               baseEnv = pythonWithSmallworld.withPackages packageSelector;
             in
-            pkgs.symlinkJoin {
+            mkBuildEnvWithHook {
+              inherit pkgs;
               name = baseEnv.name;
-              paths = [ baseEnv ];
-              nativeBuildInputs = [ pkgs.makeWrapper ];
-              postBuild = ''
-                mkdir -p "$out/nix-support"
-                if [ -f "${baseEnv}/nix-support/setup-hook" ]; then
-                  cat "${baseEnv}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
-                else
-                  : > "$out/nix-support/setup-hook"
-                fi
-
-                cat >> "$out/nix-support/setup-hook" <<'EOF'
-                export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
-                EOF
-
-                for python_bin in "$out"/bin/python*; do
-                  if [ -f "$python_bin" ] && [ -x "$python_bin" ]; then
-                    wrapProgram "$python_bin" \
-                      --set-default GHIDRA_INSTALL_DIR ${ghidraInstallDir pkgs.ghidra}
-                  fi
-                done
-              '';
+              paths = [ baseEnv ] ++ runtimeSupport.paths;
+              pathsToLink = [ "/" ];
+              setupHookInputs = [ baseEnv ];
+              extraSetupHook = runtimeSupport.setupHook;
+              nativeBuildInputs = runtimeSupport.nativeBuildInputs;
+              extraPostBuild = runtimeSupport.extraPostBuild;
             };
         };
 
-      # Build a dev shell around `mkPython`. This is the convenient downstream
-      # entrypoint when callers want the `python.withPackages` workflow plus
-      # whatever native tools the selected emulator extras require.
       mkDownstreamPythonShell =
         {
           pkgs,
           system ? pkgs.stdenv.hostPlatform.system,
-          python ? pkgs.python312,
+          python ? pythonFor system,
           smallworldExtras ? defaultMkPythonExtras python,
           packageOverrides ? (_: _: { }),
           extraPythonPackages ? (_: [ ]),
@@ -538,6 +538,10 @@
           shellHook ? "",
         }:
         let
+          runtimeSupport = mkPythonRuntimeSupport {
+            inherit pkgs smallworldExtras;
+          };
+
           smallworldPython = mkDownstreamPython {
             inherit
               pkgs
@@ -547,151 +551,132 @@
               packageOverrides
               ;
           };
+
           pythonEnv = smallworldPython.withPackages (ps: [ ps.smallworld ] ++ extraPythonPackages ps);
         in
         pkgs.mkShell {
-          packages = [
-            pythonEnv
-          ]
-          ++ mkPythonToolDeps {
-            inherit pkgs smallworldExtras;
-          }
-          ++ packages;
-          env =
-            mkPythonShellEnv {
-              inherit pkgs smallworldExtras;
-            }
-            // env;
+          packages = [ pythonEnv ] ++ packages;
+          env = runtimeSupport.env // env;
           inherit shellHook;
         };
 
-      # =====================================================================
-      # Optional: Binary Ninja
-      # =====================================================================
+      # -------------------------------------------------------------------
+      # Optional Binary Ninja support.
+      # -------------------------------------------------------------------
 
-      bnUltimate = forAllSystems (
+      binaryNinjaFor =
         system:
         if binaryninja != null && binjaZip != null then
           let
-            bnPkgs = binaryninja.packages.${system};
+            binaryNinjaPackages = binaryninja.packages.${system};
           in
-          bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
+          binaryNinjaPackages.binary-ninja-ultimate-wayland.override {
+            overrideSource = binjaZip;
+          }
         else
-          null
-      );
+          null;
 
-    in
-    {
+      makePrintInputsTool =
+        pkgs:
+        pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
+          import json
+          import subprocess
 
-      # =====================================================================
-      # devShells — enter with `nix develop`
-      # =====================================================================
+          obj = json.loads(
+              subprocess.check_output(["nix", "flake", "archive", "--json"])
+          )
 
-      devShells = forAllSystems (
+
+          def print_node(node):
+              path = node.get("path")
+              if path:
+                  print(path)
+              for _, input_node in (node.get("inputs") or {}).items():
+                  print_node(input_node)
+
+
+          print_node(obj)
+        '';
+
+      # -------------------------------------------------------------------
+      # User-facing outputs.
+      # -------------------------------------------------------------------
+
+      mkDeveloperShell =
         system:
         let
           pkgs = pkgsFor system;
-
-          # The dev shell uses the same locked Python environment as the
-          # package output, plus a few developer-only tools.
-          virtualenv = mkLockedVirtualenv system "smallworld-re-dev-env" devDeps;
-
-          defaultShell = pkgs.mkShell {
-            packages = [
+          binaryNinja = binaryNinjaFor system;
+          virtualenv = mkLockedVirtualenv system "smallworld-re-dev-env" devSelection;
+        in
+        pkgs.mkShell {
+          packages =
+            [
               virtualenv
+              # The shellHook below uses `git rev-parse` to find the repo root.
+              pkgs.git
               pkgs.uv
               pkgs.nixfmt
               pkgs.nixfmt-tree
             ]
-            ++ toolDeps.${system}
-            ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
+            ++ runtimeToolsFor system
+            ++ lib.optional (binaryNinja != null) binaryNinja;
 
-            env = {
-              GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-            };
-
-            hardeningDisable = [ "all" ];
-
-            shellHook = ''
-              unset PYTHONPATH
-              export REPO_ROOT=$(git rev-parse --show-toplevel)
-            ''
-            + lib.optionalString (bnUltimate.${system} != null) ''
-
-              export BINJA_PATH=${bnUltimate.${system}}
-              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH
-            '';
+          env = {
+            GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
           };
-        in
-        {
-          default = defaultShell;
-          # Alias so shebangs like `nix develop .#pythonEnv` keep working.
-          pythonEnv = defaultShell;
-        }
-      );
 
-      # =====================================================================
-      # Packages — build with `nix build .#<name>`
-      # =====================================================================
+          hardeningDisable = [ "all" ];
 
-      packages = forAllSystems (
+          shellHook = ''
+            unset PYTHONPATH
+            export REPO_ROOT=$(git rev-parse --show-toplevel)
+          ''
+          + lib.optionalString (binaryNinja != null) ''
+            export BINJA_PATH=${binaryNinja}
+            export PYTHONPATH=${binaryNinja}/opt/binaryninja/python:$PYTHONPATH
+          '';
+        };
+
+      mkPackageOutputs =
         system:
         let
           pkgs = pkgsFor system;
           pythonSet = pythonSets.${system};
-          virtualenv = mkLockedVirtualenv system "smallworld-re-env" runtimeDeps;
+          binaryNinja = binaryNinjaFor system;
+
+          virtualenv = mkLockedVirtualenv system "smallworld-re-env" runtimeSelection;
           smallworldEnv = mkDownstreamEnv {
             inherit system;
             name = "smallworld-re-env";
           };
+        in
+        {
+          # `nix build` with no target builds the full runtime environment.
+          default = smallworldEnv;
+          inherit smallworldEnv;
 
-          # Helper used by CI/debugging to print the full flake input closure.
-          printInputsRecursive = pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
-            import json
-            import subprocess
+          # Build just the Python package artifact with:
+          #   nix build .#smallworld-re
+          "smallworld-re" = pythonSet.smallworld-re;
 
-            obj = json.loads(
-                subprocess.check_output(["nix", "flake", "archive", "--json"])
-            )
+          # Keep a direct "just the virtualenv" target for convenience.
+          venv = virtualenv;
 
+          printInputsRecursive = makePrintInputsTool pkgs;
 
-            def print_node(node):
-                path = node.get("path")
-                if path:
-                    print(path)
-                for _, input_node in (node.get("inputs") or {}).items():
-                    print_node(input_node)
+          dockerImage =
+            let
+              hasBinaryNinja = binaryNinja != null;
+            in
+            pkgs.dockerTools.buildImage {
+              name = "smallworld-re";
+              tag = "latest";
 
-
-            print_node(obj)
-          '';
-
-          basePackages = {
-            inherit printInputsRecursive;
-
-            # `nix build` with no target gives you the assembled runtime env.
-            default = smallworldEnv;
-            inherit smallworldEnv;
-
-            # If you want just the Python package artifact, build this target
-            # explicitly with: nix build .#smallworld-re
-            "smallworld-re" = pythonSet.smallworld-re;
-
-            # Kept as a convenience when only the Python virtualenv is needed.
-            venv = virtualenv;
-
-            # Docker image containing smallworld + all tools.
-            dockerImage =
-              let
-                bn = bnUltimate.${system};
-                hasBinja = bn != null;
-              in
-              pkgs.dockerTools.buildImage {
-                name = "smallworld-re";
-                tag = "latest";
-                copyToRoot = pkgs.buildEnv {
-                  name = "smallworld-root";
-                  paths = [
+              copyToRoot = pkgs.buildEnv {
+                name = "smallworld-root";
+                paths =
+                  [
                     pkgs.dockerTools.usrBinEnv
                     pkgs.dockerTools.binSh
                     pkgs.dockerTools.caCertificates
@@ -702,52 +687,57 @@
                     pkgs.stdenv.cc.cc.lib
                     virtualenv
                   ]
-                  ++ toolDeps.${system}
-                  ++ lib.optional hasBinja bn;
-                  pathsToLink = [
+                  ++ runtimeToolsFor system
+                  ++ lib.optional hasBinaryNinja binaryNinja;
+
+                pathsToLink =
+                  [
                     "/bin"
                     "/etc"
                     "/var"
                     "/lib"
                   ]
-                  ++ lib.optional hasBinja "/opt";
-                };
-                config = {
-                  Cmd = [ "/bin/sh" ];
-                  Env = [
-                    "LD_LIBRARY_PATH=/lib"
-                    "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-                    "JAVA_HOME=${pkgs.jre}"
-                  ];
-                };
+                  ++ lib.optional hasBinaryNinja "/opt";
               };
-          };
+
+              config = {
+                Cmd = [ "/bin/sh" ];
+                Env = [
+                  "LD_LIBRARY_PATH=/lib"
+                  "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
+                  "JAVA_HOME=${pkgs.jre}"
+                ];
+              };
+            };
+        }
+        // lib.optionalAttrs (binaryNinja != null) {
+          binaryninja-ultimate = binaryNinja;
+        };
+
+    in
+    {
+      devShells = forEachSystem (
+        system:
+        let
+          defaultShell = mkDeveloperShell system;
         in
-        basePackages
-        // lib.optionalAttrs (bnUltimate.${system} != null) {
-          binaryninja-ultimate = bnUltimate.${system};
+        {
+          default = defaultShell;
+          # Kept so old shebangs like `nix develop .#pythonEnv` still work.
+          pythonEnv = defaultShell;
         }
       );
 
-      # A small helper library for downstream flakes.
+      packages = forEachSystem mkPackageOutputs;
+
+      # Small helper library for downstream flakes.
       lib = {
-        # Build the standard SmallWorld runtime environment, optionally with
-        # extra nixpkgs Python packages layered on top.
         mkEnv = mkDownstreamEnv;
-
-        # Build a simple development shell around the standard runtime
-        # environment, with optional extra Python packages and shell tools.
         mkShell = mkDownstreamShell;
-
-        # Build a Python interpreter whose `python.pkgs` set includes
-        # `smallworld`, without mutating the caller's nixpkgs import.
         mkPython = mkDownstreamPython;
-
-        # Build a shell around `mkPython`, including the native tools needed
-        # by the selected emulator extras.
         mkPythonShell = mkDownstreamPythonShell;
       };
 
-      formatter = forAllSystems (system: (pkgsFor system).nixfmt);
+      formatter = forEachSystem (system: (pkgsFor system).nixfmt);
     };
 }
