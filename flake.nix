@@ -78,24 +78,22 @@
       ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
 
       # Small helper for the two environment variables Ghidra expects.
-      mkGhidraRuntime =
-        pkgs:
-        {
-          tools = [
-            pkgs.ghidra
-            pkgs.jdk
-          ];
+      mkGhidraRuntime = pkgs: {
+        tools = [
+          pkgs.ghidra
+          pkgs.jdk
+        ];
 
-          env = {
-            GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-            JAVA_HOME = pkgs.jdk;
-          };
-
-          setupHook = ''
-            export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
-            export JAVA_HOME=${pkgs.jdk}
-          '';
+        env = {
+          GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
+          JAVA_HOME = pkgs.jdk;
         };
+
+        setupHook = ''
+          export GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}
+          export JAVA_HOME=${pkgs.jdk}
+        '';
+      };
 
       # -------------------------------------------------------------------
       # Read the Python workspace.
@@ -143,8 +141,7 @@
         "unicorn"
       ];
 
-      addPrebuiltPlaceholders =
-        deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
+      addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
 
       # -------------------------------------------------------------------
       # Build the Python packages that cannot safely come from wheels.
@@ -225,19 +222,17 @@
         pythonSet: name: enabledExtras:
         let
           rawPackage = pythonSet.${name};
-          selectedDeps =
-            lib.zipAttrsWith (_depName: extrasLists: lib.unique (lib.flatten extrasLists)) (
-              [ (rawPackage.dependencies or { }) ]
-              ++ map (extra: rawPackage.optional-dependencies.${extra} or { }) enabledExtras
-            );
+          selectedDeps = lib.zipAttrsWith (_depName: extrasLists: lib.unique (lib.flatten extrasLists)) (
+            [ (rawPackage.dependencies or { }) ]
+            ++ map (extra: rawPackage.optional-dependencies.${extra} or { }) enabledExtras
+          );
           dependencyNames = builtins.attrNames selectedDeps;
         in
         lib.unique (
           dependencyNames
           ++ lib.flatten (
             map (
-              dependencyName:
-              resolveLockedDependencyNames pythonSet dependencyName selectedDeps.${dependencyName}
+              dependencyName: resolveLockedDependencyNames pythonSet dependencyName selectedDeps.${dependencyName}
             ) dependencyNames
           )
         );
@@ -254,20 +249,13 @@
         let
           rawSmallworld = pythonSet.smallworld-re;
 
-          pypandaModule =
-            if pythonSet ? pypanda then
-              py-final.toPythonModule pythonSet.pypanda
-            else
-              null;
+          pypandaModule = if pythonSet ? pypanda then py-final.toPythonModule pythonSet.pypanda else null;
 
-          dependencyNames =
-            resolveLockedDependencyNames pythonSet "smallworld-re" smallworldExtras;
+          dependencyNames = resolveLockedDependencyNames pythonSet "smallworld-re" smallworldExtras;
 
           dependencyModules =
             map (name: py-final.toPythonModule pythonSet.${name}) dependencyNames
-            ++ lib.optional (
-              builtins.elem "emu-panda" smallworldExtras && pypandaModule != null
-            ) pypandaModule;
+            ++ lib.optional (builtins.elem "emu-panda" smallworldExtras && pypandaModule != null) pypandaModule;
         in
         py-final.toPythonModule (
           rawSmallworld.overrideAttrs (old: {
@@ -282,9 +270,7 @@
           ghidra = mkGhidraRuntime pkgs;
         in
         # afl++ is not packaged for Apple Silicon macOS.
-        lib.optional (system != "aarch64-darwin") pkgs.aflplusplus
-        ++ [ pkgs.z3 ]
-        ++ ghidra.tools;
+        lib.optional (system != "aarch64-darwin") pkgs.aflplusplus ++ [ pkgs.z3 ] ++ ghidra.tools;
 
       # Compose multiple derivations into one environment while preserving the
       # setup hooks they export. This is the main "glue" helper for the file.
@@ -311,26 +297,23 @@
             ;
           ignoreCollisions = true;
 
-          postBuild =
-            ''
-              if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
-              mkdir -p "$out/nix-support"
-              if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
-              : > "$out/nix-support/setup-hook"
-            ''
-            + lib.concatMapStrings (
-              hookInput: ''
-                if [ -f "${hookInput}/nix-support/setup-hook" ]; then
-                  cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
-                fi
-              ''
-            ) setupHookInputs
-            + lib.optionalString (extraSetupHook != "") ''
-              cat >> "$out/nix-support/setup-hook" <<'EOF'
-              ${extraSetupHook}
-              EOF
-            ''
-            + extraPostBuild;
+          postBuild = ''
+            if [ -L "$out/nix-support" ]; then rm -f "$out/nix-support"; fi
+            mkdir -p "$out/nix-support"
+            if [ -e "$out/nix-support/setup-hook" ]; then rm -f "$out/nix-support/setup-hook"; fi
+            : > "$out/nix-support/setup-hook"
+          ''
+          + lib.concatMapStrings (hookInput: ''
+            if [ -f "${hookInput}/nix-support/setup-hook" ]; then
+              cat "${hookInput}/nix-support/setup-hook" >> "$out/nix-support/setup-hook"
+            fi
+          '') setupHookInputs
+          + lib.optionalString (extraSetupHook != "") ''
+            cat >> "$out/nix-support/setup-hook" <<'EOF'
+            ${extraSetupHook}
+            EOF
+          ''
+          + extraPostBuild;
         };
 
       mkLockedVirtualenv =
@@ -373,11 +356,7 @@
           lockedPythonEnv = mkLockedVirtualenv system "${name}-python" runtimeSelection;
 
           extraPython = extraPythonPackages python.pkgs;
-          extraPythonEnv =
-            if extraPython == [ ] then
-              null
-            else
-              python.withPackages (_: extraPython);
+          extraPythonEnv = if extraPython == [ ] then null else python.withPackages (_: extraPython);
 
           pythonEnv =
             if extraPythonEnv == null then
@@ -610,17 +589,16 @@
           virtualenv = mkLockedVirtualenv system "smallworld-re-dev-env" devSelection;
         in
         pkgs.mkShell {
-          packages =
-            [
-              virtualenv
-              # The shellHook below uses `git rev-parse` to find the repo root.
-              pkgs.git
-              pkgs.uv
-              pkgs.nixfmt
-              pkgs.nixfmt-tree
-            ]
-            ++ runtimeToolsFor system
-            ++ lib.optional (binaryNinja != null) binaryNinja;
+          packages = [
+            virtualenv
+            # The shellHook below uses `git rev-parse` to find the repo root.
+            pkgs.git
+            pkgs.uv
+            pkgs.nixfmt
+            pkgs.nixfmt-tree
+          ]
+          ++ runtimeToolsFor system
+          ++ lib.optional (binaryNinja != null) binaryNinja;
 
           env = {
             GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
@@ -675,29 +653,27 @@
 
               copyToRoot = pkgs.buildEnv {
                 name = "smallworld-root";
-                paths =
-                  [
-                    pkgs.dockerTools.usrBinEnv
-                    pkgs.dockerTools.binSh
-                    pkgs.dockerTools.caCertificates
-                    pkgs.dockerTools.fakeNss
-                    pkgs.coreutils
-                    pkgs.unzip
-                    pkgs.dbus.lib
-                    pkgs.stdenv.cc.cc.lib
-                    virtualenv
-                  ]
-                  ++ runtimeToolsFor system
-                  ++ lib.optional hasBinaryNinja binaryNinja;
+                paths = [
+                  pkgs.dockerTools.usrBinEnv
+                  pkgs.dockerTools.binSh
+                  pkgs.dockerTools.caCertificates
+                  pkgs.dockerTools.fakeNss
+                  pkgs.coreutils
+                  pkgs.unzip
+                  pkgs.dbus.lib
+                  pkgs.stdenv.cc.cc.lib
+                  virtualenv
+                ]
+                ++ runtimeToolsFor system
+                ++ lib.optional hasBinaryNinja binaryNinja;
 
-                pathsToLink =
-                  [
-                    "/bin"
-                    "/etc"
-                    "/var"
-                    "/lib"
-                  ]
-                  ++ lib.optional hasBinaryNinja "/opt";
+                pathsToLink = [
+                  "/bin"
+                  "/etc"
+                  "/var"
+                  "/lib"
+                ]
+                ++ lib.optional hasBinaryNinja "/opt";
               };
 
               config = {

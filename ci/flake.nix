@@ -45,11 +45,7 @@
       x86LinuxPkgs = pkgsFor "x86_64-linux";
 
       darwinArtifactSystemFor =
-        system:
-        if system == "aarch64-darwin" then
-          "aarch64-linux"
-        else
-          "x86_64-linux";
+        system: if system == "aarch64-darwin" then "aarch64-linux" else "x86_64-linux";
 
       mkXtensaGcc =
         system:
