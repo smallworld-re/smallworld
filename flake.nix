@@ -35,7 +35,7 @@
 
     # PANDA-ng provides the pypanda Python bindings.
     panda-ng = {
-      url = "git+file:/Users/an24021/Projects/panda-ng/";
+      url = "github:panda-re/panda-ng";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
