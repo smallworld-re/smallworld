@@ -1,35 +1,40 @@
 # Tests
 
-A collection of interesting test cases for analysis, documented with comments.
+A collection of SmallWorld integration scenarios, library-model checks, and unit
+tests.
 
 ## Organization
 
-Each sub-directory contains cross-architecture variants
-of a single test case, along with scripts to exercise
-that test for each relevant emulator:
+Most scenario directories contain:
 
 - `test.arch.s`: Assembly for building a raw binary for `test` for `arch`.
 - `test.arch.elf.s`: Assembly for building an ELF executable for `test` for `arch`.
 - `test.elf.c`: C for building ELF executable files for `test` for all viable architectures.
 - `test.so.c`: C for building all ELF shared object files for `test` for all viable architectures.
 - `test.pe.c`: C for building all PE executable files for `test` for all viable architectures.
-- `test.arch.py`: Script for exercising the test case using Unicorn.
-- `test.arch.angr.py`: Script for exercising the test case using angr.
-- `test.arch.panda.py`: Script for exercising the test case using Panda.
+- `test.arch.py`: The legacy Unicorn harness for one platform.
+- `test.arch.angr.py`: The legacy angr harness for one platform.
+- `test.arch.panda.py`: The legacy Panda harness for one platform.
 
-The library model test cases have an extra layer of organization.
-Test cases for specific functions are grouped by API standard, 
-e.g.: `c99/atoi`.
+Those legacy scripts are still the implementation, but the supported entrypoint
+for running one scenario is now `run_case.py` rather than calling the files
+directly.
+Newly refactored families can also live under `harness/scenarios/`, where one
+shared Python module handles the full scenario matrix and `run_case.py` prefers
+that implementation before falling back to a legacy file.
+
+The library-model tests have an extra layer of organization. Test cases for
+specific functions are grouped by API standard, for example `c99/atoi`.
 
 There are also two test suites in the root directory:
 
 - `unit.py`: Performs a collection of basic unit tests on the `smallworld` library
-- `integration.py`: Exercises and verifies most test scripts described above.
+- `integration.py`: Runs the manifest-driven integration suite
+- `run_case.py`: Runs one scenario/variant pair through a stable CLI
 
-Internally, `integration.py` groups tests into suites under a single class,
-with each suite containing multiple test cases,
-usually testing the same behavior for different combinations
-of platform and emulator.
+Internally, `integration.py` builds a manifest of cases with ids like
+`square:amd64` or `c99:memcpy:mips`. CI shards that manifest in parallel instead
+of relying on `unittest` suite class names.
 
 ## Usage
 
@@ -54,19 +59,23 @@ make -C elf_core    # NOTE: Requires `ulimit --core` to be set
 
 ### Running
 
-Tests can be run individually, or as part of the integration suite.
+Tests can be run individually, listed, filtered, or executed as part of the
+full integration suite.
 
 The test binaries need to be compiled before the tests can be run.
 Thus, the suite is not fully supported on a platform without cross-compiler support.
 
 #### Integration Tests
 
-The integration test script can run all tests, a single suite, or a single case.
+The integration runner works from case ids and filters:
 
 ```bash
-python3 integration.py                      # Executes all test cases
-python3 integration.py SuiteTests           # Execute all test cases in one suite
-python3 integration.py SuiteTests.test_case # Execute a single test case
+python3 integration.py                               # Execute all manifest cases
+python3 integration.py --filter square               # Run matching ids/tags
+python3 integration.py --filter '^square:'           # Run only the square family
+python3 integration.py --list                        # List all cases
+python3 integration.py --list --format json         # Machine-readable listing
+python3 integration.py --shard-index 0 --shard-count 8
 ```
 
 Some features of smallworld are optional, given dependencies on large external libraries.
@@ -74,10 +83,13 @@ The integration tests assume that all features are present.
 
 #### Test Cases
 
-The individual test cases can be run on their own:
+Run a single scenario through the stable wrapper:
 
 ```bash
-python3 test.arch.emulator.py
+python3 run_case.py square amd64 42
+python3 run_case.py checked_heap.read amd64.angr
+python3 run_case.py elf_core.actuate amd64
 ```
 
-Some test cases require arguments.  See the specific scripts for details.
+Some scenarios require extra arguments. See the underlying harness script for
+details.

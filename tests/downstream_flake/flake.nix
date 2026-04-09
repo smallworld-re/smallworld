@@ -15,48 +15,60 @@
       ...
     }:
     let
-      system = "x86_64-linux"; # change if needed (e.g. aarch64-darwin)
-      pkgs = import nixpkgs {
-        inherit system;
-      };
-
-      # mkPython extends a regular nixpkgs Python interpreter with
-      # `ps.smallworld`, so downstream projects can keep using
-      # `python.withPackages` without importing a global overlay.
-      python = smallworld.lib.mkPython { inherit pkgs; };
-      pythonExtras = ps: [ ps.colorama ];
-
-      pythonEnv = python.withPackages (ps: [ ps.smallworld ] ++ pythonExtras ps);
-
-      # The runnable test package only needs the mkPython env plus the native
-      # Ghidra toolchain. z3 already comes from the Python environment.
-      runtimeInputs = [
-        pythonEnv
-        pkgs.ghidra
-        pkgs.jdk
+      lib = nixpkgs.lib;
+      supportedSystems = [
+        "x86_64-linux"
+        "x86_64-darwin"
+        "aarch64-darwin"
       ];
+      forAllSystems = lib.genAttrs supportedSystems;
 
-      # `nix run .` executes this wrapper, which in turn runs the downstream
-      # mkPython integration test with the tools SmallWorld expects on PATH.
-      downstreamTest = pkgs.writeShellApplication {
-        name = "downstream-flake-test";
-        runtimeInputs = runtimeInputs;
-        text = ''
-          python ${./test.py} "$@"
-        '';
-      };
+      perSystem = forAllSystems (
+        system:
+        let
+          pkgs = import nixpkgs {
+            inherit system;
+          };
+
+          # mkPython extends a regular nixpkgs Python interpreter with
+          # `ps.smallworld`, so downstream projects can keep using
+          # `python.withPackages` without importing a global overlay.
+          python = smallworld.lib.mkPython { inherit pkgs; };
+          pythonExtras = ps: [ ps.colorama ];
+
+          pythonEnv = python.withPackages (ps: [ ps.smallworld ] ++ pythonExtras ps);
+
+          # `nix run .` executes this wrapper, which in turn runs the downstream
+          # mkPython integration test. The mkPython environment already carries
+          # the native Ghidra toolchain it needs on PATH.
+          downstreamTest = pkgs.writeShellApplication {
+            name = "downstream-flake-test";
+            runtimeInputs = [ pythonEnv ];
+            text = ''
+              python ${./test.py} "$@"
+            '';
+          };
+        in
+        {
+          devShell = smallworld.lib.mkPythonShell {
+            inherit pkgs;
+            extraPythonPackages = pythonExtras;
+          };
+
+          package = downstreamTest;
+
+          app = {
+            type = "app";
+            program = "${downstreamTest}/bin/downstream-flake-test";
+          };
+        }
+      );
     in
     {
-      devShells.${system}.default = smallworld.lib.mkPythonShell {
-        inherit pkgs;
-        extraPythonPackages = pythonExtras;
-      };
+      devShells = lib.mapAttrs (_: value: { default = value.devShell; }) perSystem;
 
-      packages.${system}.default = downstreamTest;
+      packages = lib.mapAttrs (_: value: { default = value.package; }) perSystem;
 
-      apps.${system}.default = {
-        type = "app";
-        program = "${downstreamTest}/bin/downstream-flake-test";
-      };
+      apps = lib.mapAttrs (_: value: { default = value.app; }) perSystem;
     };
 }
