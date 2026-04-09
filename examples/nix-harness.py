@@ -1,4 +1,4 @@
-#!/usr/bin/env -S nix develop github:smallworld-re/smallworld#pythonEnv -c python
+#!/usr/bin/env -S nix develop github:smallworld-re/smallworld -c python
 
 import logging
 import sys
