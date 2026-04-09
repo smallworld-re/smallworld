@@ -41,213 +41,212 @@ let
       system;
 in
 let
-  packages =
-    forEachSystem (
-      system:
-      let
-        pkgs = pkgsFor system;
-        linuxBuilderSystem = linuxBuilderSystemFor system;
-        libExt = if pkgs.stdenv.isDarwin then "dylib" else "so";
-        pyPkgs = pkgs.python3Packages;
-        pandaQemuSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.panda-qemu-src.locked;
-        libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
-        # Keep the upstream source intact and layer our temporary local fixes
-        # on top so it is obvious what can be deleted later.
-        pandaNgSrc = pkgs.applyPatches {
-          name = "panda-ng-src";
-          src = panda-ng.outPath;
-          patches = [ ./patches/panda-ng-darwin.patch ];
-        };
-        targetList = [
-          "x86_64-softmmu"
-          "i386-softmmu"
-          "arm-softmmu"
-          "aarch64-softmmu"
-          "ppc-softmmu"
-          "mips-softmmu"
-          "mipsel-softmmu"
-          "mips64-softmmu"
-          "ppc64-softmmu"
-          "mips64el-softmmu"
-          "loongarch64-softmmu"
-          "riscv32-softmmu"
-          "riscv64-softmmu"
+  packages = forEachSystem (
+    system:
+    let
+      pkgs = pkgsFor system;
+      linuxBuilderSystem = linuxBuilderSystemFor system;
+      libExt = if pkgs.stdenv.isDarwin then "dylib" else "so";
+      pyPkgs = pkgs.python3Packages;
+      pandaQemuSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.panda-qemu-src.locked;
+      libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
+      # Keep the upstream source intact and layer our temporary local fixes
+      # on top so it is obvious what can be deleted later.
+      pandaNgSrc = pkgs.applyPatches {
+        name = "panda-ng-src";
+        src = panda-ng.outPath;
+        patches = [ ./patches/panda-ng-darwin.patch ];
+      };
+      targetList = [
+        "x86_64-softmmu"
+        "i386-softmmu"
+        "arm-softmmu"
+        "aarch64-softmmu"
+        "ppc-softmmu"
+        "mips-softmmu"
+        "mipsel-softmmu"
+        "mips64-softmmu"
+        "ppc64-softmmu"
+        "mips64el-softmmu"
+        "loongarch64-softmmu"
+        "riscv32-softmmu"
+        "riscv64-softmmu"
+      ];
+      qemuConfigureFlags = [
+        "--enable-plugins"
+        "--disable-containers"
+        "--target-list=${builtins.concatStringsSep "," targetList}"
+      ];
+      libpandaHeaderNativeBuildInputs = with pkgs; [
+        pkg-config
+        gdb
+        pyPkgs.python
+        pyPkgs.cffi
+        pyPkgs.tree-sitter
+        pyPkgs.tree-sitter-grammars.tree-sitter-c
+      ];
+      # This keeps our libpanda-ng source in sync with the QEMU branch PANDA
+      # currently expects, then adds one more local patch for builder usage.
+      libpandaPatch = pkgs.fetchpatch {
+        url = "https://patch-diff.githubusercontent.com/raw/panda-re/libpanda-ng/pull/3.diff";
+        hash = "sha256-FN1OUdRhOIK+meOlJH9kPysjrM50qYQVnl/Ll6zGF6w=";
+        revert = true;
+      };
+      libpandaSrc = pkgs.applyPatches {
+        name = "libpanda-ng-src";
+        src = libpandaNgSrc;
+        patches = [
+          libpandaPatch
+          ./patches/libpanda-build-linux-builder.patch
         ];
-        qemuConfigureFlags = [
-          "--enable-plugins"
-          "--disable-containers"
-          "--target-list=${builtins.concatStringsSep "," targetList}"
+      };
+      qemuSubprojects = pkgs.stdenv.mkDerivation {
+        name = "qemu-subprojects";
+        version = "main";
+        src = pandaQemuSrc;
+        nativeBuildInputs = with pkgs; [
+          meson
+          git
+          cacert
         ];
-        libpandaHeaderNativeBuildInputs = with pkgs; [
+        buildCommand = ''
+          mkdir -pv work
+          cp -r --no-preserve=mode $src/meson.build work/
+          cp -r --no-preserve=mode $src/meson_options.txt work/
+          cp -r --no-preserve=mode $src/subprojects work/subprojects
+
+          pushd work
+          meson subprojects download
+          find subprojects -type d -name .git -prune -execdir rm -r {} +
+          popd
+
+          cp -r work/subprojects $out
+        '';
+        outputHash = "sha256-eUw7yBWxRKJbfhKvZDRNpTSaxrnDYr31Tkx35Myx4Fs=";
+        outputHashAlgo = "sha256";
+        outputHashMode = "recursive";
+      };
+      qemu = pkgs.qemu.overrideAttrs (old: {
+        version = "main";
+        src = pandaQemuSrc;
+        configureFlags = qemuConfigureFlags;
+        postUnpack = (old.postUnpack or "") + ''
+          cp -r --no-preserve=mode ${qemuSubprojects}/. ./source/subprojects/
+          patchShebangs ./source/scripts
+        '';
+        postInstall = (old.postInstall or "") + ''
+          cp -v ./contrib/plugins/libpanda_plugin_interface.${libExt} $out/lib/
+        '';
+      });
+      # `libpanda-ng/run_all.sh` generates the headers consumed by the PANDA
+      # bindings, so this is not a simple "copy include files" step.
+      libpandaHeaders =
+        if pkgs.stdenv.isLinux then
+          pkgs.qemu.overrideAttrs (old: {
+            pname = "libpanda-ng-headers";
+            version = "main";
+            outputs = [ "out" ];
+            separateDebugInfo = false;
+            src = pandaQemuSrc;
+            dontFixup = true;
+            nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
+            configureFlags = qemuConfigureFlags;
+            postUnpack = (old.postUnpack or "") + ''
+              cp -r --no-preserve=mode ${qemuSubprojects}/. ./source/subprojects/
+              cp -r --no-preserve=mode ${libpandaSrc} ./libpanda-ng
+              patchShebangs ./source/scripts ./libpanda-ng
+            '';
+            postBuild = (old.postBuild or "") + ''
+              mkdir -pv $TMPDIR/libpanda-ng/build
+              pushd $TMPDIR/libpanda-ng/build
+              bash ../run_all.sh $TMPDIR/source
+              popd
+            '';
+            installPhase = ''
+              runHook preInstall
+              mkdir -pv $out/include
+              cp -v $TMPDIR/libpanda-ng/build/*.h $out/include/
+              runHook postInstall
+            '';
+            postInstall = "";
+          })
+        else
+          # On Darwin, reuse the matching Linux builder result rather than
+          # trying to run the header generator directly on the host.
+          packages.${linuxBuilderSystem}.libpandaHeaders;
+      panda = pkgs.stdenv.mkDerivation {
+        name = "panda";
+        version = "main";
+        src = pandaNgSrc;
+        nativeBuildInputs = with pkgs; [
           pkg-config
-          gdb
-          pyPkgs.python
-          pyPkgs.cffi
-          pyPkgs.tree-sitter
-          pyPkgs.tree-sitter-grammars.tree-sitter-c
+          meson
+          ninja
+          cargo
         ];
-        # This keeps our libpanda-ng source in sync with the QEMU branch PANDA
-        # currently expects, then adds one more local patch for builder usage.
-        libpandaPatch = pkgs.fetchpatch {
-          url = "https://patch-diff.githubusercontent.com/raw/panda-re/libpanda-ng/pull/3.diff";
-          hash = "sha256-FN1OUdRhOIK+meOlJH9kPysjrM50qYQVnl/Ll6zGF6w=";
-          revert = true;
-        };
-        libpandaSrc = pkgs.applyPatches {
-          name = "libpanda-ng-src";
-          src = libpandaNgSrc;
-          patches = [
-            libpandaPatch
-            ./patches/libpanda-build-linux-builder.patch
-          ];
-        };
-        qemuSubprojects = pkgs.stdenv.mkDerivation {
-          name = "qemu-subprojects";
+        buildInputs = with pkgs; [
+          glib
+          curl
+          pyPkgs.python
+          pyPkgs.pycparser
+        ];
+        mesonFlags = [
+          "-Dcpp_std=gnu++17"
+          (pkgs.lib.strings.mesonOption "targets" (builtins.concatStringsSep "," targetList))
+        ];
+        preConfigure = ''
+          mkdir -p local_packages
+          ln -s ${libpandaHeaders}/include local_packages/panda-ng
+        '';
+        preInstall = ''
+          cp plugins/*/*.h plugins/
+          for dir in plugins/rust/rust_skeleton/*; do
+            arch=$(basename $dir)
+            cp -r $dir plugins/rust_rust_skeleton_$arch
+          done
+        '';
+        postInstall = ''
+          mkdir -pv $out/lib/panda/panda
+          mv $out/plugin $out/lib/panda/panda/plugins
+        '';
+      };
+      pypandaBuilder =
+        ps:
+        ps.buildPythonPackage {
+          pname = "pandare2";
           version = "main";
-          src = pandaQemuSrc;
-          nativeBuildInputs = with pkgs; [
-            meson
-            git
-            cacert
+          format = "setuptools";
+          src = "${pandaNgSrc}/python/core";
+          propagatedBuildInputs = with ps; [
+            cffi
+            colorama
           ];
-          buildCommand = ''
-            mkdir -pv work
-            cp -r --no-preserve=mode $src/meson.build work/
-            cp -r --no-preserve=mode $src/meson_options.txt work/
-            cp -r --no-preserve=mode $src/subprojects work/subprojects
-
-            pushd work
-            meson subprojects download
-            find subprojects -type d -name .git -prune -execdir rm -r {} +
-            popd
-
-            cp -r work/subprojects $out
-          '';
-          outputHash = "sha256-eUw7yBWxRKJbfhKvZDRNpTSaxrnDYr31Tkx35Myx4Fs=";
-          outputHashAlgo = "sha256";
-          outputHashMode = "recursive";
-        };
-        qemu = pkgs.qemu.overrideAttrs (old: {
-          version = "main";
-          src = pandaQemuSrc;
-          configureFlags = qemuConfigureFlags;
-          postUnpack = (old.postUnpack or "") + ''
-            cp -r --no-preserve=mode ${qemuSubprojects}/. ./source/subprojects/
-            patchShebangs ./source/scripts
-          '';
-          postInstall = (old.postInstall or "") + ''
-            cp -v ./contrib/plugins/libpanda_plugin_interface.${libExt} $out/lib/
-          '';
-        });
-        # `libpanda-ng/run_all.sh` generates the headers consumed by the PANDA
-        # bindings, so this is not a simple "copy include files" step.
-        libpandaHeaders =
-          if pkgs.stdenv.isLinux then
-            pkgs.qemu.overrideAttrs (old: {
-              pname = "libpanda-ng-headers";
-              version = "main";
-              outputs = [ "out" ];
-              separateDebugInfo = false;
-              src = pandaQemuSrc;
-              dontFixup = true;
-              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
-              configureFlags = qemuConfigureFlags;
-              postUnpack = (old.postUnpack or "") + ''
-                cp -r --no-preserve=mode ${qemuSubprojects}/. ./source/subprojects/
-                cp -r --no-preserve=mode ${libpandaSrc} ./libpanda-ng
-                patchShebangs ./source/scripts ./libpanda-ng
-              '';
-              postBuild = (old.postBuild or "") + ''
-                mkdir -pv $TMPDIR/libpanda-ng/build
-                pushd $TMPDIR/libpanda-ng/build
-                bash ../run_all.sh $TMPDIR/source
-                popd
-              '';
-              installPhase = ''
-                runHook preInstall
-                mkdir -pv $out/include
-                cp -v $TMPDIR/libpanda-ng/build/*.h $out/include/
-                runHook postInstall
-              '';
-              postInstall = "";
-            })
-          else
-            # On Darwin, reuse the matching Linux builder result rather than
-            # trying to run the header generator directly on the host.
-            packages.${linuxBuilderSystem}.libpandaHeaders;
-        panda = pkgs.stdenv.mkDerivation {
-          name = "panda";
-          version = "main";
-          src = pandaNgSrc;
-          nativeBuildInputs = with pkgs; [
-            pkg-config
-            meson
-            ninja
-            cargo
-          ];
-          buildInputs = with pkgs; [
-            glib
-            curl
-            pyPkgs.python
-            pyPkgs.pycparser
-          ];
-          mesonFlags = [
-            "-Dcpp_std=gnu++17"
-            (pkgs.lib.strings.mesonOption "targets" (builtins.concatStringsSep "," targetList))
-          ];
-          preConfigure = ''
-            mkdir -p local_packages
-            ln -s ${libpandaHeaders}/include local_packages/panda-ng
-          '';
-          preInstall = ''
-            cp plugins/*/*.h plugins/
-            for dir in plugins/rust/rust_skeleton/*; do
-              arch=$(basename $dir)
-              cp -r $dir plugins/rust_rust_skeleton_$arch
-            done
+          preBuild = ''
+            substituteInPlace setup.py --replace-fail /usr/include/panda-ng ${libpandaHeaders}/include
+            grep 'plugin_dir =' setup.py
+            sed -i 's,plugin_dir = .*,plugin_dir="${pandaNgSrc}/plugins",' setup.py
           '';
           postInstall = ''
-            mkdir -pv $out/lib/panda/panda
-            mv $out/plugin $out/lib/panda/panda/plugins
+            mkdir -pv $out/lib/qemu/build
+            cp -R ${qemu}/lib/libpanda-*.${libExt} $out/lib/qemu/build/
+            mkdir -pv $out/lib/qemu/build/contrib/plugins
+            cp -R ${qemu}/lib/libpanda_plugin_interface.${libExt} $out/lib/qemu/build/contrib/plugins/
+            mkdir -pv $out/lib/qemu/pc-bios
+            cp -R ${qemu}/share/qemu/*.rom ${qemu}/share/qemu/*.bin $out/lib/qemu/pc-bios/
           '';
         };
-        pypandaBuilder =
-          ps:
-          ps.buildPythonPackage {
-            pname = "pandare2";
-            version = "main";
-            format = "setuptools";
-            src = "${pandaNgSrc}/python/core";
-            propagatedBuildInputs = with ps; [
-              cffi
-              colorama
-            ];
-            preBuild = ''
-              substituteInPlace setup.py --replace-fail /usr/include/panda-ng ${libpandaHeaders}/include
-              grep 'plugin_dir =' setup.py
-              sed -i 's,plugin_dir = .*,plugin_dir="${pandaNgSrc}/plugins",' setup.py
-            '';
-            postInstall = ''
-              mkdir -pv $out/lib/qemu/build
-              cp -R ${qemu}/lib/libpanda-*.${libExt} $out/lib/qemu/build/
-              mkdir -pv $out/lib/qemu/build/contrib/plugins
-              cp -R ${qemu}/lib/libpanda_plugin_interface.${libExt} $out/lib/qemu/build/contrib/plugins/
-              mkdir -pv $out/lib/qemu/pc-bios
-              cp -R ${qemu}/share/qemu/*.rom ${qemu}/share/qemu/*.bin $out/lib/qemu/pc-bios/
-            '';
-          };
-        pypanda = pypandaBuilder pyPkgs;
-      in
-      {
-        inherit
-          libpandaHeaders
-          panda
-          pypanda
-          pypandaBuilder
-          qemu
-          qemuSubprojects
-          ;
-      }
-    );
+      pypanda = pypandaBuilder pyPkgs;
+    in
+    {
+      inherit
+        libpandaHeaders
+        panda
+        pypanda
+        pypandaBuilder
+        qemu
+        qemuSubprojects
+        ;
+    }
+  );
 in
 packages

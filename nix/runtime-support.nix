@@ -169,7 +169,12 @@ let
       };
     in
     mkRuntimeEnv {
-      inherit system name pythonEnv extraPackages;
+      inherit
+        system
+        name
+        pythonEnv
+        extraPackages
+        ;
     };
 
   mkDownstreamEnv =
@@ -180,7 +185,12 @@ let
       extraPackages ? [ ],
     }:
     mkLockedRuntimeEnv {
-      inherit system name extraPythonPackages extraPackages;
+      inherit
+        system
+        name
+        extraPythonPackages
+        extraPackages
+        ;
       selection = runtimeSelection;
     };
 
@@ -354,16 +364,15 @@ let
       };
     in
     pkgs.mkShell {
-      packages =
-        [
-          runtimeEnv
-          # The shellHook below uses `git rev-parse` to find the repo root.
-          pkgs.git
-          pkgs.uv
-          pkgs.nixfmt
-          pkgs.nixfmt-tree
-        ]
-        ++ lib.optional (binaryNinja != null) binaryNinja;
+      packages = [
+        runtimeEnv
+        # The shellHook below uses `git rev-parse` to find the repo root.
+        pkgs.git
+        pkgs.uv
+        pkgs.nixfmt
+        pkgs.nixfmt-tree
+      ]
+      ++ lib.optional (binaryNinja != null) binaryNinja;
 
       hardeningDisable = [ "all" ];
 
