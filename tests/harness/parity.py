@@ -4,7 +4,7 @@ import pathlib
 
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
-from .scenarios import branch, call, dma, exitpoint, square, stack, static_buf, strlen, unmapped
+from .scenarios import branch, call, dma, exitpoint, recursion, square, stack, static_buf, strlen, unmapped
 
 
 GENERIC_SUITES = {
@@ -75,6 +75,7 @@ REGISTERED_SCENARIOS = {
     "call": call,
     "dma": dma,
     "exitpoint": exitpoint,
+    "recursion": recursion,
     "square": square,
     "stack": stack,
     "static_buf": static_buf,

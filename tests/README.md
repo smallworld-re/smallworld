@@ -5,23 +5,26 @@ tests.
 
 ## Organization
 
-Most scenario directories contain:
+Many scenario directories contain:
 
 - `test.arch.s`: Assembly for building a raw binary for `test` for `arch`.
 - `test.arch.elf.s`: Assembly for building an ELF executable for `test` for `arch`.
 - `test.elf.c`: C for building ELF executable files for `test` for all viable architectures.
 - `test.so.c`: C for building all ELF shared object files for `test` for all viable architectures.
 - `test.pe.c`: C for building all PE executable files for `test` for all viable architectures.
-- `test.arch.py`: The legacy Unicorn harness for one platform.
-- `test.arch.angr.py`: The legacy angr harness for one platform.
-- `test.arch.panda.py`: The legacy Panda harness for one platform.
+- `test.arch.py`: A legacy Unicorn harness for one platform, if that family has
+  not been migrated yet.
+- `test.arch.angr.py`: A legacy angr harness for one platform, if that family
+  has not been migrated yet.
+- `test.arch.panda.py`: A legacy Panda harness for one platform, if that family
+  has not been migrated yet.
 
-Those legacy scripts are still the implementation, but the supported entrypoint
-for running one scenario is now `run_case.py` rather than calling the files
-directly.
-Newly refactored families can also live under `harness/scenarios/`, where one
-shared Python module handles the full scenario matrix and `run_case.py` prefers
-that implementation before falling back to a legacy file.
+The supported entrypoint for running one scenario is `run_case.py` rather than
+calling the files in a scenario directory directly.
+Refactored families live under `harness/scenarios/`, where one shared Python
+module handles the full scenario matrix and `run_case.py` uses that
+implementation directly. Legacy wrapper scripts remain only for the families
+that have not been migrated yet.
 
 The library-model tests have an extra layer of organization. Test cases for
 specific functions are grouped by API standard, for example `c99/atoi`.
