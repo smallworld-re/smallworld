@@ -9,7 +9,7 @@ Next, we will need a binary to harness. For this example, we use [Zephyr](https:
 We use Nix to build our `zephyr.elf` binary deterministically. Run the commands below to compile `zephyr.elf` and copy it into the current directory.
 
 ```sh
-nix build .#rtos_demo
+nix build ./ci#rtos_demo
 cp result/zephyr.elf ./zephyr.elf
 ```
 

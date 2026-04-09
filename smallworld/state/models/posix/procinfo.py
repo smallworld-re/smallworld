@@ -10,7 +10,7 @@ class ProcInfoManager:
 
     _singleton: typing.Optional["ProcInfoManager"] = None
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Credentials information
         # Real user/group IDs
         self.uid: int = 0

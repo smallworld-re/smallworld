@@ -41,8 +41,8 @@ class Stateful(metaclass=abc.ABCMeta):
         return id(self)
 
 
-type CTypesAny = typing.Union[ctypes.Structure, ctypes.Union]
-type ValueContent = typing.Union[None, int, bytes, claripy.ast.bv.BV, CTypesAny]
+CTypesAny = typing.Union[ctypes.Structure, ctypes.Union]
+ValueContent = typing.Union[None, int, bytes, claripy.ast.bv.BV, CTypesAny]
 
 
 class Value(metaclass=abc.ABCMeta):

@@ -1,6 +1,19 @@
+# Nix flake for smallworld-re.
+#
+# Reader's guide:
+# - this file is intentionally small and mostly declarative
+# - `nix/python-packages.nix` turns `uv.lock` into Nix Python packages
+# - `nix/runtime-support.nix` assembles shells, runtime envs, and downstream helpers
+# - `nix/panda-packages.nix` contains the PANDA-specific native build glue
+#
+# If you are new to Nix, the most important idea is:
+# "inputs" says what external code we depend on, and "outputs" says what
+# commands like `nix build` and `nix develop` expose to users.
 {
   description = "smallworld-re";
 
+  # External inputs. `follows` means "reuse the parent's copy" so we do not
+  # accidentally pull in multiple versions of the same dependency tree.
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
 
@@ -8,13 +21,11 @@
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
     uv2nix = {
       url = "github:pyproject-nix/uv2nix";
       inputs.pyproject-nix.follows = "pyproject-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-
     pyproject-build-systems = {
       url = "github:pyproject-nix/build-system-pkgs";
       inputs.pyproject-nix.follows = "pyproject-nix";
@@ -22,556 +33,93 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # PANDA is the only major dependency that still needs custom Nix glue.
+    # See `nix/panda-packages.nix` for the explanation.
     panda-ng = {
       url = "github:panda-re/panda-ng";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    nixpkgs-esp-dev = {
-      url = "github:mirrexagon/nixpkgs-esp-dev";
-      flake = false;
-    };
-
-    #  binaryninja = {
-    #    url = "github:jchv/nix-binary-ninja";
-    #    inputs.nixpkgs.follows = "nixpkgs";
-    #  };
-
-    #  binjaZip = {
-    #    url = "path:./binaryninja_linux_stable_ultimate.zip";
-    #    flake = false;
-    #  };
-
-    # For building RTOS Demo
-    zephyr-nix = {
-      url = "github:adisbladis/zephyr-nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.pyproject-nix.follows = "pyproject-nix";
-    };
-    west2nix = {
-      url = "github:adisbladis/west2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-      inputs.zephyr-nix.follows = "zephyr-nix";
-    };
+    # Optional Binary Ninja support (uncomment both to enable).
+    # binaryninja = {
+    #   url = "github:jchv/nix-binary-ninja";
+    #   inputs.nixpkgs.follows = "nixpkgs";
+    # };
+    # binjaZip = {
+    #   url = "path:./binaryninja_linux_stable_ultimate.zip";
+    #   flake = false;
+    # };
   };
 
   outputs =
     inputs@{
-      self,
       nixpkgs,
-      pyproject-nix,
-      uv2nix,
-      pyproject-build-systems,
       panda-ng,
-      nixpkgs-esp-dev,
-      zephyr-nix,
-      west2nix,
+      pyproject-nix,
+      pyproject-build-systems,
+      uv2nix,
       ...
     }:
     let
       lib = nixpkgs.lib;
-      systems = lib.systems.flakeExposed;
-      forAllSystems = lib.genAttrs systems;
-
-      binaryninja = inputs.binaryninja or null;
-      binjaZip = inputs.binjaZip or null;
+      supportedSystems = lib.systems.flakeExposed;
+      forEachSystem = lib.genAttrs supportedSystems;
 
       pkgsFor = system: nixpkgs.legacyPackages.${system};
+      pythonFor = system: (pkgsFor system).python312;
 
-      ghidraInstallDir = ghidra: "${ghidra}/lib/ghidra";
+      pandaPackages = import ./nix/panda-packages.nix {
+        inherit
+          lib
+          forEachSystem
+          panda-ng
+          pkgsFor
+          ;
+      };
 
-      # Helpers shared between the uv2nix "prebuilts" overlay and the nixpkgs python overlay.
-      pythonNativeAddons = forAllSystems (
-        system:
-        { pythonPkgs, unicornPy }:
-        {
-          fetchFromGitHub,
-          unicorn,
-          callPackage,
-          ...
-        }:
-        let
-          mkUnicornafl = callPackage ./unicornafl-build { };
-          patchedUnicornSrc = fetchFromGitHub {
-            owner = "appleflyerv3";
-            repo = "unicorn";
-            rev = "mmio_map_pc_sync";
-            hash = "sha256-0MH+JS/mPESnTf21EOfGbuVrrrxf1i8WzzwzaPeCt1w=";
-          };
-          patchedUnicorn = unicorn.overrideAttrs (_: {
-            src = patchedUnicornSrc;
-          });
-          patchedUnicornPy = unicornPy.override {
-            unicorn = patchedUnicorn;
-          };
-        in
-        {
-          unicorn = patchedUnicornPy;
-          unicornafl = mkUnicornafl pythonPkgs;
-          pypanda = panda-ng.lib.${system}.pypandaBuilder pythonPkgs;
-        }
-      );
+      pythonPackages = import ./nix/python-packages.nix {
+        inherit
+          lib
+          forEachSystem
+          pkgsFor
+          pyproject-nix
+          pyproject-build-systems
+          pythonFor
+          uv2nix
+          ;
+        pandaNgPackages = pandaPackages;
+      };
 
-      # Workspace source selection: only the files needed to build the python project.
-      root = ./.;
-      fileset = lib.fileset.unions [
-        ./pyproject.toml
-        ./uv.lock
-        ./.python-version
-        ./smallworld
-      ];
-      rootString = builtins.unsafeDiscardStringContext (
-        lib.fileset.toSource {
-          inherit fileset root;
-        }
-      );
-      rootPath = /. + rootString;
-
-      workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = rootPath; };
-      emptyDeps = lib.genAttrs [ "unicornafl" "pypanda" "colorama" "unicorn" ] (_: [ ]);
-      deps = workspace.deps.all // emptyDeps;
-
-      basePython = forAllSystems (system: (pkgsFor system).python312);
-
-      qemu = forAllSystems (system: panda-ng.packages.${system}.qemu);
-
-      prebuilts = forAllSystems (
-        system: _final: _prev:
-        let
-          pkgs = pkgsFor system;
-          python = basePython.${system};
-          hacks = pkgs.callPackage pyproject-nix.build.hacks { };
-          native = pythonNativeAddons.${system} {
-            pythonPkgs = python.pkgs;
-            unicornPy = python.pkgs.unicorn;
-          } pkgs;
-        in
-        {
-          unicorn = hacks.nixpkgsPrebuilt {
-            from = native.unicorn;
-          };
-
-          unicornafl = hacks.nixpkgsPrebuilt {
-            from = native.unicornafl;
-          };
-
-          pypanda = hacks.nixpkgsPrebuilt {
-            from = native.pypanda;
-          };
-
-          colorama = hacks.nixpkgsPrebuilt {
-            from = python.pkgs.colorama;
-          };
-        }
-      );
-
-      overlay = workspace.mkPyprojectOverlay { sourcePreference = "wheel"; };
-      editableOverlay = workspace.mkEditablePyprojectOverlay { root = "$REPO_ROOT"; };
-
-      pythonSets = forAllSystems (
-        system:
-        let
-          pkgs = pkgsFor system;
-          python = basePython.${system};
-          overrides = pkgs.callPackage ./overrides.nix { inherit python; };
-
-          pyprojectPkgs = pkgs.callPackage pyproject-nix.build.packages { inherit python; };
-        in
-        pyprojectPkgs.overrideScope (
-          lib.composeManyExtensions [
-            pyproject-build-systems.overlays.wheel
-            overlay
-            overrides
-            prebuilts.${system}
-          ]
-        )
-      );
-
-      virtualEnvDev = forAllSystems (
-        system:
-        let
-          pythonSet = pythonSets.${system}.overrideScope editableOverlay;
-        in
-        pythonSet.mkVirtualEnv "smallworld-re-dev-env" deps
-      );
-
-      virtualEnvProd = forAllSystems (
-        system:
-        let
-          pythonSet = pythonSets.${system};
-        in
-        pythonSet.mkVirtualEnv "smallworld-re-env" deps
-      );
-
-      bnUltimate = forAllSystems (
-        system:
-        if binaryninja != null && binjaZip != null then
-          let
-            bnPkgs = binaryninja.packages.${system};
-          in
-          bnPkgs.binary-ninja-ultimate-wayland.override { overrideSource = binjaZip; }
-        else
-          null
-      );
+      runtimeSupport = import ./nix/runtime-support.nix {
+        inherit
+          inputs
+          lib
+          pkgsFor
+          pythonFor
+          ;
+        inherit (pythonPackages)
+          devSelection
+          mkLockedVirtualenv
+          mkPythonSet
+          mkSmallworldPythonModule
+          pythonSets
+          runtimeSelection
+          ;
+      };
     in
-    rec {
-      devShells = forAllSystems (
-        system:
-        let
-          pkgs = pkgsFor system;
-          pythonSet = pythonSets.${system}.overrideScope editableOverlay;
-          virtualenv = virtualEnvDev.${system};
+    {
+      devShells = forEachSystem (system: {
+        default = runtimeSupport.mkDeveloperShell system;
+      });
 
-          toolInputs = [
-            pkgs.z3
-            pkgs.aflplusplus
-            qemu.${system}
-            pkgs.ghidra
-            pkgs.jdk
-          ]
-          ++ lib.optional (bnUltimate.${system} != null) bnUltimate.${system};
-          bnPath = lib.optionalString (bnUltimate.${system} != null) "${bnUltimate.${system}}";
+      packages = forEachSystem runtimeSupport.mkPackageOutputs;
 
-          bnPythonPath = lib.optionalString (
-            bnUltimate.${system} != null
-          ) "${bnUltimate.${system}}/opt/binaryninja/python";
+      # Small helper library for downstream flakes.
+      lib = {
+        mkPython = runtimeSupport.mkDownstreamPython;
+        mkPythonShell = runtimeSupport.mkDownstreamPythonShell;
+      };
 
-          GHIDRA_INSTALL_DIR = ghidraInstallDir pkgs.ghidra;
-          smallworldBuilt = packages.${system}.default;
-
-          # Shell that exposes `python312.withPackages (ps: [ ps.smallworld ])`.
-          pythonEnvPkgs = import nixpkgs {
-            inherit system;
-            overlays = [ overlays.default ];
-          };
-          pythonEnv = pythonEnvPkgs.mkShell {
-            packages = [
-              (pythonEnvPkgs.python312.withPackages (ps: [ ps.smallworld ]))
-            ];
-          };
-        in
-        {
-          inherit pythonEnv;
-
-          default = pkgs.mkShell {
-            packages = [
-              virtualenv
-              pkgs.uv
-              pkgs.nixfmt
-              pkgs.nixfmt-tree
-            ]
-            ++ toolInputs;
-
-            env = {
-              inherit GHIDRA_INSTALL_DIR;
-              UV_NO_SYNC = "1";
-              UV_PYTHON = pythonSet.python.interpreter;
-              UV_PYTHON_DOWNLOADS = "never";
-            };
-
-            hardeningDisable = [ "all" ];
-
-            shellHook = ''
-              unset PYTHONPATH
-              export REPO_ROOT=$(git rev-parse --show-toplevel)
-            ''
-            + lib.optionalString (bnUltimate.${system} != null) ''
-
-
-              export BINJA_PATH=${bnUltimate.${system}}
-              export PYTHONPATH=${bnUltimate.${system}}/opt/binaryninja/python:$PYTHONPATH            '';
-          };
-
-          imperative = pkgs.mkShell {
-            packages = [
-              pythonSet.python
-              pythonSet.pip
-              pythonSet.setuptools
-            ]
-            ++ toolInputs;
-
-            env = {
-              inherit GHIDRA_INSTALL_DIR;
-            };
-
-            shellHook = ''
-              export PYTHONPATH="${smallworldBuilt}/${pythonSet.python.sitePackages}:${virtualenv}/${pythonSet.python.sitePackages}:$PYTHONPATH"
-              unset SOURCE_DATE_EPOCH
-              export BINJA_PATH=${bnUltimate.${system}}
-              export PYTHONPATH=${bnPythonPath}:$PYTHONPATH
-            '';
-          };
-        }
-      );
-
-      packages = forAllSystems (
-        system:
-        let
-          pkgs = pkgsFor system;
-          pythonSet = pythonSets.${system};
-          virtualenv = virtualEnvProd.${system};
-
-          printInputsRecursive = pkgs.writers.writePython3Bin "print-inputs-recursive" { } ''
-            import json
-            import subprocess
-
-            obj = json.loads(subprocess.check_output(["nix", "flake", "archive", "--json"]))
-
-
-            def print_node(node):
-                path = node.get("path")
-                if path:
-                    print(path)
-                for _, input_node in (node.get("inputs") or {}).items():
-                    print_node(input_node)
-
-
-            print_node(obj)
-          '';
-
-          x86_64_glibc_path = pkgs.glibc.outPath;
-          xtensaGcc = pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
-
-          tests = pkgs.callPackage ./tests {
-            inherit xtensaGcc x86_64_glibc_path;
-          };
-
-          rtos_demo = pkgs.callPackage ./use_cases/rtos_demo {
-            zephyr = zephyr-nix.packages.${system};
-            west2nix = pkgs.callPackage west2nix.lib.mkWest2nix { };
-          };
-        in
-        {
-          inherit printInputsRecursive tests rtos_demo;
-
-          default = pythonSet.smallworld-re;
-          venv = virtualenv;
-          qemu = qemu.${system};
-          binaryninja-ultimate = lib.optionalAttrs (bnUltimate.${system} != null) {
-            default = bnUltimate.${system};
-          };
-          dockerImage =
-            let
-              bn = bnUltimate.${system};
-              hasBinja = bn != null;
-            in
-            pkgs.dockerTools.buildImage {
-              name = "smallworld-re";
-              tag = "latest";
-              copyToRoot = pkgs.buildEnv {
-                name = "smallworld-root";
-                paths = [
-                  pkgs.dockerTools.usrBinEnv
-                  pkgs.dockerTools.binSh
-                  pkgs.dockerTools.caCertificates
-                  pkgs.dockerTools.fakeNss
-                  pkgs.aflplusplus
-                  pkgs.coreutils
-                  qemu.${system}
-                  virtualenv
-                  pkgs.ghidra
-                  pkgs.unzip
-                  pkgs.dbus.lib
-                  pkgs.stdenv.cc.cc.lib
-                ]
-                ++ lib.optional hasBinja bn;
-                pathsToLink = [
-                  "/bin"
-                  "/etc"
-                  "/var"
-                  "/lib"
-                ]
-                ++ lib.optional hasBinja "/opt";
-              };
-              config = {
-                Cmd = [ "/bin/sh" ];
-                Env = [
-                  "LD_LIBRARY_PATH=/lib"
-                  "GHIDRA_INSTALL_DIR=${ghidraInstallDir pkgs.ghidra}"
-                  "JAVA_HOME=${pkgs.jre}"
-                ];
-              };
-            };
-        }
-      );
-
-      pythonSet = forAllSystems (system: pythonSets.${system});
-      pythonDeps = deps;
-
-      inherit prebuilts;
-
-      # Nixpkgs overlay that exposes `smallworld` as a normal Python package usable via:
-      #   pkgs.python312.withPackages (ps: [ ps.smallworld ])
-      overlays.default =
-        final: prev:
-        let
-          system = final.stdenv.hostPlatform.system;
-
-          toolDeps = [
-            qemu.${system}
-            final.aflplusplus
-            final.z3
-          ];
-
-          pkgToolDeps = [
-            final.ghidra
-            final.jre
-          ]
-          ++ toolDeps;
-          envToolDeps = [
-            final.jre
-            final.ghidra
-          ]
-          ++ toolDeps;
-
-          pythonAddonDepsFor = pyFinal: [
-            pyFinal.pyghidra
-            pyFinal.pypanda
-            pyFinal.unicornafl
-            pyFinal.unicorn
-            pyFinal.angr
-          ];
-
-          # The pyproject-nix/uv2nix package set built by this flake for the current system.
-          pythonSet = pythonSets.${system};
-
-          hacks = final.callPackage pyproject-nix.build.hacks { };
-
-          # IMPORTANT:
-          # `hacks.toNixpkgs` works by enabling a wheel ("dist") output and then using the
-          # generated wheel as input to nixpkgs `buildPythonPackage`. This generally FAILS
-          # for packages pulled in via `hacks.nixpkgsPrebuilt` (e.g. unicorn/pypanda/
-          # unicornafl), because those do not produce wheels.
-          basePyOverlay = hacks.toNixpkgs {
-            inherit pythonSet;
-            packages = [
-              "smallworld-re"
-              "pyghidra"
-              "pypcode"
-              "angr"
-              "pyvex"
-              "cle"
-              "archinfo"
-              "ailment"
-              "claripy"
-              "pyxdia"
-              "uefi-firmware"
-            ];
-          };
-
-          convertedOverlay =
-            pyFinal: pyPrev:
-            let
-              converted = basePyOverlay pyFinal pyPrev;
-
-              angrFixed = converted.angr.overridePythonAttrs (old: {
-                postFixup = (old.postFixup or "") + ''
-                  # autoPatchelf only searches $dep/lib by default.
-                  # libpyvex.so is inside pyvex's site-packages, so add it explicitly.
-                  addAutoPatchelfSearchPath ${pyFinal.pyvex}
-                '';
-              });
-
-              # Make `smallworld` (and `smallworld-re`) automatically pull in heavy/native
-              # add-ons that downstream users often expect.
-              smallworldWithAllDeps = (converted."smallworld-re").overridePythonAttrs (old: {
-                propagatedBuildInputs =
-                  (old.propagatedBuildInputs or [ ]) ++ ((pythonAddonDepsFor pyFinal) ++ pkgToolDeps);
-              });
-            in
-            converted
-            // {
-              angr = angrFixed;
-              "smallworld-re" = smallworldWithAllDeps;
-              smallworld = smallworldWithAllDeps;
-            };
-
-          extraOverlay =
-            pyFinal: pyPrev:
-            let
-              native = pythonNativeAddons.${system} {
-                pythonPkgs = pyFinal;
-                unicornPy = pyPrev.unicorn;
-              } (final // { inherit (prev) unicorn; });
-            in
-            {
-              inherit (native) unicorn unicornafl pypanda;
-            };
-
-          pyOverlay = final.lib.composeExtensions convertedOverlay extraOverlay;
-        in
-        {
-          python312 =
-            let
-              # Include `pyOverlay` in the python package set.
-              basePython = prev.python312.override (old: {
-                self = basePython;
-                packageOverrides = final.lib.composeExtensions (old.packageOverrides or (_: _: { })) pyOverlay;
-              });
-
-              # Wrap `withPackages` so the resulting python env derivation contains a setup-hook.
-              python = basePython // {
-                withPackages =
-                  f:
-                  let
-                    env = basePython.withPackages f;
-                    requested = f basePython.pkgs;
-                    needsGhidra = final.lib.any (
-                      p:
-                      let
-                        pname = p.pname or null;
-                      in
-                      pname == "smallworld-re" || pname == "pyghidra" || pname == "smallworld"
-                    ) requested;
-                  in
-                  if needsGhidra then
-                    final.buildEnv {
-                      name = "${env.name}-smallworld-full";
-
-                      # Tool deps included here so they land on PATH in downstream shells.
-                      paths = [ env ] ++ envToolDeps;
-
-                      pathsToLink = [
-                        "/bin"
-                        "/nix-support"
-                      ];
-                      ignoreCollisions = true;
-
-                      postBuild = ''
-                        # Ensure nix-support is a real directory (not a symlink from an input).
-                        if [ -L "$out/nix-support" ]; then
-                          rm -f "$out/nix-support"
-                        fi
-                        mkdir -p "$out/nix-support"
-
-                        # If buildEnv linked an existing setup-hook as a symlink, replace it.
-                        if [ -e "$out/nix-support/setup-hook" ]; then
-                          rm -f "$out/nix-support/setup-hook"
-                        fi
-
-                        # Preserve any setup-hook content from the underlying python env, if present.
-                        if [ -f "${env}/nix-support/setup-hook" ]; then
-                          cat "${env}/nix-support/setup-hook" > "$out/nix-support/setup-hook"
-                        else
-                          : > "$out/nix-support/setup-hook"
-                        fi
-
-                        cat >> "$out/nix-support/setup-hook" <<'EOF'
-                        export GHIDRA_INSTALL_DIR=${ghidraInstallDir final.ghidra}
-                        export JAVA_HOME=${final.jre}
-                        EOF
-                      '';
-                    }
-                  else
-                    env;
-              };
-            in
-            python;
-
-          # Convenience: expose the extended package set directly.
-          python312Packages = final.python312.pkgs;
-        };
-
-      formatter = forAllSystems (system: (pkgsFor system).nixfmt);
+      formatter = forEachSystem (system: (pkgsFor system).nixfmt);
     };
 }
