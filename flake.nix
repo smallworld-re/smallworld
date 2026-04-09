@@ -143,6 +143,15 @@
 
       addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
 
+      pandaNgPackages = import ./nix/panda-packages.nix {
+        inherit
+          lib
+          forEachSystem
+          panda-ng
+          pkgsFor
+          ;
+      };
+
       # -------------------------------------------------------------------
       # Build the Python packages that cannot safely come from wheels.
       # -------------------------------------------------------------------
@@ -169,7 +178,10 @@
         {
           unicorn = unicornPy.override { unicorn = patchedUnicorn; };
           unicornafl = mkUnicornafl pythonPkgs;
-          pypanda = panda-ng.lib.${system}.pypandaBuilder pythonPkgs;
+          # The upstream `panda-ng` macOS branch is missing local fixes needed
+          # to keep PANDA building on our current nixpkgs pin, so we apply
+          # those patches here until they land upstream.
+          pypanda = pandaNgPackages.${system}.pypandaBuilder pythonPkgs;
         };
 
       # Build the locked Python package set for one system/interpreter.
