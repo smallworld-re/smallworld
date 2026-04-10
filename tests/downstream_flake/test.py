@@ -61,6 +61,7 @@ def assert_expected(name: str, result: int) -> None:
 
 
 def check_emulator(name: str, emulator) -> None:
+    print(f"\nTesting {name}\n")
     emulated_machine = machine.emulate(emulator)
     result = emulated_machine.get_cpu().r3.get()
     assert_expected(name, result)

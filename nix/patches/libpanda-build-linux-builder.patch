@@ -1,0 +1,77 @@
+diff --git a/build.py b/build.py
+index b692882..4fdf45f 100644
+--- a/build.py
++++ b/build.py
+@@ -1,7 +1,10 @@
+ from cffi import FFI
+ from os.path import join, realpath
+ import gdb
++import platform
+ import re
++import subprocess
++import tempfile
+ import tree_sitter_c as tsc
+ from tree_sitter import Language, Parser
+ import functools
+@@ -46,15 +49,45 @@ def remove_functions(code):
+ 		else:
+ 			newcode.append(codelines[line])
+ 	return "\n".join(newcode)
++
++def compile_resolve_issue(code):
++	cmd = code.decode(errors="ignore").replace('\n', ' ')
++	cmd = cmd.replace("__fd_mask", "unsigned int")
++	source = f"""
++	#include <stdio.h>
++	#include <sys/procfs.h>
++	#include <sys/ucontext.h>
++	#include <sys/user.h>
++
++	int main(void) {{
++		printf("%llu\\n", (unsigned long long)({cmd}));
++		return 0;
++	}}
++	"""
++	with tempfile.TemporaryDirectory() as tmpdir:
++		c_path = join(tmpdir, "resolve_issue.c")
++		bin_path = join(tmpdir, "resolve_issue")
++		with open(c_path, "w") as f:
++			f.write(source)
++		subprocess.check_output(["gcc", c_path, "-o", bin_path], stderr=subprocess.STDOUT)
++		result = subprocess.check_output([bin_path], stderr=subprocess.STDOUT).decode("utf8").strip()
++	return result.encode()
+ 
+ @functools.cache
+ def gdb_resolve_issue(code):
+ 	cmd = code.decode(errors="ignore").replace('\n',' ')
+ 	print(f"cmd={cmd}")
+-	cmd = cmd.replace("__fd_mask", "unsigned int")	
+-	result = gdb.execute(f"p {cmd}",to_string=True).split(" = ")[1].strip()
+-	return result.encode()
+-	
++	cmd = cmd.replace("__fd_mask", "unsigned int")
++	try:
++		result = gdb.execute(f"p {cmd}",to_string=True).split(" = ")[1].strip()
++		return result.encode()
++	except gdb.error:
++		if any(token in cmd for token in ["user_regs_struct", "elf_greg_t", "greg_t"]):
++			result = compile_resolve_issue(code)
++			print(f"Compiler resolved {cmd} to {result}")
++			return result
++		raise
++
+ def simplify_brackets(code):
+ 	code_bytes = bytes(code, 'utf8')
+ 	tree = parser.parse(code_bytes)
+@@ -155,7 +188,10 @@ def preprocess(arch, source, include_defines=False): #,fake_sysroot=True):
+ 
+ 	defines = '-dD' if include_defines else ''
+ 
+-	cmd = f"gcc -E {defines} -pthread -Wno-unused-result -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -fPIC -UNDEBUG {includes} /tmp/simple.c -o /tmp/simple.out -m64 -Wall -Winvalid-pch -std=gnu11 -O2 -g -fstack-protector-strong -Wempty-body -Wendif-labels -Wexpansion-to-defined -Wformat-security -Wformat-y2k -Wignored-qualifiers -Wimplicit-fallthrough=2 -Winit-self -Wmissing-format-attribute -Wmissing-prototypes -Wnested-externs -Wold-style-declaration -Wold-style-definition -Wredundant-decls -Wshadow=local -Wstrict-prototypes -Wtype-limits -Wundef -Wvla -Wwrite-strings -Wno-missing-include-dirs -Wno-psabi -Wno-shift-negative-value"
++	arch_flags = ""
++	if platform.machine() in ["amd64", "x86_64"]:
++		arch_flags = " -m64"
++	cmd = f"gcc -E {defines} -pthread -Wno-unused-result -Wsign-compare -DNDEBUG -g -fwrapv -O3 -Wall -fPIC -UNDEBUG {includes} /tmp/simple.c -o /tmp/simple.out{arch_flags} -Wall -Winvalid-pch -std=gnu11 -O2 -g -fstack-protector-strong -Wempty-body -Wendif-labels -Wexpansion-to-defined -Wformat-security -Wformat-y2k -Wignored-qualifiers -Wimplicit-fallthrough=2 -Winit-self -Wmissing-format-attribute -Wmissing-prototypes -Wnested-externs -Wold-style-declaration -Wold-style-definition -Wredundant-decls -Wshadow=local -Wstrict-prototypes -Wtype-limits -Wundef -Wvla -Wwrite-strings -Wno-missing-include-dirs -Wno-psabi -Wno-shift-negative-value"
+ 	print(cmd)
+ 	check_output(cmd, shell=True)
+ 	
