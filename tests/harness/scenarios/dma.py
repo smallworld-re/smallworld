@@ -263,14 +263,18 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             if self.num_addr <= addr < self.den_addr:
                 start = addr - self.num_addr
                 end = start + size
-                num_bytes = bytearray(self.numerator.to_bytes(self.reg_size, endianness))
+                num_bytes = bytearray(
+                    self.numerator.to_bytes(self.reg_size, endianness)
+                )
                 num_bytes[start:end] = value
                 self.numerator = int.from_bytes(num_bytes, endianness)
                 return
             if self.den_addr <= addr < self.quo_addr:
                 start = addr - self.den_addr
                 end = start + size
-                den_bytes = bytearray(self.denominator.to_bytes(self.reg_size, endianness))
+                den_bytes = bytearray(
+                    self.denominator.to_bytes(self.reg_size, endianness)
+                )
                 den_bytes[start:end] = value
                 self.denominator = int.from_bytes(den_bytes, endianness)
                 if self.denominator != 0:

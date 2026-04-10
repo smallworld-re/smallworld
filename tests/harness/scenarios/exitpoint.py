@@ -14,7 +14,6 @@ from .common import (
     split_variant,
 )
 
-
 EXPECTED_RESULT = 42
 FAKE_EXITPOINT = 0x10101010
 
@@ -213,7 +212,9 @@ def _build_machine(smallworld, arch: str, engine: str, spec: ExitpointSpec):
     return machine, platform, code, entrypoint
 
 
-def _run_exit_test(smallworld, arch: str, engine: str, spec: ExitpointSpec, exitpoint: int) -> None:
+def _run_exit_test(
+    smallworld, arch: str, engine: str, spec: ExitpointSpec, exitpoint: int
+) -> None:
     machine, platform, _, _ = _build_machine(smallworld, arch, engine, spec)
     machine.add_exit_point(exitpoint)
 
@@ -233,8 +234,10 @@ def _run_exit_test(smallworld, arch: str, engine: str, spec: ExitpointSpec, exit
 
 
 def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> int:
-    return entrypoint + code.get_symbol_size("main") - spec.mid_exit_offset_overrides.get(
-        engine, spec.mid_exit_offset
+    return (
+        entrypoint
+        + code.get_symbol_size("main")
+        - spec.mid_exit_offset_overrides.get(engine, spec.mid_exit_offset)
     )
 
 

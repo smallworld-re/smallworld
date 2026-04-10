@@ -5,7 +5,6 @@ from typing import Sequence
 from .common import PlatformSpec
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
 
-
 # Branch is the same scenario logic everywhere; only the machine metadata and
 # the register we print at the end vary by architecture.
 _SPECS = {

@@ -7,7 +7,6 @@ import pathlib
 import re
 import sys
 
-
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -36,14 +35,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Manifest-driven integration runner for SmallWorld.",
     )
-    parser.add_argument("-v", "--verbose", action="store_true", help="Print each case as it runs")
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", help="Print each case as it runs"
+    )
     parser.add_argument(
         "--filter",
         action="append",
         default=[],
         help="Substring or regex used to keep matching case ids or tags",
     )
-    parser.add_argument("--list", action="store_true", help="List cases instead of running them")
+    parser.add_argument(
+        "--list", action="store_true", help="List cases instead of running them"
+    )
     parser.add_argument(
         "--format",
         choices=("text", "json"),
@@ -58,7 +61,9 @@ def main() -> int:
 
     if ns.shard_index is not None or ns.shard_count is not None:
         if ns.shard_index is None or ns.shard_count is None:
-            raise SystemExit("both --shard-index and --shard-count are required together")
+            raise SystemExit(
+                "both --shard-index and --shard-count are required together"
+            )
         if ns.shard_count <= 0:
             raise SystemExit("--shard-count must be greater than zero")
         if ns.shard_index < 0 or ns.shard_index >= ns.shard_count:

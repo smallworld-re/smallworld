@@ -4,7 +4,6 @@ import dataclasses
 import pathlib
 from typing import Tuple
 
-
 TestsPath = pathlib.Path(__file__).resolve().parents[2]
 RepoRoot = TestsPath.parent
 
@@ -41,7 +40,9 @@ def make_platform(smallworld, spec: PlatformSpec):
 
 
 def make_emulator(smallworld, platform, engine: str):
-    return getattr(smallworld.emulators, _EMULATOR_NAMES[normalise_engine(engine)])(platform)
+    return getattr(smallworld.emulators, _EMULATOR_NAMES[normalise_engine(engine)])(
+        platform
+    )
 
 
 def set_register(cpu, name: str, value: int) -> None:
@@ -50,7 +51,9 @@ def set_register(cpu, name: str, value: int) -> None:
 
 def load_raw_code(smallworld, family: str, arch: str, *, address: int = 0x1000):
     path = TestsPath / family / f"{family}.{arch}.bin"
-    return smallworld.state.memory.code.Executable.from_filepath(path.as_posix(), address=address)
+    return smallworld.state.memory.code.Executable.from_filepath(
+        path.as_posix(), address=address
+    )
 
 
 def load_elf_code(
@@ -70,5 +73,7 @@ def load_elf_code(
 
 
 def maybe_enable_linear(smallworld, emulator, engine: str) -> None:
-    if normalise_engine(engine) == "angr" and isinstance(emulator, smallworld.emulators.AngrEmulator):
+    if normalise_engine(engine) == "angr" and isinstance(
+        emulator, smallworld.emulators.AngrEmulator
+    ):
         emulator.enable_linear()

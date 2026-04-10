@@ -4,8 +4,18 @@ import pathlib
 
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
-from .scenarios import branch, call, dma, exitpoint, recursion, square, stack, static_buf, strlen, unmapped
-
+from .scenarios import (
+    branch,
+    call,
+    dma,
+    exitpoint,
+    recursion,
+    square,
+    stack,
+    static_buf,
+    strlen,
+    unmapped,
+)
 
 GENERIC_SUITES = {
     "BlockTests": ("block", "block"),
@@ -97,7 +107,9 @@ def _expected_special_cases() -> dict[str, str | None]:
     for entry in LEGACY_MATRIX["CoverageFrontierTests"]:
         expected[f"coverage_frontier:{entry['name']}"] = entry["skip_reason"]
 
-    expected["documentation:build"] = LEGACY_MATRIX["DocumentationTests"][0]["skip_reason"]
+    expected["documentation:build"] = LEGACY_MATRIX["DocumentationTests"][0][
+        "skip_reason"
+    ]
     expected["fsgsbase:amd64"] = None
 
     for entry in LEGACY_MATRIX["FuzzTests"]:

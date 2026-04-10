@@ -9,7 +9,6 @@ import subprocess
 import time
 import typing
 
-
 TestsPath = pathlib.Path(__file__).resolve().parents[1]
 RepoRoot = TestsPath.parent
 
@@ -30,7 +29,9 @@ class DetailedCalledProcessError(Exception):
 class CaseSpec:
     id: str
     tags: tuple[str, ...]
-    run: typing.Callable[["CaseRunner"], None] = dataclasses.field(repr=False, compare=False)
+    run: typing.Callable[["CaseRunner"], None] = dataclasses.field(
+        repr=False, compare=False
+    )
     skip_reason: str | None = None
     weight: int = 1
     description: str | None = None
@@ -123,15 +124,15 @@ class CaseRunner:
 
     def assert_contains(self, output: str, pattern: str) -> None:
         if re.search(pattern, output) is None:
-            raise AssertionError(f"pattern `{pattern}` not found in output:\n\n{output.strip()}")
+            raise AssertionError(
+                f"pattern `{pattern}` not found in output:\n\n{output.strip()}"
+            )
 
     def assert_line_contains(self, output: str, *parts: str) -> None:
         for line in output.splitlines():
             if all(part in line for part in parts):
                 return
-        raise AssertionError(
-            f"no line contains all of {parts!r}:\n\n{output.strip()}"
-        )
+        raise AssertionError(f"no line contains all of {parts!r}:\n\n{output.strip()}")
 
     def assert_lines_absent(self, output: str, *parts: str) -> None:
         for line in output.splitlines():

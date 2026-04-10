@@ -227,9 +227,11 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         def model(self, emulator: smallworld.emulators.Emulator) -> None:
             data = 0x04A1.to_bytes(
                 4,
-                "little"
-                if platform.byteorder == smallworld.platforms.Byteorder.LITTLE
-                else "big",
+                (
+                    "little"
+                    if platform.byteorder == smallworld.platforms.Byteorder.LITTLE
+                    else "big"
+                ),
             )
             emulator.write_memory(static_buffer_address, data)
             emulator.write_register(spec.model_register, static_buffer_address)

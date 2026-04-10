@@ -17,7 +17,6 @@ from . import (
     unmapped,
 )
 
-
 _HANDLERS = (
     square,
     branch,
