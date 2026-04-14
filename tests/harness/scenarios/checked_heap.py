@@ -5,7 +5,6 @@ from typing import Sequence
 
 from .common import PlatformSpec, TestsPath, make_emulator, make_platform, split_variant
 
-
 _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
     "amd64": PlatformSpec("X86_64", "LITTLE"),

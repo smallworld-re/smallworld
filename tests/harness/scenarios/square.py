@@ -5,7 +5,6 @@ from typing import Sequence
 from .common import PlatformSpec
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
 
-
 # These raw-binary families are mostly "same test, different registers".
 # Keeping the matrix as data is much easier to read than dozens of tiny files.
 _SPECS = {
@@ -152,5 +151,7 @@ def can_run(scenario: str, variant: str) -> bool:
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     if variant in _SPECIAL_VARIANTS:
-        return run_integer_case("square", variant, args, {"ppc": _SPECIAL_VARIANTS[variant]})
+        return run_integer_case(
+            "square", variant, args, {"ppc": _SPECIAL_VARIANTS[variant]}
+        )
     return run_integer_case("square", variant, args, _SPECS)

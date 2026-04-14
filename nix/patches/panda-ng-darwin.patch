@@ -1,0 +1,16 @@
+diff --git a/include/panda.h b/include/panda.h
+index abe5a8e..56c30a6 100644
+--- a/include/panda.h
++++ b/include/panda.h
+@@ -20,10 +20,11 @@
+ #include "c_sys_includes.h"
+ #define PANDA_HEADER MAKE_HEADER(panda-ng/panda_c_, PANDA_TGT)
+ #endif
+ 
++#include "darwin_libpanda_compat.h"
+ #include PANDA_HEADER
+ #include "plugin_plugin.h"
+ #include "debug.h"
+ #include "defines.h"
+ 
+ #ifdef __cplusplus

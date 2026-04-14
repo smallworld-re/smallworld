@@ -5,7 +5,6 @@ from typing import Sequence
 from .common import PlatformSpec
 from .raw_binary import RawBinarySpec, StackSpec, run_integer_case, supports_variant
 
-
 # `call` is the same raw binary on every architecture, but call setup differs:
 # most platforms need a fake return address, while i386 also passes the first
 # argument on the stack instead of in a register.

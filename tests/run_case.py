@@ -7,7 +7,6 @@ import pathlib
 import subprocess
 import sys
 
-
 TESTS_DIR = pathlib.Path(__file__).resolve().parent
 REPO_ROOT = TESTS_DIR.parent
 
@@ -56,9 +55,15 @@ def main() -> int:
             "of reaching into per-file legacy scripts."
         )
     )
-    parser.add_argument("scenario", help="Scenario family, for example `square` or `checked_heap.read`")
-    parser.add_argument("variant", help="Variant name, for example `amd64` or `amd64.pcode`")
-    parser.add_argument("args", nargs=argparse.REMAINDER, help="Arguments forwarded to the scenario")
+    parser.add_argument(
+        "scenario", help="Scenario family, for example `square` or `checked_heap.read`"
+    )
+    parser.add_argument(
+        "variant", help="Variant name, for example `amd64` or `amd64.pcode`"
+    )
+    parser.add_argument(
+        "args", nargs=argparse.REMAINDER, help="Arguments forwarded to the scenario"
+    )
     ns = parser.parse_args()
 
     registered = maybe_run_registered_case(ns.scenario, ns.variant, ns.args)

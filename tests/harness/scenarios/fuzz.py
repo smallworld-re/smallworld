@@ -192,10 +192,14 @@ def _load_code(smallworld, spec: _FuzzSpec, variant: str):
     else:
         arch = variant.split(".", 1)[0]
         path = TestsPath / "fuzz" / f"fuzz.{arch}.bin"
-    return smallworld.state.memory.code.Executable.from_filepath(path.as_posix(), address=0x1000)
+    return smallworld.state.memory.code.Executable.from_filepath(
+        path.as_posix(), address=0x1000
+    )
 
 
-def _configure_argument(smallworld, machine, cpu, platform, spec: _FuzzSpec, size_addr: int) -> None:
+def _configure_argument(
+    smallworld, machine, cpu, platform, spec: _FuzzSpec, size_addr: int
+) -> None:
     if spec.arg_register is not None:
         getattr(cpu, spec.arg_register).set_content(size_addr)
         return
@@ -237,7 +241,10 @@ def _run_simple(variant: str, args: Sequence[str]) -> int:
 
     user_input = b"bad!AAAAAAAA" if ns.crash else b"goodgoodgood"
     size_addr = heap.allocate_integer(
-        len(user_input), 4, "user input size", smallworld.platforms.Byteorder[spec.platform.byteorder]
+        len(user_input),
+        4,
+        "user input size",
+        smallworld.platforms.Byteorder[spec.platform.byteorder],
     )
     heap.allocate_bytes(user_input, "user input")
 
@@ -272,7 +279,10 @@ def _run_afl(variant: str, args: Sequence[str]) -> int:
 
     user_input = b"goodgoodgood"
     size_addr = heap.allocate_integer(
-        len(user_input), 4, "user input size", smallworld.platforms.Byteorder[spec.platform.byteorder]
+        len(user_input),
+        4,
+        "user input size",
+        smallworld.platforms.Byteorder[spec.platform.byteorder],
     )
     heap.allocate_bytes(user_input, "user input")
 

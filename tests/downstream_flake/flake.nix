@@ -16,14 +16,10 @@
     }:
     let
       lib = nixpkgs.lib;
-      supportedSystems = [
-        "x86_64-linux"
-        "x86_64-darwin"
-        "aarch64-darwin"
-      ];
-      forAllSystems = lib.genAttrs supportedSystems;
+      systems = lib.systems.flakeExposed;
+      forAllSystems = lib.genAttrs systems;
 
-      perSystem = forAllSystems (
+      mkOutputs =
         system:
         let
           pkgs = import nixpkgs {
@@ -38,37 +34,41 @@
 
           pythonEnv = python.withPackages (ps: [ ps.smallworld ] ++ pythonExtras ps);
 
+          # The runnable test package only needs the mkPython env plus the native
+          # Ghidra toolchain. z3 already comes from the Python environment.
+          runtimeInputs = [
+            pythonEnv
+            pkgs.ghidra
+            pkgs.jdk
+          ];
+
           # `nix run .` executes this wrapper, which in turn runs the downstream
-          # mkPython integration test. The mkPython environment already carries
-          # the native Ghidra toolchain it needs on PATH.
+          # mkPython integration test with the tools SmallWorld expects on PATH.
           downstreamTest = pkgs.writeShellApplication {
             name = "downstream-flake-test";
-            runtimeInputs = [ pythonEnv ];
+            runtimeInputs = runtimeInputs;
             text = ''
               python ${./test.py} "$@"
             '';
           };
         in
         {
-          devShell = smallworld.lib.mkPythonShell {
+          devShells.default = smallworld.lib.mkPythonShell {
             inherit pkgs;
             extraPythonPackages = pythonExtras;
           };
 
-          package = downstreamTest;
+          packages.default = downstreamTest;
 
-          app = {
+          apps.default = {
             type = "app";
             program = "${downstreamTest}/bin/downstream-flake-test";
           };
-        }
-      );
+        };
     in
     {
-      devShells = lib.mapAttrs (_: value: { default = value.devShell; }) perSystem;
-
-      packages = lib.mapAttrs (_: value: { default = value.package; }) perSystem;
-
-      apps = lib.mapAttrs (_: value: { default = value.app; }) perSystem;
+      devShells = forAllSystems (system: (mkOutputs system).devShells);
+      packages = forAllSystems (system: (mkOutputs system).packages);
+      apps = forAllSystems (system: (mkOutputs system).apps);
     };
 }

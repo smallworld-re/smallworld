@@ -207,8 +207,16 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
 
     operations = (
         ("read_unmapped", smallworld.exceptions.EmulationReadUnmappedFailure, "Read"),
-        ("write_unmapped", smallworld.exceptions.EmulationWriteUnmappedFailure, "Write"),
-        ("fetch_unmapped", smallworld.exceptions.EmulationFetchUnmappedFailure, "Fetch"),
+        (
+            "write_unmapped",
+            smallworld.exceptions.EmulationWriteUnmappedFailure,
+            "Write",
+        ),
+        (
+            "fetch_unmapped",
+            smallworld.exceptions.EmulationFetchUnmappedFailure,
+            "Fetch",
+        ),
     )
     for symbol, expected_exception, label in operations:
         _run_operation(smallworld, arch, engine, spec, symbol, expected_exception)

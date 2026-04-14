@@ -15,7 +15,6 @@ from .common import (
     split_variant,
 )
 
-
 PrintMode = Literal["hex", "register"]
 
 
@@ -59,7 +58,9 @@ def supports_variant(variant: str, specs: Mapping[str, RawBinarySpec]) -> bool:
     return arch in specs and engine in specs[arch].engines
 
 
-def _configure_stack(smallworld, machine, cpu, platform, spec: RawBinarySpec, argument: int) -> None:
+def _configure_stack(
+    smallworld, machine, cpu, platform, spec: RawBinarySpec, argument: int
+) -> None:
     if spec.stack is None:
         return
 
@@ -80,7 +81,11 @@ def _configure_stack(smallworld, machine, cpu, platform, spec: RawBinarySpec, ar
             "fake return address",
         )
 
-    set_register(cpu, spec.stack.pointer_register, stack.get_pointer() + spec.stack.pointer_adjust)
+    set_register(
+        cpu,
+        spec.stack.pointer_register,
+        stack.get_pointer() + spec.stack.pointer_adjust,
+    )
 
 
 def _print_result(cpu, spec: RawBinarySpec) -> None:

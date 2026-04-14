@@ -18,7 +18,6 @@ from .scenarios import (
     unmapped,
 )
 
-
 GENERIC_SUITES = {
     "BlockTests": ("block", "block"),
     "BranchTestsAngr": ("branch", "branch"),
@@ -109,7 +108,9 @@ def _expected_special_cases() -> dict[str, str | None]:
     for entry in LEGACY_MATRIX["CoverageFrontierTests"]:
         expected[f"coverage_frontier:{entry['name']}"] = entry["skip_reason"]
 
-    expected["documentation:build"] = LEGACY_MATRIX["DocumentationTests"][0]["skip_reason"]
+    expected["documentation:build"] = LEGACY_MATRIX["DocumentationTests"][0][
+        "skip_reason"
+    ]
     expected["fsgsbase:amd64"] = None
 
     for entry in LEGACY_MATRIX["FuzzTests"]:
