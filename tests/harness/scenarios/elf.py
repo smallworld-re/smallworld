@@ -160,7 +160,9 @@ def can_run(scenario: str, variant: str) -> bool:
     return arch in _SPECS and engine in _SPECS[arch].engines
 
 
-def _configure_exitpoints(machine, emulator, cpu, code, stack, arch: str, engine: str) -> None:
+def _configure_exitpoints(
+    machine, emulator, cpu, code, stack, arch: str, engine: str
+) -> None:
     entrypoint = code.entrypoint
     if entrypoint is None:
         raise ValueError("ELF has no entrypoint")

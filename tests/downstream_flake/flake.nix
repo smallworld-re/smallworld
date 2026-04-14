@@ -33,7 +33,12 @@
           pythonExtras = ps: [ ps.colorama ];
 
           pythonEnv = python.withPackages (
-            ps: [ ps.smallworld ps.coverage ] ++ pythonExtras ps
+            ps:
+            [
+              ps.smallworld
+              ps.coverage
+            ]
+            ++ pythonExtras ps
           );
 
           # The runnable test package only needs the mkPython env. When Ghidra

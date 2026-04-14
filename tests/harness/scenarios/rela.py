@@ -201,7 +201,9 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
     return stack
 
 
-def _configure_exit(machine, emulator, cpu, code, stack, arch: str, engine: str, entrypoint: int) -> None:
+def _configure_exit(
+    machine, emulator, cpu, code, stack, arch: str, engine: str, entrypoint: int
+) -> None:
     if arch == "armhf" and engine == "panda":
         emulator.add_exit_point(entrypoint + 40)
         return
