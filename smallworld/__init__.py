@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pathlib
 import re
+from collections.abc import Mapping
 from importlib import metadata as __metadata
+from typing import cast
 
 
 def _metadata_from_source_tree() -> dict[str, str]:
@@ -32,7 +34,9 @@ def _metadata_from_source_tree() -> dict[str, str]:
 
 
 try:
-    metadata = __metadata.metadata("smallworld-re")
+    metadata: Mapping[str, str] = cast(
+        Mapping[str, str], __metadata.metadata("smallworld-re")
+    )
 except __metadata.PackageNotFoundError:
     metadata = _metadata_from_source_tree()
 

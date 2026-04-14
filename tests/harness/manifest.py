@@ -1211,7 +1211,6 @@ def _build_library_cases() -> list[CaseSpec]:
         function = item["function"]
         base = item["bases"][0]
         quiet = bool(item.get("quiet", False))
-        case_tag = f"{library}:{function}"
         custom_run = item.get("custom_run_test", "")
         for extension, arch, byteorder in arch_matrix:
             skip_reason = None

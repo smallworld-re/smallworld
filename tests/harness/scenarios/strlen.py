@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import logging
 from typing import Sequence
 
 from .common import (
