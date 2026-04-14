@@ -135,7 +135,7 @@ class SuccessExitException(Exception):
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     def __init__(self):
-        super().__init__(0xDEAD0, 1)
+        super().__init__(0xDEAD, 1)
 
     def on_read(
         self, emu: smallworld.emulators.Emulator, addr: int, size: int, content: bytes
@@ -150,6 +150,22 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
 
 dead = DeadModel()
 machine.add(dead)
+success_exit_addresses = {0xDEAD}
+
+
+def _is_success_exit_address(address: int | None) -> bool:
+    return address in success_exit_addresses
+
+
+def _is_success_exit_unaligned_read() -> bool:
+    if arch not in (
+        smallworld.platforms.Architecture.MIPS32,
+        smallworld.platforms.Architecture.MIPS64,
+    ):
+        return False
+
+    return _is_success_exit_address(emulator.read_register("at"))
+
 
 # Emulate
 emulator: smallworld.emulators.Emulator
@@ -170,5 +186,10 @@ try:
     if not args.quiet_exit:
         raise Exception("Did not exit as expected")
 except SuccessExitException:
+    if args.quiet_exit:
+        raise Exception("Did not exit as expected")
+except smallworld.exceptions.EmulationReadUnalignedFailure as exc:
+    if not (_is_success_exit_address(exc.address) or _is_success_exit_unaligned_read()):
+        raise
     if args.quiet_exit:
         raise Exception("Did not exit as expected")

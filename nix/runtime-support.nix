@@ -53,7 +53,12 @@ let
       ghidra = mkGhidraRuntime pkgs;
     in
     # afl++ is not packaged for Apple Silicon macOS.
-    lib.optional (system != "aarch64-darwin") pkgs.aflplusplus ++ [ pkgs.z3 ] ++ ghidra.tools;
+    lib.optional (system != "aarch64-darwin") pkgs.aflplusplus
+    ++ [
+      pkgs.binutils
+      pkgs.z3
+    ]
+    ++ ghidra.tools;
 
   # `buildEnv` is how we merge several derivations into one user-facing
   # environment. The extra setup-hook plumbing below is what keeps PATH,
