@@ -381,10 +381,12 @@ let
         # Let package setup hooks populate PYTHONPATH. Clearing it here breaks
         # layered developer-only modules like `coverage`.
         export REPO_ROOT=$(git rev-parse --show-toplevel)
-      ''
-      + lib.optionalString (binaryNinja != null) ''
-        export BINJA_PATH=${binaryNinja}
-        export PYTHONPATH=${binaryNinja}/opt/binaryninja/python:$PYTHONPATH
+        ${lib.optionalString (binaryNinja != null) "export BINJA_PATH=${binaryNinja}"}
+        # Keep the live checkout ahead of the locked Nix environment so source
+        # edits are reflected immediately in the developer shell.
+        export PYTHONPATH=$REPO_ROOT${
+          lib.optionalString (binaryNinja != null) ":${binaryNinja}/opt/binaryninja/python"
+        }''${PYTHONPATH:+:$PYTHONPATH}
       '';
     };
 
