@@ -6,6 +6,7 @@ import sys
 import typing
 
 from .framework import CaseRunner, CaseSpec, RepoRoot, TestsPath
+from .coverage import wrap_python_command
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
 from .parity import check_manifest_parity, check_registered_scenario_parity
@@ -150,6 +151,7 @@ def _run_afl_showmap(
     stdin: str | None = None,
     check: bool = True,
 ) -> tuple[str, str]:
+    target = wrap_python_command(target)
     result = runner.command(
         [
             "afl-showmap",
@@ -543,8 +545,8 @@ def _build_pe_cases() -> list[CaseSpec]:
                 f"pe:{variant}",
                 "scenario",
                 "pe",
-                run=lambda runner, variant=variant: _run_script(
-                    runner, f"pe/pe.{variant}.py"
+                run=lambda runner, variant=variant: _run_case_command(
+                    runner, "pe", variant
                 ),
                 skip_reason=skip_reason,
             )
@@ -557,7 +559,7 @@ def _build_link_pe_cases() -> list[CaseSpec]:
     for variant, skip_reason, _ in _legacy_variants(("LinkPETests",), prefix="pe"):
 
         def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_script(runner, f"link_pe/link_pe.{variant}.py", "42")
+            stdout, _ = _run_case_command(runner, "link_pe", variant, "42")
             runner.assert_contains(stdout.lower(), "0x2a")
 
         cases.append(

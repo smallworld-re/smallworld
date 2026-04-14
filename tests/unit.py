@@ -9,6 +9,7 @@ import unittest
 import claripy
 
 from smallworld import emulators, exceptions, platforms, state, utils
+from harness.coverage import wrap_python_command
 
 logging.getLogger("angr").setLevel(logging.ERROR)
 logging.getLogger("claripy").setLevel(logging.ERROR)
@@ -1308,7 +1309,7 @@ class PandaMachdefTests(unittest.TestCase):
         failure = None
         try:
             subprocess.run(
-                cmd,
+                wrap_python_command(cmd),
                 cwd=cwd,
                 check=True,
                 stdout=subprocess.DEVNULL,

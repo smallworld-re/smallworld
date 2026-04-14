@@ -7,8 +7,14 @@ from . import (
     call,
     checked_heap,
     dma,
+    elf,
     exitpoint,
     fuzz,
+    hooking,
+    link_elf,
+    link_pe,
+    pe,
+    rela,
     recursion,
     square,
     stack,
@@ -30,6 +36,12 @@ _HANDLERS = (
     unmapped,
     checked_heap,
     fuzz,
+    elf,
+    hooking,
+    rela,
+    link_elf,
+    pe,
+    link_pe,
 )
 
 

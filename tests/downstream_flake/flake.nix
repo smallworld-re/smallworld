@@ -32,15 +32,14 @@
           python = smallworld.lib.mkPython { inherit pkgs; };
           pythonExtras = ps: [ ps.colorama ];
 
-          pythonEnv = python.withPackages (ps: [ ps.smallworld ] ++ pythonExtras ps);
+          pythonEnv = python.withPackages (
+            ps: [ ps.smallworld ps.coverage ] ++ pythonExtras ps
+          );
 
-          # The runnable test package only needs the mkPython env plus the native
-          # Ghidra toolchain. z3 already comes from the Python environment.
-          runtimeInputs = [
-            pythonEnv
-            pkgs.ghidra
-            pkgs.jdk
-          ];
+          # The runnable test package only needs the mkPython env. When Ghidra
+          # support is enabled, `mkPython` already carries the matching native
+          # runtime tools and environment variables.
+          runtimeInputs = [ pythonEnv ];
 
           # `nix run .` executes this wrapper, which in turn runs the downstream
           # mkPython integration test with the tools SmallWorld expects on PATH.
@@ -48,7 +47,13 @@
             name = "downstream-flake-test";
             runtimeInputs = runtimeInputs;
             text = ''
-              python ${./test.py} "$@"
+              if [ "''${SMALLWORLD_COVERAGE:-}" = "1" ]; then
+                if [ -n "''${SMALLWORLD_COVERAGE_RCFILE:-}" ]; then
+                  exec python -m coverage run --parallel-mode --rcfile "''${SMALLWORLD_COVERAGE_RCFILE}" ${./test.py} "$@"
+                fi
+                exec python -m coverage run --parallel-mode ${./test.py} "$@"
+              fi
+              exec python ${./test.py} "$@"
             '';
           };
         in

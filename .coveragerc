@@ -1,0 +1,20 @@
+[run]
+source =
+    smallworld
+parallel = True
+relative_files = True
+disable_warnings =
+    no-data-collected
+
+[paths]
+smallworld =
+    smallworld
+    */smallworld
+    */site-packages/smallworld
+    */dist-packages/smallworld
+    /nix/store/*/site-packages/smallworld
+    /nix/store/*/dist-packages/smallworld
+
+[report]
+skip_covered = True
+show_missing = True

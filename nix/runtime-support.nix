@@ -361,6 +361,7 @@ let
         inherit system;
         name = "smallworld-re-dev-env";
         selection = devSelection;
+        extraPythonPackages = ps: [ ps.coverage ];
       };
     in
     pkgs.mkShell {
@@ -377,7 +378,8 @@ let
       hardeningDisable = [ "all" ];
 
       shellHook = ''
-        unset PYTHONPATH
+        # Let package setup hooks populate PYTHONPATH. Clearing it here breaks
+        # layered developer-only modules like `coverage`.
         export REPO_ROOT=$(git rev-parse --show-toplevel)
       ''
       + lib.optionalString (binaryNinja != null) ''

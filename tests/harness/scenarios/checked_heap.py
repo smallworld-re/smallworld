@@ -21,8 +21,6 @@ _ARCH_SPECS = {
 
 _NO_FIXED_LOAD_ADDRESS = {"armel", "mips", "mips64", "mips64el", "mipsel", "ppc"}
 _NEEDS_T9 = {"mips", "mips64", "mips64el", "mipsel"}
-_UNICORN_UNSUPPORTED = {"mips64", "mips64el", "ppc", "riscv64"}
-_PANDA_UNSUPPORTED = {"riscv64"}
 _EXPECTED_ERRORS = {
     "read": ("Invalid access at", " of size 1"),
     "write": ("Invalid access at ", " of size 1"),
@@ -32,11 +30,9 @@ _EXPECTED_ERRORS = {
 
 
 def _supports_engine(arch: str, engine: str) -> bool:
-    if engine == "unicorn":
-        return arch not in _UNICORN_UNSUPPORTED
-    if engine == "panda":
-        return arch not in _PANDA_UNSUPPORTED
-    return engine in {"angr", "pcode"}
+    if arch == "riscv64":
+        return engine in {"unicorn", "angr", "pcode"}
+    return engine in {"unicorn", "angr", "panda", "pcode"}
 
 
 def can_run(scenario: str, variant: str) -> bool:

@@ -7,9 +7,16 @@ from .legacy_matrix import LEGACY_MATRIX
 from .scenarios import (
     branch,
     call,
+    checked_heap,
     dma,
+    elf,
     exitpoint,
     fuzz,
+    hooking,
+    link_elf,
+    link_pe,
+    pe,
+    rela,
     recursion,
     square,
     stack,
@@ -82,16 +89,26 @@ DIFFTIME_SKIPS = {
 }
 
 REGISTERED_SCENARIOS = {
-    "branch": branch,
-    "call": call,
-    "dma": dma,
-    "exitpoint": exitpoint,
-    "recursion": recursion,
-    "square": square,
-    "stack": stack,
-    "static_buf": static_buf,
-    "strlen": strlen,
-    "unmapped": unmapped,
+    "branch": ("branch", branch),
+    "call": ("call", call),
+    "checked_heap.double_free": ("checked_heap.double_free", checked_heap),
+    "checked_heap.read": ("checked_heap.read", checked_heap),
+    "checked_heap.uaf": ("checked_heap.uaf", checked_heap),
+    "checked_heap.write": ("checked_heap.write", checked_heap),
+    "dma": ("dma", dma),
+    "elf": ("elf", elf),
+    "exitpoint": ("exitpoint", exitpoint),
+    "hooking": ("hooking", hooking),
+    "link_elf": ("link_elf", link_elf),
+    "link_pe": ("link_pe", link_pe),
+    "pe": ("pe", pe),
+    "recursion": ("recursion", recursion),
+    "rela": ("rela", rela),
+    "square": ("square", square),
+    "stack": ("stack", stack),
+    "static_buf": ("static_buf", static_buf),
+    "strlen": ("strlen", strlen),
+    "unmapped": ("unmapped", unmapped),
 }
 
 
@@ -225,9 +242,6 @@ def check_registered_scenario_parity() -> None:
 
     missing: list[str] = []
     for case in all_cases():
-        # Skipped manifest entries can continue using their legacy wrappers.
-        if case.skip_reason is not None:
-            continue
         if case.id.startswith("fuzz:"):
             parts = case.id.split(":")
             if len(parts) == 2:
@@ -239,11 +253,16 @@ def check_registered_scenario_parity() -> None:
             if not fuzz.can_run(scenario, variant):
                 missing.append(case.id)
             continue
-        for family, handler in REGISTERED_SCENARIOS.items():
-            if case.id.startswith(f"{family}:"):
-                _, variant = case.id.split(":", 1)
-                if not handler.can_run(family, variant):
+        matched = False
+        for prefix, (scenario, handler) in REGISTERED_SCENARIOS.items():
+            if case.id.startswith(f"{prefix}:"):
+                matched = True
+                variant = case.id[len(prefix) + 1 :]
+                if not handler.can_run(scenario, variant):
                     missing.append(case.id)
+                break
+        if not matched and case.skip_reason is None:
+            continue
 
     if missing:
         raise AssertionError(

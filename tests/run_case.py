@@ -13,6 +13,7 @@ REPO_ROOT = TESTS_DIR.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from harness.coverage import wrap_python_command
 from harness.scenarios import maybe_run_registered_case
 
 
@@ -72,7 +73,7 @@ def main() -> int:
 
     script = script_path_for_case(ns.scenario, ns.variant)
     process = subprocess.run(
-        [sys.executable, str(script), *ns.args],
+        wrap_python_command([sys.executable, str(script), *ns.args]),
         cwd=TESTS_DIR,
         check=False,
     )

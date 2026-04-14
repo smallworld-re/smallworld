@@ -9,6 +9,8 @@ import subprocess
 import time
 import typing
 
+from .coverage import wrap_python_command
+
 TestsPath = pathlib.Path(__file__).resolve().parents[1]
 RepoRoot = TestsPath.parent
 
@@ -70,6 +72,7 @@ class CaseRunner:
         run_env = os.environ.copy()
         if env:
             run_env.update(env)
+        argv = wrap_python_command(list(argv), env=run_env)
         try:
             process = subprocess.run(
                 argv,
