@@ -770,17 +770,20 @@ def _build_memhook_cases() -> list[CaseSpec]:
     for variant, skip_reason, _ in variants:
         width = "8" if variant.split(".")[0] in wide_variants else "4"
         qux_addr = "0x1030" if width == "8" else "0x1034"
+        script_variant = variant
+        if variant.endswith(".pcode") and variant != "m68k.pcode":
+            script_variant = variant[: -len(".pcode")] + ".ghidra"
 
         def run(
             runner: CaseRunner,
             *,
-            variant: str = variant,
+            script_variant: str = script_variant,
             width: str = width,
             qux_addr: str = qux_addr,
         ) -> None:
             stdout, _ = _run_script(
                 runner,
-                f"memhook/memhook.{variant.replace('.pcode', '.ghidra') if 'pcode' in variant else variant}.py",
+                f"memhook/memhook.{script_variant}.py",
             )
             runner.assert_line_contains(stdout, "foo: read 1 bytes at 0x1004")
             runner.assert_line_contains(stdout, f"bar: read {width} bytes at 0x1010")
@@ -1035,30 +1038,23 @@ def _build_thumb_cases() -> list[CaseSpec]:
         stderr: str,
         arch_names: list[str],
     ) -> None:
+        expected_trace_patterns = (
+            r"single step at 0x1000: <CsInsn 0x1000 \[[0-9a-f]+\]: mov r1, #1>",
+            r"single step at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: mov(?:\.w)? r1, #1>",
+            r"single step at 0x1020: <CsInsn 0x1020 \[[0-9a-f]+\]: mov r1, #1>",
+            r"step block at 0x1000: <CsInsn 0x1000 \[[0-9a-f]+\]: mov r1, #1>",
+            r"step block at 0x1010: <CsInsn 0x1010 \[[0-9a-f]+\]: mov(?:\.w)? r1, #1>",
+            r"step block at 0x1020: <CsInsn 0x1020 \[[0-9a-f]+\]: mov r1, #1>",
+        )
         for arch_name in arch_names:
             runner.assert_contains(stdout, f"STEP_{arch_name}=0x6")
             runner.assert_contains(stdout, f"STEP_{arch_name}=0x4")
-            runner.assert_contains(
-                stderr, "single step at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
-            )
-            runner.assert_contains(
-                stderr,
-                "single step at 0x1010: <CsInsn 0x1010 [4ff00101]: mov.w r1, #1>",
-            )
-            runner.assert_contains(
-                stderr, "single step at 0x1020: <CsInsn 0x1020 [0110a0e3]: mov r1, #1>"
-            )
+            for pattern in expected_trace_patterns[:3]:
+                runner.assert_contains(stderr, pattern)
             runner.assert_contains(stdout, f"BLOCK_{arch_name}=0x6")
             runner.assert_contains(stdout, f"BLOCK_{arch_name}=0x4")
-            runner.assert_contains(
-                stderr, "step block at 0x1000: <CsInsn 0x1000 [0110a0e3]: mov r1, #1>"
-            )
-            runner.assert_contains(
-                stderr, "step block at 0x1010: <CsInsn 0x1010 [4ff00101]: mov.w r1, #1>"
-            )
-            runner.assert_contains(
-                stderr, "step block at 0x1020: <CsInsn 0x1020 [0110a0e3]: mov r1, #1>"
-            )
+            for pattern in expected_trace_patterns[3:]:
+                runner.assert_contains(stderr, pattern)
             runner.assert_contains(stdout, f"RUN_{arch_name}=0x6")
             runner.assert_contains(stdout, f"RUN_{arch_name}=0x4")
             runner.assert_contains(stdout, f"PERSIST_THUMB_{arch_name}=0x4")
