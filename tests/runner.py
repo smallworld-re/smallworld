@@ -166,6 +166,7 @@ def _is_success_exit_unaligned_read() -> bool:
 
     return _is_success_exit_address(emulator.read_register("at"))
 
+
 # Emulate
 emulator: smallworld.emulators.Emulator
 if arch in (
@@ -188,9 +189,7 @@ except SuccessExitException:
     if args.quiet_exit:
         raise Exception("Did not exit as expected")
 except smallworld.exceptions.EmulationReadUnalignedFailure as exc:
-    if not (
-        _is_success_exit_address(exc.address) or _is_success_exit_unaligned_read()
-    ):
+    if not (_is_success_exit_address(exc.address) or _is_success_exit_unaligned_read()):
         raise
     if args.quiet_exit:
         raise Exception("Did not exit as expected")
