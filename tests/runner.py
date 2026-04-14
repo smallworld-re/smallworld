@@ -62,8 +62,9 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0xC000000, 0x
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0x7FFFFFF0, 8, "fake return address")
-machine.add_exit_point(0x7FFFFFF0)
+fake_return_address = 0x7FFFFFF0
+stack.push_integer(fake_return_address, 8, "fake return address")
+machine.add_exit_point(fake_return_address)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -182,9 +183,11 @@ else:
 
 
 try:
-    machine.emulate(emulator)
+    final_machine = machine.emulate(emulator)
     if not args.quiet_exit:
-        raise Exception("Did not exit as expected")
+        final_pc = final_machine.get_cpu().pc.get()
+        if final_pc == fake_return_address:
+            raise Exception("Did not exit as expected")
 except SuccessExitException:
     if args.quiet_exit:
         raise Exception("Did not exit as expected")
