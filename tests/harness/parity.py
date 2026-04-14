@@ -4,7 +4,19 @@ import pathlib
 
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
-from .scenarios import branch, call, dma, exitpoint, recursion, square, stack, static_buf, strlen, unmapped
+from .scenarios import (
+    branch,
+    call,
+    dma,
+    exitpoint,
+    fuzz,
+    recursion,
+    square,
+    stack,
+    static_buf,
+    strlen,
+    unmapped,
+)
 
 
 GENERIC_SUITES = {
@@ -214,6 +226,17 @@ def check_registered_scenario_parity() -> None:
     for case in all_cases():
         # Skipped manifest entries can continue using their legacy wrappers.
         if case.skip_reason is not None:
+            continue
+        if case.id.startswith("fuzz:"):
+            parts = case.id.split(":")
+            if len(parts) == 2:
+                scenario = "fuzz"
+                variant = parts[1]
+            else:
+                scenario = "fuzz.afl_fuzz"
+                variant = parts[2]
+            if not fuzz.can_run(scenario, variant):
+                missing.append(case.id)
             continue
         for family, handler in REGISTERED_SCENARIOS.items():
             if case.id.startswith(f"{family}:"):

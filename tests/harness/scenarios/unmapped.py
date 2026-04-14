@@ -114,10 +114,26 @@ _SPECS = {
     ),
 }
 
+_SKIP_REASONS = {
+    "aarch64.panda": "Waiting for panda-ng",
+    "amd64.panda": "Waiting for panda-ng",
+    "armel.panda": "Waiting for panda-ng",
+    "armhf.panda": "Waiting for panda-ng",
+    "i386.panda": "Waiting for panda-ng",
+    "mips.panda": "Waiting for panda-ng",
+    "mips64.panda": "Waiting for panda-ng",
+    "mips64el.panda": "Waiting for panda-ng",
+    "mipsel.panda": "Waiting for panda-ng",
+    "ppc.panda": "Waiting for panda-ng",
+    "ppc64": "Unicorn ppc64 support buggy",
+}
+
 
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "unmapped":
         return False
+    if variant in _SKIP_REASONS:
+        return True
     arch, engine = split_variant(variant)
     return arch in _SPECS and engine in _SPECS[arch].engines
 
@@ -179,6 +195,8 @@ def _run_operation(
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     if args:
         raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(args)}")
+    if variant in _SKIP_REASONS:
+        raise SystemExit(_SKIP_REASONS[variant])
 
     import smallworld
 

@@ -23,8 +23,11 @@ The supported entrypoint for running one scenario is `run_case.py` rather than
 calling the files in a scenario directory directly.
 Refactored families live under `harness/scenarios/`, where one shared Python
 module handles the full scenario matrix and `run_case.py` uses that
-implementation directly. Legacy wrapper scripts remain only for the families
-that have not been migrated yet.
+implementation directly. Once a family is migrated, its per-variant wrapper
+scripts are removed so the directory only keeps the real source or binary
+artifacts. Legacy wrapper scripts remain only for the families that have not
+been migrated yet, plus a few intentionally skipped variants that still fall
+back to the old path.
 
 The library-model tests have an extra layer of organization. Test cases for
 specific functions are grouped by API standard, for example `c99/atoi`.
