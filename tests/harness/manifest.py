@@ -1261,11 +1261,11 @@ def _build_library_cases() -> list[CaseSpec]:
                     return
                 if "getenv(foobar);" in custom_run:
                     _, stderr = _run_script(runner, "runner.py", elf, arch, byteorder)
-                    runner.assert_contains(stderr, "getenv(foobar);")
+                    runner.assert_line_contains(stderr, "getenv(foobar);")
                     return
                 if "system(foobar);" in custom_run:
                     _, stderr = _run_script(runner, "runner.py", elf, arch, byteorder)
-                    runner.assert_contains(stderr, "system(foobar);")
+                    runner.assert_line_contains(stderr, "system(foobar);")
                     return
                 raise AssertionError(
                     f"unknown library-model type for {library}/{function}: {base}"
