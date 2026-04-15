@@ -53,6 +53,7 @@ class GetsModel(smallworld.state.models.Model):
     abi = smallworld.platforms.ABI.NONE
 
     def model(self, emulator: smallworld.emulators.Emulator) -> None:
+        global in_bytes
         in_bytes = input().encode("utf-8")
         s = emulator.read_register("rdi")
         v = in_bytes + b"\0"

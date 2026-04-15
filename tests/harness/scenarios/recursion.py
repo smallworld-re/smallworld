@@ -149,6 +149,7 @@ _SPECS = {
         result_register="r3",
         engines=("unicorn", "angr", "pcode"),
         stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
+        stack_pointer_adjust=-0x80,
     ),
     "riscv64": RecursionSpec(
         platform=PlatformSpec("RISCV64", "LITTLE"),

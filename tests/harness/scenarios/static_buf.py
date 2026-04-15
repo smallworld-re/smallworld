@@ -24,6 +24,7 @@ class StaticBufferSpec:
     engines: tuple[str, ...]
     entry_offset: int
     stack_pointer_register: str
+    stack_pointer_adjust: int = 0
     model_address: int | None = None
     model_code_offset: int | None = None
     exit_offset: int | None = None
@@ -158,6 +159,7 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         entry_offset=4,
         stack_pointer_register="sp",
+        stack_pointer_adjust=-0x80,
         model_address=0x1000,
     ),
     "riscv64": StaticBufferSpec(
@@ -215,7 +217,11 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
 
     set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
     stack.push_integer(0xFFFFFFFF, 8, "fake return address")
-    set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
+    set_register(
+        cpu,
+        spec.stack_pointer_register,
+        stack.get_pointer() + spec.stack_pointer_adjust,
+    )
 
     static_buffer_address = 0x10000
     model_address = (
@@ -256,5 +262,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         emulator.add_exit_point(code.address + code.get_capacity())
 
     final_machine = machine.emulate(emulator)
-    print(getattr(final_machine.get_cpu(), spec.result_register))
+    result = getattr(final_machine.get_cpu(), spec.result_register).get()
+    if not isinstance(result, int):
+        result = emulator.eval_atmost(result, 1)[0]
+    print(hex(result))
     return 0

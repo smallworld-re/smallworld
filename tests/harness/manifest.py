@@ -151,7 +151,6 @@ def _run_afl_showmap(
     stdin: str | None = None,
     check: bool = True,
 ) -> tuple[str, str]:
-    target = wrap_python_command(target)
     result = runner.command(
         [
             "afl-showmap",
@@ -863,7 +862,7 @@ def _build_trace_execution_cases() -> list[CaseSpec]:
         ) -> None:
             stdout, _ = _run_script(runner, script)
             for line in lines:
-                runner.assert_contains(stdout, line)
+                runner.assert_line_contains(stdout, line)
 
         cases.append(
             _case(
@@ -958,7 +957,7 @@ def _build_fsgsbase_cases() -> list[CaseSpec]:
     def run(runner: CaseRunner) -> None:
         stdout, _ = _run_script(runner, "fsgsbase/fsgsbase.amd64.py")
         for line in expected_lines:
-            runner.assert_contains(stdout, line)
+            runner.assert_line_contains(stdout, line)
 
     return [_case("fsgsbase:amd64", "scenario", "fsgsbase", run=run)]
 
@@ -977,7 +976,7 @@ def _build_rtos_cases() -> list[CaseSpec]:
         ) -> None:
             stdout, _ = _run_script(runner, name, cwd=demo_dir)
             for line in expected:
-                runner.assert_contains(stdout, line)
+                runner.assert_line_contains(stdout, line)
 
         return _case(
             f"rtos_demo:{pathlib.Path(name).stem}",

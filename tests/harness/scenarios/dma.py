@@ -183,7 +183,7 @@ _SPECS = {
         mmio_width=4,
         engines=("angr", "pcode"),
         pc_offset=4,
-        exit_offset=0xC,
+        exit_offset=0x10,
     ),
 }
 

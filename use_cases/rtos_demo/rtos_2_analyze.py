@@ -1,4 +1,5 @@
 import logging
+import pathlib
 
 import smallworld
 from smallworld.state.cpus.arm import ARM
@@ -15,7 +16,20 @@ log = logging.getLogger("smallworld")
 machine = smallworld.state.Machine()
 
 # Code
-zephyr_elf = open("./zephyr.elf", "rb")
+demo_dir = pathlib.Path(__file__).resolve().parent
+zephyr_candidates = (
+    demo_dir / "zephyr.elf",
+    demo_dir / "result" / "zephyr.elf",
+)
+for zephyr_path in zephyr_candidates:
+    if zephyr_path.exists():
+        break
+else:
+    raise FileNotFoundError(
+        "Could not locate zephyr.elf in rtos demo assets"
+    )
+
+zephyr_elf = open(zephyr_path, "rb")
 code = smallworld.state.memory.code.Executable.from_elf(zephyr_elf, page_size=1)
 machine.add(code)
 
