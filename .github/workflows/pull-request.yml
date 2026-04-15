@@ -103,6 +103,8 @@ jobs:
       - name: Run Unit Tests
         run: |
           mkdir -p "$GITHUB_WORKSPACE/coverage-data"
+          nix build ./ci#tests
+          tar -C tests -xvf result/test_binaries.tar
           cd tests
           nix develop .. -c python3 -m coverage run --parallel-mode unit.py -v
       - name: Upload Coverage Data
