@@ -168,7 +168,7 @@ _SPECS = {
         result_register="a0",
         model_register="a0",
         engines=("unicorn", "angr", "pcode"),
-        entry_offset=4,
+        entry_offset=2,
         stack_pointer_register="sp",
         model_address=0x1000,
     ),

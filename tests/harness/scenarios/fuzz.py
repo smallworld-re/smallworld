@@ -268,6 +268,10 @@ def _run_simple(variant: str, args: Sequence[str]) -> int:
 def _run_afl(variant: str, args: Sequence[str]) -> int:
     import smallworld
 
+    parser = argparse.ArgumentParser(prog=f"run_case.py fuzz.afl_fuzz {variant}")
+    parser.add_argument("input_file", help="File path AFL will mutate")
+    ns = parser.parse_args(list(args))
+
     spec = _AFL_SPECS[variant]
     smallworld.logging.setup_logging(level=logging.INFO)
 
@@ -301,7 +305,7 @@ def _run_afl(variant: str, args: Sequence[str]) -> int:
 
     emulator = make_emulator(smallworld, platform, spec.engine)
     emulator.add_exit_point(0x1000 + spec.exit_offset)
-    machine.fuzz(emulator, input_callback)
+    machine.fuzz_with_file(emulator, input_callback, ns.input_file)
     return 0
 
 

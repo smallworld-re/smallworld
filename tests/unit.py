@@ -1,13 +1,30 @@
+import contextlib
 import ctypes
+import io
 import logging
 import os
+import pathlib
 import signal
 import subprocess
+import sys
+import tempfile
+import types
 import typing
 import unittest
+from unittest import mock
 
+import capstone
 import claripy
 from harness.coverage import wrap_python_command
+from harness.framework import (
+    CaseRunner,
+    CaseSpec,
+    DetailedCalledProcessError,
+    managed_output_logger,
+    run_cases,
+)
+from harness.scenarios import static_buf as static_buf_scenario
+from harness.scenarios import fuzz as fuzz_scenario
 
 from smallworld import emulators, exceptions, platforms, state, utils
 
@@ -1611,6 +1628,244 @@ class GhidraMachdefTests(unittest.TestCase):
             platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+
+class HarnessLoggingTests(unittest.TestCase):
+    def test_run_cases_logs_main_output_to_file_and_console(self):
+        def run_case(_: CaseRunner) -> None:
+            print("case stdout")
+            print("case stderr", file=sys.stderr)
+
+        cases = [
+            CaseSpec(
+                id="demo:ok",
+                tags=("demo",),
+                run=run_case,
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "logs" / "integration.log"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                result = run_cases(cases, verbose=True, log_path=log_path)
+
+            self.assertEqual(result, 0)
+            self.assertIn("RUN  demo:ok", stdout.getvalue())
+            self.assertIn("PASS demo:ok", stdout.getvalue())
+            self.assertIn("Ran 1 cases", stdout.getvalue())
+            self.assertIn("OK", stdout.getvalue())
+            self.assertIn("case stdout", stdout.getvalue())
+            self.assertIn("case stderr", stderr.getvalue())
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("RUN  demo:ok", log_text)
+            self.assertIn("PASS demo:ok", log_text)
+            self.assertIn("case stdout", log_text)
+            self.assertIn("case stderr", log_text)
+
+    def test_case_runner_logs_successful_subprocess_output(self):
+        script = (
+            "import sys; "
+            "print('child stdout'); "
+            "print('child stderr', file=sys.stderr)"
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "subprocess.log"
+            with managed_output_logger(log_path) as logger:
+                runner = CaseRunner(output_logger=logger)
+                runner.active_case_id = "demo:child"
+                result = runner.command([sys.executable, "-c", script])
+
+            self.assertEqual(result.stdout, "child stdout\n")
+            self.assertEqual(result.stderr, "child stderr\n")
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("case: demo:child", log_text)
+            self.assertIn("exit_code: 0", log_text)
+            self.assertIn("--- stdout ---\nchild stdout\n", log_text)
+            self.assertIn("--- stderr ---\nchild stderr\n", log_text)
+
+    def test_case_runner_logs_failed_subprocess_output(self):
+        script = (
+            "import sys; "
+            "print('child stdout'); "
+            "print('child stderr', file=sys.stderr); "
+            "raise SystemExit(3)"
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "failure.log"
+            with managed_output_logger(log_path) as logger:
+                runner = CaseRunner(output_logger=logger)
+                runner.active_case_id = "demo:fail"
+                with self.assertRaises(DetailedCalledProcessError):
+                    runner.command([sys.executable, "-c", script])
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("case: demo:fail", log_text)
+            self.assertIn("exit_code: 3", log_text)
+            self.assertIn("child stdout", log_text)
+            self.assertIn("child stderr", log_text)
+
+    def test_integration_list_writes_output_log(self):
+        import integration
+
+        cases = [
+            CaseSpec(
+                id="demo:list",
+                tags=("demo", "list"),
+                run=lambda runner: None,
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "integration.log"
+            log_path.write_text("stale data\n", encoding="utf-8")
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with mock.patch.object(integration, "all_cases", return_value=cases):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "integration.py",
+                        "--list",
+                        "--output-log",
+                        str(log_path),
+                    ],
+                ):
+                    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(
+                        stderr
+                    ):
+                        result = integration.main()
+
+            self.assertEqual(result, 0)
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertIn("demo:list\tdemo,list", stdout.getvalue())
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertNotIn("stale data", log_text)
+            self.assertIn("demo:list\tdemo,list", log_text)
+
+
+class FuzzScenarioTests(unittest.TestCase):
+    def test_afl_registered_scenario_uses_forwarded_input_file(self):
+        class FakeRegister:
+            def __init__(self):
+                self.value = None
+
+            def set_content(self, value):
+                self.value = value
+
+        class FakeCPU:
+            def __init__(self):
+                self.pc = FakeRegister()
+                self.a0 = FakeRegister()
+                self.v0 = FakeRegister()
+
+        class FakeHeap:
+            def __init__(self, base, size):
+                self.base = base
+                self.size = size
+                self.allocated_bytes = None
+
+            def allocate_integer(self, *_args, **_kwargs):
+                return 0x2345
+
+            def allocate_bytes(self, value, _label):
+                self.allocated_bytes = value
+
+        class FakeMachine:
+            last_instance = None
+
+            def __init__(self):
+                self.added = []
+                self.fuzz_call = None
+                FakeMachine.last_instance = self
+
+            def add(self, member):
+                self.added.append(member)
+
+            def fuzz_with_file(
+                self,
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback=None,
+                always_validate=False,
+                iterations=1,
+            ):
+                self.fuzz_call = {
+                    "emulator": emulator,
+                    "input_callback": input_callback,
+                    "input_file_path": input_file_path,
+                    "crash_callback": crash_callback,
+                    "always_validate": always_validate,
+                    "iterations": iterations,
+                }
+
+        fake_smallworld = types.SimpleNamespace(
+            logging=types.SimpleNamespace(setup_logging=lambda **_kwargs: None),
+            platforms=types.SimpleNamespace(Byteorder={"LITTLE": object(), "BIG": object()}),
+            state=types.SimpleNamespace(
+                Machine=FakeMachine,
+                cpus=types.SimpleNamespace(
+                    CPU=types.SimpleNamespace(for_platform=lambda _platform: FakeCPU())
+                ),
+                memory=types.SimpleNamespace(
+                    heap=types.SimpleNamespace(BumpAllocator=FakeHeap),
+                ),
+            ),
+        )
+
+        fake_platform = object()
+        fake_code = object()
+        fake_emulator = types.SimpleNamespace(add_exit_point=lambda _addr: None)
+        seed_path = "/tmp/seed-input"
+
+        with mock.patch.dict(sys.modules, {"smallworld": fake_smallworld}):
+            with mock.patch.object(fuzz_scenario, "make_platform", return_value=fake_platform):
+                with mock.patch.object(fuzz_scenario, "_load_code", return_value=fake_code):
+                    with mock.patch.object(fuzz_scenario, "_configure_argument") as configure_argument:
+                        with mock.patch.object(
+                            fuzz_scenario, "make_emulator", return_value=fake_emulator
+                        ):
+                            with mock.patch.object(
+                                sys,
+                                "argv",
+                                ["run_case.py", "fuzz.afl_fuzz", "mipsel", "@@"],
+                            ):
+                                result = fuzz_scenario.run_case(
+                                    "fuzz.afl_fuzz", "mipsel", [seed_path]
+                                )
+
+        self.assertEqual(result, 0)
+        self.assertIsNotNone(FakeMachine.last_instance)
+        self.assertEqual(
+            FakeMachine.last_instance.fuzz_call["input_file_path"],
+            seed_path,
+        )
+        configure_argument.assert_called_once()
+
+
+class StaticBufferScenarioTests(unittest.TestCase):
+    def test_riscv64_entry_offset_skips_compressed_breakpoint(self):
+        code = pathlib.Path("tests/static_buf/static_buf.riscv64.bin").read_bytes()
+        md = capstone.Cs(
+            capstone.CS_ARCH_RISCV,
+            capstone.CS_MODE_RISCV64 | capstone.CS_MODE_RISCVC,
+        )
+        instructions = list(md.disasm(code, 0x1000))
+
+        self.assertGreaterEqual(len(instructions), 2)
+        self.assertEqual(instructions[0].mnemonic, "c.ebreak")
+        self.assertEqual(instructions[1].address - instructions[0].address, 2)
+        self.assertEqual(static_buf_scenario._SPECS["riscv64"].entry_offset, 2)
 
 
 if __name__ == "__main__":

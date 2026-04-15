@@ -79,6 +79,7 @@ The integration runner works from case ids and filters:
 python3 integration.py                               # Execute all manifest cases
 python3 integration.py --filter square               # Run matching ids/tags
 python3 integration.py --filter '^square:'           # Run only the square family
+python3 integration.py --filter square --output-log /tmp/integration.log
 python3 integration.py --list                        # List all cases
 python3 integration.py --list --format json         # Machine-readable listing
 python3 integration.py --shard-index 0 --shard-count 8
