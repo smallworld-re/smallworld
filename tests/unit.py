@@ -1,6 +1,7 @@
 import contextlib
 import ctypes
 import io
+import importlib.util
 import logging
 import os
 import pathlib
@@ -1712,7 +1713,15 @@ class HarnessLoggingTests(unittest.TestCase):
             self.assertIn("child stderr", log_text)
 
     def test_integration_list_writes_output_log(self):
-        import integration
+        integration_path = pathlib.Path(__file__).with_name("integration.py")
+        spec = importlib.util.spec_from_file_location(
+            "integration_under_test",
+            integration_path,
+        )
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        integration = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(integration)
 
         cases = [
             CaseSpec(
@@ -1864,7 +1873,11 @@ class FuzzScenarioTests(unittest.TestCase):
 
 class StaticBufferScenarioTests(unittest.TestCase):
     def test_riscv64_entry_offset_skips_compressed_breakpoint(self):
-        code = pathlib.Path("tests/static_buf/static_buf.riscv64.bin").read_bytes()
+        code = (
+            pathlib.Path(__file__).resolve().parent
+            / "static_buf"
+            / "static_buf.riscv64.bin"
+        ).read_bytes()
         md = capstone.Cs(
             capstone.CS_ARCH_RISCV,
             capstone.CS_MODE_RISCV64 | capstone.CS_MODE_RISCVC,
