@@ -5,7 +5,6 @@ import pathlib
 import sys
 import typing
 
-from .coverage import wrap_python_command
 from .framework import CaseRunner, CaseSpec, RepoRoot, TestsPath
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
