@@ -1,7 +1,7 @@
 import contextlib
 import ctypes
-import io
 import importlib.util
+import io
 import logging
 import os
 import pathlib
