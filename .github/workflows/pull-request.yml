@@ -7,7 +7,7 @@ on:
 env:
   TZ: UTC
   USER: root
-  INTEGRATION_SHARD_COUNT: "50"
+  INTEGRATION_SHARD_COUNT: "150"
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
