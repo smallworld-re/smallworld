@@ -103,7 +103,7 @@ class ElfRela:
         is_rela: bool,
         elfclass: int,
         elfdata: int,
-        machine: int | None,
+        machine: typing.Optional[int],
         image: bytes,
         offset: int,
         baseaddr: int,
