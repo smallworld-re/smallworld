@@ -148,6 +148,7 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     ) -> None:
         pass
 
+
 success_exit_addresses = {0xDEAD, 0xDEAD0}
 for address in success_exit_addresses:
     machine.add(DeadModel(address))
