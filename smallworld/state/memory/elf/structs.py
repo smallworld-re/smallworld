@@ -103,6 +103,7 @@ class ElfRela:
         is_rela: bool,
         elfclass: int,
         elfdata: int,
+        machine: int | None,
         image: bytes,
         offset: int,
         baseaddr: int,
@@ -139,6 +140,15 @@ class ElfRela:
         if elfclass == 1:
             r_type = r_info & 0xFF
             r_symbol = r_info >> 8
+        elif machine == 8:
+            # MIPS64 stores packed relocation types and the symbol index in
+            # opposite halves of r_info depending on endianness.
+            if elfdata == 1:
+                r_type = r_info >> 32
+                r_symbol = r_info & 0xFFFFFFFF
+            else:
+                r_type = r_info & 0xFFFFFFFF
+                r_symbol = r_info >> 32
         else:
             r_type = r_info & 0xFFFFFFFF
             r_symbol = r_info >> 32

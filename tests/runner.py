@@ -62,8 +62,9 @@ stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0xC000000, 0x
 machine.add(stack)
 
 # Push a return address onto the stack
-stack.push_integer(0x7FFFFFF0, 8, "fake return address")
-machine.add_exit_point(0x7FFFFFF0)
+fake_return_address = 0x7FFFFFF0
+stack.push_integer(fake_return_address, 8, "fake return address")
+machine.add_exit_point(fake_return_address)
 
 # Configure the stack pointer
 sp = stack.get_pointer()
@@ -134,8 +135,8 @@ class SuccessExitException(Exception):
 # We signal failure atolls by dereferencing 0xdead.
 # Catch the dereference
 class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
-    def __init__(self):
-        super().__init__(0xDEAD, 1)
+    def __init__(self, address: int):
+        super().__init__(address, 1)
 
     def on_read(
         self, emu: smallworld.emulators.Emulator, addr: int, size: int, content: bytes
@@ -147,10 +148,9 @@ class DeadModel(smallworld.state.models.mmio.MemoryMappedModel):
     ) -> None:
         pass
 
-
-dead = DeadModel()
-machine.add(dead)
-success_exit_addresses = {0xDEAD}
+success_exit_addresses = {0xDEAD, 0xDEAD0}
+for address in success_exit_addresses:
+    machine.add(DeadModel(address))
 
 
 def _is_success_exit_address(address: int | None) -> bool:
@@ -182,9 +182,11 @@ else:
 
 
 try:
-    machine.emulate(emulator)
+    final_machine = machine.emulate(emulator)
     if not args.quiet_exit:
-        raise Exception("Did not exit as expected")
+        final_pc = final_machine.get_cpu().pc.get()
+        if final_pc == fake_return_address:
+            raise Exception("Did not exit as expected")
 except SuccessExitException:
     if args.quiet_exit:
         raise Exception("Did not exit as expected")
