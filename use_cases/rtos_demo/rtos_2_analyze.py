@@ -25,9 +25,7 @@ for zephyr_path in zephyr_candidates:
     if zephyr_path.exists():
         break
 else:
-    raise FileNotFoundError(
-        "Could not locate zephyr.elf in rtos demo assets"
-    )
+    raise FileNotFoundError("Could not locate zephyr.elf in rtos demo assets")
 
 zephyr_elf = open(zephyr_path, "rb")
 code = smallworld.state.memory.code.Executable.from_elf(zephyr_elf, page_size=1)
