@@ -23,8 +23,8 @@ from harness.framework import (
     managed_output_logger,
     run_cases,
 )
-from harness.scenarios import static_buf as static_buf_scenario
 from harness.scenarios import fuzz as fuzz_scenario
+from harness.scenarios import static_buf as static_buf_scenario
 
 from smallworld import emulators, exceptions, platforms, state, utils
 
@@ -1739,8 +1739,9 @@ class HarnessLoggingTests(unittest.TestCase):
                         str(log_path),
                     ],
                 ):
-                    with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(
-                        stderr
+                    with (
+                        contextlib.redirect_stdout(stdout),
+                        contextlib.redirect_stderr(stderr),
                     ):
                         result = integration.main()
 
@@ -1811,7 +1812,9 @@ class FuzzScenarioTests(unittest.TestCase):
 
         fake_smallworld = types.SimpleNamespace(
             logging=types.SimpleNamespace(setup_logging=lambda **_kwargs: None),
-            platforms=types.SimpleNamespace(Byteorder={"LITTLE": object(), "BIG": object()}),
+            platforms=types.SimpleNamespace(
+                Byteorder={"LITTLE": object(), "BIG": object()}
+            ),
             state=types.SimpleNamespace(
                 Machine=FakeMachine,
                 cpus=types.SimpleNamespace(
@@ -1829,9 +1832,15 @@ class FuzzScenarioTests(unittest.TestCase):
         seed_path = "/tmp/seed-input"
 
         with mock.patch.dict(sys.modules, {"smallworld": fake_smallworld}):
-            with mock.patch.object(fuzz_scenario, "make_platform", return_value=fake_platform):
-                with mock.patch.object(fuzz_scenario, "_load_code", return_value=fake_code):
-                    with mock.patch.object(fuzz_scenario, "_configure_argument") as configure_argument:
+            with mock.patch.object(
+                fuzz_scenario, "make_platform", return_value=fake_platform
+            ):
+                with mock.patch.object(
+                    fuzz_scenario, "_load_code", return_value=fake_code
+                ):
+                    with mock.patch.object(
+                        fuzz_scenario, "_configure_argument"
+                    ) as configure_argument:
                         with mock.patch.object(
                             fuzz_scenario, "make_emulator", return_value=fake_emulator
                         ):
