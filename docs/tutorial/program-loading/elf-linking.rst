@@ -94,7 +94,7 @@ so the harness will need to specify a load address.
         )
         machine.add(code)
 
-    libname = "link_elf.amd64.elf"
+    libname = "link_elf.amd64.so"
     with open(libname, "rb") as f:
         lib = smallworld.state.memory.code.Executable.from_elf(
             f, platform=platform, address=0x800000
@@ -215,9 +215,10 @@ Putting it all together
 -----------------------
 
 Using what we've learned about the ELF loader and linker model,
-we can build ``link_elf.amd64.py``:
+we can build the maintained scenario implementation in
+``tests/harness/scenarios/link_elf.py``:
 
-.. literalinclude:: ../../../tests/link_elf/link_elf.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/link_elf.py
     :language: Python
 
 This includes code for linking an ELF,
@@ -226,7 +227,7 @@ to provide ``argc`` and ``argv`` to ``main()``.
 
 Here is what running this harness looks like:
 
-.. command-output:: python3 link_elf.amd64.py 42
+.. command-output:: python3 ../run_case.py link_elf amd64 42
     :cwd: ../../../tests/link_elf/
 
 Since ``0x2a`` is the integer version of 42,

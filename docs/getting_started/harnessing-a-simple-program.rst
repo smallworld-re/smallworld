@@ -130,17 +130,17 @@ hint output by `basic_harness.py`
     [+] DynamicRegisterValueSummaryHint(message='read-def-summary', pc=4096, color=1, size=4, use=True, new=True, count=10, num_micro_executions=10, reg_name='edi')
 
 The out tells us that the register ``edi`` is an input to this
-snippet of code and should really be set explicitly. We can now create
-a new script ``square.amd64.py`` which harnesses ``square.amd64.bin``
-perfectly, exposing ``edi`` as a command-line argument.
+snippet of code and should really be set explicitly. The maintained
+scenario implementation that harnesses ``square.amd64.bin`` now lives
+in ``tests/harness/scenarios/square.py``.
 
-.. literalinclude:: ../../tests/square/square.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/square.py
   :language: Python
 
 And here is what it looks like to run that script, setting ``edi`` to
 42 initially.
 
-.. command-output:: python3 ../../tests/square/square.amd64.py 42
+.. command-output:: python3 ../run_case.py square amd64 42
     :cwd: ../../tests/square/
 
 Since ``42*42=1764`` which is ``0x6e4`` we have harnessed

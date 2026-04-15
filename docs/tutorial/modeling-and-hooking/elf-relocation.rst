@@ -27,12 +27,10 @@ You can build this into ``rela.amd64.elf`` using the following commands:
 
 Let's take a look at the ELF metadata, specifically regarding puts:
 
-.. command-output:: readelf -s -D rela.amd64.elf | grep 'puts'
-    :shell:
+.. command-output:: readelf -s -D rela.amd64.elf
     :cwd: ../../../tests/rela/
 
-.. command-output:: readelf -r rela.amd64.elf | grep 'puts'
-    :shell:
+.. command-output:: readelf -r rela.amd64.elf
     :cwd: ../../../tests/rela/
 
 The symbol is undefined, and it has a ``JUMP_SLOT`` relocation,
@@ -140,16 +138,17 @@ with the address of ``puts``:
 Putting it All Together
 -----------------------
 
-Combined, this harness can be found in the script ``tests/rela/rela.amd64.py``
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/rela.py``
 
-.. literalinclude:: ../../../tests/rela/rela.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/rela.py
     :language: Python
 
 This harness should print ``Hello, world!\n`` to the console.
 
 Here is what running it looks like:
 
-.. command-output:: python3 rela.amd64.py
+.. command-output:: python3 ../run_case.py rela amd64
     :cwd: ../../../tests/rela 
 
 We do in fact see, ``Hello, world!\n`` printed to the console,

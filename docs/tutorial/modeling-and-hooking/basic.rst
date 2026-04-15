@@ -139,16 +139,17 @@ Let's add a little more introspection for the second case:
 Putting it All Together
 -----------------------
 
-Combined, this harness can be found in the script ``tests/hooking/hooking.amd64.py``
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/hooking.py``
 
-.. literalinclude:: ../../../tests/hooking/hooking.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/hooking.py
     :language: Python
 
 This harness should take its input over stdin, and echo it back to the console.
 
 Here is what running it looks like:
 
-.. command-output:: echo "foobar" | python3 hooking.amd64.py
+.. command-output:: echo "foobar" | python3 ../run_case.py hooking amd64
     :shell:
     :cwd: ../../../tests/hooking
 

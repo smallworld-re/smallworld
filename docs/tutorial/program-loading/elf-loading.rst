@@ -111,9 +111,10 @@ Here, we are fine defining all code in the ELF as in-bounds:
 Putting it all together
 -----------------------
 
-Combined, this can be found in the script ``tests/elf/elf.amd64.py``:
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/elf.py``:
 
-.. literalinclude:: ../../../tests/elf/elf.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/elf.py
     :language: Python
 
 Here, we load the code from our ELF and set the program counter to the entrypoint.
@@ -125,8 +126,7 @@ and read out the result from ``rax``.
 
 Here is what running the harness looks like:
 
-.. command-output:: python3 elf.amd64.py foobar
+.. command-output:: python3 ../run_case.py elf amd64 foobar
     :cwd: ../../../tests/elf/
 
 Since "foobar" is length six, we have harnessed ``elf.amd64.elf`` completely.
-

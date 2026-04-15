@@ -144,19 +144,19 @@ Putting it all together
 -----------------------
 
 Using what we now know about the PE loader and our particular executable,
-we can build a complete harness in ``pe.amd64.py``.
+we can build a complete maintained scenario implementation in
+``tests/harness/scenarios/pe.py``.
 This will load our file, as well as set up the main stack,
 and hook ``puts()``.  See :ref:`this tutorial <tutorial_hooking_pe>` for a more complete guide on how
 to hook a function, and :ref:`this tutorial <tutorial_pe_linking>` for how to
 handle external function references in a PE file.
 
-.. literalinclude:: ../../../tests/pe/pe.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/pe.py
     :language: Python
 
 Here is what running the harness looks like:
 
-.. command-output:: python3 pe.amd64.py
+.. command-output:: python3 ../run_case.py pe amd64
     :cwd: ../../../tests/pe
 
 We see "Hello, world!", so we have successfully harnessed ``pe.amd64.pe``.
-

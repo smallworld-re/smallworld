@@ -160,16 +160,17 @@ and update our PE with the address of ``puts``:
 Putting it All Together
 -----------------------
 
-Combined, this harness can be found in the script ``tests/pe/pe.amd64.py``
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/pe.py``
 
-.. literalinclude:: ../../../tests/pe/pe.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/pe.py
     :language: Python
 
 This harness should print ``Hello, world!\n`` to the console.
 
 Here is what running it looks like:
 
-.. command-output:: python3 pe.amd64.py
+.. command-output:: python3 ../run_case.py pe amd64
     :cwd: ../../../tests/pe 
 
 We do in fact see, ``Hello, world!\n`` printed to the console,

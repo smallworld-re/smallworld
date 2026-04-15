@@ -223,8 +223,15 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         if spec.model_address is not None
         else code.address + (spec.model_code_offset or 0)
     )
+    platform_value = platform
+    abi_value = smallworld.platforms.ABI.NONE
 
     class FoobarModel(smallworld.state.models.Model):
+        name = "foobar"
+        platform = platform_value
+        abi = abi_value
+        static_space_required = 4
+
         def model(self, emulator: smallworld.emulators.Emulator) -> None:
             data = 0x04A1.to_bytes(
                 4,
@@ -236,11 +243,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             )
             emulator.write_memory(static_buffer_address, data)
             emulator.write_register(spec.model_register, static_buffer_address)
-
-    FoobarModel.name = "foobar"
-    FoobarModel.platform = platform
-    FoobarModel.abi = smallworld.platforms.ABI.NONE
-    FoobarModel.static_space_required = 4
 
     foobar = FoobarModel(model_address)
     foobar.static_buffer_address = static_buffer_address

@@ -123,5 +123,5 @@ Now, running our harness, we can see that ``rdi`` has been advanced to
 point to node B and its ``data`` field has been set to 42. Our harness
 successfully operated on our structured data.
 
-.. command-output:: python3 struct.amd64.py
+.. command-output:: python3 ../../tests/run_case.py struct amd64
     :cwd: ../../tests/struct/

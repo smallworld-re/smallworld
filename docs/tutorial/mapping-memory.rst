@@ -62,9 +62,10 @@ We need to push that value onto the stack, and set ``rsp`` appropriately:
     sp = stack.get_pointer()
     cpu.rsp.set(sp)
 
-We can create the script ``tests/stack.amd64.py`` to perform these changes:
+The maintained stack scenario implementation that performs these changes
+now lives in ``tests/harness/scenarios/stack.py``:
 
-.. literalinclude:: ../../tests/stack/stack.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/stack.py
     :language: Python
 
 This harness doesn't take arguments; it assigns fixed values 
@@ -73,7 +74,7 @@ registers and memory.
 
 Here is what running the new harness looks like:
 
-.. command-output:: python3 stack.amd64.py
+.. command-output:: python3 ../run_case.py stack amd64
     :cwd: ../../tests/stack/
 
 The sum of the four input numbers is ``0xaaaaaaaa``, so we harnessed

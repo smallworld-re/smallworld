@@ -171,9 +171,10 @@ Putting it all together
 -----------------------
 
 Using what we've learned about the PE loader and linker model,
-we can build ``link_pe.amd64.py``:
+we can build the maintained scenario implementation in
+``tests/harness/scenarios/link_pe.py``:
 
-.. literalinclude:: ../../../tests/link_pe/link_pe.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/link_pe.py
     :language: Python
 
 This includes code for linking a PE file,
@@ -183,7 +184,7 @@ as well as stubbing out the library initializers.
 
 Here is what running this harness looks like:
 
-.. command-output:: python3 link_pe.amd64.py 42
+.. command-output:: python3 ../run_case.py link_pe amd64 42
     :cwd: ../../../tests/link_pe
 
 Since ``0x2a`` is the integer version of 42,

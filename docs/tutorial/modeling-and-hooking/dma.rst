@@ -143,15 +143,16 @@ starts at ``0x50014000``, and that the DMA registers are eight bytes each.
     hdiv = HDivModel(0x50014000, 8)
     machine.add(hdiv)
 
-All together, this harness can be found in ``tests/dma/dma.amd64.py``:
+All together, this maintained scenario implementation can be found in
+``tests/harness/scenarios/dma.py``:
 
-.. literalinclude:: ../../../tests/dma/dma.amd64.py
+.. literalinclude:: ../../../tests/harness/scenarios/dma.py
     :language: Python
 
 If this works, we can feed it two numbers, and it should output the quotient.
 Let's try it.
 
-.. command-output:: python3 dma.amd64.py 10 2
+.. command-output:: python3 ../run_case.py dma amd64 10 2
     :cwd: ../../../tests/dma
 
 Ten divided by two is in fact five,

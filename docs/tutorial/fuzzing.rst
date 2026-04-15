@@ -29,24 +29,24 @@ Now we need to build a SmallWorld harness for this code. First, we begin be
 initializing the machine, platform, cpu, and code. This is done in the same way
 as any other SmallWorld harness.
 
-.. literalinclude:: ../../tests/fuzz/afl_fuzz.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
   :language: python
-  :lines: 10-18
+  :lines: 121-129,189-197,233-240
 
 Next, we need somewhere for our input to live. We're going to use a heap to make
 things easy. After we create the heap, we're going to put some example input on
 it.
 
-.. literalinclude:: ../../tests/fuzz/afl_fuzz.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
   :language: python
-  :lines: 18-24
+  :lines: 240-249
 
 Then we need to set our registers and add everthing to our machine. We set `rip`
 to `0x1000` (where we mapped the code) and `rdi` to point to our input.
 
-.. literalinclude:: ../../tests/fuzz/afl_fuzz.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
   :language: python
-  :lines: 25-31
+  :lines: 251-256
 
 Now for the part where most of the work happens. `AFL++`_ is going to generate an input
 and hand it to our harness. However, that input is just a series of bytes. We need to
@@ -63,30 +63,31 @@ just write it to the address of our input.
 .. _Unicorn emulator object: https://www.unicorn-engine.org/docs/tutorial.html
 .. _Unicorn mode: https://github.com/AFLplusplus/AFLplusplus/blob/stable/unicorn_mode/README.md
 
-.. literalinclude:: ../../tests/fuzz/afl_fuzz.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
   :language: python
-  :lines: 33-37
+  :lines: 200-213
 
 All that's left is to start our emulation. SmallWorld only supports fuzzing with our
 `UnicornEmulator`. The only other difference that we end with `machine.fuzz()` and pass
 in out input callback.
 
-.. literalinclude:: ../../tests/fuzz/afl_fuzz.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
   :language: python
-  :lines: 39-
+  :lines: 258-274
 
 And that's it. If we put it all together, we have:
 
-.. literalinclude:: ../../tests/fuzz/afl_fuzz.amd64.py
+.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
   :language: python
 
 Running With AFL++
 ------------------
-To run our harness with `AFL++`_ using a command such as the following:
+To run the maintained scenario implementation with `AFL++`_ using a command
+such as the following:
 
 .. code-block:: bash
   
-  afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 our_fuzz_harness.py @@
+  afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 ../run_case.py fuzz.afl_fuzz amd64 @@
 
 
 and you should see a TUI that looks like this:
@@ -111,4 +112,3 @@ Next Steps
 If you are interested in a more in depth tutorial on using SmallWorld for vulnerability
 research (including fuzzing), then checkout our in depth tutorial on using SmallWorld to
 analyize an RTOS found in the repo under `use_cases/rtos_demo`.
-
