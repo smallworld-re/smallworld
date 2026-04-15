@@ -131,14 +131,40 @@ hint output by `basic_harness.py`
 
 The out tells us that the register ``edi`` is an input to this
 snippet of code and should really be set explicitly. The maintained
-scenario implementation that harnesses ``square.amd64.bin`` now lives
-in ``tests/harness/scenarios/square.py``.
+scenario implementation now lives in ``tests/harness/scenarios/square.py``,
+but the minimal harness for this tutorial is still quite small:
 
-.. literalinclude:: ../../tests/harness/scenarios/square.py
-  :language: Python
+.. code-block:: python
+
+    import sys
+    import smallworld
+
+    platform = smallworld.platforms.Platform(
+        smallworld.platforms.Architecture.X86_64,
+        smallworld.platforms.Byteorder.LITTLE,
+    )
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    code = smallworld.state.memory.code.Executable.from_filepath(
+        "tests/square/square.amd64.bin",
+        address=0x1000,
+    )
+    machine.add(cpu)
+    machine.add(code)
+
+    cpu.rip.set(code.address)
+    cpu.rdi.set(int(sys.argv[1]))
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(code.address + code.get_capacity())
+    final_machine = machine.emulate(emulator)
+    print(hex(final_machine.get_cpu().eax.get()))
 
 And here is what it looks like to run that script, setting ``edi`` to
 42 initially.
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py square amd64 42
     :cwd: ../../tests/square/

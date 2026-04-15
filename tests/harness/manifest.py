@@ -13,6 +13,15 @@ from .parity import check_manifest_parity, check_registered_scenario_parity
 PYTHON = sys.executable
 
 VariantInfo = tuple[str, typing.Optional[str], dict[str, typing.Any]]
+VariantKwargs = dict[str, typing.Any]
+VariantRunFactory = typing.Callable[
+    [str, VariantKwargs], typing.Callable[[CaseRunner], None]
+]
+VariantValidator = typing.Callable[
+    [CaseRunner, str, str, str, VariantKwargs], None
+]
+VariantDescriptionFactory = typing.Callable[[str, VariantKwargs], str | None]
+VariantTransform = typing.Callable[[str], str]
 
 
 def _variant_from_entry(
@@ -173,6 +182,225 @@ def _run_afl_showmap(
     return result.stdout, result.stderr
 
 
+def _identity_variant(variant: str) -> str:
+    return variant
+
+
+def _build_legacy_variant_cases(
+    suite_names: tuple[str, ...],
+    *,
+    case_prefix: str,
+    tags: tuple[str, ...],
+    run_factory: VariantRunFactory,
+    prefix: str | None = None,
+    weight: int = 1,
+    description_factory: VariantDescriptionFactory | None = None,
+) -> list[CaseSpec]:
+    cases = []
+    for variant, skip_reason, kwargs in _legacy_variants(suite_names, prefix=prefix):
+        description = None
+        if description_factory is not None:
+            description = description_factory(variant, kwargs)
+        cases.append(
+            _case(
+                f"{case_prefix}:{variant}",
+                *tags,
+                run=run_factory(variant, kwargs),
+                skip_reason=skip_reason,
+                weight=weight,
+                description=description,
+            )
+        )
+    return cases
+
+
+def _build_legacy_case_command_cases(
+    suite_names: tuple[str, ...],
+    *,
+    case_prefix: str,
+    scenario: str,
+    tags: tuple[str, ...],
+    prefix: str | None = None,
+    args: tuple[str, ...] = (),
+    stdin: str | None = None,
+    env: dict[str, str] | None = None,
+    check: bool = True,
+    weight: int = 1,
+    validator: VariantValidator | None = None,
+    description_factory: VariantDescriptionFactory | None = None,
+) -> list[CaseSpec]:
+    def build_run(
+        variant: str, kwargs: VariantKwargs
+    ) -> typing.Callable[[CaseRunner], None]:
+        def run(
+            runner: CaseRunner,
+            *,
+            variant: str = variant,
+            kwargs: VariantKwargs = kwargs,
+        ) -> None:
+            stdout, stderr = _run_case_command(
+                runner,
+                scenario,
+                variant,
+                *args,
+                stdin=stdin,
+                env=env,
+                check=check,
+            )
+            if validator is not None:
+                validator(runner, stdout, stderr, variant, kwargs)
+
+        return run
+
+    return _build_legacy_variant_cases(
+        suite_names,
+        case_prefix=case_prefix,
+        tags=tags,
+        run_factory=build_run,
+        prefix=prefix,
+        weight=weight,
+        description_factory=description_factory,
+    )
+
+
+def _build_legacy_script_cases(
+    suite_names: tuple[str, ...],
+    *,
+    case_prefix: str,
+    tags: tuple[str, ...],
+    script_template: str,
+    prefix: str | None = None,
+    args: tuple[str, ...] = (),
+    stdin: str | None = None,
+    cwd: pathlib.Path | None = None,
+    env: dict[str, str] | None = None,
+    check: bool = True,
+    weight: int = 1,
+    validator: VariantValidator | None = None,
+    variant_transform: VariantTransform = _identity_variant,
+    description_factory: VariantDescriptionFactory | None = None,
+) -> list[CaseSpec]:
+    def build_run(
+        variant: str, kwargs: VariantKwargs
+    ) -> typing.Callable[[CaseRunner], None]:
+        script = script_template.format(variant=variant_transform(variant))
+
+        def run(
+            runner: CaseRunner,
+            *,
+            script: str = script,
+            variant: str = variant,
+            kwargs: VariantKwargs = kwargs,
+        ) -> None:
+            stdout, stderr = _run_script(
+                runner,
+                script,
+                *args,
+                stdin=stdin,
+                cwd=cwd,
+                env=env,
+                check=check,
+            )
+            if validator is not None:
+                validator(runner, stdout, stderr, variant, kwargs)
+
+        return run
+
+    return _build_legacy_variant_cases(
+        suite_names,
+        case_prefix=case_prefix,
+        tags=tags,
+        run_factory=build_run,
+        prefix=prefix,
+        weight=weight,
+        description_factory=description_factory,
+    )
+
+
+def _script_case(
+    case_id: str,
+    *tags: str,
+    script: str,
+    args: tuple[str, ...] = (),
+    stdin: str | None = None,
+    cwd: pathlib.Path | None = None,
+    env: dict[str, str] | None = None,
+    check: bool = True,
+    weight: int = 1,
+    expected_contains: tuple[str, ...] = (),
+    expected_line_contains: tuple[str, ...] = (),
+) -> CaseSpec:
+    def run(
+        runner: CaseRunner,
+        *,
+        script: str = script,
+        args: tuple[str, ...] = args,
+        stdin: str | None = stdin,
+        cwd: pathlib.Path | None = cwd,
+        env: dict[str, str] | None = env,
+        check: bool = check,
+        expected_contains: tuple[str, ...] = expected_contains,
+        expected_line_contains: tuple[str, ...] = expected_line_contains,
+    ) -> None:
+        stdout, _ = _run_script(
+            runner,
+            script,
+            *args,
+            stdin=stdin,
+            cwd=cwd,
+            env=env,
+            check=check,
+        )
+        for text in expected_contains:
+            runner.assert_contains(stdout, text)
+        for text in expected_line_contains:
+            runner.assert_line_contains(stdout, text)
+
+    return _case(case_id, *tags, run=run, weight=weight)
+
+
+def _build_script_expectation_cases(
+    case_prefix: str,
+    tags: tuple[str, ...],
+    expectations: dict[str, list[str]],
+    *,
+    weight: int = 1,
+    line_contains: bool = False,
+    cwd: pathlib.Path | None = None,
+) -> list[CaseSpec]:
+    cases = []
+    for script, expected in expectations.items():
+        cases.append(
+            _script_case(
+                f"{case_prefix}:{pathlib.Path(script).stem}",
+                *tags,
+                script=script,
+                cwd=cwd,
+                weight=weight,
+                expected_line_contains=tuple(expected) if line_contains else (),
+                expected_contains=() if line_contains else tuple(expected),
+            )
+        )
+    return cases
+
+
+def _assert_case_outputs(
+    runner: CaseRunner,
+    scenario: str,
+    variant: str,
+    expectations: typing.Iterable[tuple[tuple[str, ...], str]],
+    *,
+    stdin: str | None = None,
+    lower: bool = False,
+) -> None:
+    for args, expected in expectations:
+        stdout, _ = _run_case_command(runner, scenario, variant, *args, stdin=stdin)
+        if lower:
+            runner.assert_contains(stdout.lower(), expected.lower())
+            continue
+        runner.assert_contains(stdout, expected)
+
+
 def _build_square_cases() -> list[CaseSpec]:
     cases = []
     for variant, skip_reason, kwargs in _legacy_variants(
@@ -191,14 +419,15 @@ def _build_square_cases() -> list[CaseSpec]:
             numbers = [5, 1337]
             if not sixteenbit:
                 numbers.append(65535)
+            expectations = []
             for number in numbers:
-                stdout, _ = _run_case_command(runner, "square", variant, str(number))
                 result = number**2
                 if signext and result & 0xFFFFFFFF80000000 != 0:
                     result = 0xFFFFFFFF80000000 | result
                 if sixteenbit:
                     result &= 0xFFFF
-                runner.assert_contains(stdout, rf"{result:#x}")
+                expectations.append(((str(number),), f"{result:#x}"))
+            _assert_case_outputs(runner, "square", variant, expectations)
 
         cases.append(
             _case(
@@ -226,9 +455,17 @@ def _build_branch_cases() -> list[CaseSpec]:
     for variant, skip_reason, _ in variants:
 
         def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            for number, expected in ((99, "0x0"), (100, "0x1"), (101, "0x0")):
-                stdout, _ = _run_case_command(runner, "branch", variant, str(number))
-                runner.assert_contains(stdout, expected)
+            expectations = (
+                (("99",), "0x0"),
+                (("100",), "0x1"),
+                (("101",), "0x0"),
+            )
+            _assert_case_outputs(
+                runner,
+                "branch",
+                variant,
+                expectations,
+            )
 
         cases.append(
             _case(
@@ -259,9 +496,15 @@ def _build_call_cases() -> list[CaseSpec]:
                 (101, 0x321),
                 (65536, 0x21),
             )
-            for number, expected in outputs:
-                stdout, _ = _run_case_command(runner, "call", variant, str(number))
-                runner.assert_contains(stdout, f"{expected:#x}")
+            expectations = tuple(
+                ((str(number),), f"{expected:#x}") for number, expected in outputs
+            )
+            _assert_case_outputs(
+                runner,
+                "call",
+                variant,
+                expectations,
+            )
 
         cases.append(
             _case(
@@ -272,17 +515,24 @@ def _build_call_cases() -> list[CaseSpec]:
 
 
 def _build_dma_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("DMATests",), prefix="dma"):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout, "0x5")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "dma", variant, "10", "2")
-            runner.assert_contains(stdout, "0x5")
-
-        cases.append(
-            _case(f"dma:{variant}", "scenario", "dma", run=run, skip_reason=skip_reason)
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("DMATests",),
+        case_prefix="dma",
+        scenario="dma",
+        tags=("scenario", "dma"),
+        prefix="dma",
+        args=("10", "2"),
+        validator=validate,
+    )
 
 
 def _build_recursion_cases() -> list[CaseSpec]:
@@ -292,15 +542,22 @@ def _build_recursion_cases() -> list[CaseSpec]:
     ):
 
         def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            for number, expected in (
-                (-1, 91),
-                (0, 91),
-                (100, 91),
-                (101, 91),
-                (102, 92),
-            ):
-                stdout, _ = _run_case_command(runner, "recursion", variant, str(number))
-                runner.assert_contains(stdout, f"{expected:#x}")
+            expectations = tuple(
+                ((str(number),), f"{expected:#x}")
+                for number, expected in (
+                    (-1, 91),
+                    (0, 91),
+                    (100, 91),
+                    (101, 91),
+                    (102, 92),
+                )
+            )
+            _assert_case_outputs(
+                runner,
+                "recursion",
+                variant,
+                expectations,
+            )
 
         cases.append(
             _case(
@@ -315,56 +572,53 @@ def _build_recursion_cases() -> list[CaseSpec]:
 
 
 def _build_stack_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, kwargs in _legacy_variants(
-        ("StackTests",), prefix="stack"
-    ):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        kwargs: VariantKwargs,
+    ) -> None:
         expected = str(kwargs.get("res", "0xaaaaaaaa"))
+        runner.assert_contains(stdout.lower(), expected.lower())
 
-        def run(
-            runner: CaseRunner, *, variant: str = variant, expected: str = expected
-        ) -> None:
-            stdout, _ = _run_case_command(runner, "stack", variant)
-            runner.assert_contains(stdout.lower(), expected.lower())
-
-        cases.append(
-            _case(
-                f"stack:{variant}",
-                "scenario",
-                "stack",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("StackTests",),
+        case_prefix="stack",
+        scenario="stack",
+        tags=("scenario", "stack"),
+        prefix="stack",
+        validator=validate,
+    )
 
 
 def _build_block_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("BlockTests",), prefix="block"):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        for parts in (
+            ("1", "1760"),
+            ("2", "1760"),
+            ("3", "0"),
+            ("4", "1"),
+            ("5", "980"),
+            ("6", "20"),
+        ):
+            runner.assert_line_contains(stdout, *parts)
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "block", variant, "2740", "1760")
-            for parts in (
-                ("1", "1760"),
-                ("2", "1760"),
-                ("3", "0"),
-                ("4", "1"),
-                ("5", "980"),
-                ("6", "20"),
-            ):
-                runner.assert_line_contains(stdout, *parts)
-
-        cases.append(
-            _case(
-                f"block:{variant}",
-                "scenario",
-                "block",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("BlockTests",),
+        case_prefix="block",
+        scenario="block",
+        tags=("scenario", "block"),
+        prefix="block",
+        args=("2740", "1760"),
+        validator=validate,
+    )
 
 
 def _build_strlen_cases() -> list[CaseSpec]:
@@ -372,10 +626,12 @@ def _build_strlen_cases() -> list[CaseSpec]:
     for variant, skip_reason, _ in _legacy_variants(("StrlenTests",), prefix="strlen"):
 
         def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "strlen", variant, "")
-            runner.assert_contains(stdout, "0x0")
-            stdout, _ = _run_case_command(runner, "strlen", variant, "foobar")
-            runner.assert_contains(stdout, "0x6")
+            _assert_case_outputs(
+                runner,
+                "strlen",
+                variant,
+                ((("",), "0x0"), (("foobar",), "0x6")),
+            )
 
         cases.append(
             _case(
@@ -390,300 +646,247 @@ def _build_strlen_cases() -> list[CaseSpec]:
 
 
 def _build_hooking_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, kwargs in _legacy_variants(
-        ("HookingTests",), prefix="hooking"
-    ):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        kwargs: VariantKwargs,
+    ) -> None:
         expected = "oo bar baz" if kwargs.get("heckingMIPS64", False) else "foo bar baz"
+        runner.assert_contains(stdout, expected)
 
-        def run(
-            runner: CaseRunner, *, variant: str = variant, expected: str = expected
-        ) -> None:
-            stdout, _ = _run_case_command(
-                runner, "hooking", variant, stdin="foo bar baz"
-            )
-            runner.assert_contains(stdout, expected)
-
-        cases.append(
-            _case(
-                f"hooking:{variant}",
-                "scenario",
-                "hooking",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("HookingTests",),
+        case_prefix="hooking",
+        scenario="hooking",
+        tags=("scenario", "hooking"),
+        prefix="hooking",
+        stdin="foo bar baz",
+        validator=validate,
+    )
 
 
 def _build_elf_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("ElfTests",), prefix="elf"):
-        cases.append(
-            _case(
-                f"elf:{variant}",
-                "scenario",
-                "elf",
-                run=lambda runner, variant=variant: _run_case_command(
-                    runner, "elf", variant, "foobar"
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("ElfTests",),
+        case_prefix="elf",
+        scenario="elf",
+        tags=("scenario", "elf"),
+        prefix="elf",
+        args=("foobar",),
+    )
 
 
 def _build_rela_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("RelaTests",), prefix="rela"):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout, "Hello, world!")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "rela", variant)
-            runner.assert_contains(stdout, "Hello, world!")
-
-        cases.append(
-            _case(
-                f"rela:{variant}", "scenario", "rela", run=run, skip_reason=skip_reason
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("RelaTests",),
+        case_prefix="rela",
+        scenario="rela",
+        tags=("scenario", "rela"),
+        prefix="rela",
+        validator=validate,
+    )
 
 
 def _build_static_rela_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("StaticRelaTests",)):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout, "foobar")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_script(
-                runner, f"static_rela/static_rela.{variant}.py", "foobar"
-            )
-            runner.assert_contains(stdout, "foobar")
-
-        cases.append(
-            _case(
-                f"static_rela:{variant}",
-                "scenario",
-                "static_rela",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("StaticRelaTests",),
+        case_prefix="static_rela",
+        tags=("scenario", "static_rela"),
+        script_template="static_rela/static_rela.{variant}.py",
+        args=("foobar",),
+        validator=validate,
+    )
 
 
 def _build_link_elf_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(
-        ("LinkElfTests",), prefix="link_elf"
-    ):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout.lower(), "0x2a")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "link_elf", variant, "42")
-            runner.assert_contains(stdout.lower(), "0x2a")
-
-        cases.append(
-            _case(
-                f"link_elf:{variant}",
-                "scenario",
-                "link_elf",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("LinkElfTests",),
+        case_prefix="link_elf",
+        scenario="link_elf",
+        tags=("scenario", "link_elf"),
+        prefix="link_elf",
+        args=("42",),
+        validator=validate,
+    )
 
 
 def _build_elf_core_load_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(
-        ("ElfCoreLoadTests",), prefix="elf_core"
-    ):
-        cases.append(
-            _case(
-                f"elf_core.load:{variant}",
-                "scenario",
-                "elf_core",
-                "load",
-                run=lambda runner, variant=variant: _run_script(
-                    runner, f"elf_core/load/elf_core.{variant}.py"
-                ),
-                skip_reason=skip_reason,
-                weight=2,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("ElfCoreLoadTests",),
+        case_prefix="elf_core.load",
+        tags=("scenario", "elf_core", "load"),
+        script_template="elf_core/load/elf_core.{variant}.py",
+        prefix="elf_core",
+        weight=2,
+    )
 
 
 def _build_elf_core_actuate_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("ElfCoreActuateTests",)):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout, "foobar")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_script(runner, f"elf_core/actuate/elf_core.{variant}.py")
-            runner.assert_contains(stdout, "foobar")
-
-        cases.append(
-            _case(
-                f"elf_core.actuate:{variant}",
-                "scenario",
-                "elf_core",
-                run=run,
-                skip_reason=skip_reason,
-                weight=2,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("ElfCoreActuateTests",),
+        case_prefix="elf_core.actuate",
+        tags=("scenario", "elf_core"),
+        script_template="elf_core/actuate/elf_core.{variant}.py",
+        weight=2,
+        validator=validate,
+    )
 
 
 def _build_pe_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("PETests",), prefix="pe"):
-        cases.append(
-            _case(
-                f"pe:{variant}",
-                "scenario",
-                "pe",
-                run=lambda runner, variant=variant: _run_case_command(
-                    runner, "pe", variant
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("PETests",),
+        case_prefix="pe",
+        scenario="pe",
+        tags=("scenario", "pe"),
+        prefix="pe",
+    )
 
 
 def _build_link_pe_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("LinkPETests",), prefix="pe"):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout.lower(), "0x2a")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "link_pe", variant, "42")
-            runner.assert_contains(stdout.lower(), "0x2a")
-
-        cases.append(
-            _case(
-                f"link_pe:{variant}",
-                "scenario",
-                "link_pe",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("LinkPETests",),
+        case_prefix="link_pe",
+        scenario="link_pe",
+        tags=("scenario", "link_pe"),
+        prefix="pe",
+        args=("42",),
+        validator=validate,
+    )
 
 
 def _build_floats_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("FloatsTests",), prefix="floats"):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout, "3.3")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_script(runner, f"floats/floats.{variant}.py", "2.2", "1.1")
-            runner.assert_contains(stdout, "3.3")
-
-        cases.append(
-            _case(
-                f"floats:{variant}",
-                "scenario",
-                "floats",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("FloatsTests",),
+        case_prefix="floats",
+        tags=("scenario", "floats"),
+        script_template="floats/floats.{variant}.py",
+        prefix="floats",
+        args=("2.2", "1.1"),
+        validator=validate,
+    )
 
 
 def _build_syscall_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(
-        ("SyscallTests",), prefix="syscall"
-    ):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout, "Executing syscall")
+        runner.assert_contains(stdout, "Executing a write syscall")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_script(runner, f"syscall/syscall.{variant}.py")
-            runner.assert_contains(stdout, "Executing syscall")
-            runner.assert_contains(stdout, "Executing a write syscall")
-
-        cases.append(
-            _case(
-                f"syscall:{variant}",
-                "scenario",
-                "syscall",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("SyscallTests",),
+        case_prefix="syscall",
+        tags=("scenario", "syscall"),
+        script_template="syscall/syscall.{variant}.py",
+        prefix="syscall",
+        validator=validate,
+    )
 
 
 def _build_static_buffer_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("StaticBufferTests",)):
+    def validate(
+        runner: CaseRunner,
+        stdout: str,
+        _stderr: str,
+        _variant: str,
+        _kwargs: VariantKwargs,
+    ) -> None:
+        runner.assert_contains(stdout.lower(), "0x4a1")
 
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            stdout, _ = _run_case_command(runner, "static_buf", variant)
-            runner.assert_contains(stdout.lower(), "0x4a1")
-
-        cases.append(
-            _case(
-                f"static_buf:{variant}",
-                "scenario",
-                "static_buf",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("StaticBufferTests",),
+        case_prefix="static_buf",
+        scenario="static_buf",
+        tags=("scenario", "static_buf"),
+        validator=validate,
+    )
 
 
 def _build_delay_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("DelayTests",)):
-        cases.append(
-            _case(
-                f"delay:{variant}",
-                "scenario",
-                "delay",
-                run=lambda runner, variant=variant: _run_script(
-                    runner, f"delay/delay.{variant}.py"
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("DelayTests",),
+        case_prefix="delay",
+        tags=("scenario", "delay"),
+        script_template="delay/delay.{variant}.py",
+    )
 
 
 def _build_exitpoint_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("ExitpointTests",)):
-        cases.append(
-            _case(
-                f"exitpoint:{variant}",
-                "scenario",
-                "exitpoint",
-                run=lambda runner, variant=variant: _run_case_command(
-                    runner, "exitpoint", variant
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("ExitpointTests",),
+        case_prefix="exitpoint",
+        scenario="exitpoint",
+        tags=("scenario", "exitpoint"),
+    )
 
 
 def _build_unmapped_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("UnmappedTests",)):
-        cases.append(
-            _case(
-                f"unmapped:{variant}",
-                "scenario",
-                "unmapped",
-                run=lambda runner, variant=variant: _run_case_command(
-                    runner, "unmapped", variant
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_case_command_cases(
+        ("UnmappedTests",),
+        case_prefix="unmapped",
+        scenario="unmapped",
+        tags=("scenario", "unmapped"),
+    )
 
 
 def _build_symbolic_cases() -> list[CaseSpec]:
@@ -698,57 +901,44 @@ def _build_symbolic_cases() -> list[CaseSpec]:
         ),
         ("symbolic:square", "symbolic/square.amd64.angr.symbolic.py", (), None),
     ]
-    cases = []
-    for case_id, script, args, stdin in symbolic_scripts:
-        cases.append(
-            _case(
-                case_id,
-                "analysis",
-                "symbolic",
-                run=lambda runner, script=script, args=args, stdin=stdin: _run_script(
-                    runner, script, *args, stdin=stdin
-                ),
-                weight=2,
-            )
+    return [
+        _script_case(
+            case_id,
+            "analysis",
+            "symbolic",
+            script=script,
+            args=args,
+            stdin=stdin,
+            weight=2,
         )
-    return cases
+        for case_id, script, args, stdin in symbolic_scripts
+    ]
 
 
 def _build_sysv_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("SysVModelTests",)):
-        cases.append(
-            _case(
-                f"sysv:{variant}",
-                "scenario",
-                "sysv",
-                run=lambda runner, variant=variant: _run_script(
-                    runner, f"sysv/sysv.{variant}.py"
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("SysVModelTests",),
+        case_prefix="sysv",
+        tags=("scenario", "sysv"),
+        script_template="sysv/sysv.{variant}.py",
+    )
 
 
 def _build_structure_cases() -> list[CaseSpec]:
     return [
-        _case(
+        _script_case(
             "struct:amd64",
             "scenario",
             "struct",
-            run=lambda runner: runner.assert_contains(
-                _run_script(runner, "struct/struct.amd64.py")[0], "node_b->data = 42"
-            ),
+            script="struct/struct.amd64.py",
+            expected_contains=("node_b->data = 42",),
         ),
-        _case(
+        _script_case(
             "struct:amd64.panda",
             "scenario",
             "struct",
-            run=lambda runner: runner.assert_contains(
-                _run_script(runner, "struct/struct.amd64.panda.py")[0],
-                "node_b->data = 42",
-            ),
+            script="struct/struct.amd64.panda.py",
+            expected_contains=("node_b->data = 42",),
         ),
     ]
 
@@ -803,21 +993,13 @@ def _build_memhook_cases() -> list[CaseSpec]:
 
 
 def _build_crash_triage_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("CrashTriageTests",)):
-        cases.append(
-            _case(
-                f"crash_triage:{variant}",
-                "analysis",
-                "crash_triage",
-                run=lambda runner, variant=variant: _run_script(
-                    runner, f"crash_triage/crash_triage.{variant}.py"
-                ),
-                skip_reason=skip_reason,
-                weight=2,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("CrashTriageTests",),
+        case_prefix="crash_triage",
+        tags=("analysis", "crash_triage"),
+        script_template="crash_triage/crash_triage.{variant}.py",
+        weight=2,
+    )
 
 
 def _build_trace_execution_cases() -> list[CaseSpec]:
@@ -853,26 +1035,13 @@ def _build_trace_execution_cases() -> list[CaseSpec]:
             "EXPECTED  No unexpected results",
         ],
     }
-    cases = []
-    for script, lines in expectations.items():
-
-        def run(
-            runner: CaseRunner, *, script: str = script, lines: list[str] = lines
-        ) -> None:
-            stdout, _ = _run_script(runner, script)
-            for line in lines:
-                runner.assert_line_contains(stdout, line)
-
-        cases.append(
-            _case(
-                f"trace_execution:{pathlib.Path(script).stem}",
-                "analysis",
-                "trace_execution",
-                run=run,
-                weight=2,
-            )
-        )
-    return cases
+    return _build_script_expectation_cases(
+        "trace_execution",
+        ("analysis", "trace_execution"),
+        expectations,
+        weight=2,
+        line_contains=True,
+    )
 
 
 def _build_loop_detection_cases() -> list[CaseSpec]:
@@ -883,15 +1052,13 @@ def _build_loop_detection_cases() -> list[CaseSpec]:
         "EXPECTED  loop hint in hints2 is correct",
         "EXPECTED  No unexpected results",
     ]
-
-    def run(runner: CaseRunner) -> None:
-        stdout, _ = _run_script(runner, "loop_detector/test_loop_detector_1.py")
-        for line in expected:
-            runner.assert_contains(stdout, line)
-
     return [
-        _case(
-            "loop_detection:test_loop_detector_1", "analysis", "loop_detector", run=run
+        _script_case(
+            "loop_detection:test_loop_detector_1",
+            "analysis",
+            "loop_detector",
+            script="loop_detector/test_loop_detector_1.py",
+            expected_contains=tuple(expected),
         )
     ]
 
@@ -910,41 +1077,24 @@ def _build_coverage_frontier_cases() -> list[CaseSpec]:
             "EXPECTED  No unexpected results",
         ],
     }
-    cases = []
-    for script, lines in expectations.items():
-
-        def run(
-            runner: CaseRunner, *, script: str = script, lines: list[str] = lines
-        ) -> None:
-            stdout, _ = _run_script(runner, script)
-            for line in lines:
-                runner.assert_contains(stdout, line)
-
-        cases.append(
-            _case(
-                f"coverage_frontier:{pathlib.Path(script).stem}",
-                "analysis",
-                "coverage_frontier",
-                run=run,
-            )
-        )
-    return cases
+    return _build_script_expectation_cases(
+        "coverage_frontier",
+        ("analysis", "coverage_frontier"),
+        expectations,
+    )
 
 
 def _build_colorizer_cases() -> list[CaseSpec]:
-    cases = []
-    for name in ("test_colorizer_1.py", "test_colorizer_2.py"):
-
-        def run(runner: CaseRunner, *, name: str = name) -> None:
-            stdout, _ = _run_script(runner, f"colorizer/{name}")
-            runner.assert_contains(stdout, "EXPECTED  No unexpected results")
-
-        cases.append(
-            _case(
-                f"colorizer:{pathlib.Path(name).stem}", "analysis", "colorizer", run=run
-            )
+    return [
+        _script_case(
+            f"colorizer:{pathlib.Path(name).stem}",
+            "analysis",
+            "colorizer",
+            script=f"colorizer/{name}",
+            expected_contains=("EXPECTED  No unexpected results",),
         )
-    return cases
+        for name in ("test_colorizer_1.py", "test_colorizer_2.py")
+    ]
 
 
 def _build_fsgsbase_cases() -> list[CaseSpec]:
@@ -952,13 +1102,15 @@ def _build_fsgsbase_cases() -> list[CaseSpec]:
         "Here's where in fs segment lsb of rax is: 40. ... which is correct.  Looks like fs:[0x28] address is working properly.",
         "Here's where in gs segment lsb of rbx is: 19. ... which is correct.  Looks like gs:[0x13] address is working properly.",
     ]
-
-    def run(runner: CaseRunner) -> None:
-        stdout, _ = _run_script(runner, "fsgsbase/fsgsbase.amd64.py")
-        for line in expected_lines:
-            runner.assert_line_contains(stdout, line)
-
-    return [_case("fsgsbase:amd64", "scenario", "fsgsbase", run=run)]
+    return [
+        _script_case(
+            "fsgsbase:amd64",
+            "scenario",
+            "fsgsbase",
+            script="fsgsbase/fsgsbase.amd64.py",
+            expected_line_contains=tuple(expected_lines),
+        )
+    ]
 
 
 def _build_rtos_cases() -> list[CaseSpec]:
@@ -967,22 +1119,14 @@ def _build_rtos_cases() -> list[CaseSpec]:
     cases = []
 
     def run_script_case(name: str, *expected: str) -> CaseSpec:
-        def run(
-            runner: CaseRunner,
-            *,
-            name: str = name,
-            expected: tuple[str, ...] = expected,
-        ) -> None:
-            stdout, _ = _run_script(runner, name, cwd=demo_dir)
-            for line in expected:
-                runner.assert_line_contains(stdout, line)
-
-        return _case(
+        return _script_case(
             f"rtos_demo:{pathlib.Path(name).stem}",
             "analysis",
             "rtos_demo",
-            run=run,
+            script=name,
+            cwd=demo_dir,
             weight=3,
+            expected_line_contains=expected,
         )
 
     cases.append(run_script_case("rtos_0_run.py", "Buffer: b'ABCDEFGHIJKLMNOP'"))
@@ -1101,37 +1245,25 @@ def _build_checked_heap_cases() -> list[CaseSpec]:
         "CheckedDoubleFreeTests": "checked_heap.double_free",
     }
     for suite_name, scenario in family_map.items():
-        for variant, skip_reason, _ in _legacy_variants((suite_name,)):
-            cases.append(
-                _case(
-                    f"{scenario}:{variant}",
-                    "scenario",
-                    "checked_heap",
-                    run=lambda runner, scenario=scenario, variant=variant: _run_case_command(
-                        runner, scenario, variant
-                    ),
-                    skip_reason=skip_reason,
-                    weight=2,
-                )
+        cases.extend(
+            _build_legacy_case_command_cases(
+                (suite_name,),
+                case_prefix=scenario,
+                scenario=scenario,
+                tags=("scenario", "checked_heap"),
+                weight=2,
             )
+        )
     return cases
 
 
 def _build_function_pointer_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("FunctionPointerTests",)):
-        cases.append(
-            _case(
-                f"funcptr:{variant}",
-                "scenario",
-                "funcptr",
-                run=lambda runner, variant=variant: _run_script(
-                    runner, f"funcptr/funcptr.{variant}.py"
-                ),
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
+    return _build_legacy_script_cases(
+        ("FunctionPointerTests",),
+        case_prefix="funcptr",
+        tags=("scenario", "funcptr"),
+        script_template="funcptr/funcptr.{variant}.py",
+    )
 
 
 def _build_fuzz_cases() -> list[CaseSpec]:

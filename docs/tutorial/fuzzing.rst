@@ -75,15 +75,18 @@ in out input callback.
   :language: python
   :lines: 258-274
 
-And that's it. If we put it all together, we have:
-
-.. literalinclude:: ../../tests/harness/scenarios/fuzz.py
-  :language: python
+And that's it. The maintained implementation now lives in
+``tests/harness/scenarios/fuzz.py``; it is just the setup above combined into
+one script that calls ``machine.fuzz_with_file(...)`` through
+``run_case.py fuzz.afl_fuzz``.
 
 Running With AFL++
 ------------------
 To run the maintained scenario implementation with `AFL++`_ using a command
 such as the following:
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. code-block:: bash
   

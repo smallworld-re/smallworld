@@ -144,13 +144,36 @@ starts at ``0x50014000``, and that the DMA registers are eight bytes each.
     machine.add(hdiv)
 
 All together, this maintained scenario implementation can be found in
-``tests/harness/scenarios/dma.py``:
+``tests/harness/scenarios/dma.py``. After defining ``HDivModel``, the
+rest of the harness is just:
 
-.. literalinclude:: ../../../tests/harness/scenarios/dma.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    code = smallworld.state.memory.code.Executable.from_filepath(
+        "tests/dma/dma.amd64.bin",
+        address=0x1000,
+    )
+    machine.add(cpu)
+    machine.add(code)
+
+    cpu.rip.set(code.address)
+    cpu.rdi.set(int(sys.argv[1]))
+    cpu.rsi.set(int(sys.argv[2]))
+
+    machine.add(HDivModel(0x50014000, 8))
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(code.address + code.get_capacity())
+    final_machine = machine.emulate(emulator)
+    print(hex(final_machine.get_cpu().eax.get()))
 
 If this works, we can feed it two numbers, and it should output the quotient.
 Let's try it.
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py dma amd64 10 2
     :cwd: ../../../tests/dma
