@@ -1631,6 +1631,71 @@ class GhidraMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class CoverageHarnessTests(unittest.TestCase):
+    def test_wrap_python_command_skips_inline_code(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = [sys.executable, "-c", "print('demo')"]
+
+        self.assertEqual(wrap_python_command(argv, env=env), argv)
+
+    def test_wrap_python_command_wraps_module_invocation(self):
+        env = {
+            "SMALLWORLD_COVERAGE": "1",
+            "SMALLWORLD_COVERAGE_RCFILE": "/tmp/demo-coveragerc",
+        }
+        argv = [sys.executable, "-m", "demo.module", "arg"]
+
+        self.assertEqual(
+            wrap_python_command(argv, env=env),
+            [
+                sys.executable,
+                "-m",
+                "coverage",
+                "run",
+                "--parallel-mode",
+                "--rcfile",
+                "/tmp/demo-coveragerc",
+                "-m",
+                "demo.module",
+                "arg",
+            ],
+        )
+
+    def test_wrap_python_command_preserves_interpreter_flags(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = [sys.executable, "-B", "-X", "dev", "demo.py", "arg"]
+
+        self.assertEqual(
+            wrap_python_command(argv, env=env),
+            [
+                sys.executable,
+                "-B",
+                "-X",
+                "dev",
+                "-m",
+                "coverage",
+                "run",
+                "--parallel-mode",
+                "demo.py",
+                "arg",
+            ],
+        )
+
+    def test_wrap_python_command_does_not_double_wrap_coverage(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = [
+            sys.executable,
+            "-B",
+            "-m",
+            "coverage",
+            "run",
+            "--parallel-mode",
+            "demo.py",
+        ]
+
+        self.assertEqual(wrap_python_command(argv, env=env), argv)
+
+
 class HarnessLoggingTests(unittest.TestCase):
     def test_run_cases_logs_main_output_to_file_and_console(self):
         def run_case(_: CaseRunner) -> None:
