@@ -2,47 +2,7 @@ from __future__ import annotations
 
 from typing import Optional, Sequence
 
-from . import (
-    branch,
-    call,
-    checked_heap,
-    dma,
-    elf,
-    exitpoint,
-    fuzz,
-    hooking,
-    link_elf,
-    link_pe,
-    pe,
-    recursion,
-    rela,
-    square,
-    stack,
-    static_buf,
-    strlen,
-    unmapped,
-)
-
-_HANDLERS = (
-    square,
-    branch,
-    call,
-    dma,
-    recursion,
-    stack,
-    strlen,
-    static_buf,
-    exitpoint,
-    unmapped,
-    checked_heap,
-    fuzz,
-    elf,
-    hooking,
-    rela,
-    link_elf,
-    pe,
-    link_pe,
-)
+from .registry import HANDLERS
 
 
 def maybe_run_registered_case(
@@ -50,7 +10,7 @@ def maybe_run_registered_case(
     variant: str,
     args: Sequence[str],
 ) -> Optional[int]:
-    for handler in _HANDLERS:
+    for handler in HANDLERS:
         if handler.can_run(scenario, variant):
             return handler.run_case(scenario, variant, args)
     return None

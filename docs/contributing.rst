@@ -123,10 +123,10 @@ per-architecture script.
    The runner supports local filtering and CI sharding, but a full local run is
    still a large job.
 
-   Run the cases closest to your change yourself, for example
-   ``python3 tests/integration.py --filter square`` or
-   ``python3 tests/run_case.py square amd64 42``, and allow CI to run the full
-   sharded matrix.
+   Run the cases closest to your change yourself from the repository dev shell,
+   for example ``nix develop . -c python3 tests/integration.py --filter square``
+   or ``nix develop . -c python3 tests/run_case.py square amd64 42``, and
+   allow CI to run the full sharded matrix.
 
 Compiling the Integration Tests
 *******************************

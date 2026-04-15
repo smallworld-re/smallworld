@@ -139,14 +139,43 @@ Putting it All Together
 -----------------------
 
 Combined, this maintained scenario implementation can be found in
-``tests/harness/scenarios/rela.py``
+``tests/harness/scenarios/rela.py``. The final harness is:
 
-.. literalinclude:: ../../../tests/harness/scenarios/rela.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open("tests/rela/rela.amd64.elf", "rb") as elf:
+        code = smallworld.state.memory.code.Executable.from_elf(
+            elf, platform=platform, address=0x400000
+        )
+    machine.add(code)
+
+    entrypoint = code.get_symbol_value("main")
+    cpu.rip.set(entrypoint)
+
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
+    machine.add(stack)
+    exitpoint = entrypoint + code.get_symbol_size("main")
+    stack.push_integer(exitpoint, 8, None)
+    machine.add_exit_point(exitpoint)
+    cpu.rsp.set(stack.get_pointer())
+
+    puts = PutsModel(0x10000)
+    machine.add(puts)
+    code.update_symbol_value("puts", puts.address)
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    machine.emulate(emulator)
 
 This harness should print ``Hello, world!\n`` to the console.
 
 Here is what running it looks like:
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py rela amd64
     :cwd: ../../../tests/rela 

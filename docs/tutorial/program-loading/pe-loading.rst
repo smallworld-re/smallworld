@@ -151,10 +151,37 @@ and hook ``puts()``.  See :ref:`this tutorial <tutorial_hooking_pe>` for a more 
 to hook a function, and :ref:`this tutorial <tutorial_pe_linking>` for how to
 handle external function references in a PE file.
 
-.. literalinclude:: ../../../tests/harness/scenarios/pe.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open("tests/pe/pe.amd64.pe", "rb") as pe:
+        code = smallworld.state.memory.code.Executable.from_pe(
+            pe, platform=platform, address=0x10000
+        )
+    machine.add(code)
+
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    stack.push_integer(0x10101010, 8, None)
+    machine.add(stack)
+    cpu.rsp.set(stack.get_pointer())
+
+    machine.add(InitModel(code.address + 0x1620))
+    puts = PutsModel(0x10000000)
+    code.update_import("api-ms-win-crt-stdio-l1-1-0.dll", "puts", puts.address)
+    machine.add(puts)
+
+    cpu.rip.set(code.address + 0x1000)
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(code.address + 0x1031)
+    machine.emulate(emulator)
 
 Here is what running the harness looks like:
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py pe amd64
     :cwd: ../../../tests/pe

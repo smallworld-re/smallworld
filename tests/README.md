@@ -68,6 +68,9 @@ make -C elf_core    # NOTE: Requires `ulimit --core` to be set
 Tests can be run individually, listed, filtered, or executed as part of the
 full integration suite.
 
+Run the commands below from the repository dev shell. When invoking them from
+the `tests/` directory, use `nix develop .. -c ...`.
+
 The test binaries need to be compiled before the tests can be run.
 Thus, the suite is not fully supported on a platform without cross-compiler support.
 
@@ -76,13 +79,13 @@ Thus, the suite is not fully supported on a platform without cross-compiler supp
 The integration runner works from case ids and filters:
 
 ```bash
-python3 integration.py                               # Execute all manifest cases
-python3 integration.py --filter square               # Run matching ids/tags
-python3 integration.py --filter '^square:'           # Run only the square family
-python3 integration.py --filter square --output-log /tmp/integration.log
-python3 integration.py --list                        # List all cases
-python3 integration.py --list --format json         # Machine-readable listing
-python3 integration.py --shard-index 0 --shard-count 8
+nix develop .. -c python3 integration.py                               # Execute all manifest cases
+nix develop .. -c python3 integration.py --filter square               # Run matching ids/tags
+nix develop .. -c python3 integration.py --filter '^square:'           # Run only the square family
+nix develop .. -c python3 integration.py --filter square --output-log /tmp/integration.log
+nix develop .. -c python3 integration.py --list                        # List all cases
+nix develop .. -c python3 integration.py --list --format json          # Machine-readable listing
+nix develop .. -c python3 integration.py --shard-index 0 --shard-count 8
 ```
 
 Some features of smallworld are optional, given dependencies on large external libraries.
@@ -93,9 +96,9 @@ The integration tests assume that all features are present.
 Run a single scenario through the stable wrapper:
 
 ```bash
-python3 run_case.py square amd64 42
-python3 run_case.py checked_heap.read amd64.angr
-python3 run_case.py elf_core.actuate amd64
+nix develop .. -c python3 run_case.py square amd64 42
+nix develop .. -c python3 run_case.py checked_heap.read amd64.angr
+nix develop .. -c python3 run_case.py elf_core.actuate amd64
 ```
 
 Some scenarios require extra arguments. See the underlying harness script for
