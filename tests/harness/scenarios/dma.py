@@ -291,6 +291,11 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     maybe_enable_linear(smallworld, emulator, engine)
     if spec.exit_offset is not None:
         emulator.add_exit_point(code.address + spec.exit_offset)
+    elif arch == "amd64" and engine in {"panda", "pcode"}:
+        # The amd64 DMA case ends with `hlt`. PANDA wedges on that instruction
+        # and Ghidra tears down the JVM, leaving the process wedged. Stop at
+        # the final instruction boundary instead of one-past-the-end.
+        emulator.add_exit_point(code.address + code.get_capacity() - 1)
     else:
         emulator.add_exit_point(code.address + code.get_capacity())
 
