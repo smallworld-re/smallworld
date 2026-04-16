@@ -113,6 +113,7 @@ jobs:
         with:
           name: coverage-unit
           path: coverage-data
+          include-hidden-files: true
           if-no-files-found: ignore
 
   Python39:
@@ -142,6 +143,7 @@ jobs:
         with:
           name: coverage-python39
           path: coverage-data
+          include-hidden-files: true
           if-no-files-found: ignore
 
   Example-Test:
@@ -169,6 +171,7 @@ jobs:
         with:
           name: coverage-example
           path: coverage-data
+          include-hidden-files: true
           if-no-files-found: ignore
   
   Downstream-Flake:
@@ -196,6 +199,7 @@ jobs:
         with:
           name: coverage-downstream
           path: coverage-data
+          include-hidden-files: true
           if-no-files-found: ignore
 
   Integration-Matrix:
@@ -249,6 +253,7 @@ jobs:
         with:
           name: coverage-integration-${{ matrix.shard }}
           path: coverage-data
+          include-hidden-files: true
           if-no-files-found: ignore
 
   Coverage-Combine:
@@ -270,6 +275,7 @@ jobs:
           merge-multiple: true
       - name: Combine Coverage
         run: |
+          mkdir -p coverage-artifacts
           if [ -z "$(find coverage-artifacts -name '.coverage*' -print -quit)" ]; then
             echo "No coverage data was uploaded" >> "$GITHUB_STEP_SUMMARY"
             exit 1
@@ -294,6 +300,7 @@ jobs:
             coverage-report.txt
             coverage.xml
             htmlcov
+          include-hidden-files: true
           if-no-files-found: ignore
           
   Results:
