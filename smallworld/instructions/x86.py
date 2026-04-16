@@ -25,13 +25,24 @@ class x86Instruction(Instruction):
 
     # operand is a capstone operand
     def _memory_reference_operand(self, operand) -> MemoryReferenceOperand:
-        return self._memory_reference(
-            self._instruction.reg_name(operand.value.mem.base),
-            self._instruction.reg_name(operand.value.mem.index),
-            operand.value.mem.scale,
-            operand.value.mem.disp,
-            operand.size,
-        )
+        if operand.value.mem.base != 0:
+            return self._memory_reference(
+                self._instruction.reg_name(operand.value.mem.base),
+                self._instruction.reg_name(operand.value.mem.index),
+                operand.value.mem.scale,
+                operand.value.mem.disp,
+                operand.size,
+            )
+        else:
+            if operand.value.mem.segment != 0:
+                return self._memory_reference(
+                    self._instruction.reg_name(operand.value.mem.segment),
+                    self._instruction.reg_name(operand.value.mem.index),
+                    operand.value.mem.scale,
+                    operand.value.mem.disp,
+                    operand.size,
+                )
+                
 
     @property
     def reads(self) -> typing.Set[Operand]:
