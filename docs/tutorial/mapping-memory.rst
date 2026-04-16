@@ -63,16 +63,46 @@ We need to push that value onto the stack, and set ``rsp`` appropriately:
     cpu.rsp.set(sp)
 
 The maintained stack scenario implementation that performs these changes
-now lives in ``tests/harness/scenarios/stack.py``:
+now lives in ``tests/harness/scenarios/stack.py``, but the essential
+harness setup looks like this:
 
-.. literalinclude:: ../../tests/harness/scenarios/stack.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    code = smallworld.state.memory.code.Executable.from_filepath(
+        "tests/stack/stack.amd64.bin",
+        address=0x1000,
+    )
+    stack = smallworld.state.memory.stack.Stack.for_platform(
+        platform, 0x2000, 0x4000
+    )
+    machine.add(cpu)
+    machine.add(code)
+    machine.add(stack)
+
+    cpu.rip.set(code.address)
+    cpu.rdi.set(0x11111111)
+    cpu.rdx.set(0x22222222)
+    cpu.r8.set(0x33333333)
+
+    stack.push_integer(0x44444444, 8, None)
+    stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+    cpu.rsp.set(stack.get_pointer())
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(code.address + code.get_capacity())
+    final_machine = machine.emulate(emulator)
+    print(final_machine.get_cpu().eax)
 
 This harness doesn't take arguments; it assigns fixed values 
 ``0x11111111``, ``0x22222222``, ``0x33333333``, and ``0x44444444`` to the relevant
 registers and memory.
 
 Here is what running the new harness looks like:
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py stack amd64
     :cwd: ../../tests/stack/

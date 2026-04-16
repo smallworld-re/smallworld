@@ -218,14 +218,66 @@ Using what we've learned about the ELF loader and linker model,
 we can build the maintained scenario implementation in
 ``tests/harness/scenarios/link_elf.py``:
 
-.. literalinclude:: ../../../tests/harness/scenarios/link_elf.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open("tests/link_elf/link_elf.amd64.elf", "rb") as elf:
+        code = smallworld.state.memory.code.Executable.from_elf(
+            elf, platform=platform, address=0x400000
+        )
+    with open("tests/link_elf/link_elf.amd64.so", "rb") as elf:
+        lib = smallworld.state.memory.code.Executable.from_elf(
+            elf, platform=platform, address=0x800000
+        )
+
+    machine.add(code)
+    machine.add(lib)
+    lib.link_elf(lib)
+    code.link_elf(code)
+    lib.link_elf(lib, all_syms=True)
+    code.link_elf(code, all_syms=True)
+    code.link_elf(lib)
+
+    entrypoint = code.get_symbol_value("main")
+    cpu.rip.set(entrypoint)
+
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    machine.add(stack)
+    string = sys.argv[1].encode("utf-8") + b"\0"
+    string += b"\0" * (16 - (len(string) % 16))
+    stack.push_bytes(string, None)
+    string_address = stack.get_pointer()
+    stack.push_integer(0, 8, None)
+    stack.push_integer(string_address, 8, None)
+    stack.push_integer(0x10101010, 8, None)
+    argv = stack.get_pointer()
+    stack.push_integer(argv, 8, None)
+    stack.push_integer(2, 8, None)
+    cpu.rsp.set(stack.get_pointer())
+    cpu.rdi.set(2)
+    cpu.rsi.set(argv)
+
+    machine.add_exit_point(entrypoint + code.get_symbol_size("main"))
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(0)
+    for bounds in (code.bounds, lib.bounds):
+        for start, end in bounds:
+            machine.add_bound(start, end)
+
+    final_machine = machine.emulate(emulator)
+    print(final_machine.get_cpu().rax)
 
 This includes code for linking an ELF,
 as well as setting up the stack and registers
 to provide ``argc`` and ``argv`` to ``main()``.
 
 Here is what running this harness looks like:
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py link_elf amd64 42
     :cwd: ../../../tests/link_elf/

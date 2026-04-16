@@ -174,8 +174,54 @@ Using what we've learned about the PE loader and linker model,
 we can build the maintained scenario implementation in
 ``tests/harness/scenarios/link_pe.py``:
 
-.. literalinclude:: ../../../tests/harness/scenarios/link_pe.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open("tests/link_pe/link_pe.amd64.pe", "rb") as pe:
+        code = smallworld.state.memory.code.Executable.from_pe(
+            pe, platform=platform, address=0x400000
+        )
+    with open("tests/link_pe/link_pe.amd64.dll", "rb") as pe:
+        lib = smallworld.state.memory.code.Executable.from_pe(
+            pe, platform=platform, address=0x800000
+        )
+
+    machine.add(code)
+    machine.add(lib)
+    code.link_pe(lib)
+
+    entrypoint = code.address + 0x1000
+    cpu.rip.set(entrypoint)
+
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    machine.add(stack)
+    string = sys.argv[1].encode("utf-8") + b"\0"
+    string += b"\0" * (16 - (len(string) % 16))
+    stack.push_bytes(string, None)
+    string_address = stack.get_pointer()
+    stack.push_integer(0, 8, None)
+    stack.push_integer(string_address, 8, None)
+    stack.push_integer(0x10101010, 8, None)
+    argv = stack.get_pointer()
+    stack.push_integer(argv, 8, None)
+    stack.push_integer(2, 8, None)
+    cpu.rsp.set(stack.get_pointer())
+    cpu.rcx.set(2)
+    cpu.rdx.set(argv)
+
+    machine.add(InitModel(code.address + 0x16C0))
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(0)
+    emulator.add_exit_point(code.address + 0x10D2)
+    for bounds in (code.bounds, lib.bounds):
+        for start, end in bounds:
+            machine.add_bound(start, end)
+
+    final_machine = machine.emulate(emulator)
+    print(final_machine.get_cpu().rax)
 
 This includes code for linking a PE file,
 as well as setting up the stack and registers to provide
@@ -183,6 +229,9 @@ as well as setting up the stack and registers to provide
 as well as stubbing out the library initializers.
 
 Here is what running this harness looks like:
+
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
 
 .. command-output:: python3 ../run_case.py link_pe amd64 42
     :cwd: ../../../tests/link_pe

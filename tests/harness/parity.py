@@ -1,29 +1,9 @@
 from __future__ import annotations
 
-import pathlib
-
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
-from .scenarios import (
-    branch,
-    call,
-    checked_heap,
-    dma,
-    elf,
-    exitpoint,
-    fuzz,
-    hooking,
-    link_elf,
-    link_pe,
-    pe,
-    recursion,
-    rela,
-    square,
-    stack,
-    static_buf,
-    strlen,
-    unmapped,
-)
+from .scenarios import fuzz
+from .scenarios.registry import REGISTERED_SCENARIOS
 
 GENERIC_SUITES = {
     "BlockTests": ("block", "block"),
@@ -88,29 +68,6 @@ DIFFTIME_SKIPS = {
     "mips64el": "Returning float fails on mips64el",
 }
 
-REGISTERED_SCENARIOS = {
-    "branch": ("branch", branch),
-    "call": ("call", call),
-    "checked_heap.double_free": ("checked_heap.double_free", checked_heap),
-    "checked_heap.read": ("checked_heap.read", checked_heap),
-    "checked_heap.uaf": ("checked_heap.uaf", checked_heap),
-    "checked_heap.write": ("checked_heap.write", checked_heap),
-    "dma": ("dma", dma),
-    "elf": ("elf", elf),
-    "exitpoint": ("exitpoint", exitpoint),
-    "hooking": ("hooking", hooking),
-    "link_elf": ("link_elf", link_elf),
-    "link_pe": ("link_pe", link_pe),
-    "pe": ("pe", pe),
-    "recursion": ("recursion", recursion),
-    "rela": ("rela", rela),
-    "square": ("square", square),
-    "stack": ("stack", stack),
-    "static_buf": ("static_buf", static_buf),
-    "strlen": ("strlen", strlen),
-    "unmapped": ("unmapped", unmapped),
-}
-
 
 def _expected_special_cases() -> dict[str, str | None]:
     expected: dict[str, str | None] = {}
@@ -145,7 +102,9 @@ def _expected_special_cases() -> dict[str, str | None]:
     for entry in LEGACY_MATRIX["RTOSDemoTests"]:
         if "run_test" in entry:
             script = entry["run_test"]["args"][0]
-            expected[f"rtos_demo:{pathlib.Path(script).stem}"] = entry["skip_reason"]
+            expected[f"rtos_demo:{script.removesuffix('.py').split('/')[-1]}"] = entry[
+                "skip_reason"
+            ]
         else:
             expected[rtos_names[entry["name"]]] = entry["skip_reason"]
 
@@ -254,7 +213,7 @@ def check_registered_scenario_parity() -> None:
                 missing.append(case.id)
             continue
         matched = False
-        for prefix, (scenario, handler) in REGISTERED_SCENARIOS.items():
+        for prefix, scenario, handler in REGISTERED_SCENARIOS:
             if case.id.startswith(f"{prefix}:"):
                 matched = True
                 variant = case.id[len(prefix) + 1 :]
