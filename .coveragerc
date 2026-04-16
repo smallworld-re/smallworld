@@ -3,6 +3,11 @@ source =
     smallworld
 parallel = True
 relative_files = True
+omit =
+    # The integration harness runs a Sphinx build that executes docs/conf.py.
+    # That file is not part of the package coverage target and its absolute
+    # path differs between self-hosted and hosted GitHub runners.
+    docs/*
 disable_warnings =
     no-data-collected
 
@@ -18,3 +23,5 @@ smallworld =
 [report]
 skip_covered = True
 show_missing = True
+omit =
+    docs/*
