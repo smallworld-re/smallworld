@@ -1740,10 +1740,7 @@ class FrameworkHarnessTests(unittest.TestCase):
 
             log_text = log_path.read_text(encoding="utf-8")
             self.assertIn("case: demo:shell", log_text)
-            self.assertIn(
-                "command: printf 'shell stdout\\n'; printf 'shell stderr\\n' >&2",
-                log_text,
-            )
+            self.assertIn("command: printf 'shell stdout\\n'; printf 'shell stderr\\n' >&2", log_text)
             self.assertIn("exit_code: 0", log_text)
             self.assertIn("shell stdout", log_text)
             self.assertIn("shell stderr", log_text)
@@ -1838,9 +1835,7 @@ class FrameworkHarnessTests(unittest.TestCase):
         cases = [
             CaseSpec(id="demo:one", tags=("demo",), run=lambda runner: None, weight=4),
             CaseSpec(id="demo:two", tags=("demo",), run=lambda runner: None, weight=3),
-            CaseSpec(
-                id="demo:three", tags=("demo",), run=lambda runner: None, weight=2
-            ),
+            CaseSpec(id="demo:three", tags=("demo",), run=lambda runner: None, weight=2),
             CaseSpec(id="demo:four", tags=("demo",), run=lambda runner: None, weight=1),
         ]
 
@@ -1875,15 +1870,15 @@ class IntegrationHarnessTests(unittest.TestCase):
         self.assertTrue(
             integration._matches("square:amd64", ("scenario",), ["^square:"])
         )
-        self.assertTrue(integration._matches("demo[list]", ("scenario",), ["demo["]))
+        self.assertTrue(
+            integration._matches("demo[list]", ("scenario",), ["demo["])
+        )
         self.assertFalse(
             integration._matches("square:amd64", ("scenario",), ["^strlen:"])
         )
 
     def test_main_validates_shard_arguments(self):
-        integration = _load_local_module(
-            "integration_validation_test", "integration.py"
-        )
+        integration = _load_local_module("integration_validation_test", "integration.py")
 
         scenarios = [
             (
@@ -2120,9 +2115,7 @@ class RunCaseHarnessTests(unittest.TestCase):
         with mock.patch.object(run_case, "maybe_run_registered_case", return_value=7):
             with mock.patch.object(sys, "argv", ["run_case.py", "square", "amd64"]):
                 with mock.patch.object(run_case, "script_path_for_case") as script_path:
-                    with mock.patch.object(
-                        run_case.subprocess, "run"
-                    ) as subprocess_run:
+                    with mock.patch.object(run_case.subprocess, "run") as subprocess_run:
                         result = run_case.main()
 
         self.assertEqual(result, 7)
@@ -2134,12 +2127,8 @@ class RunCaseHarnessTests(unittest.TestCase):
         script = TESTS_DIR / "struct" / "struct.amd64.py"
         completed = types.SimpleNamespace(returncode=9)
 
-        with mock.patch.object(
-            run_case, "maybe_run_registered_case", return_value=None
-        ):
-            with mock.patch.object(
-                run_case, "script_path_for_case", return_value=script
-            ):
+        with mock.patch.object(run_case, "maybe_run_registered_case", return_value=None):
+            with mock.patch.object(run_case, "script_path_for_case", return_value=script):
                 with mock.patch.object(
                     run_case,
                     "wrap_python_command",
@@ -2299,9 +2288,7 @@ class DocumentationReferenceTests(unittest.TestCase):
 
         for doc_file in doc_files:
             content = doc_file.read_text(encoding="utf-8")
-            for match in sorted(
-                set(re.findall(r"tests/[A-Za-z0-9_./-]+\.py", content))
-            ):
+            for match in sorted(set(re.findall(r"tests/[A-Za-z0-9_./-]+\.py", content))):
                 if not (REPO_ROOT / match).exists():
                     missing.append((doc_file, match))
 

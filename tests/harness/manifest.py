@@ -17,7 +17,9 @@ VariantKwargs = dict[str, typing.Any]
 VariantRunFactory = typing.Callable[
     [str, VariantKwargs], typing.Callable[[CaseRunner], None]
 ]
-VariantValidator = typing.Callable[[CaseRunner, str, str, str, VariantKwargs], None]
+VariantValidator = typing.Callable[
+    [CaseRunner, str, str, str, VariantKwargs], None
+]
 VariantDescriptionFactory = typing.Callable[[str, VariantKwargs], str | None]
 VariantTransform = typing.Callable[[str], str]
 
