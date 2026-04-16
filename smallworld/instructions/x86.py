@@ -42,7 +42,6 @@ class x86Instruction(Instruction):
                     operand.value.mem.disp,
                     operand.size,
                 )
-                
 
     @property
     def reads(self) -> typing.Set[Operand]:
