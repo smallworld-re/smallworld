@@ -55,7 +55,11 @@ let
       aflplusplus =
         if system == "aarch64-darwin" then aflplusplusPackages.${system}.aflplusplus else pkgs.aflplusplus;
     in
-    [ aflplusplus pkgs.z3 ] ++ ghidra.tools;
+    [
+      aflplusplus
+      pkgs.z3
+    ]
+    ++ ghidra.tools;
 
   # `buildEnv` is how we merge several derivations into one user-facing
   # environment. The extra setup-hook plumbing below is what keeps PATH,
