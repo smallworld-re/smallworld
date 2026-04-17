@@ -1,18 +1,54 @@
+import contextlib
 import ctypes
+import importlib.util
+import io
+import json
 import logging
 import os
+import pathlib
+import re
 import signal
 import subprocess
+import sys
+import tempfile
+import types
 import typing
 import unittest
+from unittest import mock
 
+import capstone
 import claripy
+from harness.coverage import wrap_python_command
+from harness.framework import (
+    CaseRunner,
+    CaseSpec,
+    DetailedCalledProcessError,
+    managed_output_logger,
+    run_cases,
+    stable_shards,
+    summaries_json,
+)
+from harness.scenarios import fuzz as fuzz_scenario
+from harness.scenarios import static_buf as static_buf_scenario
 
 from smallworld import emulators, exceptions, platforms, state, utils
 
 logging.getLogger("angr").setLevel(logging.ERROR)
 logging.getLogger("claripy").setLevel(logging.ERROR)
 logging.getLogger("cle").setLevel(logging.ERROR)
+
+TESTS_DIR = pathlib.Path(__file__).resolve().parent
+REPO_ROOT = TESTS_DIR.parent
+
+
+def _load_local_module(module_name: str, filename: str) -> types.ModuleType:
+    module_path = TESTS_DIR / filename
+    spec = importlib.util.spec_from_file_location(module_name, module_path)
+    if spec is None or spec.loader is None:
+        raise AssertionError(f"Failed loading module spec for {module_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 class MockConcreteEmulator(emulators.Emulator):
@@ -1308,7 +1344,7 @@ class PandaMachdefTests(unittest.TestCase):
         failure = None
         try:
             subprocess.run(
-                cmd,
+                wrap_python_command(cmd),
                 cwd=cwd,
                 check=True,
                 stdout=subprocess.DEVNULL,
@@ -1610,6 +1646,666 @@ class GhidraMachdefTests(unittest.TestCase):
             platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+
+class CoverageHarnessTests(unittest.TestCase):
+    def test_wrap_python_command_passthrough_when_coverage_disabled(self):
+        argv = [sys.executable, "demo.py"]
+
+        self.assertEqual(wrap_python_command(argv, env={}), argv)
+
+    def test_wrap_python_command_skips_non_python_commands(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = ["afl-showmap", "--help"]
+
+        self.assertEqual(wrap_python_command(argv, env=env), argv)
+
+    def test_wrap_python_command_skips_inline_code(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = [sys.executable, "-c", "print('demo')"]
+
+        self.assertEqual(wrap_python_command(argv, env=env), argv)
+
+    def test_wrap_python_command_wraps_module_invocation(self):
+        env = {
+            "SMALLWORLD_COVERAGE": "1",
+            "SMALLWORLD_COVERAGE_RCFILE": "/tmp/demo-coveragerc",
+        }
+        argv = [sys.executable, "-m", "demo.module", "arg"]
+
+        self.assertEqual(
+            wrap_python_command(argv, env=env),
+            [
+                sys.executable,
+                "-m",
+                "coverage",
+                "run",
+                "--parallel-mode",
+                "--rcfile",
+                "/tmp/demo-coveragerc",
+                "-m",
+                "demo.module",
+                "arg",
+            ],
+        )
+
+    def test_wrap_python_command_preserves_interpreter_flags(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = [sys.executable, "-B", "-X", "dev", "demo.py", "arg"]
+
+        self.assertEqual(
+            wrap_python_command(argv, env=env),
+            [
+                sys.executable,
+                "-B",
+                "-X",
+                "dev",
+                "-m",
+                "coverage",
+                "run",
+                "--parallel-mode",
+                "demo.py",
+                "arg",
+            ],
+        )
+
+    def test_wrap_python_command_does_not_double_wrap_coverage(self):
+        env = {"SMALLWORLD_COVERAGE": "1"}
+        argv = [
+            sys.executable,
+            "-B",
+            "-m",
+            "coverage",
+            "run",
+            "--parallel-mode",
+            "demo.py",
+        ]
+
+        self.assertEqual(wrap_python_command(argv, env=env), argv)
+
+
+class FrameworkHarnessTests(unittest.TestCase):
+    def test_command_shell_logs_successful_subprocess_output(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "shell.log"
+            with managed_output_logger(log_path) as logger:
+                runner = CaseRunner(output_logger=logger)
+                runner.active_case_id = "demo:shell"
+                result = runner.command_shell(
+                    "printf 'shell stdout\\n'; printf 'shell stderr\\n' >&2"
+                )
+
+            self.assertEqual(result.stdout, "shell stdout\n")
+            self.assertEqual(result.stderr, "shell stderr\n")
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("case: demo:shell", log_text)
+            self.assertIn(
+                "command: printf 'shell stdout\\n'; printf 'shell stderr\\n' >&2",
+                log_text,
+            )
+            self.assertIn("exit_code: 0", log_text)
+            self.assertIn("shell stdout", log_text)
+            self.assertIn("shell stderr", log_text)
+
+    def test_command_shell_logs_failed_subprocess_output(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "shell-fail.log"
+            with managed_output_logger(log_path) as logger:
+                runner = CaseRunner(output_logger=logger)
+                runner.active_case_id = "demo:shell-fail"
+                with self.assertRaises(DetailedCalledProcessError):
+                    runner.command_shell(
+                        "printf 'shell stdout\\n'; printf 'shell stderr\\n' >&2; exit 2"
+                    )
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("case: demo:shell-fail", log_text)
+            self.assertIn("exit_code: 2", log_text)
+            self.assertIn("shell stdout", log_text)
+            self.assertIn("shell stderr", log_text)
+
+    def test_run_cases_reports_skips(self):
+        cases = [
+            CaseSpec(
+                id="demo:skip",
+                tags=("demo",),
+                run=lambda runner: None,
+                skip_reason="not today",
+            )
+        ]
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            result = run_cases(cases)
+
+        self.assertEqual(result, 0)
+        self.assertIn("Ran 1 cases", stdout.getvalue())
+        self.assertIn("OK (skipped=1)", stdout.getvalue())
+
+    def test_run_cases_reports_failures_and_continues(self):
+        def fail(_: CaseRunner) -> None:
+            raise AssertionError("boom")
+
+        def succeed(_: CaseRunner) -> None:
+            print("success path")
+
+        cases = [
+            CaseSpec(id="demo:bad", tags=("demo",), run=fail),
+            CaseSpec(id="demo:good", tags=("demo",), run=succeed),
+        ]
+        stdout = io.StringIO()
+
+        with contextlib.redirect_stdout(stdout):
+            result = run_cases(cases, verbose=True)
+
+        self.assertEqual(result, 1)
+        output = stdout.getvalue()
+        self.assertIn("RUN  demo:bad", output)
+        self.assertIn("FAIL demo:bad", output)
+        self.assertIn("boom", output)
+        self.assertIn("RUN  demo:good", output)
+        self.assertIn("PASS demo:good", output)
+        self.assertIn("FAILED (failures=1, skipped=0)", output)
+
+    def test_summaries_json_contains_case_metadata(self):
+        cases = [
+            CaseSpec(
+                id="demo:meta",
+                tags=("demo", "meta"),
+                run=lambda runner: None,
+                skip_reason="skip me",
+                weight=3,
+                description="demo case",
+            )
+        ]
+
+        payload = json.loads(summaries_json(cases))
+        self.assertEqual(
+            payload,
+            [
+                {
+                    "description": "demo case",
+                    "id": "demo:meta",
+                    "skip_reason": "skip me",
+                    "tags": ["demo", "meta"],
+                    "weight": 3,
+                }
+            ],
+        )
+
+    def test_stable_shards_is_deterministic(self):
+        cases = [
+            CaseSpec(id="demo:one", tags=("demo",), run=lambda runner: None, weight=4),
+            CaseSpec(id="demo:two", tags=("demo",), run=lambda runner: None, weight=3),
+            CaseSpec(
+                id="demo:three", tags=("demo",), run=lambda runner: None, weight=2
+            ),
+            CaseSpec(id="demo:four", tags=("demo",), run=lambda runner: None, weight=1),
+        ]
+
+        first = stable_shards(cases, 2)
+        second = stable_shards(cases, 2)
+
+        self.assertEqual(
+            [[case.id for case in shard] for shard in first],
+            [[case.id for case in shard] for shard in second],
+        )
+        self.assertEqual(
+            [sum(case.weight for case in shard) for shard in first],
+            [5, 5],
+        )
+
+    def test_manifest_shards_remain_balanced(self):
+        from harness.manifest import all_cases
+
+        shards = stable_shards(all_cases(), 50)
+        weights = [sum(case.weight for case in shard) for shard in shards]
+
+        self.assertLessEqual(max(weights) - min(weights), 1)
+
+
+class IntegrationHarnessTests(unittest.TestCase):
+    def test_matches_supports_substrings_regexes_and_invalid_regexes(self):
+        integration = _load_local_module("integration_matches_test", "integration.py")
+
+        self.assertTrue(
+            integration._matches("square:amd64", ("scenario", "square"), ["square"])
+        )
+        self.assertTrue(
+            integration._matches("square:amd64", ("scenario",), ["^square:"])
+        )
+        self.assertTrue(integration._matches("demo[list]", ("scenario",), ["demo["]))
+        self.assertFalse(
+            integration._matches("square:amd64", ("scenario",), ["^strlen:"])
+        )
+
+    def test_main_validates_shard_arguments(self):
+        integration = _load_local_module(
+            "integration_validation_test", "integration.py"
+        )
+
+        scenarios = [
+            (
+                ["integration.py", "--shard-index", "0"],
+                "both --shard-index and --shard-count are required together",
+            ),
+            (
+                ["integration.py", "--shard-index", "0", "--shard-count", "0"],
+                "--shard-count must be greater than zero",
+            ),
+            (
+                ["integration.py", "--shard-index", "2", "--shard-count", "2"],
+                "--shard-index must be in [0, --shard-count)",
+            ),
+        ]
+
+        with mock.patch.object(integration, "all_cases", return_value=[]):
+            for argv, message in scenarios:
+                with self.subTest(argv=argv):
+                    with mock.patch.object(sys, "argv", argv):
+                        with self.assertRaises(SystemExit) as error:
+                            integration.main()
+                    self.assertEqual(str(error.exception), message)
+
+    def test_list_json_outputs_machine_readable_metadata(self):
+        integration = _load_local_module("integration_json_test", "integration.py")
+        cases = [
+            CaseSpec(
+                id="demo:list",
+                tags=("demo", "json"),
+                run=lambda runner: None,
+                skip_reason="skip",
+                weight=2,
+                description="json case",
+            )
+        ]
+        stdout = io.StringIO()
+
+        with mock.patch.object(integration, "all_cases", return_value=cases):
+            with mock.patch.object(
+                sys, "argv", ["integration.py", "--list", "--format", "json"]
+            ):
+                with contextlib.redirect_stdout(stdout):
+                    result = integration.main()
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            json.loads(stdout.getvalue()),
+            [
+                {
+                    "description": "json case",
+                    "id": "demo:list",
+                    "skip_reason": "skip",
+                    "tags": ["demo", "json"],
+                    "weight": 2,
+                }
+            ],
+        )
+
+    def test_main_reports_when_filters_match_nothing(self):
+        integration = _load_local_module("integration_nomatch_test", "integration.py")
+        cases = [CaseSpec(id="demo:list", tags=("demo",), run=lambda runner: None)]
+        stdout = io.StringIO()
+
+        with mock.patch.object(integration, "all_cases", return_value=cases):
+            with mock.patch.object(
+                sys, "argv", ["integration.py", "--filter", "^missing:"]
+            ):
+                with contextlib.redirect_stdout(stdout):
+                    result = integration.main()
+
+        self.assertEqual(result, 0)
+        self.assertIn(
+            "No integration cases matched the current selection.", stdout.getvalue()
+        )
+
+
+class HarnessLoggingTests(unittest.TestCase):
+    def test_run_cases_logs_main_output_to_file_and_console(self):
+        def run_case(_: CaseRunner) -> None:
+            print("case stdout")
+            print("case stderr", file=sys.stderr)
+
+        cases = [
+            CaseSpec(
+                id="demo:ok",
+                tags=("demo",),
+                run=run_case,
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "logs" / "integration.log"
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                result = run_cases(cases, verbose=True, log_path=log_path)
+
+            self.assertEqual(result, 0)
+            self.assertIn("RUN  demo:ok", stdout.getvalue())
+            self.assertIn("PASS demo:ok", stdout.getvalue())
+            self.assertIn("Ran 1 cases", stdout.getvalue())
+            self.assertIn("OK", stdout.getvalue())
+            self.assertIn("case stdout", stdout.getvalue())
+            self.assertIn("case stderr", stderr.getvalue())
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("RUN  demo:ok", log_text)
+            self.assertIn("PASS demo:ok", log_text)
+            self.assertIn("case stdout", log_text)
+            self.assertIn("case stderr", log_text)
+
+    def test_case_runner_logs_successful_subprocess_output(self):
+        script = (
+            "import sys; "
+            "print('child stdout'); "
+            "print('child stderr', file=sys.stderr)"
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "subprocess.log"
+            with managed_output_logger(log_path) as logger:
+                runner = CaseRunner(output_logger=logger)
+                runner.active_case_id = "demo:child"
+                result = runner.command([sys.executable, "-c", script])
+
+            self.assertEqual(result.stdout, "child stdout\n")
+            self.assertEqual(result.stderr, "child stderr\n")
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("case: demo:child", log_text)
+            self.assertIn("exit_code: 0", log_text)
+            self.assertIn("--- stdout ---\nchild stdout\n", log_text)
+            self.assertIn("--- stderr ---\nchild stderr\n", log_text)
+
+    def test_case_runner_logs_failed_subprocess_output(self):
+        script = (
+            "import sys; "
+            "print('child stdout'); "
+            "print('child stderr', file=sys.stderr); "
+            "raise SystemExit(3)"
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "failure.log"
+            with managed_output_logger(log_path) as logger:
+                runner = CaseRunner(output_logger=logger)
+                runner.active_case_id = "demo:fail"
+                with self.assertRaises(DetailedCalledProcessError):
+                    runner.command([sys.executable, "-c", script])
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertIn("case: demo:fail", log_text)
+            self.assertIn("exit_code: 3", log_text)
+            self.assertIn("child stdout", log_text)
+            self.assertIn("child stderr", log_text)
+
+    def test_integration_list_writes_output_log(self):
+        integration = _load_local_module(
+            "integration_output_log_test",
+            "integration.py",
+        )
+
+        cases = [
+            CaseSpec(
+                id="demo:list",
+                tags=("demo", "list"),
+                run=lambda runner: None,
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            log_path = pathlib.Path(temp_dir) / "integration.log"
+            log_path.write_text("stale data\n", encoding="utf-8")
+            stdout = io.StringIO()
+            stderr = io.StringIO()
+
+            with mock.patch.object(integration, "all_cases", return_value=cases):
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "integration.py",
+                        "--list",
+                        "--output-log",
+                        str(log_path),
+                    ],
+                ):
+                    with (
+                        contextlib.redirect_stdout(stdout),
+                        contextlib.redirect_stderr(stderr),
+                    ):
+                        result = integration.main()
+
+            self.assertEqual(result, 0)
+            self.assertEqual(stderr.getvalue(), "")
+            self.assertIn("demo:list\tdemo,list", stdout.getvalue())
+
+            log_text = log_path.read_text(encoding="utf-8")
+            self.assertNotIn("stale data", log_text)
+            self.assertIn("demo:list\tdemo,list", log_text)
+
+
+class RunCaseHarnessTests(unittest.TestCase):
+    def test_script_path_for_case_returns_legacy_script(self):
+        run_case = _load_local_module("run_case_legacy_test", "run_case.py")
+
+        path = run_case.script_path_for_case("struct", "amd64")
+
+        self.assertEqual(path, TESTS_DIR / "struct" / "struct.amd64.py")
+
+    def test_script_path_for_case_falls_back_to_ghidra_script(self):
+        run_case = _load_local_module("run_case_ghidra_test", "run_case.py")
+
+        path = run_case.script_path_for_case("memhook", "amd64.pcode")
+
+        self.assertEqual(path, TESTS_DIR / "memhook" / "memhook.amd64.ghidra.py")
+
+    def test_script_path_for_case_reports_candidates_on_failure(self):
+        run_case = _load_local_module("run_case_missing_test", "run_case.py")
+
+        with self.assertRaises(FileNotFoundError) as error:
+            run_case.script_path_for_case("missing.case", "amd64")
+
+        message = str(error.exception)
+        self.assertIn("no scenario entrypoint for `missing.case` / `amd64`", message)
+        self.assertIn("Tried:", message)
+        self.assertIn("tests/missing/case/case.amd64.py", message)
+
+    def test_main_prefers_registered_scenarios(self):
+        run_case = _load_local_module("run_case_registered_test", "run_case.py")
+
+        with mock.patch.object(run_case, "maybe_run_registered_case", return_value=7):
+            with mock.patch.object(sys, "argv", ["run_case.py", "square", "amd64"]):
+                with mock.patch.object(run_case, "script_path_for_case") as script_path:
+                    with mock.patch.object(
+                        run_case.subprocess, "run"
+                    ) as subprocess_run:
+                        result = run_case.main()
+
+        self.assertEqual(result, 7)
+        script_path.assert_not_called()
+        subprocess_run.assert_not_called()
+
+    def test_main_executes_legacy_script_fallback(self):
+        run_case = _load_local_module("run_case_fallback_test", "run_case.py")
+        script = TESTS_DIR / "struct" / "struct.amd64.py"
+        completed = types.SimpleNamespace(returncode=9)
+
+        with mock.patch.object(
+            run_case, "maybe_run_registered_case", return_value=None
+        ):
+            with mock.patch.object(
+                run_case, "script_path_for_case", return_value=script
+            ):
+                with mock.patch.object(
+                    run_case,
+                    "wrap_python_command",
+                    side_effect=lambda argv: ["wrapped", *argv],
+                ) as wrap:
+                    with mock.patch.object(
+                        run_case.subprocess, "run", return_value=completed
+                    ) as subprocess_run:
+                        with mock.patch.object(
+                            sys,
+                            "argv",
+                            ["run_case.py", "struct", "amd64", "arg1"],
+                        ):
+                            result = run_case.main()
+
+        self.assertEqual(result, 9)
+        wrap.assert_called_once_with([sys.executable, str(script), "arg1"])
+        subprocess_run.assert_called_once_with(
+            ["wrapped", sys.executable, str(script), "arg1"],
+            cwd=TESTS_DIR,
+            check=False,
+        )
+
+
+class FuzzScenarioTests(unittest.TestCase):
+    def test_afl_registered_scenario_uses_forwarded_input_file(self):
+        class FakeRegister:
+            def __init__(self):
+                self.value = None
+
+            def set_content(self, value):
+                self.value = value
+
+        class FakeCPU:
+            def __init__(self):
+                self.pc = FakeRegister()
+                self.a0 = FakeRegister()
+                self.v0 = FakeRegister()
+
+        class FakeHeap:
+            def __init__(self, base, size):
+                self.base = base
+                self.size = size
+                self.allocated_bytes = None
+
+            def allocate_integer(self, *_args, **_kwargs):
+                return 0x2345
+
+            def allocate_bytes(self, value, _label):
+                self.allocated_bytes = value
+
+        class FakeMachine:
+            last_instance = None
+
+            def __init__(self):
+                self.added = []
+                self.fuzz_call = None
+                FakeMachine.last_instance = self
+
+            def add(self, member):
+                self.added.append(member)
+
+            def fuzz_with_file(
+                self,
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback=None,
+                always_validate=False,
+                iterations=1,
+            ):
+                self.fuzz_call = {
+                    "emulator": emulator,
+                    "input_callback": input_callback,
+                    "input_file_path": input_file_path,
+                    "crash_callback": crash_callback,
+                    "always_validate": always_validate,
+                    "iterations": iterations,
+                }
+
+        fake_smallworld = types.SimpleNamespace(
+            logging=types.SimpleNamespace(setup_logging=lambda **_kwargs: None),
+            platforms=types.SimpleNamespace(
+                Byteorder={"LITTLE": object(), "BIG": object()}
+            ),
+            state=types.SimpleNamespace(
+                Machine=FakeMachine,
+                cpus=types.SimpleNamespace(
+                    CPU=types.SimpleNamespace(for_platform=lambda _platform: FakeCPU())
+                ),
+                memory=types.SimpleNamespace(
+                    heap=types.SimpleNamespace(BumpAllocator=FakeHeap),
+                ),
+            ),
+        )
+
+        fake_platform = object()
+        fake_code = object()
+        fake_emulator = types.SimpleNamespace(add_exit_point=lambda _addr: None)
+        seed_path = "/tmp/seed-input"
+
+        with mock.patch.dict(sys.modules, {"smallworld": fake_smallworld}):
+            with mock.patch.object(
+                fuzz_scenario, "make_platform", return_value=fake_platform
+            ):
+                with mock.patch.object(
+                    fuzz_scenario, "_load_code", return_value=fake_code
+                ):
+                    with mock.patch.object(
+                        fuzz_scenario, "_configure_argument"
+                    ) as configure_argument:
+                        with mock.patch.object(
+                            fuzz_scenario, "make_emulator", return_value=fake_emulator
+                        ):
+                            with mock.patch.object(
+                                sys,
+                                "argv",
+                                ["run_case.py", "fuzz.afl_fuzz", "mipsel", "@@"],
+                            ):
+                                result = fuzz_scenario.run_case(
+                                    "fuzz.afl_fuzz", "mipsel", [seed_path]
+                                )
+
+        self.assertEqual(result, 0)
+        self.assertIsNotNone(FakeMachine.last_instance)
+        self.assertEqual(
+            FakeMachine.last_instance.fuzz_call["input_file_path"],
+            seed_path,
+        )
+        configure_argument.assert_called_once()
+
+
+class StaticBufferScenarioTests(unittest.TestCase):
+    def test_riscv64_entry_offset_skips_compressed_breakpoint(self):
+        code = (TESTS_DIR / "static_buf" / "static_buf.riscv64.bin").read_bytes()
+        md = capstone.Cs(
+            capstone.CS_ARCH_RISCV,
+            capstone.CS_MODE_RISCV64 | capstone.CS_MODE_RISCVC,
+        )
+        instructions = list(md.disasm(code, 0x1000))
+
+        self.assertGreaterEqual(len(instructions), 2)
+        self.assertEqual(instructions[0].mnemonic, "c.ebreak")
+        self.assertEqual(instructions[1].address - instructions[0].address, 2)
+        self.assertEqual(static_buf_scenario._SPECS["riscv64"].entry_offset, 2)
+
+
+class DocumentationReferenceTests(unittest.TestCase):
+    def test_documented_python_paths_exist(self):
+        doc_files = [
+            REPO_ROOT / "README.md",
+            TESTS_DIR / "README.md",
+            *sorted((REPO_ROOT / "docs").rglob("*.rst")),
+            *sorted((REPO_ROOT / "docs").rglob("*.md")),
+        ]
+        missing: list[tuple[pathlib.Path, str]] = []
+
+        for doc_file in doc_files:
+            content = doc_file.read_text(encoding="utf-8")
+            for match in sorted(
+                set(re.findall(r"tests/[A-Za-z0-9_./-]+\.py", content))
+            ):
+                if not (REPO_ROOT / match).exists():
+                    missing.append((doc_file, match))
+
+        self.assertEqual(missing, [])
 
 
 if __name__ == "__main__":

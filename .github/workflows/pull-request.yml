@@ -7,6 +7,7 @@ on:
 env:
   TZ: UTC
   USER: root
+  INTEGRATION_SHARD_COUNT: "150"
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -89,6 +90,11 @@ jobs:
   Unit-Test:
     runs-on: smallworld-arc
     needs: Lint
+    env:
+      SMALLWORLD_COVERAGE: "1"
+      SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_FILE: ${{ github.workspace }}/coverage-data/.coverage.unit
     steps:
       - uses: cachix/cachix-action@v17
         with:
@@ -97,12 +103,28 @@ jobs:
       - uses: actions/checkout@v6
       - name: Run Unit Tests
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/coverage-data"
+          nix build ./ci#tests
+          tar -C tests -xvf result/test_binaries.tar
           cd tests
-          nix develop .. -c python3 unit.py -v
+          nix develop .. -c python3 -m coverage run --parallel-mode unit.py -v
+      - name: Upload Coverage Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-data
+          include-hidden-files: true
+          if-no-files-found: ignore
 
   Python39:
     runs-on: ubuntu-latest
     needs: Lint
+    env:
+      SMALLWORLD_COVERAGE: "1"
+      SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_FILE: ${{ github.workspace }}/coverage-data/.coverage.python39
     container:
       # GitHub's Ubuntu 24.04 Python toolcache does not provide the exact
       # 3.9.6 patch release. Use the official Python 3.9.6 container so this
@@ -112,14 +134,28 @@ jobs:
       - uses: actions/checkout@v6
       - name: Install SmallWorld On Python 3.9.6
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/coverage-data"
           python -m pip install --upgrade pip setuptools wheel
-          python -m pip install '.[emu-unicorn]'
+          python -m pip install coverage '.[emu-unicorn]'
       - name: Run Python 3.9.6 Compatibility Smoke Test
-        run: python tests/python39/python39_compat.py
+        run: python -m coverage run --parallel-mode tests/python39/python39_compat.py
+      - name: Upload Coverage Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-python39
+          path: coverage-data
+          include-hidden-files: true
+          if-no-files-found: ignore
 
   Example-Test:
     runs-on: smallworld-arc
     needs: Lint
+    env:
+      SMALLWORLD_COVERAGE: "1"
+      SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_FILE: ${{ github.workspace }}/coverage-data/.coverage.example
     steps:
       - uses: cachix/cachix-action@v17
         with:
@@ -128,13 +164,27 @@ jobs:
       - uses: actions/checkout@v6
       - name: Run Example
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/coverage-data"
           cd examples
           sed -i 's/github:smallworld-re\/smallworld/../' nix-harness.py
-          ./nix-harness.py 100
+          nix develop .. -c python3 -m coverage run --parallel-mode nix-harness.py 100
+      - name: Upload Coverage Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-example
+          path: coverage-data
+          include-hidden-files: true
+          if-no-files-found: ignore
   
   Downstream-Flake:
     runs-on: smallworld-arc
     needs: Lint
+    env:
+      SMALLWORLD_COVERAGE: "1"
+      SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_FILE: ${{ github.workspace }}/coverage-data/.coverage.downstream
     steps:
       - uses: cachix/cachix-action@v17
         with:
@@ -143,160 +193,49 @@ jobs:
       - uses: actions/checkout@v6
       - name: Test Flake
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/coverage-data"
           cd tests/downstream_flake
           nix flake update
           nix run .
+      - name: Upload Coverage Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-downstream
+          path: coverage-data
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  Integration-Matrix:
+    runs-on: ubuntu-latest
+    needs: Lint
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          SHARD_COUNT: ${{ env.INTEGRATION_SHARD_COUNT }}
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          import os
+
+          count = int(os.environ["SHARD_COUNT"])
+          print(f"matrix={json.dumps({'shard': list(range(count))})}")
+          PY
           
   Integration-Test:
-      runs-on: smallworld-arc
-      needs: Lint
-      strategy:
-        matrix:
-          include:
-            - testsuite: BlockTests
-            - testsuite: BranchTestsAngr
-            - testsuite: BranchTestsGhidra
-            - testsuite: BranchTestsPanda
-            - testsuite: BranchTestsUnicorn
-            - testsuite: CallTestsAngr
-            - testsuite: CallTestsGhidra
-            - testsuite: CallTestsPanda
-            - testsuite: CallTestsUnicorn
-            - testsuite: C99AbortTests
-            - testsuite: C99AbsTests
-            - testsuite: C99AsctimeTests
-            - testsuite: C99AtexitTests
-            - testsuite: C99AtoiTests
-            - testsuite: C99AtollTests
-            - testsuite: C99AtolTests
-            - testsuite: C99BSearchTests
-            - testsuite: C99CallocTests
-            - testsuite: C99ClearerrTests
-            - testsuite: C99ClockTests
-            - testsuite: C99CtimeTests
-            - testsuite: C99CtypeBLocTests
-            - testsuite: C99CtypeTolowerLocTests
-            - testsuite: C99CtypeToupperLocTests
-            - testsuite: C99DifftimeTests
-            - testsuite: C99ExitTests
-            - testsuite: C99FcloseTests
-            - testsuite: C99FeofTests
-            - testsuite: C99FflushTests
-            - testsuite: C99FgetcTests
-            - testsuite: C99FgetposTests
-            - testsuite: C99FgetsTests
-            - testsuite: C99FopenTests
-            - testsuite: C99FprintfTests
-            - testsuite: C99FputcTests
-            - testsuite: C99FputsTests
-            - testsuite: C99FreadTests
-            - testsuite: C99FreeTests
-            - testsuite: C99FscanfTests
-            - testsuite: C99FseekTests
-            - testsuite: C99FsetposTests
-            - testsuite: C99FtellTests
-            - testsuite: C99FwriteTests
-            - testsuite: C99GetcharTests
-            - testsuite: C99GetcTests
-            - testsuite: C99GetenvTests
-            - testsuite: C99GetsTests
-            - testsuite: C99GmtimeTests
-            - testsuite: C99LabsTests
-            - testsuite: C99LlabsTests
-            - testsuite: C99LocaltimeTests
-            - testsuite: C99MallocTests
-            - testsuite: C99MemchrTests
-            - testsuite: C99MemcmpTests
-            - testsuite: C99MemcpyTests
-            - testsuite: C99MemmoveTests
-            - testsuite: C99MemsetTests
-            - testsuite: C99MktimeTests
-            - testsuite: C99PrintfTests
-            - testsuite: C99PutcharTests
-            - testsuite: C99PutcTests
-            - testsuite: C99PutsTests
-            - testsuite: C99QSortTests
-            - testsuite: C99RandTests
-            - testsuite: C99ReallocTests
-            - testsuite: C99RemoveTests
-            - testsuite: C99RenameTests
-            - testsuite: C99RewindTests
-            - testsuite: C99ScanfTests
-            - testsuite: C99SignalTests
-            - testsuite: C99SnprintfTests
-            - testsuite: C99SprintfTests
-            - testsuite: C99SrandTests
-            - testsuite: C99SscanfTests
-            - testsuite: C99StrcatTests
-            - testsuite: C99StrchrTests
-            - testsuite: C99StrcmpTests
-            - testsuite: C99StrcpyTests
-            - testsuite: C99StrcspnTests
-            - testsuite: C99StrerrorTests
-            - testsuite: C99StrftimeTests
-            - testsuite: C99StrlenTests
-            - testsuite: C99StrncatTests
-            - testsuite: C99StrncmpTests
-            - testsuite: C99StrncpyTests
-            - testsuite: C99StrpbrkTests
-            - testsuite: C99StrrchrTests
-            - testsuite: C99StrspnTests
-            - testsuite: C99StrstrTests
-            - testsuite: C99StrtokTests
-            - testsuite: C99SystemTests
-            - testsuite: C99TimeTests
-            - testsuite: C99TmpfileTests
-            - testsuite: C99TmpnamTests
-            - testsuite: C99TolowerTests
-            - testsuite: C99ToupperTests
-            - testsuite: C99UngetcTests
-            - testsuite: CheckedDoubleFreeTests
-            - testsuite: CheckedReadTests
-            - testsuite: CheckedUAFTests
-            - testsuite: CheckedWriteTests
-            - testsuite: ColorizerTests
-            - testsuite: CrashTriageTests
-            - testsuite: DelayTests
-            - testsuite: DMATests
-            - testsuite: DocumentationTests
-            - testsuite: ElfTests
-            #- testsuite: ElfCoreActuateTests
-            - testsuite: ElfCoreLoadTests
-            - testsuite: ExitpointTests
-            - testsuite: FloatsTests
-            - testsuite: FsgsbaseTests
-            - testsuite: FunctionPointerTests
-            - testsuite: FuzzTests
-            - testsuite: LinkElfTests
-            - testsuite: LinkPETests
-            - testsuite: HookingTests
-            - testsuite: MemhookTests
-            - testsuite: PETests
-            - testsuite: POSIXBasenameTests
-            - testsuite: POSIXBsdSignalTests
-            - testsuite: POSIXDirnameTests
-            - testsuite: POSIXPthreadSigmaskTests
-            - testsuite: POSIXSigactionTests
-            - testsuite: POSIXSigaddsetTests
-            - testsuite: POSIXSigdelsetTests
-            - testsuite: POSIXSigemptysetTests
-            - testsuite: POSIXSigfillsetTests
-            - testsuite: POSIXSigpendingTests
-            - testsuite: POSIXSigprocmaskTests
-            - testsuite: POSIXSocketTCPServerTests
-            - testsuite: RelaTests
-            - testsuite: RTOSDemoTests
-            - testsuite: SquareTests
-            - testsuite: StackTests
-            - testsuite: StaticRelaTests
-            - testsuite: StrlenTests
-            - testsuite: StructureTests
-            - testsuite: SyscallTests
-            - testsuite: SysVModelTests
-            - testsuite: TraceExecutionTests
-            - testsuite: ThumbTests
-            - testsuite: UnmappedTests
-      steps:
+    runs-on: smallworld-arc
+    needs: [Lint, Integration-Matrix]
+    env:
+      SMALLWORLD_COVERAGE: "1"
+      SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+      COVERAGE_FILE: ${{ github.workspace }}/coverage-data/.coverage.integration-${{ matrix.shard }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.Integration-Matrix.outputs.matrix) }}
+    steps:
       - uses: cachix/cachix-action@v17
         with:
           name: smallworld
@@ -310,12 +249,165 @@ jobs:
           cp result/zephyr.elf use_cases/rtos_demo/zephyr.elf
       - name: Run Integration Tests
         run: |
+          mkdir -p "$GITHUB_WORKSPACE/coverage-data"
           cd tests
-          nix develop .. -c python3 integration.py -v ${{ matrix.testsuite }}
+          nix develop .. -c python3 -m coverage run --parallel-mode integration.py -v --shard-index ${{ matrix.shard }} --shard-count ${{ env.INTEGRATION_SHARD_COUNT }}
+      - name: Upload Coverage Data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-integration-${{ matrix.shard }}
+          path: coverage-data
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+  Coverage-Combine:
+    runs-on: ubuntu-latest
+    needs: [Unit-Test, Example-Test, Integration-Test, Downstream-Flake, Python39]
+    if: always()
+    env:
+      COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Coverage
+        run: python -m pip install coverage
+      - name: Download Coverage Data
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-artifacts
+          merge-multiple: true
+      - name: Combine Coverage
+        run: |
+          mkdir -p coverage-artifacts
+          if [ -z "$(find coverage-artifacts -name '.coverage*' -print -quit)" ]; then
+            echo "No coverage data was uploaded" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python -m coverage combine coverage-artifacts
+          python -m coverage report | tee coverage-report.txt
+          python -m coverage json -o coverage.json
+          python -m coverage xml -o coverage.xml
+          python -m coverage html -d htmlcov
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          coverage_json = json.loads(Path("coverage.json").read_text())
+          totals = coverage_json["totals"]
+
+          def as_float(value: object) -> float:
+              try:
+                  return float(value)
+              except (TypeError, ValueError):
+                  return 0.0
+
+          files = []
+          for file_path, file_data in coverage_json.get("files", {}).items():
+              summary = file_data.get("summary", {})
+              files.append(
+                  {
+                      "path": file_path,
+                      "percent": as_float(summary.get("percent_covered")),
+                      "display": summary.get(
+                          "percent_covered_display",
+                          f"{as_float(summary.get('percent_covered')):.1f}",
+                      ),
+                      "missing": int(summary.get("missing_lines", 0)),
+                      "statements": int(summary.get("num_statements", 0)),
+                  }
+              )
+
+          files = [entry for entry in files if entry["statements"] > 0]
+          lowest_coverage = sorted(
+              files,
+              key=lambda entry: (entry["percent"], -entry["missing"], entry["path"]),
+          )[:10]
+
+          report_text = Path("coverage-report.txt").read_text().rstrip()
+          coverage_pct = totals.get(
+              "percent_covered_display",
+              f"{as_float(totals.get('percent_covered')):.1f}",
+          )
+
+          lines = [
+              "## Coverage Summary",
+              "",
+              "| Metric | Value |",
+              "| --- | ---: |",
+              f"| Line coverage | {coverage_pct}% |",
+              f"| Files | {len(files)} |",
+              f"| Statements | {int(totals.get('num_statements', 0))} |",
+              f"| Covered lines | {int(totals.get('covered_lines', 0))} |",
+              f"| Missing lines | {int(totals.get('missing_lines', 0))} |",
+          ]
+
+          if int(totals.get("num_branches", 0)):
+              lines.extend(
+                  [
+                      f"| Branches | {int(totals.get('num_branches', 0))} |",
+                      f"| Covered branches | {int(totals.get('covered_branches', 0))} |",
+                      f"| Missing branches | {int(totals.get('missing_branches', 0))} |",
+                      f"| Partial branches | {int(totals.get('num_partial_branches', 0))} |",
+                  ]
+              )
+
+          lines.extend(
+              [
+                  "",
+                  "### Lowest-Coverage Files",
+                  "",
+                  "| File | Coverage | Missing Lines |",
+                  "| --- | ---: | ---: |",
+              ]
+          )
+
+          if lowest_coverage:
+              for entry in lowest_coverage:
+                  lines.append(
+                      f"| `{entry['path']}` | {entry['display']}% | {entry['missing']} |"
+                  )
+          else:
+              lines.append("| No measured files | n/a | n/a |")
+
+          lines.extend(
+              [
+                  "",
+                  "<details>",
+                  "<summary>Full coverage report</summary>",
+                  "",
+                  "```text",
+                  report_text,
+                  "```",
+                  "</details>",
+              ]
+          )
+
+          with summary_path.open("a") as handle:
+              handle.write("\n".join(lines) + "\n")
+          PY
+      - name: Upload Combined Coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-combined
+          path: |
+            .coverage
+            coverage-report.txt
+            coverage.json
+            coverage.xml
+            htmlcov
+          include-hidden-files: true
+          if-no-files-found: ignore
           
   Results:
     runs-on: smallworld-arc
-    needs: [Lint, Unit-Test, Example-Test, Integration-Test, Downstream-Flake, Python39]
+    needs: [Lint, Unit-Test, Example-Test, Integration-Matrix, Integration-Test, Downstream-Flake, Python39, Coverage-Combine]
     if: always()
     steps:
       - name: Formatter committed – new run will verify

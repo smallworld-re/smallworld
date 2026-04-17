@@ -130,17 +130,43 @@ hint output by `basic_harness.py`
     [+] DynamicRegisterValueSummaryHint(message='read-def-summary', pc=4096, color=1, size=4, use=True, new=True, count=10, num_micro_executions=10, reg_name='edi')
 
 The out tells us that the register ``edi`` is an input to this
-snippet of code and should really be set explicitly. We can now create
-a new script ``square.amd64.py`` which harnesses ``square.amd64.bin``
-perfectly, exposing ``edi`` as a command-line argument.
+snippet of code and should really be set explicitly. The maintained
+scenario implementation now lives in ``tests/harness/scenarios/square.py``,
+but the minimal harness for this tutorial is still quite small:
 
-.. literalinclude:: ../../tests/square/square.amd64.py
-  :language: Python
+.. code-block:: python
+
+    import sys
+    import smallworld
+
+    platform = smallworld.platforms.Platform(
+        smallworld.platforms.Architecture.X86_64,
+        smallworld.platforms.Byteorder.LITTLE,
+    )
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    code = smallworld.state.memory.code.Executable.from_filepath(
+        "tests/square/square.amd64.bin",
+        address=0x1000,
+    )
+    machine.add(cpu)
+    machine.add(code)
+
+    cpu.rip.set(code.address)
+    cpu.rdi.set(int(sys.argv[1]))
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(code.address + code.get_capacity())
+    final_machine = machine.emulate(emulator)
+    print(hex(final_machine.get_cpu().eax.get()))
 
 And here is what it looks like to run that script, setting ``edi`` to
 42 initially.
 
-.. command-output:: python3 ../../tests/square/square.amd64.py 42
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
+
+.. command-output:: python3 ../run_case.py square amd64 42
     :cwd: ../../tests/square/
 
 Since ``42*42=1764`` which is ``0x6e4`` we have harnessed

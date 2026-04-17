@@ -111,10 +111,46 @@ Here, we are fine defining all code in the ELF as in-bounds:
 Putting it all together
 -----------------------
 
-Combined, this can be found in the script ``tests/elf/elf.amd64.py``:
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/elf.py``. The harness is:
 
-.. literalinclude:: ../../../tests/elf/elf.amd64.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open("tests/elf/elf.amd64.elf", "rb") as elf:
+        code = smallworld.state.memory.code.Executable.from_elf(
+            elf, platform=platform
+        )
+    machine.add(code)
+    cpu.rip.set(code.entrypoint)
+
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x4000)
+    machine.add(stack)
+    string = sys.argv[1].encode("utf-8") + b"\0"
+    string += b"\0" * (16 - (len(string) % 16))
+    stack.push_bytes(string, None)
+    string_address = stack.get_pointer()
+    stack.push_integer(0, 8, None)
+    stack.push_integer(string_address, 8, None)
+    stack.push_integer(0x10101010, 8, None)
+    argv = stack.get_pointer()
+    stack.push_integer(argv, 8, None)
+    stack.push_integer(2, 8, None)
+    exitpoint = code.entrypoint + code.get_symbol_size("_start") - 4
+    machine.add_exit_point(exitpoint)
+    stack.push_integer(exitpoint, 8, None)
+    cpu.rsp.set(stack.get_pointer())
+    cpu.rdi.set(2)
+    cpu.rsi.set(argv)
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(0)
+    for start, end in code.bounds:
+        machine.add_bound(start, end)
+    machine.emulate(emulator)
 
 Here, we load the code from our ELF and set the program counter to the entrypoint.
 We also configure a stack with the expected argc/argv layout,
@@ -125,8 +161,10 @@ and read out the result from ``rax``.
 
 Here is what running the harness looks like:
 
-.. command-output:: python3 elf.amd64.py foobar
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
+
+.. command-output:: python3 ../run_case.py elf amd64 foobar
     :cwd: ../../../tests/elf/
 
 Since "foobar" is length six, we have harnessed ``elf.amd64.elf`` completely.
-

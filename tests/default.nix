@@ -32,6 +32,13 @@ stdenv.mkDerivation {
     export ZIG_GLOBAL_CACHE_DIR=/tmp/zig-cache
   '';
   buildPhase = ''
+    # The test Makefile expects these generic wrapper scripts to exist under
+    # architecture-specific tool names for the m68k and Xtensa toolchains.
+    ln -sf asm_wrapper.sh m68k-unknown-linux-gnu-asm
+    ln -sf elf_wrapper.sh m68k-unknown-linux-gnu-elfasm
+    ln -sf asm_wrapper.sh xtensa-lx106-elf-asm
+    ln -sf elf_wrapper.sh xtensa-lx106-elf-elfasm
+
     make -j$(nproc)
     cd elf_core
     ulimit -c unlimited

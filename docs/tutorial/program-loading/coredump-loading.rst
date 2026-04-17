@@ -223,7 +223,10 @@ we may have the process memory, but we don't have a system call model.
 
 Here is what running the harness looks like:
 
-.. command-output:: python3 elf_core.amd64.py
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
+
+.. command-output:: python3 ../../run_case.py elf_core.actuate amd64
     :cwd: ../../../tests/elf_core/actuate
 
 Handling missing segments

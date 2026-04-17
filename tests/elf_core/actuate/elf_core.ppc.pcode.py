@@ -47,8 +47,8 @@ nop = b"\x60\x00\x00\x00"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
-# puts address recovered from manual RE
-puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x6B0
+# Resolved puts target recovered from the current core image.
+puts_addr = 0x409082F0
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )

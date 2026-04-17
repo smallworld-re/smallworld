@@ -37,11 +37,12 @@ There are two fundamental tenets behind SmallWorld
 * Analysis can accelerate harnessing
 
 The first of these tenets we hope to support with good software APIs. As a very
-simple example, consider the harnessing script
-[square.amd64.py](https://github.com/smallworld-re/smallworld/blob/main/tests/square/square.amd64.py),
-composed using SmallWorld, in which registers are initialized and a stack is
-arranged for running the code in
+simple example, consider the maintained `square` scenario implementation
+[tests/harness/scenarios/square.py](https://github.com/smallworld-re/smallworld/blob/main/tests/harness/scenarios/square.py),
+composed using SmallWorld, in which registers are initialized for running the code in
 [square.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/square/square.amd64.s).
+In the current test harness, the supported way to execute that example from the
+project dev shell is `nix develop . -c python3 tests/run_case.py square amd64 42`.
 For a more sophisticated example of SmallWorld's harnessing facitilites,
 consider the code snippet
 [struct.amd64.s](https://github.com/smallworld-re/smallworld/blob/main/tests/struct/struct.amd64.s),

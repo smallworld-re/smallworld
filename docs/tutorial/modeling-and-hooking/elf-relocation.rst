@@ -27,12 +27,10 @@ You can build this into ``rela.amd64.elf`` using the following commands:
 
 Let's take a look at the ELF metadata, specifically regarding puts:
 
-.. command-output:: readelf -s -D rela.amd64.elf | grep 'puts'
-    :shell:
+.. command-output:: readelf -s -D rela.amd64.elf
     :cwd: ../../../tests/rela/
 
-.. command-output:: readelf -r rela.amd64.elf | grep 'puts'
-    :shell:
+.. command-output:: readelf -r rela.amd64.elf
     :cwd: ../../../tests/rela/
 
 The symbol is undefined, and it has a ``JUMP_SLOT`` relocation,
@@ -140,16 +138,46 @@ with the address of ``puts``:
 Putting it All Together
 -----------------------
 
-Combined, this harness can be found in the script ``tests/rela/rela.amd64.py``
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/rela.py``. The final harness is:
 
-.. literalinclude:: ../../../tests/rela/rela.amd64.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    machine.add(cpu)
+
+    with open("tests/rela/rela.amd64.elf", "rb") as elf:
+        code = smallworld.state.memory.code.Executable.from_elf(
+            elf, platform=platform, address=0x400000
+        )
+    machine.add(code)
+
+    entrypoint = code.get_symbol_value("main")
+    cpu.rip.set(entrypoint)
+
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
+    machine.add(stack)
+    exitpoint = entrypoint + code.get_symbol_size("main")
+    stack.push_integer(exitpoint, 8, None)
+    machine.add_exit_point(exitpoint)
+    cpu.rsp.set(stack.get_pointer())
+
+    puts = PutsModel(0x10000)
+    machine.add(puts)
+    code.update_symbol_value("puts", puts.address)
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    machine.emulate(emulator)
 
 This harness should print ``Hello, world!\n`` to the console.
 
 Here is what running it looks like:
 
-.. command-output:: python3 rela.amd64.py
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
+
+.. command-output:: python3 ../run_case.py rela amd64
     :cwd: ../../../tests/rela 
 
 We do in fact see, ``Hello, world!\n`` printed to the console,
