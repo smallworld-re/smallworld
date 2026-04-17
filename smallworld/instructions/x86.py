@@ -34,7 +34,6 @@ class x86Instruction(Instruction):
             operand.size,
         )
                 
-
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
