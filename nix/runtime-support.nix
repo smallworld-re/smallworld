@@ -9,6 +9,7 @@
 # If you are new to Nix, this file answers:
 # "How do the raw packages become a usable shell or runtime environment?"
 {
+  aflplusplusPackages,
   lib,
   inputs,
   mkLockedVirtualenv,
@@ -51,11 +52,11 @@ let
     let
       pkgs = pkgsFor system;
       ghidra = mkGhidraRuntime pkgs;
+      aflplusplus =
+        if system == "aarch64-darwin" then aflplusplusPackages.${system}.aflplusplus else pkgs.aflplusplus;
     in
-    # afl++ is not packaged for Apple Silicon macOS.
-    lib.optional (system != "aarch64-darwin") pkgs.aflplusplus
-    ++ [
-      pkgs.binutils
+    [
+      aflplusplus
       pkgs.z3
     ]
     ++ ghidra.tools;

@@ -69,7 +69,7 @@ include = ["smallworld*"]
 
 [tool.mypy]
 disable_error_code = ["annotation-unchecked"]
-exclude = '^(build|ci|docs|examples|smallworld_re\.egg-info|tests|unicornafl-build|use_cases|\.mypy_cache)/'
+exclude = '^(build|ci|docs|examples|nix/unicornafl-build|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache)/'
 
 [tool.uv]
 exclude-dependencies = [

@@ -10,7 +10,9 @@ If you only remember one thing, remember this data flow:
 1. `pyproject.toml` and `uv.lock` describe the Python world.
 2. `nix/python-packages.nix` turns that lockfile into Nix Python packages.
 3. `nix/runtime-support.nix` turns those packages into user-facing shells and runtime environments.
-4. `nix/panda-packages.nix` handles the one unusual dependency, PANDA.
+4. `nix/aflplusplus-packages.nix` provides the repo-local Darwin AFL++ build.
+5. `nix/panda-packages.nix` handles the other unusual dependency, PANDA.
+6. `nix/unicornafl-build/` keeps the repo-local `unicornafl` packaging helper next to the rest of the flake code.
 
 ## File Guide
 
@@ -18,6 +20,10 @@ If you only remember one thing, remember this data flow:
   Reads the Python workspace, builds the lockfile-backed Python package sets, and swaps in the few packages that need native compilation.
 - `runtime-support.nix`
   Builds the environments people use: `nix develop`, `nix build`, and the downstream helper APIs `smallworld.lib.mkPython` and `smallworld.lib.mkPythonShell`.
+- `aflplusplus-packages.nix`
+  Builds the Darwin AFL++ command line tools that SmallWorld uses together with the separately packaged `unicornafl` Python binding.
+- `unicornafl-build/`
+  Holds the custom `unicornafl` derivation and its pinned Rust `Cargo.lock`, so the Python binding stays reproducible without leaving the `nix/` tree.
 - `panda-packages.nix`
   Packages PANDA, QEMU, and `pypanda`. This file is special because PANDA needs generated headers and extra native build steps that do not fit the normal Python lockfile flow.
 - `patches/`
