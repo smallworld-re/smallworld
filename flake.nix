@@ -77,6 +77,14 @@
           ;
       };
 
+      aflplusplusPackages = import ./nix/aflplusplus-packages.nix {
+        inherit
+          lib
+          forEachSystem
+          pkgsFor
+          ;
+      };
+
       pythonPackages = import ./nix/python-packages.nix {
         inherit
           lib
@@ -92,6 +100,7 @@
 
       runtimeSupport = import ./nix/runtime-support.nix {
         inherit
+          aflplusplusPackages
           inputs
           lib
           pkgsFor
