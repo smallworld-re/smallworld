@@ -98,6 +98,7 @@ LEGACY_MATRIX = {
         {"name": "test_branch_ppc64_angr", "skip_reason": None},
         {"name": "test_branch_riscv64", "skip_reason": None},
         {"name": "test_branch_riscv64_angr", "skip_reason": None},
+        {"name": "test_branch_tricore_angr", "skip_reason": None},
         {"name": "test_branch_xtensa_angr", "skip_reason": None},
     ],
     "BranchTestsGhidra": [
@@ -117,6 +118,7 @@ LEGACY_MATRIX = {
         {"name": "test_branch_ppc_pcode", "skip_reason": None},
         {"name": "test_branch_ppc64_pcode", "skip_reason": None},
         {"name": "test_branch_riscv64_pcode", "skip_reason": None},
+        {"name": "test_branch_tricore_pcode", "skip_reason": None},
         {"name": "test_branch_xtensa_pcode", "skip_reason": None},
     ],
     "BranchTestsPanda": [
@@ -219,6 +221,11 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_call_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_call_xtensa_angr",
             "run_test": {"args": ["xtensa.angr"], "kwargs": {}},
             "skip_reason": None,
@@ -293,6 +300,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_call_riscv64_pcode",
             "run_test": {"args": ["riscv64.pcode"], "kwargs": {"signext": True}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_call_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -1600,6 +1612,16 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_dma_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_dma_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_dma_xtensa_angr",
             "run_test": {"args": ["xtensa.angr"], "kwargs": {}},
             "skip_reason": None,
@@ -2209,6 +2231,16 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_elf_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_elf_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_elf_xtensa_angr",
             "run_test": {"args": ["xtensa.angr"], "kwargs": {}},
             "skip_reason": None,
@@ -2468,6 +2500,16 @@ LEGACY_MATRIX = {
         {
             "name": "test_riscv64_pcode",
             "run_test": {"args": ["riscv64.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
     ],
@@ -2855,6 +2897,16 @@ LEGACY_MATRIX = {
         {
             "name": "test_hooking_riscv64_pcode",
             "run_test": {"args": ["riscv64.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_hooking_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_hooking_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -3513,6 +3565,16 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_recursion_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_recursion_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_xtensa_angr",
             "run_test": {"args": ["xtensa.angr"], "kwargs": {}},
             "skip_reason": None,
@@ -4044,6 +4106,16 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_square_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_square_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_square_xtensa_angr",
             "run_test": {"args": ["xtensa.angr"], "kwargs": {}},
             "skip_reason": None,
@@ -4387,6 +4459,22 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_stack_tricore_angr",
+            "run_test": {
+                "args": ["tricore.angr"],
+                "kwargs": {"reg": "d2", "res": "0xffffffff"},
+            },
+            "skip_reason": None,
+        },
+        {
+            "name": "test_stack_tricore_pcode",
+            "run_test": {
+                "args": ["tricore.pcode"],
+                "kwargs": {"reg": "d2", "res": "0xffffffff"},
+            },
+            "skip_reason": None,
+        },
+        {
             "name": "test_stack_xtensa_angr",
             "run_test": {
                 "args": ["xtensa.angr"],
@@ -4652,6 +4740,16 @@ LEGACY_MATRIX = {
         {
             "name": "test_riscv64_pcode",
             "run_test": {"args": ["riscv64.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -4981,6 +5079,16 @@ LEGACY_MATRIX = {
         {
             "name": "test_strlen_riscv64_pcode",
             "run_test": {"args": ["riscv64.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_strlen_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_strlen_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -5403,6 +5511,16 @@ LEGACY_MATRIX = {
         {
             "name": "test_riscv64_pcode",
             "run_test": {"args": ["riscv64.pcode"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_angr",
+            "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_pcode",
+            "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
     ],

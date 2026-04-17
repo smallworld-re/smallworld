@@ -174,6 +174,15 @@ _SPECS = {
         mmio_width=8,
         engines=("unicorn", "angr", "pcode"),
     ),
+    "tricore": DMASpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        argument_registers=("d4", "d5"),
+        mmio_address=0x50014000,
+        mmio_width=4,
+        engines=("angr", "pcode"),
+    ),
     "xtensa": DMASpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

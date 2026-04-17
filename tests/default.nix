@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  tricoreGcc,
   xtensaGcc,
   pkgsCross,
   x86_64_glibc_path,
@@ -17,6 +18,7 @@ stdenv.mkDerivation {
     zig
     qemu-user
     gdb
+    tricoreGcc
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
     pkgsCross.m68k.glibc
@@ -36,6 +38,8 @@ stdenv.mkDerivation {
     # architecture-specific tool names for the m68k and Xtensa toolchains.
     ln -sf asm_wrapper.sh m68k-unknown-linux-gnu-asm
     ln -sf elf_wrapper.sh m68k-unknown-linux-gnu-elfasm
+    ln -sf asm_wrapper.sh tricore-elf-asm
+    ln -sf elf_wrapper.sh tricore-elf-elfasm
     ln -sf asm_wrapper.sh xtensa-lx106-elf-asm
     ln -sf elf_wrapper.sh xtensa-lx106-elf-elfasm
 

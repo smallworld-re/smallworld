@@ -975,6 +975,12 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_tricore(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_xtensa(self):
         platform = platforms.Platform(
             platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
@@ -1129,6 +1135,12 @@ class UnicornMachdefTests(unittest.TestCase):
     def test_unicorn_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_unicorn_tricore(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1301,6 +1313,12 @@ class AngrMachdefTests(unittest.TestCase):
     def test_angr_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_angr_tricore(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1638,6 +1656,12 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_tricore(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 

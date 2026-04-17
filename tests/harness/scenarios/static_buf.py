@@ -172,6 +172,16 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "tricore": StaticBufferSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        model_register="a2",
+        engines=("angr", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "xtensa": StaticBufferSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
