@@ -11,6 +11,7 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
     def __init__(
         self,
+        segment: typing.Optional[str] = None,
         base: typing.Optional[str] = None,
         index: typing.Optional[str] = None,
         scale: int = 1,
@@ -20,6 +21,7 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
     ):
         super().__init__(*args, **kwargs)
 
+        self.segment = segment
         self.base = base
         self.index = index
         self.scale = scale
@@ -79,8 +81,11 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
                 return True
             return False
 
+        if self.segment:
+            string = self.segment + ":("
+            
         if self.base is not None and self.base != "None":
-            string = self.base
+            string = string+self.base
         if nn(self.index):
             if nn(self.scale):
                 string = f"{string}+{self.scale}*{self.index}"
@@ -91,6 +96,9 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         elif self.offset > 0:
             string = f"{string}+{self.offset:x}"
 
+        if self.segment:
+            string = string + ")"
+            
         return f"[{string}]"
 
     def __repr__(self) -> str:

@@ -369,6 +369,7 @@ def compute_dv_key(hint):
             new=hint.new,
             color=None,  # not yet
             bsid=BSIDMemoryReferenceOperand(
+                segment=s2n(hint.segment),
                 base=s2n(hint.base),
                 index=s2n(hint.index),
                 scale=hint.scale,

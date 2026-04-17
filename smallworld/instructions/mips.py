@@ -16,6 +16,7 @@ class MIPSInstruction(Instruction):
 
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         return BSIDMemoryReferenceOperand(
+            segment=self._instruction.reg_name(operand.value.mem.segment),
             base=self._instruction.reg_name(operand.value.mem.base),
             offset=operand.value.mem.disp,
             size=4,

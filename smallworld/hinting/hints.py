@@ -408,6 +408,7 @@ class DynamicMemoryValueHint(DynamicValueHint):
     """
 
     address: int
+    segment: str
     base: str
     index: str
     scale: int
@@ -429,6 +430,7 @@ class DynamicValueSummaryHint(hinting.Hint):
 
 @dataclass(frozen=True)
 class DynamicMemoryValueSummaryHint(DynamicValueSummaryHint):
+    segment: str
     base: str
     index: str
     scale: int
