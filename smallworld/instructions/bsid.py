@@ -83,9 +83,9 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
         if self.segment:
             string = self.segment + ":("
-            
+
         if self.base is not None and self.base != "None":
-            string = string+self.base
+            string = string + self.base
         if nn(self.index):
             if nn(self.scale):
                 string = f"{string}+{self.scale}*{self.index}"
@@ -98,7 +98,7 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
         if self.segment:
             string = string + ")"
-            
+
         return f"[{string}]"
 
     def __repr__(self) -> str:

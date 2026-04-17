@@ -19,8 +19,13 @@ class x86Instruction(Instruction):
     )
 
     def _memory_reference(self, segment, base, index, scale, offset, size):
-        return x86BSIDMemoryReferenceOperand(        
-            segment=segment, base=base, index=index, scale=scale, offset=offset, size=size
+        return x86BSIDMemoryReferenceOperand(
+            segment=segment,
+            base=base,
+            index=index,
+            scale=scale,
+            offset=offset,
+            size=size,
         )
 
     # operand is a capstone operand
@@ -33,7 +38,7 @@ class x86Instruction(Instruction):
             operand.value.mem.disp,
             operand.size,
         )
-                
+
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
@@ -67,7 +72,9 @@ class x86Instruction(Instruction):
                     # shouldn't happen
                     assert 1 == 0
         if self._instruction.mnemonic == "pop":
-            the_reads.add(self._memory_reference(None, self.sp, None, 1, 0, self.word_size))
+            the_reads.add(
+                self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
+            )
 
         return the_reads
 
@@ -94,7 +101,9 @@ class x86Instruction(Instruction):
                 else:
                     assert 1 == 0
         if self._instruction.mnemonic == "push":
-            the_writes.add(self._memory_reference(None, self.sp, None, 1, 0, self.word_size))
+            the_writes.add(
+                self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
+            )
 
         return the_writes
 

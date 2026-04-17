@@ -255,7 +255,7 @@ class Colorizer(analysis.Analysis):
         self.platform = self.orig_cpu.platform
         self.pdef = platforms.PlatformDef.for_platform(self.platform)
 
-        def check_rws(emu, pc, te, is_read):                
+        def check_rws(emu, pc, te, is_read):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
             if is_read:
