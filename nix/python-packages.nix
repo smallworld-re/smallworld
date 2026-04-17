@@ -75,7 +75,6 @@ let
       pkgs ? pkgsFor system,
     }:
     let
-      mkUnicornafl = pkgs.callPackage ../unicornafl-build { };
       patchedUnicornSrc = pkgs.fetchFromGitHub {
         owner = "appleflyerv3";
         repo = "unicorn";
@@ -85,6 +84,9 @@ let
       patchedUnicorn = pkgs.unicorn.overrideAttrs (_: {
         src = patchedUnicornSrc;
       });
+      mkUnicornafl = pkgs.callPackage ./unicornafl-build {
+        unicornLibraryPath = "${patchedUnicorn}/lib";
+      };
     in
     {
       unicorn = unicornPy.override { unicorn = patchedUnicorn; };

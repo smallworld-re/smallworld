@@ -1,10 +1,17 @@
+# Repo-local packaging for the `unicornafl` Python binding used by SmallWorld.
+#
+# This lives under `nix/` with the rest of the flake implementation because it
+# is part of the Python/native packaging graph, not a standalone project.
 {
+  lib,
   fetchFromGitHub,
   rustPlatform,
   cargo,
   rustc,
   cmake,
   pkg-config,
+  stdenv,
+  unicornLibraryPath ? null,
 }:
 let
   src = fetchFromGitHub {
@@ -44,4 +51,9 @@ ps.buildPythonPackage {
     cmake
     pkg-config
   ];
+  postFixup = lib.optionalString (stdenv.isDarwin && unicornLibraryPath != null) ''
+    while IFS= read -r extension; do
+      install_name_tool -add_rpath "${unicornLibraryPath}" "$extension"
+    done < <(find "$out" -type f -name 'unicornafl*.so')
+  '';
 }
