@@ -160,6 +160,13 @@ _SPECS = {
         stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
         stack_pointer_adjust=8,
     ),
+    "tricore": RecursionSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        arg_register="d4",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+    ),
     "xtensa": RecursionSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

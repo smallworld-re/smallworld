@@ -48,20 +48,29 @@ let
       linuxBuilderSystem = linuxBuilderSystemFor system;
       libExt = if pkgs.stdenv.isDarwin then "dylib" else "so";
       pyPkgs = pkgs.python3Packages;
-      pandaQemuSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.panda-qemu-src.locked;
+      pandaQemuBaseSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.panda-qemu-src.locked;
+      pandaQemuSrc = pkgs.applyPatches {
+        name = "panda-qemu-src";
+        src = pandaQemuBaseSrc;
+        patches = [ ./patches/panda-qemu-tricore.patch ];
+      };
       libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
       # Keep the upstream source intact and layer our temporary local fixes
       # on top so it is obvious what can be deleted later.
       pandaNgSrc = pkgs.applyPatches {
         name = "panda-ng-src";
         src = panda-ng.outPath;
-        patches = [ ./patches/panda-ng-darwin.patch ];
+        patches = [
+          ./patches/panda-ng-darwin.patch
+          ./patches/panda-ng-tricore.patch
+        ];
       };
       targetList = [
         "x86_64-softmmu"
         "i386-softmmu"
         "arm-softmmu"
         "aarch64-softmmu"
+        "tricore-softmmu"
         "ppc-softmmu"
         "mips-softmmu"
         "mipsel-softmmu"
@@ -131,8 +140,8 @@ let
         src = pandaQemuSrc;
         configureFlags = qemuConfigureFlags;
         postUnpack = (old.postUnpack or "") + ''
-          cp -r --no-preserve=mode ${qemuSubprojects}/. ./source/subprojects/
-          patchShebangs ./source/scripts
+          cp -r --no-preserve=mode ${qemuSubprojects}/. "./$sourceRoot/subprojects/"
+          patchShebangs "./$sourceRoot/scripts"
         '';
         postInstall = (old.postInstall or "") + ''
           cp -v ./contrib/plugins/libpanda_plugin_interface.${libExt} $out/lib/
@@ -152,14 +161,14 @@ let
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
             configureFlags = qemuConfigureFlags;
             postUnpack = (old.postUnpack or "") + ''
-              cp -r --no-preserve=mode ${qemuSubprojects}/. ./source/subprojects/
+              cp -r --no-preserve=mode ${qemuSubprojects}/. "./$sourceRoot/subprojects/"
               cp -r --no-preserve=mode ${libpandaSrc} ./libpanda-ng
-              patchShebangs ./source/scripts ./libpanda-ng
+              patchShebangs "./$sourceRoot/scripts" ./libpanda-ng
             '';
             postBuild = (old.postBuild or "") + ''
               mkdir -pv $TMPDIR/libpanda-ng/build
               pushd $TMPDIR/libpanda-ng/build
-              bash ../run_all.sh $TMPDIR/source
+              bash ../run_all.sh "$TMPDIR/$sourceRoot"
               popd
             '';
             installPhase = ''

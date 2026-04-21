@@ -253,15 +253,16 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
+            or self.platform.architecture == platforms.Architecture.TRICORE
         ):
-            # mips32, mips64, and riscv64: branch to register 'ra'
+            # mips32, mips64, riscv64, and tricore: branch to register 'ra'
             return emulator.read_register("ra")
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             return emulator.read_register("a0")
 
         raise exceptions.ConfigurationError(
-            "Don't know how to return for {self.platform.architecture}"
+            f"Don't know how to return for {self.platform.architecture}"
         )
 
     skip_return = False

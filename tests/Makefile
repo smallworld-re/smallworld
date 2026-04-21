@@ -34,6 +34,7 @@ MSP430X_ID := msp430-linux-gnu
 PPC_ID := powerpc-linux.1.3.45-gnueabi.2.40
 PPC64_ID := powerpc64-linux-gnu.2.40
 RISCV64_ID := riscv64-linux-gnu.2.40
+TRICORE_ID := tricore-elf
 XTENSA_ID := xtensa-lx106-elf
 
 # Assembler Commands for Assembly
@@ -54,6 +55,7 @@ MSP430X_ASM_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ASM_AS := zig build-exe -target $(PPC_ID)
 PPC64_ASM_AS := zig build-exe -target $(PPC64_ID)
 RISCV64_ASM_AS := zig build-exe -target $(RISCV64_ID)
+TRICORE_ASM_AS := ./$(TRICORE_ID)-asm
 XTENSA_ASM_AS := ./$(XTENSA_ID)-asm
 
 # Assembler Commands for ELF
@@ -74,6 +76,7 @@ MSP430X_ELF_AS := zig build-exe -target $(MSP430X_ID)
 PPC_ELF_AS := zig build-exe -target $(PPC_ID)
 PPC64_ELF_AS := zig build-exe -target $(PPC64_ID) 
 RISCV64_ELF_AS := zig build-exe -target $(RISCV64_ID) 
+TRICORE_ELF_AS := ./$(TRICORE_ID)-elfasm
 XTENSA_ELF_AS := ./$(XTENSA_ID)-elfasm
 
 # Objcopy Commands
@@ -95,6 +98,7 @@ MSP430X_OBJCOPY := zig objcopy
 PPC_OBJCOPY := zig objcopy
 PPC64_OBJCOPY := zig objcopy
 RISCV64_OBJCOPY := zig objcopy
+TRICORE_OBJCOPY := $(TRICORE_ID)-objcopy
 XTENSA_OBJCOPY := $(XTENSA_ID)-objcopy
 
 # C compiler commands
@@ -117,6 +121,7 @@ MSP430X_CC := zig cc -target $(MSP430X_ID)
 PPC_CC := zig cc -target $(PPC_ID) 
 PPC64_CC := zig cc -target $(PPC64_ID) 
 RISCV64_CC := zig cc -target $(RISCV64_ID)
+TRICORE_CC := $(TRICORE_ID)-gcc
 XTENSA_CC := $(XTENSA_ID)-gcc
 
 # *************************
@@ -178,6 +183,7 @@ MSP430X_EXT := msp430x
 PPC_EXT := ppc
 PPC64_EXT := ppc64
 RISCV64_EXT := riscv64
+TRICORE_EXT := tricore
 XTENSA_EXT := xtensa
 
 # Arch-specific source extensions
@@ -199,6 +205,7 @@ MSP430X_SRC_EXT := $(MSP430X_EXT)
 PPC_SRC_EXT := $(PPC_EXT)
 PPC64_SRC_EXT := $(PPC64_EXT)
 RISCV64_SRC_EXT := $(RISCV64_EXT)
+TRICORE_SRC_EXT := $(TRICORE_EXT)
 XTENSA_SRC_EXT := $(XTENSA_EXT)
 
 # **********************
@@ -233,11 +240,18 @@ C_OBJ_SRCS := $(wildcard */*.o.c) $(wildcard */*/*.o.c)
 C_ELF_SRCS := $(wildcard */*.elf.c) $(wildcard */*/*.elf.c)
 C_SO_SRCS := $(wildcard */*.so.c) $(wildcard */*/*.so.c)
 
+TRICORE_OBJ_SRCS :=
+TRICORE_ELF_SRCS :=
+TRICORE_SO_SRCS :=
+
 define C_ELF_TEMPLATE
 
-$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
-$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
+$(1)_OBJ_SRCS ?= $$(C_OBJ_SRCS)
+$(1)_ELF_SRCS ?= $$(C_ELF_SRCS)
+$(1)_SO_SRCS ?= $$(C_SO_SRCS)
+$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$($(1)_OBJ_SRCS))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$($(1)_ELF_SRCS))
+$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$($(1)_SO_SRCS))
 
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
@@ -297,13 +311,13 @@ endef
 # *****************************
 
 # List of all platforms
-PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 XTENSA
+PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 TRICORE XTENSA
 
 # List of platforms that support assembly
-ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 XTENSA
+ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 TRICORE
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW

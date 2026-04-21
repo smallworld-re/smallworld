@@ -112,6 +112,11 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         load_address=0x400000,
     ),
+    "tricore": UnmappedSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode"),
+    ),
 }
 
 _SKIP_REASONS = {

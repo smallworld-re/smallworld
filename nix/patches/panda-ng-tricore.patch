@@ -1,0 +1,128 @@
+diff --git a/plugins/meson.build b/plugins/meson.build
+--- a/plugins/meson.build
++++ b/plugins/meson.build
+@@ -73,6 +73,13 @@ foreach plugin: plugin_list
+             cargo_toml = join_paths(plugin, 'Cargo.toml')
+             if fs.exists(cargo_toml)
+                 # Rust plugins
++                #
++                # panda-bindings does not ship TriCore Rust bindings yet.
++                # Skip the Rust plugin build for this target so the rest of
++                # the PANDA runtime can still be built and used.
++                if tgt == 'tricore'
++                    continue
++                endif
+                 rust_build_cmd = [bin_cargo, 'build', 
+                             '--no-default-features',
+                             '--features', tgt,
+diff --git a/python/core/pandare2/arch.py b/python/core/pandare2/arch.py
+--- a/python/core/pandare2/arch.py
++++ b/python/core/pandare2/arch.py
+@@ -72,6 +72,9 @@ class PandaArch():
+         elif self.panda.arch_name == "riscv32":
+             bits = 32
+             endianness = "little"
++        elif self.panda.arch_name == "tricore":
++            bits = 32
++            endianness = "little"
+         elif self.panda.arch_name == "loongarch64":
+             bits = 64
+             endianness = "little"
+@@ -620,6 +623,64 @@ class Riscv32Arch(Riscv64Arch):
+         # Initialize parent with basic RISC-V structure
+         super().__init__(panda)
+ 
++
++class TriCoreArch(PandaArch):
++    '''
++    Register names and accessors for TriCore
++    '''
++
++    def __init__(self, panda):
++        super().__init__(panda)
++        self.registers = {f"D{i}": f"D{i}" for i in range(16)}
++        self.registers |= {f"A{i}": f"A{i}" for i in range(16)}
++        self.registers["SP"] = "A10"
++        self.registers["RA"] = "A11"
++        self.registers["LR"] = "A11"
++        self.registers["PC"] = "PC"
++        self.registers["PSW"] = "PSW"
++
++        self.reg_sp = "SP"
++        self.reg_retaddr = "RA"
++        self.call_conventions = {"tricore": ["D4", "D5", "D6", "D7"]}
++        self.call_conventions["default"] = self.call_conventions["tricore"]
++        self.reg_retval = {"default": "D2"}
++
++    def _get_reg_val(self, cpu, reg):
++        env = self.cpu_env(cpu)
++
++        if reg.startswith("D"):
++            return env.gpr_d[int(reg[1:])]
++        if reg.startswith("A"):
++            return env.gpr_a[int(reg[1:])]
++        if reg == "PC":
++            return env.PC
++        if reg == "PSW":
++            if hasattr(self.panda.libpanda, "psw_read"):
++                return self.panda.libpanda.psw_read(env)
++            return env.PSW
++        raise ValueError(f"Invalid register name {reg}")
++
++    def _set_reg_val(self, cpu, reg, val):
++        env = self.cpu_env(cpu)
++
++        if reg.startswith("D"):
++            env.gpr_d[int(reg[1:])] = val
++            return
++        if reg.startswith("A"):
++            env.gpr_a[int(reg[1:])] = val
++            return
++        if reg == "PC":
++            env.PC = val
++            return
++        if reg == "PSW":
++            if hasattr(self.panda.libpanda, "psw_write"):
++                self.panda.libpanda.psw_write(env, val)
++            else:
++                env.PSW = val
++            return
++        raise ValueError(f"Invalid register name {reg}")
++
++
+ class MipsArch(PandaArch):
+     '''
+     Register names and accessors for 32-bit MIPS
+diff --git a/python/core/pandare2/panda.py b/python/core/pandare2/panda.py
+--- a/python/core/pandare2/panda.py
++++ b/python/core/pandare2/panda.py
+@@ -40,7 +40,7 @@ from .taint import TaintQuery
+ from .asyncthread import AsyncThread
+ from .qcows_internal import Qcows
+ from .qemu_logging import QEMU_Log_Manager
+-from .arch import ArmArch, Aarch64Arch, Loongarch64, MipsArch, Mips64Arch, X86Arch, X86_64Arch, PowerPCArch, PowerPC64Arch, Riscv32Arch, Riscv64Arch
++from .arch import ArmArch, Aarch64Arch, Loongarch64, MipsArch, Mips64Arch, TriCoreArch, X86Arch, X86_64Arch, PowerPCArch, PowerPC64Arch, Riscv32Arch, Riscv64Arch
+ from .cosi import Cosi
+ from dataclasses import dataclass
+ 
+@@ -175,6 +175,8 @@ class Panda():
+             self.arch = Riscv32Arch(self)
+         elif self.arch_name in ["riscv64"]:
+             self.arch = Riscv64Arch(self)
++        elif self.arch_name in ["tricore"]:
++            self.arch = TriCoreArch(self)
+         else:
+             raise ValueError(f"Unsupported architecture {self.arch_name}")
+         self.bits, self.endianness, self.register_size = self.arch._determine_bits()
+diff --git a/python/core/pandare2/utils.py b/python/core/pandare2/utils.py
+--- a/python/core/pandare2/utils.py
++++ b/python/core/pandare2/utils.py
+@@ -257,7 +257,7 @@ def find_build_dir(arch_name=None, find_executable=False, mode="softmmu"):
+     one we find.
+     '''
+     arches = ['i386', 'x86_64', 'arm', 'aarch64', 'ppc', 'mips', 'mipsel', 'mips64', \
+-                'mips64el', 'loongarch64', 'ppc64', 'riscv32', 'riscv64']
++                'mips64el', 'loongarch64', 'ppc64', 'riscv32', 'riscv64', 'tricore']
+     if "PANDA_LIB" in environ:
+         return environ["PANDA_LIB"]
+ 

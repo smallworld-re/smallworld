@@ -165,6 +165,15 @@ _SPECS = {
         load_address=0x400000,
         link_register="ra",
     ),
+    "tricore": ExitpointSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        engines=("angr", "pcode"),
+        mid_exit_offset=2,
+        fake_return_size=4,
+        link_register="ra",
+    ),
 }
 
 _SKIP_REASONS = {
