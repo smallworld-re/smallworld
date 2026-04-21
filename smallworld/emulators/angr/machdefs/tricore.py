@@ -70,6 +70,7 @@ class TriCoreMachineDef(GhidraMachineDef):
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         assert hasattr(state.scratch, "exit_points")
+        globals_map = typing.cast(typing.MutableMapping[str, typing.Any], state.globals)
 
         if "extra_stop_points" in kwargs:
             exit_points = state.scratch.exit_points | set(kwargs["extra_stop_points"])
@@ -84,7 +85,7 @@ class TriCoreMachineDef(GhidraMachineDef):
             irsb = state.block(extra_stop_points=exit_points, **kwargs).vex
 
         saved_ra = state.regs.a11
-        ra_stack = list(state.globals.get("tricore_ra_stack", ()))
+        ra_stack = list(globals_map.get("tricore_ra_stack", ()))
         saw_save = False
         saw_restore = False
 
@@ -122,14 +123,20 @@ class TriCoreMachineDef(GhidraMachineDef):
         if saw_save:
             updated_stack = [*ra_stack, saved_ra]
             for successor_state in successor_states:
-                successor_state.globals["tricore_ra_stack"] = list(updated_stack)
+                successor_globals = typing.cast(
+                    typing.MutableMapping[str, typing.Any], successor_state.globals
+                )
+                successor_globals["tricore_ra_stack"] = list(updated_stack)
 
         if saw_restore and ra_stack:
             restored_ra = ra_stack[-1]
             updated_stack = ra_stack[:-1]
             for successor_state in successor_states:
                 successor_state.regs.a11 = restored_ra
-                successor_state.globals["tricore_ra_stack"] = list(updated_stack)
+                successor_globals = typing.cast(
+                    typing.MutableMapping[str, typing.Any], successor_state.globals
+                )
+                successor_globals["tricore_ra_stack"] = list(updated_stack)
 
         return successors
 

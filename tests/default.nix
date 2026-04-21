@@ -13,7 +13,7 @@
 stdenv.mkDerivation {
   name = "smallworld-test-bins";
   src = ./.;
-  buildInputs = [
+  nativeBuildInputs = [
     nasm
     zig
     qemu-user
@@ -21,6 +21,8 @@ stdenv.mkDerivation {
     tricoreGcc
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
+  ];
+  buildInputs = [
     pkgsCross.m68k.glibc
     pkgsCross.aarch64-multiplatform.glibc
     pkgsCross.ppc32.glibc
