@@ -125,7 +125,7 @@ _SPECS = {
         pc_register="pc",
         arg_register="d4",
         result_register="d2",
-        engines=("angr", "pcode"),
+        engines=("angr", "panda", "pcode"),
     ),
     "xtensa": RawBinarySpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),

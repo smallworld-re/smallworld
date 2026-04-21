@@ -173,6 +173,15 @@ _SPECS = {
         load_address=0x80000000,
         print_entrypoint=True,
     ),
+    "tricore": RelaSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "panda", "pcode"),
+        string_source=StringSource(register="a4"),
+        print_entrypoint=True,
+    ),
 }
 
 
@@ -220,7 +229,7 @@ def _configure_exit(
         stack.push_integer(exitpoint, 4, None)
     elif arch in {"aarch64", "armel", "armhf", "ppc", "ppc64"}:
         set_register(cpu, "lr", exitpoint)
-    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64"}:
+    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
 
 

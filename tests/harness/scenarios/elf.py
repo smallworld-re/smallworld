@@ -134,7 +134,7 @@ _SPECS = {
         pointer_size=4,
         pc_register="pc",
         stack_pointer_register="sp",
-        engines=("angr", "pcode"),
+        engines=("angr", "panda", "pcode"),
     ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),

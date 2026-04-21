@@ -269,7 +269,7 @@ _SPECS = {
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
         result_register="d2",
-        engines=("angr", "pcode"),
+        engines=("angr", "panda", "pcode"),
         register_arguments=(
             ("d4", 0x11111111),
             ("d5", 0x01010101),

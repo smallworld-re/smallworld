@@ -1480,6 +1480,12 @@ class PandaMachdefTests(unittest.TestCase):
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
 
+    def test_panda_tricore(self):
+        platform = platforms.Platform(
+            platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_panda_xtensa(self):
         platform = platforms.Platform(
             platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE

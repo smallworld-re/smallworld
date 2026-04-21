@@ -181,7 +181,7 @@ _SPECS = {
         argument_registers=("d4", "d5"),
         mmio_address=0x50014000,
         mmio_width=4,
-        engines=("angr", "pcode"),
+        engines=("angr", "panda", "pcode"),
     ),
     "xtensa": DMASpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),

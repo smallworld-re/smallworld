@@ -132,6 +132,7 @@ LEGACY_MATRIX = {
         {"name": "test_branch_mips64_panda", "skip_reason": None},
         {"name": "test_branch_mips64el_panda", "skip_reason": None},
         {"name": "test_branch_ppc_panda", "skip_reason": None},
+        {"name": "test_branch_tricore_panda", "skip_reason": None},
     ],
     "BranchTestsUnicorn": [
         {"name": "test_branch_aarch64", "skip_reason": None},
@@ -362,6 +363,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_call_ppc_panda",
             "run_test": {"args": ["ppc.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_call_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
             "skip_reason": None,
         },
     ],
@@ -1617,6 +1623,11 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_dma_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_dma_tricore_pcode",
             "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
@@ -2236,6 +2247,11 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_elf_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_elf_tricore_pcode",
             "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
@@ -2505,6 +2521,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_tricore_angr",
             "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -2902,6 +2923,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_hooking_tricore_angr",
             "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_hooking_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -3570,6 +3596,11 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_recursion_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_recursion_tricore_pcode",
             "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
@@ -4111,6 +4142,11 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_square_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
             "name": "test_square_tricore_pcode",
             "run_test": {"args": ["tricore.pcode"], "kwargs": {}},
             "skip_reason": None,
@@ -4467,6 +4503,14 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
         {
+            "name": "test_stack_tricore_panda",
+            "run_test": {
+                "args": ["tricore.panda"],
+                "kwargs": {"reg": "d2", "res": "0xffffffff"},
+            },
+            "skip_reason": None,
+        },
+        {
             "name": "test_stack_tricore_pcode",
             "run_test": {
                 "args": ["tricore.pcode"],
@@ -4745,6 +4789,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_tricore_angr",
             "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -5084,6 +5133,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_strlen_tricore_angr",
             "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_strlen_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
             "skip_reason": None,
         },
         {
@@ -5516,6 +5570,11 @@ LEGACY_MATRIX = {
         {
             "name": "test_tricore_angr",
             "run_test": {"args": ["tricore.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_tricore_panda",
+            "run_test": {"args": ["tricore.panda"], "kwargs": {}},
             "skip_reason": None,
         },
         {

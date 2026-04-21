@@ -184,7 +184,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("angr", "pcode"),
+        engines=("angr", "panda", "pcode"),
         string_source=StringSource(register="a4"),
     ),
     "xtensa": HookingSpec(
