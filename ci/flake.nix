@@ -72,11 +72,13 @@
               cp -r . "$out"
 
               x86_interp=${x86LinuxPkgs.stdenv.cc.bintools.dynamicLinker}
-              x86_lib_path="${lib.makeLibraryPath [
-                x86LinuxPkgs.stdenv.cc.cc
-                x86LinuxPkgs.zstd
-                x86LinuxPkgs.ncurses
-              ]}:$out/lib:$out/lib64"
+              x86_lib_path="${
+                lib.makeLibraryPath [
+                  x86LinuxPkgs.stdenv.cc.cc
+                  x86LinuxPkgs.zstd
+                  x86LinuxPkgs.ncurses
+                ]
+              }:$out/lib:$out/lib64"
               qemu_x86_64=${pkgs.qemu-user}/bin/qemu-x86_64
 
               find "$out" -type f -perm -0100 | while read -r f; do
@@ -124,11 +126,13 @@
               cp -r ./* "$out"/
 
               x86_interp=${x86LinuxPkgs.stdenv.cc.bintools.dynamicLinker}
-              x86_lib_path="${lib.makeLibraryPath [
-                x86LinuxPkgs.stdenv.cc.cc
-                x86LinuxPkgs.zstd
-                x86LinuxPkgs.ncurses
-              ]}:$out/lib:$out/lib64"
+              x86_lib_path="${
+                lib.makeLibraryPath [
+                  x86LinuxPkgs.stdenv.cc.cc
+                  x86LinuxPkgs.zstd
+                  x86LinuxPkgs.ncurses
+                ]
+              }:$out/lib:$out/lib64"
 
               find "$out" -type f -perm -0100 | while read -r f; do
                 if ! file "$f" | grep -q 'ELF 64-bit LSB .*x86-64'; then
