@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
+import subprocess
+import sys
 from typing import Tuple
+
+from ..coverage import wrap_python_command
 
 TestsPath = pathlib.Path(__file__).resolve().parents[2]
 RepoRoot = TestsPath.parent
@@ -255,3 +259,18 @@ def maybe_enable_linear(smallworld, emulator, engine: str) -> None:
         emulator, smallworld.emulators.AngrEmulator
     ):
         emulator.enable_linear()
+
+
+def run_case_subprocess(scenario: str, variant: str, *args: str) -> None:
+    command = wrap_python_command(
+        [
+            sys.executable,
+            (TestsPath / "run_case.py").as_posix(),
+            scenario,
+            variant,
+            *args,
+        ]
+    )
+    completed = subprocess.run(command, cwd=TestsPath, check=False)
+    if completed.returncode != 0:
+        raise SystemExit(completed.returncode)

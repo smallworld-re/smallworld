@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import dataclasses
 import logging
 from typing import Sequence
@@ -10,6 +11,7 @@ from .common import (
     make_emulator,
     make_platform,
     maybe_enable_linear,
+    run_case_subprocess,
     set_register,
     split_variant,
 )
@@ -169,7 +171,7 @@ _SPECS = {
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
         result_register="d2",
-        engines=("angr", "pcode"),
+        engines=("angr", "panda", "pcode"),
         mid_exit_offset=2,
         fake_return_size=4,
         link_register="ra",
@@ -267,23 +269,35 @@ def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> i
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
-    if args:
-        raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(args)}")
     if variant in _SKIP_REASONS:
         raise SystemExit(_SKIP_REASONS[variant])
 
     import smallworld
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--panda-subtest", choices=("fake", "mid"))
+    ns, extra = parser.parse_known_args(list(args))
+    if extra:
+        raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(extra)}")
 
     arch, engine = split_variant(variant)
     spec = _SPECS[arch]
 
     smallworld.logging.setup_logging(level=logging.INFO)
 
-    _run_exit_test(smallworld, arch, engine, spec, FAKE_EXITPOINT)
-    print("Test 1 SUCCESS")
+    if engine == "panda" and ns.panda_subtest is None:
+        run_case_subprocess(scenario, variant, "--panda-subtest", "fake")
+        print("Test 1 SUCCESS")
+        run_case_subprocess(scenario, variant, "--panda-subtest", "mid")
+        print("Test 2 SUCCESS")
+        return 0
+
+    if ns.panda_subtest in {None, "fake"}:
+        _run_exit_test(smallworld, arch, engine, spec, FAKE_EXITPOINT)
+        if ns.panda_subtest == "fake":
+            return 0
 
     _, _, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
     mid_exitpoint = _mid_exitpoint(entrypoint, code, engine, spec)
     _run_exit_test(smallworld, arch, engine, spec, mid_exitpoint)
-    print("Test 2 SUCCESS")
     return 0
