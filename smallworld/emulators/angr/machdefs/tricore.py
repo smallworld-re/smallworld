@@ -46,7 +46,12 @@ class TriCoreUserOp(enum.IntEnum, metaclass=UpdatedEnumMeta):
         return f"{hex(self.value)}: {self.short_name} - {self.description}"
 
     SAVE_CALLER_STATE = 0x1E, "saveCallerState", handle_nop, "Save call context"
-    RESTORE_CALLER_STATE = 0x1F, "restoreCallerState", handle_nop, "Restore call context"
+    RESTORE_CALLER_STATE = (
+        0x1F,
+        "restoreCallerState",
+        handle_nop,
+        "Restore call context",
+    )
 
 
 class TriCoreMachineDef(GhidraMachineDef):

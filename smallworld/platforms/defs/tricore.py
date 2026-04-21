@@ -38,9 +38,11 @@ class TriCore(PlatformDef):
     pc_register = "pc"
     sp_register = "sp"
 
-    general_purpose_registers = [f"d{i}" for i in range(0, 16)] + [
-        f"a{i}" for i in range(0, 10)
-    ] + [f"a{i}" for i in range(12, 16)]
+    general_purpose_registers = (
+        [f"d{i}" for i in range(0, 16)]
+        + [f"a{i}" for i in range(0, 10)]
+        + [f"a{i}" for i in range(12, 16)]
+    )
 
     registers = {
         **{f"d{i}": RegisterDef(name=f"d{i}", size=4) for i in range(0, 16)},
