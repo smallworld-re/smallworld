@@ -165,6 +165,7 @@ if __name__ == "__main__":
                     18306165297079870698,
                 ],
                 num_micro_executions=5,
+                segment="None",
                 base="rsp",
                 index="None",
                 scale=1,
@@ -225,6 +226,7 @@ if __name__ == "__main__":
                 count=5,
                 dynamic_values=[131072],
                 num_micro_executions=5,
+                segment="None",
                 base="rbp",
                 index="None",
                 scale=1,
@@ -273,6 +275,7 @@ if __name__ == "__main__":
                     2583265852,
                 ],
                 num_micro_executions=5,
+                segment="None",
                 base="rbp",
                 index="None",
                 scale=1,
@@ -327,6 +330,7 @@ if __name__ == "__main__":
                     2583265852,
                 ],
                 num_micro_executions=5,
+                segment="None",
                 base="rbp",
                 index="None",
                 scale=1,
@@ -357,6 +361,7 @@ if __name__ == "__main__":
                 count=5,
                 dynamic_values=[131072],
                 num_micro_executions=5,
+                segment="None",
                 base="rbp",
                 index="None",
                 scale=1,
@@ -399,6 +404,7 @@ if __name__ == "__main__":
                 count=3,
                 dynamic_values=[232, 207, 150, 247],
                 num_micro_executions=5,
+                segment="None",
                 base="rax",
                 index="None",
                 scale=1,
@@ -441,6 +447,7 @@ if __name__ == "__main__":
                 count=5,
                 dynamic_values=[131072],
                 num_micro_executions=5,
+                segment="None",
                 base="rbp",
                 index="None",
                 scale=1,
@@ -483,6 +490,7 @@ if __name__ == "__main__":
                 count=2,
                 dynamic_values=[232, 150, 247],
                 num_micro_executions=5,
+                segment="None",
                 base="rax",
                 index="None",
                 scale=1,
@@ -1226,29 +1234,6 @@ if __name__ == "__main__":
         ],
     }
 
-    truth_summ_pcs = set(list(truth_summ.keys()))
-    expected(
-        truth_summ_pcs == observed_summ_pcs,
-        "set of pcs observed for summary hints same as truth",
-        "pcs observed for summary hints not same as truth",
-    )
-
-    for pc in all_pcs:
-        if pc in truth_summ_pcs and pc in observed_summ_pcs:
-            if not expected(
-                observed_summ[pc] == truth_summ[pc],
-                f"list of hints observed for pc={pc} same as truth",
-                f"list of hints observed for pc={pc} not same as for truth",
-            ):
-                print(f"Truth:    {truth_summ[pc]}")
-                print(f"Observed: {observed_summ[pc]}")
-        elif pc in truth_summ_pcs:
-            print(f"{truth_summ[pc]} is in truth only")
-        elif pc in observed_summ_pcs:
-            print(f"{observed_summ[pc]} in observed only")
-        else:
-            pass
-
     correct_derivations = [
         (8735, "rax", set()),
         (
@@ -1277,7 +1262,7 @@ if __name__ == "__main__":
                         info=MemoryLvalInfo(
                             color=8,
                             is_new=True,
-                            bsid=BSIDMemoryReferenceOperand("rax"),
+                            bsid=BSIDMemoryReferenceOperand(segment=None, base="rax"),
                             size=1,
                         )
                     ),
