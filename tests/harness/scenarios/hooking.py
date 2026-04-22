@@ -13,6 +13,8 @@ from .common import (
     make_platform,
     make_puts_model,
     maybe_enable_linear,
+    read_c_string,
+    resolve_string_pointer,
     set_register,
     split_variant,
 )
@@ -203,6 +205,26 @@ _SKIP_REASONS = {
 }
 
 
+def _install_tricore_panda_callsite_hooks(smallworld, machine, code, spec) -> None:
+    def skip_current_call(emulator: smallworld.emulators.Emulator) -> None:
+        pc = emulator.read_register(spec.pc_register)
+        emulator.write_register(spec.pc_register, pc + emulator.current_instruction().size)
+
+    def gets_hook(emulator: smallworld.emulators.Emulator) -> None:
+        pointer = resolve_string_pointer(emulator, spec.string_source)
+        data = input().encode("utf-8") + b"\0"
+        emulator.write_memory_content(pointer, data)
+        skip_current_call(emulator)
+
+    def puts_hook(emulator: smallworld.emulators.Emulator) -> None:
+        pointer = resolve_string_pointer(emulator, spec.string_source)
+        print(read_c_string(emulator, pointer))
+        skip_current_call(emulator)
+
+    machine.add(smallworld.state.models.Hook(code.address + 0x0C, gets_hook))
+    machine.add(smallworld.state.models.Hook(code.address + 0x12, puts_hook))
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "hooking":
         return False
@@ -245,22 +267,25 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     stack.push_integer(0xFFFFFFFF, spec.pointer_size, "fake return address")
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
-    machine.add(
-        make_gets_model(
-            smallworld,
-            platform=platform,
-            address=spec.gets_address,
-            destination=spec.string_source,
+    if arch == "tricore" and engine == "panda":
+        _install_tricore_panda_callsite_hooks(smallworld, machine, code, spec)
+    else:
+        machine.add(
+            make_gets_model(
+                smallworld,
+                platform=platform,
+                address=spec.gets_address,
+                destination=spec.string_source,
+            )
         )
-    )
-    machine.add(
-        make_puts_model(
-            smallworld,
-            platform=platform,
-            address=spec.puts_address,
-            source=spec.string_source,
+        machine.add(
+            make_puts_model(
+                smallworld,
+                platform=platform,
+                address=spec.puts_address,
+                source=spec.string_source,
+            )
         )
-    )
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)

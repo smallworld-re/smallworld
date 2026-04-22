@@ -216,6 +216,22 @@ class Model(Hook):
         """Read this model's return address, or pop the return address from the stack."""
 
         if (
+            self.platform.architecture == platforms.Architecture.TRICORE
+            and hasattr(emulators, "PandaEmulator")
+            and isinstance(emulator, emulators.PandaEmulator)
+        ):
+            ret = emulator.read_register("ra")
+            try:
+                insns, _ = emulator.disassemble(
+                    emulator.read_memory_content(ret, 4), ret, count=1
+                )
+            except Exception:
+                insns = []
+            if insns and insns[0].mnemonic in {"call", "calla", "fcall", "fcalla"}:
+                return ret + insns[0].size
+            return ret
+
+        if (
             self.platform.architecture == platforms.Architecture.X86_32
             or self.platform.architecture == platforms.Architecture.X86_64
             or self.platform.architecture == platforms.Architecture.M68K
