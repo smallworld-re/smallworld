@@ -105,24 +105,28 @@ Add test cases here to exercise one of the following:
 
 In general, exercise the test case for as many platforms as are relevant.
 If it's a basic feature test, test for each relevant platform/emulator pair.
-This equates to a ton of test scripts, but they will share a huge amount of code.
-``xargs | sed -i`` is your friend.
+This still equates to a lot of compiled artifacts, but the runner is now
+manifest-driven so the execution layer can stay mostly declarative.
 
 The actual driver for the integration tests is at ``smallworld/tests/integration.py``.
-This uses Python's unit test package to drive the individual scripts.
-By now, there are plenty of examples to copy from.
+It builds a manifest of cases and supports filters, listings, and sharding.
+The stable per-scenario entrypoint is ``smallworld/tests/run_case.py``.
+For highly repetitive scenario families, prefer extending the shared runners in
+``smallworld/tests/harness/scenarios/`` instead of cloning another
+per-architecture script.
 
 .. caution::
 
    Do not try to run the complete integration test suite locally.
    
-   As of this writing, there are over two thousand test scripts,
-   which ``integration.py`` does not parallelize.
-   It can take over a day for the test suite to run manually.
+   As of this writing, there are over two thousand integration cases.
+   The runner supports local filtering and CI sharding, but a full local run is
+   still a large job.
 
-   Run any immediately-relevant tests yourself,
-   and allow the CI/CD system to run the rest.
-   It's set up in parallel, and will take less than 20 minutes to complete. 
+   Run the cases closest to your change yourself from the repository dev shell,
+   for example ``nix develop . -c python3 tests/integration.py --filter square``
+   or ``nix develop . -c python3 tests/run_case.py square amd64 42``, and
+   allow CI to run the full sharded matrix.
 
 Compiling the Integration Tests
 *******************************

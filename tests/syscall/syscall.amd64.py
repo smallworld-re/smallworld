@@ -23,8 +23,6 @@ code = smallworld.state.memory.code.Executable.from_filepath(
 )
 machine.add(code)
 
-breakpoint()
-
 # create a stack and push a value
 stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x2000, 0x1000)
 machine.add(stack)

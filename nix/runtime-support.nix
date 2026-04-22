@@ -9,6 +9,7 @@
 # If you are new to Nix, this file answers:
 # "How do the raw packages become a usable shell or runtime environment?"
 {
+  aflplusplusPackages,
   lib,
   inputs,
   mkLockedVirtualenv,
@@ -51,9 +52,14 @@ let
     let
       pkgs = pkgsFor system;
       ghidra = mkGhidraRuntime pkgs;
+      aflplusplus =
+        if system == "aarch64-darwin" then aflplusplusPackages.${system}.aflplusplus else pkgs.aflplusplus;
     in
-    # afl++ is not packaged for Apple Silicon macOS.
-    lib.optional (system != "aarch64-darwin") pkgs.aflplusplus ++ [ pkgs.z3 ] ++ ghidra.tools;
+    [
+      aflplusplus
+      pkgs.z3
+    ]
+    ++ ghidra.tools;
 
   # `buildEnv` is how we merge several derivations into one user-facing
   # environment. The extra setup-hook plumbing below is what keeps PATH,
@@ -361,6 +367,7 @@ let
         inherit system;
         name = "smallworld-re-dev-env";
         selection = devSelection;
+        extraPythonPackages = ps: [ ps.coverage ];
       };
     in
     pkgs.mkShell {
@@ -377,7 +384,8 @@ let
       hardeningDisable = [ "all" ];
 
       shellHook = ''
-        unset PYTHONPATH
+        # Let package setup hooks populate PYTHONPATH. Clearing it here breaks
+        # layered developer-only modules like `coverage`.
         export REPO_ROOT=$(git rev-parse --show-toplevel)
         ${lib.optionalString (binaryNinja != null) "export BINJA_PATH=${binaryNinja}"}
         # Keep the live checkout ahead of the locked Nix environment so source

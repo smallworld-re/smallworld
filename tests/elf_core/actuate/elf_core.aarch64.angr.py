@@ -49,15 +49,15 @@ nop = b"\xd5\x03\x20\x1f"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
-# puts address recovered from manual RE
-puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x810
+# Hook the local PLT stub in the restored text page.
+puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x6F0
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
 machine.add(puts)
 
 # Add an exit point
-machine.add_exit_point(cpu.pc.get() + 0x14)
+machine.add_exit_point(cpu.pc.get() + 0x38)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)

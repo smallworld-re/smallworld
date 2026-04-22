@@ -139,16 +139,45 @@ Let's add a little more introspection for the second case:
 Putting it All Together
 -----------------------
 
-Combined, this harness can be found in the script ``tests/hooking/hooking.amd64.py``
+Combined, this maintained scenario implementation can be found in
+``tests/harness/scenarios/hooking.py``, but the core harness is:
 
-.. literalinclude:: ../../../tests/hooking/hooking.amd64.py
-    :language: Python
+.. code-block:: python
+
+    machine = smallworld.state.Machine()
+    cpu = smallworld.state.cpus.CPU.for_platform(platform)
+    code = smallworld.state.memory.code.Executable.from_filepath(
+        "tests/hooking/hooking.amd64.bin",
+        address=0x1000,
+    )
+    stack = smallworld.state.memory.stack.Stack.for_platform(platform, 0x8000, 0x4000)
+    machine.add(cpu)
+    machine.add(code)
+    machine.add(stack)
+
+    cpu.rip.set(code.address)
+    stack.push_integer(0xFFFFFFFF, 8, "fake return address")
+    cpu.rsp.set(stack.get_pointer())
+
+    gets = smallworld.state.models.Model.lookup(
+        "gets", platform, smallworld.platforms.ABI.SYSTEMV, code.address + 0x2800
+    )
+    puts = PutsModel(code.address + 0x2808)
+    machine.add(gets)
+    machine.add(puts)
+
+    emulator = smallworld.emulators.UnicornEmulator(platform)
+    emulator.add_exit_point(code.address + code.get_capacity())
+    machine.emulate(emulator)
 
 This harness should take its input over stdin, and echo it back to the console.
 
 Here is what running it looks like:
 
-.. command-output:: echo "foobar" | python3 hooking.amd64.py
+The example below assumes you have already entered the repository dev shell
+with ``nix develop``.
+
+.. command-output:: echo "foobar" | python3 ../run_case.py hooking amd64
     :shell:
     :cwd: ../../../tests/hooking
 

@@ -19,3 +19,4 @@ core.*
 /docs/build
 unicornafl-flake/result
 tests/downstream_flake/flake.lock
+.coverage*
