@@ -208,7 +208,9 @@ _SKIP_REASONS = {
 def _install_tricore_panda_callsite_hooks(smallworld, machine, code, spec) -> None:
     def skip_current_call(emulator: smallworld.emulators.Emulator) -> None:
         pc = emulator.read_register(spec.pc_register)
-        emulator.write_register(spec.pc_register, pc + emulator.current_instruction().size)
+        emulator.write_register(
+            spec.pc_register, pc + emulator.current_instruction().size
+        )
 
     def gets_hook(emulator: smallworld.emulators.Emulator) -> None:
         pointer = resolve_string_pointer(emulator, spec.string_source)
