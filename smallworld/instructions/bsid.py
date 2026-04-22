@@ -7,7 +7,7 @@ from .instructions import MemoryReferenceOperand
 
 
 class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
-    """Memory Operand based on the base-scale-index-displacement pattern. """
+    """Memory Operand based on the base-scale-index-displacement pattern."""
 
     def __init__(
         self,
