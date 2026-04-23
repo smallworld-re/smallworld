@@ -6,6 +6,7 @@ import logging
 from typing import Sequence
 
 from .common import (
+    install_tricore_panda_shadow_returns,
     PlatformSpec,
     load_raw_code,
     make_emulator,
@@ -29,6 +30,7 @@ class RecursionSpec:
     pc_register: str
     result_register: str
     engines: tuple[str, ...]
+    entry_offset: int = 0
     arg_register: str | None = None
     stack_pointer_register: str = "sp"
     stack_items: tuple[StackItem, ...] = ()
@@ -166,6 +168,7 @@ _SPECS = {
         arg_register="d4",
         result_register="d2",
         engines=("angr", "panda", "pcode"),
+        entry_offset=0x38,
     ),
     "xtensa": RecursionSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
@@ -204,7 +207,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
 
     code = load_raw_code(smallworld, "recursion", arch)
     machine.add(code)
-    set_register(cpu, spec.pc_register, code.address)
+    set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
 
     if spec.arg_register is not None:
         set_register(cpu, spec.arg_register, ns.value)
@@ -222,6 +225,8 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)
+    if arch == "tricore" and engine == "panda":
+        install_tricore_panda_shadow_returns(emulator, code)
     emulator.add_exit_point(code.address + code.get_capacity())
     final_cpu = machine.emulate(emulator).get_cpu()
     print(hex(getattr(final_cpu, spec.result_register).get()))

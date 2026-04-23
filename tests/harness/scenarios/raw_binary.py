@@ -6,6 +6,7 @@ import logging
 from typing import Literal, Mapping, Sequence
 
 from .common import (
+    install_tricore_panda_shadow_returns,
     PlatformSpec,
     load_raw_code,
     make_emulator,
@@ -37,6 +38,7 @@ class RawBinarySpec:
     pc_register: str
     result_register: str
     engines: tuple[str, ...]
+    entry_offset: int = 0
     arg_register: str | None = None
     print_mode: PrintMode = "hex"
     stack: StackSpec | None = None
@@ -117,7 +119,7 @@ def run_integer_case(
 
     code = load_raw_code(smallworld, family, arch)
     machine.add(code)
-    set_register(cpu, spec.pc_register, code.address)
+    set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
 
     if spec.arg_register is not None:
         set_register(cpu, spec.arg_register, argument)
@@ -126,6 +128,8 @@ def run_integer_case(
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)
+    if arch == "tricore" and engine == "panda":
+        install_tricore_panda_shadow_returns(emulator, code)
 
     exit_point = code.address + code.get_capacity()
     emulator.add_exit_point(exit_point)

@@ -261,6 +261,29 @@ def maybe_enable_linear(smallworld, emulator, engine: str) -> None:
         emulator.enable_linear()
 
 
+def install_tricore_panda_shadow_returns(emulator, code) -> None:
+    shadow_returns: list[int] = []
+
+    def on_call(inner_emulator) -> None:
+        instruction = inner_emulator.current_instruction()
+        shadow_returns.append(
+            inner_emulator.read_register("pc") + instruction.size
+        )
+
+    def on_ret(inner_emulator) -> None:
+        if not shadow_returns:
+            raise RuntimeError("TriCore PANDA shadow return stack underflow")
+        inner_emulator.write_register("pc", shadow_returns.pop())
+
+    for offset, value in code.items():
+        instructions, _ = emulator.disassemble(value.to_bytes(), code.address + offset)
+        for instruction in instructions:
+            if instruction.mnemonic in {"call", "calla", "fcall", "fcalla"}:
+                emulator.hook_instruction(instruction.address, on_call)
+            elif instruction.mnemonic == "ret":
+                emulator.hook_instruction(instruction.address, on_ret)
+
+
 def run_case_subprocess(scenario: str, variant: str, *args: str) -> None:
     command = wrap_python_command(
         [

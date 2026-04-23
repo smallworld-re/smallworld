@@ -1,7 +1,4 @@
     .text
-_start:
-    j       foo
-
 bar:
     lt      %d2, %d4, 101
     jnz     %d2, .Lsmall

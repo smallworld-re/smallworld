@@ -1,7 +1,4 @@
     .text
-_start:
-    j       main
-
 mc91:
     mov.aa  %a14, %SP
     sub.a   %SP, 8
