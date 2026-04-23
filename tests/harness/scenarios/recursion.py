@@ -6,8 +6,8 @@ import logging
 from typing import Sequence
 
 from .common import (
-    install_tricore_panda_shadow_returns,
     PlatformSpec,
+    install_tricore_panda_shadow_returns,
     load_raw_code,
     make_emulator,
     make_platform,

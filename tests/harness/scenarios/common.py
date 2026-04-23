@@ -266,9 +266,7 @@ def install_tricore_panda_shadow_returns(emulator, code) -> None:
 
     def on_call(inner_emulator) -> None:
         instruction = inner_emulator.current_instruction()
-        shadow_returns.append(
-            inner_emulator.read_register("pc") + instruction.size
-        )
+        shadow_returns.append(inner_emulator.read_register("pc") + instruction.size)
 
     def on_ret(inner_emulator) -> None:
         if not shadow_returns:
