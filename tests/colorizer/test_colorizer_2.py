@@ -1234,6 +1234,29 @@ if __name__ == "__main__":
         ],
     }
 
+    truth_summ_pcs = set(list(truth_summ.keys()))
+    expected(
+        truth_summ_pcs == observed_summ_pcs,
+        "set of pcs observed for summary hints same as truth",
+        "pcs observed for summary hints not same as truth",
+    )
+
+    for pc in all_pcs:
+        if pc in truth_summ_pcs and pc in observed_summ_pcs:
+            if not expected(
+                observed_summ[pc] == truth_summ[pc],
+                f"list of hints observed for pc={pc} same as truth",
+                f"list of hints observed for pc={pc} not same as for truth",
+            ):
+                print(f"Truth:    {truth_summ[pc]}")
+                print(f"Observed: {observed_summ[pc]}")
+        elif pc in truth_summ_pcs:
+            print(f"{truth_summ[pc]} is in truth only")
+        elif pc in observed_summ_pcs:
+            print(f"{observed_summ[pc]} in observed only")
+        else:
+            pass
+
     correct_derivations = [
         (8735, "rax", set()),
         (
