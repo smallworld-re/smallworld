@@ -465,6 +465,9 @@ class Colorizer(analysis.Analysis):
                 message=message,
             )
         elif isinstance(operand, BSIDMemoryReferenceOperand):
+            segment_name = "None"
+            if operand.segment is not None:
+                segment_name = operand.segment
             base_name = "None"
             if operand.base is not None:
                 base_name = operand.base
@@ -474,6 +477,7 @@ class Colorizer(analysis.Analysis):
             return hinting.DynamicMemoryValueHint(
                 time=self.htime(),
                 address=operand.address(emu),
+                segment=segment_name,
                 base=base_name,
                 index=index_name,
                 scale=operand.scale,

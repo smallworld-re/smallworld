@@ -18,6 +18,7 @@ class AArch64Instruction(Instruction):
         # TODO: AArch64 operands have no size; what should it be?
         # I suspect it's always the same; is it always 64-bit?
         return BSIDMemoryReferenceOperand(
+            segment=None,
             base=self._instruction.reg_name(operand.value.mem.base),
             index=self._instruction.reg_name(operand.value.mem.index),
             offset=operand.value.mem.disp,
