@@ -6,7 +6,6 @@ import logging
 from typing import Sequence
 
 from .common import (
-    install_tricore_panda_shadow_returns,
     PlatformSpec,
     load_raw_code,
     make_emulator,
@@ -15,6 +14,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .tricore_panda import install_tricore_panda_raw_binary_call_return_compatibility
 
 
 @dataclasses.dataclass(frozen=True)
@@ -225,8 +225,9 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)
-    if arch == "tricore" and engine == "panda":
-        install_tricore_panda_shadow_returns(emulator, code)
+    install_tricore_panda_raw_binary_call_return_compatibility(
+        arch, engine, emulator, code
+    )
     emulator.add_exit_point(code.address + code.get_capacity())
     final_cpu = machine.emulate(emulator).get_cpu()
     print(hex(getattr(final_cpu, spec.result_register).get()))

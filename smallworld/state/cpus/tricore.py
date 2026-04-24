@@ -1,4 +1,9 @@
 from ... import platforms, state
+from ...platforms.defs.tricore import (
+    TRICORE_PROGRAM_COUNTER_REGISTER,
+    TRICORE_REGISTER_ALIASES,
+    TRICORE_STATUS_REGISTER,
+)
 from . import cpu
 
 
@@ -18,14 +23,12 @@ class TriCore(cpu.CPU):
                 setattr(self, f"{prefix}{i}", register)
                 self.add(register)
 
-        self.sp = state.RegisterAlias("sp", self.a10, 4, 0)
-        self.add(self.sp)
-        self.ra = state.RegisterAlias("ra", self.a11, 4, 0)
-        self.add(self.ra)
-        self.lr = state.RegisterAlias("lr", self.a11, 4, 0)
-        self.add(self.lr)
+        for alias, parent in TRICORE_REGISTER_ALIASES.items():
+            register = state.RegisterAlias(alias, getattr(self, parent), 4, 0)
+            setattr(self, alias, register)
+            self.add(register)
 
-        self.pc = state.Register("pc", 4)
+        self.pc = state.Register(TRICORE_PROGRAM_COUNTER_REGISTER, 4)
         self.add(self.pc)
-        self.psw = state.Register("psw", 4)
+        self.psw = state.Register(TRICORE_STATUS_REGISTER, 4)
         self.add(self.psw)

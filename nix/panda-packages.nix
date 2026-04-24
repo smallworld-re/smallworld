@@ -52,6 +52,15 @@ let
       pandaQemuSrc = pkgs.applyPatches {
         name = "panda-qemu-src";
         src = pandaQemuBaseSrc;
+        # Normalize a few whitespace-only upstream defects before our local
+        # patch applies, so the repo-local diff stays reviewable and passes
+        # `git diff --check` without changing the effective source edits.
+        prePatch = ''
+          sed -i \
+            -e 's/[[:space:]]\+$//' \
+            -e 's/^\t/    /' \
+            panda/src/panda_qemu_plugin_helpers.c
+        '';
         patches = [ ./patches/panda-qemu-tricore.patch ];
       };
       libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
@@ -135,14 +144,22 @@ let
         outputHashAlgo = "sha256";
         outputHashMode = "recursive";
       };
+      mkQemuSourceSetup =
+        {
+          includeLibpanda ? false,
+        }:
+        ''
+          cp -r --no-preserve=mode ${qemuSubprojects}/. "./$sourceRoot/subprojects/"
+          ${lib.optionalString includeLibpanda ''
+            cp -r --no-preserve=mode ${libpandaSrc} ./libpanda-ng
+          ''}
+          patchShebangs "./$sourceRoot/scripts"${lib.optionalString includeLibpanda " ./libpanda-ng"}
+        '';
       qemu = pkgs.qemu.overrideAttrs (old: {
         version = "main";
         src = pandaQemuSrc;
         configureFlags = qemuConfigureFlags;
-        postUnpack = (old.postUnpack or "") + ''
-          cp -r --no-preserve=mode ${qemuSubprojects}/. "./$sourceRoot/subprojects/"
-          patchShebangs "./$sourceRoot/scripts"
-        '';
+        postUnpack = (old.postUnpack or "") + mkQemuSourceSetup { };
         postInstall = (old.postInstall or "") + ''
           cp -v ./contrib/plugins/libpanda_plugin_interface.${libExt} $out/lib/
         '';
@@ -160,11 +177,11 @@ let
             dontFixup = true;
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
             configureFlags = qemuConfigureFlags;
-            postUnpack = (old.postUnpack or "") + ''
-              cp -r --no-preserve=mode ${qemuSubprojects}/. "./$sourceRoot/subprojects/"
-              cp -r --no-preserve=mode ${libpandaSrc} ./libpanda-ng
-              patchShebangs "./$sourceRoot/scripts" ./libpanda-ng
-            '';
+            postUnpack =
+              (old.postUnpack or "")
+              + mkQemuSourceSetup {
+                includeLibpanda = true;
+              };
             postBuild = (old.postBuild or "") + ''
               mkdir -pv $TMPDIR/libpanda-ng/build
               pushd $TMPDIR/libpanda-ng/build

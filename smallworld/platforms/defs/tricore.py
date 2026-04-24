@@ -3,6 +3,26 @@ import capstone
 from ..platforms import Architecture, Byteorder
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 
+TRICORE_PROGRAM_COUNTER_REGISTER = "pc"
+TRICORE_STATUS_REGISTER = "psw"
+TRICORE_STACK_POINTER_ALIAS = "sp"
+TRICORE_STACK_POINTER_REGISTER = "a10"
+TRICORE_RETURN_ADDRESS_ALIAS = "ra"
+TRICORE_LINK_REGISTER_ALIAS = "lr"
+TRICORE_RETURN_ADDRESS_REGISTER = "a11"
+TRICORE_RETURN_VALUE_REGISTER = "d2"
+TRICORE_INTEGER_ARGUMENT_REGISTERS = ("d4", "d5", "d6", "d7")
+TRICORE_POINTER_ARGUMENT_REGISTERS = ("a4", "a5", "a6", "a7")
+
+# SmallWorld uses both `ra` and `lr` names for the same architectural A11
+# register. Keep the alias mapping centralized so every engine exposes the same
+# ABI surface and return-register vocabulary.
+TRICORE_REGISTER_ALIASES = {
+    TRICORE_STACK_POINTER_ALIAS: TRICORE_STACK_POINTER_REGISTER,
+    TRICORE_RETURN_ADDRESS_ALIAS: TRICORE_RETURN_ADDRESS_REGISTER,
+    TRICORE_LINK_REGISTER_ALIAS: TRICORE_RETURN_ADDRESS_REGISTER,
+}
+
 
 class TriCore(PlatformDef):
     architecture = Architecture.TRICORE
@@ -35,8 +55,8 @@ class TriCore(PlatformDef):
         "ne",
     }
 
-    pc_register = "pc"
-    sp_register = "sp"
+    pc_register = TRICORE_PROGRAM_COUNTER_REGISTER
+    sp_register = TRICORE_STACK_POINTER_ALIAS
 
     general_purpose_registers = (
         [f"d{i}" for i in range(0, 16)]
@@ -47,9 +67,12 @@ class TriCore(PlatformDef):
     registers = {
         **{f"d{i}": RegisterDef(name=f"d{i}", size=4) for i in range(0, 16)},
         **{f"a{i}": RegisterDef(name=f"a{i}", size=4) for i in range(0, 16)},
-        "sp": RegisterAliasDef(name="sp", parent="a10", size=4, offset=0),
-        "ra": RegisterAliasDef(name="ra", parent="a11", size=4, offset=0),
-        "lr": RegisterAliasDef(name="lr", parent="a11", size=4, offset=0),
-        "pc": RegisterDef(name="pc", size=4),
-        "psw": RegisterDef(name="psw", size=4),
+        **{
+            alias: RegisterAliasDef(name=alias, parent=parent, size=4, offset=0)
+            for alias, parent in TRICORE_REGISTER_ALIASES.items()
+        },
+        TRICORE_PROGRAM_COUNTER_REGISTER: RegisterDef(
+            name=TRICORE_PROGRAM_COUNTER_REGISTER, size=4
+        ),
+        TRICORE_STATUS_REGISTER: RegisterDef(name=TRICORE_STATUS_REGISTER, size=4),
     }

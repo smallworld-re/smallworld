@@ -1,7 +1,46 @@
+# Temporary local PANDA/QEMU patch for SmallWorld's TriCore bring-up.
+# It adds the missing TriCore target hooks SmallWorld needs today and skips the
+# `qemu_plugin_get_hwaddr` path unless a physical-memory callback actually
+# needs it. Remove once upstream PANDA/qemu carries equivalent TriCore support.
+diff --git a/contrib/plugins/panda_plugin_interface.c b/contrib/plugins/panda_plugin_interface.c
+--- a/contrib/plugins/panda_plugin_interface.c
++++ b/contrib/plugins/panda_plugin_interface.c
+@@ -44,15 +44,18 @@
+ static void vcpu_mem(unsigned int cpu_index, qemu_plugin_meminfo_t info,
+                      uint64_t vaddr, void *udata){
+     CPUState *cpu = panda_cpu_by_index(cpu_index);
++    unsigned tag = (info >> 16) & 0xff;
+     uint64_t pc = (uint64_t)(uintptr_t)udata;
+-    struct qemu_plugin_hwaddr* hwaddr_info = qemu_plugin_get_hwaddr(info, vaddr);
++    struct qemu_plugin_hwaddr* hwaddr_info = NULL;
++    if (tag & panda_get_phys_memcb_status()) {
++        hwaddr_info = qemu_plugin_get_hwaddr(info, vaddr);
++    }
+     uint64_t hwaddr = -1;
+     // fprintf(stderr, "vcpu_mem: cpu_index = %u info = %#" PRIx64 " vaddr = %#" PRIx64 " udata = %p\n", cpu_index, (uint64_t)info, vaddr, udata);
+     if (hwaddr_info){
+         hwaddr = qemu_plugin_hwaddr_phys_addr(hwaddr_info);
+     }
+     // enum qemu_plugin_mem_rw tag = get_plugin_meminfo_rw(info);
+-    unsigned tag = (info >> 16) & 0xff;
+     qemu_plugin_mem_value m = qemu_plugin_mem_get_value(info);
+     size_t size;
+     void *data;
+diff --git a/include/panda/panda_qemu_plugin_helpers.h b/include/panda/panda_qemu_plugin_helpers.h
+--- a/include/panda/panda_qemu_plugin_helpers.h
++++ b/include/panda/panda_qemu_plugin_helpers.h
+@@ -1,4 +1,5 @@
+ CPUState *panda_cpu_by_index(int index);
+ CPUState *panda_cpu_in_translate(void);
+ TranslationBlock *panda_get_tb(struct qemu_plugin_tb *tb);
+-int panda_get_memcb_status(void);
+\ No newline at end of file
++int panda_get_memcb_status(void);
++int panda_get_phys_memcb_status(void);
 diff --git a/panda/src/common.c b/panda/src/common.c
 --- a/panda/src/common.c
 +++ b/panda/src/common.c
-@@ -152,6 +152,8 @@ target_ulong panda_current_asid(CPUState *cpu) {
+@@ -152,6 +152,8 @@
    #elif defined(TARGET_LOONGARCH)
      CPUArchState *env = cpu_env(cpu);
      return (env->CSR_ASID & 0xff);
@@ -13,7 +52,7 @@ diff --git a/panda/src/common.c b/panda/src/common.c
 diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
 --- a/panda/src/panda_arch.c
 +++ b/panda/src/panda_arch.c
-@@ -31,6 +31,8 @@ bool panda_in_kernel_mode(const CPUState *cpu) {
+@@ -31,6 +31,8 @@
      // Both supervisor (S) and machine (M) modes are considered kernel mode
      // Check the privilege bits in mstatus CSR
      return (env->priv >= PRV_S);
@@ -22,7 +61,7 @@ diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
  #else
  #error "panda_in_kernel_mode() not implemented for target architecture."
      return false;
-@@ -148,6 +150,8 @@ target_ulong panda_current_ksp(CPUState *cpu) {
+@@ -148,6 +150,8 @@
      // For how stack works in RISC-V, see:
      // https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md
      return env->gpr[2];
@@ -31,7 +70,7 @@ diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
  #else
  #error "panda_current_ksp() not implemented for target architecture."
      return 0;
-@@ -184,6 +188,8 @@ target_ulong panda_current_sp(const CPUState *cpu) {
+@@ -184,6 +188,8 @@
  #elif defined(TARGET_RISCV)
      // For RISC-V, stack pointer is x2/sp
      return env->gpr[2];
@@ -40,7 +79,7 @@ diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
  #else
  #error "panda_current_sp() not implemented for target architecture."
      return 0;
-@@ -222,6 +228,8 @@ target_ulong panda_get_retval(const CPUState *cpu) {
+@@ -222,6 +228,8 @@
  #elif defined(TARGET_RISCV)
      // RISC-V uses a0 (x10) for return value
      return env->gpr[10];
@@ -49,7 +88,7 @@ diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
  #else
  #error "panda_get_retval() not implemented for target architecture."
      return 0;
-@@ -248,6 +256,8 @@ void panda_set_retval(CPUState *cpu, target_ulong value){
+@@ -248,6 +256,8 @@
  #elif defined(TARGET_RISCV)
      // RISC-V uses a0 (x10) for return value
      env->gpr[10] = value;
@@ -58,7 +97,7 @@ diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
  #else
  #error "panda_get_retval() not implemented for target architecture."
  #endif
-@@ -290,6 +300,9 @@ void panda_set_retval(CPUState *cpu, target_ulong value){
+@@ -290,6 +300,9 @@
      #define GPR(x) env->gpr[x]
                          // a7, a0    a1    a2    a3    a4    a5    a6
      target_ulong regs[] = {17, 10, 11, 12, 13, 14, 15, 16};
@@ -67,3 +106,52 @@ diff --git a/panda/src/panda_arch.c b/panda/src/panda_arch.c
 +    target_ulong regs[] = {2, 4, 5, 6, 7};
  
  #endif
+
+diff --git a/panda/src/panda_qemu_plugin_helpers.c b/panda/src/panda_qemu_plugin_helpers.c
+--- a/panda/src/panda_qemu_plugin_helpers.c
++++ b/panda/src/panda_qemu_plugin_helpers.c
+@@ -27,27 +27,35 @@
+     return panda_cbs[type] != NULL;
+ }
+
+-int panda_get_memcb_status(void){
++static int panda_get_memcb_status_for(bool include_phys, bool include_virt){
+     int rv = 0;
+-    if (panda_has_callback_registered(PANDA_CB_PHYS_MEM_BEFORE_READ)
+-    || panda_has_callback_registered(PANDA_CB_VIRT_MEM_BEFORE_READ))
++    if ((include_phys && panda_has_callback_registered(PANDA_CB_PHYS_MEM_BEFORE_READ))
++    || (include_virt && panda_has_callback_registered(PANDA_CB_VIRT_MEM_BEFORE_READ)))
+     {
+         rv |= QEMU_PLUGIN_BEFORE_MEM_R;
+     }
+-    if (panda_has_callback_registered(PANDA_CB_PHYS_MEM_AFTER_READ)
+-    || panda_has_callback_registered(PANDA_CB_VIRT_MEM_AFTER_READ))
++    if ((include_phys && panda_has_callback_registered(PANDA_CB_PHYS_MEM_AFTER_READ))
++    || (include_virt && panda_has_callback_registered(PANDA_CB_VIRT_MEM_AFTER_READ)))
+     {
+         rv |= QEMU_PLUGIN_AFTER_MEM_R;
+     }
+-    if (panda_has_callback_registered(PANDA_CB_PHYS_MEM_BEFORE_WRITE)
+-    || panda_has_callback_registered(PANDA_CB_VIRT_MEM_BEFORE_WRITE))
++    if ((include_phys && panda_has_callback_registered(PANDA_CB_PHYS_MEM_BEFORE_WRITE))
++    || (include_virt && panda_has_callback_registered(PANDA_CB_VIRT_MEM_BEFORE_WRITE)))
+     {
+         rv |= QEMU_PLUGIN_BEFORE_MEM_W;
+     }
+-    if (panda_has_callback_registered(PANDA_CB_PHYS_MEM_AFTER_WRITE)
+-    || panda_has_callback_registered(PANDA_CB_VIRT_MEM_AFTER_WRITE))
++    if ((include_phys && panda_has_callback_registered(PANDA_CB_PHYS_MEM_AFTER_WRITE))
++    || (include_virt && panda_has_callback_registered(PANDA_CB_VIRT_MEM_AFTER_WRITE)))
+     {
+         rv |= QEMU_PLUGIN_AFTER_MEM_W;
+     }
+     return rv;
+ }
++
++int panda_get_memcb_status(void){
++    return panda_get_memcb_status_for(true, true);
++}
++
++int panda_get_phys_memcb_status(void){
++    return panda_get_memcb_status_for(true, false);
++}

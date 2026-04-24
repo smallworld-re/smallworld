@@ -1,3 +1,7 @@
+# Temporary local PANDA Python/runtime patch for SmallWorld's TriCore bring-up.
+# It teaches panda-ng/pandare2 about the TriCore target and skips the Rust
+# plugin build until upstream bindings exist. Remove once panda-ng ships native
+# TriCore support for both its Python and Rust layers.
 diff --git a/plugins/meson.build b/plugins/meson.build
 --- a/plugins/meson.build
 +++ b/plugins/meson.build

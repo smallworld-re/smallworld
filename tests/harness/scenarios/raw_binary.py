@@ -6,7 +6,6 @@ import logging
 from typing import Literal, Mapping, Sequence
 
 from .common import (
-    install_tricore_panda_shadow_returns,
     PlatformSpec,
     load_raw_code,
     make_emulator,
@@ -15,6 +14,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .tricore_panda import install_tricore_panda_raw_binary_call_return_compatibility
 
 PrintMode = Literal["hex", "register"]
 
@@ -128,8 +128,9 @@ def run_integer_case(
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)
-    if arch == "tricore" and engine == "panda":
-        install_tricore_panda_shadow_returns(emulator, code)
+    install_tricore_panda_raw_binary_call_return_compatibility(
+        arch, engine, emulator, code
+    )
 
     exit_point = code.address + code.get_capacity()
     emulator.add_exit_point(exit_point)

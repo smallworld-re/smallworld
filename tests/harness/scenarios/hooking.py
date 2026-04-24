@@ -13,11 +13,10 @@ from .common import (
     make_platform,
     make_puts_model,
     maybe_enable_linear,
-    read_c_string,
-    resolve_string_pointer,
     set_register,
     split_variant,
 )
+from .tricore_panda import install_tricore_panda_hooking_compatibility
 
 
 @dataclasses.dataclass(frozen=True)
@@ -33,6 +32,9 @@ class HookingSpec:
     puts_address: int = 0x1004
     stack_base: int = 0x2000
     stack_padding_bytes: dict[str, int] = dataclasses.field(default_factory=dict)
+    tricore_panda_callsite_offsets: dict[str, int] = dataclasses.field(
+        default_factory=dict
+    )
 
 
 _SPECS = {
@@ -188,6 +190,7 @@ _SPECS = {
         pc_offset=8,
         engines=("angr", "panda", "pcode"),
         string_source=StringSource(register="a4"),
+        tricore_panda_callsite_offsets={"gets": 0x0C, "puts": 0x12},
     ),
     "xtensa": HookingSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
@@ -203,28 +206,6 @@ _SPECS = {
 _SKIP_REASONS = {
     "ppc64": "Unicorn ppc64 support buggy",
 }
-
-
-def _install_tricore_panda_callsite_hooks(smallworld, machine, code, spec) -> None:
-    def skip_current_call(emulator: smallworld.emulators.Emulator) -> None:
-        pc = emulator.read_register(spec.pc_register)
-        emulator.write_register(
-            spec.pc_register, pc + emulator.current_instruction().size
-        )
-
-    def gets_hook(emulator: smallworld.emulators.Emulator) -> None:
-        pointer = resolve_string_pointer(emulator, spec.string_source)
-        data = input().encode("utf-8") + b"\0"
-        emulator.write_memory_content(pointer, data)
-        skip_current_call(emulator)
-
-    def puts_hook(emulator: smallworld.emulators.Emulator) -> None:
-        pointer = resolve_string_pointer(emulator, spec.string_source)
-        print(read_c_string(emulator, pointer))
-        skip_current_call(emulator)
-
-    machine.add(smallworld.state.models.Hook(code.address + 0x0C, gets_hook))
-    machine.add(smallworld.state.models.Hook(code.address + 0x12, puts_hook))
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -269,9 +250,16 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     stack.push_integer(0xFFFFFFFF, spec.pointer_size, "fake return address")
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
-    if arch == "tricore" and engine == "panda":
-        _install_tricore_panda_callsite_hooks(smallworld, machine, code, spec)
-    else:
+    if not install_tricore_panda_hooking_compatibility(
+        arch,
+        engine,
+        smallworld,
+        machine,
+        code,
+        pc_register=spec.pc_register,
+        string_source=spec.string_source,
+        callsite_offsets=spec.tricore_panda_callsite_offsets,
+    ):
         machine.add(
             make_gets_model(
                 smallworld,
