@@ -9,8 +9,8 @@ from ....exceptions import EmulationError
 from ....platforms import Architecture, Byteorder
 from ....platforms.defs.tricore import (
     TRICORE_INTEGER_ARGUMENT_REGISTERS,
-    TRICORE_PROGRAM_COUNTER_REGISTER,
     TRICORE_POINTER_ARGUMENT_REGISTERS,
+    TRICORE_PROGRAM_COUNTER_REGISTER,
     TRICORE_REGISTER_ALIASES,
     TRICORE_RETURN_ADDRESS_REGISTER,
     TRICORE_RETURN_VALUE_REGISTER,
