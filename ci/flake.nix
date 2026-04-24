@@ -43,6 +43,39 @@
       forAllSystems = lib.genAttrs systems;
       pkgsFor = system: nixpkgs.legacyPackages.${system};
       x86LinuxPkgs = pkgsFor "x86_64-linux";
+      mkX86LinuxBinaryFixup =
+        {
+          pkgs,
+          runtimeLibraries,
+          wrapWithQemu ? false,
+        }:
+        let
+          x86LibPath = "${lib.makeLibraryPath runtimeLibraries}:$out/lib:$out/lib64";
+        in
+        ''
+          x86_interp=${x86LinuxPkgs.stdenv.cc.bintools.dynamicLinker}
+          x86_lib_path="${x86LibPath}"
+          ${lib.optionalString wrapWithQemu ''
+            qemu_x86_64=${pkgs.qemu-user}/bin/qemu-x86_64
+          ''}
+
+          find "$out" -type f -perm -0100 | while read -r f; do
+            if ! file "$f" | grep -q 'ELF 64-bit LSB .*x86-64'; then
+              continue
+            fi
+
+            patchelf --set-interpreter "$x86_interp" "$f" || true
+            patchelf --set-rpath "$x86_lib_path" "$f" || true
+
+            ${lib.optionalString wrapWithQemu ''
+              mv "$f" "$f.real"
+              makeWrapper "$qemu_x86_64" "$f" \
+                --add-flags "-L ${x86LinuxPkgs.glibc.outPath}" \
+                --add-flags "$f.real" \
+                --set-default LD_LIBRARY_PATH "$x86_lib_path"
+            ''}
+          done
+        '';
 
       darwinArtifactSystemFor =
         system: if system == "aarch64-darwin" then "aarch64-linux" else "x86_64-linux";
@@ -70,38 +103,87 @@
 
             installPhase = ''
               cp -r . "$out"
-
-              x86_interp=${x86LinuxPkgs.stdenv.cc.bintools.dynamicLinker}
-              x86_lib_path="${lib.makeLibraryPath [ x86LinuxPkgs.stdenv.cc.cc ]}:$out/lib:$out/lib64"
-              qemu_x86_64=${pkgs.qemu-user}/bin/qemu-x86_64
-
-              find "$out" -type f -perm -0100 | while read -r f; do
-                if ! file "$f" | grep -q 'ELF 64-bit LSB .*x86-64'; then
-                  continue
-                fi
-
-                patchelf --set-interpreter "$x86_interp" "$f" || true
-                patchelf --set-rpath "$x86_lib_path" "$f" || true
-
-                mv "$f" "$f.real"
-                makeWrapper "$qemu_x86_64" "$f" \
-                  --add-flags "-L ${x86LinuxPkgs.glibc.outPath}" \
-                  --add-flags "$f.real" \
-                  --set-default LD_LIBRARY_PATH "$x86_lib_path"
-              done
+              ${mkX86LinuxBinaryFixup {
+                inherit pkgs;
+                runtimeLibraries = [
+                  x86LinuxPkgs.stdenv.cc.cc
+                  x86LinuxPkgs.zstd
+                  x86LinuxPkgs.ncurses
+                ];
+                wrapWithQemu = true;
+              }}
             '';
           }
         else
           pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
+
+      mkTricoreGcc =
+        system:
+        let
+          pkgs = pkgsFor system;
+          tricoreSrc = pkgs.fetchurl {
+            url = "https://github.com/NoMore201/tricore-gcc-toolchain/releases/download/13.4-20250801/tricore-gcc-13.4-20250801-linux.tar.gz";
+            hash = "sha256-IiVY76PacDTe8u8cEWE7tYJ+EM782OsjnIFrpYSPnGY=";
+          };
+        in
+        if system == "x86_64-linux" then
+          pkgs.stdenv.mkDerivation rec {
+            pname = "tricore-gcc-toolchain-bin";
+            version = "13.4-20250801";
+            src = tricoreSrc;
+            sourceRoot = ".";
+
+            nativeBuildInputs = [
+              pkgs.file
+              pkgs.patchelf
+            ];
+
+            installPhase = ''
+              mkdir -p "$out"
+              cp -r ./* "$out"/
+              ${mkX86LinuxBinaryFixup {
+                inherit pkgs;
+                runtimeLibraries = [
+                  x86LinuxPkgs.stdenv.cc.cc
+                  x86LinuxPkgs.zstd
+                  x86LinuxPkgs.ncurses
+                ];
+              }}
+            '';
+          }
+        else
+          pkgs.stdenv.mkDerivation rec {
+            pname = "tricore-gcc-toolchain-bin";
+            version = "13.4-20250801";
+            src = tricoreSrc;
+            sourceRoot = ".";
+
+            nativeBuildInputs = [
+              pkgs.file
+              pkgs.makeWrapper
+              pkgs.patchelf
+            ];
+
+            installPhase = ''
+              mkdir -p "$out"
+              cp -r ./* "$out"/
+              ${mkX86LinuxBinaryFixup {
+                inherit pkgs;
+                runtimeLibraries = [ x86LinuxPkgs.stdenv.cc.cc ];
+                wrapWithQemu = true;
+              }}
+            '';
+          };
 
       mkLinuxArtifacts =
         system:
         let
           pkgs = pkgsFor system;
           xtensaGcc = mkXtensaGcc system;
+          tricoreGcc = mkTricoreGcc system;
 
           tests = pkgs.callPackage ../tests {
-            inherit xtensaGcc;
+            inherit tricoreGcc xtensaGcc;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
           };
 

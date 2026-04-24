@@ -128,6 +128,15 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         stack=_STACK_64,
     ),
+    "tricore": RawBinarySpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        arg_register="d4",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        entry_offset=0x14,
+        stack=StackSpec(pointer_register="sp", fake_return_size=None),
+    ),
     "xtensa": RawBinarySpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

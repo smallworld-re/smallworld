@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import dataclasses
 import logging
 from typing import Sequence
@@ -10,6 +11,7 @@ from .common import (
     make_emulator,
     make_platform,
     maybe_enable_linear,
+    run_case_subprocess,
     set_register,
     split_variant,
 )
@@ -112,6 +114,11 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         load_address=0x400000,
     ),
+    "tricore": UnmappedSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "panda", "pcode"),
+    ),
 }
 
 _SKIP_REASONS = {
@@ -179,6 +186,9 @@ def _run_operation(
     set_register(cpu, spec.pc_register, entrypoint)
     for register_name in spec.entrypoint_registers:
         set_register(cpu, register_name, entrypoint)
+    if engine == "panda":
+        for start, end in code.bounds:
+            machine.add_bound(start, end)
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)
@@ -193,12 +203,19 @@ def _run_operation(
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
-    if args:
-        raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(args)}")
     if variant in _SKIP_REASONS:
         raise SystemExit(_SKIP_REASONS[variant])
 
     import smallworld
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument(
+        "--panda-operation",
+        choices=("read_unmapped", "write_unmapped", "fetch_unmapped"),
+    )
+    ns, extra = parser.parse_known_args(list(args))
+    if extra:
+        raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(extra)}")
 
     arch, engine = split_variant(variant)
     spec = _SPECS[arch]
@@ -218,7 +235,14 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             "Fetch",
         ),
     )
+    if engine == "panda" and ns.panda_operation is None:
+        for symbol, _, label in operations:
+            run_case_subprocess(scenario, variant, "--panda-operation", symbol)
+            print(f"{label} SUCCESS")
+        return 0
+
     for symbol, expected_exception, label in operations:
+        if ns.panda_operation is not None and symbol != ns.panda_operation:
+            continue
         _run_operation(smallworld, arch, engine, spec, symbol, expected_exception)
-        print(f"{label} SUCCESS")
     return 0

@@ -21,6 +21,7 @@ EM_MIPS = 8  # MIPS; all kinds
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
 EM_ARM = 40  # ARM 32-bit
+EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
 EM_XTENSA = 94  # Xtensa
 EM_AARCH64 = 183  # ARM v9, or AARCH64
@@ -282,6 +283,8 @@ class ElfExecutable(Executable):
                     "defaulting to ARM_V7A."
                 )
                 architecture = Architecture.ARM_V7A
+        elif elf.header.machine_type.value == EM_TRICORE:
+            architecture = Architecture.TRICORE
         elif elf.header.machine_type.value == EM_LOONGARCH:
             if elf.header.identity_class.value == 1:
                 # 32-bit elf

@@ -50,9 +50,9 @@ jobs:
           bot_token: ${{ secrets.BOT_TOKEN }}
         if: ${{ env.bot_token != '' }}
         run: |
-          nix develop -c isort . --profile black
-          nix develop -c black ./
-          nix develop -c treefmt -f nixfmt --no-cache
+          nix develop .#lint -c isort . --profile black
+          nix develop .#lint -c black ./
+          nix develop .#lint -c treefmt -f nixfmt --no-cache
 
       - id: ac
         uses: stefanzweifel/git-auto-commit-action@v7.1.0
@@ -71,11 +71,11 @@ jobs:
 
       - name: Lint
         run: |
-          nix develop -c isort --check --profile black .
-          nix develop -c black --check ./
-          nix develop -c flake8 ./
-          nix develop -c mypy --explicit-package-bases --ignore-missing-imports ./
-          nix develop -c treefmt -f nixfmt --ci
+          nix develop .#lint -c isort --check --profile black .
+          nix develop .#lint -c black --check ./
+          nix develop .#lint -c flake8 ./
+          nix develop .#lint -c mypy --explicit-package-bases --ignore-missing-imports ./
+          nix develop .#lint -c treefmt -f nixfmt --ci
 
       - name: Check Title
         env:

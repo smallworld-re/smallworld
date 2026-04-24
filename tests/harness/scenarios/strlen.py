@@ -159,6 +159,15 @@ _SPECS = {
         return_address_size=8,
         arg_register="a0",
     ),
+    "tricore": StrlenSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        stack_pointer_register="sp",
+        return_address_size=4,
+        arg_register="a4",
+    ),
     "xtensa": StrlenSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

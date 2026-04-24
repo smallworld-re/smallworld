@@ -8,6 +8,7 @@ from ... import emulators, exceptions, platforms, utils
 from .. import state
 
 logger = logging.getLogger(__name__)
+_TRICORE_CALL_MNEMONICS = frozenset({"call", "calla", "fcall", "fcalla"})
 
 
 class Hook(state.Stateful):
@@ -212,8 +213,34 @@ class Model(Hook):
             )
         logger.debug(f"Executing model for {self.name}")
 
+    def _get_tricore_panda_return_address(self, emulator: emulators.Emulator) -> int:
+        ret = emulator.read_register("ra")
+        typed_emulator = typing.cast(typing.Any, emulator)
+
+        # PANDA's temporary TriCore support exposes the architectural return
+        # register but not the hardware-managed call-frame state behind it. If
+        # A11 still points at the call instruction, step over that call so the
+        # model returns where real hardware would have resumed.
+        try:
+            insns, _ = typed_emulator.disassemble(
+                typed_emulator.read_memory_content(ret, 4), ret, count=1
+            )
+        except Exception:
+            insns = []
+
+        if insns and insns[0].mnemonic in _TRICORE_CALL_MNEMONICS:
+            return ret + insns[0].size
+        return ret
+
     def get_return_address(self, emulator: emulators.Emulator, pop=False) -> int:
         """Read this model's return address, or pop the return address from the stack."""
+
+        if (
+            self.platform.architecture == platforms.Architecture.TRICORE
+            and hasattr(emulators, "PandaEmulator")
+            and isinstance(emulator, emulators.PandaEmulator)
+        ):
+            return self._get_tricore_panda_return_address(emulator)
 
         if (
             self.platform.architecture == platforms.Architecture.X86_32
@@ -253,15 +280,16 @@ class Model(Hook):
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
+            or self.platform.architecture == platforms.Architecture.TRICORE
         ):
-            # mips32, mips64, and riscv64: branch to register 'ra'
+            # mips32, mips64, riscv64, and tricore: branch to register 'ra'
             return emulator.read_register("ra")
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             return emulator.read_register("a0")
 
         raise exceptions.ConfigurationError(
-            "Don't know how to return for {self.platform.architecture}"
+            f"Don't know how to return for {self.platform.architecture}"
         )
 
     skip_return = False
