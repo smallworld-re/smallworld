@@ -7,7 +7,6 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
-    install_tricore_panda_shadow_returns,
     load_raw_code,
     make_emulator,
     make_platform,
