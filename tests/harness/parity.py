@@ -86,6 +86,7 @@ def _expected_special_cases() -> dict[str, str | None]:
         "skip_reason"
     ]
     expected["fsgsbase:amd64"] = None
+    expected["model_return:tricore.panda"] = None
 
     for entry in LEGACY_MATRIX["FuzzTests"]:
         stem = entry["name"][5:]

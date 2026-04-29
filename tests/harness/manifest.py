@@ -860,6 +860,27 @@ def _build_static_buffer_cases() -> list[CaseSpec]:
     )
 
 
+def _build_model_return_cases() -> list[CaseSpec]:
+    def run(runner: CaseRunner) -> None:
+        stdout, _ = _run_case_command(runner, "model_return", "tricore.panda")
+        runner.assert_contains(stdout.lower(), "0x4a1")
+
+    return [
+        _case(
+            "model_return:tricore.panda",
+            "scenario",
+            "model_return",
+            "tricore",
+            "panda",
+            run=run,
+            description=(
+                "TriCore/PANDA exposes the modeled-call return register at the "
+                "callsite and resumes after that call"
+            ),
+        )
+    ]
+
+
 def _build_delay_cases() -> list[CaseSpec]:
     return _build_legacy_script_cases(
         ("DelayTests",),
@@ -1482,6 +1503,7 @@ def all_cases() -> list[CaseSpec]:
         _build_floats_cases,
         _build_syscall_cases,
         _build_static_buffer_cases,
+        _build_model_return_cases,
         _build_delay_cases,
         _build_exitpoint_cases,
         _build_unmapped_cases,

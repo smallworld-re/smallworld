@@ -173,6 +173,15 @@ _SPECS = {
         load_address=0x80000000,
         print_entrypoint=True,
     ),
+    "tricore": RelaSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "panda", "pcode"),
+        string_source=StringSource(register="a4"),
+        print_entrypoint=True,
+    ),
 }
 
 
@@ -190,12 +199,12 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
     if arch in {"mips", "mipsel"}:
         stack.push_integer(0x7FFFFFF8, 4, "Arg Slot 2")
         stack.push_integer(0x7FFFFFF8, 4, "Arg Slot 1")
-    elif arch == "ppc" and engine != "panda":
+    elif arch == "ppc":
         stack.push_integer(0, 4, None)
         stack.push_integer(0, 4, None)
     elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
-    elif arch in {"armhf", "ppc"} and engine == "panda":
+    elif arch == "armhf" and engine == "panda":
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
     return stack
@@ -220,7 +229,7 @@ def _configure_exit(
         stack.push_integer(exitpoint, 4, None)
     elif arch in {"aarch64", "armel", "armhf", "ppc", "ppc64"}:
         set_register(cpu, "lr", exitpoint)
-    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64"}:
+    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
 
 

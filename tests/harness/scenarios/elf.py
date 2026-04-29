@@ -129,6 +129,13 @@ _SPECS = {
         print_register="a0",
         use_platform_loader=False,
     ),
+    "tricore": ElfSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "panda", "pcode"),
+    ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -221,6 +228,11 @@ def _configure_exitpoints(
 
     if arch in {"mips64", "mips64el"} and engine == "panda":
         emulator.add_exit_point(entrypoint + 0x3C)
+        return
+
+    if arch == "tricore":
+        set_register(cpu, "ra", 0xFFFF0)
+        machine.add_exit_point(0xFFFF0)
         return
 
     if arch == "ppc" and engine == "panda":
