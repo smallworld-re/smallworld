@@ -365,9 +365,10 @@ class ElfExecutable(Executable):
                 # Everyone requested the same base address, so we're okay.
                 self.address = self._user_base
             else:
+                self._file_base = self._user_base
                 # File base is defined.
                 # We (probably) cannot move the image without problems.
-                raise ConfigurationError("Base address defined for fixed-position ELF")
+                # raise ConfigurationError("Base address defined for fixed-position ELF")
         log.debug(f"Address: {self.address:x}")
 
     def _rebase_file(self, val: int):
@@ -464,10 +465,10 @@ class ElfExecutable(Executable):
 
     def _map_segment(self, phdr, image):
         # Compute segment boundaries
-        seg_start = self._page_align(phdr.file_offset, up=False)
-        seg_end = self._page_align(phdr.file_offset + phdr.physical_size)
-        seg_addr = self._page_align(self._rebase_file(phdr.virtual_address), up=False)
-        seg_size = self._page_align(phdr.virtual_size + (phdr.file_offset - seg_start))
+        seg_start = phdr.file_offset
+        seg_end = phdr.file_offset + phdr.physical_size
+        seg_addr = self._rebase_file(phdr.virtual_address)
+        seg_size = phdr.virtual_size + (phdr.file_offset - seg_start)
 
         log.debug("Mapping: ")
         log.debug(
