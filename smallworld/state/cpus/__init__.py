@@ -11,6 +11,7 @@ from .mips64 import MIPS64BE, MIPS64EL
 from .msp430 import MSP430, MSP430X
 from .powerpc import PowerPC32, PowerPC64
 from .riscv import RISCV64
+from .tricore import TriCore
 from .xtensa import XTensaBE, XTensaEL
 
 __all__ = __cpu__ + [
@@ -34,6 +35,7 @@ __all__ = __cpu__ + [
     "PowerPC32",
     "PowerPC64",
     "RISCV64",
+    "TriCore",
     "XTensaBE",
     "XTensaEL",
 ]

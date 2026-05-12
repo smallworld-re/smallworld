@@ -19,6 +19,10 @@ Download the script found in `examples/nix-harness.py`.
 
 Then run:
 ```
+  # Optional: enable the SmallWorld binary cache if your Nix daemon allows it.
+  # If you are an untrusted user on a multi-user/Determinate Nix install,
+  # skip this and let Nix build locally unless your administrator has
+  # configured the cache system-wide.
   nix run nixpkgs#cachix -- use smallworld
   chmod +x nix-harness.py
   ./nix-harness.py 10

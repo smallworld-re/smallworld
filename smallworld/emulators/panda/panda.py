@@ -190,6 +190,15 @@ class PandaEmulator(
                     not self.manager._bounds.is_empty()
                     and not self.manager._bounds.contains_value(pc)
                 ):
+                    if not self.manager._memory_is_mapped(pc, 1):
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait(
+                            exception=exceptions.EmulationFetchUnmappedFailure(
+                                "Fetched unmapped memory",
+                                pc,
+                                address=pc,
+                            )
+                        )
                     logger.debug(f"Panda: {pc} out of bounds")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
@@ -263,6 +272,15 @@ class PandaEmulator(
                     )
                 )
                 logger.debug(f"\ton_read: {addr}")
+                if not self.manager._memory_is_mapped(addr, size):
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(
+                        exception=exceptions.EmulationReadUnmappedFailure(
+                            "Read of unmapped memory",
+                            pc,
+                            address=addr,
+                        )
+                    )
                 orig_data = self.panda.virtual_memory_read(self.manager.cpu, addr, size)
                 try:
                     if self.manager.all_reads_hook:
@@ -295,6 +313,15 @@ class PandaEmulator(
                     )
                 )
                 logger.debug(f"\ton_write: {hex(addr)}")
+                if not self.manager._memory_is_mapped(addr, size):
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(
+                        exception=exceptions.EmulationWriteUnmappedFailure(
+                            "Write of unmapped memory",
+                            pc,
+                            address=addr,
+                        )
+                    )
                 byte_val = bytes([buf[i] for i in range(size)])
                 try:
                     if self.manager.all_writes_hook:
@@ -411,6 +438,18 @@ class PandaEmulator(
             # Clear the event for the next iteration
             self.run_main = False
 
+    def _page_range_for_memory(self, address: int, size: int) -> typing.Tuple[int, int]:
+        if size <= 0:
+            raise ValueError("memory access size must be positive")
+        start_page = address // self.PAGE_SIZE
+        end_page = ((address + size - 1) // self.PAGE_SIZE) + 1
+        return (start_page, end_page)
+
+    def _memory_is_mapped(self, address: int, size: int) -> bool:
+        return not self.mapped_pages.get_missing_ranges(
+            self._page_range_for_memory(address, size)
+        )
+
     def read_register_content(self, name: str) -> int:
         # If we are reading a "pc" reg, refer to the manager's notion of PC
         # QEMU thinks in blocks, so the register contained in self.cpu will be inaccurate.
@@ -457,7 +496,13 @@ class PandaEmulator(
             # This is my internal pc
             self.pc = content
             if self.panda_thread.panda:
-                self.panda_thread.panda.arch.set_pc(self.cpu, content)
+                try:
+                    self.panda_thread.panda.arch.set_pc(self.cpu, content)
+                except RuntimeError:
+                    panda_pc = self.panda_thread.machdef.panda_reg(
+                        "pc", self.panda_thread.panda, self.cpu
+                    )
+                    self.panda_thread.panda.arch.set_reg(self.cpu, panda_pc, content)
             else:
                 raise exceptions.EmulationError("PANDA not started")
             return

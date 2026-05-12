@@ -156,6 +156,15 @@ _SPECS = {
         argument_registers=("a0", "a1"),
         add_zero_exitpoint=True,
     ),
+    "tricore": LinkElfSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        argument_registers=("d4", "a4"),
+    ),
 }
 
 _SKIP_REASONS = {
@@ -242,7 +251,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     elif arch in {"aarch64", "armel", "armhf", "ppc"}:
         set_register(cpu, "lr", exitpoint)
         machine.add_exit_point(exitpoint)
-    elif arch in {"la64", "mips", "mipsel", "riscv64"}:
+    elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
         machine.add_exit_point(exitpoint)
 

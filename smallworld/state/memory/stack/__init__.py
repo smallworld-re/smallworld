@@ -11,6 +11,7 @@ from .ppc import PowerPC32Stack, PowerPC64Stack
 from .riscv import RISCV64Stack
 from .stack import *  # noqa: F401, F403
 from .stack import __all__ as __stack__
+from .tricore import TriCoreStack
 from .xtensa import XTensaBEStack, XTensaELStack
 
 __all__ = __stack__ + [
@@ -32,6 +33,7 @@ __all__ = __stack__ + [
     "PowerPC32Stack",
     "PowerPC64Stack",
     "RISCV64Stack",
+    "TriCoreStack",
     "XTensaBEStack",
     "XTensaELStack",
 ]

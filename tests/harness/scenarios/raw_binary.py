@@ -14,6 +14,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .tricore_panda import install_tricore_panda_raw_binary_call_return_compatibility
 
 PrintMode = Literal["hex", "register"]
 
@@ -37,6 +38,7 @@ class RawBinarySpec:
     pc_register: str
     result_register: str
     engines: tuple[str, ...]
+    entry_offset: int = 0
     arg_register: str | None = None
     print_mode: PrintMode = "hex"
     stack: StackSpec | None = None
@@ -117,7 +119,7 @@ def run_integer_case(
 
     code = load_raw_code(smallworld, family, arch)
     machine.add(code)
-    set_register(cpu, spec.pc_register, code.address)
+    set_register(cpu, spec.pc_register, code.address + spec.entry_offset)
 
     if spec.arg_register is not None:
         set_register(cpu, spec.arg_register, argument)
@@ -126,6 +128,9 @@ def run_integer_case(
 
     emulator = make_emulator(smallworld, platform, engine)
     maybe_enable_linear(smallworld, emulator, engine)
+    install_tricore_panda_raw_binary_call_return_compatibility(
+        arch, engine, emulator, code
+    )
 
     exit_point = code.address + code.get_capacity()
     emulator.add_exit_point(exit_point)

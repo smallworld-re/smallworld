@@ -396,6 +396,25 @@ let
       '';
     };
 
+  mkLintShell =
+    system:
+    let
+      pkgs = pkgsFor system;
+      python = pythonFor system;
+    in
+    pkgs.mkShell {
+      packages = [
+        python.pkgs.black
+        python.pkgs.flake8
+        python.pkgs.isort
+        python.pkgs.mypy
+        pkgs.nixfmt
+        pkgs.nixfmt-tree
+      ];
+
+      hardeningDisable = [ "all" ];
+    };
+
   mkPackageOutputs =
     system:
     let
@@ -467,6 +486,7 @@ in
 {
   inherit
     mkDeveloperShell
+    mkLintShell
     mkDownstreamPython
     mkDownstreamPythonShell
     mkPackageOutputs

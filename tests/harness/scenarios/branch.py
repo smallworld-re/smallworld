@@ -136,6 +136,14 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         print_mode="register",
     ),
+    "tricore": RawBinarySpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        arg_register="d4",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        print_mode="register",
+    ),
     "xtensa": RawBinarySpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",

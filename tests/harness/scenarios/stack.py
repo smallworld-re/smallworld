@@ -265,6 +265,19 @@ _SPECS = {
         ),
         stack_arguments=((0x55555555, 8),),
     ),
+    "tricore": StackCaseSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        register_arguments=(
+            ("d4", 0x11111111),
+            ("d5", 0x01010101),
+            ("d6", 0x22222222),
+            ("d7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
     "xtensa": StackCaseSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
