@@ -240,18 +240,11 @@ C_OBJ_SRCS := $(wildcard */*.o.c) $(wildcard */*/*.o.c)
 C_ELF_SRCS := $(wildcard */*.elf.c) $(wildcard */*/*.elf.c)
 C_SO_SRCS := $(wildcard */*.so.c) $(wildcard */*/*.so.c)
 
-TRICORE_OBJ_SRCS :=
-TRICORE_ELF_SRCS :=
-TRICORE_SO_SRCS :=
-
 define C_ELF_TEMPLATE
 
-$(1)_OBJ_SRCS ?= $$(C_OBJ_SRCS)
-$(1)_ELF_SRCS ?= $$(C_ELF_SRCS)
-$(1)_SO_SRCS ?= $$(C_SO_SRCS)
-$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$($(1)_OBJ_SRCS))
-$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$($(1)_ELF_SRCS))
-$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$($(1)_SO_SRCS))
+$(1)_C_OBJS := $$(patsubst %.o.c,%.$$($(1)_EXT).o,$$(C_OBJ_SRCS))
+$(1)_C_ELFS := $$(patsubst %.elf.c,%.$$($(1)_EXT).elf,$$(C_ELF_SRCS))
+$(1)_C_SOS := $$(patsubst %.so.c,%.$$($(1)_EXT).so,$$(C_SO_SRCS))
 
 %.$$($(1)_EXT).o : %.o.c
 	$$($(1)_CC) -c $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) -o $$@ $$<
@@ -317,7 +310,7 @@ PLATFORMS := AARCH64 AMD64 AMD64_MINGW ARMEL ARMHF I386 I386_MINGW LA64 M68K MIP
 ASM_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL MSP430 MSP430X PPC PPC64 RISCV64 TRICORE XTENSA
 
 # List of platforms that support ELF
-C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64 TRICORE
+C_ELF_PLATFORMS := AARCH64 AMD64 ARMEL ARMHF I386 LA64 M68K MIPS MIPSEL MIPS64 MIPS64EL PPC PPC64 RISCV64
 
 # List of platforms that support PE
 C_PE_PLATFORMS := AMD64_MINGW I386_MINGW
