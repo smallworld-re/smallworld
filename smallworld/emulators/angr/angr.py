@@ -37,6 +37,7 @@ class AngrEmulator(
     emulator.MemoryReadHookable,
     emulator.MemoryWriteHookable,
     emulator.ConstrainedEmulator,
+    emulator.SymbolicEmulator,
 ):
     """
     Angr symbolic execution emulator
@@ -1496,12 +1497,13 @@ class AngrEmulator(
         for s in self.mgr.stashes[stash]:
             function(ConcreteAngrEmulator(s, self))
 
-    def enable_linear(self):
-        """Enable linear execution
+    def get_active_states(self) -> typing.Generator[emulator.Emulator, None, None]:
+        if not self._initialized:
+            raise NotImplementedError("Cannot visit states before initialization")
+        for s in self.mgr.stashes["active"]:
+            yield ConcreteAngrEmulator(s, self)
 
-        This doesn't actually concretize anything;
-        it just kills execution when it hits an unconstrained branch.
-        """
+    def enable_linear(self):
         if self._dirty:
             raise NotImplementedError(
                 "Enabling linear mode not supported once execution begins"

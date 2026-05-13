@@ -19,6 +19,7 @@ from . import (
     stack,
     static_buf,
     strlen,
+    symbolic_state,
     unmapped,
 )
 
@@ -34,6 +35,7 @@ REGISTERED_SCENARIOS = (
     ("model_return", "model_return", model_return),
     ("exitpoint", "exitpoint", exitpoint),
     ("unmapped", "unmapped", unmapped),
+    ("symbolic_state", "symbolic_state", symbolic_state),
     ("checked_heap.double_free", "checked_heap.double_free", checked_heap),
     ("checked_heap.read", "checked_heap.read", checked_heap),
     ("checked_heap.uaf", "checked_heap.uaf", checked_heap),
