@@ -856,9 +856,7 @@ class Machine(StatefulSet):
                 yield machine_copy
 
             except exceptions.EmulationStop:
-                print(
-                    "emulation complete; encountered exit point or went out of bounds"
-                )
+                logger.info("emulation complete; encountered exit point or went out of bounds")
                 break
         return None
 
