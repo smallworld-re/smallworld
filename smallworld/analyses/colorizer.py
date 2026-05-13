@@ -357,7 +357,7 @@ class Colorizer(analysis.Analysis):
             # assuming little-endian
             if int.from_bytes(concrete_value, byteorder="little") < self.min_color:
                 return BAD_COLOR
-            the_bytes = concrete_value
+            the_bytes = bytes(concrete_value)
         else:
             assert 1 == 0
         # let's make color a number
