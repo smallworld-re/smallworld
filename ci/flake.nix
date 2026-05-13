@@ -111,9 +111,9 @@
                 zephyrPkgs = zephyr-nix.packages.${system};
                 # openocd-zephyr's udevCheckPhase runs udevadm verify, which
                 # requires a live kernel udev subsystem absent in CI sandboxes.
-                openocdFixed = zephyrPkgs.openocd-zephyr.overrideAttrs (
-                  _: { doInstallCheck = false; }
-                );
+                openocdFixed = zephyrPkgs.openocd-zephyr.overrideAttrs (_: {
+                  doInstallCheck = false;
+                });
               in
               zephyrPkgs
               // {
