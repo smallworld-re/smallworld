@@ -40,6 +40,7 @@ GENERIC_SUITES = {
     "StaticBufferTests": ("static_buf", "static_buffer"),
     "StaticRelaTests": ("static_rela", None),
     "StrlenTests": ("strlen", "strlen"),
+    "SymbolicStateTests": ("symbolic_state", None),
     "SysVModelTests": ("sysv", None),
     "SyscallTests": ("syscall", None),
     "UnmappedTests": ("unmapped", "unmapped"),
