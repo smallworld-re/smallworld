@@ -5166,6 +5166,13 @@ LEGACY_MATRIX = {
         {"name": "test_hooking_symbolic", "skip_reason": None},
         {"name": "test_square_symbolic", "skip_reason": None},
     ],
+    "SymbolicStateTests": [
+        {
+            "name": "test_amd64_angr",
+            "run_test": {"args": ["amd64.angr"], "kwargs": {}},
+            "skip_reason": None,
+        },
+    ],
     "SysVModelTests": [
         {
             "name": "test_aarch64",

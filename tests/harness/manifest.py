@@ -934,6 +934,15 @@ def _build_symbolic_cases() -> list[CaseSpec]:
     ]
 
 
+def _build_symbolic_state_cases() -> list[CaseSpec]:
+    return _build_legacy_case_command_cases(
+        ("SymbolicStateTests",),
+        case_prefix="symbolic_state",
+        scenario="symbolic_state",
+        tags=("scenario", "symbolic_state"),
+    )
+
+
 def _build_sysv_cases() -> list[CaseSpec]:
     return _build_legacy_script_cases(
         ("SysVModelTests",),
@@ -1508,6 +1517,7 @@ def all_cases() -> list[CaseSpec]:
         _build_exitpoint_cases,
         _build_unmapped_cases,
         _build_symbolic_cases,
+        _build_symbolic_state_cases,
         _build_sysv_cases,
         _build_structure_cases,
         _build_memhook_cases,

@@ -1048,6 +1048,59 @@ class ConstrainedEmulator:
         raise NotImplementedError("Abstract method")
 
 
+class SymbolicEmulator(metaclass=abc.ABCMeta):
+    """Emulator that supports symbolic path exploration
+
+    By default, symbolic emulators will explore the entire state space
+    by forking separate machine states for every possible branch
+    the program could take.
+    Once execution starts in this default mode,
+    it is no longer possible to access machine state
+    such as registers, memory, hooks, or constraints.
+    Which machine state are you trying to access?
+
+    Programs can use get_active_states()
+    to retrieve a stub Emulator object wrapping each active state.
+    These can be accessed normally, but can't be used to control emulation,
+    and should not be retained once emulation begins again.
+
+    These emulators will also support linear emulation.
+    This constrains the emulator to only explore one path;
+    if the path diverges, emulation halts,
+    and the frontier states can be examined using get_active_states().
+
+    This mode must be set before execution starts, and is not possible to change later.
+
+    """
+
+    @abc.abstractmethod
+    def enable_linear(self):
+        """Set this emulator to only support linear execution.
+
+        Linear execution means that the emulator will halt
+        when it encounters an unconstrained branch.
+        The frontier states will be available via get_active_states()
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def get_active_states(self) -> typing.Generator[Emulator, None, None]:
+        """Access each active machine state currently considered by this emulator.
+
+        NOTE: This is only able to access the currently active states.
+        Some emulators also track dead-ended states,
+        but the interface for accessing them isn't generalizable.
+
+        WARNING: Do not retain the stub objects produced by this generator.
+        They are tied to parts of the internal state of the parent emulator
+        that will be invalidated once emulation resumes.
+
+        Yields:
+            Stub emulator objects wrapping each active machine state
+        """
+        raise NotImplementedError("Abstract method")
+
+
 __all__ = [
     "Emulator",
     "InstructionHookable",
@@ -1056,4 +1109,5 @@ __all__ = [
     "MemoryWriteHookable",
     "InterruptHookable",
     "ConstrainedEmulator",
+    "SymbolicEmulator",
 ]
