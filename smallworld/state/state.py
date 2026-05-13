@@ -941,6 +941,77 @@ class Machine(StatefulSet):
             persistent_iters=iterations,
         )
 
+    def fuzz_styx(
+        self,
+        emulator: emulators.Emulator,
+        input_callback: typing.Callable,
+        crash_callback: typing.Optional[typing.Callable] = None,
+        always_validate: bool = False,
+        iterations: int = 1,
+    ) -> None:
+        """Fuzz the machine through the Styx backend (AFL++ forkserver via styxafl).
+
+        Identical shape to :meth:`fuzz` but routes through the Styx emulator
+        and the :mod:`styxafl` bridge. ``input_callback`` is called with
+        ``(processor, input_bytes, persistent_round, data)`` — ``processor`` is
+        the underlying ``styx_emulator.Processor`` (whose ``write_data``
+        replaces ``uc.mem_write``).
+        """
+        import argparse
+
+        arg_parser = argparse.ArgumentParser(description="Styx AFL Harness")
+        arg_parser.add_argument(
+            "input_file", type=str, help="File path AFL will mutate"
+        )
+        args = arg_parser.parse_args()
+        self.fuzz_with_styx(
+            emulator,
+            input_callback,
+            args.input_file,
+            crash_callback,
+            always_validate,
+            iterations,
+        )
+
+    def fuzz_with_styx(
+        self,
+        emulator: emulators.Emulator,
+        input_callback: typing.Callable,
+        input_file_path: str,
+        crash_callback: typing.Optional[typing.Callable] = None,
+        always_validate: bool = False,
+        iterations: int = 1,
+    ) -> None:
+        """Fuzz the machine through the Styx backend.
+
+        Mirrors :meth:`fuzz_with_file` but uses the ``styxafl`` Rust+PyO3
+        bridge instead of ``unicornafl``. Requires a :class:`StyxEmulator`.
+        """
+        try:
+            import styxafl
+        except ImportError:
+            raise RuntimeError(
+                "missing `styxafl` - install smallworld with the [emu-styx] extra "
+                "(built from source via the nix flake)"
+            )
+
+        if not isinstance(emulator, emulators.StyxEmulator):
+            raise RuntimeError("you must use a styx emulator to fuzz with styx")
+
+        self.apply(emulator)
+        # Force the underlying Processor to exist so styxafl gets a live handle.
+        emulator._lazy_build()
+
+        styxafl.styx_afl_fuzz(
+            processor=emulator._proc,
+            input_file=input_file_path,
+            place_input_callback=input_callback,
+            exits=list(emulator.get_exit_points()),
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=iterations,
+        )
+
     def get_cpus(self):
         """Gets a list of :class:`~smallworld.state.cpus.cpu.CPU` attached to this machine.
 

@@ -11,7 +11,11 @@ resolution-markers = [
 ]
 
 [manifest]
-excludes = ["pandare2"]
+excludes = [
+    "pandare2",
+    "styx-emulator",
+    "styxafl",
+]
 
 [[package]]
 name = "alabaster"
@@ -75,26 +79,14 @@ dependencies = [
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b7/3b/48d3bc3936ceab022bb36b7cbcc55ab317cba493e4750a6301c1098aafab/angr-9.2.194.tar.gz", hash = "sha256:af8ee13ce1361d26112631397e95ff53c86fbd685d585c889acac5db7ca8b1fc", size = 4041360, upload-time = "2026-01-21T20:53:22.774Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/b7/0e95bb4a090e966f90365eb946d84e8dca3b397c0911bcc634168bdf1c19/angr-9.2.194-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:302f3ddcc484908fa5f929cd0acc86c1d1284495ef4fde520652d033a7940ace", size = 8065433, upload-time = "2026-01-21T20:51:59.884Z" },
     { url = "https://files.pythonhosted.org/packages/9f/dc/857798b55196a936abed5d0b1798bc272a258ffca9a40c0bf521dbc8bd49/angr-9.2.194-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:1e0f0ca141193a4b2ae162f070ff48ed1b0b994ce861b4b65e3ce4417e03319d", size = 7505435, upload-time = "2026-01-21T20:52:01.847Z" },
     { url = "https://files.pythonhosted.org/packages/25/68/e7c6b807037456071b790d69fe6f27a5769df427514645d3982d66f97bc5/angr-9.2.194-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:e0c138bac6b7858fb591eae2e1a513867bd38f81a3ec747835fba684af2c2b17", size = 8338839, upload-time = "2026-01-21T20:52:03.366Z" },
     { url = "https://files.pythonhosted.org/packages/99/d4/3d7ed147d94188db0e07ff51d4b92b1de96502d3051f23572509a7c428dc/angr-9.2.194-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:d98596a7a22661acd0fcab6bf6c6c4ef5034ed0181dd6002c6f8184f4cc29332", size = 7837092, upload-time = "2026-01-21T20:52:05.418Z" },
     { url = "https://files.pythonhosted.org/packages/b1/1c/3dea9ddf127d7e211c7d82b71ce3f91ee3035c2902d026d4b99d00fbcf5b/angr-9.2.194-cp310-cp310-win_amd64.whl", hash = "sha256:5f3dd53da9fb5c8aa7aa37f434b8ad5bcd62075e76e75dff024e7ed4430e9a8e", size = 7530735, upload-time = "2026-01-21T20:52:07.334Z" },
-    { url = "https://files.pythonhosted.org/packages/9e/f2/f3ea07da07fba1b0c97c8b5e2f64804c008061cd0658ed4b51df0b99bb10/angr-9.2.194-cp311-cp311-macosx_10_12_x86_64.whl", hash = "sha256:eb65815d87b43700f9b6153f3c7fb873309f4f28d58e6c1e87e8362063acd7e0", size = 8065244, upload-time = "2026-01-21T20:52:09.156Z" },
-    { url = "https://files.pythonhosted.org/packages/42/a6/b01771a2bf565db8d95f630764e8ce0c05e6f1e0eaab7e7c0cabf9144c58/angr-9.2.194-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:37f5871e14e999d55b7e0bdd8a8ae3a563d9e36db139ef141e492b6114cda8cd", size = 7505122, upload-time = "2026-01-21T20:52:10.909Z" },
-    { url = "https://files.pythonhosted.org/packages/b5/80/e602fd3a3b67522c390c07ef93c73dbdaf76601a12f38e44728e55baa768/angr-9.2.194-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6289014075773e3663b0cc877b0f7716067c649665fe064a8e1bc32114fd2f1b", size = 8339617, upload-time = "2026-01-21T20:52:12.866Z" },
-    { url = "https://files.pythonhosted.org/packages/a5/77/e559ae2cd89ea9dfb5e7d15aeac2250da7af6507286ed1745e580adb357e/angr-9.2.194-cp311-cp311-manylinux_2_28_aarch64.whl", hash = "sha256:59a4b2154aebd48919104964b7f1ef7cd323799d685fb1dda60fcfaa009a3ae5", size = 7838538, upload-time = "2026-01-21T20:52:14.669Z" },
-    { url = "https://files.pythonhosted.org/packages/e5/8e/3b5548f3989d6ccf481f299f8b600a937a9f273db2f16ddb829b2812c387/angr-9.2.194-cp311-cp311-win_amd64.whl", hash = "sha256:99f4c727326da087002a397ea854cdd0359f8fb088a928cf96c564e9e054fd6d", size = 7531081, upload-time = "2026-01-21T20:52:16.606Z" },
-    { url = "https://files.pythonhosted.org/packages/31/f7/154ad1bd244aba20cf1f1e4afc0122b95b8d55861f87fd1a49c73319455d/angr-9.2.194-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:cf4b06c6a1ed0a0e71e83cf4a210787fc13de50234002d5e4da98c744a52af84", size = 8074915, upload-time = "2026-01-21T20:52:18.606Z" },
     { url = "https://files.pythonhosted.org/packages/6d/1b/b9aa98abd7770022c80395c5ac18ccfa3860d97f6b6238adb8a11f970d58/angr-9.2.194-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:54a21e1db99c6e7aaf5e6a27eb9ca43123360ab7f169e85af402ad2f7f59561d", size = 7506120, upload-time = "2026-01-21T20:52:20.06Z" },
     { url = "https://files.pythonhosted.org/packages/d5/06/92058ce49dbb959d63da97a4bd7fa95fb13eed50e3fdadf01c6949d53510/angr-9.2.194-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0b58e52a3c455ec271c85d4d656fd79c74c257f9b5a4fe391026c344982e4e45", size = 8343797, upload-time = "2026-01-21T20:52:22.045Z" },
     { url = "https://files.pythonhosted.org/packages/0d/23/642a980adbd25a835a93a9ffd707ebbf2d6785066c256fad6dbbc7cf4a3a/angr-9.2.194-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:e67726851f785f6cf7906a6abcb9a40b98bc4c4ff3f77e563dbe218bae73043c", size = 7836965, upload-time = "2026-01-21T20:52:23.793Z" },
     { url = "https://files.pythonhosted.org/packages/6b/27/9d2105ec7ae09d1f4d89c5315e8730b8870c0f4b5005ea7a605726b7079f/angr-9.2.194-cp312-cp312-win_amd64.whl", hash = "sha256:22789f92f1db4b33b3d3269c75633ef44200c0f21ce0c439ac0083263a9869c2", size = 7539640, upload-time = "2026-01-21T20:52:25.432Z" },
-    { url = "https://files.pythonhosted.org/packages/ea/2f/a1d8c406e32ddd8ac8c70f2d730bbb3fbedac6b8ae2ea0ec55d9dbab905a/angr-9.2.194-cp313-cp313-macosx_10_13_x86_64.whl", hash = "sha256:311461c0daa8de77249007a6107477dde0fc1b749cf5518437398a582acb816b", size = 8074759, upload-time = "2026-01-21T20:52:27.157Z" },
-    { url = "https://files.pythonhosted.org/packages/af/ac/255e3074201548e6ba3c7ae18348db68f6a39a4455cea257e8311c9f03d0/angr-9.2.194-cp313-cp313-macosx_11_0_arm64.whl", hash = "sha256:8d7e40848bb6d7edd4c1261a17b97d76b46d04763e9c4dcedb0e74ec4145bbe8", size = 7505967, upload-time = "2026-01-21T20:52:29.265Z" },
-    { url = "https://files.pythonhosted.org/packages/1e/d8/2d13905375755071d35df0674e0245c3fb191386028516930b70298a98f3/angr-9.2.194-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:0f35cade697aa0f7854a7986d128c2218253faaf42adae58d212a33c151af72f", size = 8343465, upload-time = "2026-01-21T20:52:31.21Z" },
-    { url = "https://files.pythonhosted.org/packages/58/ed/6246b1f39e60a8bf5db85fee69260d30d08c629d45fa3ba20d82cf5b1bfc/angr-9.2.194-cp313-cp313-manylinux_2_28_aarch64.whl", hash = "sha256:2c2491ba21cce3bd9dfbf86450f029cdc018d3811af99e66a99bcf240f696b62", size = 7836132, upload-time = "2026-01-21T20:52:33.08Z" },
-    { url = "https://files.pythonhosted.org/packages/61/9f/339cf20e4bc022a4063906122ad6a12c127d443429dc50da2e5b58c94a00/angr-9.2.194-cp313-cp313-win_amd64.whl", hash = "sha256:2ade07a31df2a58d7a98192add88c7d219e8fb330a041b5ed13a4ff4e141aadc", size = 7539405, upload-time = "2026-01-21T20:52:34.698Z" },
     { url = "https://files.pythonhosted.org/packages/35/31/411b8ada80bccb63861f56523014f8ac9211ff59e3f97345f37f910aa3c6/angr-9.2.194-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:7fda29d95942824c9b7ed62dc37dc28616b0e05be5a7cf59ea4c111727c79c9d", size = 7502885, upload-time = "2026-01-21T20:52:36.271Z" },
     { url = "https://files.pythonhosted.org/packages/ba/88/b1c0235f9f3ecccb30a1d7ebb17f397bd72cd894448c7e9fd7520843b698/angr-9.2.194-cp314-cp314-manylinux_2_28_aarch64.whl", hash = "sha256:f83e51dd9058849f908a56cfd170f9491f9180460ea0becdc7ca1106def961fb", size = 7834127, upload-time = "2026-01-21T20:52:38.004Z" },
     { url = "https://files.pythonhosted.org/packages/0c/48/d827ee52393b4bc17edb00b28172ba1ca7804db4b494b93a5fb259d76b56/angr-9.2.194-cp314-cp314-win_amd64.whl", hash = "sha256:d8e7aade3553f58191b92578080ff7e65c9acf1de61ca002a25907f8f900db83", size = 7624385, upload-time = "2026-01-21T20:52:39.58Z" },
@@ -4248,10 +4240,12 @@ requires-dist = [
     { name = "pycparser", specifier = ">=2.18,<3.0" },
     { name = "pyghidra", marker = "extra == 'emu-ghidra'", specifier = ">=3.0" },
     { name = "setuptools", marker = "python_full_version < '3.10'", specifier = ">=80.9.0,<81" },
-    { name = "smallworld-re", extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn"], marker = "extra == 'emu-all'" },
+    { name = "smallworld-re", extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn", "emu-styx"], marker = "extra == 'emu-all'" },
+    { name = "styx-emulator", marker = "extra == 'emu-styx'", specifier = ">=0.1.0" },
+    { name = "styxafl", marker = "extra == 'emu-styx'", specifier = ">=0.1.0" },
     { name = "unicorn", marker = "extra == 'emu-unicorn'", specifier = ">=2.1.3" },
 ]
-provides-extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn", "emu-all"]
+provides-extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn", "emu-styx", "emu-all"]
 
 [package.metadata.requires-dev]
 dev = [

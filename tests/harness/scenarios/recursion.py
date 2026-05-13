@@ -61,7 +61,7 @@ _SPECS = {
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
     ),
     "armhf": RecursionSpec(
@@ -69,7 +69,7 @@ _SPECS = {
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
     ),
     "i386": RecursionSpec(
