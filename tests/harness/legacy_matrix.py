@@ -2680,22 +2680,6 @@ LEGACY_MATRIX = {
         {"name": "test_afl_mips", "skip_reason": None},
         {"name": "test_fuzz_mipsel", "skip_reason": None},
         {"name": "test_afl_mipsel", "skip_reason": None},
-        {
-            "name": "test_styx_armhf",
-            "skip_reason": "styx fuzz scenario lacks an exit-point setup match for the fuzz binaries",
-        },
-        {
-            "name": "test_styx_armel",
-            "skip_reason": "styx fuzz scenario lacks an exit-point setup match for the fuzz binaries",
-        },
-        {
-            "name": "test_styx_afl_armhf",
-            "skip_reason": "styxafl AFL forkserver path not yet validated end-to-end",
-        },
-        {
-            "name": "test_styx_afl_armel",
-            "skip_reason": "styxafl AFL forkserver path not yet validated end-to-end",
-        },
     ],
     "HookingTests": [
         {
