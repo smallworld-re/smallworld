@@ -20,6 +20,7 @@ from . import (
     static_buf,
     strlen,
     styx_fuzz,
+    symbolic_state,
     unmapped,
 )
 
