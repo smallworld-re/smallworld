@@ -18,7 +18,6 @@ from styx_emulator.processor import Target
 from ....platforms import Architecture, Byteorder
 from .machdef import StyxMachineDef
 
-
 _BASE_REGS = {
     "r0": ArmRegister.R0,
     "r1": ArmRegister.R1,

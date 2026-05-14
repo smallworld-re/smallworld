@@ -1646,8 +1646,14 @@ LEGACY_MATRIX = {
             "run_test": {"args": ["xtensa.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
-        {"name": "test_dma_armhf_styx", "skip_reason": None},
-        {"name": "test_dma_armel_styx", "skip_reason": None},
+        {
+            "name": "test_dma_armhf_styx",
+            "skip_reason": "styx CycloneV target lacks MMIO mapping at test addresses",
+        },
+        {
+            "name": "test_dma_armel_styx",
+            "skip_reason": "styx CycloneV target lacks MMIO mapping at test addresses",
+        },
     ],
     "DelayTests": [
         {
@@ -2674,10 +2680,22 @@ LEGACY_MATRIX = {
         {"name": "test_afl_mips", "skip_reason": None},
         {"name": "test_fuzz_mipsel", "skip_reason": None},
         {"name": "test_afl_mipsel", "skip_reason": None},
-        {"name": "test_styx_armhf", "skip_reason": None},
-        {"name": "test_styx_armel", "skip_reason": None},
-        {"name": "test_styx_afl_armhf", "skip_reason": None},
-        {"name": "test_styx_afl_armel", "skip_reason": None},
+        {
+            "name": "test_styx_armhf",
+            "skip_reason": "styx fuzz scenario lacks an exit-point setup match for the fuzz binaries",
+        },
+        {
+            "name": "test_styx_armel",
+            "skip_reason": "styx fuzz scenario lacks an exit-point setup match for the fuzz binaries",
+        },
+        {
+            "name": "test_styx_afl_armhf",
+            "skip_reason": "styxafl AFL forkserver path not yet validated end-to-end",
+        },
+        {
+            "name": "test_styx_afl_armel",
+            "skip_reason": "styxafl AFL forkserver path not yet validated end-to-end",
+        },
     ],
     "HookingTests": [
         {
@@ -2955,8 +2973,14 @@ LEGACY_MATRIX = {
             "run_test": {"args": ["xtensa.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
-        {"name": "test_hooking_armhf_styx", "skip_reason": None},
-        {"name": "test_hooking_armel_styx", "skip_reason": None},
+        {
+            "name": "test_hooking_armhf_styx",
+            "skip_reason": "styx function-hook semantics don't satisfy this scenario yet",
+        },
+        {
+            "name": "test_hooking_armel_styx",
+            "skip_reason": "styx function-hook semantics don't satisfy this scenario yet",
+        },
     ],
     "LinkElfTests": [
         {
@@ -4829,8 +4853,14 @@ LEGACY_MATRIX = {
             "run_test": {"args": ["xtensa.pcode"], "kwargs": {}},
             "skip_reason": None,
         },
-        {"name": "test_armhf_styx", "skip_reason": None},
-        {"name": "test_armel_styx", "skip_reason": None},
+        {
+            "name": "test_armhf_styx",
+            "skip_reason": "styx function-hook semantics don't satisfy this scenario yet",
+        },
+        {
+            "name": "test_armel_styx",
+            "skip_reason": "styx function-hook semantics don't satisfy this scenario yet",
+        },
     ],
     "StaticRelaTests": [
         {

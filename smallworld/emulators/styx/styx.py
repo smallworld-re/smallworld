@@ -149,9 +149,9 @@ class StyxEmulator(
 
         self._proc: typing.Optional[typing.Any] = None
         self._memory_map: utils.RangeCollection = utils.RangeCollection()
-        self._pending_writes: typing.List[
-            typing.Tuple[int, bytes, bool]
-        ] = []  # (address, data, is_code)
+        self._pending_writes: typing.List[typing.Tuple[int, bytes, bool]] = (
+            []
+        )  # (address, data, is_code)
         self._pending_register_writes: typing.List[typing.Tuple[str, int]] = []
         # Hooks queued for post-build registration. Builder-level hooks are
         # acceptable too but post-build registration via Processor.add_hook
@@ -196,9 +196,11 @@ class StyxEmulator(
         if self._proc is None:
             return
         for addr in self._exit_points - self._installed_exit_points:
+
             def _exit_cb(_cpu, _addr=addr, _self=self):
                 _self._stopped_for_exit = True
                 _cpu.stop()
+
             self._proc.add_hook(CodeHook(addr, addr, _exit_cb))
             self._installed_exit_points.add(addr)
 
@@ -223,6 +225,7 @@ class StyxEmulator(
     def read_register_content(self, name: str) -> int:
         self._lazy_build()
         reg = self.machdef.styx_register(name)
+        assert self._proc is not None  # _lazy_build set it
         value = self._proc.read_register(reg)
         if value is None:
             raise exceptions.UnsupportedRegisterError(
@@ -256,6 +259,7 @@ class StyxEmulator(
         # ``read_data`` is the primary entry point; for code regions the user
         # may have written via ``write_code`` we still expect ``read_data`` to
         # return the unified backing memory in styx's flat AS targets.
+        assert self._proc is not None  # _lazy_build set it
         return bytes(self._proc.read_data(address, size))
 
     def write_memory_content(
@@ -329,6 +333,7 @@ class StyxEmulator(
 
     def _safe_pc(self) -> int:
         try:
+            assert self._proc is not None
             return int(self._proc.pc)
         except Exception:
             return 0
@@ -336,8 +341,10 @@ class StyxEmulator(
     def step_instruction(self) -> None:
         self._lazy_build()
         self._stopped_for_exit = False
-        self._proc.start(inst=1)
-        report = self._proc.wait_for_stop()
+        proc = self._proc
+        assert proc is not None  # _lazy_build set it
+        proc.start(inst=1)
+        report = proc.wait_for_stop()
         self._translate_exit(report)
 
     def step_block(self) -> None:
@@ -360,23 +367,27 @@ class StyxEmulator(
             cpu.stop()
 
         hook = BlockHook(_on_block)
-        token = self._proc.add_hook(hook)
+        proc = self._proc
+        assert proc is not None  # _lazy_build set it above
+        token = proc.add_hook(hook)
         state["token"] = token
         try:
-            self._proc.start()
-            report = self._proc.wait_for_stop()
+            proc.start()
+            report = proc.wait_for_stop()
             self._translate_exit(report)
         finally:
             try:
-                self._proc.delete_hook(state["token"])
+                proc.delete_hook(state["token"])
             except Exception:
                 pass
 
     def run(self) -> None:
         self._lazy_build()
         self._stopped_for_exit = False
-        self._proc.start()
-        report = self._proc.wait_for_stop()
+        proc = self._proc
+        assert proc is not None  # _lazy_build set it above
+        proc.start()
+        report = proc.wait_for_stop()
         self._translate_exit(report)
 
     # ----------------------------------------------------------------- hooks
@@ -457,9 +468,7 @@ class StyxEmulator(
         def _cb(_cpu, addr, size, data, _self=self, _fn=function):
             _fn(_self, int(addr), int(size), bytes(data))
 
-        self._register_styx_hook(
-            MemoryReadHook(0x0, self._GLOBAL_HOOK_END, _cb)
-        )
+        self._register_styx_hook(MemoryReadHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
     def hook_memory_write(
         self,
@@ -483,9 +492,7 @@ class StyxEmulator(
         def _cb(_cpu, addr, size, data, _self=self, _fn=function):
             _fn(_self, int(addr), int(size), bytes(data))
 
-        self._register_styx_hook(
-            MemoryWriteHook(0x0, self._GLOBAL_HOOK_END, _cb)
-        )
+        self._register_styx_hook(MemoryWriteHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
     def hook_interrupts(
         self, function: typing.Callable[[emulator.Emulator, int], None]

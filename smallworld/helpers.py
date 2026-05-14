@@ -97,13 +97,13 @@ def fuzz(
                 "missing `styxafl` - install smallworld with the [emu-styx] extra "
                 "(built from source via the nix flake)"
             )
-        emu = emulators.StyxEmulator(cpu.platform)
+        styx_emu = emulators.StyxEmulator(cpu.platform)
         for x in exits:
-            emu.add_exit_point(x)
-        machine.apply(emu)
-        emu._lazy_build()
+            styx_emu.add_exit_point(x)
+        machine.apply(styx_emu)
+        styx_emu._lazy_build()
         styxafl.styx_afl_fuzz(
-            processor=emu._proc,
+            processor=styx_emu._proc,
             input_file=args.input_file,
             place_input_callback=input_callback,
             exits=exits,
