@@ -61,7 +61,10 @@ let
             -e 's/^\t/    /' \
             panda/src/panda_qemu_plugin_helpers.c
         '';
-        patches = [ ./patches/panda-qemu-tricore.patch ];
+        patches = [
+          ./patches/panda-qemu-tricore.patch
+          ./patches/panda-qemu-remove-debug-printf.patch
+        ];
       };
       libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
       # Keep the upstream source intact and layer our temporary local fixes
