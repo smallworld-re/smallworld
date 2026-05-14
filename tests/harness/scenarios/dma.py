@@ -55,7 +55,7 @@ _SPECS = {
         argument_registers=("r0", "r1"),
         mmio_address=0x50004000,
         mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
     ),
     "armhf": DMASpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
@@ -64,7 +64,7 @@ _SPECS = {
         argument_registers=("r0", "r1"),
         mmio_address=0x50014000,
         mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
     ),
     "i386": DMASpec(
         platform=PlatformSpec("X86_32", "LITTLE"),

@@ -19,7 +19,7 @@ from . import (
     stack,
     static_buf,
     strlen,
-    symbolic_state,
+    styx_fuzz,
     unmapped,
 )
 
@@ -41,6 +41,8 @@ REGISTERED_SCENARIOS = (
     ("checked_heap.uaf", "checked_heap.uaf", checked_heap),
     ("checked_heap.write", "checked_heap.write", checked_heap),
     ("fuzz", "fuzz", fuzz),
+    ("styx", "styx", styx_fuzz),
+    ("styx.afl_fuzz", "styx.afl_fuzz", styx_fuzz),
     ("elf", "elf", elf),
     ("hooking", "hooking", hooking),
     ("rela", "rela", rela),

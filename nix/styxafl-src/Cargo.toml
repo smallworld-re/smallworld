@@ -1,0 +1,20 @@
+[package]
+name = "styxafl"
+version = "0.1.0"
+edition = "2021"
+license = "BSD-2-Clause"
+description = "PyO3 bridge between SmallWorld and the styx-emulator fuzzer plugin (AFL++ forkserver compatible)"
+
+[lib]
+name = "styxafl"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.25", features = ["extension-module", "anyhow"] }
+anyhow = "1"
+libc = "0.2"
+log = "0.4"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

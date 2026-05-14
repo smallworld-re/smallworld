@@ -31,6 +31,7 @@ def fuzz(
     crash_callback: typing.Optional[typing.Callable] = None,
     always_validate: bool = False,
     iterations: int = 1,
+    engine: str = "unicorn",
 ) -> None:
     """Creates an AFL fuzzing harness.
 
@@ -44,15 +45,10 @@ def fuzz(
         always_validate: Call the crash_callback everytime instead of just on
             crashes.
         iterations: How many iterations to run before forking again.
+        engine: Which emulator backend to drive the fuzzer with. ``"unicorn"``
+            (default) uses unicornafl; ``"styx"`` routes through the Styx
+            backend + styxafl bridge.
     """
-
-    try:
-        import unicornafl
-    except ImportError:
-        raise RuntimeError(
-            "missing `unicornafl` - afl++ must be installed manually from source"
-        )
-
     arg_parser = argparse.ArgumentParser(description="AFL Harness")
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
     args = arg_parser.parse_args()
@@ -65,9 +61,6 @@ def fuzz(
     if cpu is None:
         raise exceptions.ConfigurationError("cannot fuzz a zero-core machine")
 
-    emu = emulators.UnicornEmulator(cpu.platform)
-    machine.apply(emu)
-
     exits = []
     code = None
     for code in machine.members(state.memory.code.Executable).items():
@@ -78,15 +71,50 @@ def fuzz(
             raise exceptions.ConfigurationError("Cannot fuzz a machine with no code")
         exits.append(code.base + len(code.image))
 
-    unicornafl.uc_afl_fuzz(
-        uc=emu.engine,
-        input_file=args.input_file,
-        place_input_callback=input_callback,
-        exits=exits,
-        validate_crash_callback=crash_callback,
-        always_validate=always_validate,
-        persistent_iters=iterations,
-    )
+    if engine == "unicorn":
+        try:
+            import unicornafl
+        except ImportError:
+            raise RuntimeError(
+                "missing `unicornafl` - afl++ must be installed manually from source"
+            )
+        emu = emulators.UnicornEmulator(cpu.platform)
+        machine.apply(emu)
+        unicornafl.uc_afl_fuzz(
+            uc=emu.engine,
+            input_file=args.input_file,
+            place_input_callback=input_callback,
+            exits=exits,
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=iterations,
+        )
+    elif engine == "styx":
+        try:
+            import styxafl
+        except ImportError:
+            raise RuntimeError(
+                "missing `styxafl` - install smallworld with the [emu-styx] extra "
+                "(built from source via the nix flake)"
+            )
+        styx_emu = emulators.StyxEmulator(cpu.platform)
+        for x in exits:
+            styx_emu.add_exit_point(x)
+        machine.apply(styx_emu)
+        styx_emu._lazy_build()
+        styxafl.styx_afl_fuzz(
+            processor=styx_emu._proc,
+            input_file=args.input_file,
+            place_input_callback=input_callback,
+            exits=exits,
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=iterations,
+        )
+    else:
+        raise exceptions.ConfigurationError(
+            f"unknown fuzz engine '{engine}'; expected 'unicorn' or 'styx'"
+        )
 
 
 __all__ = ["analyze"]

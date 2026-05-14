@@ -27,14 +27,14 @@ _SPECS = {
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
     ),
     "armhf": RawBinarySpec(
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         arg_register="r0",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
     ),
     "i386": RawBinarySpec(
         platform=PlatformSpec("X86_32", "LITTLE"),

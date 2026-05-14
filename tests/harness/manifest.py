@@ -55,7 +55,7 @@ def _variant_from_entry(
 
     parts = stem.split("_")
     explicit_suffix = None
-    if parts[-1] in {"angr", "panda", "pcode", "ghidra", "unicorn"}:
+    if parts[-1] in {"angr", "panda", "pcode", "ghidra", "unicorn", "styx"}:
         explicit_suffix = parts[-1]
         stem = "_".join(parts[:-1])
 
@@ -1308,8 +1308,48 @@ def _build_fuzz_cases() -> list[CaseSpec]:
     cases = []
     for entry in LEGACY_MATRIX["FuzzTests"]:
         stem = entry["name"][5:]
-        kind, arch = stem.split("_", 1)
         skip_reason = entry["skip_reason"]
+        # Identify which test family this entry describes:
+        # * test_fuzz_<arch> / test_afl_<arch>   -> unicorn AFL path
+        # * test_styx_<arch>                      -> styx simple scenario
+        # * test_styx_afl_<arch>                  -> styx AFL scenario
+        if stem.startswith("styx_afl_"):
+            arch = stem[len("styx_afl_") :]
+
+            def run(runner: CaseRunner, *, arch: str = arch) -> None:
+                stdout, _ = _run_afl_showmap(
+                    runner,
+                    inputs_dir=inputs_dir,
+                    target=[PYTHON, "run_case.py", "styx.afl_fuzz", arch, "@@"],
+                    cwd=TestsPath,
+                    check=False,
+                )
+                # Styx coverage may differ from unicornafl; just require some
+                # coverage IDs to come back.
+                runner.assert_contains(stdout, ":")
+
+            case_id = f"fuzz:styx:afl:{arch}"
+            tags = ("scenario", "fuzz", "afl", "styx")
+            cases.append(
+                _case(case_id, *tags, run=run, skip_reason=skip_reason, weight=2)
+            )
+            continue
+
+        if stem.startswith("styx_"):
+            arch = stem[len("styx_") :]
+
+            def run(runner: CaseRunner, *, arch: str = arch) -> None:
+                stdout, _ = _run_case_command(runner, "styx", arch)
+                runner.assert_line_contains(stdout, "=0x0")
+
+            case_id = f"fuzz:styx:{arch}"
+            tags = ("scenario", "fuzz", "styx")
+            cases.append(
+                _case(case_id, *tags, run=run, skip_reason=skip_reason, weight=2)
+            )
+            continue
+
+        kind, arch = stem.split("_", 1)
         if kind == "fuzz":
 
             def run(runner: CaseRunner, *, arch: str = arch) -> None:

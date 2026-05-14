@@ -65,7 +65,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
     "armhf": HookingSpec(
@@ -74,7 +74,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
     "i386": HookingSpec(
