@@ -188,7 +188,23 @@
           };
 
           rtos_demo = pkgs.callPackage ../use_cases/rtos_demo {
-            zephyr = zephyr-nix.packages.${system};
+            zephyr =
+              let
+                zephyrPkgs = zephyr-nix.packages.${system};
+                # openocd-zephyr's udevCheckPhase runs udevadm verify, which
+                # requires a live kernel udev subsystem absent in CI sandboxes.
+                openocdFixed = zephyrPkgs.openocd-zephyr.overrideAttrs (_: {
+                  doInstallCheck = false;
+                });
+              in
+              zephyrPkgs
+              // {
+                hosttools-nix = zephyrPkgs.hosttools-nix.overrideAttrs (old: {
+                  propagatedBuildInputs = map (
+                    dep: if dep == zephyrPkgs.openocd-zephyr then openocdFixed else dep
+                  ) old.propagatedBuildInputs;
+                });
+              };
             west2nix = pkgs.callPackage west2nix.lib.mkWest2nix { };
           };
         in

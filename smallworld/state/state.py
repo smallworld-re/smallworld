@@ -194,7 +194,7 @@ class Value(metaclass=abc.ABCMeta):
                     f"Expected size {size}, but content has size {len(content)}"
                 )
 
-            return claripy.BVV(content)
+            return claripy.BVV(bytes(content))
 
         else:
             return None
@@ -940,6 +940,26 @@ class Machine(StatefulSet):
             always_validate=always_validate,
             persistent_iters=iterations,
         )
+
+    def get_symbolic_states(
+        self, emulator: emulators.SymbolicEmulator
+    ) -> typing.Generator[Machine, None, None]:
+        """Get a Machine for each active state tracked by a symbolic emulator
+
+        Symbolic execution allows an emulator to consider multiple states at once,
+        one for each path the program could possibly take.
+        This function yields a Machine for each such state
+
+        Arguments:
+            emulator: The symbolic emulator to examine
+
+        Yields:
+            One Machine for each active state tracked by the emulator
+        """
+        for emu in emulator.get_active_states():
+            machine = copy.deepcopy(self)
+            machine.extract(emu)
+            yield machine
 
     def get_cpus(self):
         """Gets a list of :class:`~smallworld.state.cpus.cpu.CPU` attached to this machine.
