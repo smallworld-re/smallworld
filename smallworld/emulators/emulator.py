@@ -1087,16 +1087,25 @@ class SymbolicEmulator(metaclass=abc.ABCMeta):
     def get_active_states(self) -> typing.Generator[Emulator, None, None]:
         """Access each active machine state currently considered by this emulator.
 
-        NOTE: This is only able to access the currently active states.
-        Some emulators also track dead-ended states,
-        but the interface for accessing them isn't generalizable.
-
         WARNING: Do not retain the stub objects produced by this generator.
         They are tied to parts of the internal state of the parent emulator
         that will be invalidated once emulation resumes.
 
         Yields:
             Stub emulator objects wrapping each active machine state
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def get_deadended_states(self) -> typing.Generator[Emulator, None, None]:
+        """Access each active machine state currently considered by this emulator.
+
+        WARNING: Do not retain the stub objects produced by this generator.
+        They are tied to parts of the internal state of the parent emulator
+        that will be invalidated once emulation resumes.
+
+        Yields:
+            Stub emulator objects wrapping each deadended machine state
         """
         raise NotImplementedError("Abstract method")
 
