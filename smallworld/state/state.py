@@ -194,7 +194,7 @@ class Value(metaclass=abc.ABCMeta):
                     f"Expected size {size}, but content has size {len(content)}"
                 )
 
-            return claripy.BVV(content)
+            return claripy.BVV(bytes(content))
 
         else:
             return None

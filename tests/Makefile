@@ -142,12 +142,13 @@ MIPS64_LDFLAGS := -T mips_linkerscript.ld
 MIPS64EL_LDFLAGS := -T mips_linkerscript.ld 
 
 # C flags
-GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0 
+GENERAL_CFLAGS := $(CFLAGS) -g -O0 -fno-sanitize=undefined -fno-stack-protector -fno-builtin -Wno-deprecated-declarations -D_FORTIFY_SOURCE=0
 ARMEL_CFLAGS := -marm -mfloat-abi=soft
 ARMHF_CFLAGS := -marm
+LA64_CFLAGS := -mno-lsx
 MIPS_CFLAGS := -mfloat-abi=hard
 MIPSEL_CFLAGS := -mfloat-abi=hard
-MIPS64_CFLAGS := -T mips_linkerscript.ld 
+MIPS64_CFLAGS := -T mips_linkerscript.ld
 MIPS64EL_CFLAGS := -T mips_linkerscript.ld
 PPC_CFLAGS := -mfloat-abi=hard
 
