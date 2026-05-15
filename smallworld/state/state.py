@@ -784,6 +784,72 @@ class Machine(StatefulSet):
         """
         return list(self._constraints)
 
+    def _build_solver(self) -> claripy.solvers.SolverHybrid:
+        solver = claripy.solvers.SolverHybrid()
+
+        for constraint in self._constraints:
+            solver.add(constraint)
+
+        return solver
+
+    def concretize(self, value: ValueContent) -> typing.Optional[bytes]:
+        """Concretize a value
+
+        This will convert whatever the value happens to be into bytes.
+        If it's a symbolic expression, it will find an assignment
+        that satisfies the constraints present in this machine.
+
+        Arguments:
+            value: The value to concretize
+
+        Returns:
+            A bytes object representing the value, or None if expr was None.
+        """
+        if value is None:
+            return None
+        elif isinstance(value, bytes):
+            return value
+        elif isinstance(value, int):
+            return value.to_bytes((value.bit_length() + 7) // 8, "big")
+        elif isinstance(value, claripy.ast.bv.BV):
+            solver = self._build_solver()
+            try:
+                (res,) = solver.eval(value, 1)
+            except claripy.errors.UnsatError:
+                raise exceptions.UnsatError("No assignment given constraints")
+            return res.to_bytes((res.bit_length() + 7) // 8, "big")
+        else:
+            raise TypeError(f"Unexpected value type {type(value)}")
+
+    def concretize_symbols(
+        self, expr: claripy.ast.bv.BV
+    ) -> typing.Generator[typing.Tuple[str, typing.Optional[bytes]], None, None]:
+        """Concretize all symbols present in a symbolic expression.
+
+        This is useful for finding satisfying assignments
+        that will allow you to reach this particular state;
+        feed all constraint expressions for a state into this function,
+        and you will get back assignments for all path-critical labels.
+
+        Arguments:
+            expr: The expression for which to find assignments
+
+        Yields:
+            Tuples of symbol name, symbol value.
+        """
+        solver = self._build_solver()
+        for leaf in expr.leaf_asts():
+            if leaf.op == "BVS":
+                try:
+                    (res,) = solver.eval(leaf, 1)
+                    if res == 0:
+                        val = b"\x00"
+                    else:
+                        val = res.to_bytes((res.bit_length() + 7) // 8, "big")
+                    yield (leaf.args[0], val)
+                except claripy.errors.UnsatError:
+                    yield (leaf.args[0], None)
+
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exit_points:
             emulator.add_exit_point(address)
@@ -940,6 +1006,37 @@ class Machine(StatefulSet):
             always_validate=always_validate,
             persistent_iters=iterations,
         )
+
+    def symbolic_emulate(
+        self, emulator: emulators.SymbolicEmulator
+    ) -> typing.Generator[Machine, None, None]:
+        """Symbolically execute this machine with the given emulator.
+
+        Arguments:
+            emulator: An emulator instance on which this machine state should
+                run,
+
+        Yields:
+            All possible system states after emulation
+        """
+
+        assert isinstance(emulator, emulators.Emulator)
+
+        self.apply(emulator)
+        try:
+            emulator.run()
+        except exceptions.EmulationStop:
+            pass
+
+        for emu in emulator.get_active_states():
+            machine_copy = copy.deepcopy(self)
+            machine_copy.extract(emu)
+            yield machine_copy
+
+        for emu in emulator.get_deadended_states():
+            machine_copy = copy.deepcopy(self)
+            machine_copy.extract(emu)
+            yield machine_copy
 
     def get_symbolic_states(
         self, emulator: emulators.SymbolicEmulator

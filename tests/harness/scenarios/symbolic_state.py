@@ -57,9 +57,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     emulator.enable_linear()
     emulator.add_exit_point(code.address + code.get_capacity())
 
-    for m in machine.step(emulator):
-        print(m.get_cpu().rip)
-    results = list(machine.get_symbolic_states(emulator))
+    results = list(machine.symbolic_emulate(emulator))
 
     for m in results:
         # Bit of a hack; I know by inspection there should be two constraints,
@@ -69,6 +67,13 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
                 raise ValueError(
                     "Unexpected constraint for state at {m.get_cpu().rip}: {constraint}"
                 )
+            print(f"Constraint: {constraint}")
+            for symbol, value in m.concretize_symbols(constraint):
+                if value is not None:
+                    val_str = " ".join(map(lambda x: f"{x:02x}", value))
+                else:
+                    val_str = "UNSAT!"
+                print(f"Symbol {symbol} concretized to {val_str}")
 
     if len(results) != 2:
         raise smallworld.exceptions.AnalysisError(

@@ -1503,6 +1503,12 @@ class AngrEmulator(
         for s in self.mgr.stashes["active"]:
             yield ConcreteAngrEmulator(s, self)
 
+    def get_deadended_states(self) -> typing.Generator[emulator.Emulator, None, None]:
+        if not self._initialized:
+            raise NotImplementedError("Cannot visit states before initialization")
+        for s in self.mgr.stashes["deadended"]:
+            yield ConcreteAngrEmulator(s, self)
+
     def enable_linear(self):
         if self._dirty:
             raise NotImplementedError(
