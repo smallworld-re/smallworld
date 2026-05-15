@@ -80,4 +80,4 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
             f"Expected 2 result states, got {len(results)}"
         )
 
-    return 1
+    return 0
