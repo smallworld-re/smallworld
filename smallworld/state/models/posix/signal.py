@@ -1,9 +1,12 @@
+import logging
 import typing
 
 from .... import emulators
 from ....platforms import Architecture
 from ..c99.signal import Signal
 from ..cstd import ArgumentType, CStdModel
+
+logger = logging.getLogger(__name__)
 
 # NOTE: signal() and raise() are defined in C99
 
@@ -167,7 +170,7 @@ class PthreadSigmask(CStdModel):
                 self.sigmask = newvec
             else:
                 # Case: default: Return failure
-                print(f"Unknown how {how}")
+                logger.error(f"signal: Unknown how {how}")
                 self.set_return_value(emulator, -1)
                 return
 

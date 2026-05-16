@@ -256,9 +256,6 @@ class WRGraph:
         # starting with value at a pc, to identify all inputs
 
         def der_read(n: WRNode, dst: SrcDst):
-            # print("der_read")
-            # print(f"    n = {n}")
-            # print(f"    dst = {dst.wr}")
             if dst.wr.info.is_new:
                 # this should be something with NO in-edges since its
                 # a new read, thus an input
@@ -275,9 +272,6 @@ class WRGraph:
             return der
 
         def der_write(n: WRNode, src: SrcDst):
-            # print("der_write")
-            # print(f"     n = {n}")
-            # print(f"     src = {src.wr}")
             # we dont have any writes in our graph that *arent* new
             assert src.wr.info.is_new is True
             der: typing.Set[SrcDst] = set([])
