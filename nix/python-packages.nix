@@ -60,6 +60,8 @@ let
     "unicornafl"
     "pypanda"
     "unicorn"
+    "styx-emulator"
+    "styxafl"
   ];
 
   addPrebuiltPlaceholders = deps: deps // lib.genAttrs prebuiltPythonPackages (_: [ ]);
@@ -87,6 +89,8 @@ let
       mkUnicornafl = pkgs.callPackage ./unicornafl-build {
         unicornLibraryPath = "${patchedUnicorn}/lib";
       };
+      mkStyxEmulator = pkgs.callPackage ./styx-emulator-build { };
+      mkStyxafl = pkgs.callPackage ./styxafl-build { };
     in
     {
       unicorn = unicornPy.override { unicorn = patchedUnicorn; };
@@ -94,6 +98,11 @@ let
       # PANDA's Python bindings come from the dedicated packaging module in
       # `nix/panda-packages.nix`; they cannot be built directly from uv.lock.
       pypanda = pandaNgPackages.${system}.pypandaBuilder pythonPkgs;
+      # Styx bindings are built from the upstream source via maturin; the
+      # `styxafl` bridge crate lives under `nix/styxafl-src/` and depends on
+      # the same pinned styx-emulator revision.
+      styx-emulator = mkStyxEmulator pythonPkgs;
+      styxafl = mkStyxafl pythonPkgs;
     };
 
   # Build one locked Python package set for one platform/interpreter pair.
@@ -123,6 +132,8 @@ let
         unicorn = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicorn; };
         unicornafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.unicornafl; };
         pypanda = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.pypanda; };
+        styx-emulator = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styx-emulator; };
+        styxafl = pyprojectHacks.nixpkgsPrebuilt { from = nativeAddons.styxafl; };
       };
     in
     pyprojectPackages.overrideScope (

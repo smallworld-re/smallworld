@@ -1,0 +1,21 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "styxafl"
+description = "PyO3 bridge for fuzzing styx-emulator targets through AFL++"
+license = "BSD-2-Clause"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = ["version"]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+profile = "release"
+auditwheel = "check"
+strip = true
+sdist-generator = "cargo"

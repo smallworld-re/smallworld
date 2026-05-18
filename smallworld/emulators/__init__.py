@@ -25,4 +25,10 @@ try:
 except ImportError:
     __panda__ = []
 
-__all__ = __emulator__ + __unicorn__ + __angr__ + __panda__ + __pcode__
+try:
+    from .styx import *  # noqa: F401, F403
+    from .styx import __all__ as __styx__
+except ImportError:
+    __styx__ = []
+
+__all__ = __emulator__ + __unicorn__ + __angr__ + __panda__ + __pcode__ + __styx__

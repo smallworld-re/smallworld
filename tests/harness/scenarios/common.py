@@ -33,6 +33,7 @@ _EMULATOR_NAMES = {
     "panda": "PandaEmulator",
     "pcode": "GhidraEmulator",
     "ghidra": "GhidraEmulator",
+    "styx": "StyxEmulator",
 }
 
 

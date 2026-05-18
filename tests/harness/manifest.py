@@ -55,7 +55,7 @@ def _variant_from_entry(
 
     parts = stem.split("_")
     explicit_suffix = None
-    if parts[-1] in {"angr", "panda", "pcode", "ghidra", "unicorn"}:
+    if parts[-1] in {"angr", "panda", "pcode", "ghidra", "unicorn", "styx"}:
         explicit_suffix = parts[-1]
         stem = "_".join(parts[:-1])
 
@@ -1308,8 +1308,8 @@ def _build_fuzz_cases() -> list[CaseSpec]:
     cases = []
     for entry in LEGACY_MATRIX["FuzzTests"]:
         stem = entry["name"][5:]
-        kind, arch = stem.split("_", 1)
         skip_reason = entry["skip_reason"]
+        kind, arch = stem.split("_", 1)
         if kind == "fuzz":
 
             def run(runner: CaseRunner, *, arch: str = arch) -> None:
