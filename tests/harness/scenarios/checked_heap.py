@@ -100,8 +100,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     code.update_symbol_value("free", free_model._address)
 
     emulator = make_emulator(smallworld, platform, engine)
-    if engine == "angr" and isinstance(emulator, smallworld.emulators.AngrEmulator):
-
     emulator.add_exit_point(0)
     expected_prefix, expected_suffix = _EXPECTED_ERRORS[family]
     try:

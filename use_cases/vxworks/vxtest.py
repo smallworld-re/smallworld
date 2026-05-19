@@ -59,9 +59,6 @@ cpu.r1.set(sp)
 emulator = smallworld.emulators.UnicornEmulator(platform)
 # emulator = smallworld.emulators.PandaEmulator(platform)
 
-if isinstance(emulator, smallworld.emulators.AngrEmulator):
-
-
 printf_model = smallworld.state.models.Model.lookup(
     "printf",
     platform,
