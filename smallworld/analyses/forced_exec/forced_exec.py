@@ -73,7 +73,6 @@ class ForcedExecution(ForcedExecutionUnderlay):
         super().__init__(trace)
         self.platform: Platform = platform
         self.emulator = AngrEmulator(platform)
-        self.emulator.enable_linear()
 
     def run(self, machine: Machine):
         emulator = self.emulator

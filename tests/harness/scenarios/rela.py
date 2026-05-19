@@ -11,7 +11,6 @@ from .common import (
     make_emulator,
     make_platform,
     make_puts_model,
-    maybe_enable_linear,
     resolve_ppc64_function_descriptor,
     set_register,
     split_variant,
@@ -284,7 +283,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         set_register(cpu, "r2", 0x10027F00)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     _configure_exit(machine, emulator, cpu, code, stack, arch, engine, entrypoint)
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 

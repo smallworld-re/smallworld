@@ -700,7 +700,6 @@ class CrashTriage(analysis.Analysis):
             emu.state.memory.write_strategies = [SimConcretizationStrategyFault(False)]
 
         emu = emulators.AngrEmulator(self.platform, init=angr_init)
-        emu.enable_linear()
         machine.apply(emu)
         emu.initialize()
 

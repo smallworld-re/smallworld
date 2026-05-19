@@ -25,7 +25,6 @@ machine.add(cpu)
 
 # Emulator
 emulator = smallworld.emulators.AngrEmulator(code.platform)
-emulator.enable_linear()
 
 # Entry point / exit point
 entry_point = code.get_symbol_value("smallworld_bug")

@@ -1074,12 +1074,11 @@ class SymbolicEmulator(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def enable_linear(self):
-        """Set this emulator to only support linear execution.
+    def enable_branching(self):
+        """Set this emulator to support execution of unconstrained branches.
 
-        Linear execution means that the emulator will halt
+        With branching enabled the emulator will not halt
         when it encounters an unconstrained branch.
-        The frontier states will be available via get_active_states()
         """
         raise NotImplementedError("Abstract method")
 

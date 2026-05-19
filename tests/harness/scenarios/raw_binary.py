@@ -10,7 +10,6 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
@@ -127,7 +126,6 @@ def run_integer_case(
     _configure_stack(smallworld, machine, cpu, platform, spec, argument)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     install_tricore_panda_raw_binary_call_return_compatibility(
         arch, engine, emulator, code
     )

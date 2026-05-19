@@ -9,7 +9,6 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
@@ -265,7 +264,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     machine.add(foobar)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     if spec.exit_offset is not None:
         emulator.add_exit_point(code.address + spec.exit_offset)
     else:

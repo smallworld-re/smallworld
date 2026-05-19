@@ -12,7 +12,6 @@ from .common import (
     make_emulator,
     make_noop_model,
     make_platform,
-    maybe_enable_linear,
     push_cli_argv,
     set_register,
     split_variant,
@@ -112,7 +111,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     emulator.add_exit_point(0)
     emulator.add_exit_point(code.address + spec.exit_offset)
     add_code_bounds(machine, code, lib)
