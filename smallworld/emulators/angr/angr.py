@@ -70,7 +70,7 @@ class AngrEmulator(
         self._dirty: bool = False
 
         # Linear mode bit; tells us if we're running in forced linear execution
-        self._linear: bool = False
+        self._linear: bool = True
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
@@ -1509,13 +1509,13 @@ class AngrEmulator(
         for s in self.mgr.stashes["deadended"]:
             yield ConcreteAngrEmulator(s, self)
 
-    def enable_linear(self):
+    def enable_branching(self):
         if self._dirty:
             raise NotImplementedError(
-                "Enabling linear mode not supported once execution begins"
+                "Enabling branching not supported once execution begins"
             )
-        self._linear = True
-        log.warn("Linear execution mode enabled")
+        self._linear = False
+        log.warn("Branching enabled")
 
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         if not self._initialized:
@@ -1738,8 +1738,6 @@ class ConcreteAngrEmulator(AngrEmulator):
 
     NOTE: This is NOT a full emulator!
     Think of it more as a view onto an AngrEmulator instance.
-    If you want to explore a single path using angr,
-    use AngrEmulator and call enable_linear() before exploration.
     """
 
     @property

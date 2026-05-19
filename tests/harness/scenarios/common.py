@@ -254,13 +254,6 @@ def resolve_ppc64_function_descriptor(code, symbol: str) -> int:
     raise ValueError(f"Failed parsing Function Descriptor for {symbol}")
 
 
-def maybe_enable_linear(smallworld, emulator, engine: str) -> None:
-    if normalise_engine(engine) == "angr" and isinstance(
-        emulator, smallworld.emulators.AngrEmulator
-    ):
-        emulator.enable_linear()
-
-
 def install_tricore_panda_shadow_returns(emulator, code) -> None:
     shadow_returns: list[int] = []
 

@@ -54,7 +54,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     emulator = make_emulator(smallworld, platform, engine)
     assert isinstance(emulator, smallworld.emulators.SymbolicEmulator)
     assert isinstance(emulator, smallworld.emulators.Emulator)
-    emulator.enable_linear()
     emulator.add_exit_point(code.address + code.get_capacity())
 
     results = list(machine.symbolic_emulate(emulator))

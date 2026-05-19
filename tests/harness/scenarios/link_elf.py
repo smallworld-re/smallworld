@@ -11,7 +11,6 @@ from .common import (
     load_elf_library,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     push_cli_argv,
     set_register,
     split_variant,
@@ -270,7 +269,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         print(f"str_addr: {string_address:x}")
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     if spec.add_zero_exitpoint:
         emulator.add_exit_point(0)
     add_code_bounds(machine, code, lib)
