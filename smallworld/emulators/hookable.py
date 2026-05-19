@@ -231,18 +231,18 @@ class QInterruptHookable(InterruptHookable):
     def __init__(self: typing.Any) -> None:
         super().__init__()
         self.all_interrupts_hook: typing.Optional[
-            typing.Callable[[Emulator, int], None]
+            typing.Callable[[Emulator, int], bool]
         ] = None
-        self.interrupt_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
+        self.interrupt_hooks: typing.Dict[int, typing.Callable[[Emulator], bool]] = {}
 
-    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
+    def hook_interrupts(self, function: typing.Callable[[Emulator, int], bool]) -> None:
         self.all_interrupts_hook = function
 
     def unhook_interrupts(self):
         self.all_interrupts_hook = None
 
     def hook_interrupt(
-        self, intno: int, function: typing.Callable[[Emulator], None]
+        self, intno: int, function: typing.Callable[[Emulator], bool]
     ) -> None:
         if intno in self.interrupt_hooks:
             raise ValueError(
@@ -259,7 +259,7 @@ class QInterruptHookable(InterruptHookable):
 
     def is_interrupt_hooked(
         self, intno: int
-    ) -> typing.Optional[typing.Callable[[Emulator], None]]:
+    ) -> typing.Optional[typing.Callable[[Emulator], bool]]:
         if intno in self.interrupt_hooks:
             return self.interrupt_hooks[intno]
         else:

@@ -315,12 +315,20 @@ class UnicornEmulator(
                 self.engine.emu_stop()
                 return
 
-            if self.interrupts_hook is not None:
-                self.interrupts_hook()
-            if index in self.interrupt_hook:
-                self.interrupt_hook[index]()
+            # Check if we have any interrupt hooks attached,
+            # and check if any of them handle the interrupt.
+            handled = False
 
-            self.machdef.handle_interrupt(index, self.curr_pc)
+            if self.all_interrupts_hook is not None:
+                handled |= self.all_interrupts_hook(self, index)
+            if index in self.interrupt_hook:
+                handled |= self.interrupt_hook[index](self)
+
+            if not handled:
+                logger.warning(f"Unhandled interrupt {index}")
+                # If the interrupt is not handled,
+                # fall back on default behavior defined in the machine definition
+                self.machdef.handle_interrupt(index, self.curr_pc)
 
         self.engine.hook_add(unicorn.UC_HOOK_INTR, interrupt_callback)
 

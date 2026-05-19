@@ -943,6 +943,15 @@ def _build_symbolic_state_cases() -> list[CaseSpec]:
     )
 
 
+def _build_interrupt_cases() -> list[CaseSpec]:
+    return _build_legacy_case_command_cases(
+        ("InterruptTests",),
+        case_prefix="interrupt",
+        scenario="interrupt",
+        tags=("scenario", "interrupt"),
+    )
+
+
 def _build_sysv_cases() -> list[CaseSpec]:
     return _build_legacy_script_cases(
         ("SysVModelTests",),
@@ -1518,6 +1527,7 @@ def all_cases() -> list[CaseSpec]:
         _build_unmapped_cases,
         _build_symbolic_cases,
         _build_symbolic_state_cases,
+        _build_interrupt_cases,
         _build_sysv_cases,
         _build_structure_cases,
         _build_memhook_cases,
