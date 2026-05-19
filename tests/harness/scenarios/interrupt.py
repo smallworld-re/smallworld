@@ -54,7 +54,7 @@ _SPECS = {
         pc_register="pc",
         result_register="d0",
         arg_register="d0",
-        engines=("unicorn", "panda"),
+        engines=("unicorn",),
     ),
     "mips": RawBinarySpec(
         platform=PlatformSpec("MIPS32", "BIG"),

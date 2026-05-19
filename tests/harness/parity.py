@@ -29,6 +29,7 @@ GENERIC_SUITES = {
     "FloatsTests": ("floats", None),
     "FunctionPointerTests": ("funcptr", None),
     "HookingTests": ("hooking", "hooking"),
+    "InterruptTests": ("interrupt", None),
     "LinkElfTests": ("link_elf", "link_elf"),
     "LinkPETests": ("link_pe", "pe"),
     "MemhookTests": ("memhook", None),
