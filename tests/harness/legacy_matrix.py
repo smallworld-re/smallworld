@@ -5165,6 +5165,7 @@ LEGACY_MATRIX = {
         {"name": "test_dma_symbolic", "skip_reason": None},
         {"name": "test_hooking_symbolic", "skip_reason": None},
         {"name": "test_square_symbolic", "skip_reason": None},
+        {"name": "test_funchook_symbolic", "skip_reason": None},
         {"name": "test_branch_pcode_symbolic", "skip_reason": None},
         {"name": "test_dma_pcode_symbolic", "skip_reason": None},
         {
@@ -5178,6 +5179,7 @@ LEGACY_MATRIX = {
             ),
         },
         {"name": "test_square_pcode_symbolic", "skip_reason": None},
+        {"name": "test_funchook_pcode_symbolic", "skip_reason": None},
     ],
     "SymbolicStateTests": [
         {

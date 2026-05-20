@@ -929,6 +929,13 @@ def _build_symbolic_cases() -> list[CaseSpec]:
         ),
         ("symbolic:square", "symbolic/square.amd64.angr.symbolic.py", (), None, None),
         (
+            "symbolic:funchook",
+            "symbolic/funchook.amd64.angr.symbolic.py",
+            (),
+            None,
+            None,
+        ),
+        (
             "symbolic:branch_pcode",
             "symbolic/branch.amd64.pcode_symbolic.symbolic.py",
             (),
@@ -952,6 +959,13 @@ def _build_symbolic_cases() -> list[CaseSpec]:
         (
             "symbolic:square_pcode",
             "symbolic/square.amd64.pcode_symbolic.symbolic.py",
+            (),
+            None,
+            None,
+        ),
+        (
+            "symbolic:funchook_pcode",
+            "symbolic/funchook.amd64.pcode_symbolic.symbolic.py",
             (),
             None,
             None,

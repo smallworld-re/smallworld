@@ -8,6 +8,7 @@ top-level imports of Ghidra Java packages are safe here.
 from __future__ import annotations
 
 import logging
+import re
 import typing
 
 import claripy
@@ -75,6 +76,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # values (raise SymbolicValueError) from SymZ3-internal fresh BVS
         # placeholders for uninitialized state (treat as concrete zero).
         self._symbolic_inputs: typing.Dict[str, claripy.ast.bv.BV] = {}
+
+        # Half-open ``[start, end)`` ranges that have been labelled by a
+        # ``write_memory_label`` call. Used as a fast filter in
+        # ``read_memory_content`` so it can skip building SymZ3's per-byte
+        # ``Concat`` for ranges that we know contain no user-symbolic data.
+        self._labeled_memory_ranges: typing.List[typing.Tuple[int, int]] = []
 
         # User-supplied constraints (claripy boolean expressions).
         self._user_constraints: typing.List[claripy.ast.bool.Bool] = []
@@ -209,15 +216,38 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
         SymValueZ3 carries its SMT-LIB serialization eagerly in
         ``bitVecExprString``; user labels appear in that string only if they
-        are part of the expression. Skipping the full SMT-LIB → claripy
-        round-trip on the (overwhelmingly common) negative case avoids a
-        proportional native Z3 ``Context`` allocation per register/memory
-        check, which matters when ``machine.extract`` reads ~100 registers.
+        are part of the expression. Matching at word boundaries avoids
+        accidental hits inside numeric literals (``#x0000`` contains an
+        ``x``) and inside register names (``rax`` ends in ``x``).
+
+        Skipping the full SMT-LIB → claripy round-trip on the (overwhelmingly
+        common) negative case avoids a proportional native Z3 ``Context``
+        allocation per register/memory check, which matters when
+        ``machine.extract`` reads ~100 registers.
         """
         if not self._symbolic_inputs:
             return False
-        s = str(sym.bitVecExprString) if sym.bitVecExprString is not None else ""
-        return any(label in s for label in self._symbolic_inputs)
+        if sym.bitVecExprString is None:
+            return False
+        pattern = self._user_input_pattern()
+        if pattern is None:
+            return False
+        return bool(pattern.search(str(sym.bitVecExprString)))
+
+    def _user_input_pattern(self) -> typing.Optional["re.Pattern[str]"]:
+        """Cached whole-word regex over the currently-known user labels."""
+        labels = self._symbolic_inputs
+        cached = self.__dict__.get("_user_input_pattern_cache")
+        if cached is not None and cached[0] is len(labels):
+            return cached[1]
+        if not labels:
+            self._user_input_pattern_cache = (len(labels), None)
+            return None
+        pattern = re.compile(
+            r"\b(?:" + "|".join(re.escape(label) for label in labels) + r")\b"
+        )
+        self._user_input_pattern_cache = (len(labels), pattern)
+        return pattern
 
     def read_register_content(self, name: str) -> int:
         if name == "pc":
@@ -227,16 +257,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         concrete = pair.getLeft()
         sym = pair.getRight()
-        if sym is not None and sym.toBigInteger() is None:
-            # Non-numeral symbolic side. Distinguish a genuinely user-supplied
-            # symbolic value (raise; the caller should switch to
-            # read_register_symbolic) from SymZ3's default fresh BVS for an
-            # uninitialized register (treat as zero, matching the concrete
-            # GhidraEmulator).
-            if self._sym_references_user_input(sym):
-                raise exceptions.SymbolicValueError(
-                    f"Register {name} contains a symbolic value"
-                )
+        if sym is not None and self._sym_references_user_input(sym):
+            # The symbolic side mentions a user-supplied label, so the value
+            # is genuinely symbolic — caller should switch to
+            # read_register_symbolic. ``SymValueZ3.toBigInteger`` is not a
+            # useful check here: SymZ3 stores non-simplified expressions
+            # (e.g. ``BVSub(BVV(n), BVV(8))``) even when the value is
+            # arithmetically concrete, so ``toBigInteger`` returns null for
+            # plenty of values whose concrete byte side is perfectly fine.
+            raise exceptions.SymbolicValueError(
+                f"Register {name} contains a symbolic value"
+            )
         return self._int_from_bytes(concrete)
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
@@ -308,8 +339,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # angr's write_register_label: the label takes on the prior value,
         # so labelling an unset register leaves it unconstrained while
         # labelling a concretely-written register pins the label to that
-        # value.
-        self._user_constraints.append(prev == bv)
+        # value. Skip the binding entirely when the prior value was itself
+        # an unconstrained fresh BVS (typical for a register that was never
+        # written before this label call) — adding ``BVS_fresh == BVS_label``
+        # only inflates the constraint set without telling the solver
+        # anything useful.
+        if not (prev.symbolic and prev.op == "BVS"):
+            self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self.write_register_content(name, bv)
 
@@ -343,14 +379,26 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         )
 
     def read_memory_content(self, address: int, size: int) -> bytes:
-        pair = self._read_memory_pair(address, size)
-        sym = pair.getRight()
-        if sym is not None and sym.toBigInteger() is None:
-            if self._sym_references_user_input(sym):
+        # Probe whether this range overlaps a user-labeled memory region; if
+        # so, raise so the caller can switch to read_memory_symbolic. We do
+        # the cheap "is there overlap?" check first and only materialize the
+        # symbolic side when there is a labeled region nearby — otherwise
+        # large concrete reads (e.g. Stack.extract reading 16 KB) would
+        # force SymZ3 to build an enormous byte-wise ``Concat`` SymValueZ3
+        # just to confirm "no, not symbolic".
+        end = address + size
+        if any(
+            not (e <= address or end <= s)
+            for s, e in self._labeled_memory_ranges
+        ):
+            pair = self._read_memory_pair(address, size)
+            sym = pair.getRight()
+            if sym is not None and self._sym_references_user_input(sym):
                 raise exceptions.SymbolicValueError(
                     f"Memory at {hex(address)} (size {size}) is symbolic"
                 )
-        return self.bytes_java_to_py(pair.getLeft())
+            return self.bytes_java_to_py(pair.getLeft())
+        return self._read_concrete_bytes_at(address, size)
 
     def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
         pair = self._read_memory_pair(address, size)
@@ -383,7 +431,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 )
             size = size_bits // 8
             if content.symbolic:
-                concrete_bytes = bytes(size)
+                # Preserve any concrete bytes already present at this
+                # address. write_memory_label calls this method to overlay
+                # a label BVS onto memory that was just written concretely;
+                # if we zeroed the byte side, the concrete-driven execution
+                # path would read zeros instead of the originally written
+                # value (e.g. a fake return address would dispatch to 0).
+                concrete_bytes = self._read_concrete_bytes_at(address, size)
             else:
                 concrete_bytes = int(content.concrete_value).to_bytes(
                     size, self._byteorder_str()
@@ -392,6 +446,23 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             self._setvar_memory(address, size, concrete_bytes, sym_value)
         else:
             self._write_concrete_bytes(address, bytes(content))
+
+    def _read_concrete_bytes_at(self, address: int, size: int) -> bytes:
+        """Read ``size`` bytes at ``address`` from the concrete byte side only.
+
+        Unlike :meth:`read_memory_content`, never raises
+        ``SymbolicValueError`` — even when the symbolic side is genuinely
+        symbolic, the concrete byte piece always has a defined value (zero
+        for never-written addresses, the most-recent write otherwise).
+        """
+        raw = self._emu.getSharedState().getLeft().getVar(
+            self.machdef.language.getDefaultSpace(),
+            self._addr_bytes(address),
+            size,
+            False,
+            PcodeExecutorStatePiece.Reason.INSPECT,
+        )
+        return self.bytes_java_to_py(raw)
 
     def _write_concrete_bytes(self, address: int, content: bytes) -> None:
         """Chunk a concrete-bytes write so the symbolic-side bitvector stays
@@ -443,8 +514,10 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # byte-level ``Concat`` of ``Extract`` slices; passing that raw to
         # the solver makes Z3 enumerate the structure instead of using the
         # cheap underlying value.
-        self._user_constraints.append(prev == bv)
+        if not (prev.symbolic and prev.op == "BVS"):
+            self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
+        self._labeled_memory_ranges.append((address, address + size))
         self.write_memory_content(address, bv)
 
     # ------------------------------------------------------------------
