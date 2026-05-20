@@ -1,3 +1,4 @@
+import logging
 import typing
 
 import angr
@@ -6,6 +7,8 @@ import pyvex
 
 from ....platforms import Architecture, Byteorder
 from .machdef import AngrMachineDef
+
+logger = logging.getLogger(__name__)
 
 
 class i386MachineDef(AngrMachineDef):
@@ -231,5 +234,5 @@ class i386MachineDef(AngrMachineDef):
         try:
             return super().successors(state, extra_stop_points=exit_points, **kwargs)
         except angr.errors.SimIRSBNoDecodeError as e:
-            print(f"Bad IRSB:\n{irsb}")
+            logger.error(f"Bad IRSB:\n{irsb}")
             raise e
