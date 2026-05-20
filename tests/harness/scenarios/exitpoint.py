@@ -193,6 +193,8 @@ _SKIP_REASONS = {
 }
 
 
+SCENARIO_PREFIXES = (("exitpoint", "exitpoint"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="exitpoint",
     scenario="exitpoint",

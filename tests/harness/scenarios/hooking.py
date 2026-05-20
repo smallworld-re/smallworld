@@ -207,6 +207,9 @@ _SKIP_REASONS = {
 }
 
 
+SCENARIO_PREFIXES = (("hooking", "hooking"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "hooking":
         return False

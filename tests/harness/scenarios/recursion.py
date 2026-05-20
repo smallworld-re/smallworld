@@ -101,6 +101,8 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
 
 _SPECS = build_specs(RecursionSpec, _ARCHS, per_arch=_PER_ARCH)
 
+SCENARIO_PREFIXES = (("recursion", "recursion"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="recursion",
     scenario="recursion",

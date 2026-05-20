@@ -56,6 +56,9 @@ _SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("link_pe", "link_pe"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "link_pe":
         return False

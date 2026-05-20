@@ -47,6 +47,8 @@ _SPECS = build_specs(
 )
 
 
+SCENARIO_PREFIXES = (("interrupt", "interrupt"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="interrupt",
     scenario="interrupt",

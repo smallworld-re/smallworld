@@ -136,6 +136,8 @@ _SKIP_REASONS = {
 }
 
 
+SCENARIO_PREFIXES = (("unmapped", "unmapped"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="unmapped",
     scenario="unmapped",

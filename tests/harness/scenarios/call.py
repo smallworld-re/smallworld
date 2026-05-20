@@ -65,6 +65,8 @@ _PER_ARCH["tricore"]["entry_offset"] = 0x14
 
 _SPECS = build_specs(RawBinarySpec, _ARCHS, per_arch=_PER_ARCH)
 
+SCENARIO_PREFIXES = (("call", "call"),)
+
 
 def _call_expectations(
     variant: str, kwargs: Mapping[str, Any]

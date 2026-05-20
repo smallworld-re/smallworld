@@ -29,6 +29,14 @@ _EXPECTED_ERRORS = {
 }
 
 
+SCENARIO_PREFIXES = (
+    ("checked_heap.double_free", "checked_heap.double_free"),
+    ("checked_heap.read", "checked_heap.read"),
+    ("checked_heap.uaf", "checked_heap.uaf"),
+    ("checked_heap.write", "checked_heap.write"),
+)
+
+
 def _supports_engine(arch: str, engine: str) -> bool:
     if arch == "riscv64":
         return engine in {"unicorn", "angr", "pcode"}

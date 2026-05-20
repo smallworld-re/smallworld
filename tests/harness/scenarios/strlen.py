@@ -66,6 +66,8 @@ _SPECS = build_specs(
 )
 
 
+SCENARIO_PREFIXES = (("strlen", "strlen"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="strlen",
     scenario="strlen",

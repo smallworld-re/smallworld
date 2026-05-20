@@ -178,6 +178,9 @@ _AFL_SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("fuzz", "fuzz"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario == "fuzz":
         return variant in _SIMPLE_SPECS

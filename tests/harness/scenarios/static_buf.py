@@ -196,6 +196,8 @@ _SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("static_buf", "static_buf"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="static_buf",
     scenario="static_buf",

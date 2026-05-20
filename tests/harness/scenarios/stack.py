@@ -295,6 +295,9 @@ _SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("stack", "stack"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "stack":
         return False

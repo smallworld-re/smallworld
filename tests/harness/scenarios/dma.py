@@ -92,6 +92,8 @@ _SPECS = build_specs(
     per_arch=_PER_ARCH,
 )
 
+SCENARIO_PREFIXES = (("dma", "dma"),)
+
 
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "dma":

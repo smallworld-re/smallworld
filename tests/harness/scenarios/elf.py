@@ -157,6 +157,9 @@ _UNICORN_BOUND_EXITS = {
 }
 
 
+SCENARIO_PREFIXES = (("elf", "elf"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "elf":
         return False

@@ -29,6 +29,8 @@ def _model_return_variants():
     return [("tricore.panda", None, {})]
 
 
+SCENARIO_PREFIXES = (("model_return", "model_return"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="model_return",
     scenario="model_return",

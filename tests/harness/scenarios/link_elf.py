@@ -181,6 +181,9 @@ _SKIP_REASONS = {
 }
 
 
+SCENARIO_PREFIXES = (("link_elf", "link_elf"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "link_elf":
         return False

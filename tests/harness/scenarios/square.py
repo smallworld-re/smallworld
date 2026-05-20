@@ -41,6 +41,8 @@ _SPECIAL_VARIANTS = {
     ),
 }
 
+SCENARIO_PREFIXES = (("square", "square"),)
+
 
 def _square_expectations(
     variant: str, kwargs: Mapping[str, Any]

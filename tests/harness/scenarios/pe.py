@@ -63,6 +63,9 @@ _SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("pe", "pe"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "pe":
         return False

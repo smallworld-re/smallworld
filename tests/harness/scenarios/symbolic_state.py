@@ -24,6 +24,9 @@ _SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("symbolic_state", "symbolic_state"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "symbolic_state":
         return False

@@ -35,6 +35,8 @@ _SPECS = build_specs(
     per_arch={"aarch64": {"result_register": "w0"}},
 )
 
+SCENARIO_PREFIXES = (("branch", "branch"),)
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="branch",
     scenario="branch",

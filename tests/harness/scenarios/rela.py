@@ -184,6 +184,9 @@ _SPECS = {
 }
 
 
+SCENARIO_PREFIXES = (("rela", "rela"),)
+
+
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "rela":
         return False
