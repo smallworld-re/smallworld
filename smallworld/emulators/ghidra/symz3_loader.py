@@ -107,7 +107,9 @@ def _find_extension_zip(install_dir: pathlib.Path) -> pathlib.Path:
     )
 
 
-def _install_extension(zip_path: pathlib.Path, user_ext_dir: pathlib.Path) -> pathlib.Path:
+def _install_extension(
+    zip_path: pathlib.Path, user_ext_dir: pathlib.Path
+) -> pathlib.Path:
     """Extract the SymbolicSummaryZ3 extension into the user extensions dir.
 
     Idempotent: a marker file inside the extracted directory short-circuits
