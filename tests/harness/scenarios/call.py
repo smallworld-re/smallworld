@@ -4,7 +4,9 @@ from typing import Any, Mapping, Sequence
 
 from .common import ARCH_REGISTERS, build_specs
 from .raw_binary import RawBinarySpec, StackSpec, run_integer_case, supports_variant
-from .spec import ScenarioInfo, assert_outputs, from_legacy
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
+
+NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
@@ -84,9 +86,13 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="call",
     scenario="call",
     tags=("scenario", "call"),
-    variants_source=from_legacy(
-        ("CallTestsAngr", "CallTestsGhidra", "CallTestsPanda", "CallTestsUnicorn"),
-        prefix="call",
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unexpected trap"},
+        arch_kwargs={
+            arch: {"signext": True}
+            for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
+        },
     ),
     run_factory=assert_outputs(_call_expectations),
 )

@@ -14,7 +14,9 @@ from .common import (
     set_register,
     split_variant,
 )
-from .spec import ScenarioInfo, from_legacy, just_run
+from .spec import ScenarioInfo, from_arch_table, just_run
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -142,7 +144,12 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="unmapped",
     scenario="unmapped",
     tags=("scenario", "unmapped"),
-    variants_source=from_legacy(("UnmappedTests",), prefix="unmapped"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=tuple(
+            (variant, reason, {}) for variant, reason in _SKIP_REASONS.items()
+        ),
+    ),
     run_factory=just_run(),
 )
 

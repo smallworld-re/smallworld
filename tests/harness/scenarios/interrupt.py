@@ -12,7 +12,9 @@ from .common import (
     split_variant,
 )
 from .raw_binary import RawBinarySpec
-from .spec import ScenarioInfo, from_legacy, just_run
+from .spec import ScenarioInfo, from_arch_table, just_run
+
+NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
@@ -53,7 +55,13 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="interrupt",
     scenario="interrupt",
     tags=("scenario", "interrupt"),
-    variants_source=from_legacy(("InterruptTests",)),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "amd64": "Interrupt hook doesn't fire",
+            "i386": "Interrupt hook doesn't fire",
+        },
+    ),
     run_factory=just_run(),
 )
 

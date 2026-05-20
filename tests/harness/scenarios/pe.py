@@ -4,6 +4,7 @@ import dataclasses
 import logging
 from typing import Sequence
 
+from .spec import ScenarioInfo, from_arch_table, just_run
 from .common import (
     PlatformSpec,
     StringSource,
@@ -64,6 +65,16 @@ _SPECS = {
 
 
 SCENARIO_PREFIXES = (("pe", "pe"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="pe",
+    scenario="pe",
+    tags=("scenario", "pe"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

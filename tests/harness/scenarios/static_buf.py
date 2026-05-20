@@ -12,7 +12,9 @@ from .common import (
     set_register,
     split_variant,
 )
-from .spec import ScenarioInfo, assert_contains, from_legacy
+from .spec import ScenarioInfo, assert_contains, from_arch_table
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -202,7 +204,10 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="static_buf",
     scenario="static_buf",
     tags=("scenario", "static_buf"),
-    variants_source=from_legacy(("StaticBufferTests",)),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+    ),
     run_factory=assert_contains("0x4a1", case_sensitive=False),
 )
 

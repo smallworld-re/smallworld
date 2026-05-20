@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .common import (
     PlatformSpec,
     load_raw_code,
@@ -296,6 +297,40 @@ _SPECS = {
 
 
 SCENARIO_PREFIXES = (("stack", "stack"),)
+
+NATIVE_PARITY = True
+
+_STACK_RES = {
+    "aarch64": "0xffffffff",
+    "la64": "0xffff",
+    "mips": "0xaaaa",
+    "mips64": "0xffff",
+    "mips64el": "0xffff",
+    "mipsel": "0xaaaa",
+    "ppc": "0xffff",
+    "ppc64": "0xffff",
+    "riscv64": "0xffffffff",
+    "tricore": "0xffffffff",
+}
+
+
+def _stack_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    return (((), str(kwargs.get("res", "0xaaaaaaaa"))),)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="stack",
+    scenario="stack",
+    tags=("scenario", "stack"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        arch_kwargs={arch: {"res": res} for arch, res in _STACK_RES.items()},
+    ),
+    run_factory=assert_outputs(_stack_expectations, case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

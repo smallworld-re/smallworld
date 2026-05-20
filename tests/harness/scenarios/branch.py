@@ -4,7 +4,9 @@ from typing import Sequence
 
 from .common import build_specs
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
-from .spec import ScenarioInfo, assert_outputs, from_legacy
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
+
+NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
@@ -41,14 +43,9 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="branch",
     scenario="branch",
     tags=("scenario", "branch"),
-    variants_source=from_legacy(
-        (
-            "BranchTestsAngr",
-            "BranchTestsGhidra",
-            "BranchTestsPanda",
-            "BranchTestsUnicorn",
-        ),
-        prefix="branch",
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
     ),
     run_factory=assert_outputs(
         (

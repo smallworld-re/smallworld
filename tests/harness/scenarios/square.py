@@ -5,7 +5,9 @@ from typing import Any, Mapping, Sequence
 
 from .common import build_specs
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
-from .spec import ScenarioInfo, assert_outputs, from_legacy
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
+
+NATIVE_PARITY = True
 
 _ARCHS = (
     "aarch64",
@@ -69,7 +71,14 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="square",
     scenario="square",
     tags=("scenario", "square"),
-    variants_source=from_legacy(("SquareTests",), prefix="square"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        arch_kwargs={
+            **{arch: {"signext": True} for arch in ("mips64", "mips64el", "ppc64", "riscv64")},
+            **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x")},
+        },
+    ),
     run_factory=assert_outputs(_square_expectations),
 )
 

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .common import (
     PlatformSpec,
     StringSource,
@@ -208,6 +209,28 @@ _SKIP_REASONS = {
 
 
 SCENARIO_PREFIXES = (("hooking", "hooking"),)
+
+NATIVE_PARITY = True
+
+
+def _hooking_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    # mips64.panda and mips64el.panda drop the leading 'f' from the input string.
+    expected = "oo bar baz" if variant in {"mips64.panda", "mips64el.panda"} else "foo bar baz"
+    return (((), expected),)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="hooking",
+    scenario="hooking",
+    tags=("scenario", "hooking"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
+    ),
+    run_factory=assert_outputs(_hooking_expectations, stdin="foo bar baz"),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

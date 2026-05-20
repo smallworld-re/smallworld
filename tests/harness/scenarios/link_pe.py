@@ -4,6 +4,7 @@ import dataclasses
 import logging
 from typing import Sequence
 
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 from .common import (
     PlatformSpec,
     add_code_bounds,
@@ -57,6 +58,16 @@ _SPECS = {
 
 
 SCENARIO_PREFIXES = (("link_pe", "link_pe"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="link_pe",
+    scenario="link_pe",
+    tags=("scenario", "link_pe"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=assert_contains("0x2a", args=("42",), case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

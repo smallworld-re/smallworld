@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
+from .spec import ScenarioInfo, from_arch_table, just_run
 from .common import (
     PlatformSpec,
     load_raw_code,
@@ -25,6 +26,16 @@ _SPECS = {
 
 
 SCENARIO_PREFIXES = (("symbolic_state", "symbolic_state"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="symbolic_state",
+    scenario="symbolic_state",
+    tags=("scenario", "symbolic_state"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

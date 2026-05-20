@@ -13,6 +13,8 @@ from .common import (
 )
 from .spec import ScenarioInfo, assert_contains
 
+NATIVE_PARITY = True
+
 _ARCH = "tricore"
 _ENGINE = "panda"
 _PLATFORM = PlatformSpec("TRICORE", "LITTLE")

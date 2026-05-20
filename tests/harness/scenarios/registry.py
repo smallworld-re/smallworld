@@ -17,9 +17,13 @@ def _discover() -> tuple[tuple[tuple[str, str, object], ...], tuple[object, ...]
             continue
         module = importlib.import_module(f"{__package__}.{name}")
         prefixes = getattr(module, "SCENARIO_PREFIXES", None)
-        if not prefixes:
+        has_info = (
+            getattr(module, "SCENARIO_INFO", None) is not None
+            or bool(getattr(module, "SCENARIO_INFOS", ()))
+        )
+        if not prefixes and not has_info:
             continue
-        for prefix, scenario in prefixes:
+        for prefix, scenario in prefixes or ():
             entries.append((prefix, scenario, module))
         if module not in handlers_seen:
             handlers_seen.append(module)

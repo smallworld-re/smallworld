@@ -14,7 +14,9 @@ from .common import (
     set_register,
     split_variant,
 )
-from .spec import ScenarioInfo, assert_outputs, from_legacy
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -72,7 +74,10 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="strlen",
     scenario="strlen",
     tags=("scenario", "strlen"),
-    variants_source=from_legacy(("StrlenTests",), prefix="strlen"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+    ),
     run_factory=assert_outputs(
         (
             (("",), "0x0"),

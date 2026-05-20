@@ -4,6 +4,7 @@ import dataclasses
 import logging
 from typing import Sequence
 
+from .spec import ScenarioInfo, from_arch_table, just_run
 from .common import (
     PlatformSpec,
     add_code_bounds,
@@ -158,6 +159,19 @@ _UNICORN_BOUND_EXITS = {
 
 
 SCENARIO_PREFIXES = (("elf", "elf"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="elf",
+    scenario="elf",
+    tags=("scenario", "elf"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
+    ),
+    run_factory=just_run(args=("foobar",)),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

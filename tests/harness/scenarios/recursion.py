@@ -15,8 +15,10 @@ from .common import (
     set_register,
     split_variant,
 )
-from .spec import ScenarioInfo, assert_outputs, from_legacy
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .tricore_panda import install_tricore_panda_raw_binary_call_return_compatibility
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -107,7 +109,10 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="recursion",
     scenario="recursion",
     tags=("scenario", "recursion"),
-    variants_source=from_legacy(("RecursionTests",), prefix="recursion"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+    ),
     run_factory=assert_outputs(
         tuple(
             ((str(number),), f"{expected:#x}")

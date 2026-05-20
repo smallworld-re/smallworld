@@ -4,6 +4,7 @@ import dataclasses
 import logging
 from typing import Sequence
 
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 from .common import (
     PlatformSpec,
     StringSource,
@@ -185,6 +186,16 @@ _SPECS = {
 
 
 SCENARIO_PREFIXES = (("rela", "rela"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="rela",
+    scenario="rela",
+    tags=("scenario", "rela"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=assert_contains("Hello, world!"),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

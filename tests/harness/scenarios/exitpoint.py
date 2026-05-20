@@ -14,7 +14,9 @@ from .common import (
     set_register,
     split_variant,
 )
-from .spec import ScenarioInfo, from_legacy, just_run
+from .spec import ScenarioInfo, from_arch_table, just_run
+
+NATIVE_PARITY = True
 
 EXPECTED_RESULT = 42
 FAKE_EXITPOINT = 0x10101010
@@ -199,7 +201,12 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="exitpoint",
     scenario="exitpoint",
     tags=("scenario", "exitpoint"),
-    variants_source=from_legacy(("ExitpointTests",), prefix="exitpoint"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=tuple(
+            (variant, reason, {}) for variant, reason in _SKIP_REASONS.items()
+        ),
+    ),
     run_factory=just_run(),
 )
 

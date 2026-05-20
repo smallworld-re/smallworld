@@ -5,6 +5,7 @@ import dataclasses
 import logging
 from typing import Any, Sequence
 
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 from .common import (
     PlatformSpec,
     build_specs,
@@ -93,6 +94,22 @@ _SPECS = build_specs(
 )
 
 SCENARIO_PREFIXES = (("dma", "dma"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="dma",
+    scenario="dma",
+    tags=("scenario", "dma"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "armel.panda": "Waiting for panda-ng fix",
+            "ppc64": "Unicorn ppc64 support buggy",
+        },
+    ),
+    run_factory=assert_contains("0x5", args=("10", "2")),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
