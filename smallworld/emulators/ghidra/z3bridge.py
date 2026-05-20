@@ -1,9 +1,9 @@
 """SMT-LIB bridge between claripy and Ghidra's Java Z3.
 
-Both sides ultimately use Microsoft Z3, but they live in different processes-
-in-the-same-process: a Python ``z3``/claripy AST and a JVM
-``com.microsoft.z3.Context``. We exchange expressions as SMT-LIB2 strings so
-neither side holds a reference to the other's AST.
+Both sides ultimately use Microsoft Z3, but each has its own AST representation:
+a Python ``z3``/claripy AST on the Python side, and a ``com.microsoft.z3.Context``
+on the JVM side. We exchange expressions as SMT-LIB2 strings so neither side
+holds a reference to the other's native object.
 
 The Java-side helpers expect a ``jctx`` (``com.microsoft.z3.Context``) and
 return JPype-wrapped Java types. They are imported lazily so this module can
@@ -11,8 +11,6 @@ be loaded (and the pure-Python helpers used) before the JVM is up.
 """
 
 from __future__ import annotations
-
-import typing
 
 import claripy
 import z3
@@ -65,8 +63,7 @@ def smt2_to_claripy_bv(smt: str) -> claripy.ast.bv.BV:
     assertions = z3.parse_smt2_string(smt)
     if len(assertions) == 0:
         raise ValueError(f"No assertions found in SMT-LIB string: {smt[:80]}...")
-    equality = assertions[0]
-    children = equality.children()
+    children = assertions[0].children()
     if len(children) == 0:
         raise ValueError(
             f"SMT-LIB BV wrapper assertion has no children: {smt[:80]}..."
@@ -74,56 +71,12 @@ def smt2_to_claripy_bv(smt: str) -> claripy.ast.bv.BV:
     return _z3_backend()._abstract(children[0])
 
 
-# --- Java-side helpers (lazy import; require an active JVM) ---
-
-
-def _SymValueZ3_class():
-    import jpype  # noqa: F401  (forces a clear error if JVM not up)
-
-    import jpype
-
-    return jpype.JClass("ghidra.symz3.model.SymValueZ3")
-
-
-def claripy_to_java_bool(jctx, expr: claripy.ast.bool.Bool):
-    """Translate a claripy boolean into a Java Z3 ``BoolExpr`` bound to ``jctx``."""
-    smt = claripy_bool_to_smt2(expr)
-    parsed = jctx.parseSMTLIB2String(smt, None, None, None, None)
-    return parsed[0]
-
-
 def claripy_to_java_bv(jctx, bv: claripy.ast.bv.BV):
-    """Translate a claripy bitvector into a Java Z3 ``BitVecExpr`` bound to ``jctx``."""
+    """Translate a claripy bitvector into a Java Z3 ``BitVecExpr`` bound to ``jctx``.
+
+    Requires an active JVM (raises if JPype has not been initialized).
+    """
     smt = claripy_bv_to_smt2(bv)
-    # Strip the "V:" decoration we added; parseSMTLIB2String wants pure SMT-LIB.
     payload = smt[2:] if smt.startswith("V:") else smt
     parsed = jctx.parseSMTLIB2String(payload, None, None, None, None)
-    equality = parsed[0]
-    return equality.getArgs()[0]
-
-
-def java_bool_to_claripy(jctx, jbool) -> claripy.ast.bool.Bool:
-    """Read a Java Z3 ``BoolExpr`` back into claripy via SMT-LIB."""
-    smt = _SymValueZ3_class().serialize(jctx, jbool)
-    return smt2_to_claripy_bool(str(smt))
-
-
-def java_bv_to_claripy(jctx, jbv) -> claripy.ast.bv.BV:
-    """Read a Java Z3 ``BitVecExpr`` back into claripy via SMT-LIB."""
-    smt = _SymValueZ3_class().serialize(jctx, jbv)
-    return smt2_to_claripy_bv(str(smt))
-
-
-def claripy_to_sym_value(jctx, value: typing.Union[int, claripy.ast.bv.BV], size_bits: int):
-    """Build a Java ``SymValueZ3`` from a claripy BV or Python int.
-
-    Used when writing to Ghidra's symbolic state piece.
-    """
-    SymValueZ3 = _SymValueZ3_class()
-    if isinstance(value, claripy.ast.bv.BV):
-        jbv = claripy_to_java_bv(jctx, value)
-    elif isinstance(value, int):
-        jbv = jctx.mkBV(value, size_bits)
-    else:
-        raise TypeError(f"Cannot convert {type(value).__name__} to SymValueZ3")
-    return SymValueZ3(jctx, jbv)
+    return parsed[0].getArgs()[0]

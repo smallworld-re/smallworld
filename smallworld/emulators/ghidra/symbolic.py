@@ -12,6 +12,7 @@ import typing
 
 import claripy
 import jpype
+import z3
 from com.microsoft.z3 import Context as Z3Context  # type: ignore[import-not-found]
 from ghidra.pcode.emu.symz3.state import SymZ3PcodeEmulator  # type: ignore[import-not-found]
 from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
@@ -27,6 +28,12 @@ from .machdefs import GhidraMachineDef
 from .typing import AbstractGhidraSymbolicEmulator
 
 log = logging.getLogger(__name__)
+
+# Concrete memory writes are chunked into pieces small enough that the matching
+# symbolic-side bitvector fits comfortably in a Z3 numeral. Using a String
+# overload of ``Context.mkBV`` (rather than long) avoids signed-64 overflow,
+# but tighter chunks also reduce the size of individual Z3 expressions.
+_WRITE_CHUNK_BYTES = 8
 
 
 class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
@@ -63,8 +70,11 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
         self._memory_map = utils.RangeCollection()
 
-        # Track symbolic inputs the user has bound to registers/memory.
-        # Currently informational — kept for future path-exploration work.
+        # Maps a label name (passed to write_register_label /
+        # write_memory_label) to the claripy BVS we minted for it. Used by
+        # read_register_content to distinguish "genuinely user-symbolic"
+        # values (raise SymbolicValueError) from SymZ3-internal fresh BVS
+        # placeholders for uninitialized state (treat as concrete zero).
         self._symbolic_inputs: typing.Dict[str, claripy.ast.bv.BV] = {}
 
         # User-supplied constraints (claripy boolean expressions).
@@ -202,15 +212,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if sym is not None:
             big_int = sym.toBigInteger()
             if big_int is None:
-                # Symbolic side is not a numeral. If the expression actually
-                # references a user-supplied label, the value is genuinely
-                # symbolic and the caller should switch to read_register_symbolic.
-                # If not (typical for uninitialized registers SymZ3 fills with
-                # fresh BVS), trust the concrete byte side — matches the
-                # concrete GhidraEmulator's "uninitialized = zero" behavior.
-                smt = str(SymValueZ3.serialize(self._jctx, sym.getBitVecExpr(self._jctx)))
-                bv = z3bridge.smt2_to_claripy_bv(smt)
-                if self._references_symbolic_input(bv):
+                # Non-numeral symbolic side. Distinguish a genuinely user-
+                # supplied symbolic value (raise; the caller should switch to
+                # read_register_symbolic) from SymZ3's default fresh BVS for
+                # an uninitialized register (treat as zero, matching the
+                # concrete GhidraEmulator).
+                if self._references_symbolic_input(self._sym_to_claripy(sym)):
                     raise exceptions.SymbolicValueError(
                         f"Register {name} contains a symbolic value"
                     )
@@ -228,8 +235,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if sym is None:
             bv = claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
         else:
-            smt = str(SymValueZ3.serialize(self._jctx, sym.getBitVecExpr(self._jctx)))
-            bv = z3bridge.smt2_to_claripy_bv(smt)
+            bv = self._sym_to_claripy(sym)
         if bv.size() < expected_bits:
             bv = claripy.ZeroExt(expected_bits - bv.size(), bv)
         elif bv.size() > expected_bits:
@@ -263,9 +269,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 f"write_register_content does not accept {type(value).__name__}"
             )
 
-        # Mirror concrete GhidraEmulator: no `signed=` kwarg — callers may
-        # pass negative ints expecting two's-complement wraparound, which
-        # int.to_bytes provides when the value fits.
+        # Mask to handle negative ints via two's-complement wraparound.
         concrete_unsigned = concrete & ((1 << size_bits) - 1)
         if self.platform.byteorder is platforms.Byteorder.LITTLE:
             concrete_bytes = concrete_unsigned.to_bytes(size_bytes, "little")
@@ -293,56 +297,36 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     # Memory I/O
     # ------------------------------------------------------------------
 
-    def read_memory_content(self, address: int, size: int) -> bytes:
-        sym = self._read_memory_symbolic_inner(address, size)
-        # If the symbolic side simplifies to a numeral, we can return concrete.
-        # The concrete byte side IS what the emulator was driving, so prefer it
-        # but verify the symbolic side agrees.
-        shared = self._emu.getSharedState()
-        raw = shared.getLeft().getVar(
-            self.machdef.language.getDefaultSpace(),
-            self._addr_bytes(address),
-            size,
-            False,
-            PcodeExecutorStatePiece.Reason.INSPECT,
-        )  # left piece is byte[]-addressed, so a plain byte[] offset is correct
-        if sym is not None and sym.symbolic:
-            raise exceptions.SymbolicValueError(
-                f"Memory at {hex(address)} (size {size}) is symbolic"
-            )
-        return self.bytes_java_to_py(raw)
-
-    def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
-        sym = self._read_memory_symbolic_inner(address, size)
-        if sym is not None:
-            return sym
-        # No symbolic value recorded — fabricate one from the concrete bytes.
-        raw = self.bytes_java_to_py(
-            self._emu.getSharedState().getLeft().getVar(
-                self.machdef.language.getDefaultSpace(),
-                self._addr_bytes(address),
-                size,
-                False,
-                PcodeExecutorStatePiece.Reason.INSPECT,
-            )
-        )
-        return claripy.BVV(raw)
-
-    def _read_memory_symbolic_inner(
-        self, address: int, size: int
-    ) -> typing.Optional[claripy.ast.bv.BV]:
-        shared = self._emu.getSharedState()
-        # Read via the paired state to get Pair<byte[], SymValueZ3>.
-        pair = shared.getVar(
+    def _read_memory_pair(self, address: int, size: int):
+        """Return the raw ``Pair<byte[], SymValueZ3>`` for memory at ``address``."""
+        return self._emu.getSharedState().getVar(
             self.machdef.language.getDefaultSpace(),
             self._addr_pair(address),
             size,
             False,
             PcodeExecutorStatePiece.Reason.INSPECT,
         )
+
+    def read_memory_content(self, address: int, size: int) -> bytes:
+        pair = self._read_memory_pair(address, size)
         sym = pair.getRight()
-        if sym is None:
-            return None
+        if sym is not None and sym.toBigInteger() is None:
+            bv = self._sym_to_claripy(sym)
+            if bv.symbolic:
+                raise exceptions.SymbolicValueError(
+                    f"Memory at {hex(address)} (size {size}) is symbolic"
+                )
+        return self.bytes_java_to_py(pair.getLeft())
+
+    def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
+        pair = self._read_memory_pair(address, size)
+        sym = pair.getRight()
+        if sym is not None:
+            return self._sym_to_claripy(sym)
+        return claripy.BVV(self.bytes_java_to_py(pair.getLeft()))
+
+    def _sym_to_claripy(self, sym) -> claripy.ast.bv.BV:
+        """Lift a Java ``SymValueZ3`` into a claripy bitvector via SMT-LIB."""
         smt = str(SymValueZ3.serialize(self._jctx, sym.getBitVecExpr(self._jctx)))
         return z3bridge.smt2_to_claripy_bv(smt)
 
@@ -371,15 +355,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             sym_value = self._make_sym_value(content, size_bits)
             self._setvar_memory(address, size, concrete_bytes, sym_value)
         else:
-            # Concrete-bytes writes can be arbitrarily large (e.g., a whole
-            # code segment). The Java Z3 mkBV(long, int) overload only takes
-            # 63-bit signed values, so chunk into 8-byte slices that fit.
             self._write_concrete_bytes(address, bytes(content))
 
     def _write_concrete_bytes(self, address: int, content: bytes) -> None:
-        chunk = 8
-        for offset in range(0, len(content), chunk):
-            piece = content[offset : offset + chunk]
+        """Chunk a concrete-bytes write so the symbolic-side bitvector stays
+        small. See ``_WRITE_CHUNK_BYTES`` for the rationale."""
+        for offset in range(0, len(content), _WRITE_CHUNK_BYTES):
+            piece = content[offset : offset + _WRITE_CHUNK_BYTES]
             size = len(piece)
             value = int.from_bytes(piece, "big")
             sym_value = self._make_sym_value(value, size * 8)
@@ -561,13 +543,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 new_concrete = replacement
 
         # Symbolic read hooks
-        if sym is not None:
-            sym_claripy = z3bridge.smt2_to_claripy_bv(
-                str(SymValueZ3.serialize(self._jctx, sym.getBitVecExpr(self._jctx)))
-            )
-        else:
-            sym_claripy = claripy.BVV(new_concrete)
-        new_sym = sym_claripy
+        new_sym = self._sym_to_claripy(sym) if sym is not None else claripy.BVV(new_concrete)
         if self._mem_reads_symbolic_hook is not None:
             replacement = self._mem_reads_symbolic_hook(self, addr, size, new_sym)
             if replacement is not None:
@@ -580,11 +556,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 new_sym = replacement
 
         sym_value = self._make_sym_value(new_sym, size * 8)
-        if isinstance(new_concrete, (bytes, bytearray)):
-            data_bytes = bytes(new_concrete)
-        else:
-            data_bytes = bytes(new_concrete)
-        state.setVar(out_var, JPair.of(self.bytes_py_to_java(data_bytes), sym_value))
+        state.setVar(out_var, JPair.of(self.bytes_py_to_java(bytes(new_concrete)), sym_value))
 
     def _process_write_breakpoint(
         self,
@@ -613,12 +585,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 hook(self, addr, size, concrete)
 
         sym = pair.getRight()
-        if sym is not None:
-            sym_claripy = z3bridge.smt2_to_claripy_bv(
-                str(SymValueZ3.serialize(self._jctx, sym.getBitVecExpr(self._jctx)))
-            )
-        else:
-            sym_claripy = claripy.BVV(concrete)
+        sym_claripy = self._sym_to_claripy(sym) if sym is not None else claripy.BVV(concrete)
         if self._mem_writes_symbolic_hook is not None:
             self._mem_writes_symbolic_hook(self, addr, size, sym_claripy)
         for (start, end), hook in self._mem_write_symbolic_hooks.items():
@@ -773,9 +740,8 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._cached_preconditions = result
         return result
 
-    def _solver(self, extras: typing.Sequence[claripy.ast.bool.Bool] = ()):
-        import z3
-
+    def _solver(self, extras: typing.Sequence[claripy.ast.bool.Bool] = ()) -> z3.Solver:
+        """Build a z3 Solver loaded with user constraints + path preconditions."""
         backend = claripy.backends.z3
         solver = z3.Solver()
         for expr in self._user_constraints:
@@ -790,24 +756,18 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self,
         extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
     ) -> bool:
-        import z3
-
         return self._solver(extra_constraints).check() == z3.sat
 
     def eval_atmost(
         self, expr: claripy.ast.bv.BV, most: int
     ) -> typing.List[int]:
-        import z3
-
-        backend = claripy.backends.z3
         solver = self._solver()
-        z3_expr = backend.convert(expr)
+        z3_expr = claripy.backends.z3.convert(expr)
         results: typing.List[int] = []
         for _ in range(most + 1):
             if solver.check() != z3.sat:
                 break
-            model = solver.model()
-            val = model.evaluate(z3_expr, model_completion=True)
+            val = solver.model().evaluate(z3_expr, model_completion=True)
             results.append(val.as_long())
             solver.add(z3_expr != val)
         if not results:
@@ -823,19 +783,15 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     def eval_atleast(
         self, expr: claripy.ast.bv.BV, least: int
     ) -> typing.List[int]:
-        import z3
-
-        backend = claripy.backends.z3
         solver = self._solver()
-        z3_expr = backend.convert(expr)
+        z3_expr = claripy.backends.z3.convert(expr)
         results: typing.List[int] = []
         for _ in range(least):
             if solver.check() != z3.sat:
                 raise exceptions.SymbolicValueError(
                     f"Fewer than {least} solutions for expression"
                 )
-            model = solver.model()
-            val = model.evaluate(z3_expr, model_completion=True)
+            val = solver.model().evaluate(z3_expr, model_completion=True)
             results.append(val.as_long())
             solver.add(z3_expr != val)
         return results
@@ -851,11 +807,15 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         )
 
     def get_active_states(self) -> typing.Generator[Emulator, None, None]:
-        # Linear-only: this emulator is its own final state.
+        """Yield the single linear state (which is ``self``).
+
+        The :class:`SymbolicEmulator` contract permits multiple frontier
+        states; we only ever have one because branching is disabled.
+        """
         yield self
 
     def get_deadended_states(self) -> typing.Generator[Emulator, None, None]:
-        # Same as active for the linear case — caller can inspect via either.
+        """No-op for the linear emulator — the active state covers inspection."""
         return iter(())
 
     # ------------------------------------------------------------------
