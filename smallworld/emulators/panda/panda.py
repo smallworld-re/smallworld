@@ -344,11 +344,10 @@ class PandaEmulator(
                 logger.debug(
                     "cb_before_handle_interrupt(cpu={}, intno={})".format(cpu, intno)
                 )
-                logger.debug(f"\ton_interrupt: {intno}")
                 try:
                     # First if all interrupts are hooked, run that function
                     if self.manager.all_interrupts_hook:
-                        self.manager.all_interrupts_hook(self.manager)
+                        self.manager.all_interrupts_hook(self.manager, intno)
                     # Then run interrupt specific function
                     if cb := self.manager.is_interrupt_hooked(intno):
                         cb(self.manager)
@@ -360,24 +359,42 @@ class PandaEmulator(
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
 
-            # @self.panda.cb_before_handle_exception(enabled=True)
+            @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
                 logger.debug(
                     "cb_before_handle_exception(cpu={}, exception_index={})".format(
                         cpu, exception_index
                     )
                 )
-                logger.error(
-                    f"Panda for help: you are hitting an exception at {exception_index}."
-                )
-                self.state = PandaEmulator.ThreadState.EXIT
-                # Generate an exception so we exit ungracefully
+                handled = False
                 try:
-                    raise exceptions.EmulationError(
-                        f"Panda exception {exception_index}"
+                    # First if all interrupts are hooked, run that function
+                    if self.manager.all_interrupts_hook:
+                        handled |= self.manager.all_interrupts_hook(
+                            self.manager, exception_index
+                        )
+                    # Then run interrupt specific function
+                    if cb := self.manager.is_interrupt_hooked(exception_index):
+                        handled |= cb(self.manager)
+                except exceptions.EmulationStop:
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait()
+                except Exception as e:
+                    logger.exception(
+                        f"Exception running interrupt hook for {exception_index}"
                     )
-                except exceptions.EmulationError as e:
+                    self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
+
+                if not handled:
+                    # Generate an exception so we exit ungracefully
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    try:
+                        raise exceptions.EmulationError(
+                            f"Panda exception {exception_index}"
+                        )
+                    except exceptions.EmulationError as e:
+                        self.signal_and_wait(exception=e)
 
             self.panda.run()
 

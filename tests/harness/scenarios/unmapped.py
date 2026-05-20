@@ -218,7 +218,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     arch, engine = split_variant(variant)
     spec = _SPECS[arch]
 
-    smallworld.logging.setup_logging(level=logging.INFO)
+    smallworld.logging.setup_logging(level=logging.DEBUG)
 
     operations = (
         ("read_unmapped", smallworld.exceptions.EmulationReadUnmappedFailure, "Read"),
