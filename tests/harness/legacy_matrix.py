@@ -1,6 +1,10 @@
 # Generated from the legacy unittest matrix in tests/integration.py.
 # This captures the old coverage and skip inventory so the new manifest
 # can preserve it without re-encoding hundreds of tiny test methods.
+#
+# Frozen — historical snapshot only. Do not add new suites here. New
+# scenarios opt into the native parity tier by setting NATIVE_PARITY = True
+# at module scope (see tests/harness/parity.py).
 
 LEGACY_MATRIX = {
     "AbsLibraryModelTest": [

@@ -142,11 +142,34 @@ def _expected_library_cases() -> dict[str, str | None]:
     return expected
 
 
-def _expected_case_inventory() -> dict[str, str | None]:
+def _native_scenario_prefixes() -> set[str]:
+    """Case-id prefixes for scenarios opted into the native parity tier.
+
+    A scenario opts in by setting ``NATIVE_PARITY = True`` at module scope. Such
+    scenarios bypass the LEGACY_MATRIX bijection check; the manifest becomes
+    the authoritative source of truth for their case IDs and skip reasons.
+    """
+    return {
+        prefix
+        for prefix, _scenario, handler in REGISTERED_SCENARIOS
+        if getattr(handler, "NATIVE_PARITY", False)
+    }
+
+
+def _legacy_inventory(
+    exclude_prefixes: set[str] | None = None,
+) -> dict[str, str | None]:
+    """Case inventory derived from LEGACY_MATRIX. Scenarios in
+    ``exclude_prefixes`` are skipped — they own their inventory via the
+    native tier.
+    """
     from .manifest import _variant_from_entry
 
+    excluded = exclude_prefixes or set()
     expected: dict[str, str | None] = {}
     for suite_name, (case_prefix, entry_prefix) in GENERIC_SUITES.items():
+        if case_prefix in excluded:
+            continue
         for entry in LEGACY_MATRIX[suite_name]:
             variant, skip_reason, _ = _variant_from_entry(
                 suite_name, entry, prefix=entry_prefix
@@ -155,6 +178,34 @@ def _expected_case_inventory() -> dict[str, str | None]:
     expected.update(_expected_special_cases())
     expected.update(_expected_library_cases())
     return expected
+
+
+def _is_native_case(case_id: str, native_prefixes: set[str]) -> bool:
+    for prefix in native_prefixes:
+        if case_id == prefix or case_id.startswith(f"{prefix}:"):
+            return True
+    return False
+
+
+def _native_inventory(
+    actual: dict[str, str | None],
+    native_prefixes: set[str],
+) -> dict[str, str | None]:
+    """For native-tier scenarios the manifest IS the source of truth: every
+    actual case ID under a native prefix is treated as expected, and the
+    associated skip reason is the one the manifest produced.
+    """
+    return {
+        case_id: skip_reason
+        for case_id, skip_reason in actual.items()
+        if _is_native_case(case_id, native_prefixes)
+    }
+
+
+def _expected_case_inventory() -> dict[str, str | None]:
+    # Retained for backwards compatibility with callers that want the legacy
+    # snapshot regardless of native-tier opt-ins.
+    return _legacy_inventory()
 
 
 def check_manifest_parity() -> None:
@@ -168,7 +219,16 @@ def check_manifest_parity() -> None:
             duplicate_ids.append(case.id)
         actual[case.id] = case.skip_reason
 
-    expected = _expected_case_inventory()
+    native_prefixes = _native_scenario_prefixes()
+    native_expected = _native_inventory(actual, native_prefixes)
+    legacy_expected = _legacy_inventory(exclude_prefixes=native_prefixes)
+
+    # A native-tier scenario must not still have a LEGACY_MATRIX entry —
+    # otherwise the frozen matrix has unfrozen by accident.
+    full_legacy = _legacy_inventory()
+    native_leaked_into_legacy = sorted(set(native_expected) & set(full_legacy))
+
+    expected = {**legacy_expected, **native_expected}
 
     missing = sorted(set(expected) - set(actual))
     unexpected = sorted(set(actual) - set(expected))
@@ -178,7 +238,13 @@ def check_manifest_parity() -> None:
         if actual.get(case_id) != expected_skip
     )
 
-    if duplicate_ids or missing or unexpected or skip_mismatches:
+    if (
+        duplicate_ids
+        or missing
+        or unexpected
+        or skip_mismatches
+        or native_leaked_into_legacy
+    ):
         details = []
         if duplicate_ids:
             details.append(f"duplicate ids: {duplicate_ids[:20]}")
@@ -195,6 +261,11 @@ def check_manifest_parity() -> None:
                         for case_id in skip_mismatches[:20]
                     ]
                 )
+            )
+        if native_leaked_into_legacy:
+            details.append(
+                "native-tier scenarios still have legacy_matrix entries: "
+                + str(native_leaked_into_legacy[:20])
             )
         raise AssertionError("\n".join(details))
 
