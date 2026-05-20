@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any, Mapping
-
 from .spec import ScenarioInfo, from_variants
 
 NATIVE_PARITY = True

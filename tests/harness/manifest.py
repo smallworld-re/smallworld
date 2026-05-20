@@ -4,7 +4,7 @@ import pathlib
 import sys
 import typing
 
-from .framework import CaseRunner, CaseSpec, RepoRoot, TestsPath
+from .framework import CaseRunner, CaseSpec, TestsPath
 from .parity import check_manifest_parity, check_registered_scenario_parity
 from .scenarios.registry import HANDLERS
 from .scenarios.spec import ScenarioInfo
