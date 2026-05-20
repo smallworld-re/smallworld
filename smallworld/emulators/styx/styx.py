@@ -495,7 +495,7 @@ class StyxEmulator(
         self._register_styx_hook(MemoryWriteHook(0x0, self._GLOBAL_HOOK_END, _cb))
 
     def hook_interrupts(
-        self, function: typing.Callable[[emulator.Emulator, int], None]
+        self, function: typing.Callable[[emulator.Emulator, int], bool]
     ) -> None:
         super().hook_interrupts(function)
 
@@ -510,7 +510,7 @@ class StyxEmulator(
         self._register_styx_hook(InterruptHook(_cb))
 
     def hook_interrupt(
-        self, intno: int, function: typing.Callable[[emulator.Emulator], None]
+        self, intno: int, function: typing.Callable[[emulator.Emulator], bool]
     ) -> None:
         super().hook_interrupt(intno, function)
         # If a global interrupt hook is already installed it will dispatch into
