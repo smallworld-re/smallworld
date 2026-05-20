@@ -12,7 +12,6 @@ from .common import (
     make_noop_model,
     make_platform,
     make_puts_model,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
@@ -122,7 +121,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     set_register(cpu, spec.pc_register, code.address + 0x1000)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     emulator.add_exit_point(code.address + spec.exit_offset)
     machine.emulate(emulator)
     return 0

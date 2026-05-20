@@ -55,9 +55,9 @@ using the same stub emulator as an event callback.
    The emulator objects from callbacks are not valid
    once the callback returns.  Please don't keep them.
  
-``AngrEmulator`` can also be switched to "linear mode" using ``AngrEmulator.enable_linear()``.
-This stops emulation as soon as it would explore more than one machine state.
-In linear mode, it is possible to access emulator state once emulation starts.
+``AngrEmulator`` can also be switched to "branching mode" using ``AngrEmulator.enable_branching()``.
+This enables the emulator to continue execution when the branches themselves become symbolic.
+In linear mode (the default), it is possible to access emulator state once emulation starts.
 
 .. note::
    ``AngrEmulator`` cannot single-step on platforms with delay slots,

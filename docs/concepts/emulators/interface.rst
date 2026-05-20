@@ -447,6 +447,58 @@ The order in which the callbacks fire is not guaranteed.
 Interrupts
 **********
 
-.. warning::
-   SmallWorld has an interface for interrupt hooking,
-   but it appears to be non-functional right now.
+.. caution::
+
+    SmallWorld's interrupt hooking behavior depends wildly
+    on the specific platform and backend you're using.
+    Some emulators on some platforms do not invoke
+    any interrupt callbacks before raising an emulation error.
+
+Harnesses and models can use ``InterruptHookable.hook_interrupt()``
+to hook on a specific interrupt number.
+
+This takes the interrupt number, and a callback of the form
+``callback(Emulator) -> bool``.
+
+.. caution::
+
+    Interrupt numbers are currently emulator and platform-specific.
+    Unicorn and Panda both use QEMU's exception indexes.
+
+The callback should return ``True`` if the emulator is expected
+to be in a survivable state after the handler is invoked,
+and ``False`` otherwise.
+
+.. caution::
+
+    If the emulator is not in a survivable state,
+    and an interrupt callback returns True,
+    the results are undefined!
+
+    Not "the emulator will raise an exception",
+    but anything from an unhandled segfault to the emulator hanging
+    and needing to be force-killed.
+
+Harnesses and models can use ``InterruptHookable.hook_interrupts()``
+to hook on all hardware interrupts or exceptions received by the emulator.
+
+This takes a callback of the form ``callback(Emulator, int) -> bool``.
+The callback receives the interrupt number as its second parameter.
+
+The callback should return ``True`` if the emulator is expected
+to be in a survivable state after the handler is invoked,
+and ``False`` otherwise.
+
+Only one callback can be registered for all interrupts.
+Attempting to add another will raise an exception.
+
+Global interrupt hooks can be removed using ``InterruptHookable.unhook_interrupts()``
+
+If all registered handlers return ``False``,
+the emulator will raise an appropriate exception given the interrupt received.
+
+These callbacks can modify machine state freely,
+and cause emulation to resume at a different instruction by setting the program counter.
+
+Both global and specific interrupt handlers can be registered at the same time.
+The order in which the callbacks fire is not guaranteed.

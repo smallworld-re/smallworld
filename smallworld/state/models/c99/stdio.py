@@ -153,7 +153,6 @@ class Feof(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
-        print(f"EOF: {file.eof}")
         self.set_return_value(emulator, 1 if file.eof else 0)
 
 

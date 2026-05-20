@@ -60,7 +60,6 @@ emulator.hook_syscalls(syscall_hook)
 emulator.hook_syscall(5001, write_hook)
 
 # Emulate
-emulator.enable_linear()
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 final_machine = machine.emulate(emulator)
 

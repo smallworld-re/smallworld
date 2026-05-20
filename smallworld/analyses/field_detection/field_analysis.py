@@ -531,5 +531,4 @@ class ForcedFieldDetectionAnalysis(
     ):
         self.platform = platform
         self.emulator = emulators.AngrEmulator(self.platform, preinit=self.angr_preinit)
-        self.emulator.enable_linear()
         super().__init__(trace)

@@ -10,7 +10,6 @@ from .common import (
     load_elf_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     run_case_subprocess,
     set_register,
     split_variant,
@@ -191,7 +190,6 @@ def _run_operation(
             machine.add_bound(start, end)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     if engine == "angr" and isinstance(emulator, smallworld.emulators.AngrEmulator):
         emulator.error_on_unmapped = True
 
@@ -220,7 +218,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     arch, engine = split_variant(variant)
     spec = _SPECS[arch]
 
-    smallworld.logging.setup_logging(level=logging.INFO)
+    smallworld.logging.setup_logging(level=logging.DEBUG)
 
     operations = (
         ("read_unmapped", smallworld.exceptions.EmulationReadUnmappedFailure, "Read"),

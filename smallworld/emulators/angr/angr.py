@@ -70,7 +70,7 @@ class AngrEmulator(
         self._dirty: bool = False
 
         # Linear mode bit; tells us if we're running in forced linear execution
-        self._linear: bool = False
+        self._linear: bool = True
 
         # Plugin preset; tells us which plugin preset to use.
         self._plugin_preset = "default"
@@ -593,7 +593,7 @@ class AngrEmulator(
                 "Writing memory not supported once execution begins."
             )
         else:
-            log.info(f"Storing {len(content)} bytes at {hex(address)}")
+            log.debug(f"Storing {len(content)} bytes at {hex(address)}")
             if isinstance(content, bytes):
                 content = claripy.BVV(content)
             self.state.memory.store(address, content, inspect=False)
@@ -971,7 +971,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1084,7 +1084,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1232,7 +1232,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1323,7 +1323,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1371,13 +1371,13 @@ class AngrEmulator(
                     disas = None
 
                 if disas is not None and len(disas.insns) > 0:
-                    log.info(f"Stepping through {disas.insns[0]}")
+                    log.debug(f"Stepping through {disas.insns[0]}")
                 else:
                     # Capstone only supports a subset of the instructions supported by LibVEX.
                     # I can only disassemble what I can disassemble.
-                    log.info(f"Stepping through {self.state._ip} (untranslatable!)")
+                    log.debug(f"Stepping through {self.state._ip} (untranslatable!)")
             else:
-                log.info(f"Stepping through {self.state._ip} (hook)")
+                log.debug(f"Stepping through {self.state._ip} (hook)")
 
         # Step execution once, however the user asked for it.
         if single_insn:
@@ -1474,7 +1474,7 @@ class AngrEmulator(
         self._step(True)
 
     def run(self):
-        log.info("Starting angr run")
+        log.debug("Starting angr run")
         try:
             # Continue stepping as long as we have steps.
             while True:
@@ -1509,13 +1509,13 @@ class AngrEmulator(
         for s in self.mgr.stashes["deadended"]:
             yield ConcreteAngrEmulator(s, self)
 
-    def enable_linear(self):
+    def enable_branching(self):
         if self._dirty:
             raise NotImplementedError(
-                "Enabling linear mode not supported once execution begins"
+                "Enabling branching not supported once execution begins"
             )
-        self._linear = True
-        log.warn("Linear execution mode enabled")
+        self._linear = False
+        log.warn("Branching enabled")
 
     def get_bounds(self) -> typing.List[typing.Tuple[int, int]]:
         if not self._initialized:
@@ -1738,8 +1738,6 @@ class ConcreteAngrEmulator(AngrEmulator):
 
     NOTE: This is NOT a full emulator!
     Think of it more as a view onto an AngrEmulator instance.
-    If you want to explore a single path using angr,
-    use AngrEmulator and call enable_linear() before exploration.
     """
 
     @property

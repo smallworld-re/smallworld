@@ -891,8 +891,23 @@ class InterruptHookable(metaclass=abc.ABCMeta):
     """An Emulator mixin that supports interrupt hooking."""
 
     @abc.abstractmethod
-    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
+    def hook_interrupts(self, function: typing.Callable[[Emulator, int], bool]) -> None:
         """Hook any system interrupts.
+
+        This registers a function that will be called any time
+        the emulator registers an interrupt or exception.
+
+        The function is passed the current emulator and the interrupt number.
+        Note that the interrupt number is currently back-end and platform dependent.
+        Unicorn and Panda will report QEMU exception numbers.
+
+        The function should return True if the harness author expects
+        that the program will continue through the interrupt successfully,
+        either due to the behavior of the handler or the way the harness was configured.
+        Otherwise, the function should return false.
+
+        WARNING: If the function returns True and the emulator is not in a survivable state,
+        the behavior of the emulator is undefined!
 
         Arguments:
             function: The function to execute when an interrupt is triggered.
@@ -900,7 +915,7 @@ class InterruptHookable(metaclass=abc.ABCMeta):
         Example:
             The hook function looks like::
 
-                def hook(emulator: Emulator, interrupt: int) -> None:
+                def hook(emulator: Emulator, interrupt: int) -> bool:
                     ...
         """
 
@@ -914,9 +929,25 @@ class InterruptHookable(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def hook_interrupt(
-        self, interrupt: int, function: typing.Callable[[Emulator], None]
+        self, interrupt: int, function: typing.Callable[[Emulator], bool]
     ) -> None:
         """Hook a specific system interrupt.
+
+        This registers a function that will be called any time
+        the emulator registers a specific interrupt or exception.
+
+        Note that the interrupt number is currently back-end and platform dependent.
+        Unicorn and Panda will use QEMU exception numbers.
+
+        The function is passed the current emulator.
+
+        The function should return True if the harness author expects
+        that the program will continue through the interrupt successfully,
+        either due to the behavior of the handler or the way the harness was configured.
+        Otherwise, the function should return false.
+
+        WARNING: If the function returns True and the emulator is not in a survivable state,
+        the behavior of the emulator is undefined!
 
         Arguments:
             function: The function to execute when the interrupt is triggered.
@@ -1074,12 +1105,11 @@ class SymbolicEmulator(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def enable_linear(self):
-        """Set this emulator to only support linear execution.
+    def enable_branching(self):
+        """Set this emulator to support execution of unconstrained branches.
 
-        Linear execution means that the emulator will halt
+        With branching enabled the emulator will not halt
         when it encounters an unconstrained branch.
-        The frontier states will be available via get_active_states()
         """
         raise NotImplementedError("Abstract method")
 

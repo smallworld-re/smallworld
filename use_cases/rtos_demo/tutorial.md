@@ -165,12 +165,11 @@ After a 2 hours of fuzzing, my sample campaign's 777k executions yielded 1469 to
 Now that we've discovered 2 unique crashing inputs, we can begin investigating their causes. To do this, we can use [angr](https://angr.io/), a symbolic execution engine which is included in SmallWorld. By configuring our input buffer as a labelled concrete value, we can observe how it affects our output state, allowing us to draw informed inferences about the code's behavior.
 
 ### Setting up angr
-SmallWorld makes switching between emulators a simple task. We can start by replacing `UnicornEmulator` with `AngrEmulator` in our harness. Then, we can enable linear mode for angr so that our emulator halts when it encounters a divergence in the symbolic execution path.
+SmallWorld makes switching between emulators a simple task. We can start by replacing `UnicornEmulator` with `AngrEmulator` in our harness.
 
 ```python
 # Emulator
 emulator = smallworld.emulators.AngrEmulator(code.platform)
-emulator.enable_linear()
 ```
 
 Next, we can modify our creation of the `input_buffer` to ensure it is labelled. The label will help us track where this buffer appears in our output state. We can also modify the contents of the buffer to match one of our crashing inputs.

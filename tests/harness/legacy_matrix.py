@@ -5209,6 +5209,93 @@ LEGACY_MATRIX = {
             "skip_reason": None,
         },
     ],
+    "InterruptTests": [
+        {
+            "name": "test_aarch64",
+            "run_test": {"args": ["aarch64"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_aarch64_panda",
+            "run_test": {"args": ["aarch64.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_amd64",
+            "run_test": {"args": ["amd64"], "kwargs": {}},
+            "skip_reason": "Interrupt hook doesn't fire",
+        },
+        {
+            "name": "test_amd64_panda",
+            "run_test": {"args": ["amd64.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_armel",
+            "run_test": {"args": ["armel"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_armel_panda",
+            "run_test": {"args": ["armel.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_armhf",
+            "run_test": {"args": ["armhf"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_armhf_panda",
+            "run_test": {"args": ["armhf.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_i386",
+            "run_test": {"args": ["i386"], "kwargs": {}},
+            "skip_reason": "Interrupt hook doesn't fire",
+        },
+        {
+            "name": "test_i386_panda",
+            "run_test": {"args": ["i386.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_m68k",
+            "run_test": {"args": ["m68k"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_mips",
+            "run_test": {"args": ["mips"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_mips_panda",
+            "run_test": {"args": ["mips.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_mipsel",
+            "run_test": {"args": ["mipsel"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_mipsel_panda",
+            "run_test": {"args": ["mipsel.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_ppc",
+            "run_test": {"args": ["ppc"], "kwargs": {}},
+            "skip_reason": None,
+        },
+        {
+            "name": "test_ppc_panda",
+            "run_test": {"args": ["ppc.panda"], "kwargs": {}},
+            "skip_reason": None,
+        },
+    ],
     "SysVModelTests": [
         {
             "name": "test_aarch64",

@@ -39,7 +39,6 @@ cpu.pc.set(code.address)
 # Emulate
 exit_point = cpu.pc.get() + code.get_capacity()
 emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
 emulator.add_exit_point(cpu.pc.get() + code.get_capacity())
 
 expected_writes: typing.Dict[int, int] = {0x1010: 1, 0x1024: 2, 0x1038: 1}

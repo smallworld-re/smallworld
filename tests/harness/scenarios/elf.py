@@ -10,7 +10,6 @@ from .common import (
     load_elf_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     push_cli_argv,
     set_register,
     split_variant,
@@ -274,7 +273,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     push_cli_argv(stack, args[0], pointer_size=spec.pointer_size)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     add_code_bounds(machine, code)
     _configure_exitpoints(machine, emulator, cpu, code, stack, arch, engine)
 

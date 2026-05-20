@@ -93,12 +93,13 @@ Event Handlers
 - Instruction Hooks
 - Function Models
 - Memory Accesses
+- Interrupts
 
-.. warning::
-   Unicorn also has an interface for interrupt hooking,
-   but it is non-functional.
-
-These have no special behaviors.
+Unicorn's interrupt handler does not always trigger.
+For most platforms, memory access exceptions
+seem to be caught by the memory hook interface.
+For amd64 and i386, all tested events raise a ``UcError`` without
+first triggering the interrupt hook.
 
 Interacting with Unicorn
 ------------------------

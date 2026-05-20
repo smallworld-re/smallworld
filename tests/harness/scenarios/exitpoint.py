@@ -10,7 +10,6 @@ from .common import (
     load_elf_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     run_case_subprocess,
     set_register,
     split_variant,
@@ -246,7 +245,6 @@ def _run_exit_test(
     machine.add_exit_point(exitpoint)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
 
     final_cpu = machine.emulate(emulator).get_cpu()
     if final_cpu.pc.get() != exitpoint:
