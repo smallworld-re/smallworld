@@ -1339,6 +1339,55 @@ def _build_fuzz_cases() -> list[CaseSpec]:
     return cases
 
 
+def _build_fuzz_tutorial_cases() -> list[CaseSpec]:
+    """Integration cases that walk through ``docs/tutorial/fuzzing.rst``.
+
+    The Unicorn tutorial section is already covered indirectly by the
+    ``fuzz:<arch>`` cases that drive ``machine.fuzz_with_file`` through
+    ``run_case.py fuzz.afl_fuzz``. The Styx section ends with a call to
+    ``machine.fuzz_with_styx``; here we exercise that exact call path via the
+    ``styxafl`` bridge's non-AFL fallback (single iteration when
+    ``__AFL_SHM_ID`` is unset), which is the simplest CI-runnable shape of
+    the tutorial's end-to-end harness.
+    """
+    seed_path = TestsPath / "fuzz" / "fuzz_inputs" / "good_input"
+
+    def make_run(arch: str) -> typing.Callable[[CaseRunner], None]:
+        def run(runner: CaseRunner) -> None:
+            stdout, _ = _run_case_command(
+                runner,
+                "styx.afl_fuzz",
+                arch,
+                str(seed_path),
+            )
+            # The styxafl fallback path runs one iteration and exits 0; the
+            # styx harness in styx_fuzz.py does not print on this success
+            # path, so just confirm the command produced no exception trace.
+            runner.assert_lines_absent(stdout, "Traceback")
+
+        return run
+
+    cases = []
+    for arch in ("armhf", "armel"):
+        cases.append(
+            _case(
+                f"fuzz_tutorial:styx:{arch}",
+                "scenario",
+                "fuzz",
+                "styx",
+                "docs",
+                run=make_run(arch),
+                description=(
+                    "Walks through docs/tutorial/fuzzing.rst's Styx section "
+                    f"end-to-end on {arch} by invoking machine.fuzz_with_styx "
+                    "via the styxafl bridge in non-AFL fallback mode."
+                ),
+                weight=2,
+            )
+        )
+    return cases
+
+
 def _build_library_cases() -> list[CaseSpec]:
     arch_matrix = [
         ("aarch64", "AARCH64", "LITTLE"),
@@ -1532,6 +1581,7 @@ def all_cases() -> list[CaseSpec]:
         _build_checked_heap_cases,
         _build_function_pointer_cases,
         _build_fuzz_cases,
+        _build_fuzz_tutorial_cases,
         _build_library_cases,
         _build_documentation_case,
     ]

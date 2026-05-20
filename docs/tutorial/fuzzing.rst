@@ -110,6 +110,114 @@ As you can see, the first four bytes `ff7f 0000` are an integer greater than 11.
 the bytes `0x62` (98), `0x61` (97), `0x64` (100), and `0x21` (33) which spells `bad!` in ascii.
 Note that this input matches what was required as discussed in the introduction of this tutorial.
 
+Fuzzing with the Styx Backend
+-----------------------------
+
+SmallWorld can also drive fuzzing through the `Styx`_ firmware-emulator
+backend. The harness shape is almost identical to the Unicorn version
+above — the differences come down to four pieces:
+
+1. **Architecture coverage.** Styx targets specific firmware platforms and
+   currently exposes 32-bit ARM only. The ``StyxEmulator`` backend therefore
+   accepts ``armhf`` (mapped to a Cortex-A9 ``CycloneV`` target) and ``armel``
+   (Cortex-A9 for ``ARM_V5T``, Cortex-M4 ``Kinetis21`` for ``ARM_V6M``);
+   constructing one with any other architecture raises ``ConfigurationError``.
+
+2. **Emulator class.** ``smallworld.emulators.StyxEmulator(platform)``
+   replaces ``UnicornEmulator(platform)``. Memory map / register writes /
+   exit-point setup all use the existing ``Emulator`` API; the Styx backend
+   defers the underlying ``Processor`` build until the first ``run()`` /
+   ``step()`` call, so register/memory configuration done by ``machine.apply``
+   is replayed automatically when emulation begins.
+
+3. **Input callback signature.** The callback still has the
+   ``(handle, input_bytes, persistent_round, data)`` shape `AFL++`_ uses, but
+   ``handle`` is now a ``styx_emulator.Processor`` rather than a Unicorn
+   ``Uc``. The analogue of ``uc.mem_write(addr, bytes)`` is
+   ``processor.write_data(addr, bytes)``.
+
+4. **Fuzz entry point.** Instead of ``machine.fuzz_with_file(...)`` /
+   ``machine.fuzz()`` (which route to ``unicornafl``), Styx harnesses use
+   ``machine.fuzz_with_styx(...)`` / ``machine.fuzz_styx()`` (which route to
+   the in-tree ``styxafl`` Rust+PyO3 bridge crate). Helpers in
+   ``smallworld.helpers`` also accept ``engine="styx"`` to pick the Styx
+   path from a one-liner.
+
+.. _Styx: https://github.com/styx-emulator/styx-emulator
+
+Reproducing the Earlier Harness with Styx
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The maintained Styx fuzz scenario lives in
+``tests/harness/scenarios/styx_fuzz.py`` and is registered under the
+``"styx"`` and ``"styx.afl_fuzz"`` scenario names. It runs the same
+``fuzz.<arch>.bin`` binary used above; you can invoke it via
+``run_case.py``::
+
+  python3 tests/run_case.py styx armhf
+  python3 tests/run_case.py styx armhf -c   # crashing input
+
+The platform/cpu/code/heap setup is the same as the Unicorn harness:
+
+.. literalinclude:: ../../tests/harness/scenarios/styx_fuzz.py
+  :language: python
+  :lines: 38-54,148-162
+
+The input lives on the heap exactly as before:
+
+.. literalinclude:: ../../tests/harness/scenarios/styx_fuzz.py
+  :language: python
+  :lines: 164-171
+
+Registers and machine assembly are likewise the same:
+
+.. literalinclude:: ../../tests/harness/scenarios/styx_fuzz.py
+  :language: python
+  :lines: 173-178
+
+The input callback is where the API shape matters most. ``processor`` is a
+``styx_emulator.Processor`` and exposes ``write_data(addr, bytes)``:
+
+.. literalinclude:: ../../tests/harness/scenarios/styx_fuzz.py
+  :language: python
+  :lines: 180-186
+
+Finally, build a ``StyxEmulator``, add the exit point, and call
+``machine.fuzz_with_styx`` with the seed file `AFL++`_ will mutate:
+
+.. literalinclude:: ../../tests/harness/scenarios/styx_fuzz.py
+  :language: python
+  :lines: 188-190
+
+Running with AFL++
+~~~~~~~~~~~~~~~~~~
+
+Once the harness is in place, the Styx variant runs under `AFL++`_ exactly
+the same way as the Unicorn variant — only the scenario name changes:
+
+.. code-block:: bash
+
+   afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 ../run_case.py styx.afl_fuzz armhf @@
+
+The ``styxafl`` bridge also has a fallback mode: when ``__AFL_SHM_ID`` is
+not set (i.e. you're running without ``afl-fuzz`` wrapping the harness),
+it runs a single iteration of your ``input_callback`` against the file
+you point it at and then exits. This is what the integration test
+``fuzz_tutorial:styx:armhf`` exercises — a useful smoke check for harness
+correctness before plugging it into a real fuzzing campaign.
+
+Known limitations of the Styx fuzz path:
+
+* Styx has no 64-bit ARM and no x86_64 target. ``aarch64`` harnesses must
+  continue using ``UnicornEmulator``.
+* SmallWorld function hooks installed via ``QFunctionHookable`` (e.g. the
+  ``hooking`` test family's ``gets``/``puts`` models) don't yet round-trip
+  cleanly through Styx — the body-skip-via-PC-redirect heuristic doesn't
+  match Styx's hook semantics. Stick to bare-metal harnesses for now.
+* MMIO-dependent scenarios (``dma``) won't work out of the box because the
+  CycloneV target's memory map doesn't include the addresses those tests
+  use.
+
 Next Steps
 ----------
 If you are interested in a more in depth tutorial on using SmallWorld for vulnerability
