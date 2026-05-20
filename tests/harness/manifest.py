@@ -327,6 +327,7 @@ def _script_case(
     weight: int = 1,
     expected_contains: tuple[str, ...] = (),
     expected_line_contains: tuple[str, ...] = (),
+    skip_reason: str | None = None,
 ) -> CaseSpec:
     def run(
         runner: CaseRunner,
@@ -354,7 +355,7 @@ def _script_case(
         for text in expected_line_contains:
             runner.assert_line_contains(stdout, text)
 
-    return _case(case_id, *tags, run=run, weight=weight)
+    return _case(case_id, *tags, run=run, weight=weight, skip_reason=skip_reason)
 
 
 def _build_script_expectation_cases(
@@ -909,16 +910,56 @@ def _build_unmapped_cases() -> list[CaseSpec]:
 
 
 def _build_symbolic_cases() -> list[CaseSpec]:
+    _DMA_PCODE_SKIP = (
+        "SymZ3 represents byte-level memory reads with custom Z3 "
+        "functions (e.g. load_64_8) that claripy's z3 backend cannot "
+        "abstract; the symbolic memory-hook bridge needs an explicit "
+        "translator for these UFs."
+    )
+    _HOOKING_PCODE_SKIP = (
+        "Same SymZ3 custom-UF (load_64_8) translation limitation as "
+        "test_dma_pcode_symbolic — read_memory_symbolic on a "
+        "byte-granular slice of a written BV trips claripy."
+    )
     symbolic_scripts = [
-        ("symbolic:branch", "symbolic/branch.amd64.angr.symbolic.py", (), None),
-        ("symbolic:dma", "symbolic/dma.amd64.angr.symbolic.py", ("10", "2"), None),
+        ("symbolic:branch", "symbolic/branch.amd64.angr.symbolic.py", (), None, None),
+        ("symbolic:dma", "symbolic/dma.amd64.angr.symbolic.py", ("10", "2"), None, None),
         (
             "symbolic:hooking",
             "symbolic/hooking.amd64.angr.symbolic.py",
             (),
             "foo bar baz",
+            None,
         ),
-        ("symbolic:square", "symbolic/square.amd64.angr.symbolic.py", (), None),
+        ("symbolic:square", "symbolic/square.amd64.angr.symbolic.py", (), None, None),
+        (
+            "symbolic:branch_pcode",
+            "symbolic/branch.amd64.pcode_symbolic.symbolic.py",
+            (),
+            None,
+            None,
+        ),
+        (
+            "symbolic:dma_pcode",
+            "symbolic/dma.amd64.pcode_symbolic.symbolic.py",
+            ("10", "2"),
+            None,
+            _DMA_PCODE_SKIP,
+        ),
+        (
+            "symbolic:hooking_pcode",
+            "symbolic/hooking.amd64.pcode_symbolic.symbolic.py",
+            (),
+            "foo bar baz",
+            _HOOKING_PCODE_SKIP,
+        ),
+        (
+            "symbolic:square_pcode",
+            "symbolic/square.amd64.pcode_symbolic.symbolic.py",
+            (),
+            None,
+            None,
+        ),
     ]
     return [
         _script_case(
@@ -929,8 +970,9 @@ def _build_symbolic_cases() -> list[CaseSpec]:
             args=args,
             stdin=stdin,
             weight=2,
+            skip_reason=skip_reason,
         )
-        for case_id, script, args, stdin in symbolic_scripts
+        for case_id, script, args, stdin, skip_reason in symbolic_scripts
     ]
 
 

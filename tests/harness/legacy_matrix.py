@@ -5165,12 +5165,39 @@ LEGACY_MATRIX = {
         {"name": "test_dma_symbolic", "skip_reason": None},
         {"name": "test_hooking_symbolic", "skip_reason": None},
         {"name": "test_square_symbolic", "skip_reason": None},
+        {"name": "test_branch_pcode_symbolic", "skip_reason": None},
+        {
+            "name": "test_dma_pcode_symbolic",
+            "skip_reason": (
+                "SymZ3 represents byte-level memory reads with custom Z3 "
+                "functions (e.g. load_64_8) that claripy's z3 backend cannot "
+                "abstract; the symbolic memory-hook bridge needs an explicit "
+                "translator for these UFs."
+            ),
+        },
+        {
+            "name": "test_hooking_pcode_symbolic",
+            "skip_reason": (
+                "Same SymZ3 custom-UF (load_64_8) translation limitation as "
+                "test_dma_pcode_symbolic — read_memory_symbolic on a "
+                "byte-granular slice of a written BV trips claripy."
+            ),
+        },
+        {"name": "test_square_pcode_symbolic", "skip_reason": None},
     ],
     "SymbolicStateTests": [
         {
             "name": "test_amd64_angr",
             "run_test": {"args": ["amd64.angr"], "kwargs": {}},
             "skip_reason": None,
+        },
+        {
+            "name": "test_amd64_pcode_symbolic",
+            "run_test": {"args": ["amd64.pcode_symbolic"], "kwargs": {}},
+            "skip_reason": (
+                "GhidraSymbolicEmulator only supports linear execution; this "
+                "test expects multi-state branching to produce 2 result states."
+            ),
         },
     ],
     "InterruptTests": [
