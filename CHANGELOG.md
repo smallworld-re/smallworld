@@ -16,11 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `GhidraSymbolicEmulator`: Z3-backed symbolic Pcode emulator wrapping
   Ghidra's `SymbolicSummaryZ3` extension. Linear single-path execution with
-  `ConstrainedEmulator` and (linear-only) `SymbolicEmulator` support.
-  v1 covers register-level symbolic execution and constraint queries
-  (`branch`/`square` tests on amd64). Symbolic memory hooks are not yet
-  supported because SymZ3's custom Z3 functions (e.g. `load_64_8`) do not
-  round-trip through claripy.
+  `ConstrainedEmulator` and (linear-only) `SymbolicEmulator` support;
+  covers the `branch`, `square`, and `dma` symbolic tests on amd64.
+  Labels are bound to their prior value when written (mirroring angr) and
+  SymZ3's `load_*_*` UFs are translated into claripy placeholders.
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.

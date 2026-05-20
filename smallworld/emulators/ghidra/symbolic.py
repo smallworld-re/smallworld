@@ -12,7 +12,6 @@ import typing
 
 import claripy
 import jpype
-import z3
 from com.microsoft.z3 import Context as Z3Context  # type: ignore[import-not-found]
 from ghidra.pcode.emu.symz3.state import SymZ3PcodeEmulator  # type: ignore[import-not-found]
 from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
@@ -143,10 +142,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         return self._emu.getThread("main", True)
 
     def _addr_bytes(self, address: int) -> typing.Any:
-        size = self.platdef.address_size
-        if self.platform.byteorder is platforms.Byteorder.LITTLE:
-            return self.bytes_py_to_java(address.to_bytes(size, "little"))
-        return self.bytes_py_to_java(address.to_bytes(size, "big"))
+        return self.bytes_py_to_java(
+            address.to_bytes(self.platdef.address_size, self._byteorder_str())
+        )
 
     def _addr_pair(self, address: int) -> typing.Any:
         """Build a Pair<byte[], SymValueZ3> for an address offset.
@@ -161,10 +159,15 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         addr_sym = self._make_sym_value(address, size_bits)
         return JPair.of(addr_bytes, addr_sym)
 
+    def _byteorder_str(self) -> str:
+        return (
+            "little"
+            if self.platform.byteorder is platforms.Byteorder.LITTLE
+            else "big"
+        )
+
     def _int_from_bytes(self, raw: typing.Any) -> int:
-        if self.platform.byteorder is platforms.Byteorder.LITTLE:
-            return int.from_bytes(raw, "little")
-        return int.from_bytes(raw, "big")
+        return int.from_bytes(raw, self._byteorder_str())
 
     def _make_sym_value(
         self, value: typing.Union[int, claripy.ast.bv.BV], size_bits: int
@@ -201,6 +204,21 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         names = set(bv.variables)
         return any(label in names for label in self._symbolic_inputs)
 
+    def _sym_references_user_input(self, sym) -> bool:
+        """Cheap check: does this ``SymValueZ3`` mention any user label?
+
+        SymValueZ3 carries its SMT-LIB serialization eagerly in
+        ``bitVecExprString``; user labels appear in that string only if they
+        are part of the expression. Skipping the full SMT-LIB → claripy
+        round-trip on the (overwhelmingly common) negative case avoids a
+        proportional native Z3 ``Context`` allocation per register/memory
+        check, which matters when ``machine.extract`` reads ~100 registers.
+        """
+        if not self._symbolic_inputs:
+            return False
+        s = str(sym.bitVecExprString) if sym.bitVecExprString is not None else ""
+        return any(label in s for label in self._symbolic_inputs)
+
     def read_register_content(self, name: str) -> int:
         if name == "pc":
             name = self.platdef.pc_register
@@ -209,18 +227,16 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         pair = state.getVar(reg, PcodeExecutorStatePiece.Reason.INSPECT)
         concrete = pair.getLeft()
         sym = pair.getRight()
-        if sym is not None:
-            big_int = sym.toBigInteger()
-            if big_int is None:
-                # Non-numeral symbolic side. Distinguish a genuinely user-
-                # supplied symbolic value (raise; the caller should switch to
-                # read_register_symbolic) from SymZ3's default fresh BVS for
-                # an uninitialized register (treat as zero, matching the
-                # concrete GhidraEmulator).
-                if self._references_symbolic_input(self._sym_to_claripy(sym)):
-                    raise exceptions.SymbolicValueError(
-                        f"Register {name} contains a symbolic value"
-                    )
+        if sym is not None and sym.toBigInteger() is None:
+            # Non-numeral symbolic side. Distinguish a genuinely user-supplied
+            # symbolic value (raise; the caller should switch to
+            # read_register_symbolic) from SymZ3's default fresh BVS for an
+            # uninitialized register (treat as zero, matching the concrete
+            # GhidraEmulator).
+            if self._sym_references_user_input(sym):
+                raise exceptions.SymbolicValueError(
+                    f"Register {name} contains a symbolic value"
+                )
         return self._int_from_bytes(concrete)
 
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
@@ -271,10 +287,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
         # Mask to handle negative ints via two's-complement wraparound.
         concrete_unsigned = concrete & ((1 << size_bits) - 1)
-        if self.platform.byteorder is platforms.Byteorder.LITTLE:
-            concrete_bytes = concrete_unsigned.to_bytes(size_bytes, "little")
-        else:
-            concrete_bytes = concrete_unsigned.to_bytes(size_bytes, "big")
+        concrete_bytes = concrete_unsigned.to_bytes(size_bytes, self._byteorder_str())
 
         state = self._thread.getState()
         pair = JPair.of(self.bytes_py_to_java(concrete_bytes), sym_value)
@@ -289,9 +302,31 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             name = self.platdef.pc_register
         reg = self.machdef.pcode_reg(name)
         size_bits = reg.getMinimumByteSize() * 8
+        prev = _collapse_to_concrete(self._read_register_ghidra_sized(name))
         bv = claripy.BVS(label, size_bits, explicit_name=True)
+        # Bind the new label to whatever the register held before. Mirrors
+        # angr's write_register_label: the label takes on the prior value,
+        # so labelling an unset register leaves it unconstrained while
+        # labelling a concretely-written register pins the label to that
+        # value.
+        self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self.write_register_content(name, bv)
+
+    def _read_register_ghidra_sized(self, name: str) -> claripy.ast.bv.BV:
+        """Return the current register value as a claripy BV at Ghidra's
+        native register size (smaller than smallworld's for x86 segment
+        registers etc.). Used to size-match the binding constraint built
+        in :meth:`write_register_label`."""
+        reg = self.machdef.pcode_reg(name)
+        ghidra_bits = reg.getMinimumByteSize() * 8
+        pair = self._thread.getState().getVar(
+            reg, PcodeExecutorStatePiece.Reason.INSPECT
+        )
+        sym = pair.getRight()
+        if sym is None:
+            return claripy.BVV(self._int_from_bytes(pair.getLeft()), ghidra_bits)
+        return self._sym_to_claripy(sym)
 
     # ------------------------------------------------------------------
     # Memory I/O
@@ -311,8 +346,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         pair = self._read_memory_pair(address, size)
         sym = pair.getRight()
         if sym is not None and sym.toBigInteger() is None:
-            bv = self._sym_to_claripy(sym)
-            if bv.symbolic:
+            if self._sym_references_user_input(sym):
                 raise exceptions.SymbolicValueError(
                     f"Memory at {hex(address)} (size {size}) is symbolic"
                 )
@@ -351,7 +385,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             if content.symbolic:
                 concrete_bytes = bytes(size)
             else:
-                concrete_bytes = int(content.concrete_value).to_bytes(size, "big")
+                concrete_bytes = int(content.concrete_value).to_bytes(
+                    size, self._byteorder_str()
+                )
             sym_value = self._make_sym_value(content, size_bits)
             self._setvar_memory(address, size, concrete_bytes, sym_value)
         else:
@@ -359,11 +395,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
     def _write_concrete_bytes(self, address: int, content: bytes) -> None:
         """Chunk a concrete-bytes write so the symbolic-side bitvector stays
-        small. See ``_WRITE_CHUNK_BYTES`` for the rationale."""
+        small. See ``_WRITE_CHUNK_BYTES`` for the rationale. The chunk's
+        byte order must match the platform — SymZ3's storage splits the
+        symbolic value into per-byte ``Extract`` slices using the language
+        endianness, so feeding a value built with the wrong byte order
+        produces reversed bytes on the symbolic side.
+        """
+        bo = self._byteorder_str()
         for offset in range(0, len(content), _WRITE_CHUNK_BYTES):
             piece = content[offset : offset + _WRITE_CHUNK_BYTES]
             size = len(piece)
-            value = int.from_bytes(piece, "big")
+            value = int.from_bytes(piece, bo)
             sym_value = self._make_sym_value(value, size * 8)
             self._setvar_memory(address + offset, size, piece, sym_value)
 
@@ -392,7 +434,16 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     ) -> None:
         if label is None:
             return
+        prev = _collapse_to_concrete(self.read_memory_symbolic(address, size))
         bv = claripy.BVS(label, size * 8, explicit_name=True)
+        # Same binding contract as write_register_label: the new label takes
+        # on the value previously held at this address, so labelling memory
+        # that was just written concretely pins the label to those bytes.
+        # We collapse ``prev`` first because SymZ3 returns memory as a
+        # byte-level ``Concat`` of ``Extract`` slices; passing that raw to
+        # the solver makes Z3 enumerate the structure instead of using the
+        # cheap underlying value.
+        self._user_constraints.append(prev == bv)
         self._symbolic_inputs[label] = bv
         self.write_memory_content(address, bv)
 
@@ -435,6 +486,15 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             raise exceptions.EmulationExitpoint()
         if not self._bounds.is_empty() and not self._bounds.contains_value(pc_after):
             raise exceptions.EmulationBounds()
+        if pc_after == pc:
+            # The instruction did not advance the program counter. The most
+            # common cause is an unhandled CALLOTHER userop (e.g. ``hlt`` on
+            # amd64): Ghidra's executor silently marks the frame as not
+            # fall-through, the parent thread leaves the counter where it is,
+            # and our loop would re-enter the same instruction forever.
+            # Treat this as a halt instead.
+            log.info("PC did not advance past %#x; halting emulation.", pc)
+            raise exceptions.EmulationExitpoint()
 
     def _step_pcode_ops(self) -> None:
         """Per-pcode-op step loop with LOAD/STORE/COPY interception for hooks."""
@@ -740,36 +800,40 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._cached_preconditions = result
         return result
 
-    def _solver(self, extras: typing.Sequence[claripy.ast.bool.Bool] = ()) -> z3.Solver:
-        """Build a z3 Solver loaded with user constraints + path preconditions."""
-        backend = claripy.backends.z3
-        solver = z3.Solver()
+    def _solver(
+        self, extras: typing.Sequence[claripy.ast.bool.Bool] = ()
+    ) -> "claripy.Solver":
+        """Build a claripy solver loaded with user constraints + path preconditions.
+
+        Routing through claripy (rather than building a raw ``z3.Solver``)
+        gives us claripy-side constraint simplification before any solver
+        backend sees them.
+        """
+        solver = claripy.Solver()
         for expr in self._user_constraints:
-            solver.add(backend.convert(expr))
+            solver.add(expr)
         for expr in self._path_preconditions():
-            solver.add(backend.convert(expr))
+            solver.add(expr)
         for expr in extras:
-            solver.add(backend.convert(expr))
+            solver.add(expr)
         return solver
 
     def satisfiable(
         self,
         extra_constraints: typing.List[claripy.ast.bool.Bool] = [],
     ) -> bool:
-        return self._solver(extra_constraints).check() == z3.sat
+        return self._solver(extra_constraints).satisfiable()
 
     def eval_atmost(
         self, expr: claripy.ast.bv.BV, most: int
     ) -> typing.List[int]:
         solver = self._solver()
-        z3_expr = claripy.backends.z3.convert(expr)
-        results: typing.List[int] = []
-        for _ in range(most + 1):
-            if solver.check() != z3.sat:
-                break
-            val = solver.model().evaluate(z3_expr, model_completion=True)
-            results.append(val.as_long())
-            solver.add(z3_expr != val)
+        try:
+            results = list(solver.eval(expr, most + 1))
+        except claripy.errors.UnsatError as exc:
+            raise exceptions.UnsatError(
+                "No satisfying assignment for expression given constraints"
+            ) from exc
         if not results:
             raise exceptions.UnsatError(
                 "No satisfying assignment for expression given constraints"
@@ -784,16 +848,16 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self, expr: claripy.ast.bv.BV, least: int
     ) -> typing.List[int]:
         solver = self._solver()
-        z3_expr = claripy.backends.z3.convert(expr)
-        results: typing.List[int] = []
-        for _ in range(least):
-            if solver.check() != z3.sat:
-                raise exceptions.SymbolicValueError(
-                    f"Fewer than {least} solutions for expression"
-                )
-            val = solver.model().evaluate(z3_expr, model_completion=True)
-            results.append(val.as_long())
-            solver.add(z3_expr != val)
+        try:
+            results = list(solver.eval(expr, least))
+        except claripy.errors.UnsatError as exc:
+            raise exceptions.SymbolicValueError(
+                f"Fewer than {least} solutions for expression"
+            ) from exc
+        if len(results) < least:
+            raise exceptions.SymbolicValueError(
+                f"Fewer than {least} solutions for expression"
+            )
         return results
 
     # ------------------------------------------------------------------
@@ -832,3 +896,20 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 def _overlap(start: int, end: int, lo: int, hi: int) -> bool:
     """True if the half-open ranges [start, end) and [lo, hi) overlap."""
     return start < hi and lo < end
+
+
+def _collapse_to_concrete(bv: claripy.ast.bv.BV) -> claripy.ast.bv.BV:
+    """Reduce ``bv`` to a single ``BVV`` when its value is concretely known.
+
+    SymZ3 represents whole-buffer reads as a deep ``Concat`` of ``Extract``
+    slices of constant chunks. Z3 can solve such constraints, but at high
+    cost when they appear in user-constraint sets. If the expression is in
+    fact concretely determined, collapse it once here so downstream solver
+    passes operate on a single ``BVV`` instead.
+    """
+    if bv.symbolic:
+        return bv
+    try:
+        return claripy.BVV(bv.concrete_value, bv.size())
+    except Exception:  # noqa: BLE001
+        return bv
