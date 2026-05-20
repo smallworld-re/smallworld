@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
-from .spec import ScenarioInfo, from_arch_table, just_run
 from .common import (
     PlatformSpec,
     load_raw_code,
@@ -13,6 +12,7 @@ from .common import (
     split_variant,
 )
 from .raw_binary import RawBinarySpec
+from .spec import ScenarioInfo, from_arch_table, just_run
 
 _SPECS = {
     "amd64": RawBinarySpec(

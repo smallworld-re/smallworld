@@ -4,7 +4,6 @@ import dataclasses
 import logging
 from typing import Any, Mapping, Sequence
 
-from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .common import (
     PlatformSpec,
     load_raw_code,
@@ -13,6 +12,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)

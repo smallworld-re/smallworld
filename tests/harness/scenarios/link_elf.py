@@ -4,7 +4,6 @@ import dataclasses
 import logging
 from typing import Sequence
 
-from .spec import ScenarioInfo, assert_contains, from_arch_table
 from .common import (
     PlatformSpec,
     add_code_bounds,
@@ -16,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)

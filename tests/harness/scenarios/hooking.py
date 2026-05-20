@@ -4,7 +4,6 @@ import dataclasses
 import logging
 from typing import Any, Mapping, Sequence
 
-from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .common import (
     PlatformSpec,
     StringSource,
@@ -16,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .tricore_panda import install_tricore_panda_hooking_compatibility
 
 
@@ -217,7 +217,9 @@ def _hooking_expectations(
     variant: str, kwargs: Mapping[str, Any]
 ) -> tuple[tuple[tuple[str, ...], str], ...]:
     # mips64.panda and mips64el.panda drop the leading 'f' from the input string.
-    expected = "oo bar baz" if variant in {"mips64.panda", "mips64el.panda"} else "foo bar baz"
+    expected = (
+        "oo bar baz" if variant in {"mips64.panda", "mips64el.panda"} else "foo bar baz"
+    )
     return (((), expected),)
 
 

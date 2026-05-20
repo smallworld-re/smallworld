@@ -17,9 +17,8 @@ def _discover() -> tuple[tuple[tuple[str, str, object], ...], tuple[object, ...]
             continue
         module = importlib.import_module(f"{__package__}.{name}")
         prefixes = getattr(module, "SCENARIO_PREFIXES", None)
-        has_info = (
-            getattr(module, "SCENARIO_INFO", None) is not None
-            or bool(getattr(module, "SCENARIO_INFOS", ()))
+        has_info = getattr(module, "SCENARIO_INFO", None) is not None or bool(
+            getattr(module, "SCENARIO_INFOS", ())
         )
         if not prefixes and not has_info:
             continue

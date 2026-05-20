@@ -75,7 +75,10 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
         arch_kwargs={
-            **{arch: {"signext": True} for arch in ("mips64", "mips64el", "ppc64", "riscv64")},
+            **{
+                arch: {"signext": True}
+                for arch in ("mips64", "mips64el", "ppc64", "riscv64")
+            },
             **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x")},
         },
     ),

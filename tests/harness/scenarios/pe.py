@@ -4,7 +4,6 @@ import dataclasses
 import logging
 from typing import Sequence
 
-from .spec import ScenarioInfo, from_arch_table, just_run
 from .common import (
     PlatformSpec,
     StringSource,
@@ -16,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_arch_table, just_run
 
 
 @dataclasses.dataclass(frozen=True)

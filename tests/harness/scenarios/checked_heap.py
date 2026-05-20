@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
-from .spec import ScenarioInfo, just_run, VariantInfo
 from .common import PlatformSpec, TestsPath, make_emulator, make_platform, split_variant
+from .spec import ScenarioInfo, VariantInfo, just_run
 
 _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
