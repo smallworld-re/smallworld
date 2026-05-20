@@ -919,7 +919,13 @@ def _build_symbolic_cases() -> list[CaseSpec]:
     )
     symbolic_scripts = [
         ("symbolic:branch", "symbolic/branch.amd64.angr.symbolic.py", (), None, None),
-        ("symbolic:dma", "symbolic/dma.amd64.angr.symbolic.py", ("10", "2"), None, None),
+        (
+            "symbolic:dma",
+            "symbolic/dma.amd64.angr.symbolic.py",
+            ("10", "2"),
+            None,
+            None,
+        ),
         (
             "symbolic:hooking",
             "symbolic/hooking.amd64.angr.symbolic.py",

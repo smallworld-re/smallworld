@@ -14,12 +14,16 @@ import typing
 import claripy
 import jpype
 from com.microsoft.z3 import Context as Z3Context  # type: ignore[import-not-found]
-from ghidra.pcode.emu.symz3.state import SymZ3PcodeEmulator  # type: ignore[import-not-found]
+from ghidra.pcode.emu.symz3.state import (
+    SymZ3PcodeEmulator,  # type: ignore[import-not-found]
+)
 from ghidra.pcode.exec import PcodeExecutorStatePiece  # type: ignore[import-not-found]
 from ghidra.program.model.pcode import Varnode  # type: ignore[import-not-found]
 from ghidra.symz3.model import SymValueZ3  # type: ignore[import-not-found]
 from java.lang import String as JString  # type: ignore[import-not-found]
-from org.apache.commons.lang3.tuple import Pair as JPair  # type: ignore[import-not-found]
+from org.apache.commons.lang3.tuple import (
+    Pair as JPair,  # type: ignore[import-not-found]
+)
 
 from ... import exceptions, platforms, utils
 from ..emulator import Emulator
@@ -46,21 +50,23 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     """
 
     name = "pcode-symbolic-emulator"
-    description = (
-        "Emulator based on pyghidra and Ghidra's SymbolicSummaryZ3 extension"
-    )
+    description = "Emulator based on pyghidra and Ghidra's SymbolicSummaryZ3 extension"
     version = "0.0.1"
 
     bytes_py_to_java = jpype.JByte[:]
 
     @staticmethod
     def bytes_java_to_py(val) -> bytes:
-        return bytes(((b.numerator if b.numerator >= 0 else 256 + b.numerator) for b in val))
+        return bytes(
+            ((b.numerator if b.numerator >= 0 else 256 + b.numerator) for b in val)
+        )
 
     def __init__(self, platform: platforms.Platform):
         super().__init__(platform)
         self.platform: platforms.Platform = platform
-        self.platdef: platforms.PlatformDef = platforms.PlatformDef.for_platform(platform)
+        self.platdef: platforms.PlatformDef = platforms.PlatformDef.for_platform(
+            platform
+        )
         self.machdef: GhidraMachineDef = GhidraMachineDef.for_platform(platform)
 
         self._jctx: Z3Context = Z3Context()
@@ -92,15 +98,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         ] = None
 
         # Hook tables (same shape as concrete GhidraEmulator).
-        self._instructions_hook: typing.Optional[
-            typing.Callable[[Emulator], None]
-        ] = None
-        self._instruction_hooks: typing.Dict[
-            int, typing.Callable[[Emulator], None]
-        ] = {}
-        self._function_hooks: typing.Dict[
-            int, typing.Callable[[Emulator], None]
-        ] = {}
+        self._instructions_hook: typing.Optional[typing.Callable[[Emulator], None]] = (
+            None
+        )
+        self._instruction_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = (
+            {}
+        )
+        self._function_hooks: typing.Dict[int, typing.Callable[[Emulator], None]] = {}
 
         # Memory hooks: concrete and symbolic variants are kept separate; an
         # access fires both if both are registered.
@@ -168,9 +172,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
     def _byteorder_str(self) -> str:
         return (
-            "little"
-            if self.platform.byteorder is platforms.Byteorder.LITTLE
-            else "big"
+            "little" if self.platform.byteorder is platforms.Byteorder.LITTLE else "big"
         )
 
     def _int_from_bytes(self, raw: typing.Any) -> int:
@@ -185,7 +187,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             # Java Z3's mkBV(long, int) is signed-64; route the value through
             # the (String, int) overload so any bitwidth (including unsigned
             # 64-bit) works uniformly.
-            jbv = self._jctx.mkBV(JString(str(value & ((1 << size_bits) - 1))), size_bits)
+            jbv = self._jctx.mkBV(
+                JString(str(value & ((1 << size_bits) - 1))), size_bits
+            )
         else:
             raise TypeError(f"Cannot convert {type(value).__name__} to SymValueZ3")
         return SymValueZ3(self._jctx, jbv)
@@ -387,10 +391,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # force SymZ3 to build an enormous byte-wise ``Concat`` SymValueZ3
         # just to confirm "no, not symbolic".
         end = address + size
-        if any(
-            not (e <= address or end <= s)
-            for s, e in self._labeled_memory_ranges
-        ):
+        if any(not (e <= address or end <= s) for s, e in self._labeled_memory_ranges):
             pair = self._read_memory_pair(address, size)
             sym = pair.getRight()
             if sym is not None and self._sym_references_user_input(sym):
@@ -455,12 +456,16 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         symbolic, the concrete byte piece always has a defined value (zero
         for never-written addresses, the most-recent write otherwise).
         """
-        raw = self._emu.getSharedState().getLeft().getVar(
-            self.machdef.language.getDefaultSpace(),
-            self._addr_bytes(address),
-            size,
-            False,
-            PcodeExecutorStatePiece.Reason.INSPECT,
+        raw = (
+            self._emu.getSharedState()
+            .getLeft()
+            .getVar(
+                self.machdef.language.getDefaultSpace(),
+                self._addr_bytes(address),
+                size,
+                False,
+                PcodeExecutorStatePiece.Reason.INSPECT,
+            )
         )
         return self.bytes_java_to_py(raw)
 
@@ -676,7 +681,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 new_concrete = replacement
 
         # Symbolic read hooks
-        new_sym = self._sym_to_claripy(sym) if sym is not None else claripy.BVV(new_concrete)
+        new_sym = (
+            self._sym_to_claripy(sym) if sym is not None else claripy.BVV(new_concrete)
+        )
         if self._mem_reads_symbolic_hook is not None:
             replacement = self._mem_reads_symbolic_hook(self, addr, size, new_sym)
             if replacement is not None:
@@ -689,7 +696,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 new_sym = replacement
 
         sym_value = self._make_sym_value(new_sym, size * 8)
-        state.setVar(out_var, JPair.of(self.bytes_py_to_java(bytes(new_concrete)), sym_value))
+        state.setVar(
+            out_var, JPair.of(self.bytes_py_to_java(bytes(new_concrete)), sym_value)
+        )
 
     def _process_write_breakpoint(
         self,
@@ -718,7 +727,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 hook(self, addr, size, concrete)
 
         sym = pair.getRight()
-        sym_claripy = self._sym_to_claripy(sym) if sym is not None else claripy.BVV(concrete)
+        sym_claripy = (
+            self._sym_to_claripy(sym) if sym is not None else claripy.BVV(concrete)
+        )
         if self._mem_writes_symbolic_hook is not None:
             self._mem_writes_symbolic_hook(self, addr, size, sym_claripy)
         for (start, end), hook in self._mem_write_symbolic_hooks.items():
@@ -755,9 +766,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self,
         start: int,
         end: int,
-        function: typing.Callable[
-            [Emulator, int, int, bytes], typing.Optional[bytes]
-        ],
+        function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
         self._mem_read_hooks[(start, end)] = function
 
@@ -766,9 +775,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
     def hook_memory_reads(
         self,
-        function: typing.Callable[
-            [Emulator, int, int, bytes], typing.Optional[bytes]
-        ],
+        function: typing.Callable[[Emulator, int, int, bytes], typing.Optional[bytes]],
     ) -> None:
         self._mem_reads_hook = function
 
@@ -819,17 +826,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self,
         start: int,
         end: int,
-        function: typing.Callable[
-            [Emulator, int, int, claripy.ast.bv.BV], None
-        ],
+        function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
     ) -> None:
         self._mem_write_symbolic_hooks[(start, end)] = function
 
     def hook_memory_writes_symbolic(
         self,
-        function: typing.Callable[
-            [Emulator, int, int, claripy.ast.bv.BV], None
-        ],
+        function: typing.Callable[[Emulator, int, int, claripy.ast.bv.BV], None],
     ) -> None:
         self._mem_writes_symbolic_hook = function
 
@@ -897,9 +900,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     ) -> bool:
         return self._solver(extra_constraints).satisfiable()
 
-    def eval_atmost(
-        self, expr: claripy.ast.bv.BV, most: int
-    ) -> typing.List[int]:
+    def eval_atmost(self, expr: claripy.ast.bv.BV, most: int) -> typing.List[int]:
         solver = self._solver()
         try:
             results = list(solver.eval(expr, most + 1))
@@ -917,9 +918,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             )
         return results
 
-    def eval_atleast(
-        self, expr: claripy.ast.bv.BV, least: int
-    ) -> typing.List[int]:
+    def eval_atleast(self, expr: claripy.ast.bv.BV, least: int) -> typing.List[int]:
         solver = self._solver()
         try:
             results = list(solver.eval(expr, least))

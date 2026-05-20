@@ -45,9 +45,8 @@ def _substitute_symz3_load_ufs(expr: "z3.ExprRef") -> "z3.ExprRef":
     def visit(node: "z3.ExprRef") -> None:
         if z3.is_app(node):
             decl = node.decl()
-            if (
-                decl.kind() == z3.Z3_OP_UNINTERPRETED
-                and decl.name().startswith(_SYMZ3_UF_PREFIX)
+            if decl.kind() == z3.Z3_OP_UNINTERPRETED and decl.name().startswith(
+                _SYMZ3_UF_PREFIX
             ):
                 key = str(node)
                 if key not in seen:
@@ -112,9 +111,7 @@ def smt2_to_claripy_bv(smt: str) -> claripy.ast.bv.BV:
         raise ValueError(f"No assertions found in SMT-LIB string: {smt[:80]}...")
     children = assertions[0].children()
     if len(children) == 0:
-        raise ValueError(
-            f"SMT-LIB BV wrapper assertion has no children: {smt[:80]}..."
-        )
+        raise ValueError(f"SMT-LIB BV wrapper assertion has no children: {smt[:80]}...")
     return _z3_backend()._abstract(_substitute_symz3_load_ufs(children[0]))
 
 
