@@ -37,7 +37,9 @@ _SPECS = build_specs(
 
 _SPECIAL_VARIANTS = {
     "ppc.panda": dataclasses.replace(
-        _SPECS["ppc"], engines=("panda",), print_exit_point=True,
+        _SPECS["ppc"],
+        engines=("panda",),
+        print_exit_point=True,
     ),
 }
 

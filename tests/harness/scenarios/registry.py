@@ -11,9 +11,7 @@ _SELF_NAME = "registry"
 def _discover() -> tuple[tuple[tuple[str, str, object], ...], tuple[object, ...]]:
     entries: list[tuple[str, str, object]] = []
     handlers_seen: list[object] = []
-    names = sorted(
-        info.name for info in pkgutil.iter_modules([_SCENARIOS_DIR])
-    )
+    names = sorted(info.name for info in pkgutil.iter_modules([_SCENARIOS_DIR]))
     for name in names:
         if name == _SELF_NAME:
             continue
