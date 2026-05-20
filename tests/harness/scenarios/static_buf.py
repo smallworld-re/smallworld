@@ -12,6 +12,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_legacy
 
 
 @dataclasses.dataclass(frozen=True)
@@ -193,6 +194,15 @@ _SPECS = {
         exit_offset=0xA,
     ),
 }
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="static_buf",
+    scenario="static_buf",
+    tags=("scenario", "static_buf"),
+    variants_source=from_legacy(("StaticBufferTests",)),
+    run_factory=assert_contains("0x4a1", case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

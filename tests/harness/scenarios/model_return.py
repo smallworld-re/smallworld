@@ -11,6 +11,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains
 
 _ARCH = "tricore"
 _ENGINE = "panda"
@@ -22,6 +23,23 @@ _STACK_SIZE = 0x4000
 _STATIC_BUFFER_ADDRESS = 0x10000
 _STATIC_BUFFER_VALUE = 0x04A1
 _CALL_MNEMONICS = frozenset({"call", "calla", "fcall", "fcalla"})
+
+
+def _model_return_variants():
+    return [("tricore.panda", None, {})]
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="model_return",
+    scenario="model_return",
+    tags=("scenario", "model_return", "tricore", "panda"),
+    variants_source=_model_return_variants,
+    run_factory=assert_contains("0x4a1", case_sensitive=False),
+    description=(
+        "TriCore/PANDA exposes the modeled-call return register at the "
+        "callsite and resumes after that call"
+    ),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

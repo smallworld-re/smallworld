@@ -15,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_legacy
 from .tricore_panda import install_tricore_panda_raw_binary_call_return_compatibility
 
 
@@ -99,6 +100,25 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
 }
 
 _SPECS = build_specs(RecursionSpec, _ARCHS, per_arch=_PER_ARCH)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="recursion",
+    scenario="recursion",
+    tags=("scenario", "recursion"),
+    variants_source=from_legacy(("RecursionTests",), prefix="recursion"),
+    run_factory=assert_outputs(
+        tuple(
+            ((str(number),), f"{expected:#x}")
+            for number, expected in (
+                (-1, 91),
+                (0, 91),
+                (100, 91),
+                (101, 91),
+                (102, 92),
+            )
+        ),
+    ),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

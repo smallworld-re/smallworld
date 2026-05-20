@@ -9,6 +9,8 @@ from .framework import CaseRunner, CaseSpec, RepoRoot, TestsPath
 from .legacy_library import LEGACY_LIBRARY_MODELS
 from .legacy_matrix import LEGACY_MATRIX
 from .parity import check_manifest_parity, check_registered_scenario_parity
+from .scenarios.registry import HANDLERS
+from .scenarios.spec import ScenarioInfo
 
 PYTHON = sys.executable
 
@@ -399,114 +401,36 @@ def _assert_case_outputs(
         runner.assert_contains(stdout, expected)
 
 
-def _build_square_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, kwargs in _legacy_variants(
-        ("SquareTests",), prefix="square"
-    ):
-        signext = bool(kwargs.get("signext", False))
-        sixteenbit = bool(kwargs.get("sixteenbit", False))
+def _iter_scenario_infos() -> typing.Iterator[ScenarioInfo]:
+    seen: set[int] = set()
+    for handler in HANDLERS:
+        info = getattr(handler, "SCENARIO_INFO", None)
+        if info is not None and id(info) not in seen:
+            seen.add(id(info))
+            yield info
+        for info in getattr(handler, "SCENARIO_INFOS", ()):
+            if id(info) in seen:
+                continue
+            seen.add(id(info))
+            yield info
 
-        def run(
-            runner: CaseRunner,
-            *,
-            variant: str = variant,
-            signext: bool = signext,
-            sixteenbit: bool = sixteenbit,
-        ) -> None:
-            numbers = [5, 1337]
-            if not sixteenbit:
-                numbers.append(65535)
-            expectations = []
-            for number in numbers:
-                result = number**2
-                if signext and result & 0xFFFFFFFF80000000 != 0:
-                    result = 0xFFFFFFFF80000000 | result
-                if sixteenbit:
-                    result &= 0xFFFF
-                expectations.append(((str(number),), f"{result:#x}"))
-            _assert_case_outputs(runner, "square", variant, expectations)
 
+def _build_generic_cases(info: ScenarioInfo) -> list[CaseSpec]:
+    if info.variants_source is None or info.run_factory is None:
+        return []
+    cases: list[CaseSpec] = []
+    for variant, skip_reason, kwargs in info.variants_source():
+        description = info.description
+        if info.description_factory is not None:
+            description = info.description_factory(variant, kwargs)
         cases.append(
             _case(
-                f"square:{variant}",
-                "scenario",
-                "square",
-                run=run,
+                f"{info.prefix}:{variant}",
+                *info.tags,
+                run=info.run_factory(info, variant, kwargs),
                 skip_reason=skip_reason,
-            )
-        )
-    return cases
-
-
-def _build_branch_cases() -> list[CaseSpec]:
-    cases = []
-    variants = _legacy_variants(
-        (
-            "BranchTestsAngr",
-            "BranchTestsGhidra",
-            "BranchTestsPanda",
-            "BranchTestsUnicorn",
-        ),
-        prefix="branch",
-    )
-    for variant, skip_reason, _ in variants:
-
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            expectations = (
-                (("99",), "0x0"),
-                (("100",), "0x1"),
-                (("101",), "0x0"),
-            )
-            _assert_case_outputs(
-                runner,
-                "branch",
-                variant,
-                expectations,
-            )
-
-        cases.append(
-            _case(
-                f"branch:{variant}",
-                "scenario",
-                "branch",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
-
-
-def _build_call_cases() -> list[CaseSpec]:
-    cases = []
-    variants = _legacy_variants(
-        ("CallTestsAngr", "CallTestsGhidra", "CallTestsPanda", "CallTestsUnicorn"),
-        prefix="call",
-    )
-    for variant, skip_reason, kwargs in variants:
-        signext = bool(kwargs.get("signext", False))
-
-        def run(
-            runner: CaseRunner, *, variant: str = variant, signext: bool = signext
-        ) -> None:
-            outputs = (
-                (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
-                (101, 0x321),
-                (65536, 0x21),
-            )
-            expectations = tuple(
-                ((str(number),), f"{expected:#x}") for number, expected in outputs
-            )
-            _assert_case_outputs(
-                runner,
-                "call",
-                variant,
-                expectations,
-            )
-
-        cases.append(
-            _case(
-                f"call:{variant}", "scenario", "call", run=run, skip_reason=skip_reason
+                weight=info.weight,
+                description=description,
             )
         )
     return cases
@@ -531,42 +455,6 @@ def _build_dma_cases() -> list[CaseSpec]:
         args=("10", "2"),
         validator=validate,
     )
-
-
-def _build_recursion_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(
-        ("RecursionTests",), prefix="recursion"
-    ):
-
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            expectations = tuple(
-                ((str(number),), f"{expected:#x}")
-                for number, expected in (
-                    (-1, 91),
-                    (0, 91),
-                    (100, 91),
-                    (101, 91),
-                    (102, 92),
-                )
-            )
-            _assert_case_outputs(
-                runner,
-                "recursion",
-                variant,
-                expectations,
-            )
-
-        cases.append(
-            _case(
-                f"recursion:{variant}",
-                "scenario",
-                "recursion",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
 
 
 def _build_stack_cases() -> list[CaseSpec]:
@@ -617,30 +505,6 @@ def _build_block_cases() -> list[CaseSpec]:
         args=("2740", "1760"),
         validator=validate,
     )
-
-
-def _build_strlen_cases() -> list[CaseSpec]:
-    cases = []
-    for variant, skip_reason, _ in _legacy_variants(("StrlenTests",), prefix="strlen"):
-
-        def run(runner: CaseRunner, *, variant: str = variant) -> None:
-            _assert_case_outputs(
-                runner,
-                "strlen",
-                variant,
-                ((("",), "0x0"), (("foobar",), "0x6")),
-            )
-
-        cases.append(
-            _case(
-                f"strlen:{variant}",
-                "scenario",
-                "strlen",
-                run=run,
-                skip_reason=skip_reason,
-            )
-        )
-    return cases
 
 
 def _build_hooking_cases() -> list[CaseSpec]:
@@ -841,70 +705,12 @@ def _build_syscall_cases() -> list[CaseSpec]:
     )
 
 
-def _build_static_buffer_cases() -> list[CaseSpec]:
-    def validate(
-        runner: CaseRunner,
-        stdout: str,
-        _stderr: str,
-        _variant: str,
-        _kwargs: VariantKwargs,
-    ) -> None:
-        runner.assert_contains(stdout.lower(), "0x4a1")
-
-    return _build_legacy_case_command_cases(
-        ("StaticBufferTests",),
-        case_prefix="static_buf",
-        scenario="static_buf",
-        tags=("scenario", "static_buf"),
-        validator=validate,
-    )
-
-
-def _build_model_return_cases() -> list[CaseSpec]:
-    def run(runner: CaseRunner) -> None:
-        stdout, _ = _run_case_command(runner, "model_return", "tricore.panda")
-        runner.assert_contains(stdout.lower(), "0x4a1")
-
-    return [
-        _case(
-            "model_return:tricore.panda",
-            "scenario",
-            "model_return",
-            "tricore",
-            "panda",
-            run=run,
-            description=(
-                "TriCore/PANDA exposes the modeled-call return register at the "
-                "callsite and resumes after that call"
-            ),
-        )
-    ]
-
-
 def _build_delay_cases() -> list[CaseSpec]:
     return _build_legacy_script_cases(
         ("DelayTests",),
         case_prefix="delay",
         tags=("scenario", "delay"),
         script_template="delay/delay.{variant}.py",
-    )
-
-
-def _build_exitpoint_cases() -> list[CaseSpec]:
-    return _build_legacy_case_command_cases(
-        ("ExitpointTests",),
-        case_prefix="exitpoint",
-        scenario="exitpoint",
-        tags=("scenario", "exitpoint"),
-    )
-
-
-def _build_unmapped_cases() -> list[CaseSpec]:
-    return _build_legacy_case_command_cases(
-        ("UnmappedTests",),
-        case_prefix="unmapped",
-        scenario="unmapped",
-        tags=("scenario", "unmapped"),
     )
 
 
@@ -940,15 +746,6 @@ def _build_symbolic_state_cases() -> list[CaseSpec]:
         case_prefix="symbolic_state",
         scenario="symbolic_state",
         tags=("scenario", "symbolic_state"),
-    )
-
-
-def _build_interrupt_cases() -> list[CaseSpec]:
-    return _build_legacy_case_command_cases(
-        ("InterruptTests",),
-        case_prefix="interrupt",
-        scenario="interrupt",
-        tags=("scenario", "interrupt"),
     )
 
 
@@ -1499,16 +1296,13 @@ def _build_parity_case() -> list[CaseSpec]:
 
 def all_cases() -> list[CaseSpec]:
     cases: list[CaseSpec] = []
+    for info in _iter_scenario_infos():
+        cases.extend(_build_generic_cases(info))
     builders = [
         _build_parity_case,
-        _build_square_cases,
-        _build_branch_cases,
-        _build_call_cases,
         _build_dma_cases,
-        _build_recursion_cases,
         _build_stack_cases,
         _build_block_cases,
-        _build_strlen_cases,
         _build_hooking_cases,
         _build_elf_cases,
         _build_rela_cases,
@@ -1520,14 +1314,8 @@ def all_cases() -> list[CaseSpec]:
         _build_link_pe_cases,
         _build_floats_cases,
         _build_syscall_cases,
-        _build_static_buffer_cases,
-        _build_model_return_cases,
-        _build_delay_cases,
-        _build_exitpoint_cases,
-        _build_unmapped_cases,
         _build_symbolic_cases,
         _build_symbolic_state_cases,
-        _build_interrupt_cases,
         _build_sysv_cases,
         _build_structure_cases,
         _build_memhook_cases,
@@ -1544,6 +1332,7 @@ def all_cases() -> list[CaseSpec]:
         _build_fuzz_cases,
         _build_library_cases,
         _build_documentation_case,
+        _build_delay_cases,
     ]
     for build in builders:
         cases.extend(build())

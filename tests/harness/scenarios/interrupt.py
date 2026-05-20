@@ -12,6 +12,7 @@ from .common import (
     split_variant,
 )
 from .raw_binary import RawBinarySpec
+from .spec import ScenarioInfo, from_legacy, just_run
 
 _ARCHS = (
     "aarch64",
@@ -43,6 +44,15 @@ _SPECS = build_specs(
     },
     # interrupt reads the full-width return register on amd64.
     per_arch={"amd64": {"result_register": "rax"}},
+)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="interrupt",
+    scenario="interrupt",
+    tags=("scenario", "interrupt"),
+    variants_source=from_legacy(("InterruptTests",)),
+    run_factory=just_run(),
 )
 
 

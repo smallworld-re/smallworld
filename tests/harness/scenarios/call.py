@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from .common import ARCH_REGISTERS, build_specs
 from .raw_binary import RawBinarySpec, StackSpec, run_integer_case, supports_variant
+from .spec import ScenarioInfo, assert_outputs, from_legacy
 
 _ARCHS = (
     "aarch64",
@@ -63,6 +64,30 @@ _PER_ARCH["i386"]["arg_register"] = None
 _PER_ARCH["tricore"]["entry_offset"] = 0x14
 
 _SPECS = build_specs(RawBinarySpec, _ARCHS, per_arch=_PER_ARCH)
+
+
+def _call_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    signext = bool(kwargs.get("signext", False))
+    outputs = (
+        (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
+        (101, 0x321),
+        (65536, 0x21),
+    )
+    return tuple(((str(n),), f"{r:#x}") for n, r in outputs)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="call",
+    scenario="call",
+    tags=("scenario", "call"),
+    variants_source=from_legacy(
+        ("CallTestsAngr", "CallTestsGhidra", "CallTestsPanda", "CallTestsUnicorn"),
+        prefix="call",
+    ),
+    run_factory=assert_outputs(_call_expectations),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

@@ -14,6 +14,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_legacy, just_run
 
 
 @dataclasses.dataclass(frozen=True)
@@ -133,6 +134,15 @@ _SKIP_REASONS = {
     "ppc.panda": "Waiting for panda-ng",
     "ppc64": "Unicorn ppc64 support buggy",
 }
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="unmapped",
+    scenario="unmapped",
+    tags=("scenario", "unmapped"),
+    variants_source=from_legacy(("UnmappedTests",), prefix="unmapped"),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

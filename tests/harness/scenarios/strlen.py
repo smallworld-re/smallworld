@@ -14,6 +14,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_legacy
 
 
 @dataclasses.dataclass(frozen=True)
@@ -62,6 +63,20 @@ _SPECS = build_specs(
         # Only amd64 prints the stack and pointer address; others print result only.
         "amd64": {"print_stack": True, "print_address": True},
     },
+)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="strlen",
+    scenario="strlen",
+    tags=("scenario", "strlen"),
+    variants_source=from_legacy(("StrlenTests",), prefix="strlen"),
+    run_factory=assert_outputs(
+        (
+            (("",), "0x0"),
+            (("foobar",), "0x6"),
+        ),
+    ),
 )
 
 

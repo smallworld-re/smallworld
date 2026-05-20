@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from .common import build_specs
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
+from .spec import ScenarioInfo, assert_outputs, from_legacy
 
 _ARCHS = (
     "aarch64",
@@ -39,6 +40,34 @@ _SPECIAL_VARIANTS = {
         _SPECS["ppc"], engines=("panda",), print_exit_point=True,
     ),
 }
+
+
+def _square_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    signext = bool(kwargs.get("signext", False))
+    sixteenbit = bool(kwargs.get("sixteenbit", False))
+    numbers = [5, 1337]
+    if not sixteenbit:
+        numbers.append(65535)
+    expectations: list[tuple[tuple[str, ...], str]] = []
+    for number in numbers:
+        result = number**2
+        if signext and result & 0xFFFFFFFF80000000 != 0:
+            result = 0xFFFFFFFF80000000 | result
+        if sixteenbit:
+            result &= 0xFFFF
+        expectations.append(((str(number),), f"{result:#x}"))
+    return tuple(expectations)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="square",
+    scenario="square",
+    tags=("scenario", "square"),
+    variants_source=from_legacy(("SquareTests",), prefix="square"),
+    run_factory=assert_outputs(_square_expectations),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
