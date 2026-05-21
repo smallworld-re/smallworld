@@ -15,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_arch_table, just_run
 
 
 @dataclasses.dataclass(frozen=True)
@@ -61,6 +62,19 @@ _SPECS = {
         exit_offset=0x102E,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("pe", "pe"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="pe",
+    scenario="pe",
+    tags=("scenario", "pe"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

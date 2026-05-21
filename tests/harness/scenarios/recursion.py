@@ -3,17 +3,22 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Sequence
 
 from .common import (
+    ARCH_REGISTERS,
     PlatformSpec,
+    build_specs,
     load_raw_code,
     make_emulator,
     make_platform,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 from .tricore_panda import install_tricore_panda_raw_binary_call_return_compatibility
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -36,148 +41,91 @@ class RecursionSpec:
     stack_pointer_adjust: int = 0
 
 
-_SPECS = {
-    "aarch64": RecursionSpec(
-        platform=PlatformSpec("AARCH64", "LITTLE"),
-        pc_register="pc",
-        arg_register="x0",
-        result_register="x0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-        stack_pointer_adjust=8,
-    ),
-    "amd64": RecursionSpec(
-        platform=PlatformSpec("X86_64", "LITTLE"),
-        pc_register="rip",
-        arg_register="rdi",
-        result_register="eax",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="rsp",
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-    ),
-    "armel": RecursionSpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
-        pc_register="pc",
-        arg_register="r0",
-        result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
-    ),
-    "armhf": RecursionSpec(
-        platform=PlatformSpec("ARM_V7A", "LITTLE"),
-        pc_register="pc",
-        arg_register="r0",
-        result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
-    ),
-    "i386": RecursionSpec(
-        platform=PlatformSpec("X86_32", "LITTLE"),
-        pc_register="eip",
-        result_register="eax",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="esp",
-        stack_items=(
-            StackItem("argument", 4),
-            StackItem(0xFFFFFFFF, 4, "fake return address"),
-        ),
-    ),
-    "la64": RecursionSpec(
-        platform=PlatformSpec("LOONGARCH64", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="a0",
-        engines=("angr", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-    ),
-    "m68k": RecursionSpec(
-        platform=PlatformSpec("M68K", "BIG"),
-        pc_register="pc",
-        result_register="d0",
-        engines=("unicorn", "pcode"),
-        stack_items=(
-            StackItem("argument", 4),
-            StackItem(0xFFFFFFFF, 4, "fake return address"),
-        ),
-    ),
-    "mips": RecursionSpec(
-        platform=PlatformSpec("MIPS32", "BIG"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
-    ),
-    "mipsel": RecursionSpec(
-        platform=PlatformSpec("MIPS32", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
-    ),
-    "mips64": RecursionSpec(
-        platform=PlatformSpec("MIPS64", "BIG"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-    ),
-    "mips64el": RecursionSpec(
-        platform=PlatformSpec("MIPS64", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-    ),
-    "ppc": RecursionSpec(
-        platform=PlatformSpec("POWERPC32", "BIG"),
-        pc_register="pc",
-        arg_register="r3",
-        result_register="r3",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_items=(
+def _fake_return(arch: str, label: str = "fake return address") -> StackItem:
+    return StackItem(0xFFFFFFFF, ARCH_REGISTERS[arch].pointer_size, label)
+
+
+_ARCHS = (
+    "aarch64",
+    "amd64",
+    "armel",
+    "armhf",
+    "i386",
+    "la64",
+    "m68k",
+    "mips",
+    "mipsel",
+    "mips64",
+    "mips64el",
+    "ppc",
+    "ppc64",
+    "riscv64",
+    "tricore",
+    "xtensa",
+)
+
+_PER_ARCH: dict[str, dict[str, Any]] = {
+    "aarch64": {"stack_items": (_fake_return("aarch64"),), "stack_pointer_adjust": 8},
+    "amd64": {"stack_items": (_fake_return("amd64"),)},
+    "armel": {"stack_items": (_fake_return("armel"),)},
+    "armhf": {"stack_items": (_fake_return("armhf"),)},
+    # i386 and m68k pass the argument on the stack rather than in a register.
+    "i386": {
+        "arg_register": None,
+        "stack_items": (StackItem("argument", 4), _fake_return("i386")),
+    },
+    "la64": {"stack_items": (_fake_return("la64"),)},
+    "m68k": {
+        "arg_register": None,
+        "stack_items": (StackItem("argument", 4), _fake_return("m68k")),
+    },
+    "mips": {"stack_items": (_fake_return("mips"),)},
+    "mipsel": {"stack_items": (_fake_return("mipsel"),)},
+    "mips64": {"stack_items": (_fake_return("mips64"),)},
+    "mips64el": {"stack_items": (_fake_return("mips64el"),)},
+    "ppc": {
+        "stack_items": (
             StackItem(0xFFFFFFFF, 4, "placeholder for lr"),
             StackItem(0xFFFFFFFF, 4, "empty space"),
         ),
-    ),
-    "ppc64": RecursionSpec(
-        platform=PlatformSpec("POWERPC64", "BIG"),
-        pc_register="pc",
-        arg_register="r3",
-        result_register="r3",
-        engines=("unicorn", "angr", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-        stack_pointer_adjust=-0x80,
-    ),
-    "riscv64": RecursionSpec(
-        platform=PlatformSpec("RISCV64", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="a0",
-        engines=("unicorn", "angr", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 8, "fake return address"),),
-        stack_pointer_adjust=8,
-    ),
-    "tricore": RecursionSpec(
-        platform=PlatformSpec("TRICORE", "LITTLE"),
-        pc_register="pc",
-        arg_register="d4",
-        result_register="d2",
-        engines=("angr", "panda", "pcode"),
-        entry_offset=0x38,
-    ),
-    "xtensa": RecursionSpec(
-        platform=PlatformSpec("XTENSA", "LITTLE"),
-        pc_register="pc",
-        arg_register="a2",
-        result_register="a2",
-        engines=("angr", "pcode"),
-        stack_items=(StackItem(0xFFFFFFFF, 4, "fake return address"),),
-    ),
+    },
+    "ppc64": {
+        "stack_items": (_fake_return("ppc64"),),
+        "stack_pointer_adjust": -0x80,
+    },
+    "riscv64": {
+        "stack_items": (_fake_return("riscv64"),),
+        "stack_pointer_adjust": 8,
+    },
+    "tricore": {"entry_offset": 0x38},
+    "xtensa": {"stack_items": (_fake_return("xtensa"),)},
 }
+
+_SPECS = build_specs(RecursionSpec, _ARCHS, per_arch=_PER_ARCH)
+
+SCENARIO_PREFIXES = (("recursion", "recursion"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="recursion",
+    scenario="recursion",
+    tags=("scenario", "recursion"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+    ),
+    run_factory=assert_outputs(
+        tuple(
+            ((str(number),), f"{expected:#x}")
+            for number, expected in (
+                (-1, 91),
+                (0, 91),
+                (100, 91),
+                (101, 91),
+                (102, 92),
+            )
+        ),
+    ),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
