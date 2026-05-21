@@ -6,6 +6,7 @@ import logging
 from typing import Optional, Sequence
 
 from .common import PlatformSpec, TestsPath, make_emulator, make_platform
+from .spec import ScenarioInfo, from_variants
 
 
 @dataclasses.dataclass(frozen=True)
@@ -176,6 +177,77 @@ _AFL_SPECS = {
         heap_size=0x4000,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("fuzz", "fuzz"),)
+
+NATIVE_PARITY = True
+
+_FUZZ_ARCHES = ("amd64", "aarch64", "armel", "armhf", "m68k", "mips", "mipsel")
+
+_AFL_EXPECTED = {
+    "amd64": ("001445:1", "003349:1", "022192:1", "040896:1"),
+    "aarch64": ("002975:1", "022192:1", "039638:1", "050871:1"),
+    "armel": ("002975:1", "022192:1", "050871:1"),
+    "armhf": ("002975:1", "022192:1", "050871:1"),
+    "m68k": ("021692:1", "022192:1", "059686:1"),
+    "mips": ("013057:1", "022192:1", "036571:1", "052670:1"),
+    "mipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
+}
+
+
+def _fuzz_run_factory(info, variant, kwargs):
+    from .. import manifest
+
+    def run(runner):
+        stdout, _ = manifest._run_case_command(runner, "fuzz", variant)
+        runner.assert_line_contains(stdout, "=0x0")
+        _, stderr = manifest._run_case_command(
+            runner, "fuzz", variant, "-c", check=False
+        )
+        runner.assert_line_contains(stderr, "UC_ERR_WRITE_UNMAPPED")
+
+    return run
+
+
+def _afl_run_factory(info, variant, kwargs):
+    from .. import manifest
+
+    inputs_dir = TestsPath / "fuzz" / "fuzz_inputs"
+    expected = _AFL_EXPECTED[variant]
+
+    def run(runner):
+        stdout, _ = manifest._run_afl_showmap(
+            runner,
+            inputs_dir=inputs_dir,
+            target=[manifest.PYTHON, "run_case.py", "fuzz.afl_fuzz", variant, "@@"],
+            cwd=TestsPath,
+            check=False,
+        )
+        for line in expected:
+            runner.assert_line_contains(stdout, line)
+
+    return run
+
+
+SCENARIO_INFOS = (
+    ScenarioInfo(
+        prefix="fuzz",
+        scenario="fuzz",
+        tags=("scenario", "fuzz"),
+        variants_source=from_variants(tuple((arch, None) for arch in _FUZZ_ARCHES)),
+        run_factory=_fuzz_run_factory,
+        weight=2,
+    ),
+    ScenarioInfo(
+        prefix="fuzz:afl",
+        scenario="fuzz.afl_fuzz",
+        tags=("scenario", "fuzz", "afl"),
+        variants_source=from_variants(tuple((arch, None) for arch in _FUZZ_ARCHES)),
+        run_factory=_afl_run_factory,
+        weight=2,
+    ),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

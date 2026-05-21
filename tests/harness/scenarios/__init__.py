@@ -11,6 +11,8 @@ def maybe_run_registered_case(
     args: Sequence[str],
 ) -> Optional[int]:
     for handler in HANDLERS:
-        if handler.can_run(scenario, variant):
-            return handler.run_case(scenario, variant, args)
+        can_run = getattr(handler, "can_run", None)
+        if can_run is None or not can_run(scenario, variant):
+            continue
+        return handler.run_case(scenario, variant, args)
     return None

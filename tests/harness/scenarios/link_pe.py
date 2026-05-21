@@ -16,6 +16,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -54,6 +55,19 @@ _SPECS = {
         exit_offset=0x10BF,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("link_pe", "link_pe"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="link_pe",
+    scenario="link_pe",
+    tags=("scenario", "link_pe"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=assert_contains("0x2a", args=("42",), case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
