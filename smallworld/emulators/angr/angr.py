@@ -637,6 +637,7 @@ class AngrEmulator(
             # There may be over-constraints.  Please be careful.
             self.state.memory.store(address, s, inspect=False)
             self.state.solver.add(v == s)
+            self.state.solver.simplify()
 
     def _write_memory_label_bulk(
         self, labels: typing.List[typing.Tuple[int, int, typing.Optional[str]]]
@@ -658,6 +659,7 @@ class AngrEmulator(
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:
+            logger.warning(f"Writing {len(bytes)} bytes of code to {hex(address)} after initialization!")
             self.write_memory_content(address, content)
         else:
             self._code.append((address, content))

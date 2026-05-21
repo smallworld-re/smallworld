@@ -641,6 +641,7 @@ class CrashTriage(analysis.Analysis):
         apc = emu.state.solver.eval_one(ip)
 
         log.info(f"Stepping through {apc:x} ({ip})")
+        log.info(f"rsp: {emu.read_register_symbolic('rsp')}")
         if epc != apc:
             log.debug(
                 f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x} ({ip})"
