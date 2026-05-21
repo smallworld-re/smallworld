@@ -1349,52 +1349,73 @@ def _build_fuzz_cases() -> list[CaseSpec]:
 
 
 def _build_fuzz_tutorial_cases() -> list[CaseSpec]:
-    """Integration cases that walk through ``docs/tutorial/fuzzing.rst``.
+    """Integration cases that walk through ``docs/tutorial/fuzzing/index.rst``.
 
-    The Unicorn tutorial section is already covered indirectly by the
-    ``fuzz:<arch>`` cases that drive ``machine.fuzz_with_file`` through
-    ``run_case.py fuzz.afl_fuzz``. The Styx section ends with a call to
-    ``machine.fuzz_with_styx``; here we exercise that exact call path via the
-    ``styxafl`` bridge's non-AFL fallback (single iteration when
-    ``__AFL_SHM_ID`` is unset), which is the simplest CI-runnable shape of
-    the tutorial's end-to-end harness.
+    Both cases run the standalone tutorial scripts that ship under
+    ``docs/tutorial/fuzzing/`` directly — no test-harness scaffolding — so
+    they verify the exact code a tutorial reader copies. The Unicorn variant
+    is driven through ``afl-showmap``; the Styx variant relies on
+    ``styxafl``'s non-AFL fallback (single iteration when ``__AFL_SHM_ID``
+    is unset).
     """
-    seed_path = TestsPath / "fuzz" / "fuzz_inputs" / "good_input"
+    tutorial_dir = RepoRoot / "docs" / "tutorial" / "fuzzing"
+    seed_relative = "inputs/good_input"
 
-    def make_run(arch: str) -> typing.Callable[[CaseRunner], None]:
-        def run(runner: CaseRunner) -> None:
-            stdout, _ = _run_case_command(
-                runner,
-                "styx.afl_fuzz",
-                arch,
-                str(seed_path),
-            )
-            # The styxafl fallback path runs one iteration and exits 0; the
-            # styx harness in styx_fuzz.py does not print on this success
-            # path, so just confirm the command produced no exception trace.
-            runner.assert_lines_absent(stdout, "Traceback")
-
-        return run
-
-    cases = []
-    for arch in ("armhf", "armel"):
-        cases.append(
-            _case(
-                f"fuzz_tutorial:styx:{arch}",
-                "scenario",
-                "fuzz",
-                "styx",
-                "docs",
-                run=make_run(arch),
-                description=(
-                    "Walks through docs/tutorial/fuzzing.rst's Styx section "
-                    f"end-to-end on {arch} by invoking machine.fuzz_with_styx "
-                    "via the styxafl bridge in non-AFL fallback mode."
-                ),
-                weight=2,
-            )
+    def run_styx(runner: CaseRunner) -> None:
+        result = runner.command(
+            [PYTHON, "styx_fuzz.py", seed_relative],
+            cwd=tutorial_dir,
+            check=True,
         )
-    return cases
+        # Fallback path runs one iteration and exits 0; just confirm no
+        # exception trace surfaced.
+        runner.assert_lines_absent(result.stdout, "Traceback")
+
+    def run_unicorn(runner: CaseRunner) -> None:
+        stdout, _ = _run_afl_showmap(
+            runner,
+            inputs_dir=tutorial_dir / "inputs",
+            target=[PYTHON, "unicorn_fuzz.py", "@@"],
+            cwd=tutorial_dir,
+            check=False,
+        )
+        # The standalone script drives the same fuzz.armel.bin as
+        # fuzz:afl:armel, so the AFL coverage map should contain the same
+        # edge hashes.
+        for line in ("002975:1", "022192:1", "050871:1"):
+            runner.assert_line_contains(stdout, line)
+
+    return [
+        _case(
+            "fuzz_tutorial:styx:armel",
+            "scenario",
+            "fuzz",
+            "styx",
+            "docs",
+            run=run_styx,
+            description=(
+                "Runs docs/tutorial/fuzzing/styx_fuzz.py against the seed "
+                "input, exercising machine.fuzz_with_styx via styxafl's "
+                "non-AFL fallback mode."
+            ),
+            weight=2,
+        ),
+        _case(
+            "fuzz_tutorial:unicorn:armel",
+            "scenario",
+            "fuzz",
+            "unicorn",
+            "afl",
+            "docs",
+            run=run_unicorn,
+            description=(
+                "Drives docs/tutorial/fuzzing/unicorn_fuzz.py through "
+                "afl-showmap to verify the standalone Unicorn tutorial "
+                "harness still produces the expected coverage map."
+            ),
+            weight=2,
+        ),
+    ]
 
 
 def _build_library_cases() -> list[CaseSpec]:

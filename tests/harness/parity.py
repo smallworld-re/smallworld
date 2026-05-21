@@ -89,9 +89,9 @@ def _expected_special_cases() -> dict[str, str | None]:
     ]
     expected["fsgsbase:amd64"] = None
     expected["model_return:tricore.panda"] = None
-    # Tutorial walkthrough cases for docs/tutorial/fuzzing.rst (Styx section).
-    expected["fuzz_tutorial:styx:armhf"] = None
+    # Tutorial walkthrough cases for docs/tutorial/fuzzing/index.rst.
     expected["fuzz_tutorial:styx:armel"] = None
+    expected["fuzz_tutorial:unicorn:armel"] = None
 
     for entry in LEGACY_MATRIX["FuzzTests"]:
         stem = entry["name"][5:]
