@@ -62,7 +62,16 @@ def _ghidra_version_tuple(props: dict[str, str]) -> tuple[int, int, int] | None:
 
 
 def _user_settings_dir(props: dict[str, str]) -> pathlib.Path:
-    """Return ``~/.config/ghidra/ghidra_<version>_<release>/``."""
+    """Return Ghidra's per-user settings directory for this version+release.
+
+    Must match the path Ghidra's own ``Application.getUserSettingsDir()``
+    resolves to, since the Java side only scans that directory for installed
+    extensions. Conventions (mirroring pyghidra's ``launcher._lastrun``):
+
+      - ``XDG_CONFIG_HOME`` set      -> ``$XDG_CONFIG_HOME/ghidra/<name>``
+      - macOS                        -> ``~/Library/ghidra/<name>``
+      - Linux and other Unix-likes   -> ``~/.config/ghidra/<name>``
+    """
     version = props.get("application.version", "")
     release = props.get("application.release.name", "")
     if not version:
@@ -70,9 +79,14 @@ def _user_settings_dir(props: dict[str, str]) -> pathlib.Path:
             "Could not read application.version from Ghidra's application.properties"
         )
     name = f"ghidra_{version}_{release}" if release else f"ghidra_{version}"
-    base = pathlib.Path(
-        os.environ.get("XDG_CONFIG_HOME") or pathlib.Path.home() / ".config"
-    )
+
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        base = pathlib.Path(xdg)
+    elif _py_platform.system() == "Darwin":
+        base = pathlib.Path.home() / "Library"
+    else:
+        base = pathlib.Path.home() / ".config"
     return base / "ghidra" / name
 
 
