@@ -161,6 +161,7 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         string_source=StringSource(register="r3"),
         function_descriptor_entrypoint=True,
+        load_address=0x80000000,
         print_entrypoint=True,
     ),
     "riscv64": RelaSpec(
@@ -185,6 +186,9 @@ _SPECS = {
 }
 
 _SKIP_REASONS = {
+    "ppc64": "Relocations not supported",
+    "ppc64.angr": "Relocations not supported",
+    "ppc64.pcode": "Relocations not supported",
     "tricore.angr": "No C compiler",
     "tricore.panda": "No C compiler",
     "tricore.pcode": "No C compiler",
