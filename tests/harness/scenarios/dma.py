@@ -3,16 +3,18 @@ from __future__ import annotations
 import argparse
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Sequence
 
 from .common import (
     PlatformSpec,
+    build_specs,
     load_raw_code,
     make_emulator,
     make_platform,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -28,172 +30,86 @@ class DMASpec:
     exit_offset: int | None = None
 
 
-_SPECS = {
-    "aarch64": DMASpec(
-        platform=PlatformSpec("AARCH64", "LITTLE"),
-        pc_register="pc",
-        result_register="w0",
-        argument_registers=("x0", "x1"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "amd64": DMASpec(
-        platform=PlatformSpec("X86_64", "LITTLE"),
-        pc_register="rip",
-        result_register="eax",
-        argument_registers=("rdi", "rsi"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "armel": DMASpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
-        pc_register="pc",
-        result_register="r0",
-        argument_registers=("r0", "r1"),
-        mmio_address=0x50004000,
-        mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "armhf": DMASpec(
-        platform=PlatformSpec("ARM_V7A", "LITTLE"),
-        pc_register="pc",
-        result_register="r0",
-        argument_registers=("r0", "r1"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "i386": DMASpec(
-        platform=PlatformSpec("X86_32", "LITTLE"),
-        pc_register="eip",
-        result_register="eax",
-        argument_registers=("edi", "esi"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "la64": DMASpec(
-        platform=PlatformSpec("LOONGARCH64", "LITTLE"),
-        pc_register="pc",
-        result_register="a0",
-        argument_registers=("a0", "a1"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("angr", "pcode"),
-    ),
-    "m68k": DMASpec(
-        platform=PlatformSpec("M68K", "BIG"),
-        pc_register="pc",
-        result_register="d0",
-        argument_registers=("d0", "d1"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("unicorn", "pcode"),
-    ),
-    "mips": DMASpec(
-        platform=PlatformSpec("MIPS32", "BIG"),
-        pc_register="pc",
-        result_register="v0",
-        argument_registers=("a0", "a1"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "mipsel": DMASpec(
-        platform=PlatformSpec("MIPS32", "LITTLE"),
-        pc_register="pc",
-        result_register="v0",
-        argument_registers=("a0", "a1"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "mips64": DMASpec(
-        platform=PlatformSpec("MIPS64", "BIG"),
-        pc_register="pc",
-        result_register="v0",
-        argument_registers=("a0", "a1"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "mips64el": DMASpec(
-        platform=PlatformSpec("MIPS64", "LITTLE"),
-        pc_register="pc",
-        result_register="v0",
-        argument_registers=("a0", "a1"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "msp430": DMASpec(
-        platform=PlatformSpec("MSP430", "LITTLE"),
-        pc_register="pc",
-        result_register="r15",
-        argument_registers=("r15", "r14"),
-        mmio_address=0x5000,
-        mmio_width=2,
-        engines=("pcode",),
-    ),
-    "msp430x": DMASpec(
-        platform=PlatformSpec("MSP430X", "LITTLE"),
-        pc_register="pc",
-        result_register="r15",
-        argument_registers=("r15", "r14"),
-        mmio_address=0x5000,
-        mmio_width=2,
-        engines=("angr", "pcode"),
-    ),
-    "ppc": DMASpec(
-        platform=PlatformSpec("POWERPC32", "BIG"),
-        pc_register="pc",
-        result_register="r3",
-        argument_registers=("r3", "r4"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("unicorn", "angr", "panda", "pcode"),
-    ),
-    "ppc64": DMASpec(
-        platform=PlatformSpec("POWERPC64", "BIG"),
-        pc_register="pc",
-        result_register="r3",
-        argument_registers=("r3", "r4"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("unicorn", "angr", "pcode"),
-    ),
-    "riscv64": DMASpec(
-        platform=PlatformSpec("RISCV64", "LITTLE"),
-        pc_register="pc",
-        result_register="a0",
-        argument_registers=("a0", "a1"),
-        mmio_address=0x50014000,
-        mmio_width=8,
-        engines=("unicorn", "angr", "pcode"),
-    ),
-    "tricore": DMASpec(
-        platform=PlatformSpec("TRICORE", "LITTLE"),
-        pc_register="pc",
-        result_register="d2",
-        argument_registers=("d4", "d5"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("angr", "panda", "pcode"),
-    ),
-    "xtensa": DMASpec(
-        platform=PlatformSpec("XTENSA", "LITTLE"),
-        pc_register="pc",
-        result_register="a2",
-        argument_registers=("a2", "a3"),
-        mmio_address=0x50014000,
-        mmio_width=4,
-        engines=("angr", "pcode"),
-        pc_offset=4,
-        exit_offset=0x10,
-    ),
+_ARCHS = (
+    "aarch64",
+    "amd64",
+    "armel",
+    "armhf",
+    "i386",
+    "la64",
+    "m68k",
+    "mips",
+    "mipsel",
+    "mips64",
+    "mips64el",
+    "msp430",
+    "msp430x",
+    "ppc",
+    "ppc64",
+    "riscv64",
+    "tricore",
+    "xtensa",
+)
+
+_PER_ARCH: dict[str, dict[str, Any]] = {
+    "aarch64": {"result_register": "w0", "argument_registers": ("x0", "x1")},
+    "amd64": {"argument_registers": ("rdi", "rsi")},
+    "armel": {"argument_registers": ("r0", "r1"), "mmio_address": 0x50004000},
+    "armhf": {"argument_registers": ("r0", "r1")},
+    "i386": {"argument_registers": ("edi", "esi")},
+    "la64": {"argument_registers": ("a0", "a1")},
+    "m68k": {"argument_registers": ("d0", "d1")},
+    "mips": {"argument_registers": ("a0", "a1")},
+    "mipsel": {"argument_registers": ("a0", "a1")},
+    "mips64": {"argument_registers": ("a0", "a1")},
+    "mips64el": {"argument_registers": ("a0", "a1")},
+    "msp430": {
+        "result_register": "r15",
+        "argument_registers": ("r15", "r14"),
+        "mmio_address": 0x5000,
+    },
+    "msp430x": {
+        "result_register": "r15",
+        "argument_registers": ("r15", "r14"),
+        "mmio_address": 0x5000,
+    },
+    "ppc": {"argument_registers": ("r3", "r4")},
+    "ppc64": {"argument_registers": ("r3", "r4")},
+    "riscv64": {"argument_registers": ("a0", "a1")},
+    "tricore": {"argument_registers": ("d4", "d5")},
+    "xtensa": {
+        "argument_registers": ("a2", "a3"),
+        "pc_offset": 4,
+        "exit_offset": 0x10,
+    },
 }
+
+_SPECS = build_specs(
+    DMASpec,
+    _ARCHS,
+    # The MMIO register width always matches the pointer width for this scenario.
+    field_aliases={"mmio_width": "pointer_size"},
+    common={"mmio_address": 0x50014000},
+    per_arch=_PER_ARCH,
+)
+
+SCENARIO_PREFIXES = (("dma", "dma"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="dma",
+    scenario="dma",
+    tags=("scenario", "dma"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "armel.panda": "Waiting for panda-ng fix",
+            "ppc64": "Unicorn ppc64 support buggy",
+        },
+    ),
+    run_factory=assert_contains("0x5", args=("10", "2")),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

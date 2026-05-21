@@ -15,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -160,6 +161,7 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         string_source=StringSource(register="r3"),
         function_descriptor_entrypoint=True,
+        load_address=0x80000000,
         print_entrypoint=True,
     ),
     "riscv64": RelaSpec(
@@ -183,10 +185,36 @@ _SPECS = {
     ),
 }
 
+_SKIP_REASONS = {
+    "ppc64": "Relocations not supported",
+    "ppc64.angr": "Relocations not supported",
+    "ppc64.pcode": "Relocations not supported",
+    "tricore.angr": "No C compiler",
+    "tricore.panda": "No C compiler",
+    "tricore.pcode": "No C compiler",
+}
+
+SCENARIO_PREFIXES = (("rela", "rela"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="rela",
+    scenario="rela",
+    tags=("scenario", "rela"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons=_SKIP_REASONS,
+    ),
+    run_factory=assert_contains("Hello, world!"),
+)
+
 
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "rela":
         return False
+    if variant in _SKIP_REASONS:
+        return True
     arch, engine = split_variant(variant)
     return arch in _SPECS and engine in _SPECS[arch].engines
 

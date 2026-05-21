@@ -208,9 +208,7 @@ class Asctime(TimeModel):
         os.environ["TZ"] = "UTC"
         time.tzset()
 
-        print(timetuple)
         timestr = time.asctime(timetuple)
-        print(timestr)
 
         if old_tz is None:
             del os.environ["TZ"]

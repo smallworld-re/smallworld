@@ -15,6 +15,7 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -178,7 +179,33 @@ _SKIP_REASONS = {
     "ppc64": "This test case doesn't work.",
     "ppc64.angr": "This test case doesn't work.",
     "ppc64.pcode": "This test case doesn't work.",
+    "tricore.angr": "No C compiler",
+    "tricore.panda": "No C compiler",
+    "tricore.pcode": "No C compiler",
 }
+
+
+SCENARIO_PREFIXES = (("link_elf", "link_elf"),)
+
+NATIVE_PARITY = True
+
+_LINK_ELF_LEGACY_SKIPS = tuple(
+    (variant, "Unexpected failure", {})
+    for arch in ("mips64", "mips64el")
+    for variant in (arch, f"{arch}.angr", f"{arch}.panda", f"{arch}.pcode")
+)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="link_elf",
+    scenario="link_elf",
+    tags=("scenario", "link_elf"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons=_SKIP_REASONS,
+        extra_variants=_LINK_ELF_LEGACY_SKIPS,
+    ),
+    run_factory=assert_contains("0x2a", args=("42",), case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

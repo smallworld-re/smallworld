@@ -1,4 +1,5 @@
 import abc
+import logging
 import re
 import struct
 
@@ -7,6 +8,8 @@ from ....emulators import Emulator
 from ....platforms import Byteorder
 from ..cstd import ArgumentType, CStdModel, VariadicContext
 from ..filedesc import FileStar
+
+logger = logging.getLogger(__name__)
 
 
 class FormatConversionError(Exception):
@@ -819,23 +822,23 @@ def handle_scanf_format(
                         elif m.group(1) != "*" and m.group(4)[-1] != "n":
                             converted += 1
                     except FormatConversionError as e:
-                        print(f"Bad format conversion: {e.args[0]}")
-                        print(orig_fmt)
-                        print(" " * (len(orig_fmt) - len(fmt)) + "^")
+                        logger.error(f"Bad format conversion: {e.args[0]}")
+                        logger.error(orig_fmt)
+                        logger.error(" " * (len(orig_fmt) - len(fmt)) + "^")
                         raise e
                     except Exception as e:
-                        print(f"Exception processing conversion: {type(e)}: {e}")
-                        print(orig_fmt)
-                        print(" " * (len(orig_fmt) - len(fmt)) + "^")
+                        logger.error(f"Exception processing conversion: {type(e)}: {e}")
+                        logger.error(orig_fmt)
+                        logger.error(" " * (len(orig_fmt) - len(fmt)) + "^")
                         raise e
                     fmt = fmt[len(m.group(0)) :]
                     matched = True
                     break
 
             if not matched:
-                print("Bad format conversion: Unmatched conversion")
-                print(orig_fmt)
-                print(" " * (len(orig_fmt) - len(fmt)) + "^")
+                logger.error("Bad format conversion: Unmatched conversion")
+                logger.error(orig_fmt)
+                logger.error(" " * (len(orig_fmt) - len(fmt)) + "^")
                 raise Exception("Bad format conversion")
 
             if done:
@@ -846,7 +849,6 @@ def handle_scanf_format(
             while True:
                 char = intake.peek()
                 if char.isspace():
-                    print("Space")
                     intake.pop()
                 else:
                     break

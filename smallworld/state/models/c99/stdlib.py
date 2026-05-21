@@ -421,7 +421,7 @@ class Getenv(CStdModel):
         data = emulator.read_memory(ptr, size)
         name = data.decode("utf-8")
 
-        logger.info(f"getenv({name});")
+        logger.debug(f"getenv({name});")
         self.set_return_value(emulator, 0)
 
 
@@ -698,7 +698,7 @@ class System(CStdModel):
         data = emulator.read_memory(ptr, size)
         cmd = data.decode("utf-8")
 
-        logger.info(f"system({cmd});")
+        logger.debug(f"system({cmd});")
         self.set_return_value(emulator, 0)
 
 
