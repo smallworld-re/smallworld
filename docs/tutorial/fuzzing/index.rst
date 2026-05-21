@@ -19,18 +19,15 @@ crashes by writing to an unmapped address.
 
 .. _AFL++: https://aflplus.plus/
 
-The source for this example is checked in next to this tutorial as
+The source for this example is in the SmallWorld repo in ``docs/tutorial/fuzzing`` as
 ``fuzz.armel.s`` and ``fuzz.armel.bin`` (a copy of
-``tests/fuzz/fuzz.armel.bin``). The assembly was produced by GCC; you can
-regenerate the binary from source with ``arm-linux-gnueabi-as fuzz.armel.s
--o fuzz.armel.o && arm-linux-gnueabi-objcopy -O binary -j .text
-fuzz.armel.o fuzz.armel.bin``.
+``tests/fuzz/fuzz.armel.bin``).
 
 Building Our Harness
 --------------------
 
-The complete standalone Unicorn harness lives next to this page as
-``unicorn_fuzz.py``. We'll walk through it in four pieces. First we
+The complete standalone Unicorn harness can be found in the SmallWorld repo in
+``docs/tutorial/fuzzing/unicorn_fuzz.py``. We'll walk through it in four pieces. First we
 initialise the platform, machine, CPU, and load the raw code at ``0x1000``:
 
 .. literalinclude:: unicorn_fuzz.py
@@ -74,18 +71,16 @@ SmallWorld emulator instance — call methods like
 .. _Unicorn mode: https://github.com/AFLplusplus/AFLplusplus/blob/stable/unicorn_mode/README.md
 
 That is the whole harness. SmallWorld supports AFL-driven fuzzing on the
-``UnicornEmulator`` and the ``StyxEmulator`` (covered below); the only
-difference from a normal SmallWorld run is the call to
-``machine.fuzz_with_file`` at the bottom, which detects the emulator type and
-routes through ``unicornafl`` or ``styxafl`` automatically.
+``UnicornEmulator`` and the ``StyxEmulator`` (with a few changes covered below).
 
 Running With AFL++
 ------------------
-Run the standalone script under `AFL++`_ directly. The example below assumes
-you have already entered the repository dev shell with ``nix develop`` and
-``cd``-ed into this tutorial folder so the script can find ``fuzz.armel.bin``
+Run the standalone script under `AFL++`_ directly. The example below assumes:
+  1. You have already have AFL++ setup (you can use are nix devshell if you want)
+  2. ``cd``-ed into ``docs/tutorial/fuzzing`` so the script can find ``fuzz.armel.bin``
 and the ``inputs/`` seed directory:
-
+  3. Created a folder ``outputs/``
+  
 .. code-block:: bash
 
    afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 unicorn_fuzz.py @@
@@ -115,38 +110,52 @@ Fuzzing with the Styx Backend
 -----------------------------
 
 SmallWorld can also drive fuzzing through the `Styx`_ firmware-emulator
-backend. The Styx variant is checked in alongside this page as
-``styx_fuzz.py``. Because ``machine.fuzz_with_file`` dispatches based on the
-emulator type and the input callback receives the SmallWorld ``emulator``
-instance (not a backend-specific handle), the only line that has to change
-between the two harnesses is the emulator construction itself:
+backend. The full Styx variant lives at
+``docs/tutorial/fuzzing/styx_fuzz.py``. Because ``machine.fuzz_with_file``
+dispatches based on the emulator type and the input callback receives the
+SmallWorld ``emulator`` instance (not a backend-specific handle), the input
+callback is byte-for-byte identical to the Unicorn one. The first change
+is just swapping the emulator class:
 
 .. literalinclude:: styx_fuzz.py
   :language: python
-  :lines: 69-75
-
-A couple of things to keep in mind:
-
-1. **Architecture coverage.** Styx targets specific firmware platforms and
-   currently exposes 32-bit ARM only. ``StyxEmulator`` accepts ``armhf``
-   (mapped to a Cortex-A9 ``CycloneV`` target) and ``armel`` (Cortex-A9 for
-   ``ARM_V5T``, Cortex-M4 ``Kinetis21`` for ``ARM_V6M``); constructing one
-   with any other architecture raises ``ConfigurationError``. This tutorial
-   uses ``ARM_V5T`` (armel); ``ARM_V7A`` (armhf) works the same way.
-
-2. **Lazy build.** The Styx backend defers the underlying ``Processor``
-   build until the first ``run()`` / ``step()`` call, so register/memory
-   configuration done by ``machine.apply`` is replayed automatically when
-   emulation begins. ``fuzz_with_file`` triggers the build for you before
-   handing the ``Processor`` to ``styxafl``.
-
-3. **Helper module.** :func:`smallworld.helpers.fuzz` accepts
-   ``engine="styx"`` (or ``"unicorn"``) if you'd rather skip the explicit
-   ``Machine`` construction.
+  :lines: 67-69
 
 .. _Styx: https://github.com/styx-emulator/styx-emulator
 
-The full ``styx_fuzz.py`` is checked in next to this page.
+Modelling the bug explicitly
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Unicorn harness gets crash detection "for free": writing to ``0x12345678``
+hits unmapped memory and Unicorn faults. Styx's CycloneV target, on the
+other hand, emulates an actual SoC — it pre-maps the full 4 GiB address
+space so every physical address has memory backing it. The binary's intended
+out-of-bounds write therefore succeeds silently, execution falls through
+to the exit point, and AFL never sees a crash. Therefore bug detection
+has to be modelled explicitly. The Styx harness does that with a
+``hook_memory_write`` over the obviously out-of-bounds range:
+
+.. literalinclude:: styx_fuzz.py
+  :language: python
+  :lines: 71-82
+
+The hook fires from inside Styx whenever the guest writes to any address at
+or above ``0x10000`` (well outside our intentional heap at ``0x2000–0x6000``
+and code at ``0x1000–0x105c``). It just sets a Python flag — the write
+itself still proceeds harmlessly into CycloneV's DDR3.
+
+To turn that flag into something AFL records as a crash, the harness clears
+it at the top of each iteration, then supplies a ``crash_callback`` that
+reports the flag's state back to the styxafl bridge:
+
+.. literalinclude:: styx_fuzz.py
+  :language: python
+  :lines: 85-111
+
+Passing ``always_validate=True`` makes the bridge invoke ``validate_crash``
+on every iteration (not just when the emulator itself reports a fatal
+exit). When the callback returns ``True``, the bridge raises ``SIGABRT``
+from the child process so AFL records the input as a crash.
 
 Running with AFL++
 ~~~~~~~~~~~~~~~~~~
@@ -157,25 +166,6 @@ the same way as the Unicorn variant — only the script name changes:
 .. code-block:: bash
 
    afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 styx_fuzz.py @@
-
-The ``styxafl`` bridge also has a fallback mode: when ``__AFL_SHM_ID`` is
-not set (i.e. you're running without ``afl-fuzz`` wrapping the harness),
-it runs a single iteration of your ``input_callback`` against the file
-you point it at and then exits. This is what the integration test
-``fuzz_tutorial:styx:armel`` exercises — a useful smoke check for harness
-correctness before plugging it into a real fuzzing campaign.
-
-Known limitations of the Styx fuzz path:
-
-* Styx has no 64-bit ARM and no x86_64 target. ``aarch64`` harnesses must
-  continue using ``UnicornEmulator``.
-* SmallWorld function hooks installed via ``QFunctionHookable`` (e.g. the
-  ``hooking`` test family's ``gets``/``puts`` models) don't yet round-trip
-  cleanly through Styx — the body-skip-via-PC-redirect heuristic doesn't
-  match Styx's hook semantics. Stick to bare-metal harnesses for now.
-* MMIO-dependent scenarios (``dma``) won't work out of the box because the
-  CycloneV target's memory map doesn't include the addresses those tests
-  use.
 
 Next Steps
 ----------
