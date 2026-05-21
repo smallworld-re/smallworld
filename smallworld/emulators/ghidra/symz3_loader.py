@@ -76,15 +76,21 @@ def _user_settings_dir(props: dict[str, str]) -> pathlib.Path:
     return base / "ghidra" / name
 
 
-def _native_subdir() -> str:
+def _native_layout() -> tuple[str, str]:
+    """Return ``(subdir_under_os, shared_lib_suffix)`` for the current platform.
+
+    The SymbolicSummaryZ3 extension lays out per-platform native libs as
+    ``os/<subdir>/libz3.<suffix>`` and ``os/<subdir>/libz3java.<suffix>``.
+    """
     system = _py_platform.system()
     machine = _py_platform.machine().lower()
     if system == "Linux" and machine in ("x86_64", "amd64"):
-        return "linux_x86_64"
+        return "linux_x86_64", "so"
+    if system == "Darwin" and machine in ("arm64", "aarch64"):
+        return "mac_arm_64", "dylib"
     raise NotImplementedError(
-        f"SymbolicSummaryZ3 native libraries are not available for "
-        f"{system}/{machine} in this build of SmallWorld. "
-        f"Linux x86_64 is required for v1."
+        f"SymbolicSummaryZ3 native libraries are not bundled for "
+        f"{system}/{machine} in this build of SmallWorld."
     )
 
 
@@ -158,9 +164,10 @@ def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
     user_ext_dir = user_settings / "Extensions"
     ssz3_dir = _install_extension(zip_path, user_ext_dir)
 
-    native_dir = ssz3_dir / "os" / _native_subdir()
-    libz3 = native_dir / "libz3.so"
-    libz3java = native_dir / "libz3java.so"
+    native_subdir, lib_suffix = _native_layout()
+    native_dir = ssz3_dir / "os" / native_subdir
+    libz3 = native_dir / f"libz3.{lib_suffix}"
+    libz3java = native_dir / f"libz3java.{lib_suffix}"
     for required in (libz3, libz3java):
         if not required.exists():
             raise RuntimeError(
@@ -168,10 +175,11 @@ def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
                 f"zip at {zip_path} may be corrupt."
             )
 
-    # libz3java.so has DT_NEEDED libz3.so; the runtime linker resolves it
-    # from LD_LIBRARY_PATH at the moment System.load() runs. Pyghidra starts
-    # the JVM the first time it is imported, so this must be set first.
-    _prepend_ld_library_path(str(native_dir))
+    # libz3java has a dynamic-loader reference to libz3 (DT_NEEDED on Linux,
+    # LC_LOAD_DYLIB on macOS); the OS linker resolves it at the moment
+    # System.load() runs. Pyghidra starts the JVM the first time it is
+    # imported, so the search path must be set first.
+    _prepend_dynamic_library_path(str(native_dir))
 
     import pyghidra
 
@@ -190,9 +198,14 @@ def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
     _ALREADY_LOADED = True
 
 
-def _prepend_ld_library_path(path: str) -> None:
-    existing = os.environ.get("LD_LIBRARY_PATH", "")
+def _prepend_dynamic_library_path(path: str) -> None:
+    env_var = (
+        "DYLD_LIBRARY_PATH"
+        if _py_platform.system() == "Darwin"
+        else "LD_LIBRARY_PATH"
+    )
+    existing = os.environ.get(env_var, "")
     parts = [p for p in existing.split(":") if p]
     if path in parts:
         return
-    os.environ["LD_LIBRARY_PATH"] = path + (":" + existing if existing else "")
+    os.environ[env_var] = path + (":" + existing if existing else "")
