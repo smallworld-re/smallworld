@@ -20,7 +20,7 @@ _SPECS = {
         pc_register="rip",
         result_register="rax",
         arg_register="rdi",
-        engines=("angr",),
+        engines=("angr", "pcode_symbolic"),
     )
 }
 
@@ -33,7 +33,15 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="symbolic_state",
     scenario="symbolic_state",
     tags=("scenario", "symbolic_state"),
-    variants_source=from_arch_table(_SPECS),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "amd64.pcode_symbolic": (
+                "GhidraSymbolicEmulator only supports linear execution; this "
+                "test expects multi-state branching to produce 2 result states."
+            ),
+        },
+    ),
     run_factory=just_run(),
 )
 

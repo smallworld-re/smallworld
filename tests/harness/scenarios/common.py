@@ -257,11 +257,17 @@ _EMULATOR_NAMES = {
     "panda": "PandaEmulator",
     "pcode": "GhidraEmulator",
     "ghidra": "GhidraEmulator",
+    "pcode_symbolic": "GhidraSymbolicEmulator",
+    "ghidra_symbolic": "GhidraSymbolicEmulator",
 }
 
 
 def normalise_engine(engine: str) -> str:
-    return "pcode" if engine == "ghidra" else engine
+    if engine == "ghidra":
+        return "pcode"
+    if engine == "ghidra_symbolic":
+        return "pcode_symbolic"
+    return engine
 
 
 def split_variant(variant: str) -> Tuple[str, str]:
