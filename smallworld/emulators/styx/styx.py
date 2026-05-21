@@ -189,6 +189,18 @@ class StyxEmulator(
 
         self._sync_exit_points()
 
+    def get_processor(self) -> typing.Any:
+        """Return the underlying ``styx_emulator.Processor``, building it if needed.
+
+        Advanced escape hatch for callers (notably the AFL fuzz bridge) that
+        need a live ``Processor`` handle to pass to ``styxafl``. Triggers
+        :meth:`_lazy_build` so any queued state is flushed before the handle
+        is returned.
+        """
+        self._lazy_build()
+        assert self._proc is not None  # _lazy_build set it
+        return self._proc
+
     def _sync_exit_points(self) -> None:
         """Install internal CodeHooks at every exit point the user has added
         since the last sync. The callback flips ``_stopped_for_exit`` and asks

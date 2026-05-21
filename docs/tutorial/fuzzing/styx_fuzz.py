@@ -1,8 +1,8 @@
 """Standalone SmallWorld + AFL++ fuzz harness (Styx backend, armel target).
 
-The only differences from ``unicorn_fuzz.py`` are the three highlighted lines:
-the emulator class, the memory-write call inside the callback, and the fuzz
-entry point on ``Machine``. Everything else is byte-for-byte identical.
+The only difference from ``unicorn_fuzz.py`` is the emulator class — the
+callback and ``Machine.fuzz_with_file`` call are identical, because
+SmallWorld unifies the AFL bridge under a single backend-agnostic interface.
 
 Run from this directory under AFL++::
 
@@ -56,13 +56,13 @@ machine.add(cpu)
 machine.add(code)
 
 
-def input_callback(processor, input_bytes, persistent_round, data):
+def input_callback(emulator, input_bytes, persistent_round, data):
     # AFL++ contract: return False to skip this input, None to continue.
+    # ``emulator`` is the SmallWorld emulator instance — the same callback
+    # works against the Unicorn backend (see ``unicorn_fuzz.py``).
     if len(input_bytes) > 0x1000:
         return False
-    # ``processor`` is a styx_emulator.Processor; write_data is the Styx
-    # analogue of Unicorn's uc.mem_write.
-    processor.write_data(size_addr, bytes(input_bytes))
+    emulator.write_memory_content(size_addr, bytes(input_bytes))
     return None
 
 
@@ -72,4 +72,4 @@ emulator.add_exit_point(0x1000 + 92)
 
 # AFL++ replaces argv[1] with each generated input file via @@.
 input_file = sys.argv[1] if len(sys.argv) > 1 else "inputs/good_input"
-machine.fuzz_with_styx(emulator, input_callback, input_file)
+machine.fuzz_with_file(emulator, input_callback, input_file)

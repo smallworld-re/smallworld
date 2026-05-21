@@ -5,8 +5,9 @@ Provides two scenario names:
 * ``"styx"``: non-fuzzing emulation under the Styx backend, equivalent to the
   simple ``fuzz:<arch>`` variant. Useful as a smoke test of StyxEmulator on
   the ARM fuzz binaries without involving AFL++.
-* ``"styx.afl_fuzz"``: AFL-driven fuzzing via ``Machine.fuzz_with_styx`` /
-  ``styxafl``. Mirrors ``fuzz.afl_fuzz`` but uses the Styx backend.
+* ``"styx.afl_fuzz"``: AFL-driven fuzzing via ``Machine.fuzz_with_file`` (the
+  unified entry point auto-detects ``StyxEmulator`` and routes through
+  ``styxafl``). Mirrors ``fuzz.afl_fuzz`` but uses the Styx backend.
 
 Scope: 32-bit ARM only (``armhf``, ``armel``) — Styx has no 64-bit ARM target.
 """
@@ -177,17 +178,15 @@ def _run_afl(variant: str, args: Sequence[str]) -> int:
     machine.add(cpu)
     machine.add(code)
 
-    def input_callback(processor, input_bytes, persistent_round, data):
+    def input_callback(emulator, input_bytes, persistent_round, data):
         if len(input_bytes) > 0x1000:
             return False
-        # ``processor`` here is the styx_emulator.Processor; ``write_data`` is
-        # the analogue of ``uc.mem_write``.
-        processor.write_data(size_addr, bytes(input_bytes))
+        emulator.write_memory_content(size_addr, bytes(input_bytes))
         return None
 
     emulator = make_emulator(smallworld, platform, "styx")
     emulator.add_exit_point(0x1000 + spec.exit_offset)
-    machine.fuzz_with_styx(emulator, input_callback, ns.input_file)
+    machine.fuzz_with_file(emulator, input_callback, ns.input_file)
     return 0
 
 

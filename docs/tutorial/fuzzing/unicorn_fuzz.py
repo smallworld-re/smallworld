@@ -48,11 +48,13 @@ machine.add(cpu)
 machine.add(code)
 
 
-def input_callback(uc, input_bytes, persistent_round, data):
+def input_callback(emulator, input_bytes, persistent_round, data):
     # AFL++ contract: return False to skip this input, None to continue.
+    # ``emulator`` is the SmallWorld emulator instance — the same callback
+    # works against the Styx backend (see ``styx_fuzz.py``).
     if len(input_bytes) > 0x1000:
         return False
-    uc.mem_write(size_addr, input_bytes)
+    emulator.write_memory_content(size_addr, bytes(input_bytes))
     return None
 
 

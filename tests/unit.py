@@ -2414,7 +2414,7 @@ class StyxFuzzScenarioTests(unittest.TestCase):
     """Mirror of :class:`FuzzScenarioTests` for the Styx fuzz scenario.
 
     Verifies that the registered ``styx.afl_fuzz`` scenario forwards the AFL
-    input file path through to ``Machine.fuzz_with_styx`` without actually
+    input file path through to ``Machine.fuzz_with_file`` without actually
     invoking styxafl/afl-fuzz.
     """
 
@@ -2459,7 +2459,7 @@ class StyxFuzzScenarioTests(unittest.TestCase):
             def add(self, member):
                 self.added.append(member)
 
-            def fuzz_with_styx(
+            def fuzz_with_file(
                 self,
                 emulator,
                 input_callback,

@@ -1395,8 +1395,8 @@ def _build_fuzz_tutorial_cases() -> list[CaseSpec]:
             run=run_styx,
             description=(
                 "Runs docs/tutorial/fuzzing/styx_fuzz.py against the seed "
-                "input, exercising machine.fuzz_with_styx via styxafl's "
-                "non-AFL fallback mode."
+                "input, exercising machine.fuzz_with_file (Styx dispatch) "
+                "via styxafl's non-AFL fallback mode."
             ),
             weight=2,
         ),
