@@ -14,6 +14,9 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_arch_table, just_run
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -133,6 +136,22 @@ _SKIP_REASONS = {
     "ppc.panda": "Waiting for panda-ng",
     "ppc64": "Unicorn ppc64 support buggy",
 }
+
+
+SCENARIO_PREFIXES = (("unmapped", "unmapped"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="unmapped",
+    scenario="unmapped",
+    tags=("scenario", "unmapped"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=tuple(
+            (variant, reason, {}) for variant, reason in _SKIP_REASONS.items()
+        ),
+    ),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

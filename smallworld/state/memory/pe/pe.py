@@ -278,8 +278,6 @@ class PEExecutable(Executable):
                     forwarder=None,
                     value=None,
                 )
-                if e.name == "puts":
-                    print(f"puts IAT at {e.iat_address:x} or {e.iat_value:x}")
                 self._imports.append(imp)
                 if e.is_ordinal:
                     self._imports_by_ordinal[(d.name, e.ordinal)] = imp

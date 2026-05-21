@@ -549,7 +549,6 @@ class UnicornEmulator(
             raise ValueError("memory write cannot be empty")
 
         try:
-            # print(f"write_memory: {content}")
             self.engine.mem_write(address, content)
         except unicorn.UcError as e:
             logger.warn(f"Unicorn raised an exception on memory write {e}")
@@ -721,7 +720,7 @@ class UnicornEmulator(
             raise exceptions.EmulationExitpoint
 
         disas = self.current_instruction()
-        logger.info(f"step block at 0x{disas.address:x}: {disas}")
+        logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
             self.engine.emu_start(pc, 0x0)
@@ -737,7 +736,7 @@ class UnicornEmulator(
         self._check()
         self.state = EmulatorState.RUN
 
-        logger.info(
+        logger.debug(
             f"starting emulation at 0x{self.read_register('pc'):x}"
         )  # until 0x{self._exit_point:x}")
 
@@ -750,7 +749,7 @@ class UnicornEmulator(
         except unicorn.UcError as e:
             self._error(e, "exec")
 
-        logger.info("emulation complete")
+        logger.debug("emulation complete")
 
     def _error(
         self, error: unicorn.UcError, typ: str
