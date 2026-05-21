@@ -214,9 +214,7 @@ def ensure_loaded(install_dir: pathlib.Path | None = None) -> None:
 
 def _prepend_dynamic_library_path(path: str) -> None:
     env_var = (
-        "DYLD_LIBRARY_PATH"
-        if _py_platform.system() == "Darwin"
-        else "LD_LIBRARY_PATH"
+        "DYLD_LIBRARY_PATH" if _py_platform.system() == "Darwin" else "LD_LIBRARY_PATH"
     )
     existing = os.environ.get(env_var, "")
     parts = [p for p in existing.split(":") if p]
