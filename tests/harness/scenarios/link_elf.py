@@ -179,6 +179,9 @@ _SKIP_REASONS = {
     "ppc64": "This test case doesn't work.",
     "ppc64.angr": "This test case doesn't work.",
     "ppc64.pcode": "This test case doesn't work.",
+    "tricore.angr": "No C compiler",
+    "tricore.panda": "No C compiler",
+    "tricore.pcode": "No C compiler",
 }
 
 
@@ -198,6 +201,7 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "link_elf"),
     variants_source=from_arch_table(
         _SPECS,
+        skip_reasons=_SKIP_REASONS,
         extra_variants=_LINK_ELF_LEGACY_SKIPS,
     ),
     run_factory=assert_contains("0x2a", args=("42",), case_sensitive=False),

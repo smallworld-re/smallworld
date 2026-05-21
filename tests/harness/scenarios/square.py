@@ -77,7 +77,7 @@ SCENARIO_INFO = ScenarioInfo(
         arch_kwargs={
             **{
                 arch: {"signext": True}
-                for arch in ("mips64", "mips64el", "ppc64", "riscv64")
+                for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
             },
             **{arch: {"sixteenbit": True} for arch in ("msp430", "msp430x")},
         },

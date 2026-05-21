@@ -184,6 +184,11 @@ _SPECS = {
     ),
 }
 
+_SKIP_REASONS = {
+    "tricore.angr": "No C compiler",
+    "tricore.panda": "No C compiler",
+    "tricore.pcode": "No C compiler",
+}
 
 SCENARIO_PREFIXES = (("rela", "rela"),)
 
@@ -193,7 +198,10 @@ SCENARIO_INFO = ScenarioInfo(
     prefix="rela",
     scenario="rela",
     tags=("scenario", "rela"),
-    variants_source=from_arch_table(_SPECS),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons=_SKIP_REASONS,
+    ),
     run_factory=assert_contains("Hello, world!"),
 )
 
@@ -201,6 +209,8 @@ SCENARIO_INFO = ScenarioInfo(
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "rela":
         return False
+    if variant in _SKIP_REASONS:
+        return True
     arch, engine = split_variant(variant)
     return arch in _SPECS and engine in _SPECS[arch].engines
 
