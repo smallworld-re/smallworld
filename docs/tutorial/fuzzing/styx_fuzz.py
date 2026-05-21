@@ -1,24 +1,9 @@
 """Standalone SmallWorld + AFL++ fuzz harness (Styx backend, armel target).
 
-Two pieces differ from ``unicorn_fuzz.py``:
-
-1. The emulator class is ``StyxEmulator`` instead of ``UnicornEmulator``.
-2. Styx's CycloneV target pre-maps the full 4 GiB address space (it emulates
-   a SoC whose physical DDR3 backs every address), so the binary's intended
-   "crash" — a write to ``0x12345678`` — succeeds silently rather than
-   faulting. To still surface the bug to AFL we install a memory-write hook
-   over the out-of-bounds range and pass a ``crash_callback`` that turns
-   those writes into reported crashes. Real firmware harnesses face the
-   same constraint: faults from a flat memory map are rare, so bug
-   detection has to be modelled explicitly.
-
 Run from this directory under AFL++::
 
     afl-fuzz -t 10000 -U -m none -i inputs -o outputs -- python3 styx_fuzz.py @@
 
-The ``styxafl`` bridge also runs a single iteration of ``input_callback``
-against the file you give it when ``__AFL_SHM_ID`` is unset, so this script
-doubles as a smoke test outside AFL.
 """
 
 from __future__ import annotations
