@@ -119,9 +119,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # EmulationStop. get_active_states then yields self once per entry,
         # binding _active_fork_constraint so get_constraints appends the
         # right predicate for each Machine extraction.
-        self._fork_constraints: typing.Optional[
-            typing.List[claripy.ast.bool.Bool]
-        ] = None
+        self._fork_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = (
+            None
+        )
         self._active_fork_constraint: typing.Optional[claripy.ast.bool.Bool] = None
 
         # Hook tables (same shape as concrete GhidraEmulator).
