@@ -284,9 +284,13 @@ def make_platform(smallworld, spec: PlatformSpec):
 
 
 def make_emulator(smallworld, platform, engine: str):
-    return getattr(smallworld.emulators, _EMULATOR_NAMES[normalise_engine(engine)])(
-        platform
-    )
+    engine = normalise_engine(engine)
+    # Styx engine tokens may carry a CPU model after a dash, e.g. "styx"
+    # (the machdef's default core) or "styx-mpc860". Everything else maps 1:1.
+    if engine == "styx" or engine.startswith("styx-"):
+        cpu_model = engine[len("styx") :].lstrip("-") or None
+        return smallworld.emulators.StyxEmulator(platform, cpu_model=cpu_model)
+    return getattr(smallworld.emulators, _EMULATOR_NAMES[engine])(platform)
 
 
 def set_register(cpu, name: str, value: int) -> None:
