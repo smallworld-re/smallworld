@@ -20,7 +20,7 @@ _SPECS = {
         pc_register="rip",
         result_register="rax",
         arg_register="rdi",
-        engines=("angr",),
+        engines=("angr", "pcode_symbolic"),
     )
 }
 
