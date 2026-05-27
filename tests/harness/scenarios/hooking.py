@@ -65,7 +65,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
     "armhf": HookingSpec(
@@ -74,7 +74,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
     "i386": HookingSpec(
@@ -229,6 +229,10 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "hooking"),
     variants_source=from_arch_table(
         _SPECS,
+        skip_reasons={
+            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+        },
         extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
     ),
     run_factory=assert_outputs(_hooking_expectations, stdin="foo bar baz"),

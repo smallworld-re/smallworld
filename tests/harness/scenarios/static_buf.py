@@ -58,7 +58,7 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         model_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         entry_offset=4,
         stack_pointer_register="sp",
         model_address=0x1000,
@@ -68,7 +68,7 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         model_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         entry_offset=4,
         stack_pointer_register="sp",
         model_address=0x1000,
@@ -206,7 +206,11 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "static_buf"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+        },
     ),
     run_factory=assert_contains("0x4a1", case_sensitive=False),
 )

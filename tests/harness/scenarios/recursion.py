@@ -101,7 +101,14 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "xtensa": {"stack_items": (_fake_return("xtensa"),)},
 }
 
-_SPECS = build_specs(RecursionSpec, _ARCHS, per_arch=_PER_ARCH)
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
+_SPECS = build_specs(
+    RecursionSpec,
+    _ARCHS,
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    per_arch=_PER_ARCH,
+)
 
 SCENARIO_PREFIXES = (("recursion", "recursion"),)
 

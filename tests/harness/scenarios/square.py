@@ -30,9 +30,12 @@ _ARCHS = (
     "xtensa",
 )
 
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
     # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
     per_arch={"la64": {"result_register": "v0"}},
 )

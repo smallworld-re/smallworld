@@ -63,7 +63,7 @@ _SPECS = {
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         register_arguments=(
             ("r0", 0x11111111),
             ("r1", 0x01010101),
@@ -76,7 +76,7 @@ _SPECS = {
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         register_arguments=(
             ("r0", 0x11111111),
             ("r1", 0x01010101),

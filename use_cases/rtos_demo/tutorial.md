@@ -124,17 +124,13 @@ Buffer: b'ABCDEFGHIJKLMNOP'
 ## Fuzzing
 *The `rtos_1_fuzz.py` script is included for reference with this section.*
 
-With our harness configured, we can finally start fuzzing for potential vulnerabilities. Thankfully, SmallWorld makes fuzzing with Unicorn and AFL very simple. We can replace our execution step from the snippet above with `machine.fuzz` as shown below. The accompanying `input_callback` is used to configure the machine's state prior to execution using the mutated input from AFL. In our case, it writes to the input buffer. This input receives `uc`, a reference to our emulator, which can be used to modify state and type hinted as `Uc`.
+With our harness configured, we can finally start fuzzing for potential vulnerabilities. Thankfully, SmallWorld makes fuzzing with AFL very simple. We can replace our execution step from the snippet above with `machine.fuzz` as shown below. The accompanying `input_callback` is used to configure the machine's state prior to execution using the mutated input from AFL. In our case, it writes to the input buffer. The first parameter is the SmallWorld `emulator` instance — using its high-level API (`write_memory_content`, etc.) means the same callback works against either the Unicorn or the Styx backend.
 
 ```python
-from unicorn.unicorn import Uc
-
-...
-
 # Fuzz
-def input_callback(uc: Uc, input, persistent_round, data):
+def input_callback(emulator, input, persistent_round, data):
 	if len(input) > 0x1000: return False
-	uc.mem_write(buffer_memory_address, input)
+	emulator.write_memory_content(buffer_memory_address, bytes(input))
 machine.fuzz(emulator, input_callback)
 ```
 

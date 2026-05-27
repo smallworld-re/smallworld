@@ -11,7 +11,11 @@ resolution-markers = [
 ]
 
 [manifest]
-excludes = ["pandare2"]
+excludes = [
+    "pandare2",
+    "styx-emulator",
+    "styxafl",
+]
 
 [[package]]
 name = "alabaster"
@@ -4330,10 +4334,12 @@ requires-dist = [
     { name = "pycparser", specifier = ">=2.18,<3.0" },
     { name = "pyghidra", marker = "extra == 'emu-ghidra'", specifier = ">=3.0" },
     { name = "setuptools", marker = "python_full_version < '3.10'", specifier = ">=80.9.0,<81" },
-    { name = "smallworld-re", extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn"], marker = "extra == 'emu-all'" },
+    { name = "smallworld-re", extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn", "emu-styx"], marker = "extra == 'emu-all'" },
+    { name = "styx-emulator", marker = "extra == 'emu-styx'", specifier = ">=0.1.0" },
+    { name = "styxafl", marker = "extra == 'emu-styx'", specifier = ">=0.1.0" },
     { name = "unicorn", marker = "extra == 'emu-unicorn'", specifier = ">=2.1.3" },
 ]
-provides-extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn", "emu-all"]
+provides-extras = ["emu-angr", "emu-ghidra", "emu-panda", "emu-unicorn", "emu-styx", "emu-all"]
 
 [package.metadata.requires-dev]
 dev = [

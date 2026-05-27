@@ -84,12 +84,15 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     },
 }
 
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
 _SPECS = build_specs(
     DMASpec,
     _ARCHS,
     # The MMIO register width always matches the pointer width for this scenario.
     field_aliases={"mmio_width": "pointer_size"},
     common={"mmio_address": 0x50014000},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
     per_arch=_PER_ARCH,
 )
 
@@ -105,6 +108,8 @@ SCENARIO_INFO = ScenarioInfo(
         _SPECS,
         skip_reasons={
             "armel.panda": "Waiting for panda-ng fix",
+            "armel.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
+            "armhf.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "ppc64": "Unicorn ppc64 support buggy",
         },
     ),

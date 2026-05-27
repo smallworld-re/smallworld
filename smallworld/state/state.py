@@ -936,17 +936,25 @@ class Machine(StatefulSet):
         always_validate: bool = False,
         iterations: int = 1,
     ) -> None:
-        """Fuzz the machine using unicornafl.
+        """Fuzz the machine via AFL++.
+
+        Parses the input file path from ``argv[1]`` (the placement AFL uses
+        when it substitutes ``@@``) and delegates to :meth:`fuzz_with_file`.
+        The concrete backend (unicornafl or styxafl) is selected based on
+        the type of ``emulator``.
 
         Arguments:
-            emulator: Currently, must be the unicorn emulator
-            input_callback: A callback that applies an input to a machine
-            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
-            crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
-            always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
-            iterations: The number of iterations to run before forking a new child
-        Returns:
-            Bytes for this value with the given byteorder.
+            emulator: A :class:`UnicornEmulator` or :class:`StyxEmulator`.
+            input_callback: A callback that applies an input to the machine.
+                Signature: ``(emulator, input_bytes, persistent_round, data)``
+                where ``emulator`` is the same SmallWorld emulator passed in
+                here. Return ``False`` to skip the input, ``None``/``True``
+                to continue.
+            crash_callback: Optional callback to decide whether to record a
+                crash. (See backend documentation for the exact signature.)
+            always_validate: Whether to run ``crash_callback`` on every run
+                or only when the backend reports an error.
+            iterations: Number of iterations before forking a new child.
         """
         import argparse
 
@@ -973,18 +981,60 @@ class Machine(StatefulSet):
         always_validate: bool = False,
         iterations: int = 1,
     ) -> None:
-        """Fuzz the machine using unicornafl.
+        """Fuzz the machine via AFL++ using the given input file.
+
+        Dispatches to the appropriate AFL bridge based on the emulator type:
+        :class:`UnicornEmulator` routes through ``unicornafl``;
+        :class:`StyxEmulator` routes through ``styxafl``. The user-supplied
+        ``input_callback`` always receives the SmallWorld ``emulator`` as
+        its first argument, regardless of backend — use methods like
+        :meth:`Emulator.write_memory_content` and :meth:`Emulator.write_code`
+        to mutate state.
 
         Arguments:
-            emulator: Currently, must be the unicorn emulator
-            input_callback: A callback that applies an input to a machine
-            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
-            crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
-            always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
-            iterations: The number of iterations to run before forking a new child
-        Returns:
-            Bytes for this value with the given byteorder.
+            emulator: A :class:`UnicornEmulator` or :class:`StyxEmulator`.
+            input_callback: ``(emulator, input_bytes, persistent_round, data)``
+                — return ``False`` to skip the input, ``None``/``True`` to
+                continue.
+            input_file_path: The path of the input file AFL will mutate.
+            crash_callback: Optional crash-validation callback. (Backend-
+                specific signature; see the bridge documentation.)
+            always_validate: Run ``crash_callback`` on every iteration.
+            iterations: Iterations before forking a new child.
         """
+        if isinstance(emulator, emulators.UnicornEmulator):
+            self._fuzz_with_unicorn(
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback,
+                always_validate,
+                iterations,
+            )
+        elif isinstance(emulator, emulators.StyxEmulator):
+            self._fuzz_with_styx(
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback,
+                always_validate,
+                iterations,
+            )
+        else:
+            raise RuntimeError(
+                "fuzz_with_file requires a UnicornEmulator or StyxEmulator; "
+                f"got {type(emulator).__name__}"
+            )
+
+    def _fuzz_with_unicorn(
+        self,
+        emulator: emulators.UnicornEmulator,
+        input_callback: typing.Callable,
+        input_file_path: str,
+        crash_callback: typing.Optional[typing.Callable],
+        always_validate: bool,
+        iterations: int,
+    ) -> None:
         try:
             import unicornafl
         except ImportError:
@@ -992,16 +1042,48 @@ class Machine(StatefulSet):
                 "missing `unicornafl` - afl++ must be installed manually from source"
             )
 
-        if not isinstance(emulator, emulators.UnicornEmulator):
-            raise RuntimeError("you must use a unicorn emulator to fuzz")
-
         self.apply(emulator)
+
+        def _adapter(_uc, input_bytes, persistent_round, data):
+            return input_callback(emulator, input_bytes, persistent_round, data)
 
         unicornafl.uc_afl_fuzz(
             uc=emulator.engine,
             input_file=input_file_path,
-            place_input_callback=input_callback,
+            place_input_callback=_adapter,
             exits=emulator.get_exit_points(),
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=iterations,
+        )
+
+    def _fuzz_with_styx(
+        self,
+        emulator: emulators.StyxEmulator,
+        input_callback: typing.Callable,
+        input_file_path: str,
+        crash_callback: typing.Optional[typing.Callable],
+        always_validate: bool,
+        iterations: int,
+    ) -> None:
+        try:
+            import styxafl
+        except ImportError:
+            raise RuntimeError(
+                "missing `styxafl` - install smallworld with the [emu-styx] extra "
+                "(built from source via the nix flake)"
+            )
+
+        self.apply(emulator)
+
+        def _adapter(_processor, input_bytes, persistent_round, data):
+            return input_callback(emulator, input_bytes, persistent_round, data)
+
+        styxafl.styx_afl_fuzz(
+            processor=emulator.get_processor(),
+            input_file=input_file_path,
+            place_input_callback=_adapter,
+            exits=list(emulator.get_exit_points()),
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
             persistent_iters=iterations,

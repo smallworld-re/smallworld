@@ -65,7 +65,14 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
 _PER_ARCH["i386"]["arg_register"] = None
 _PER_ARCH["tricore"]["entry_offset"] = 0x14
 
-_SPECS = build_specs(RawBinarySpec, _ARCHS, per_arch=_PER_ARCH)
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
+_SPECS = build_specs(
+    RawBinarySpec,
+    _ARCHS,
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    per_arch=_PER_ARCH,
+)
 
 SCENARIO_PREFIXES = (("call", "call"),)
 

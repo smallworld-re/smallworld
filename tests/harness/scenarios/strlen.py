@@ -52,10 +52,13 @@ _ARCHS = (
     "xtensa",
 )
 
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
 _SPECS = build_specs(
     StrlenSpec,
     _ARCHS,
     field_aliases={"return_address_size": "pointer_size"},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
     per_arch={
         # i386 and m68k take the string pointer on the stack rather than in a reg.
         "i386": {"arg_register": None, "stack_argument_size": 4},

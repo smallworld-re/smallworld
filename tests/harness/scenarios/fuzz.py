@@ -369,10 +369,10 @@ def _run_afl(variant: str, args: Sequence[str]) -> int:
     machine.add(cpu)
     machine.add(code)
 
-    def input_callback(uc, input_bytes, persistent_round, data):
+    def input_callback(emulator, input_bytes, persistent_round, data):
         if len(input_bytes) > 0x1000:
             return False
-        uc.mem_write(size_addr, input_bytes)
+        emulator.write_memory_content(size_addr, bytes(input_bytes))
         return None
 
     emulator = make_emulator(smallworld, platform, spec.engine)
