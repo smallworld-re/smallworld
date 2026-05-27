@@ -150,7 +150,7 @@ reports the flag's state back to the styxafl bridge:
 
 .. literalinclude:: styx_fuzz.py
   :language: python
-  :lines: 85-111
+  :lines: 85-96
 
 Passing ``always_validate=True`` makes the bridge invoke ``validate_crash``
 on every iteration (not just when the emulator itself reports a fatal
