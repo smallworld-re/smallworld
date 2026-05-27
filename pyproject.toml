@@ -48,6 +48,7 @@ emu-angr = [
 ]
 emu-ghidra = [
     "pyghidra>=3.0",
+    "claripy>=9.2.102",
 ]
 emu-panda = [
     "pandare2",

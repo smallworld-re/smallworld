@@ -21,6 +21,13 @@ from typing import Optional, Sequence
 
 from .common import PlatformSpec, TestsPath, make_emulator, make_platform
 
+SCENARIO_PREFIXES = (
+    ("styx", "styx"),
+    ("styx.afl_fuzz", "styx.afl_fuzz"),
+)
+
+NATIVE_PARITY = True
+
 
 @dataclasses.dataclass(frozen=True)
 class _StyxFuzzSpec:
