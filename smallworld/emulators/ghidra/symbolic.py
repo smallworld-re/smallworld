@@ -43,10 +43,23 @@ _WRITE_CHUNK_BYTES = 8
 class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
     """Z3-backed symbolic emulator using Ghidra's SymZ3PcodeEmulator.
 
-    Linear, single-path execution: the concrete byte side of the paired state
+    Linear execution by default: the concrete byte side of the paired state
     drives every branch and the symbolic side accumulates path preconditions
-    (recorded by Ghidra as SMT-LIB-serialized Z3 boolean expressions). Multi-
-    state branching is not supported — ``enable_branching()`` raises.
+    (recorded by Ghidra as SMT-LIB-serialized Z3 boolean expressions).
+
+    When ``_step_pcode_ops`` encounters a CBRANCH whose condition depends on
+    a user-labeled symbolic input and both directions are satisfiable under
+    the current constraints, execution halts at the divergence and the two
+    directional predicates are recorded in ``_fork_constraints``.
+    ``get_active_states`` then yields ``self`` once per direction (binding
+    ``_active_fork_constraint`` between yields), so
+    ``Machine.symbolic_emulate`` extracts two Machines whose
+    ``get_constraints()`` differ only by the branch-direction predicate.
+    This matches ``AngrEmulator``'s default linear-mode behavior of stopping
+    at the first divergence and surfacing both successor states.
+
+    Continuing past the first divergence (multi-step branching) is not
+    supported — ``enable_branching()`` raises.
     """
 
     name = "pcode-symbolic-emulator"
@@ -99,6 +112,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         self._cached_preconditions: typing.Optional[
             typing.List[claripy.ast.bool.Bool]
         ] = None
+
+        # When _step_pcode_ops intercepts a CBRANCH whose condition is
+        # user-symbolic and both directions are SAT, it stores the two
+        # directional predicates here ([taken, not_taken]) and raises
+        # EmulationStop. get_active_states then yields self once per entry,
+        # binding _active_fork_constraint so get_constraints appends the
+        # right predicate for each Machine extraction.
+        self._fork_constraints: typing.Optional[typing.List[claripy.ast.bool.Bool]] = (
+            None
+        )
+        self._active_fork_constraint: typing.Optional[claripy.ast.bool.Bool] = None
 
         # Hook tables (same shape as concrete GhidraEmulator).
         self._instructions_hook: typing.Optional[typing.Callable[[Emulator], None]] = (
@@ -577,6 +601,72 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             log.info("PC did not advance past %#x; halting emulation.", pc)
             raise exceptions.EmulationExitpoint()
 
+    def _maybe_fork_on_symbolic_cbranch(self, op) -> None:
+        """Detect a symbolic CBRANCH and fork into two paths.
+
+        Examines the condition varnode of a CBRANCH op. If its symbolic side
+        references a user-labeled input and the lifted claripy expression is
+        not concretely determined, prove both ``cond != 0`` (taken) and
+        ``cond == 0`` (not-taken) are satisfiable against the current path
+        constraints, set ``self._fork_constraints``, and raise EmulationStop
+        so ``Machine.symbolic_emulate`` can yield one Machine per direction.
+
+        Any failure (lift error, no symbolic side, concrete condition, or
+        one direction UNSAT) falls through silently so Ghidra's executor
+        runs the CBRANCH normally on the concrete-byte side. We do not
+        invalidate ``_cached_preconditions`` here — when we raise out, the
+        CBRANCH was never executed, so Ghidra's per-thread precondition
+        list is unchanged from the previous instruction's end.
+        """
+        try:
+            inputs = op.getInputs()
+            if len(inputs) < 2:
+                return
+            cond_var = inputs[1]
+            state = self._thread.getState()
+            pair = state.getVar(cond_var, PcodeExecutorStatePiece.Reason.INSPECT)
+            sym = pair.getRight()
+            if sym is None:
+                return
+            # Cheap pre-filter: skip CBRANCHes whose symbolic side cannot
+            # reach a user label — the concrete side fully determines them
+            # and the linear path is already correct.
+            if not self._sym_references_user_input(sym):
+                return
+            cond_bv = self._sym_to_claripy(sym)
+            if not cond_bv.symbolic:
+                return
+            zero = claripy.BVV(0, cond_bv.size())
+            taken = cond_bv != zero
+            not_taken = cond_bv == zero
+            base = self._solver()
+            taken_solver = base.branch()
+            taken_solver.add(taken)
+            if not taken_solver.satisfiable():
+                log.debug(
+                    "Symbolic CBRANCH: taken direction UNSAT; "
+                    "letting concrete side drive."
+                )
+                return
+            not_taken_solver = base.branch()
+            not_taken_solver.add(not_taken)
+            if not not_taken_solver.satisfiable():
+                log.debug(
+                    "Symbolic CBRANCH: not-taken direction UNSAT; "
+                    "letting concrete side drive."
+                )
+                return
+        except Exception as exc:  # noqa: BLE001
+            log.debug(
+                "CBRANCH fork inspection failed (%s); "
+                "falling back to linear execution.",
+                exc,
+            )
+            return
+
+        self._fork_constraints = [taken, not_taken]
+        raise exceptions.EmulationStop("Path diverged at symbolic CBRANCH")
+
     def _step_pcode_ops(self) -> None:
         """Per-pcode-op step loop with LOAD/STORE/COPY interception for hooks."""
         skip = False
@@ -624,6 +714,13 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 elif out_space == default_space:
                     self._process_write_breakpoint(out_var, in_var, direct=True)
                     skip = True
+            elif opcode == op.CBRANCH:
+                # Inspect the condition for a user-symbolic value. If both
+                # directions are SAT, this raises EmulationStop after
+                # setting self._fork_constraints; otherwise it returns
+                # and the next iteration's stepPcodeOp() executes the
+                # CBRANCH normally on the concrete side.
+                self._maybe_fork_on_symbolic_cbranch(op)
 
     def step_block(self) -> None:
         raise NotImplementedError("Block stepping not supported for symbolic emulator")
@@ -850,8 +947,14 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # Mirror angr's behavior: surface both user-added constraints and the
         # path preconditions accumulated by the symbolic engine, so a
         # ``Machine.get_constraints()`` after ``machine.emulate(emulator)``
-        # exposes the path conditions.
-        return list(self._user_constraints) + list(self._path_preconditions())
+        # exposes the path conditions. Also append the active fork
+        # constraint (if any) when ``get_active_states`` is mid-iteration
+        # over a CBRANCH fork — that constraint is what distinguishes the
+        # two extracted Machines from each other.
+        out = list(self._user_constraints) + list(self._path_preconditions())
+        if self._active_fork_constraint is not None:
+            out.append(self._active_fork_constraint)
+        return out
 
     def _path_preconditions(self) -> typing.List[claripy.ast.bool.Bool]:
         if self._cached_preconditions is not None:
@@ -946,12 +1049,26 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         )
 
     def get_active_states(self) -> typing.Generator[Emulator, None, None]:
-        """Yield the single linear state (which is ``self``).
+        """Yield one view per active path.
 
-        The :class:`SymbolicEmulator` contract permits multiple frontier
-        states; we only ever have one because branching is disabled.
+        Linear case: one yield of ``self`` (no fork constraints recorded).
+
+        Fork case: ``_step_pcode_ops`` stopped at a symbolic CBRANCH and
+        populated ``_fork_constraints`` with ``[taken, not_taken]``. We
+        yield ``self`` once per direction, binding
+        ``_active_fork_constraint`` first so ``get_constraints`` appends
+        the right predicate for the extraction that follows. The harness
+        (``Machine.symbolic_emulate``) deepcopies+extracts immediately
+        after each yield, so rebinding on the next iteration does not
+        clobber the previously-extracted Machine.
         """
-        yield self
+        if not self._fork_constraints:
+            yield self
+            return
+        for c in self._fork_constraints:
+            self._active_fork_constraint = c
+            yield self
+        self._active_fork_constraint = None
 
     def get_deadended_states(self) -> typing.Generator[Emulator, None, None]:
         """No-op for the linear emulator — the active state covers inspection."""
