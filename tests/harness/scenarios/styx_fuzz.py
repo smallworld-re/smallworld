@@ -9,7 +9,11 @@ Provides two scenario names:
   unified entry point auto-detects ``StyxEmulator`` and routes through
   ``styxafl``). Mirrors ``fuzz.afl_fuzz`` but uses the Styx backend.
 
-Scope: 32-bit ARM only (``armhf``, ``armel``) — Styx has no 64-bit ARM target.
+Scope: 32-bit ARM (``armhf``, ``armel``) and 32-bit PowerPC (``ppc``). PowerPC
+uses the MPC860 core (``styx-mpc860``): its firmware memory map leaves the fuzz
+target's bad-write address (0x12345678) unmapped so the crash actually triggers,
+whereas the default PPC405 core maps the full 4 GiB and the write would silently
+succeed. Styx has no 64-bit ARM or PowerPC target.
 """
 
 from __future__ import annotations
@@ -40,6 +44,7 @@ class _StyxFuzzSpec:
     heap_base: int = 0x2000
     heap_size: int = 0x4000
     argument_size: int = 4
+    engine: str = "styx"
 
 
 _SIMPLE_SPECS = {
@@ -59,6 +64,15 @@ _SIMPLE_SPECS = {
         exit_offset=92,
         heap_size=0x1000,
     ),
+    "ppc": _StyxFuzzSpec(
+        platform=PlatformSpec("POWERPC32", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        heap_size=0x1000,
+        engine="styx-mpc860",
+    ),
 }
 
 
@@ -76,6 +90,14 @@ _AFL_SPECS = {
         arg_register="r0",
         result_register="r0",
         exit_offset=92,
+    ),
+    "ppc": _StyxFuzzSpec(
+        platform=PlatformSpec("POWERPC32", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        engine="styx-mpc860",
     ),
 }
 
@@ -143,7 +165,7 @@ def _run_simple(variant: str, args: Sequence[str]) -> int:
     machine.add(code)
 
     try:
-        emulator = make_emulator(smallworld, platform, "styx")
+        emulator = make_emulator(smallworld, platform, spec.engine)
         emulator.add_exit_point(0x1000 + spec.exit_offset)
         final_machine = machine.emulate(emulator)
         value = getattr(final_machine.get_cpu(), spec.result_register)
@@ -191,7 +213,7 @@ def _run_afl(variant: str, args: Sequence[str]) -> int:
         emulator.write_memory_content(size_addr, bytes(input_bytes))
         return None
 
-    emulator = make_emulator(smallworld, platform, "styx")
+    emulator = make_emulator(smallworld, platform, spec.engine)
     emulator.add_exit_point(0x1000 + spec.exit_offset)
     machine.fuzz_with_file(emulator, input_callback, ns.input_file)
     return 0
