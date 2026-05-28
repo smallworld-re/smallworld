@@ -2347,7 +2347,19 @@ class StyxMachdefTests(unittest.TestCase):
         )
         machdef = self._machdef_for(platform)
         # Core PowerPC registers should all be addressable.
-        for name in ("r0", "r1", "r3", "sp", "bp", "lr", "pc", "ctr", "cr0", "msr", "xer"):
+        for name in (
+            "r0",
+            "r1",
+            "r3",
+            "sp",
+            "bp",
+            "lr",
+            "pc",
+            "ctr",
+            "cr0",
+            "msr",
+            "xer",
+        ):
             self.assertTrue(
                 machdef.has_register(name),
                 msg=f"ppc machdef missing register '{name}'",
