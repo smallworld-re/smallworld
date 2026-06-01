@@ -18,6 +18,7 @@ from ..instructions import (
 from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
+
 logger = logging.getLogger(__name__)
 
 BAD_COLOR = (2**64) - 1
@@ -31,6 +32,7 @@ def randomize_uninitialized(
     machine: state.Machine,
     seed: int = 123456,
     extra_regs: typing.List[str] = [],
+    blacklist_regs: typing.List[str] = [],
     bss_start: typing.Optional[int] = None,
     bss_size: typing.Optional[int] = None,
 ) -> state.Machine:
@@ -81,6 +83,8 @@ def randomize_uninitialized(
     reg_names = list(pdefs.registers.keys())
     reg_names.sort()
     for name in reg_names:
+        if name in blacklist_regs:
+            continue
         if (name in pdefs.general_purpose_registers) or (name in extra_regs):
             reg = get_reg(machine_copy, name)
             if reg.get_content() is None:
@@ -142,6 +146,11 @@ def randomize_uninitialized(
     logger.info(f"seed={seed} digest of changes made to machine: {m.hexdigest()}")
 
     return machine_copy
+ 
+
+ 
+         
+        
 
 
 class Colorizer(analysis.Analysis):
@@ -258,14 +267,26 @@ class Colorizer(analysis.Analysis):
         def check_rws(emu, pc, te, is_read):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
+            # r = analyze_bytes(cs_insn.bytes, "PowerPC:BE:32:default", cs_insn.address)
+            # if is_read:
+            #     operand_list = r[0]['use']
+            # else:
+            #     operand_list = r[0]['def']
+            # print(r)
+            logger.info(f"instr={cs_insn}")
             if is_read:
                 operand_list = sw_insn.reads
+                logger.info(f"reads={operand_list}")
             else:
                 operand_list = sw_insn.writes
+                logger.info(f"writes={operand_list}")
             rws = []
             for operand in operand_list:
-                if type(operand) is RegisterOperand and operand.name == "rflags":
-                    continue
+                if operand is None:
+                    breakpoint()
+                if type(operand) is RegisterOperand:
+                    if operand.name == "rflags":
+                        continue
                 sz = self._operand_size(operand)
                 if isinstance(operand, BSIDMemoryReferenceOperand):
                     # if addr not mapped, discard this operand

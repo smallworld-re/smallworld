@@ -7,6 +7,7 @@ from smallworld import platforms
 from .bsid import x86BSIDMemoryReferenceOperand
 from .instructions import Instruction, MemoryReferenceOperand, Operand, RegisterOperand
 
+from .instr_use_def import analyze_bytes
 
 class x86Instruction(Instruction):
     word_size = 4
@@ -46,37 +47,8 @@ class x86Instruction(Instruction):
         This is a list of string register names and dictionary memory reference
         specifications (i.e., in the form `base + scale * index + offset`).
         """
-
-        reg_reads, _ = self._instruction.regs_access()
-        the_reads: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r)) for r in reg_reads]
-        )
-
-        for operand in self._instruction.operands:
-            if operand.access & capstone.CS_AC_READ:
-                if operand.type == capstone.x86.X86_OP_MEM:
-                    if not self._instruction.mnemonic == "lea":
-                        # add the actual memory read
-                        the_reads.add(self._memory_reference_operand(operand))
-                    # add reads for parts of the operand
-                    base_name = self._instruction.reg_name(operand.mem.base)
-                    index_name = self._instruction.reg_name(operand.mem.index)
-                    if base_name:
-                        the_reads.add(RegisterOperand(base_name))
-                    if index_name:
-                        the_reads.add(RegisterOperand(index_name))
-                elif operand.type == capstone.x86.X86_OP_REG:
-                    # these are already in the list bc of regs_access above
-                    pass
-                else:
-                    # shouldn't happen
-                    assert 1 == 0
-        if self._instruction.mnemonic == "pop":
-            the_reads.add(
-                self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
-            )
-
-        return the_reads
+        r = analyze_bytes(self.instruction, "x86:LE:32:default", self.address)
+        return r[0]['use']
 
     @property
     def writes(self) -> typing.Set[Operand]:
@@ -84,28 +56,9 @@ class x86Instruction(Instruction):
 
         Same format as `reads`.
         """
-        _, reg_writes = self._instruction.regs_access()
-        the_writes: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r)) for r in reg_writes]
-        )
-        for operand in self._instruction.operands:
-            if operand.access & capstone.CS_AC_WRITE:
-                # please dont change this to CS_OP_MEM bc that doesnt work?
-                if operand.type == capstone.x86.X86_OP_MEM:
-                    assert not (self._instruction.mnemonic == "lea")
-                    the_writes.add(self._memory_reference_operand(operand))
-                elif operand.type == capstone.x86.X86_OP_REG:
-                    # operands doesn't contain implicit registers.
-                    # we get all registers from regs_write
-                    pass
-                else:
-                    assert 1 == 0
-        if self._instruction.mnemonic == "push":
-            the_writes.add(
-                self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
-            )
+        r = analyze_bytes(self.instruction, "x86:LE:32:default", self.address)
+        return r[0]['def']
 
-        return the_writes
 
 
 class AMD64Instruction(x86Instruction):
@@ -116,3 +69,23 @@ class AMD64Instruction(x86Instruction):
     platform = platforms.Platform(
         platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
     )
+
+    @property
+    def reads(self) -> typing.Set[Operand]:
+        """Registers and memory references read by this instruction.
+
+        This is a list of string register names and dictionary memory reference
+        specifications (i.e., in the form `base + scale * index + offset`).
+        """
+        r = analyze_bytes(self.instruction, "x86:LE:64:default", self.address)
+        return r[0]['use']
+
+    @property
+    def writes(self) -> typing.Set[Operand]:
+        """Registers and memory references written by this instruction.
+
+        Same format as `reads`.
+        """
+        r = analyze_bytes(self.instruction, "x86:LE:64:default", self.address)
+        return r[0]['def']
+

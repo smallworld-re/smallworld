@@ -33,9 +33,9 @@ def get_cmp_info(
         sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
         cmp_info = []
         for op in cs_insn.operands:
-            if op.type == capstone.CS_OP_MEM and (op.access & capstone.CS_AC_READ):
+            if op.type == capstone.CS_OP_MEM: # and (op.access & capstone.CS_AC_READ):
                 cmp_info.append(sw_insn._memory_reference_operand(op))
-            if op.type == capstone.CS_OP_REG and (op.access & capstone.CS_AC_READ):
+            if op.type == capstone.CS_OP_REG: # and (op.access & capstone.CS_AC_READ):
                 cmp_info.append(RegisterOperand(cs_insn.reg_name(op.value.reg)))
             if op.type == capstone.CS_OP_IMM:
                 cmp_info.append(op.value.imm)
@@ -129,7 +129,7 @@ class TraceExecution(analysis.Analysis):
                     before_cb(self.emulator, pc, te)
             try:
                 i += 1
-                logger.debug(cs_insn)
+                logger.info(cs_insn)
                 self.emulator.step()
             except (
                 smallworld.exceptions.EmulationBounds,
