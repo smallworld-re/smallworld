@@ -235,6 +235,10 @@ class Fgetc(StdioModel):
             self.set_return_value(emulator, -1)
             return
 
+        if len(data) == 0:
+            self.set_return_value(emulator, -1)
+            return
+
         self.set_return_value(emulator, data[0])
 
 
@@ -777,6 +781,10 @@ class Getchar(StdioModel):
             return
 
         data = file.read(1)
+
+        if len(data) == 0:
+            self.set_return_value(emulator, -1)
+            return
 
         self.set_return_value(emulator, data[0])
 
