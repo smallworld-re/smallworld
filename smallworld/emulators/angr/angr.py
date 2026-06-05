@@ -1109,7 +1109,7 @@ class AngrEmulator(
                 "Memory unhooking not supported once execution begins"
             )
 
-        elif self.state.scratch.global_read_bp is not None:
+        elif self.state.scratch.global_read_bp is None:
             raise exceptions.ConfigurationError("Global memory read hook not present")
 
         else:
