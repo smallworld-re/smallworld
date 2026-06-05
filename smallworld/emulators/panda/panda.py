@@ -647,7 +647,7 @@ class PandaEmulator(
         # can return fewer than the requested number of bytes if the upper bound
         # is past the end of the list being sliced.
         if address % self.PAGE_SIZE != 0:
-            block_size = address % self.PAGE_SIZE
+            block_size = self.PAGE_SIZE - (address % self.PAGE_SIZE)
             if self.panda_thread.panda:
                 self.panda_thread.panda.physical_memory_write(
                     address, content[0:block_size]
