@@ -529,7 +529,7 @@ class ElfExecutable(Executable):
                 skew = len(text) % section.alignment
                 if skew != 0:
                     text += b"\0" * (section.alignment - skew)
-                section_text_offsets[index] = len(data)
+                section_text_offsets[index] = len(text)
                 text += image[
                     section.file_offset : section.file_offset + section.original_size
                 ]
