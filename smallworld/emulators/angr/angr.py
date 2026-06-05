@@ -543,7 +543,7 @@ class AngrEmulator(
                 "Writing memory not supported once execution begins."
             )
         v = self.state.memory.load(address, size)
-        if v.symbolic():
+        if v.symbolic:
             if v.op == "Extract":
                 # You got a piece of a possibly-labeled expression
                 # Try parsing the inner expression to see if it's a single symbol.
