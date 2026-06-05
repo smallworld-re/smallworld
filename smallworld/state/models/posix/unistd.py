@@ -1141,6 +1141,7 @@ class Nice(ProcInfoModel):
         new_nice = self._procmgr.nice + incr
         if new_nice < 0 or new_nice > 39:
             self.set_return_value(emulator, -1)
+            return
         self._procmgr.nice = new_nice
         self.set_return_value(emulator, new_nice - 20)
 
