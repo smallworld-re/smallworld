@@ -1117,7 +1117,7 @@ class Lseek(FDModel):
         assert isinstance(whence, int)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -1224,7 +1224,7 @@ class Pread(FDModel):
         assert isinstance(off, int)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
 
             cursor = file.cursor
             file.seek(off, 0)
@@ -1283,7 +1283,7 @@ class Pwrite(FDModel):
         data = emulator.read_memory(buf, size)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
 
             cursor = file.cursor
             file.seek(off, 0)
@@ -1752,7 +1752,7 @@ class Ttyname(FDModel):
 
         if fd >= 0 or fd <= 2:
             try:
-                file = self._fdmgr.get(fd)
+                file = self._fdmgr.get_fd(fd)
                 out = (
                     file.name.encode("utf-8")[0 : self.static_space_needed - 1] + b"\0"
                 )
@@ -1787,7 +1787,7 @@ class TtynameR(FDModel):
 
         if fd >= 0 or fd <= 2:
             try:
-                file = self._fdmgr.get(fd)
+                file = self._fdmgr.get_fd(fd)
                 out = file.name.encode("utf-8") + b"\0"
                 if len(out) > size:
                     self.set_return_value(emulator, -1)
@@ -1913,7 +1913,7 @@ class Write(FDModel):
         data = emulator.read_memory(buf, size)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
             file.write(data)
             self.set_return_value(emulator, len(data))
         except FDIOError:
