@@ -120,7 +120,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 size=size,
                 expr=str(expr),
             )
-            self.hinter.self(hint)
+            self.hinter.send(hint)
             if self.halt_on_hint:
                 raise PathTerminationSignal()
             else:
