@@ -1288,7 +1288,7 @@ class Vsprintf(StdioModel):
 
 
 class Vsscanf(StdioModel):
-    name = "vsprintf"
+    name = "vsscanf"
 
     # int vsscanf(char *str, const char *fmt, va_list args);
     # TODO: Figure out how to decode a va_list
