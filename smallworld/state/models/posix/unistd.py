@@ -1396,17 +1396,18 @@ class Sbrk(ProcInfoModel):
             )
             logger.warning("To avoid, please set model._procmgr.brk in your harness.")
 
-        new_brk = self._procmgr.brk + incr
-        if new_brk > self._procmgr.brk:
+        old_brk = self._procmgr.brk
+        new_brk = old_brk + incr
+        if new_brk > old_brk:
             # WARNING: This can fail
             logger.warning(
                 "Attempting to alter the program break from "
-                f"{hex(self._procmgr.brk)} to {new_brk}"
+                f"{hex(old_brk)} to {hex(new_brk)}"
             )
-            emulator.map_memory(self._procmgr.brk, incr)
+            emulator.map_memory(old_brk, incr)
 
         self._procmgr.brk = new_brk
-        self.set_return_value(emulator, new_brk)
+        self.set_return_value(emulator, old_brk)
 
 
 class Setegid(ProcInfoModel):
