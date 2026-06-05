@@ -398,7 +398,7 @@ class UnicornEmulator(
         reg, _, _, _, is_msr = self._register(name)
         if reg == 0:
             raise exceptions.UnsupportedRegisterError(
-                "Unicorn does not support register {name} for {self.platform}"
+                f"Unicorn does not support register {name} for {self.platform}"
             )
         try:
             if is_msr:
