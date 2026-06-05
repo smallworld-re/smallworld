@@ -41,3 +41,9 @@ jobs:
           tags: |
             ${{ secrets.REGISTRY }}/smallworld/smallworld_ci:${{ github.sha }}
             ${{ secrets.REGISTRY }}/smallworld/smallworld_ci:latest
+          # Reuse layers from the previous nightly build instead of rebuilding
+          # every layer cold. The cache is stored in the registry under a
+          # dedicated tag; image-manifest/oci-mediatypes keep it in a format
+          # the Harbor registry accepts.
+          cache-from: type=registry,ref=${{ secrets.REGISTRY }}/smallworld/smallworld_ci:buildcache
+          cache-to: type=registry,ref=${{ secrets.REGISTRY }}/smallworld/smallworld_ci:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
