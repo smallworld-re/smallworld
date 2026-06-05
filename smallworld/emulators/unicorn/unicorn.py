@@ -185,7 +185,8 @@ class UnicornEmulator(
                     # The next instruction will be outside the current step.
                     self.state = EmulatorState.STEP
 
-            logger.debug(f"Stepping through {self.current_instruction()}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Stepping through %s", self.current_instruction())
 
             # run instruciton hooks
             if self.all_instructions_hook:
@@ -219,6 +220,13 @@ class UnicornEmulator(
                 #
                 # It looks like the emulator may continue processing an instruction
                 # even after emu_stop() is called.
+                return
+
+            # Fast path: with no read hooks registered there is nothing to do,
+            # so skip the per-read int->bytes conversion entirely.
+            if not self.all_reads_hook and not self.is_memory_read_hooked(
+                address, size
+            ):
                 return
 
             orig_data = value.to_bytes(size, self.platform.byteorder.value)
@@ -257,21 +265,15 @@ class UnicornEmulator(
                 # even after emu_stop() is called.
                 return
 
+            data = None
             if self.all_writes_hook:
-                self.all_writes_hook(
-                    self,
-                    address,
-                    size,
-                    value.to_bytes(size, self.platform.byteorder.value),
-                )
+                data = value.to_bytes(size, self.platform.byteorder.value)
+                self.all_writes_hook(self, address, size, data)
 
             if cb := self.is_memory_write_hooked(address, size):
-                cb(
-                    self,
-                    address,
-                    size,
-                    value.to_bytes(size, self.platform.byteorder.value),
-                )
+                if data is None:
+                    data = value.to_bytes(size, self.platform.byteorder.value)
+                cb(self, address, size, data)
 
         def mem_read_unmapped_callback(uc, type, address, size, value, user_data):
             logger.debug(f"unmapped read of address 0x{address:x}")
