@@ -398,7 +398,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             A list of registered exit points.
         """
 
-        return self._exit_points
+        return set(self._exit_points)
 
     def add_exit_point(self, address: int) -> None:
         """Add an exit point.
