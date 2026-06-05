@@ -13,7 +13,7 @@ MAX_STRLEN = 0x10000
 
 def _emu_strnlen(emulator: emulators.Emulator, addr: int, n: int) -> int:
     sl = 0
-    while sl <= n:
+    while sl < n:
         b_opt = emulator.read_memory(addr + sl, 1)
         if b_opt is not None:
             b = b_opt[0]
