@@ -105,6 +105,15 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # ``Concat`` for ranges that we know contain no user-symbolic data.
         self._labeled_memory_ranges: typing.List[typing.Tuple[int, int]] = []
 
+        # Half-open ``[start, end)`` ranges that received a user-symbolic
+        # value via a STORE during execution (Ghidra writes the symbolic
+        # side natively, and those addresses are not in
+        # ``_labeled_memory_ranges``). Included in ``read_memory_content``'s
+        # fast filter so a later read of such an address still materializes
+        # the symbolic side and raises ``SymbolicValueError`` rather than
+        # silently returning the concrete byte side.
+        self._symbolic_store_ranges: typing.List[typing.Tuple[int, int]] = []
+
         # User-supplied constraints (claripy boolean expressions).
         self._user_constraints: typing.List[claripy.ast.bool.Bool] = []
 
@@ -418,7 +427,8 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         # force SymZ3 to build an enormous byte-wise ``Concat`` SymValueZ3
         # just to confirm "no, not symbolic".
         end = address + size
-        if any(not (e <= address or end <= s) for s, e in self._labeled_memory_ranges):
+        candidate_ranges = self._labeled_memory_ranges + self._symbolic_store_ranges
+        if any(not (e <= address or end <= s) for s, e in candidate_ranges):
             pair = self._read_memory_pair(address, size)
             sym = pair.getRight()
             if sym is not None and self._sym_references_user_input(sym):
@@ -827,6 +837,12 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 hook(self, addr, size, concrete)
 
         sym = pair.getRight()
+        # Track stores of user-symbolic values to (possibly unlabeled)
+        # memory so a later read_memory_content of this range still runs the
+        # precise symbolic check. Uses the cheap word-boundary string probe,
+        # so it does not force a per-byte Concat materialization.
+        if sym is not None and self._sym_references_user_input(sym):
+            self._symbolic_store_ranges.append((addr, addr + size))
         sym_claripy = (
             self._sym_to_claripy(sym) if sym is not None else claripy.BVV(concrete)
         )
