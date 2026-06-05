@@ -440,9 +440,9 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
         if value < 0 and isinstance(value, int):
             # Negative value; need to find 2s-compliment if it's an int
             value *= -1
-            if self.return_type in self._four_byte_types:
+            if kind in self._four_byte_types:
                 value = ((value ^ self._int_inv_mask) + 1) & self._int_inv_mask
-            elif self.return_type in self._eight_byte_types:
+            elif kind in self._eight_byte_types:
                 value = (
                     (value ^ self._long_long_inv_mask) + 1
                 ) & self._long_long_inv_mask
