@@ -140,7 +140,7 @@ class CheckedBumpAllocator(Heap):
         content: bytes,
     ):
         offset = address - self.address
-        if (offset + size) > size:
+        if offset < 0 or (offset + size) > self.size:
             raise ValueError(f"Invalid access at {hex(address)} of size {size}")
 
         for i in range(size):
