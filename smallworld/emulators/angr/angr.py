@@ -1337,16 +1337,21 @@ class AngrEmulator(
         self.hook_memory_writes_symbolic(sym_callback)
 
     def unhook_memory_writes(self) -> None:
-        if self._dirty and not self._linear:
+        if not self._initialized:
+            self._gb_write_hook = None
+
+        elif self._dirty and not self._linear:
             raise NotImplementedError(
                 "Memory unhooking not supported once execution begins"
             )
-        if self.state.scratch.global_write_bp is not None:
+
+        elif self.state.scratch.global_write_bp is None:
             raise exceptions.ConfigurationError("Global memory write hook not present")
 
-        bp = self.state.scratch.global_read_bp
-        self.state.scratch.global_read_bp = None
-        self.state.inspect.remove_breakpoint("mem_write", bp)
+        else:
+            bp = self.state.scratch.global_write_bp
+            self.state.scratch.global_write_bp = None
+            self.state.inspect.remove_breakpoint("mem_write", bp)
 
     def _step(self, single_insn: bool):
         """Common routine for all step functions.
