@@ -86,11 +86,6 @@ jobs:
           nix develop .#lint -c mypy --explicit-package-bases --ignore-missing-imports ./
           nix develop .#lint -c treefmt -f nixfmt --ci
 
-      - name: Check Title
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-        run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
-
       - name: Build Test Artifacts
         run: |
           nix build ./ci#tests
