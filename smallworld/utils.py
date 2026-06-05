@@ -723,7 +723,7 @@ class RangeCollection(Iterable):
                 # We exactly match an existing range
                 self._ranges.remove(arange)
                 return
-            if start >= lo_start and end <= lo_end:
+            if start >= lo_start and start < lo_end:
                 # We collide with lo.
                 # Remove lo and add the remainder back
                 self._ranges.remove(lo)
