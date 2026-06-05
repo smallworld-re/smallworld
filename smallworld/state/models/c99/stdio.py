@@ -1060,11 +1060,14 @@ class Snprintf(StdioModel):
 
         trunc_bytes = output_bytes
         if len(trunc_bytes) > size:
-            trunc_bytes = trunc_bytes[: size - 1]
-            trunc_bytes += b"\0"
+            if size == 0:
+                trunc_bytes = b""
+            else:
+                trunc_bytes = trunc_bytes[: size - 1]
+                trunc_bytes += b"\0"
 
-        if buf_addr != 0:
-            emulator.write_memory(buf_addr, output_bytes)
+        if buf_addr != 0 and len(trunc_bytes) > 0:
+            emulator.write_memory(buf_addr, trunc_bytes)
 
         self.set_return_value(emulator, len(output_bytes) - 1)
 
