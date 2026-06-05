@@ -448,7 +448,7 @@ class StyxEmulator(
                 ret = None
             if ret is None:
                 return
-            cpu.pc = int(ret) & ~0x1
+            cpu.write_register("pc", int(ret) & ~0x1)
 
         self._register_styx_hook(CodeHook(address, address, _cb))
 
