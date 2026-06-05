@@ -433,7 +433,7 @@ class FieldDetectionFilter(analyses.Analysis):
     def __init__(self, hinter: hinting.Hinter):
         super().__init__(hinter)
         self.active = True
-        self.partial_ranges = dict()
+        self.partial_ranges: dict = dict()
 
     def analyze(self, hint: hinting.Hint):
         # Step 0: Print hints in a sane format.

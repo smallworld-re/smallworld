@@ -879,8 +879,14 @@ class CtypeTolowerLoc(CStdModel):
         assert self.static_buffer_address is not None
 
         # Initialize the array
-        order = "big" if self.platform.byteorder == Byteorder.BIG else "little"
-        array_data = b"".join(val.to_bytes(4, order) for val in self._tolower_values)
+        if self.platform.byteorder == Byteorder.BIG:
+            array_data = b"".join(
+                val.to_bytes(4, "big") for val in self._tolower_values
+            )
+        else:
+            array_data = b"".join(
+                val.to_bytes(4, "little") for val in self._tolower_values
+            )
         emulator.write_memory(self.static_buffer_address, array_data)
 
         # Initialize the output pointer.
@@ -1316,8 +1322,14 @@ class CtypeToupperLoc(CStdModel):
         assert self.static_buffer_address is not None
 
         # Initialize the array
-        order = "big" if self.platform.byteorder == Byteorder.BIG else "little"
-        array_data = b"".join(val.to_bytes(4, order) for val in self._toupper_values)
+        if self.platform.byteorder == Byteorder.BIG:
+            array_data = b"".join(
+                val.to_bytes(4, "big") for val in self._toupper_values
+            )
+        else:
+            array_data = b"".join(
+                val.to_bytes(4, "little") for val in self._toupper_values
+            )
         emulator.write_memory(self.static_buffer_address, array_data)
 
         # Initialize the output pointer.
