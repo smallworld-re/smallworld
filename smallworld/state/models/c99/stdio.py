@@ -314,7 +314,7 @@ class Freopen(StdioModel):
     name = "freopen"
 
     # FILE *freopen(const char *filename, const char *mode, FILE *stream);
-    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER]
+    argument_types = [ArgumentType.POINTER, ArgumentType.POINTER, ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
     def model(self, emulator: emulators.Emulator) -> None:
