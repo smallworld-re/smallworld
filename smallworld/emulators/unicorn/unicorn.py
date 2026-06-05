@@ -790,7 +790,7 @@ class UnicornEmulator(
 
         if typ == "mem":
             prefix = "Failed memory access"
-        if typ == "exec":
+        elif typ == "exec":
             prefix = "Quit emulation"
         else:
             prefix = "Unexpected Unicorn error"
