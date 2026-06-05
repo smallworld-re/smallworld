@@ -846,7 +846,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         if sym is not None and self._sym_references_user_input(sym):
             self._symbolic_store_ranges.append((addr, addr + size))
         sym_claripy = (
-            self._sym_to_claripy(sym) if sym is not None else claripy.BVV(concrete)
+            self._sym_to_claripy(sym)
+            if sym is not None
+            else claripy.BVV(self._int_from_bytes(concrete), size * 8)
         )
         if self._mem_writes_symbolic_hook is not None:
             self._mem_writes_symbolic_hook(self, addr, size, sym_claripy)
