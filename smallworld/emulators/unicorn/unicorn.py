@@ -419,6 +419,8 @@ class UnicornEmulator(
                     label = self.label[base_reg][i]
                     if label is not None:
                         labels.add(label)
+            if len(labels) == 0:
+                return None
             return ":".join(list(labels))
         return None
 
