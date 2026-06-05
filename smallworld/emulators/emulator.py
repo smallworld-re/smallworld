@@ -1144,6 +1144,7 @@ __all__ = [
     "Emulator",
     "InstructionHookable",
     "FunctionHookable",
+    "SyscallHookable",
     "MemoryReadHookable",
     "MemoryWriteHookable",
     "InterruptHookable",
