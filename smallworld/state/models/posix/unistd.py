@@ -337,14 +337,14 @@ class Dup2(FDModel):
     name = "dup2"
 
     # int dup2(int, int)
-    argument_types = [ArgumentType.INT]
+    argument_types = [ArgumentType.INT, ArgumentType.INT]
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
 
         old_fd = self.get_arg1(emulator)
-        new_fd = self.get_arg1(emulator)
+        new_fd = self.get_arg2(emulator)
         assert isinstance(old_fd, int)
         assert isinstance(new_fd, int)
 
