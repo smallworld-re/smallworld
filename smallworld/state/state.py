@@ -112,7 +112,7 @@ class Value(metaclass=abc.ABCMeta):
         """Set the label of this value.
 
         Arguments:
-            type: The label value to set.
+            label: The label value to set.
         """
 
         self._label = label
@@ -140,8 +140,8 @@ class Value(metaclass=abc.ABCMeta):
     ) -> typing.Optional[claripy.ast.bv.BV]:
         """Convert this value into a symbolic expression
 
-        For an unlabeled value, this will be a bit vector symbol containing the label.
-        Otherwise, it will be a bit vector value containing the contents.
+        For a labeled value, this will be a bit vector symbol named after the label.
+        Otherwise, it will be a concrete bit vector value containing the contents.
 
         Arguments:
             byteorder: The byte order to use in the conversion.
