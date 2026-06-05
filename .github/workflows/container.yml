@@ -4,6 +4,12 @@ on:
     - cron: "00 3 * * *"
   workflow_dispatch:
 
+# Serialize runs so a scheduled build and a manual dispatch don't race on the
+# shared ':latest'/':buildcache' tags. Don't cancel an in-flight run mid-push.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   Build-Container:
     runs-on: smallworld-arc

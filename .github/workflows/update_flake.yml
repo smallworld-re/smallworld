@@ -4,6 +4,12 @@ on:
     - cron: "00 5 * * MON"
   workflow_dispatch:
 
+# Serialize runs so a scheduled run and a manual dispatch don't both update
+# lockfiles and open competing PRs. Don't cancel an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   Update-Flake-UV:
     runs-on: ubuntu-latest
