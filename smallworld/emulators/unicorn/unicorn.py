@@ -724,7 +724,10 @@ class UnicornEmulator(
             raise exceptions.EmulationExitpoint
 
         disas = self.current_instruction()
-        logger.debug(f"step block at 0x{disas.address:x}: {disas}")
+        if disas is None:
+            logger.debug(f"step block at 0x{pc:x}: UNDECODABLE")
+        else:
+            logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
             self.engine.emu_start(pc, 0x0)
