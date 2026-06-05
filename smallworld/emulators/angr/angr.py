@@ -907,7 +907,7 @@ class AngrEmulator(
                     self.error_on_unmapped
                     and len(
                         state.scratch.memory_map.get_missing_ranges(
-                            read_start, read_end
+                            (read_start, read_end)
                         )
                     )
                     > 0
@@ -1173,7 +1173,7 @@ class AngrEmulator(
                     self.error_on_unmapped
                     and len(
                         state.scratch.memory_map.get_missing_ranges(
-                            write_start, write_end
+                            (write_start, write_end)
                         )
                     )
                     > 0
