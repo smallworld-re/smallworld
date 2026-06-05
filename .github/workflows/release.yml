@@ -14,7 +14,7 @@ jobs:
       TZ: UTC
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Install Python 3.12
         run: uv python install 3.12
       - name: Build
