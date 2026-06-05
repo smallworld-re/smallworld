@@ -1207,8 +1207,8 @@ class Machine(StatefulSet):
         for m in self:
             if issubclass(type(m), state.memory.Memory):
                 for po, v in m.items():
-                    if m.address + po <= address <= m.address + po + v.get_size():
-                        c = m[po].get()
+                    if m.address + po <= address < m.address + po + v.get_size():
+                        c = v.to_bytes()
                         o = address - (m.address + po)
                         return c[o : o + size]
         return None
