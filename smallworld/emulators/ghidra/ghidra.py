@@ -115,10 +115,13 @@ class GhidraEmulator(AbstractGhidraEmulator):
 
         state = self._thread.getState()
 
+        size = reg.getMinimumByteSize()
+        # Mask to handle negative ints via two's-complement wraparound.
+        value_unsigned = value & ((1 << (size * 8)) - 1)
         if self.platform.byteorder is platforms.Byteorder.BIG:
-            val = value.to_bytes(reg.getMinimumByteSize(), "big")
+            val = value_unsigned.to_bytes(size, "big")
         elif self.platform.byteorder is platforms.Byteorder.LITTLE:
-            val = value.to_bytes(reg.getMinimumByteSize(), "little")
+            val = value_unsigned.to_bytes(size, "little")
         else:
             raise Exception("Unable to encode byteorder {self.platform.byteorder}")
 
