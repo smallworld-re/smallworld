@@ -441,6 +441,10 @@ class UnicornEmulator(
             content = self._handle_thumb_interwork(content)
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
+        if reg == 0:
+            raise exceptions.UnsupportedRegisterError(
+                f"Unicorn does not support register {name} for {self.platform}"
+            )
         try:
             if is_msr:
                 self.engine.msr_write(reg, content)
