@@ -995,7 +995,7 @@ class AngrEmulator(
     def unhook_memory_read(self, start: int, end: int):
         if not self._initialized:
             self._read_hooks = list(
-                filter(lambda x: x[0] != start and x[1] != end, self._read_hooks)
+                filter(lambda x: x[0] != start or x[1] != end, self._read_hooks)
             )
 
         elif self._dirty and not self._linear:
