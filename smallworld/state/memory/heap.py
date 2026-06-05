@@ -123,12 +123,12 @@ class CheckedBumpAllocator(Heap):
         return self.address + offset
 
     def free(self, address: int) -> None:
-        if address in self._allocations:
-            offset = address - self.address
-            size = self._allocations[address]
+        offset = address - self.address
+        if offset in self._allocations:
+            size = self._allocations[offset]
             for i in range(size):
                 self._shadow[offset + i] = 2
-            del self._allocations[address]
+            del self._allocations[offset]
         else:
             raise ValueError(f"Invalid Free at {hex(address)}")
 
