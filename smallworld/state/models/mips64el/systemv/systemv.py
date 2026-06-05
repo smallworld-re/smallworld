@@ -59,6 +59,7 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
         "f15",
         "f16",
         "f17",
+        "f18",
     ]
 
     _double_arg_regs = [
@@ -67,6 +68,7 @@ class MIPS64ELSysVCallingContext(CStdCallingContext):
         "f15",
         "f16",
         "f17",
+        "f18",
     ]
 
     _init_stack_offset = 0
