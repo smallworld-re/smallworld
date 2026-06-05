@@ -107,8 +107,8 @@ class MIPSSysVCallingContext(CStdCallingContext):
 
     def _read_return_double(self, emulator: emulators.Emulator) -> float:
         """Read a double returned value"""
-        hi = emulator.read_register("f0")
-        lo = emulator.read_register("f1")
+        lo = emulator.read_register("f0")
+        hi = emulator.read_register("f1")
         as_int = lo + (hi << 32)
         as_bytes = int.to_bytes(as_int, 8, "little")
         (unpacked,) = struct.unpack("<d", as_bytes)
