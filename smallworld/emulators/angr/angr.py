@@ -752,7 +752,7 @@ class AngrEmulator(
 
     def unhook_instructions(self) -> None:
         if not self._initialized:
-            self._gb_instruction_hook = None
+            self._gb_instr_hook = None
 
         elif self._dirty and not self._linear:
             raise NotImplementedError(
