@@ -972,7 +972,7 @@ class InterruptHookable(metaclass=abc.ABCMeta):
         pass
 
 
-class ConstrainedEmulator:
+class ConstrainedEmulator(metaclass=abc.ABCMeta):
     """Emulator that supports constraints
 
     It must also support some means of evaluating constraints,
