@@ -443,7 +443,7 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
         sym = pair.getRight()
         if sym is not None:
             return self._sym_to_claripy(sym)
-        return claripy.BVV(self.bytes_java_to_py(pair.getLeft()))
+        return claripy.BVV(self._int_from_bytes(pair.getLeft()), size * 8)
 
     def _sym_to_claripy(self, sym) -> claripy.ast.bv.BV:
         """Lift a Java ``SymValueZ3`` into a claripy bitvector via SMT-LIB."""
@@ -792,7 +792,9 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
 
         # Symbolic read hooks
         new_sym = (
-            self._sym_to_claripy(sym) if sym is not None else claripy.BVV(new_concrete)
+            self._sym_to_claripy(sym)
+            if sym is not None
+            else claripy.BVV(self._int_from_bytes(bytes(new_concrete)), size * 8)
         )
         if self._mem_reads_symbolic_hook is not None:
             replacement = self._mem_reads_symbolic_hook(self, addr, size, new_sym)
