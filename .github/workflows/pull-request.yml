@@ -39,7 +39,14 @@ jobs:
           cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
         if: ${{ env.cachix_token != '' }}
         run: |
-          nix run .#printInputsRecursive | cachix push smallworld
+          # Archive every flake input (recursively) and push the resulting
+          # store paths to Cachix so downstream jobs and contributors get cache
+          # hits. This replaces the `.#printInputsRecursive` flake output that
+          # was removed in the macOS-support refactor (#367) with a
+          # self-contained equivalent.
+          nix flake archive --json \
+            | nix run nixpkgs#jq -- -r '[.. | objects | .path? // empty] | unique | .[]' \
+            | cachix push smallworld
 
       - name: Build devshell
         run: |
