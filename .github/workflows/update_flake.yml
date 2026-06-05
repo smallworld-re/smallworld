@@ -20,7 +20,7 @@ jobs:
       - uses: DeterminateSystems/determinate-nix-action@v3
       - name: Update CI flake lock file
         run: nix flake update --flake ./ci
-      - uses: DeterminateSystems/update-flake-lock@main
+      - uses: DeterminateSystems/update-flake-lock@v28
         with:
           pr-title: "chore: update nix flake inputs and uv lock file"
           token: ${{ secrets.PR_TOKEN }}
