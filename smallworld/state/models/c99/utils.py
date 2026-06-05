@@ -49,18 +49,46 @@ def _emu_strncpy(emulator: emulators.Emulator, dst: int, src: int, n: int) -> No
 
 
 def _emu_memcmp(emulator: emulators.Emulator, ptr1: int, ptr2: int, n: int) -> int:
+    # Fast path: read both regions in one round-trip each and compare in
+    # Python. If a bulk read faults (unmapped or symbolic byte somewhere in
+    # the range), fall back to the byte-at-a-time scan so we stop at exactly
+    # the same byte the original loop did.
+    try:
+        b1 = emulator.read_memory(ptr1, n)
+        b2 = emulator.read_memory(ptr2, n)
+    except Exception:
+        for i in range(0, n):
+            char1 = emulator.read_memory(ptr1 + i, 1)[0]
+            char2 = emulator.read_memory(ptr2 + i, 1)[0]
+            if char1 != char2:
+                return char1 - char2
+        return 0
     for i in range(0, n):
-        char1 = emulator.read_memory(ptr1 + i, 1)[0]
-        char2 = emulator.read_memory(ptr2 + i, 1)[0]
-        if char1 != char2:
-            return char1 - char2
+        if b1[i] != b2[i]:
+            return b1[i] - b2[i]
     return 0
 
 
 def _emu_strncmp(emulator: emulators.Emulator, ptr1: int, ptr2: int, n: int) -> int:
+    # Fast path: bulk-read both strings and scan in Python, stopping at the
+    # first NUL or mismatch. If a bulk read faults (unmapped or symbolic tail
+    # the original loop would never have reached), fall back to the
+    # byte-at-a-time scan so behavior is identical.
+    try:
+        b1 = emulator.read_memory(ptr1, n)
+        b2 = emulator.read_memory(ptr2, n)
+    except Exception:
+        for i in range(0, n):
+            char1 = emulator.read_memory(ptr1 + i, 1)[0]
+            char2 = emulator.read_memory(ptr2 + i, 1)[0]
+            if char1 == 0 or char2 == 0:
+                return char1 - char2
+            elif char1 != char2:
+                return char1 - char2
+        return 0
     for i in range(0, n):
-        char1 = emulator.read_memory(ptr1 + i, 1)[0]
-        char2 = emulator.read_memory(ptr2 + i, 1)[0]
+        char1 = b1[i]
+        char2 = b2[i]
         if char1 == 0 or char2 == 0:
             return char1 - char2
         elif char1 != char2:

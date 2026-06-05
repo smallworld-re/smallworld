@@ -1601,13 +1601,19 @@ class Swab(CStdModel):
             # Why do we even have that lever?
             return
 
-        # swab()'s behavior for the last byte
-        # is technically undefined if size is odd.
-        # Be nice, and just leave it alone.
-        for i in range(0, size, 2):
-            data = emulator.read_memory(src + i, 2)
-            data = bytes([data[1], data[0]])
-            emulator.write_memory(dst + i, data)
+        # swab()'s behavior for the last byte is technically undefined if size
+        # is odd. Match the original loop, which via range(0, size, 2) also
+        # touched the byte at index `size` when size is odd, so round up to
+        # even. Read and write the whole region in one shot instead of one
+        # 2-byte read/write pair per word.
+        n = size + (size & 1)
+        if n == 0:
+            return
+        data = emulator.read_memory(src, n)
+        out = bytearray(n)
+        out[0::2] = data[1::2]
+        out[1::2] = data[0::2]
+        emulator.write_memory(dst, bytes(out))
 
 
 class Symlink(CStdModel):
