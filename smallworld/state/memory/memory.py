@@ -37,21 +37,16 @@ class Memory(state.Stateful, dict[int, state.Value]):
 
         Missing/undefined space will be filled with zeros.
 
-        Arguments:
-            byteorder: Byteorder for conversion to raw bytes.
-
         Returns:
-            Bytes for this object with the given byteorder.
+            The bytes of this memory region, with undefined space zero-filled.
         """
 
-        result = b"\x00" * self.size
+        result = bytearray(self.size)
         for offset, value in self.items():
-            # data = value.get_content()
-            result = (
-                result[:offset] + value.to_bytes() + result[offset + value.get_size() :]
-            )
+            b = value.to_bytes()
+            result[offset : offset + len(b)] = b
 
-        return result
+        return bytes(result)
 
     def get_capacity(self) -> int:
         """Gets the total number of bytes this memory region can store.
@@ -292,7 +287,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
             address: The address to write to.
             value: The integer value to write.
             size: The size of the integer in bytes.
-            endianness: The byteorder of the platform.
+            byteorder: The byteorder of the platform.
         """
 
         self.write_bytes(
@@ -311,7 +306,7 @@ class Memory(state.Stateful, dict[int, state.Value]):
         Arguments:
             address: The address to read from.
             size: The size of the integer in bytes.
-            endianness: The byteorder of the platform.
+            byteorder: The byteorder of the platform.
 
         Returns:
             The integer read from memory.
