@@ -28,11 +28,13 @@ jobs:
           
       - name: Checkout
         uses: actions/checkout@v6
-        env:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
         with:
-          token: ${{ secrets.BOT_TOKEN }}
+          # Prefer the bot token so the auto-commit step below can push lint
+          # fixups, but fall back to the default workflow token so the job
+          # still checks out and builds when BOT_TOKEN is unset (previously the
+          # checkout was skipped entirely, leaving every later nix step to run
+          # against an empty workspace).
+          token: ${{ secrets.BOT_TOKEN || github.token }}
 
       - name: Cache inputs
         env:
