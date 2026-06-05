@@ -1752,7 +1752,7 @@ class Ttyname(FDModel):
         fd = self.get_arg1(emulator)
         assert isinstance(fd, int)
 
-        if fd >= 0 or fd <= 2:
+        if 0 <= fd <= 2:
             try:
                 file = self._fdmgr.get_fd(fd)
                 out = (
@@ -1787,7 +1787,7 @@ class TtynameR(FDModel):
         assert isinstance(ptr, int)
         assert isinstance(size, int)
 
-        if fd >= 0 or fd <= 2:
+        if 0 <= fd <= 2:
             try:
                 file = self._fdmgr.get_fd(fd)
                 out = file.name.encode("utf-8") + b"\0"
