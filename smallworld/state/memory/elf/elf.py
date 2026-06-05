@@ -532,7 +532,8 @@ class ElfExecutable(Executable):
                 section_text_offsets[index] = len(text)
                 text.extend(
                     image[
-                        section.file_offset : section.file_offset + section.original_size
+                        section.file_offset : section.file_offset
+                        + section.original_size
                     ]
                 )
             elif (section.flags & SHF_WRITE) != 0:
@@ -543,7 +544,8 @@ class ElfExecutable(Executable):
                 section_data_offsets[index] = len(data)
                 data.extend(
                     image[
-                        section.file_offset : section.file_offset + section.original_size
+                        section.file_offset : section.file_offset
+                        + section.original_size
                     ]
                 )
             else:
@@ -554,7 +556,8 @@ class ElfExecutable(Executable):
                 section_rodata_offsets[index] = len(rodata)
                 rodata.extend(
                     image[
-                        section.file_offset : section.file_offset + section.original_size
+                        section.file_offset : section.file_offset
+                        + section.original_size
                     ]
                 )
 
