@@ -1044,7 +1044,9 @@ class AngrEmulator(
 
                 res = function(ConcreteAngrEmulator(state, self), addr, size, expr)
 
-                if self.platform.byteorder == platforms.Byteorder.LITTLE:
+                if res is None:
+                    res = expr
+                elif self.platform.byteorder == platforms.Byteorder.LITTLE:
                     # fix byte order if needed.
                     # i don't know _why_ this is needed,
                     # but encoding the result as little-endian on a little-endian
