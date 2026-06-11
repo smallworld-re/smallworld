@@ -68,6 +68,7 @@ class PPC32Instruction(Instruction):
             elif isinstance(d, tuple) and isinstance(d[0], BSIDMemoryReferenceOperand):
                 defs.append(d)
             else:
+                breakpoint()
                 print(f"d={d} type(d)={type(d)}??")
                 assert(1==0)
 

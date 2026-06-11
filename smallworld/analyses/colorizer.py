@@ -267,12 +267,6 @@ class Colorizer(analysis.Analysis):
         def check_rws(emu, pc, te, is_read):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
-            # r = analyze_bytes(cs_insn.bytes, "PowerPC:BE:32:default", cs_insn.address)
-            # if is_read:
-            #     operand_list = r[0]['use']
-            # else:
-            #     operand_list = r[0]['def']
-            # print(r)
             logger.info(f"instr={cs_insn}")
             if is_read:
                 operand_list = sw_insn.reads

@@ -46,6 +46,7 @@ import json
 import sys
 import logging
 import pyghidra
+from enum import Enum, auto
 
 pyghidra.start()  # boots the embedded JVM; must run before ghidra imports
 
@@ -146,7 +147,8 @@ def _varnode_operand(program, vn):
         # vs "RAX") because that's what the instruction actually
         # touches.
         return RegisterOperand(reg.getName().lower())
-        
+
+    
     # has to be true -- a concrete address
     assert vn.isAddress()
     addr = vn.getAddress()
@@ -185,99 +187,131 @@ def _unique_key(vn):
 # unique's expression as a string keyed by its (offset, size) and
 # substitute it back when the STORE consumes it.
 
-_PCODE_OPS = {
-    "COPY":            ("<-", [0], True),
-    "LOAD":            ("<m-", [1], True),
-    "STORE":           ("-m>", [1], True),
-    "BRANCH":          ("b", [], False),         # input is conc addr only
-    "CBRANCH":         ("cb", [1], False),       # the condition
-    "BRANCHIND":       ("bi", [0], False),       # the dynamically determined target
-    "CALL":            None,                     # exception
-    "CALLIND":         None,                     # exception
-    "RETURN":          None,                     # exception
-    "PIECE":           ("p", [0, 1], True),    
-    "SUBPIECE":        ("s", [0], True),
-    "INT_EQUAL":       ("==", [0, 1], True),
-    "INT_NOTEQUAL":    ("!=", [0, 1], True),
-    "INT_LESS":        ("<u", [0, 1], True),
-    "INT_SLESS":       ("<s", [0, 1], True),
-    "INT_LESSEQUAL":   ("<=u", [0, 1], True),
-    "INT_SLESSEQUAL":  ("<=u", [0, 1], True),
-    "INT_ZEXT":        ("zx", [0], True),
-    "INT_SEXT":        ("sx", [0], True),    
-    "INT_ADD":         ("+", [0, 1], True),
-    "INT_SUB":         ("-", [0, 1], True),
-    "INT_CARRY":       ("c", [0, 1], True),
-    "INT_SCARRY":      ("sc", [0, 1], True),
-    "INT_SBORROW":     ("sb", [0, 1], True),
-    "INT_2COMP":       ("-", [0], True),
-    "INT_NEGATE":      ("~", [0], True),    
-    "INT_XOR":         ("^", [0, 1], True),
-    "INT_AND":         ("&", [0, 1], True),
-    "INT_OR":          ("|", [0, 1], True),
-    "INT_LEFT":        ("<<", [0, 1], True),
-    "INT_RIGHT":       (">>", [0, 1], True),
-    "INT_SRIGHT":      (">>s", [0, 1], True),                
-    "INT_MULT":        ("*", [0, 1], True),                
-    "INT_DIV":         ("/", [0, 1], True),                
-    "INT_REM":         ("%", [0, 1], True),                
-    "INT_SDIV":        ("/s", [0, 1], True),                
-    "INT_SREM":        ("%s", [0, 1], True),                
-    "BOOL_NEGATE":     ("~", [0], True),    
-    "BOOL_XOR":        ("^", [0, 1], True),
-    "BOOL_AND":        ("&", [0, 1], True),
-    "BOOL_OR":         ("|", [0, 1], True),
-    "FLOAT_EQUAL":     ("==f", [0, 1], True),
-    "FLOAT_NOTEQUAL":  ("!=f", [0, 1], True),
-    "FLOAT_LESS":      ("<f", [0, 1], True),
-    "FLOAT_LESSEQUAL": ("<=f", [0, 1], True),
-    "FLOAT_ADD":        ("+f", [0, 1], True),
-    "FLOAT_SUB":        ("-f", [0, 1], True),
-    "FLOAT_MULT":       ("*f", [0, 1], True),                
-    "FLOAT_DIV":        ("*/", [0, 1], True),                
-    "FLOAT_NEG":        ("-", [0], True),
-    "FLOAT_ABS":        ("!", [0], True),
-    "FLOAT_SQRT":       ("r", [0], True),        
-    "FLOAT_CEIL":       ("cf", [0], True),
-    "FLOAT_FLOOR":      ("f", [0], True),    
-    "FLOAT_ROUND":      ("r", [0], True),
-    "FLOAT_NAN":        ("n", [0], True),    
-    "INT2FLOAT":        ("i2f", [0], True),
-    "FLOAT2FLOAT":      ("f2f", [0], True),
-    "TRUNC":            ("t", [0], True)
+class _PCODE_OP(Enum):
+    COPY = auto()           
+    LOAD = auto()           
+    STORE = auto()          
+    BRANCH = auto()         
+    CBRANCH = auto()        
+    BRANCHIND = auto()      
+    CALL = auto()           
+    CALLIND = auto()        
+    RETURN = auto()
+    PIECE = auto()          
+    SUBPIECE = auto()       
+    INT_EQUAL = auto()      
+    INT_NOTEQUAL = auto()   
+    INT_LESS = auto()       
+    INT_SLESS = auto()      
+    INT_LESSEQUAL = auto()  
+    INT_SLESSEQUAL = auto() 
+    INT_ZEXT = auto()       
+    INT_SEXT = auto()       
+    INT_ADD = auto()        
+    INT_SUB = auto()        
+    INT_CARRY = auto()      
+    INT_SCARRY = auto()     
+    INT_SBORROW = auto()    
+    INT_2COMP = auto()      
+    INT_NEGATE = auto()     
+    INT_XOR = auto()        
+    INT_AND = auto()        
+    INT_OR = auto()         
+    INT_LEFT = auto()       
+    INT_RIGHT = auto()      
+    INT_SRIGHT = auto()     
+    INT_MULT = auto()       
+    INT_DIV = auto()        
+    INT_REM = auto()        
+    INT_SDIV = auto()       
+    INT_SREM = auto()       
+    BOOL_NEGATE = auto()    
+    BOOL_XOR = auto()       
+    BOOL_AND = auto()       
+    BOOL_OR = auto()        
+    FLOAT_EQUAL = auto()    
+    FLOAT_NOTEQUAL = auto() 
+    FLOAT_LESS = auto()     
+    FLOAT_LESSEQUAL = auto()
+    FLOAT_ADD = auto()      
+    FLOAT_SUB = auto()      
+    FLOAT_MULT = auto()     
+    FLOAT_DIV = auto()      
+    FLOAT_NEG = auto()      
+    FLOAT_ABS = auto()      
+    FLOAT_SQRT = auto()     
+    FLOAT_CEIL = auto()     
+    FLOAT_FLOOR = auto()    
+    FLOAT_ROUND = auto()    
+    FLOAT_NAN = auto()      
+    INT2FLOAT = auto()      
+    FLOAT2FLOAT = auto()    
+    TRUNC = auto()          
+
+    
+     
+_PCODE_OP_INFO = { 
+    _PCODE_OP.COPY:             ("<-", [0], True),
+    _PCODE_OP.LOAD:             ("<m-", [1], True),
+    _PCODE_OP.STORE:            ("-m>", [1], True),
+    _PCODE_OP.BRANCH:           ("b", [], False),         # input is conc addr only
+    _PCODE_OP.CBRANCH:          ("cb", [1], False),       # the condition
+    _PCODE_OP.BRANCHIND:        ("bi", [0], False),       # the dynamically determined target
+    _PCODE_OP.CALL:             None,                     # exception
+    _PCODE_OP.CALLIND:          None,                     # exception
+    _PCODE_OP.RETURN:           None,                     # exception
+    _PCODE_OP.PIECE:            ("p", [0, 1], True),    
+    _PCODE_OP.SUBPIECE:         ("s", [0], True),
+    _PCODE_OP.INT_EQUAL:        ("==", [0, 1], True),
+    _PCODE_OP.INT_NOTEQUAL:     ("!=", [0, 1], True),
+    _PCODE_OP.INT_LESS:         ("<u", [0, 1], True),
+    _PCODE_OP.INT_SLESS:        ("<s", [0, 1], True),
+    _PCODE_OP.INT_LESSEQUAL:    ("<=u", [0, 1], True),
+    _PCODE_OP.INT_SLESSEQUAL:   ("<=u", [0, 1], True),
+    _PCODE_OP.INT_ZEXT:         ("zx", [0], True),
+    _PCODE_OP.INT_SEXT:         ("sx", [0], True),    
+    _PCODE_OP.INT_ADD:          ("+", [0, 1], True),
+    _PCODE_OP.INT_SUB:          ("-", [0, 1], True),
+    _PCODE_OP.INT_CARRY:        ("c", [0, 1], True),
+    _PCODE_OP.INT_SCARRY:       ("sc", [0, 1], True),
+    _PCODE_OP.INT_SBORROW:      ("sb", [0, 1], True),
+    _PCODE_OP.INT_2COMP:        ("-", [0], True),
+    _PCODE_OP.INT_NEGATE:       ("~", [0], True),    
+    _PCODE_OP.INT_XOR:          ("^", [0, 1], True),
+    _PCODE_OP.INT_AND:          ("&", [0, 1], True),
+    _PCODE_OP.INT_OR:           ("|", [0, 1], True),
+    _PCODE_OP.INT_LEFT:         ("<<", [0, 1], True),
+    _PCODE_OP.INT_RIGHT:        (">>", [0, 1], True),
+    _PCODE_OP.INT_SRIGHT:       (">>s", [0, 1], True),                
+    _PCODE_OP.INT_MULT:         ("*", [0, 1], True),                
+    _PCODE_OP.INT_DIV:          ("/", [0, 1], True),                
+    _PCODE_OP.INT_REM:          ("%", [0, 1], True),                
+    _PCODE_OP.INT_SDIV:         ("/s", [0, 1], True),                
+    _PCODE_OP.INT_SREM:         ("%s", [0, 1], True),                
+    _PCODE_OP.BOOL_NEGATE:      ("~", [0], True),    
+    _PCODE_OP.BOOL_XOR:         ("^", [0, 1], True),
+    _PCODE_OP.BOOL_AND:         ("&", [0, 1], True),
+    _PCODE_OP.BOOL_OR:          ("|", [0, 1], True),
+    _PCODE_OP.FLOAT_EQUAL:      ("==f", [0, 1], True),
+    _PCODE_OP.FLOAT_NOTEQUAL:   ("!=f", [0, 1], True),
+    _PCODE_OP.FLOAT_LESS:       ("<f", [0, 1], True),
+    _PCODE_OP.FLOAT_LESSEQUAL:  ("<=f", [0, 1], True),
+    _PCODE_OP.FLOAT_ADD:        ("+f", [0, 1], True),
+    _PCODE_OP.FLOAT_SUB:        ("-f", [0, 1], True),
+    _PCODE_OP.FLOAT_MULT:       ("*f", [0, 1], True),                
+    _PCODE_OP.FLOAT_DIV:        ("*/", [0, 1], True),                
+    _PCODE_OP.FLOAT_NEG:        ("-", [0], True),
+    _PCODE_OP.FLOAT_ABS:        ("!", [0], True),
+    _PCODE_OP.FLOAT_SQRT:       ("r", [0], True),        
+    _PCODE_OP.FLOAT_CEIL:       ("cf", [0], True),
+    _PCODE_OP.FLOAT_FLOOR:      ("f", [0], True),    
+    _PCODE_OP.FLOAT_ROUND:      ("r", [0], True),
+    _PCODE_OP.FLOAT_NAN:        ("n", [0], True),    
+    _PCODE_OP.INT2FLOAT:        ("i2f", [0], True),
+    _PCODE_OP.FLOAT2FLOAT:      ("f2f", [0], True),
+    _PCODE_OP.TRUNC:            ("t", [0], True)
     }
 
-_BINARY_OPS = {
-    "INT_ADD":        "+",
-    "INT_SUB":        "-",
-    "INT_MULT":       "*",
-    "INT_DIV":        "/u",
-    "INT_SDIV":       "/s",
-    "INT_REM":        "%u",
-    "INT_SREM":       "%s",
-    "INT_AND":        "&",
-    "INT_OR":         "|",
-    "INT_XOR":        "^",
-    "INT_LEFT":       "<<",
-    "INT_RIGHT":      ">>u",
-    "INT_SRIGHT":     ">>s",
-    "INT_EQUAL":      "==",
-    "INT_NOTEQUAL":   "!=",
-    "INT_LESS":       "<u",
-    "INT_LESSEQUAL":  "<=u",
-    "INT_SLESS":      "<s",
-    "INT_SLESSEQUAL": "<=s",
-    "BOOL_AND":       "&&",
-    "BOOL_OR":        "||",
-    "BOOL_XOR":       "^^",
-}
-
-_UNARY_OPS = {
-    "INT_NEGATE":  "~",
-    "INT_2COMP":   "-",
-    "BOOL_NEGATE": "!",
-    
-}
 
 
 
@@ -360,10 +394,10 @@ def _vn_expr(vn, program, unique_exprs, register_exprs):
         
         
 def _op_expr(op, program, unique_exprs, register_exprs):
-    name = op.getMnemonic()
+    mnemonic_ind = _PCODE_OP[op.getMnemonic()]
+    (lab, inp_inds, outp) = _PCODE_OP_INFO[mnemonic_ind]
+    le = [mnemonic_ind]
     inputs = op.getInputs()
-    (lab, inp_inds, outp) = _PCODE_OPS[name]
-    le = [name]
     for ind in inp_inds:
         vne = _vn_expr(inputs[ind], program, unique_exprs, register_exprs)
         le.append(vne)
@@ -394,6 +428,86 @@ def _addr_expr_to_mem_ref_op(addr_expr, size):
         offset=a2,
         size=size)
 
+
+# resolve this input using sstate
+# recurse if you need to.
+# returns either
+# * register if that's not yet in sstate (not yet assigned)
+# * s-expr for unique
+def resolve_input(inp, sstate):
+        
+    if isinstance(inp, tuple):
+        (mnem, rhs_inps) = inp
+        r_rhs_inps = []
+        for i in rhs_inps:
+            r_rhs_inps.append(resolve_input(i, sstate))
+        return (mnem, r_rhs_inps)
+    else:
+        if inp.isUnique():
+            ik = _unique_key(inp)
+            # this better be in sstate
+            assert (ik in sstate)
+            return sstate[ik]
+        elif inp.isRegister():
+            if not (inp in sstate):
+                # register not yet assigned in this chain of pcode
+                return inp
+            breakpoint()
+            (mnem, rhs_inp) = sstate[inp]
+            # register has been assigned and this was the computation
+            if mnem == _PCODE_OP.COPY_PC:
+                return rhs_inp[0]
+            return sstate[inp]            
+    # addr or const?
+    return inp
+    
+def update_symstate(op, sstate):
+    # resolve all inputs (args) to this op in terms of
+    # inputs-to-the-instruction, and then record
+    # mapping from out to that resolution
+    ris = []
+    for inp in op.getInputs():
+        ris.append(resolve_input(inp, sstate))    
+    # special case! There's no need for an s-expr. This is basically
+    # just an assignment
+    mnemonic = _PCODE_OP[op.getMnemonic()]
+    if mnemonic == _PCODE_OP.COPY:
+        assert (len(ris)) == 1
+        val = ris[0]
+    else:
+        val = (mnemonic, ris)
+    outp = op.getOutput()
+    if outp is None:
+        # ditch it; could be a store?
+        return
+    assert (outp.isUnique() or outp.isRegister())    
+    if outp.isUnique():
+        ok = _unique_key(outp)
+        sstate[ok] = val
+    elif outp.isRegister():
+        sstate[outp] = val
+
+        
+def uniq2bsid(u, sstate, program, size):
+    assert u.isUnique()
+    k = _unique_key(u)
+    assert (k in sstate)
+    res = sstate[k]
+    if isinstance(res, tuple):
+        (mnemonic, args) = res
+        if mnemonic == _PCODE_OP.INT_ADD:
+            if args[0].isRegister() and args[1].isConstant():
+                reg = program.getRegister(args[0])
+                return BSIDMemoryReferenceOperand(
+                    segment=None,
+                    base = reg.name,
+                    index = None,
+                    offset = args[1].getOffset(),
+                    size = size
+                )
+    raise Exception(f"unexpected sstate: {res}")
+        
+
 # --------------------------------------------------------------------------- #
 # Per-instruction use/def
 # --------------------------------------------------------------------------- #
@@ -421,26 +535,29 @@ def instruction_use_def(program, instr):
     unique_exprs = {}    # (offset, size) -> expression-string for pcode temps
     register_exprs = {}  # register-name   -> expression-string after a write
 
+    sstate = {}
     pdebug = True
 
-    # if instr.getAddress().getOffset() == 0xd85ac:
-    #     breakpoint()
-    
-    # logger.info(f"instr = {instr}")
     for op in instr.getPcode():
-        
+
         if pdebug:
             logger.info(f"pcode = {op}")
-            
-        mnemonic = op.getMnemonic()
 
+        try:
+            update_symstate(op, sstate)
+        except Exception as e:
+            print(f"update_symstate seems to have had a problem {e}")
+            assert(1==0)
+                    
+        mnemonic = _PCODE_OP[op.getMnemonic()]
+        
         if pdebug:
             for i, inp in enumerate(op.getInputs()):
                 logger.info(f"input {i} {inp} {_varnode_operand(program, inp)}")
             logger.info(f"output {op.getOutput()} {_varnode_operand(program, op.getOutput())}")
 
-        # This is blacklisting some odd PPC isms
-        if mnemonic == "COPY":
+        # This is blacklisting some odd PPCisms
+        if mnemonic == _PCODE_OP.COPY:
             input0 = _varnode_operand(program, op.getInput(0))
             output = _varnode_operand(program, op.getOutput())
             # ghidra hallucinates a full-fledged register called `r2Save`
@@ -465,22 +582,26 @@ def instruction_use_def(program, instr):
                 uses.add(reg)
 
         # ---- STORE: emit a symbolic memory def ----------------------- #
-        if mnemonic == "STORE":
+        if mnemonic == _PCODE_OP.STORE:
             inputs = op.getInputs()
             # logger.info(f"store {len(inputs)} inputs")
             assert len(inputs) == 3
             space = _space_name(program, inputs[0])
             assert (space == "ram")
-            addr_expr = _vn_expr(inputs[1], program, unique_exprs, register_exprs)
-            size = inputs[2].getSize()
-            mem = _addr_expr_to_mem_ref_op(addr_expr, size)
+
+            if inputs[1].isUnique():
+                mem = uniq2bsid(inputs[1], sstate, program, inputs[2].size)                
+            else:
+                breakpoint()
+                raise Exception(f"store with address not a unique?")
+                
             if pdebug:
                 logger.info(f"2 def mem {mem}")
             defs.add(mem)
             continue  # STORE has no output varnode
 
         # ---- LOAD: emit a symbolic memory use, propagate value ------- #
-        if mnemonic == "LOAD":
+        if mnemonic == _PCODE_OP.LOAD:
             inputs = op.getInputs()
             # logger.info(f"load {len(inputs)} inputs")
             assert len(inputs) == 2
@@ -490,9 +611,12 @@ def instruction_use_def(program, instr):
             assert (space == "ram")
             # this should really get us a bsid for the address
             # inputs[1] is the ptr
-            addr_expr = _vn_expr(inputs[1], program, unique_exprs, register_exprs)
-            size = out.getSize()
-            mem = _addr_expr_to_mem_ref_op(addr_expr, size)
+
+            if inputs[1].isUnique():
+                mem = uniq2bsid(inputs[1], sstate, program, op.getOutput().size)
+            else:
+                raise Exception(f"load with address not a unique?")
+            
             # why would mem be in defs... If we had previously stored to this in this op sequence?
             if not (mem in defs):
                 if pdebug:
@@ -519,25 +643,14 @@ def instruction_use_def(program, instr):
         if out is None:
             continue
         if out.isUnique():
-            # oe = _op_expr(op, program, unique_exprs, register_exprs)
-            # logger.info(f"adding oe {oe} to unique_exprs")
-            unique_exprs[_unique_key(out)] = _op_expr(
-                op, program, unique_exprs, register_exprs)
             continue
-        operand = _varnode_operand(program, out)
-        assert not (operand is None)
-        assert not (isinstance(operand, BSIDMemoryReferenceOperand))
-        assert isinstance(operand, RegisterOperand)
-        # Compute the register's new expression BEFORE marking it
-        # written, so a self-referential write like 'RSP = RSP - 8'
-        # uses the incoming value of RSP on the right-hand side.
-        new_expr = _op_expr(op, program, unique_exprs, register_exprs)
-        assert not ("Save" in operand.name)
+        assert out.isRegister()
+        reg = _varnode_operand(program, out)
+        assert not ("Save" in reg.name)
         if pdebug:
-            logger.info(f"5 def operand {operand}")
-        defs.add(operand)
-        written_so_far.add(operand)
-        register_exprs[operand] = new_expr
+            logger.info(f"5 def reg {reg}")
+        defs.add(reg)
+        written_so_far.add(reg)
 
     return uses, defs
 
