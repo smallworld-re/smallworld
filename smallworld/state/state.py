@@ -379,7 +379,7 @@ class BytesValue(Value):
 
     def to_bytes(self) -> bytes:
         if self._content is None or (
-            not isinstance(self._content, bytes) 
+            not isinstance(self._content, bytes)
             and not isinstance(self._content, bytearray)
         ):
             raise ValueError("BytesValue must have a bytes value")

@@ -181,7 +181,9 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 # set content
                 if isinstance(segment, state.BytesValue):
                     assert isinstance(segment._content, bytearray)
-                    segment._content[part_start - segment_start:part_end - segment_start] = part
+                    segment._content[
+                        part_start - segment_start : part_end - segment_start
+                    ] = part
                 elif isinstance(segment, state.IntegerValue):
                     contents = segment.to_bytes()
                     prefix = contents[: part_start - segment_start]
