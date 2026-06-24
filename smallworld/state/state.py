@@ -369,7 +369,7 @@ class BytesValue(Value):
         self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> None:
         super().__init__()
-        self._content = bytes(content)
+        self._content = bytearray(content)
         self._label = label
         self._size = len(self._content)
         self._type = ctypes.c_ubyte * self._size
@@ -378,9 +378,12 @@ class BytesValue(Value):
         return self._size
 
     def to_bytes(self) -> bytes:
-        if self._content is None or not isinstance(self._content, bytes):
+        if self._content is None or (
+            not isinstance(self._content, bytes) 
+            and not isinstance(self._content, bytearray)
+        ):
             raise ValueError("BytesValue must have a bytes value")
-        return self._content
+        return bytes(self._content)
 
 
 class Register(Value, Stateful):

@@ -178,15 +178,16 @@ class Memory(state.Stateful, dict[int, state.Value]):
                         f"Tried to write {len(data)} bytes at {hex(address)}. Data at {hex(segment_start)} - {hex(segment_end)} is symbolic."
                     )
 
-                contents = segment.to_bytes()
-                prefix = contents[: part_start - segment_start]
-                suffix = contents[part_end - segment_start :]
-                new_segment_bytes = prefix + part + suffix
-
                 # set content
                 if isinstance(segment, state.BytesValue):
-                    segment.set_content(new_segment_bytes)
+                    assert isinstance(segment._content, bytearray)
+                    segment._content[part_start - segment_start:part_end - segment_start] = part
                 elif isinstance(segment, state.IntegerValue):
+                    contents = segment.to_bytes()
+                    prefix = contents[: part_start - segment_start]
+                    suffix = contents[part_end - segment_start :]
+                    new_segment_bytes = prefix + part + suffix
+
                     as_int = int.from_bytes(new_segment_bytes, segment.byteorder.value)
                     segment.set_content(as_int)
                 else:
@@ -195,6 +196,11 @@ class Memory(state.Stateful, dict[int, state.Value]):
                     if isinstance(segment_content, ctypes.Structure) or isinstance(
                         segment_content, ctypes.Union
                     ):
+                        contents = segment.to_bytes()
+                        prefix = contents[: part_start - segment_start]
+                        suffix = contents[part_end - segment_start :]
+                        new_segment_bytes = prefix + part + suffix
+
                         segment_type = segment_content.__class__
                         as_ctype = segment_type.from_buffer_copy(new_segment_bytes)
                         segment.set_content(as_ctype)
