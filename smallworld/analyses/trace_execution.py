@@ -121,6 +121,7 @@ class TraceExecution(analysis.Analysis):
             te = TraceElement(
                 pc, i, cs_insn.mnemonic, cs_insn.op_str, cmp_info, branch_info, imm_info
             )
+            logger.info(f"Stepped through {cs_insn}")
             trace.append(te)
             # run any callbacks
 
@@ -137,6 +138,7 @@ class TraceExecution(analysis.Analysis):
             ):
                 # this one really isnt an error of any kind; we
                 # encountered code we were not supposed to execute
+                logger.info("Step went out of bounds")
                 emu_result = TraceRes.ER_BOUNDS
                 break
             except Exception as e:

@@ -594,6 +594,9 @@ class AngrEmulator(
             )
         else:
             log.info(f"Storing {len(content)} bytes at {hex(address)}")
+            if address == 0x1101000:
+                log.info(list(map(hex, content[0xd8:0xe0])))
+                
             if isinstance(content, bytes):
                 content = claripy.BVV(content)
             self.state.memory.store(address, content, inspect=False)
@@ -1405,6 +1408,12 @@ class AngrEmulator(
         # Test for exceptional states
         if len(self.mgr.errored) > 0:
             log.error(self.mgr.errored[0].state)
+            if isinstance(self.mgr.errored[0].error, angr.errors.SimIRSBNoDecodeError):
+                raise exceptions.EmulationExecInvalidFailure(
+                    "Undecodable instruction",
+                    self.mgr.errored[0].state._ip.concrete_value,
+                    None
+                )
             raise exceptions.EmulationError(
                 self.mgr.errored[0].error
             ) from self.mgr.errored[0].error

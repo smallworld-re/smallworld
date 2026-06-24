@@ -102,6 +102,8 @@ def randomize_uninitialized(
         mem = mems[ma]
 
         def randomize_mem(mem, start, size):
+            if size == 0:
+                return
             bytz = random.randbytes(size)
             mem.write_bytes(start, bytz)
             m.update(bytz)
