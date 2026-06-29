@@ -1,4 +1,9 @@
 from ....c99 import (
+    Perror,
+    PrintfChk,
+    FprintfChk,
+    SnprintfChk,
+    SprintfChk,
     Clearerr,
     Fclose,
     Feof,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import ArmHFSysVModel
+
+
+class ArmHFSysVPerror(Perror, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVPrintfChk(PrintfChk, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVFprintfChk(FprintfChk, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVSnprintfChk(SnprintfChk, ArmHFSysVModel):
+    pass
+
+
+class ArmHFSysVSprintfChk(SprintfChk, ArmHFSysVModel):
+    pass
 
 
 class ArmHFSysVFclose(Fclose, ArmHFSysVModel):
@@ -219,6 +244,11 @@ class ArmHFSysVVsscanf(Vsscanf, ArmHFSysVModel):
 
 
 __all__ = [
+    "ArmHFSysVPerror",
+    "ArmHFSysVPrintfChk",
+    "ArmHFSysVFprintfChk",
+    "ArmHFSysVSnprintfChk",
+    "ArmHFSysVSprintfChk",
     "ArmHFSysVFclose",
     "ArmHFSysVFeof",
     "ArmHFSysVFerror",

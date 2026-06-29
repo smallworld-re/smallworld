@@ -1,4 +1,9 @@
 from ....c99 import (
+    Perror,
+    PrintfChk,
+    FprintfChk,
+    SnprintfChk,
+    SprintfChk,
     Clearerr,
     Fclose,
     Feof,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import RiscV64SysVModel
+
+
+class RiscV64SysVPerror(Perror, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVPrintfChk(PrintfChk, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVFprintfChk(FprintfChk, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVSnprintfChk(SnprintfChk, RiscV64SysVModel):
+    pass
+
+
+class RiscV64SysVSprintfChk(SprintfChk, RiscV64SysVModel):
+    pass
 
 
 class RiscV64SysVFclose(Fclose, RiscV64SysVModel):
@@ -219,6 +244,11 @@ class RiscV64SysVVsscanf(Vsscanf, RiscV64SysVModel):
 
 
 __all__ = [
+    "RiscV64SysVPerror",
+    "RiscV64SysVPrintfChk",
+    "RiscV64SysVFprintfChk",
+    "RiscV64SysVSnprintfChk",
+    "RiscV64SysVSprintfChk",
     "RiscV64SysVFclose",
     "RiscV64SysVFeof",
     "RiscV64SysVFerror",

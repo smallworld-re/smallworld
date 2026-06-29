@@ -1,4 +1,5 @@
 from ....posix.unistd import (
+    ErrnoLocation,
     Access,
     Alarm,
     Brk,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import ArmHFSysVModel
+
+
+class ArmHFSysVErrnoLocation(ErrnoLocation, ArmHFSysVModel):
+    pass
 
 
 class ArmHFSysVAccess(Access, ArmHFSysVModel):
@@ -414,6 +419,7 @@ class ArmHFSysVWrite(Write, ArmHFSysVModel):
 
 
 __all__ = [
+    "ArmHFSysVErrnoLocation",
     "ArmHFSysVAccess",
     "ArmHFSysVAlarm",
     "ArmHFSysVBrk",

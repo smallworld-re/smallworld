@@ -1,4 +1,5 @@
 from ....posix.unistd import (
+    ErrnoLocation,
     Access,
     Alarm,
     Brk,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import PowerPCSysVModel
+
+
+class PowerPCSysVErrnoLocation(ErrnoLocation, PowerPCSysVModel):
+    pass
 
 
 class PowerPCSysVAccess(Access, PowerPCSysVModel):
@@ -414,6 +419,7 @@ class PowerPCSysVWrite(Write, PowerPCSysVModel):
 
 
 __all__ = [
+    "PowerPCSysVErrnoLocation",
     "PowerPCSysVAccess",
     "PowerPCSysVAlarm",
     "PowerPCSysVBrk",

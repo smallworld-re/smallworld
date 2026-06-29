@@ -1,4 +1,9 @@
 from ....c99 import (
+    Perror,
+    PrintfChk,
+    FprintfChk,
+    SnprintfChk,
+    SprintfChk,
     Clearerr,
     Fclose,
     Feof,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import AArch64SysVModel
+
+
+class AArch64SysVPerror(Perror, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVPrintfChk(PrintfChk, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVFprintfChk(FprintfChk, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVSnprintfChk(SnprintfChk, AArch64SysVModel):
+    pass
+
+
+class AArch64SysVSprintfChk(SprintfChk, AArch64SysVModel):
+    pass
 
 
 class AArch64SysVFclose(Fclose, AArch64SysVModel):
@@ -219,6 +244,11 @@ class AArch64SysVVsscanf(Vsscanf, AArch64SysVModel):
 
 
 __all__ = [
+    "AArch64SysVPerror",
+    "AArch64SysVPrintfChk",
+    "AArch64SysVFprintfChk",
+    "AArch64SysVSnprintfChk",
+    "AArch64SysVSprintfChk",
     "AArch64SysVFclose",
     "AArch64SysVFeof",
     "AArch64SysVFerror",

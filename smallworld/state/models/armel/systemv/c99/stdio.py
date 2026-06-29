@@ -1,4 +1,9 @@
 from ....c99 import (
+    Perror,
+    PrintfChk,
+    FprintfChk,
+    SnprintfChk,
+    SprintfChk,
     Clearerr,
     Fclose,
     Feof,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import ArmELSysVModel
+
+
+class ArmELSysVPerror(Perror, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVPrintfChk(PrintfChk, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVFprintfChk(FprintfChk, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVSnprintfChk(SnprintfChk, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVSprintfChk(SprintfChk, ArmELSysVModel):
+    pass
 
 
 class ArmELSysVFclose(Fclose, ArmELSysVModel):
@@ -219,6 +244,11 @@ class ArmELSysVVsscanf(Vsscanf, ArmELSysVModel):
 
 
 __all__ = [
+    "ArmELSysVPerror",
+    "ArmELSysVPrintfChk",
+    "ArmELSysVFprintfChk",
+    "ArmELSysVSnprintfChk",
+    "ArmELSysVSprintfChk",
     "ArmELSysVFclose",
     "ArmELSysVFeof",
     "ArmELSysVFerror",

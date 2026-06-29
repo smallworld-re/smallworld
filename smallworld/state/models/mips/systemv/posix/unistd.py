@@ -1,4 +1,5 @@
 from ....posix.unistd import (
+    ErrnoLocation,
     Access,
     Alarm,
     Brk,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import MIPSSysVModel
+
+
+class MIPSSysVErrnoLocation(ErrnoLocation, MIPSSysVModel):
+    pass
 
 
 class MIPSSysVAccess(Access, MIPSSysVModel):
@@ -414,6 +419,7 @@ class MIPSSysVWrite(Write, MIPSSysVModel):
 
 
 __all__ = [
+    "MIPSSysVErrnoLocation",
     "MIPSSysVAccess",
     "MIPSSysVAlarm",
     "MIPSSysVBrk",

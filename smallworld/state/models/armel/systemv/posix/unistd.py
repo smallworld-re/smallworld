@@ -1,4 +1,5 @@
 from ....posix.unistd import (
+    ErrnoLocation,
     Access,
     Alarm,
     Brk,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import ArmELSysVModel
+
+
+class ArmELSysVErrnoLocation(ErrnoLocation, ArmELSysVModel):
+    pass
 
 
 class ArmELSysVAccess(Access, ArmELSysVModel):
@@ -414,6 +419,7 @@ class ArmELSysVWrite(Write, ArmELSysVModel):
 
 
 __all__ = [
+    "ArmELSysVErrnoLocation",
     "ArmELSysVAccess",
     "ArmELSysVAlarm",
     "ArmELSysVBrk",

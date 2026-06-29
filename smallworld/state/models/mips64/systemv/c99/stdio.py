@@ -1,4 +1,9 @@
 from ....c99 import (
+    Perror,
+    PrintfChk,
+    FprintfChk,
+    SnprintfChk,
+    SprintfChk,
     Clearerr,
     Fclose,
     Feof,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import MIPS64SysVModel
+
+
+class MIPS64SysVPerror(Perror, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVPrintfChk(PrintfChk, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVFprintfChk(FprintfChk, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVSnprintfChk(SnprintfChk, MIPS64SysVModel):
+    pass
+
+
+class MIPS64SysVSprintfChk(SprintfChk, MIPS64SysVModel):
+    pass
 
 
 class MIPS64SysVFclose(Fclose, MIPS64SysVModel):
@@ -219,6 +244,11 @@ class MIPS64SysVVsscanf(Vsscanf, MIPS64SysVModel):
 
 
 __all__ = [
+    "MIPS64SysVPerror",
+    "MIPS64SysVPrintfChk",
+    "MIPS64SysVFprintfChk",
+    "MIPS64SysVSnprintfChk",
+    "MIPS64SysVSprintfChk",
     "MIPS64SysVFclose",
     "MIPS64SysVFeof",
     "MIPS64SysVFerror",

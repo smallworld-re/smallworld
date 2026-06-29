@@ -1,4 +1,5 @@
 from ....posix.unistd import (
+    ErrnoLocation,
     Access,
     Alarm,
     Brk,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import RiscV64SysVModel
+
+
+class RiscV64SysVErrnoLocation(ErrnoLocation, RiscV64SysVModel):
+    pass
 
 
 class RiscV64SysVAccess(Access, RiscV64SysVModel):
@@ -414,6 +419,7 @@ class RiscV64SysVWrite(Write, RiscV64SysVModel):
 
 
 __all__ = [
+    "RiscV64SysVErrnoLocation",
     "RiscV64SysVAccess",
     "RiscV64SysVAlarm",
     "RiscV64SysVBrk",

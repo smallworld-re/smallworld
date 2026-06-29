@@ -65,6 +65,18 @@ class C99Libc(ElfModelLibrary):
             "__isoc23_scanf": "scanf",
             "__isoc99_sscanf": "sscanf",
             "__isoc23_sscanf": "sscanf",
+            # _FORTIFY_SOURCE variants take the same leading args as their base
+            # function plus a trailing destination-size argument, which the base
+            # model simply ignores -- so aliasing is safe for the mem/str copy
+            # family. (The printf-family *_chk prepend a flag arg and are NOT
+            # safe to alias; they need dedicated models.)
+            "__memcpy_chk": "memcpy",
+            "__memmove_chk": "memmove",
+            "__memset_chk": "memset",
+            "__strcpy_chk": "strcpy",
+            "__strcat_chk": "strcat",
+            "__strncpy_chk": "strncpy",
+            "__strncat_chk": "strncat",
         }
 
     @property
