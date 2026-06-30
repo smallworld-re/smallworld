@@ -25,6 +25,7 @@ from ....c99 import (
     Realloc,
     Srand,
     System,
+    TlsGetAddr,
     Wcstombs,
     Wctomb,
 )
@@ -88,6 +89,10 @@ class AMD64SysVFree(Free, AMD64SysVModel):
 
 
 class AMD64SysVMalloc(Malloc, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVTlsGetAddr(TlsGetAddr, AMD64SysVModel):
     pass
 
 
