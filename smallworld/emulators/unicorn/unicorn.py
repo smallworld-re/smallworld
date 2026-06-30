@@ -185,7 +185,12 @@ class UnicornEmulator(
                     # The next instruction will be outside the current step.
                     self.state = EmulatorState.STEP
 
-            logger.debug(f"Stepping through {self.current_instruction()}")
+            if logger.isEnabledFor(logging.DEBUG):
+                # Guard the eager f-string: current_instruction() disassembles
+                # (register read + memory read + capstone) every instruction, so
+                # without this guard it runs per-instruction even when the log is
+                # discarded -- the dominant per-instruction cost when fuzzing.
+                logger.debug(f"Stepping through {self.current_instruction()}")
 
             # run instruciton hooks
             if self.all_instructions_hook:
