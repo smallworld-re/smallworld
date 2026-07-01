@@ -1,7 +1,5 @@
 import logging
 
-from unicorn.unicorn import Uc
-
 import smallworld
 from smallworld.state.cpus.arm import ARM
 from smallworld.state.memory.stack.arm import ARM32Stack
@@ -57,10 +55,10 @@ cpu.r1.set(buffer_memory_address)
 # FUZZING
 
 
-def input_callback(uc: Uc, input, persistent_round, data):
+def input_callback(emulator, input, persistent_round, data):
     if len(input) > 0x1000:
         return False
-    uc.mem_write(buffer_memory_address, input)
+    emulator.write_memory_content(buffer_memory_address, bytes(input))
 
 
 machine.fuzz(emulator, input_callback)

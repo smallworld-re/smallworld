@@ -1,0 +1,24 @@
+# Temporary local PANDA/QEMU patch removing two stray debug printf calls.
+# Upstream `panda_run` and `map_memory` print banner-style messages to stdout
+# (`IN PANDA_RUN=====================` and `==========map_memory==========`)
+# that look like leftover instrumentation. Strip them so SmallWorld harnesses
+# get clean output. Remove this patch once upstream drops them.
+diff --git a/panda/src/panda_api.c b/panda/src/panda_api.c
+--- a/panda/src/panda_api.c
++++ b/panda/src/panda_api.c
+@@ -38,7 +38,6 @@
+ // extern bool panda_aborted;
+
+ int panda_run(void) {
+-    printf("IN PANDA_RUN=====================");
+     int status = 0;
+     panda_in_main_loop = 1;
+     status = qemu_main_loop();
+@@ -225,7 +224,6 @@
+
+ // Taken from Avatar2's Configurable Machine - see hw/avatar/configurable_machine.c
+ void map_memory(char* name, uint64_t size, uint64_t address) {
+-    printf("==========map_memory==========");
+     //const char * name; /// XXX const?
+     MemoryRegion * ram;
+     bool is_rom = false; // For now, only ram

@@ -33,7 +33,7 @@ class SocketIO(BasicIO):
 
     def on_send(self, data: bytes, peername: Sockaddr):
         data_str = " ".join(map(lambda x: f"{x:02x}", data))
-        logger.info(f"Sending {data_str} to {peername}")
+        logger.debug(f"Sending {data_str} to {peername}")
 
     def recv(self, peek: bool) -> typing.Tuple[bytes, Sockaddr]:
         if self._closed:

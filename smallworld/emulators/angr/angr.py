@@ -973,7 +973,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1086,7 +1086,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1234,7 +1234,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1325,7 +1325,7 @@ class AngrEmulator(
                     if len(values) < 1:
                         raise exceptions.AnalysisError(f"No possible values fpr {expr}")
                     value = values[0].to_bytes(size, byteorder=self.byteorder)
-                    log.info("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
+                    log.debug("Collapsed symbolic {expr} to {values[0]:x} for MMIO")
                 except angr.errors.SimUnsatError:
                     raise exceptions.AnalysisError(f"No possible values for {expr}")
                 except angr.errors.SimValueError:
@@ -1373,13 +1373,13 @@ class AngrEmulator(
                     disas = None
 
                 if disas is not None and len(disas.insns) > 0:
-                    log.info(f"Stepping through {disas.insns[0]}")
+                    log.debug(f"Stepping through {disas.insns[0]}")
                 else:
                     # Capstone only supports a subset of the instructions supported by LibVEX.
                     # I can only disassemble what I can disassemble.
-                    log.info(f"Stepping through {self.state._ip} (untranslatable!)")
+                    log.debug(f"Stepping through {self.state._ip} (untranslatable!)")
             else:
-                log.info(f"Stepping through {self.state._ip} (hook)")
+                log.debug(f"Stepping through {self.state._ip} (hook)")
 
         # Step execution once, however the user asked for it.
         if single_insn:
@@ -1482,7 +1482,7 @@ class AngrEmulator(
         self._step(True)
 
     def run(self):
-        log.info("Starting angr run")
+        log.debug("Starting angr run")
         try:
             # Continue stepping as long as we have steps.
             while True:

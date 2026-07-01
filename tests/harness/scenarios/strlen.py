@@ -7,12 +7,16 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    build_specs,
     load_raw_code,
     make_emulator,
     make_platform,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -29,154 +33,61 @@ class StrlenSpec:
     print_address: bool = False
 
 
-_SPECS = {
-    "aarch64": StrlenSpec(
-        platform=PlatformSpec("AARCH64", "LITTLE"),
-        pc_register="pc",
-        result_register="x0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=8,
-        arg_register="x0",
+_ARCHS = (
+    "aarch64",
+    "amd64",
+    "armel",
+    "armhf",
+    "i386",
+    "la64",
+    "m68k",
+    "mips",
+    "mipsel",
+    "mips64",
+    "mips64el",
+    "ppc",
+    "ppc64",
+    "riscv64",
+    "tricore",
+    "xtensa",
+)
+
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
+_SPECS = build_specs(
+    StrlenSpec,
+    _ARCHS,
+    field_aliases={"return_address_size": "pointer_size"},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    per_arch={
+        # i386 and m68k take the string pointer on the stack rather than in a reg.
+        "i386": {"arg_register": None, "stack_argument_size": 4},
+        "m68k": {"arg_register": None, "stack_argument_size": 4},
+        # tricore receives a pointer in a4, not the canonical integer-arg d4.
+        "tricore": {"arg_register": "a4"},
+        # Only amd64 prints the stack and pointer address; others print result only.
+        "amd64": {"print_stack": True, "print_address": True},
+    },
+)
+
+
+SCENARIO_PREFIXES = (("strlen", "strlen"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="strlen",
+    scenario="strlen",
+    tags=("scenario", "strlen"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
     ),
-    "amd64": StrlenSpec(
-        platform=PlatformSpec("X86_64", "LITTLE"),
-        pc_register="rip",
-        result_register="eax",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="rsp",
-        return_address_size=8,
-        arg_register="rdi",
-        print_stack=True,
-        print_address=True,
+    run_factory=assert_outputs(
+        (
+            (("",), "0x0"),
+            (("foobar",), "0x6"),
+        ),
     ),
-    "armel": StrlenSpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
-        pc_register="pc",
-        result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="r0",
-    ),
-    "armhf": StrlenSpec(
-        platform=PlatformSpec("ARM_V7A", "LITTLE"),
-        pc_register="pc",
-        result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="r0",
-    ),
-    "i386": StrlenSpec(
-        platform=PlatformSpec("X86_32", "LITTLE"),
-        pc_register="eip",
-        result_register="eax",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="esp",
-        return_address_size=4,
-        stack_argument_size=4,
-    ),
-    "la64": StrlenSpec(
-        platform=PlatformSpec("LOONGARCH64", "LITTLE"),
-        pc_register="pc",
-        result_register="a0",
-        engines=("angr", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=8,
-        arg_register="a0",
-    ),
-    "m68k": StrlenSpec(
-        platform=PlatformSpec("M68K", "BIG"),
-        pc_register="pc",
-        result_register="d0",
-        engines=("unicorn", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        stack_argument_size=4,
-    ),
-    "mips": StrlenSpec(
-        platform=PlatformSpec("MIPS32", "BIG"),
-        pc_register="pc",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="a0",
-    ),
-    "mipsel": StrlenSpec(
-        platform=PlatformSpec("MIPS32", "LITTLE"),
-        pc_register="pc",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="a0",
-    ),
-    "mips64": StrlenSpec(
-        platform=PlatformSpec("MIPS64", "BIG"),
-        pc_register="pc",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=8,
-        arg_register="a0",
-    ),
-    "mips64el": StrlenSpec(
-        platform=PlatformSpec("MIPS64", "LITTLE"),
-        pc_register="pc",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=8,
-        arg_register="a0",
-    ),
-    "ppc": StrlenSpec(
-        platform=PlatformSpec("POWERPC32", "BIG"),
-        pc_register="pc",
-        result_register="r3",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="r3",
-    ),
-    "ppc64": StrlenSpec(
-        platform=PlatformSpec("POWERPC64", "BIG"),
-        pc_register="pc",
-        result_register="r3",
-        engines=("unicorn", "angr", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=8,
-        arg_register="r3",
-    ),
-    "riscv64": StrlenSpec(
-        platform=PlatformSpec("RISCV64", "LITTLE"),
-        pc_register="pc",
-        result_register="a0",
-        engines=("unicorn", "angr", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=8,
-        arg_register="a0",
-    ),
-    "tricore": StrlenSpec(
-        platform=PlatformSpec("TRICORE", "LITTLE"),
-        pc_register="pc",
-        result_register="d2",
-        engines=("angr", "panda", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="a4",
-    ),
-    "xtensa": StrlenSpec(
-        platform=PlatformSpec("XTENSA", "LITTLE"),
-        pc_register="pc",
-        result_register="a2",
-        engines=("angr", "pcode"),
-        stack_pointer_register="sp",
-        return_address_size=4,
-        arg_register="a2",
-    ),
-}
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
