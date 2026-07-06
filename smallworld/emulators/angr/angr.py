@@ -660,7 +660,7 @@ class AngrEmulator(
     def write_code(self, address: int, content: bytes):
         if self._initialized:
             log.warning(
-                f"Writing {len(bytes)} bytes of code to {hex(address)} after initialization!"
+                f"Writing {len(content)} bytes of code to {hex(address)} after initialization!"
             )
             self.write_memory_content(address, content)
         else:
