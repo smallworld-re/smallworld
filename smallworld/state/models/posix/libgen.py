@@ -1,6 +1,10 @@
+import logging
+
 from .... import emulators
 from ..c99.utils import _emu_strlen
 from ..cstd import ArgumentType, CStdModel
+
+logger = logging.getLogger(__name__)
 
 
 class Basename(CStdModel):
@@ -97,7 +101,6 @@ class Dirname(CStdModel):
 
         if path == self.separator:
             # Case: Path is '/': Return itself
-            print("Root case")
             self.set_return_value(emulator, pathptr)
             return
 

@@ -12,6 +12,9 @@ from .common import (
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -55,7 +58,7 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         model_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         entry_offset=4,
         stack_pointer_register="sp",
         model_address=0x1000,
@@ -65,7 +68,7 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         model_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         entry_offset=4,
         stack_pointer_register="sp",
         model_address=0x1000,
@@ -193,6 +196,24 @@ _SPECS = {
         exit_offset=0xA,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("static_buf", "static_buf"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="static_buf",
+    scenario="static_buf",
+    tags=("scenario", "static_buf"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+        },
+    ),
+    run_factory=assert_contains("0x4a1", case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

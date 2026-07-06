@@ -1,6 +1,9 @@
-# Generated from the legacy library-model suite definitions in tests/integration.py.
+# Frozen catalog of (library, function, test-base) tuples that drive the
+# library-model scenarios. Originally generated from the unittest classes in
+# tests/integration.py; treat the entries as authoritative facts about which
+# library models exist and how to drive them.
 
-LEGACY_LIBRARY_MODELS = [
+LIBRARY_MODELS = [
     {
         "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99CtypeBLocTests",

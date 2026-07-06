@@ -1,150 +1,108 @@
 from __future__ import annotations
 
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
-from .common import PlatformSpec
+from .common import ARCH_REGISTERS, build_specs
 from .raw_binary import RawBinarySpec, StackSpec, run_integer_case, supports_variant
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
-# `call` is the same raw binary on every architecture, but call setup differs:
-# most platforms need a fake return address, while i386 also passes the first
-# argument on the stack instead of in a register.
-_STACK_32 = StackSpec(pointer_register="sp", fake_return_size=4)
-_STACK_64 = StackSpec(pointer_register="sp", fake_return_size=8)
+NATIVE_PARITY = True
 
-_SPECS = {
-    "aarch64": RawBinarySpec(
-        platform=PlatformSpec("AARCH64", "LITTLE"),
-        pc_register="pc",
-        arg_register="x0",
-        result_register="x0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_64,
-    ),
-    "amd64": RawBinarySpec(
-        platform=PlatformSpec("X86_64", "LITTLE"),
-        pc_register="rip",
-        arg_register="rdi",
-        result_register="eax",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=StackSpec(pointer_register="rsp", fake_return_size=8),
-    ),
-    "armel": RawBinarySpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
-        pc_register="pc",
-        arg_register="r0",
-        result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_32,
-    ),
-    "armhf": RawBinarySpec(
-        platform=PlatformSpec("ARM_V7A", "LITTLE"),
-        pc_register="pc",
-        arg_register="r0",
-        result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_32,
-    ),
-    "i386": RawBinarySpec(
-        platform=PlatformSpec("X86_32", "LITTLE"),
-        pc_register="eip",
-        result_register="eax",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=StackSpec(
-            pointer_register="esp",
-            fake_return_size=4,
-            argument_size=4,
-            pointer_adjust=4,
-        ),
-    ),
-    "la64": RawBinarySpec(
-        platform=PlatformSpec("LOONGARCH64", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="a0",
-        engines=("angr", "pcode"),
-        stack=_STACK_64,
-    ),
-    "m68k": RawBinarySpec(
-        platform=PlatformSpec("M68K", "BIG"),
-        pc_register="pc",
-        arg_register="d0",
-        result_register="d0",
-        engines=("unicorn", "pcode"),
-        stack=_STACK_32,
-    ),
-    "mips": RawBinarySpec(
-        platform=PlatformSpec("MIPS32", "BIG"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_32,
-    ),
-    "mipsel": RawBinarySpec(
-        platform=PlatformSpec("MIPS32", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_32,
-    ),
-    "mips64": RawBinarySpec(
-        platform=PlatformSpec("MIPS64", "BIG"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_64,
-    ),
-    "mips64el": RawBinarySpec(
-        platform=PlatformSpec("MIPS64", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="v0",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_64,
-    ),
-    "ppc": RawBinarySpec(
-        platform=PlatformSpec("POWERPC32", "BIG"),
-        pc_register="pc",
-        arg_register="r3",
-        result_register="r3",
-        engines=("unicorn", "angr", "panda", "pcode"),
-        stack=_STACK_32,
-    ),
-    "ppc64": RawBinarySpec(
-        platform=PlatformSpec("POWERPC64", "BIG"),
-        pc_register="pc",
-        arg_register="r3",
-        result_register="r3",
-        engines=("unicorn", "angr", "pcode"),
-        stack=_STACK_64,
-    ),
-    "riscv64": RawBinarySpec(
-        platform=PlatformSpec("RISCV64", "LITTLE"),
-        pc_register="pc",
-        arg_register="a0",
-        result_register="a0",
-        engines=("unicorn", "angr", "pcode"),
-        stack=_STACK_64,
-    ),
-    "tricore": RawBinarySpec(
-        platform=PlatformSpec("TRICORE", "LITTLE"),
-        pc_register="pc",
-        arg_register="d4",
-        result_register="d2",
-        engines=("angr", "panda", "pcode"),
-        entry_offset=0x14,
-        stack=StackSpec(pointer_register="sp", fake_return_size=None),
-    ),
-    "xtensa": RawBinarySpec(
-        platform=PlatformSpec("XTENSA", "LITTLE"),
-        pc_register="pc",
-        arg_register="a2",
-        result_register="a2",
-        engines=("angr", "pcode"),
-    ),
+_ARCHS = (
+    "aarch64",
+    "amd64",
+    "armel",
+    "armhf",
+    "i386",
+    "la64",
+    "m68k",
+    "mips",
+    "mipsel",
+    "mips64",
+    "mips64el",
+    "ppc",
+    "ppc64",
+    "riscv64",
+    "tricore",
+    "xtensa",
+)
+
+
+def _stack(arch: str, **overrides: Any) -> StackSpec:
+    info = ARCH_REGISTERS[arch]
+    kwargs: dict[str, Any] = {
+        "pointer_register": info.stack_pointer_register,
+        "fake_return_size": info.pointer_size,
+    }
+    kwargs.update(overrides)
+    return StackSpec(**kwargs)
+
+
+# Every arch except xtensa needs a fake return address pushed; i386 also passes
+# its argument on the stack instead of in a register, and tricore enters past
+# its prologue with no fake return because the test binary uses the link reg.
+_STACKS = {
+    "aarch64": _stack("aarch64"),
+    "amd64": _stack("amd64"),
+    "armel": _stack("armel"),
+    "armhf": _stack("armhf"),
+    "i386": _stack("i386", argument_size=4, pointer_adjust=4),
+    "la64": _stack("la64"),
+    "m68k": _stack("m68k"),
+    "mips": _stack("mips"),
+    "mipsel": _stack("mipsel"),
+    "mips64": _stack("mips64"),
+    "mips64el": _stack("mips64el"),
+    "ppc": _stack("ppc"),
+    "ppc64": _stack("ppc64"),
+    "riscv64": _stack("riscv64"),
+    "tricore": _stack("tricore", fake_return_size=None),
 }
+
+_PER_ARCH: dict[str, dict[str, Any]] = {
+    arch: {"stack": stack} for arch, stack in _STACKS.items()
+}
+_PER_ARCH["i386"]["arg_register"] = None
+_PER_ARCH["tricore"]["entry_offset"] = 0x14
+
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+
+_SPECS = build_specs(
+    RawBinarySpec,
+    _ARCHS,
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    per_arch=_PER_ARCH,
+)
+
+SCENARIO_PREFIXES = (("call", "call"),)
+
+
+def _call_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    signext = bool(kwargs.get("signext", False))
+    outputs = (
+        (0, 0xFFFFFFFFFFFFFFF9 if signext else 0xFFFFFFF9),
+        (101, 0x321),
+        (65536, 0x21),
+    )
+    return tuple(((str(n),), f"{r:#x}") for n, r in outputs)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="call",
+    scenario="call",
+    tags=("scenario", "call"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unexpected trap"},
+        arch_kwargs={
+            arch: {"signext": True}
+            for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")
+        },
+    ),
+    run_factory=assert_outputs(_call_expectations),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

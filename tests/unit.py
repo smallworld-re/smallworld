@@ -2302,6 +2302,240 @@ class FuzzScenarioTests(unittest.TestCase):
         configure_argument.assert_called_once()
 
 
+try:
+    import styx_emulator as _styx_emulator  # noqa: F401
+
+    _STYX_AVAILABLE = True
+except Exception:
+    _STYX_AVAILABLE = False
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxMachdefTests(unittest.TestCase):
+    """Sanity checks on the SmallWorld Styx machine definitions.
+
+    Mirrors the shape of :class:`UnicornMachdefTests` but only covers the
+    architectures Styx supports (32-bit ARM today).
+    """
+
+    def _machdef_for(self, platform):
+        return emulators.styx.machdefs.StyxMachineDef.for_platform(platform)
+
+    def test_armhf_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        machdef = self._machdef_for(platform)
+        # Core ARM registers should all be addressable.
+        for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
+            self.assertTrue(
+                machdef.has_register(name),
+                msg=f"armhf machdef missing register '{name}'",
+            )
+
+    def test_armel_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
+            self.assertTrue(machdef.has_register(name))
+
+    def test_aarch64_raises_configuration_error(self):
+        platform = platforms.Platform(
+            platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._machdef_for(platform)
+
+    def test_amd64_raises_configuration_error(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._machdef_for(platform)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxEmulatorTests(unittest.TestCase):
+    """Black-box behavioural tests for :class:`StyxEmulator`.
+
+    These tests exercise the public Emulator surface (register/memory I/O,
+    bounds/exit-point bookkeeping, hook registration plumbing) without
+    requiring an actual styx Processor to step instructions. Tests that need
+    instruction execution are gated by the ``_STYX_AVAILABLE`` skip above.
+    """
+
+    def setUp(self):
+        self.platform = platforms.Platform(
+            platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+        )
+        self.emu = emulators.StyxEmulator(self.platform)
+
+    def test_repr(self):
+        self.assertIn("StyxEmulator", repr(self.emu))
+
+    def test_map_memory_tracks_ranges(self):
+        self.emu.map_memory(0x1000, 0x100)
+        self.emu.map_memory(0x2000, 0x100)
+        ranges = self.emu.get_memory_map()
+        self.assertEqual(len(ranges), 2)
+
+    def test_pending_register_writes_validate_name(self):
+        # Unknown register names should fail eagerly even before _lazy_build.
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            self.emu.write_register_content("not_a_real_register", 0)
+
+    def test_symbolic_register_write_rejected(self):
+        with self.assertRaises(exceptions.SymbolicValueError):
+            self.emu.write_register_content("r0", claripy.BVS("x", 32))
+
+    def test_symbolic_memory_write_rejected(self):
+        with self.assertRaises(exceptions.SymbolicValueError):
+            self.emu.write_memory_content(0x1000, claripy.BVS("x", 32))
+
+    def test_exit_point_bookkeeping(self):
+        self.emu.add_exit_point(0x4000)
+        self.assertIn(0x4000, self.emu.get_exit_points())
+
+    def test_hook_instruction_records_locally(self):
+        called = []
+
+        def cb(e):
+            called.append(e)
+
+        self.emu.hook_instruction(0x1000, cb)
+        # The hookable mixin stores the function in ``instruction_hooks``.
+        self.assertIs(self.emu.is_instruction_hooked(0x1000), cb)
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxFuzzScenarioTests(unittest.TestCase):
+    """Mirror of :class:`FuzzScenarioTests` for the Styx fuzz scenario.
+
+    Verifies that the registered ``styx.afl_fuzz`` scenario forwards the AFL
+    input file path through to ``Machine.fuzz_with_file`` without actually
+    invoking styxafl/afl-fuzz.
+    """
+
+    def test_afl_registered_scenario_uses_forwarded_input_file(self):
+        try:
+            from harness.scenarios import styx_fuzz as styx_fuzz_scenario
+        except ImportError:
+            self.skipTest("styx_fuzz scenario not registered")
+
+        class FakeRegister:
+            def __init__(self):
+                self.value = None
+
+            def set_content(self, value):
+                self.value = value
+
+        class FakeCPU:
+            def __init__(self):
+                self.pc = FakeRegister()
+                self.r0 = FakeRegister()
+                self.r1 = FakeRegister()
+
+        class FakeHeap:
+            def __init__(self, base, size):
+                self.base = base
+                self.size = size
+
+            def allocate_integer(self, *_args, **_kwargs):
+                return 0x2345
+
+            def allocate_bytes(self, value, _label):
+                pass
+
+        class FakeMachine:
+            last_instance = None
+
+            def __init__(self):
+                self.added = []
+                self.fuzz_call = None
+                FakeMachine.last_instance = self
+
+            def add(self, member):
+                self.added.append(member)
+
+            def fuzz_with_file(
+                self,
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback=None,
+                always_validate=False,
+                iterations=1,
+            ):
+                self.fuzz_call = {
+                    "emulator": emulator,
+                    "input_callback": input_callback,
+                    "input_file_path": input_file_path,
+                    "crash_callback": crash_callback,
+                    "always_validate": always_validate,
+                    "iterations": iterations,
+                }
+
+        fake_smallworld = types.SimpleNamespace(
+            logging=types.SimpleNamespace(setup_logging=lambda **_kwargs: None),
+            platforms=types.SimpleNamespace(
+                Byteorder={"LITTLE": object(), "BIG": object()}
+            ),
+            state=types.SimpleNamespace(
+                Machine=FakeMachine,
+                cpus=types.SimpleNamespace(
+                    CPU=types.SimpleNamespace(for_platform=lambda _platform: FakeCPU())
+                ),
+                memory=types.SimpleNamespace(
+                    heap=types.SimpleNamespace(BumpAllocator=FakeHeap),
+                ),
+            ),
+        )
+
+        fake_platform = object()
+        fake_code = object()
+        fake_emulator = types.SimpleNamespace(add_exit_point=lambda _addr: None)
+        seed_path = "/tmp/seed-input-styx"
+
+        with mock.patch.dict(sys.modules, {"smallworld": fake_smallworld}):
+            with mock.patch.object(
+                styx_fuzz_scenario, "make_platform", return_value=fake_platform
+            ):
+                with mock.patch.object(
+                    styx_fuzz_scenario, "_load_code", return_value=fake_code
+                ):
+                    with mock.patch.object(
+                        styx_fuzz_scenario, "_configure_argument"
+                    ) as configure_argument:
+                        with mock.patch.object(
+                            styx_fuzz_scenario,
+                            "make_emulator",
+                            return_value=fake_emulator,
+                        ):
+                            with mock.patch.object(
+                                sys,
+                                "argv",
+                                [
+                                    "run_case.py",
+                                    "styx.afl_fuzz",
+                                    "armhf",
+                                    "@@",
+                                ],
+                            ):
+                                result = styx_fuzz_scenario.run_case(
+                                    "styx.afl_fuzz", "armhf", [seed_path]
+                                )
+
+        self.assertEqual(result, 0)
+        self.assertIsNotNone(FakeMachine.last_instance)
+        self.assertEqual(
+            FakeMachine.last_instance.fuzz_call["input_file_path"],
+            seed_path,
+        )
+        configure_argument.assert_called_once()
+
+
 class StaticBufferScenarioTests(unittest.TestCase):
     def test_riscv64_entry_offset_skips_compressed_breakpoint(self):
         code = (TESTS_DIR / "static_buf" / "static_buf.riscv64.bin").read_bytes()

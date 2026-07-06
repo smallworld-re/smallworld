@@ -4,6 +4,7 @@ import logging
 from typing import Sequence
 
 from .common import PlatformSpec, TestsPath, make_emulator, make_platform, split_variant
+from .spec import ScenarioInfo, VariantInfo, just_run
 
 _ARCH_SPECS = {
     "aarch64": PlatformSpec("AARCH64", "LITTLE"),
@@ -27,6 +28,40 @@ _EXPECTED_ERRORS = {
     "uaf": ("Invalid Free at ", None),
     "double_free": ("Invalid Free at ", None),
 }
+
+
+SCENARIO_PREFIXES = (
+    ("checked_heap.double_free", "checked_heap.double_free"),
+    ("checked_heap.read", "checked_heap.read"),
+    ("checked_heap.uaf", "checked_heap.uaf"),
+    ("checked_heap.write", "checked_heap.write"),
+)
+
+NATIVE_PARITY = True
+
+
+def _checked_heap_variants() -> Sequence[VariantInfo]:
+    out: list[VariantInfo] = []
+    for arch in sorted(_ARCH_SPECS):
+        for engine in ("unicorn", "angr", "panda", "pcode"):
+            if not _supports_engine(arch, engine):
+                continue
+            variant = arch if engine == "unicorn" else f"{arch}.{engine}"
+            out.append((variant, None, {}))
+    return out
+
+
+SCENARIO_INFOS = tuple(
+    ScenarioInfo(
+        prefix=f"checked_heap.{family}",
+        scenario=f"checked_heap.{family}",
+        tags=("scenario", "checked_heap"),
+        variants_source=_checked_heap_variants,
+        run_factory=just_run(),
+        weight=2,
+    )
+    for family in ("double_free", "read", "uaf", "write")
+)
 
 
 def _supports_engine(arch: str, engine: str) -> bool:

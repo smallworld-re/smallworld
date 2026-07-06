@@ -160,8 +160,6 @@ class GhidraEmulator(AbstractGhidraEmulator):
         if isinstance(content, claripy.ast.bv.BV):
             raise TypeError("Pcode emulator can't handle symbolic expressions")
 
-        log.info(f"Writing {hex(len(content))} bytes at {hex(address)}")
-
         # Get the thread's memory state
         shared = self._emu.getSharedState()
 

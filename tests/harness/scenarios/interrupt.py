@@ -4,7 +4,7 @@ import logging
 from typing import Sequence
 
 from .common import (
-    PlatformSpec,
+    build_specs,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -12,72 +12,58 @@ from .common import (
     split_variant,
 )
 from .raw_binary import RawBinarySpec
+from .spec import ScenarioInfo, from_arch_table, just_run
 
-_SPECS = {
-    "aarch64": RawBinarySpec(
-        platform=PlatformSpec("AARCH64", "LITTLE"),
-        pc_register="pc",
-        result_register="x0",
-        arg_register="x0",
-        engines=("unicorn", "panda"),
+NATIVE_PARITY = True
+
+_ARCHS = (
+    "aarch64",
+    "amd64",
+    "armel",
+    "armhf",
+    "i386",
+    "m68k",
+    "mips",
+    "mipsel",
+    "ppc",
+)
+
+_ENGINES_UNICORN_PANDA = ("unicorn", "panda")
+
+_SPECS = build_specs(
+    RawBinarySpec,
+    _ARCHS,
+    engines={
+        "aarch64": _ENGINES_UNICORN_PANDA,
+        "amd64": _ENGINES_UNICORN_PANDA,
+        "armel": _ENGINES_UNICORN_PANDA,
+        "armhf": _ENGINES_UNICORN_PANDA,
+        "i386": _ENGINES_UNICORN_PANDA,
+        "m68k": ("unicorn",),
+        "mips": _ENGINES_UNICORN_PANDA,
+        "mipsel": _ENGINES_UNICORN_PANDA,
+        "ppc": _ENGINES_UNICORN_PANDA,
+    },
+    # interrupt reads the full-width return register on amd64.
+    per_arch={"amd64": {"result_register": "rax"}},
+)
+
+
+SCENARIO_PREFIXES = (("interrupt", "interrupt"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="interrupt",
+    scenario="interrupt",
+    tags=("scenario", "interrupt"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "amd64": "Interrupt hook doesn't fire",
+            "i386": "Interrupt hook doesn't fire",
+        },
     ),
-    "amd64": RawBinarySpec(
-        platform=PlatformSpec("X86_64", "LITTLE"),
-        pc_register="rip",
-        result_register="rax",
-        arg_register="rdi",
-        engines=("unicorn", "panda"),
-    ),
-    "armel": RawBinarySpec(
-        platform=PlatformSpec("ARM_V5T", "LITTLE"),
-        pc_register="pc",
-        result_register="r0",
-        arg_register="r0",
-        engines=("unicorn", "panda"),
-    ),
-    "armhf": RawBinarySpec(
-        platform=PlatformSpec("ARM_V7A", "LITTLE"),
-        pc_register="pc",
-        result_register="r0",
-        arg_register="r0",
-        engines=("unicorn", "panda"),
-    ),
-    "i386": RawBinarySpec(
-        platform=PlatformSpec("X86_32", "LITTLE"),
-        pc_register="eip",
-        result_register="eax",
-        arg_register="edi",
-        engines=("unicorn", "panda"),
-    ),
-    "m68k": RawBinarySpec(
-        platform=PlatformSpec("M68K", "BIG"),
-        pc_register="pc",
-        result_register="d0",
-        arg_register="d0",
-        engines=("unicorn",),
-    ),
-    "mips": RawBinarySpec(
-        platform=PlatformSpec("MIPS32", "BIG"),
-        pc_register="pc",
-        result_register="v0",
-        arg_register="a0",
-        engines=("unicorn", "panda"),
-    ),
-    "mipsel": RawBinarySpec(
-        platform=PlatformSpec("MIPS32", "LITTLE"),
-        pc_register="pc",
-        result_register="v0",
-        arg_register="a0",
-        engines=("unicorn", "panda"),
-    ),
-    "ppc": RawBinarySpec(
-        platform=PlatformSpec("POWERPC32", "BIG"),
-        pc_register="pc",
-        result_register="r3",
-        arg_register="r3",
-        engines=("unicorn", "panda"),
-    ),
-}
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:

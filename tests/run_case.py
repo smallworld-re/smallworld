@@ -21,6 +21,8 @@ def _variants_to_try(variant: str) -> list[str]:
     variants = [variant]
     if variant.endswith(".pcode"):
         variants.append(variant[: -len(".pcode")] + ".ghidra")
+    if variant.endswith(".pcode_symbolic"):
+        variants.append(variant[: -len(".pcode_symbolic")] + ".ghidra_symbolic")
     return variants
 
 

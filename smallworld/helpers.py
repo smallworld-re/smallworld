@@ -31,28 +31,26 @@ def fuzz(
     crash_callback: typing.Optional[typing.Callable] = None,
     always_validate: bool = False,
     iterations: int = 1,
+    engine: str = "unicorn",
 ) -> None:
     """Creates an AFL fuzzing harness.
 
     Arguments:
-        cpu: A state class from which emulation should begin.
-        input_callback: This is called for every input. It should map the input
-            into the state. It should return true if the input is accepted and
-            false if it should be skipped.
+        machine: A state class from which emulation should begin.
+        input_callback: This is called for every input. Signature is
+            ``(emulator, input_bytes, persistent_round, data)`` where
+            ``emulator`` is the SmallWorld emulator instance regardless of
+            which backend is selected. Return ``False`` to skip the input,
+            ``None``/``True`` to continue.
         crash_callback: This is called on crashes to validate that we do in
             fact care about this crash.
         always_validate: Call the crash_callback everytime instead of just on
             crashes.
         iterations: How many iterations to run before forking again.
+        engine: Which emulator backend to drive the fuzzer with. ``"unicorn"``
+            (default) uses unicornafl; ``"styx"`` routes through the Styx
+            backend + styxafl bridge.
     """
-
-    try:
-        import unicornafl
-    except ImportError:
-        raise RuntimeError(
-            "missing `unicornafl` - afl++ must be installed manually from source"
-        )
-
     arg_parser = argparse.ArgumentParser(description="AFL Harness")
     arg_parser.add_argument("input_file", type=str, help="File path AFL will mutate")
     args = arg_parser.parse_args()
@@ -65,9 +63,6 @@ def fuzz(
     if cpu is None:
         raise exceptions.ConfigurationError("cannot fuzz a zero-core machine")
 
-    emu = emulators.UnicornEmulator(cpu.platform)
-    machine.apply(emu)
-
     exits = []
     code = None
     for code in machine.members(state.memory.code.Executable).items():
@@ -78,14 +73,25 @@ def fuzz(
             raise exceptions.ConfigurationError("Cannot fuzz a machine with no code")
         exits.append(code.base + len(code.image))
 
-    unicornafl.uc_afl_fuzz(
-        uc=emu.engine,
-        input_file=args.input_file,
-        place_input_callback=input_callback,
-        exits=exits,
-        validate_crash_callback=crash_callback,
-        always_validate=always_validate,
-        persistent_iters=iterations,
+    if engine == "unicorn":
+        emu: emulators.Emulator = emulators.UnicornEmulator(cpu.platform)
+    elif engine == "styx":
+        emu = emulators.StyxEmulator(cpu.platform)
+    else:
+        raise exceptions.ConfigurationError(
+            f"unknown fuzz engine '{engine}'; expected 'unicorn' or 'styx'"
+        )
+
+    for x in exits:
+        emu.add_exit_point(x)
+
+    machine.fuzz_with_file(
+        emu,
+        input_callback,
+        args.input_file,
+        crash_callback,
+        always_validate,
+        iterations,
     )
 
 
