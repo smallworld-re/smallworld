@@ -45,7 +45,9 @@ class ElfModelLibrary(Memory):
         data_size = 0
 
         for name in self.function_names:
-            model = Model.lookup(name, self.platform, self.abi, address + self.code_size)
+            model = Model.lookup(
+                name, self.platform, self.abi, address + self.code_size
+            )
             if model.name in allow_imprecise:
                 model.allow_imprecise = True
 
