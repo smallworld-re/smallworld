@@ -317,8 +317,8 @@ class AMD64BasePlatformDef(PlatformDef):
         "mm6": RegisterAliasDef(name="mm6", parent="fpr6", size=8, offset=0),
         "mm7": RegisterAliasDef(name="mm7", parent="fpr7", size=8, offset=0),
         # MSRs
-        "fsbase": RegisterDef(name="fsbase", size=64),  # MSR 0xC0000100
-        "gsbase": RegisterDef(name="gsbase", size=64),  # MSR 0xC0000101
+        "fsbase": RegisterDef(name="fsbase", size=8),  # MSR 0xC0000100
+        "gsbase": RegisterDef(name="gsbase", size=8),  # MSR 0xC0000101
     }
 
 
