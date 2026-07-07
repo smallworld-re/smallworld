@@ -1,5 +1,4 @@
 from ....posix.unistd import (
-    ErrnoLocation,
     Access,
     Alarm,
     Brk,
@@ -14,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
