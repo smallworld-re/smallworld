@@ -39,22 +39,25 @@ class ElfModelLibrary(Memory):
 
         self.variable_addrs: typing.Dict[str, int] = dict()
 
+        self.code_size: int = 0
+
         address = address
-        code_size = 0
         data_size = 0
 
         for name in self.function_names:
-            model = Model.lookup(name, self.platform, self.abi, address + code_size)
+            model = Model.lookup(
+                name, self.platform, self.abi, address + self.code_size
+            )
             if model.name in allow_imprecise:
                 model.allow_imprecise = True
 
             self.models[name] = model
-            code_size += 4
+            self.code_size += 4
             data_size += model.static_space_required
 
-        super().__init__(address, code_size + data_size)
+        super().__init__(address, self.code_size + data_size)
 
-        data_offset = code_size
+        data_offset = self.code_size
 
         for name, size in self.variables:
             self.variable_addrs[name] = self.address + data_offset
