@@ -120,7 +120,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
                 size=size,
                 expr=str(expr),
             )
-            self.hinter.self(hint)
+            self.hinter.send(hint)
             if self.halt_on_hint:
                 raise PathTerminationSignal()
             else:
@@ -332,7 +332,7 @@ class FieldDetectionMixin(underlays.AnalysisUnderlay):
     def run(self, machine):
         # Set up the filter analysis
         fda = FDAState()
-        filt = FieldDetectionFilter()
+        filt = FieldDetectionFilter(self.hinter)
         filt.activate()
 
         # Set up the emulator
@@ -430,10 +430,10 @@ class FieldDetectionFilter(analyses.Analysis):
     version = "0.0"
     description = ""
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, hinter: hinting.Hinter):
+        super().__init__(hinter)
         self.active = True
-        self.partial_ranges = dict()
+        self.partial_ranges: dict = dict()
 
     def analyze(self, hint: hinting.Hint):
         # Step 0: Print hints in a sane format.
@@ -450,10 +450,9 @@ class FieldDetectionFilter(analyses.Analysis):
             ).append(hint)
 
     def activate(self):
-        self.listen(FieldEventHint, self.analyze)
+        self.hinter.register(FieldEventHint, self.analyze)
 
     def deactivate(self):
-        super().deactivate()
         if not self.active:
             return
         self.active = False

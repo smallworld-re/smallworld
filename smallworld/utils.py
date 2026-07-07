@@ -723,7 +723,7 @@ class RangeCollection(Iterable):
                 # We exactly match an existing range
                 self._ranges.remove(arange)
                 return
-            if start >= lo_start and end <= lo_end:
+            if start >= lo_start and start < lo_end:
                 # We collide with lo.
                 # Remove lo and add the remainder back
                 self._ranges.remove(lo)
@@ -868,8 +868,9 @@ class SparseIO(io.BufferedIOBase):
                 # We overlap lo
                 # lo_start is guaranteed to be less than or equal to start
                 a = start - lo_start
-                data += lo_data[a:]
-                start = lo_end
+                b = min(lo_end, end) - lo_start
+                data += lo_data[a:b]
+                start = min(lo_end, end)
 
         hi = self._ranges.bisect_right((start, end, None))
         while hi is not None:

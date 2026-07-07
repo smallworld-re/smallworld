@@ -56,7 +56,7 @@ def fuzz(
     args = arg_parser.parse_args()
 
     cpu: typing.Optional[state.cpus.CPU] = None
-    for c in machine.members(state.cpus.CPU).items():
+    for c in machine.members(state.cpus.CPU):
         if cpu is not None:
             raise exceptions.ConfigurationError("cannot fuzz a multi-core machine")
         cpu = c
@@ -65,7 +65,7 @@ def fuzz(
 
     exits = []
     code = None
-    for code in machine.members(state.memory.code.Executable).items():
+    for code in machine.members(state.memory.code.Executable):
         exits.extend([b.stop for b in code.bounds])
 
     if len(exits) == 0:

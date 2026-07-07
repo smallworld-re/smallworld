@@ -112,7 +112,7 @@ class Value(metaclass=abc.ABCMeta):
         """Set the label of this value.
 
         Arguments:
-            type: The label value to set.
+            label: The label value to set.
         """
 
         self._label = label
@@ -140,8 +140,8 @@ class Value(metaclass=abc.ABCMeta):
     ) -> typing.Optional[claripy.ast.bv.BV]:
         """Convert this value into a symbolic expression
 
-        For an unlabeled value, this will be a bit vector symbol containing the label.
-        Otherwise, it will be a bit vector value containing the contents.
+        For a labeled value, this will be a bit vector symbol named after the label.
+        Otherwise, it will be a concrete bit vector value containing the contents.
 
         Arguments:
             byteorder: The byte order to use in the conversion.
@@ -171,11 +171,16 @@ class Value(metaclass=abc.ABCMeta):
                 return content
 
             if isinstance(content, int):
-                # The content is an int; convert to bytes for universal handling
-                if byteorder == platforms.Byteorder.BIG:
-                    content = content.to_bytes(size, "big")
-                else:
-                    content = content.to_bytes(size, "little")
+                # An int is a logical value with no inherent endianness.
+                # Build the bitvector directly at the correct width; this
+                # matches how registers store ints (claripy.BVV(content, size*8))
+                # and avoids the byte-swap that BVV(bytes) would introduce for
+                # little-endian content, as well as OverflowError on negatives.
+                if size == 0:
+                    raise exceptions.ConfigurationError(
+                        "Cannot create a bitvector of size zero"
+                    )
+                return claripy.BVV(content, size * 8)
 
             if not isinstance(content, bytes) and not isinstance(content, bytearray):
                 # The content is not something I know how to handle.
@@ -1210,8 +1215,8 @@ class Machine(StatefulSet):
         for m in self:
             if issubclass(type(m), state.memory.Memory):
                 for po, v in m.items():
-                    if m.address + po <= address <= m.address + po + v.get_size():
-                        c = m[po].get()
+                    if m.address + po <= address < m.address + po + v.get_size():
+                        c = v.to_bytes()
                         o = address - (m.address + po)
                         return c[o : o + size]
         return None

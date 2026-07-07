@@ -108,7 +108,7 @@ execution hits a specific instruction.
 The ``Model`` class is abstract; models of specific functions
 should extend ``Model``, implement ``model()`` with the actual model code,
 and specify a name, the platform the model works with, and the ABI the model assumes.
-For platforms without a concrete ABI, there is ``ABI.NOABI``.
+For platforms without a concrete ABI, there is ``ABI.NONE``.
 
 The ``model()`` function receives the current emulator as an argument,
 and returns nothing.  ``model()`` may access machine state as it likes,
@@ -253,7 +253,7 @@ to capture reads and writes to a certain location:
     from smallworld.emulators import UnicornEmulator
     from smallworld.state import CPU, Executable, Machine
     from smallworld.platforms import Architecture, Byteorder, Platform
-    from smallworld.state.models import MMIOModel
+    from smallworld.state.models import MemoryMappedModel
     
     machine = Machine()
 

@@ -455,7 +455,7 @@ class ColorizerReadWrite(analysis.Analysis):
                         dvk2num[dvk] = len(dvk2num)
                     if exec_id not in rawcolor2dvkey:
                         rawcolor2dvkey[exec_id] = {}
-                    if hint.color not in rawcolor2dvkey:
+                    if hint.color not in rawcolor2dvkey[exec_id]:
                         rawcolor2dvkey[exec_id][hint.color] = dvk
                     if exec_id not in dvkey2rawcolors:
                         dvkey2rawcolors[exec_id] = {}

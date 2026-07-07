@@ -504,9 +504,9 @@ class ElfExecutable(Executable):
         self[seg_addr - self.address] = seg_value
 
     def _load_from_shdrs(self, elf, image):
-        text = b""
-        data = b""
-        rodata = b""
+        text = bytearray()
+        data = bytearray()
+        rodata = bytearray()
 
         section_text_offsets: typing.Dict[int, int] = dict()
         section_data_offsets: typing.Dict[int, int] = dict()
@@ -528,29 +528,38 @@ class ElfExecutable(Executable):
                 # Section is executable
                 skew = len(text) % section.alignment
                 if skew != 0:
-                    text += b"\0" * (section.alignment - skew)
-                section_text_offsets[index] = len(data)
-                text += image[
-                    section.file_offset : section.file_offset + section.original_size
-                ]
+                    text.extend(b"\0" * (section.alignment - skew))
+                section_text_offsets[index] = len(text)
+                text.extend(
+                    image[
+                        section.file_offset : section.file_offset
+                        + section.original_size
+                    ]
+                )
             elif (section.flags & SHF_WRITE) != 0:
                 # Section is writable
                 skew = len(data) % section.alignment
                 if skew != 0:
-                    data += b"\0" * (section.alignment - skew)
+                    data.extend(b"\0" * (section.alignment - skew))
                 section_data_offsets[index] = len(data)
-                data += image[
-                    section.file_offset : section.file_offset + section.original_size
-                ]
+                data.extend(
+                    image[
+                        section.file_offset : section.file_offset
+                        + section.original_size
+                    ]
+                )
             else:
                 # Section is read-only
                 skew = len(rodata) % section.alignment
                 if skew != 0:
-                    rodata += b"\0" * (section.alignment - skew)
+                    rodata.extend(b"\0" * (section.alignment - skew))
                 section_rodata_offsets[index] = len(rodata)
-                rodata += image[
-                    section.file_offset : section.file_offset + section.original_size
-                ]
+                rodata.extend(
+                    image[
+                        section.file_offset : section.file_offset
+                        + section.original_size
+                    ]
+                )
 
         text_offset = 0
         rodata_offset = self._page_align(text_offset + len(text), up=True)
@@ -566,11 +575,11 @@ class ElfExecutable(Executable):
             self._section_offsets[index] = section_data_offsets[index] + data_offset
 
         if len(text) > 0:
-            self[text_offset] = BytesValue(text, None)
+            self[text_offset] = BytesValue(bytes(text), None)
         if len(rodata) > 0:
-            self[rodata_offset] = BytesValue(rodata, None)
+            self[rodata_offset] = BytesValue(bytes(rodata), None)
         if len(data) > 0:
-            self[data_offset] = BytesValue(data, None)
+            self[data_offset] = BytesValue(bytes(data), None)
 
         for sym in elf.symbols:
             if sym.shndx in self._section_offsets:

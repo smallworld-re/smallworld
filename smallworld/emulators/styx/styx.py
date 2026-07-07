@@ -448,7 +448,7 @@ class StyxEmulator(
                 ret = None
             if ret is None:
                 return
-            cpu.pc = int(ret) & ~0x1
+            cpu.write_register("pc", int(ret) & ~0x1)
 
         self._register_styx_hook(CodeHook(address, address, _cb))
 
@@ -510,6 +510,28 @@ class StyxEmulator(
         self, function: typing.Callable[[emulator.Emulator, int], bool]
     ) -> None:
         super().hook_interrupts(function)
+        self._install_interrupt_dispatcher()
+
+    def hook_interrupt(
+        self, intno: int, function: typing.Callable[[emulator.Emulator], bool]
+    ) -> None:
+        super().hook_interrupt(intno, function)
+        self._install_interrupt_dispatcher()
+
+    def _has_styx_interrupt_hook(self) -> bool:
+        # Track once-only installation via an attribute so we don't double up
+        # on processor-level interrupt hooks.
+        return getattr(self, "_styx_interrupt_hook_installed", False)
+
+    def _install_interrupt_dispatcher(self) -> None:
+        # Register exactly one processor-level InterruptHook. At fire time it
+        # dispatches the per-number handler if present, otherwise the global
+        # handler. Both ``interrupt_hooks`` and ``all_interrupts_hook`` are
+        # populated by the ``super()`` calls before this runs, so a single
+        # dispatcher works regardless of which ``hook_*`` was called first and
+        # never double-registers (which would otherwise double-fire handlers).
+        if self._has_styx_interrupt_hook():
+            return
 
         def _cb(_cpu, intno, _self=self):
             handler = _self.interrupt_hooks.get(int(intno))
@@ -518,29 +540,6 @@ class StyxEmulator(
                 return
             if _self.all_interrupts_hook is not None:
                 _self.all_interrupts_hook(_self, int(intno))
-
-        self._register_styx_hook(InterruptHook(_cb))
-
-    def hook_interrupt(
-        self, intno: int, function: typing.Callable[[emulator.Emulator], bool]
-    ) -> None:
-        super().hook_interrupt(intno, function)
-        # If a global interrupt hook is already installed it will dispatch into
-        # ``self.interrupt_hooks``. Otherwise install one now so per-number
-        # hooks fire too.
-        if self.all_interrupts_hook is None and not self._has_styx_interrupt_hook():
-            self._install_baseline_interrupt_hook()
-
-    def _has_styx_interrupt_hook(self) -> bool:
-        # Track once-only installation via an attribute so we don't double up
-        # on processor-level interrupt hooks.
-        return getattr(self, "_styx_interrupt_hook_installed", False)
-
-    def _install_baseline_interrupt_hook(self) -> None:
-        def _cb(_cpu, intno, _self=self):
-            handler = _self.interrupt_hooks.get(int(intno))
-            if handler is not None:
-                handler(_self)
 
         self._register_styx_hook(InterruptHook(_cb))
         self._styx_interrupt_hook_installed = True

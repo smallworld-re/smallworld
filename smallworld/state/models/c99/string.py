@@ -340,9 +340,10 @@ class Memchr(CStdModel):
         assert isinstance(n, int)
 
         data = emulator.read_memory(ptr, n)
-        for i in range(0, n):
-            if data[i] == val:
-                self.set_return_value(emulator, ptr + i)
+        if 0 <= val <= 255:
+            idx = data.find(bytes([val]))
+            if idx != -1:
+                self.set_return_value(emulator, ptr + idx)
                 return
 
         self.set_return_value(emulator, 0)
@@ -366,9 +367,10 @@ class Strchr(CStdModel):
         n = _emu_strlen(emulator, ptr)
 
         data = emulator.read_memory(ptr, n)
-        for i in range(0, n):
-            if data[i] == val:
-                self.set_return_value(emulator, ptr + i)
+        if 0 <= val <= 255:
+            idx = data.find(bytes([val]))
+            if idx != -1:
+                self.set_return_value(emulator, ptr + idx)
                 return
 
         self.set_return_value(emulator, 0)
@@ -456,9 +458,10 @@ class Strrchr(CStdModel):
 
         data = emulator.read_memory(ptr, n)
 
-        for i in range(n - 1, -1, -1):
-            if data[i] == val:
-                self.set_return_value(emulator, ptr + i)
+        if 0 <= val <= 255:
+            idx = data.rfind(bytes([val]))
+            if idx != -1:
+                self.set_return_value(emulator, ptr + idx)
                 return
 
         self.set_return_value(emulator, 0)
@@ -516,12 +519,17 @@ class Strstr(CStdModel):
         bytes1 = emulator.read_memory(ptr1, len1)
         bytes2 = emulator.read_memory(ptr2, len2)
 
-        for i in range(0, len1):
-            if bytes1[i : i + len2] == bytes2:
-                self.set_return_value(emulator, ptr1 + i)
-                return
+        if len1 == 0:
+            # Preserve existing behavior: an empty haystack returns NULL,
+            # even for an empty needle (the original loop never executed).
+            self.set_return_value(emulator, 0)
+            return
 
-        self.set_return_value(emulator, 0)
+        idx = bytes1.find(bytes2)
+        if idx != -1:
+            self.set_return_value(emulator, ptr1 + idx)
+        else:
+            self.set_return_value(emulator, 0)
 
 
 class Strtok(CStdModel):

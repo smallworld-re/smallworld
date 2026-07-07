@@ -313,7 +313,14 @@ class Calloc(CStdModel):
         assert isinstance(amt, int)
         assert isinstance(size, int)
 
-        data = b"\0" * amt * size
+        total = amt * size
+        size_t_max = (1 << (self.platdef.address_size * 8)) - 1
+        if total > size_t_max:
+            # calloc detects the size_t overflow and returns NULL
+            self.set_return_value(emulator, 0)
+            return
+
+        data = b"\0" * total
 
         res = self.heap.allocate_bytes(data, None)
         # This is calloc; zero out the memory

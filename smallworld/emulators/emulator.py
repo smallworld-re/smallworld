@@ -156,7 +156,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             content: The content to write.
 
         Raises:
-            TypeError: If content is a BV, and this emulator cannot handle bitvector expressions
+            SymbolicValueError: If content is a bitvector expression, and this emulator doesn't support them.
         """
 
         return self.write_register_content(name, content)
@@ -181,7 +181,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
         """Read memory content from a specific address as a symbolic expression.
 
-        If the implementation of read_register_content()
+        If the implementation of read_memory_content()
         raises SymbolicValueError, this must be implemented.
 
         Arguments:
@@ -398,7 +398,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             A list of registered exit points.
         """
 
-        return self._exit_points
+        return set(self._exit_points)
 
     def add_exit_point(self, address: int) -> None:
         """Add an exit point.
@@ -520,7 +520,7 @@ class InstructionHookable(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def unhook_instructions(self) -> None:
-        """Unhook all system interrupts."""
+        """Unhook all instruction hooks."""
 
         pass
 
@@ -738,7 +738,7 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
             [Emulator, int, int, claripy.ast.bv.BV], typing.Optional[claripy.ast.bv.BV]
         ],
     ) -> None:
-        """Hook all memory reads, handling concrete values
+        """Hook all memory reads, handling symbolic values
 
         Arguments:
             function: The function to execute when the memory region is read.
@@ -972,7 +972,7 @@ class InterruptHookable(metaclass=abc.ABCMeta):
         pass
 
 
-class ConstrainedEmulator:
+class ConstrainedEmulator(metaclass=abc.ABCMeta):
     """Emulator that supports constraints
 
     It must also support some means of evaluating constraints,
@@ -1144,6 +1144,7 @@ __all__ = [
     "Emulator",
     "InstructionHookable",
     "FunctionHookable",
+    "SyscallHookable",
     "MemoryReadHookable",
     "MemoryWriteHookable",
     "InterruptHookable",

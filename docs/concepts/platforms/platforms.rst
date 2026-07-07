@@ -75,7 +75,7 @@ The following is an example of accessing a ``PlatformDef``::
     from smallworld.platforms import Architecture, Byteorder, Platform, PlatformDef
 
     platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
-    platdef = PlatformDef(platform)
+    platdef = PlatformDef.for_platform(platform)
 
     print(platdef.address_size) # 8
     print(platdef.pc_register)  # rip

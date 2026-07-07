@@ -307,7 +307,7 @@ but do know what parts of memory are code that you want to explore:
 Constraints
 -----------
 
-A ``Machine`` can accept symbolic constraint expressions using ``Machine.add_constraints()``
+A ``Machine`` can accept symbolic constraint expressions using ``Machine.add_constraint()``
 
 A constraint is an expression that some emulators (currently, only angr) can use
 to limit the possible values of uninitialized variables without fully committing to one value.
