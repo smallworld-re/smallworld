@@ -1056,8 +1056,8 @@ class Machine(StatefulSet):
         # writable memory, and the Python state of resettable objects) and
         # restore it before every iteration after the first (iteration 0 runs on
         # the freshly forked child, which is already clean).
-        import copy as _copy
-
+        # Local import: heap.py imports from this module, so importing Heap at
+        # module scope would be circular.
         from .memory.heap import Heap
 
         _snap: typing.Dict[str, typing.Any] = {}
@@ -1069,7 +1069,7 @@ class Machine(StatefulSet):
                 if perm & 0x2  # UC_PROT_WRITE: read-only code never changes
             }
             _snap["pystate"] = [
-                (obj, _copy.deepcopy(obj.__dict__))
+                (obj, copy.deepcopy(obj.__dict__))
                 for obj in self
                 if isinstance(obj, Heap)
             ]
@@ -1080,7 +1080,7 @@ class Machine(StatefulSet):
                 emulator.engine.mem_write(addr, content)
             for obj, state in _snap["pystate"]:
                 obj.__dict__.clear()
-                obj.__dict__.update(_copy.deepcopy(state))
+                obj.__dict__.update(copy.deepcopy(state))
 
         def _adapter(_uc, input_bytes, persistent_round, data):
             if _snap and persistent_round > 0:

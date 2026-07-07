@@ -24,20 +24,25 @@ class C99Libc(ElfModelLibrary):
             calloc_model = self.models["calloc"]
             realloc_model = self.models["realloc"]
             free_model = self.models["free"]
-            tls_model = self.models["__tls_get_addr"]
 
             assert hasattr(malloc_model, "heap")
             assert hasattr(calloc_model, "heap")
             assert hasattr(realloc_model, "heap")
             assert hasattr(free_model, "heap")
-            assert hasattr(tls_model, "heap")
 
             malloc_model.heap = heap
             calloc_model.heap = heap
             realloc_model.heap = heap
             free_model.heap = heap
+
             # __tls_get_addr hands out heap-backed storage for thread-locals.
-            tls_model.heap = heap
+            # It is only bound on some platforms (amd64 today); on the rest the
+            # library skips the unbound lookup (see ElfModelLibrary.__init__), so
+            # it may be absent from self.models. Assign a heap only if present.
+            tls_model = self.models.get("__tls_get_addr")
+            if tls_model is not None:
+                assert hasattr(tls_model, "heap")
+                tls_model.heap = heap
 
             fdmgr = FileDescriptorManager.for_platform(platform, abi)
             self.write_int(
