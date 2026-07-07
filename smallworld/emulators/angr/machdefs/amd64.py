@@ -186,6 +186,6 @@ class AMD64MachineDef(AngrMachineDef):
         "ymm15": "ymm15",
         "xmm15": "xmm15",
         # MSRs
-        "fsbase": "",
-        "gsbase": "",
+        "fsbase": "fs",
+        "gsbase": "gs",
     }
