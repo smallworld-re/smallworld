@@ -760,7 +760,7 @@ class UnicornEmulator(
         try:
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            
+
             # Use a dummy sentinel as the Unicorn exit point.
             # We manage exit points via a different mechanism.
             # Previously, this was zero, but that caused spurious clean exits
