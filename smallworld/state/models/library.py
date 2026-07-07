@@ -50,7 +50,9 @@ class ElfModelLibrary(Memory):
             # those rather than failing to construct the whole library -- the
             # corresponding calls simply stay unmodeled.
             try:
-                model = Model.lookup(name, self.platform, self.abi, address + code_size)
+                model = Model.lookup(
+                    name, self.platform, self.abi, address + self.code_size
+                )
             except ValueError:
                 log.debug(
                     f"no model for {name} on {self.platform} ABI {self.abi}; skipping"
@@ -70,7 +72,7 @@ class ElfModelLibrary(Memory):
         # variable size -- harmless until a model whose buffer sits at the edge
         # is actually invoked. Account for them.
         variables_size = sum(size for _, size in self.variables)
-        super().__init__(address, code_size + variables_size + data_size)
+        super().__init__(address, self.code_size + variables_size + data_size)
 
         data_offset = self.code_size
 

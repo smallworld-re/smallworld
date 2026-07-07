@@ -1078,9 +1078,9 @@ class Machine(StatefulSet):
             emulator.engine.context_restore(_snap["ctx"])
             for addr, content in _snap["mem"].items():
                 emulator.engine.mem_write(addr, content)
-            for obj, state in _snap["pystate"]:
+            for obj, saved in _snap["pystate"]:
                 obj.__dict__.clear()
-                obj.__dict__.update(copy.deepcopy(state))
+                obj.__dict__.update(copy.deepcopy(saved))
 
         def _adapter(_uc, input_bytes, persistent_round, data):
             if _snap and persistent_round > 0:
