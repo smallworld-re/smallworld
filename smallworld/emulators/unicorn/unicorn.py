@@ -700,7 +700,13 @@ class UnicornEmulator(
                 logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, 0x0)
+            # Use a dummy sentinel as the Unicorn exit point.
+            # We manage exit points via a different mechanism.
+            # Previously, this was zero, but that caused spurious clean exits
+            # if code jumped to NULL.
+            # If anyone puts code at MAX_INT - 7, I will be very cross.
+            max_addr = (1 << (self.platdef.address_size * 8)) - 8
+            self.engine.emu_start(pc, max_addr)
         except unicorn.UcError as e:
             if (
                 e.errno == unicorn.UC_ERR_FETCH_UNMAPPED
@@ -743,7 +749,14 @@ class UnicornEmulator(
         try:
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+            
+            # Use a dummy sentinel as the Unicorn exit point.
+            # We manage exit points via a different mechanism.
+            # Previously, this was zero, but that caused spurious clean exits
+            # if code jumped to NULL.
+            # If anyone puts code at MAX_INT - 7, I will be very cross.
+            max_addr = (1 << (self.platdef.address_size * 8)) - 8
+            self.engine.emu_start(pc, max_addr)
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:
