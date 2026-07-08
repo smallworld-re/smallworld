@@ -105,7 +105,7 @@ class TraceExecution(analysis.Analysis):
                 return None
             return cs_insns[0]
 
-        the_exc = None
+        the_exc: typing.Optional[Exception] = None
         emu_result = TraceRes.ER_NONE
 
         pdefs = platforms.defs.PlatformDef.for_platform(self.platform)
