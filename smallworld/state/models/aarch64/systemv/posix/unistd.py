@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import AArch64SysVModel
+
+
+class AArch64SysVErrnoLocation(ErrnoLocation, AArch64SysVModel):
+    pass
 
 
 class AArch64SysVAccess(Access, AArch64SysVModel):
@@ -414,6 +419,7 @@ class AArch64SysVWrite(Write, AArch64SysVModel):
 
 
 __all__ = [
+    "AArch64SysVErrnoLocation",
     "AArch64SysVAccess",
     "AArch64SysVAlarm",
     "AArch64SysVBrk",

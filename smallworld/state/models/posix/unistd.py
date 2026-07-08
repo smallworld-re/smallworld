@@ -1920,8 +1920,26 @@ class Write(FDModel):
             self.set_return_value(emulator, -1)
 
 
+class ErrnoLocation(CStdModel):
+    name = "__errno_location"
+
+    # int *__errno_location(void);
+    # glibc's thread-local errno accessor. We back it with a stable per-model
+    # static buffer (zero-initialized => errno == 0), which is what callers
+    # read/write through. Lets the very common `errno`-checking idiom proceed.
+    argument_types: typing.List[ArgumentType] = []
+    return_type = ArgumentType.POINTER
+    static_space_required = 8
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        assert isinstance(self.static_buffer_address, int)
+        self.set_return_value(emulator, self.static_buffer_address)
+
+
 __all__ = [
     "Access",
+    "ErrnoLocation",
     "Alarm",
     "Brk",
     "Chdir",

@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import MIPSELSysVModel
+
+
+class MIPSELSysVErrnoLocation(ErrnoLocation, MIPSELSysVModel):
+    pass
 
 
 class MIPSELSysVAccess(Access, MIPSELSysVModel):
@@ -414,6 +419,7 @@ class MIPSELSysVWrite(Write, MIPSELSysVModel):
 
 
 __all__ = [
+    "MIPSELSysVErrnoLocation",
     "MIPSELSysVAccess",
     "MIPSELSysVAlarm",
     "MIPSELSysVBrk",

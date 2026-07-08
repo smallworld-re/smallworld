@@ -95,9 +95,17 @@ class TraceExecution(analysis.Analysis):
                     "Unable to read next instruction out of emulator memory"
                 )
             cs_insns, disas = self.emulator._disassemble(code, pc, 1)
+            # capstone may decode zero instructions even though the bytes were
+            # readable -- pc is in-bounds but points at something that is not a
+            # valid instruction (data, or a placeholder/dispatch region such as
+            # the libc-model area).  Signal that with None so the trace loop can
+            # terminate cleanly instead of letting `cs_insns[0]` raise an
+            # IndexError that escapes run() and aborts the caller.
+            if not cs_insns:
+                return None
             return cs_insns[0]
 
-        the_exc = None
+        the_exc: typing.Optional[Exception] = None
         emu_result = TraceRes.ER_NONE
 
         pdefs = platforms.defs.PlatformDef.for_platform(self.platform)
@@ -116,6 +124,16 @@ class TraceExecution(analysis.Analysis):
                 emu_result = TraceRes.ER_BOUNDS
                 break
             cs_insn = get_insn(pc)
+            if cs_insn is None:
+                # In-bounds pc with no decodable instruction.  Treat it as an
+                # emulation failure (control reached non-code) and stop, rather
+                # than crashing the whole analysis.  Recorded like any faulting
+                # step: ER_FAIL with a descriptive exception for hinting.
+                emu_result = TraceRes.ER_FAIL
+                the_exc = smallworld.exceptions.AnalysisRunError(
+                    f"no decodable instruction at pc {pc:#x}"
+                )
+                break
             cmp_info, imm_info = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
             te = TraceElement(

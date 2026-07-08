@@ -45,9 +45,19 @@ class ElfModelLibrary(Memory):
         data_size = 0
 
         for name in self.function_names:
-            model = Model.lookup(
-                name, self.platform, self.abi, address + self.code_size
-            )
+            # A model name advertised by function_names may not have a concrete
+            # binding for this platform/ABI (models are bound per-arch). Skip
+            # those rather than failing to construct the whole library -- the
+            # corresponding calls simply stay unmodeled.
+            try:
+                model = Model.lookup(
+                    name, self.platform, self.abi, address + self.code_size
+                )
+            except ValueError:
+                log.debug(
+                    f"no model for {name} on {self.platform} ABI {self.abi}; skipping"
+                )
+                continue
             if model.name in allow_imprecise:
                 model.allow_imprecise = True
 
@@ -55,7 +65,14 @@ class ElfModelLibrary(Memory):
             self.code_size += 4
             data_size += model.static_space_required
 
-        super().__init__(address, self.code_size + data_size)
+        # The region holds, in order: model trampolines (code_size), the
+        # exported variables (stdin/stdout/stderr, ...), then per-model static
+        # buffers (data_size). The variables were previously omitted from the
+        # size, so the last static buffer overflowed the region by the total
+        # variable size -- harmless until a model whose buffer sits at the edge
+        # is actually invoked. Account for them.
+        variables_size = sum(size for _, size in self.variables)
+        super().__init__(address, self.code_size + variables_size + data_size)
 
         data_offset = self.code_size
 

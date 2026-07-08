@@ -454,6 +454,46 @@ class Malloc(CStdModel):
         self.set_return_value(emulator, res)
 
 
+class TlsGetAddr(CStdModel):
+    # void *__tls_get_addr(tls_index *ti);  -- the glibc dynamic-TLS resolver.
+    #
+    # tls_index is { unsigned long ti_module; unsigned long ti_offset; } and the
+    # real resolver returns dtv[ti_module] + ti_offset, i.e. the address of a
+    # thread-local variable.  The harness has no DTV or threads, so we hand out a
+    # fresh zeroed heap block per (module, offset) and return it as that
+    # variable's address -- cached, so repeated accesses to the same thread-local
+    # see the same storage.  This is enough to let code that touches a
+    # thread-local proceed instead of faulting on an unresolved GOT slot.
+    name = "__tls_get_addr"
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    TLS_VAR_SIZE = 0x1000
+
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Assigned by the library, exactly like malloc/calloc (and, like them,
+        # cloned on a deep copy).
+        self.heap: typing.Optional[Heap] = None
+        self._tls: typing.Dict[typing.Tuple[int, int], int] = {}
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        if self.heap is None:
+            raise exceptions.ConfigurationError(
+                "__tls_get_addr needs a heap; please assign self.heap"
+            )
+        ti = self.get_arg1(emulator)
+        assert isinstance(ti, int)
+        ptr = ArgumentType.POINTER
+        module = self.read_integer(ti, ptr, emulator)
+        offset = self.read_integer(ti + self.platdef.address_size, ptr, emulator)
+        key = (module, offset)
+        if key not in self._tls:
+            self._tls[key] = self.heap.allocate_bytes(b"\0" * self.TLS_VAR_SIZE, None)
+        self.set_return_value(emulator, self._tls[key])
+
+
 class Mblen(CStdModel):
     name = "mblen"
 
@@ -753,6 +793,7 @@ __all__ = [
     "Free",
     "Getenv",
     "Malloc",
+    "TlsGetAddr",
     "Mblen",
     "Mbstowcs",
     "Mbtowc",
