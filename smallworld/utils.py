@@ -46,10 +46,20 @@ class MetadataMixin(metaclass=abc.ABCMeta):
 T = typing.TypeVar("T")
 
 
+# Memoizes the CLASS resolved by find_subclass for a given (cls, cache_key).
+# The class hierarchy is fixed after import, so for a cache_key that fully
+# determines `check`'s outcome the resolved class is stable for the life of the
+# process.  This lets hot, repeated lookups (e.g. resolving a library model for
+# every function on every populate_machine) skip the O(#subclasses)
+# __subclasses__ traversal after the first miss.
+_SUBCLASS_CACHE: typing.Dict[typing.Tuple[type, typing.Hashable], type] = {}
+
+
 def find_subclass(
     cls: typing.Type[T],
     check: typing.Callable[[typing.Type[T]], bool],
     *args,
+    cache_key: typing.Optional[typing.Hashable] = None,
     **kwargs,
 ):
     """Find and instantiate a subclass for dependency injection
@@ -64,6 +74,10 @@ def find_subclass(
         cls: The class representing the interface to search
         check: Callable for testing the desired criteria
         args: Any positional/variadic args to pass to the initializer
+        cache_key: Optional hashable that, together with `cls`, uniquely
+            determines which subclass `check` selects.  When given, the resolved
+            class is memoized under it so later lookups skip the traversal.  Pass
+            it ONLY when the selection is a pure function of the key.
         kwargs: Any keyword arguments to pass to the initializer
 
     Returns: An instance of a subclass of cls matching the criteria from check
@@ -71,11 +85,18 @@ def find_subclass(
     Raises:
         ValueError: If no subclass of cls matches the criteria
     """
+    if cache_key is not None:
+        cached = _SUBCLASS_CACHE.get((cls, cache_key))
+        if cached is not None:
+            return cached(*args, **kwargs)
+
     class_stack: typing.List[typing.Type[T]] = [cls]
     while len(class_stack) > 0:
         impl: typing.Type[T] = class_stack.pop(-1)
 
         if not inspect.isabstract(impl) and check(impl):
+            if cache_key is not None:
+                _SUBCLASS_CACHE[(cls, cache_key)] = impl
             return impl(*args, **kwargs)
         # __subclasses__ is not transitive;
         # need to call this on each sublclass to do a full traversal.

@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import AMD64SysVModel
+
+
+class AMD64SysVPerror(Perror, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVPrintfChk(PrintfChk, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVFprintfChk(FprintfChk, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVSnprintfChk(SnprintfChk, AMD64SysVModel):
+    pass
+
+
+class AMD64SysVSprintfChk(SprintfChk, AMD64SysVModel):
+    pass
 
 
 class AMD64SysVFclose(Fclose, AMD64SysVModel):
@@ -219,6 +244,11 @@ class AMD64SysVVsscanf(Vsscanf, AMD64SysVModel):
 
 
 __all__ = [
+    "AMD64SysVPerror",
+    "AMD64SysVPrintfChk",
+    "AMD64SysVFprintfChk",
+    "AMD64SysVSnprintfChk",
+    "AMD64SysVSprintfChk",
     "AMD64SysVFclose",
     "AMD64SysVFeof",
     "AMD64SysVFerror",

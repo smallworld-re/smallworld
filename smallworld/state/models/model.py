@@ -174,6 +174,7 @@ class Model(Hook):
                 cls,
                 lambda x: x.name == name and x.platform == platform and x.abi == abi,
                 address,
+                cache_key=(name, platform, abi),
             )
         except ValueError:
             raise ValueError(f"no model for '{name}' on {platform} with ABI '{abi}'")

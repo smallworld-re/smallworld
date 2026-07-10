@@ -186,7 +186,11 @@ class UnicornEmulator(
                     self.state = EmulatorState.STEP
 
             if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Stepping through %s", self.current_instruction())
+                # Guard the eager f-string: current_instruction() disassembles
+                # (register read + memory read + capstone) every instruction, so
+                # without this guard it runs per-instruction even when the log is
+                # discarded -- the dominant per-instruction cost when fuzzing.
+                logger.debug(f"Stepping through {self.current_instruction()}")
 
             # run instruciton hooks
             if self.all_instructions_hook:

@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import ArmELSysVModel
+
+
+class ArmELSysVPerror(Perror, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVPrintfChk(PrintfChk, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVFprintfChk(FprintfChk, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVSnprintfChk(SnprintfChk, ArmELSysVModel):
+    pass
+
+
+class ArmELSysVSprintfChk(SprintfChk, ArmELSysVModel):
+    pass
 
 
 class ArmELSysVFclose(Fclose, ArmELSysVModel):
@@ -219,6 +244,11 @@ class ArmELSysVVsscanf(Vsscanf, ArmELSysVModel):
 
 
 __all__ = [
+    "ArmELSysVPerror",
+    "ArmELSysVPrintfChk",
+    "ArmELSysVFprintfChk",
+    "ArmELSysVSnprintfChk",
+    "ArmELSysVSprintfChk",
     "ArmELSysVFclose",
     "ArmELSysVFeof",
     "ArmELSysVFerror",

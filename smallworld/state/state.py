@@ -1052,7 +1052,44 @@ class Machine(StatefulSet):
 
         self.apply(emulator)
 
+        # In persistent mode (iterations > 1) a single forked child runs many
+        # inputs back-to-back, so any state a run mutates bleeds into later
+        # inputs -- giving non-deterministic coverage and phantom crashes (AFL
+        # "stability" collapses). unicornafl restores nothing here, and it cannot
+        # see smallworld's Python-side model state (e.g. a BumpAllocator's
+        # offset) at all. So snapshot the post-apply state once (registers,
+        # writable memory, and the Python state of resettable objects) and
+        # restore it before every iteration after the first (iteration 0 runs on
+        # the freshly forked child, which is already clean).
+        # Local import: heap.py imports from this module, so importing Heap at
+        # module scope would be circular.
+        from .memory.heap import Heap
+
+        _snap: typing.Dict[str, typing.Any] = {}
+        if iterations > 1:
+            _snap["ctx"] = emulator.engine.context_save()
+            _snap["mem"] = {
+                addr: bytes(emulator.engine.mem_read(addr, end - addr + 1))
+                for (addr, end, perm) in emulator.engine.mem_regions()
+                if perm & 0x2  # UC_PROT_WRITE: read-only code never changes
+            }
+            _snap["pystate"] = [
+                (obj, copy.deepcopy(obj.__dict__))
+                for obj in self
+                if isinstance(obj, Heap)
+            ]
+
+        def _reset() -> None:
+            emulator.engine.context_restore(_snap["ctx"])
+            for addr, content in _snap["mem"].items():
+                emulator.engine.mem_write(addr, content)
+            for obj, saved in _snap["pystate"]:
+                obj.__dict__.clear()
+                obj.__dict__.update(copy.deepcopy(saved))
+
         def _adapter(_uc, input_bytes, persistent_round, data):
+            if _snap and persistent_round > 0:
+                _reset()
             return input_callback(emulator, input_bytes, persistent_round, data)
 
         unicornafl.uc_afl_fuzz(

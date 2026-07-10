@@ -69,8 +69,11 @@ class x86Instruction(Instruction):
                     # these are already in the list bc of regs_access above
                     pass
                 else:
-                    # shouldn't happen
-                    assert 1 == 0
+                    # Immediate (and any other non-register/non-memory) operands
+                    # can carry read access yet reference no register or memory,
+                    # so they contribute nothing to the read set. (e.g. the `5`
+                    # in `add rax, 5`.)
+                    pass
         if self._instruction.mnemonic == "pop":
             the_reads.add(
                 self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
@@ -99,7 +102,9 @@ class x86Instruction(Instruction):
                     # we get all registers from regs_write
                     pass
                 else:
-                    assert 1 == 0
+                    # Non-register/non-memory operands (e.g. immediates) reference
+                    # no register or memory, so they contribute nothing here.
+                    pass
         if self._instruction.mnemonic == "push":
             the_writes.add(
                 self._memory_reference(None, self.sp, None, 1, 0, self.word_size)

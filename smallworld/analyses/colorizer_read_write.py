@@ -1,7 +1,7 @@
 import copy
 import logging
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from ..hinting import DynamicMemoryValueHint, DynamicRegisterValueHint
 from ..instructions.bsid import BSIDMemoryReferenceOperand
@@ -42,16 +42,22 @@ class RegisterInfo(Info):
 class MemoryLvalInfo(Info):
     bsid: BSIDMemoryReferenceOperand
     size: int
-    # addresses: typing.List[int]
+    # Concrete (instruction_count, address) pairs, one per dynamic access of
+    # this memory lval observed during tracing (a bsid such as [rax + rcx*4]
+    # accumulates several as it strides an array).  Excluded from eq/hash so it
+    # never affects lval identity or graph dedup; it is metadata accumulated as
+    # hints are processed.  Consumers pick the access they care about by ic.
+    addresses: typing.List[typing.Tuple[int, int]] = field(
+        default_factory=list, compare=False
+    )
 
     def __str__(self: typing.Any):
         return (
             "(MemoryLvalInfo(,"
             + f"bsid={self.bsid},"
             + f"size={self.size},"
-            + f"color={self.color}"
-            # + f"dynvals={[d for d in self.dynvals]},"
-            # + f"addresses={[hex(a) for a in self.addresses]}))"
+            + f"color={self.color},"
+            + f"addresses={[(ic, hex(a)) for ic, a in self.addresses]}))"
         )
 
     def short_str(self):
@@ -229,6 +235,13 @@ class WRGraph:
             wi = WriteInfo(dvk_to_info(dvk))
             node.writes.append(wi)
             return wi
+
+    def record_address(self, dvk: DvKey, ic: int, address: int):
+        """Accumulate one concrete (instruction_count, address) access on the
+        MemoryLvalInfo for `dvk`.  No-op for register dvks (no address)."""
+        rwi = self.get_or_add_rw_from_dvk(dvk)
+        if type(rwi.info) is MemoryLvalInfo:
+            rwi.info.addresses.append((ic, address))
 
     def add_edge(self, firstobs: DvKey, read: DvKey):
         # logger.info(f"add_edge {firstobs} {read}")
@@ -471,6 +484,10 @@ class ColorizerReadWrite(analysis.Analysis):
                     firstobskey = compute_dv_key(hint)
                     firstobskey.color = dvk2num[firstobskey]
                     self.graph.get_or_add_rw_from_dvk(firstobskey)
+                    if type(hint) is DynamicMemoryValueHint:
+                        self.graph.record_address(
+                            firstobskey, hint.instruction_num, hint.address
+                        )
                 else:
                     if hint.use:
                         # A color flow, i.e. a use of a previously
@@ -488,6 +505,10 @@ class ColorizerReadWrite(analysis.Analysis):
                         dst_key = compute_dv_key(hint)
                         dst_key.color = true_color
                         self.graph.add_edge(src_key, dst_key)
+                        if type(hint) is DynamicMemoryValueHint:
+                            self.graph.record_address(
+                                dst_key, hint.instruction_num, hint.address
+                            )
                     else:
                         # hint is a not new def ...
                         # that's just a copy right?
