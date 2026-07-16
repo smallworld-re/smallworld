@@ -86,11 +86,11 @@ fn styxafl(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
 #[allow(clippy::too_many_arguments)]
 fn styx_afl_fuzz(
     py: Python<'_>,
-    processor: PyObject,
+    processor: Py<PyAny>,
     input_file: PathBuf,
-    place_input_callback: PyObject,
+    place_input_callback: Py<PyAny>,
     exits: Vec<u64>,
-    validate_crash_callback: Option<PyObject>,
+    validate_crash_callback: Option<Py<PyAny>>,
     always_validate: bool,
     persistent_iters: u32,
 ) -> PyResult<()> {
@@ -181,10 +181,10 @@ fn fd_is_open(fd: RawFd) -> bool {
 /// fds 198/199, fork()s per iteration, and reports exit status back to AFL.
 fn run_under_afl(
     py: Python<'_>,
-    processor: &PyObject,
+    processor: &Py<PyAny>,
     input_file: &PathBuf,
-    place_input_callback: &PyObject,
-    validate_crash_callback: Option<&PyObject>,
+    place_input_callback: &Py<PyAny>,
+    validate_crash_callback: Option<&Py<PyAny>>,
     always_validate: bool,
 ) -> PyResult<()> {
     // The SHM attach and BlockHook install happen in the caller now, so
@@ -294,11 +294,11 @@ enum IterationOutcome {
 /// place_input_callback, then `start()` and `wait_for_stop()` the processor.
 fn run_one_iteration(
     py: Python<'_>,
-    processor: &PyObject,
+    processor: &Py<PyAny>,
     input_file: &PathBuf,
-    place_input_callback: &PyObject,
+    place_input_callback: &Py<PyAny>,
     round: u32,
-    validate_crash_callback: Option<&PyObject>,
+    validate_crash_callback: Option<&Py<PyAny>>,
     always_validate: bool,
 ) -> PyResult<IterationOutcome> {
     let input_bytes = std::fs::read(input_file).map_err(|e| {
@@ -492,7 +492,7 @@ fn record_block_entry(pc: u64) {
 /// `(processor_core, address, size)` at every basic-block entry; we only
 /// need the address.
 #[pyfunction]
-fn _coverage_on_block(_cpu: PyObject, address: u64, _size: u32) {
+fn _coverage_on_block(_cpu: Py<PyAny>, address: u64, _size: u32) {
     record_block_entry(address);
 }
 
@@ -500,7 +500,7 @@ fn _coverage_on_block(_cpu: PyObject, address: u64, _size: u32) {
 /// styx's native per-basic-block hook primitive — the same one
 /// `styx-fuzzer`'s trace plugin uses to drive its LibAFL-backed coverage
 /// map — so we don't have to reinvent the per-block notification path.
-fn install_coverage_block_hook(py: Python<'_>, processor: &PyObject) -> PyResult<()> {
+fn install_coverage_block_hook(py: Python<'_>, processor: &Py<PyAny>) -> PyResult<()> {
     let hooks_mod = py.import("styx_emulator.cpu.hooks")?;
     let block_hook_cls = hooks_mod.getattr("BlockHook")?;
     let cb = wrap_pyfunction!(_coverage_on_block, py)?;
