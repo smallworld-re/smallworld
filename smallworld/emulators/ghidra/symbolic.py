@@ -74,8 +74,19 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             ((b.numerator if b.numerator >= 0 else 256 + b.numerator) for b in val)
         )
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        taint: bool = False,
+        taint_addresses: bool = False,
+    ):
         super().__init__(platform)
+        # Dynamic taint tracking. Labels already become named symbolic
+        # variables (tracked in self._symbolic_inputs); when enabled, taint is
+        # surfaced by intersecting a value's symbolic variables with those
+        # source labels.
+        self._taint = taint
+        self._taint_addresses = taint_addresses
         self.platform: platforms.Platform = platform
         self.platdef: platforms.PlatformDef = platforms.PlatformDef.for_platform(
             platform
@@ -301,6 +312,17 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
             )
         return self._int_from_bytes(concrete)
 
+    def read_register_taint(self, name: str) -> typing.Set[str]:
+        if not self._taint:
+            return set()
+        try:
+            out = self.read_register_symbolic(name)
+        except Exception:
+            return set()
+        if out is None:
+            return set()
+        return self._taint_of(out)
+
     def read_register_symbolic(self, name: str) -> claripy.ast.bv.BV:
         if name == "pc":
             name = self.platdef.pc_register
@@ -427,6 +449,28 @@ class GhidraSymbolicEmulator(AbstractGhidraSymbolicEmulator):
                 )
             return self.bytes_java_to_py(pair.getLeft())
         return self._read_concrete_bytes_at(address, size)
+
+    def read_memory_taint(self, address: int, size: int) -> typing.Set[str]:
+        if not self._taint:
+            return set()
+        try:
+            out = self.read_memory_symbolic(address, size)
+        except Exception:
+            return set()
+        if out is None:
+            return set()
+        return self._taint_of(out)
+
+    def _taint_of(self, expr: claripy.ast.bv.BV) -> typing.Set[str]:
+        # Simplify first: SymZ3 keeps unsimplified expressions, so a value like
+        # ``x ^ x`` still textually references ``x``. Simplification reduces it
+        # to a constant, correctly dropping sources the value no longer depends
+        # on (e.g. a register cleared by ``xor r, r``).
+        try:
+            expr = claripy.simplify(expr)
+        except Exception:
+            pass
+        return set(expr.variables) & set(self._symbolic_inputs.keys())
 
     def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
         pair = self._read_memory_pair(address, size)

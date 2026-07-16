@@ -103,6 +103,14 @@ class Memory(state.Stateful, dict[int, state.Value]):
                 )
 
     def extract(self, emulator: emulators.Emulator) -> None:
+        if getattr(emulator, "_taint", False) and len(self) > 0:
+            # Taint tracking is enabled: preserve the segment layout the user
+            # built so per-location taint stays queryable, and attach the taint
+            # that reached each segment. (The default single-blob extraction
+            # below would discard both the layout and the taint.)
+            self._extract_with_taint(emulator)
+            return
+
         value: state.Value
         try:
             bytes = emulator.read_memory(self.address, self.get_capacity())
@@ -118,6 +126,25 @@ class Memory(state.Stateful, dict[int, state.Value]):
             ) from e
         self.clear()
         self[0] = value
+
+    def _extract_with_taint(self, emulator: emulators.Emulator) -> None:
+        for offset, old in list(self.items()):
+            addr = self.address + offset
+            size = old.get_size()
+            value: state.Value
+            try:
+                data = emulator.read_memory(addr, size)
+                value = state.BytesValue(data, old.get_label())
+            except exceptions.SymbolicValueError:
+                expr = emulator.read_memory_symbolic(addr, size)
+                value = state.SymbolicValue(size, expr, None, old.get_label())
+            except Exception as e:
+                raise exceptions.EmulationError(f"Failed reading {hex(addr)}") from e
+            try:
+                value.set_taint(emulator.read_memory_taint(addr, size))
+            except exceptions.SymbolicValueError:
+                pass
+            self[offset] = value
 
     def write_bytes(self, address: int, data: bytes) -> None:
         """Overwrite part of this memory region with specific bytes.

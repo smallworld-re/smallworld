@@ -60,6 +60,15 @@ class Executable(memory.RawMemory):
                     None,
                     f"Extracted memory from {self.address + offset:x}",
                 )
+            if getattr(emulator, "_taint", False):
+                try:
+                    value.set_taint(
+                        emulator.read_memory_taint(
+                            self.address + offset, value.get_size()
+                        )
+                    )
+                except exceptions.SymbolicValueError:
+                    pass
             self[offset] = value
 
     def _write_content(self, emulator: emulators.Emulator, address: int, value: Value):

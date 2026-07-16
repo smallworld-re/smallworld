@@ -13,14 +13,33 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
     Arguments:
         platform: Platform metadata for emulation.
+        taint: Enable dynamic taint tracking. Disabled by default. When
+            enabled, state labels (see :meth:`smallworld.state.Value.set_label`)
+            act as taint sources, and the taint that reached each register or
+            memory location can be queried via ``read_*_taint`` (surfaced on the
+            returned machine as :meth:`smallworld.state.Value.get_taint`).
+            Support is emulator-specific; backends that do not support taint
+            ignore this flag.
+        taint_addresses: When taint tracking is enabled, also propagate taint
+            through addresses (i.e. a value loaded via a tainted pointer or
+            index becomes tainted). Disabled by default.
     """
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        taint: bool = False,
+        taint_addresses: bool = False,
+    ):
         self.platform: platforms.Platform = platform
         super().__init__()
         self._bounds: utils.RangeCollection = utils.RangeCollection()
         self._exit_points: typing.Set[int] = set()
         """Configured platform metadata."""
+        self._taint: bool = taint
+        """Whether dynamic taint tracking is enabled."""
+        self._taint_addresses: bool = taint_addresses
+        """Whether taint propagates through addresses."""
 
     @abc.abstractmethod
     def read_register_content(self, name: str) -> int:
@@ -84,6 +103,23 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
 
         return None
 
+    def read_register_taint(self, name: str) -> typing.Set[str]:
+        """Read the taint of a register.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators. Emulators without taint tracking
+            return an empty set.
+
+        Arguments:
+            name: The name of the register.
+
+        Returns:
+            The set of source labels tainting the register.
+        """
+
+        return set()
+
     def read_register(self, name: str) -> int:
         """A helper to read the content of a register.
 
@@ -142,6 +178,21 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             name: The name of the register.
             label: The label of the register to write. To unset the register
                 label, this may be set to None.
+        """
+
+        pass
+
+    def write_register_taint(self, name: str, taint: typing.Set[str]) -> None:
+        """Write the taint of a register.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators. Emulators without taint tracking
+            ignore this.
+
+        Arguments:
+            name: The name of the register.
+            taint: The set of source labels tainting the register.
         """
 
         pass
@@ -226,6 +277,24 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
         """
 
         return None
+
+    def read_memory_taint(self, address: int, size: int) -> typing.Set[str]:
+        """Read memory taint from a specific address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators. Emulators without taint tracking
+            return an empty set.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
+
+        Returns:
+            The set of source labels tainting the memory region.
+        """
+
+        return set()
 
     def read_memory(self, address: int, size: int) -> bytes:
         """A helper to read memory content from a specific address.
@@ -319,6 +388,24 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             size: The size of the memory region
             label: The label of the register to write. To unset the register
                 label, this may be set to None.
+        """
+
+        pass
+
+    def write_memory_taint(
+        self, address: int, size: int, taint: typing.Set[str]
+    ) -> None:
+        """Set the taint of memory at a specific address.
+
+        Note:
+            Implementing this behavior is optional and not necessarily
+            supported by all Emulators. Emulators without taint tracking
+            ignore this.
+
+        Arguments:
+            address: The address of the memory region.
+            size: The size of the memory region.
+            taint: The set of source labels tainting the memory region.
         """
 
         pass

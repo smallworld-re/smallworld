@@ -27,6 +27,9 @@ class CPU(state.StatefulSet):
                 new_cpu.__getattribute__(x).set_type(
                     self.__getattribute__(x).get_type()
                 )
+                new_cpu.__getattribute__(x).set_taint(
+                    self.__getattribute__(x).get_taint()
+                )
         return new_cpu
 
     @property

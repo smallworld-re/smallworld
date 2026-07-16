@@ -32,6 +32,7 @@ import claripy
 
 from ... import exceptions, platforms, utils
 from .. import emulator, hookable
+from ..taint import TaintTracker
 from .machdefs import StyxMachineDef
 
 logger = logging.getLogger(__name__)
@@ -121,13 +122,18 @@ class StyxEmulator(
     # full 32-bit address space.
     _GLOBAL_HOOK_END = 0xFFFFFFFF
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        taint: bool = False,
+        taint_addresses: bool = False,
+    ):
         if not _STYX_AVAILABLE:
             raise exceptions.ConfigurationError(
                 "styx_emulator is not installed; install smallworld with the "
                 "[emu-styx] extra (built from source via the nix flake)."
             )
-        super().__init__(platform)
+        super().__init__(platform, taint=taint, taint_addresses=taint_addresses)
         self.platform: platforms.Platform = platform
         self.machdef: StyxMachineDef = StyxMachineDef.for_platform(platform)
 
@@ -163,6 +169,19 @@ class StyxEmulator(
         # Tracks which exit points already have their internal CodeHook
         # installed so we don't add duplicates on subsequent runs.
         self._installed_exit_points: typing.Set[int] = set()
+
+        # Dynamic taint tracking is not yet supported on Styx. The shared engine
+        # installs a global "every instruction" CodeHook; with it registered,
+        # Styx's point exit-hooks stop firing and emulation never terminates.
+        # Fail fast rather than hang. (Register/memory label round-tripping is
+        # unaffected; only in-flight taint propagation is unsupported here.)
+        # Use UnicornEmulator or PandaEmulator for taint tracking.
+        self._taint_tracker: typing.Optional[TaintTracker] = None
+        if self._taint:
+            raise exceptions.ConfigurationError(
+                "StyxEmulator does not yet support dynamic taint tracking; "
+                "use UnicornEmulator or PandaEmulator instead."
+            )
 
     # ------------------------------------------------------------------ build
 
@@ -263,6 +282,38 @@ class StyxEmulator(
             self._pending_register_writes.append((name, int(content)))
         else:
             self._do_write_register(name, int(content))
+
+    def write_register_label(
+        self, name: str, label: typing.Optional[str] = None
+    ) -> None:
+        if label is not None and self._taint_tracker is not None:
+            self._taint_tracker.seed_register(name, label)
+
+    def read_register_taint(self, name: str) -> typing.Set[str]:
+        if self._taint_tracker is None:
+            return set()
+        return self._taint_tracker.read_register_taint(name)
+
+    def write_register_taint(self, name: str, taint: typing.Set[str]) -> None:
+        if self._taint_tracker is not None:
+            self._taint_tracker.write_register_taint(name, taint)
+
+    def write_memory_label(
+        self, address: int, size: int, label: typing.Optional[str] = None
+    ) -> None:
+        if label is not None and self._taint_tracker is not None:
+            self._taint_tracker.seed_memory(address, size, label)
+
+    def read_memory_taint(self, address: int, size: int) -> typing.Set[str]:
+        if self._taint_tracker is None:
+            return set()
+        return self._taint_tracker.read_memory_taint(address, size)
+
+    def write_memory_taint(
+        self, address: int, size: int, taint: typing.Set[str]
+    ) -> None:
+        if self._taint_tracker is not None:
+            self._taint_tracker.write_memory_taint(address, size, taint)
 
     # ------------------------------------------------------------------ memory
 
@@ -398,9 +449,14 @@ class StyxEmulator(
         self._stopped_for_exit = False
         proc = self._proc
         assert proc is not None  # _lazy_build set it above
-        proc.start()
-        report = proc.wait_for_stop()
-        self._translate_exit(report)
+        try:
+            proc.start()
+            report = proc.wait_for_stop()
+            self._translate_exit(report)
+        finally:
+            if self._taint_tracker is not None:
+                # Flush the last executed instruction's deferred register writes.
+                self._taint_tracker.finalize()
 
     # ----------------------------------------------------------------- hooks
 
