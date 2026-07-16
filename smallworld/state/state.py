@@ -171,16 +171,11 @@ class Value(metaclass=abc.ABCMeta):
                 return content
 
             if isinstance(content, int):
-                # An int is a logical value with no inherent endianness.
-                # Build the bitvector directly at the correct width; this
-                # matches how registers store ints (claripy.BVV(content, size*8))
-                # and avoids the byte-swap that BVV(bytes) would introduce for
-                # little-endian content, as well as OverflowError on negatives.
-                if size == 0:
-                    raise exceptions.ConfigurationError(
-                        "Cannot create a bitvector of size zero"
-                    )
-                return claripy.BVV(content, size * 8)
+                # The content is an int; convert to bytes for universal handling
+                if byteorder == platforms.Byteorder.BIG:
+                    content = content.to_bytes(size, "big")
+                else:
+                    content = content.to_bytes(size, "little")
 
             if not isinstance(content, bytes) and not isinstance(content, bytearray):
                 # The content is not something I know how to handle.
