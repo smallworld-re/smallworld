@@ -36,6 +36,8 @@ def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
 
 def GhidraSymbolicEmulator(
     platform: platforms.Platform,
+    taint: bool = False,
+    taint_addresses: bool = False,
 ) -> AbstractGhidraSymbolicEmulator:
     """Factory for creating a :class:`GhidraSymbolicEmulator`.
 
@@ -45,6 +47,8 @@ def GhidraSymbolicEmulator(
 
     Arguments:
         platform: The platform to use when creating the emulator.
+        taint: Enable dynamic taint tracking (disabled by default).
+        taint_addresses: Also propagate taint through addresses.
 
     Returns:
         A :class:`GhidraSymbolicEmulator` instance.
@@ -56,7 +60,7 @@ def GhidraSymbolicEmulator(
 
     from .symbolic import GhidraSymbolicEmulator as Emu
 
-    return Emu(platform)
+    return Emu(platform, taint=taint, taint_addresses=taint_addresses)
 
 
 __all__ = ["GhidraEmulator", "GhidraSymbolicEmulator"]

@@ -13,6 +13,7 @@ import pandare2
 
 from ... import exceptions, platforms, utils
 from .. import emulator, hookable
+from ..taint import TaintTracker
 from .machdefs import PandaMachineDef
 
 logger = logging.getLogger(__name__)
@@ -417,9 +418,15 @@ class PandaEmulator(
                 self.manager.run_panda = False
 
     def __init__(
-        self, platform: platforms.Platform, arg_overrides: typing.Dict[str, str] = {}
+        self,
+        platform: platforms.Platform,
+        arg_overrides: typing.Dict[str, str] = {},
+        taint: bool = False,
+        taint_addresses: bool = False,
     ):
-        super().__init__(platform=platform)
+        super().__init__(
+            platform=platform, taint=taint, taint_addresses=taint_addresses
+        )
 
         self.PAGE_SIZE = 0x1000
         self.platform = platform
@@ -454,6 +461,16 @@ class PandaEmulator(
                 self.condition.wait()
             # Clear the event for the next iteration
             self.run_main = False
+
+        # Dynamic taint tracking (disabled unless taint=True). Uses the shared,
+        # emulator-agnostic engine via the all-instruction / all-reads /
+        # all-writes hooks; those hooks are reserved while taint is enabled.
+        self._taint_tracker: typing.Optional[TaintTracker] = None
+        if self._taint:
+            self._taint_tracker = TaintTracker(
+                self, taint_addresses=self._taint_addresses
+            )
+            self._taint_tracker.install()
 
     def _page_range_for_memory(self, address: int, size: int) -> typing.Tuple[int, int]:
         if size <= 0:
@@ -545,6 +562,21 @@ class PandaEmulator(
             )
 
         logger.debug(f"set register {panda_reg_name} (id: {name}) = {content}")
+
+    def write_register_label(
+        self, name: str, label: typing.Optional[str] = None
+    ) -> None:
+        if label is not None and self._taint_tracker is not None:
+            self._taint_tracker.seed_register(name, label)
+
+    def read_register_taint(self, name: str) -> typing.Set[str]:
+        if self._taint_tracker is None:
+            return set()
+        return self._taint_tracker.read_register_taint(name)
+
+    def write_register_taint(self, name: str, taint: typing.Set[str]) -> None:
+        if self._taint_tracker is not None:
+            self._taint_tracker.write_register_taint(name, taint)
 
     def read_memory_content(self, address: int, size: int) -> bytes:
         if size > sys.maxsize:
@@ -663,6 +695,23 @@ class PandaEmulator(
 
         logger.debug(f"wrote {len(content)} bytes to 0x{address:x}")
 
+    def write_memory_label(
+        self, address: int, size: int, label: typing.Optional[str] = None
+    ) -> None:
+        if label is not None and self._taint_tracker is not None:
+            self._taint_tracker.seed_memory(address, size, label)
+
+    def read_memory_taint(self, address: int, size: int) -> typing.Set[str]:
+        if self._taint_tracker is None:
+            return set()
+        return self._taint_tracker.read_memory_taint(address, size)
+
+    def write_memory_taint(
+        self, address: int, size: int, taint: typing.Set[str]
+    ) -> None:
+        if self._taint_tracker is not None:
+            self._taint_tracker.write_memory_taint(address, size, taint)
+
     def disassemble(
         self, code: bytes, base: int, count: typing.Optional[int] = None
     ) -> typing.Tuple[typing.List[capstone.CsInsn], str]:
@@ -706,7 +755,12 @@ class PandaEmulator(
         self.check()
         logger.debug(f"starting emulation at {hex(self.pc)}")
         self.panda_thread.state = self.ThreadState.RUN
-        self.signal_and_wait()
+        try:
+            self.signal_and_wait()
+        finally:
+            if self._taint_tracker is not None:
+                # Flush the last executed instruction's deferred register writes.
+                self._taint_tracker.finalize()
         logger.debug("emulation complete")
 
     def signal_and_wait(self) -> None:

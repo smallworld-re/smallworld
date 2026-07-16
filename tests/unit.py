@@ -197,6 +197,77 @@ class StateTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             foo.set(bad_s)
 
+    def test_register_taint(self):
+        foo = state.Register("foo", 4)
+
+        # No taint by default
+        self.assertEqual(foo.get_taint(), set())
+
+        # Set/get round-trip
+        foo.set_taint({"a", "b"})
+        self.assertEqual(foo.get_taint(), {"a", "b"})
+
+        # set_taint stores an independent copy
+        src = {"x"}
+        foo.set_taint(src)
+        src.add("y")
+        self.assertEqual(foo.get_taint(), {"x"})
+
+        # Taint is independent of content and label
+        foo.set(0xAAAAAAAA)
+        foo.set_label("lbl")
+        self.assertEqual(foo.get_taint(), {"x"})
+        self.assertEqual(foo.get_label(), "lbl")
+
+    def test_register_alias_taint(self):
+        foo = state.Register("foo", 4)
+        bar = state.RegisterAlias("bar", foo, 2, 2)
+
+        # Alias taint delegates to its reference (like labels do)
+        foo.set_taint({"a"})
+        self.assertEqual(bar.get_taint(), {"a"})
+
+        bar.set_taint({"b"})
+        self.assertEqual(foo.get_taint(), {"b"})
+
+    def test_fixed_register_taint(self):
+        zero = state.FixedRegister("zero", 8, 0)
+
+        # Fixed registers cannot be tainted
+        self.assertEqual(zero.get_taint(), set())
+        zero.set_taint({"x"})
+        self.assertEqual(zero.get_taint(), set())
+
+    def test_memory_value_taint(self):
+        value = state.BytesValue(b"\x00\x00\x00\x00", None)
+
+        # No taint by default; set/get round-trips; the stored set is a copy.
+        self.assertEqual(value.get_taint(), set())
+        value.set_taint({"x", "y"})
+        self.assertEqual(value.get_taint(), {"x", "y"})
+        src = {"z"}
+        value.set_taint(src)
+        src.add("w")
+        self.assertEqual(value.get_taint(), {"z"})
+
+    def test_styx_taint_unsupported(self):
+        # Styx cannot yet track taint and must fail fast (never hang) when asked
+        # to. Only meaningful when the styx backend is actually installed.
+        StyxEmulator = getattr(emulators, "StyxEmulator", None)
+        if StyxEmulator is None:
+            self.skipTest("StyxEmulator not available")
+        from smallworld.emulators.styx import styx as styx_mod
+
+        if not getattr(styx_mod, "_STYX_AVAILABLE", False):
+            self.skipTest("styx_emulator not installed")
+
+        platform = platforms.Platform(
+            platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+        )
+        with self.assertRaises(exceptions.ConfigurationError) as ctx:
+            StyxEmulator(platform, taint=True)
+        self.assertIn("taint", str(ctx.exception).lower())
+
     def test_register_aliasing(self):
         foo = state.Register("foo", 4)
         bar = state.RegisterAlias("bar", foo, 2, 2)
@@ -912,6 +983,21 @@ class CPUTests(unittest.TestCase):
             0,
             msg=f"CPU for {platform} did not include the following registers: {all_regs}",
         )
+
+    def test_deepcopy_preserves_taint(self):
+        platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        cpu = state.cpus.CPU.for_platform(platform)
+        cpu.rax.set(0x1234)
+        cpu.rax.set_taint({"src"})
+
+        cpu2 = copy.deepcopy(cpu)
+        self.assertEqual(cpu2.rax.get_taint(), {"src"})
+
+        # The copy is independent of the original.
+        cpu2.rax.set_taint({"other"})
+        self.assertEqual(cpu.rax.get_taint(), {"src"})
 
     def test_cpu_aarch64(self):
         platform = platforms.Platform(
