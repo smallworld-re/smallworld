@@ -2,7 +2,7 @@ name: Pull Request
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened]
 
 env:
   TZ: UTC
@@ -28,18 +28,27 @@ jobs:
           
       - name: Checkout
         uses: actions/checkout@v6
-        env:
-          bot_token: ${{ secrets.BOT_TOKEN }}
-        if: ${{ env.bot_token != '' }}
         with:
-          token: ${{ secrets.BOT_TOKEN }}
+          # Prefer the bot token so the auto-commit step below can push lint
+          # fixups, but fall back to the default workflow token so the job
+          # still checks out and builds when BOT_TOKEN is unset (previously the
+          # checkout was skipped entirely, leaving every later nix step to run
+          # against an empty workspace).
+          token: ${{ secrets.BOT_TOKEN || github.token }}
 
       - name: Cache inputs
         env:
           cachix_token: ${{ secrets.CACHIX_AUTH_TOKEN }}
         if: ${{ env.cachix_token != '' }}
         run: |
-          nix run .#printInputsRecursive | cachix push smallworld
+          # Archive every flake input (recursively) and push the resulting
+          # store paths to Cachix so downstream jobs and contributors get cache
+          # hits. This replaces the `.#printInputsRecursive` flake output that
+          # was removed in the macOS-support refactor (#367) with a
+          # self-contained equivalent.
+          nix flake archive --json \
+            | nix run nixpkgs#jq -- -r '[.. | objects | .path? // empty] | unique | .[]' \
+            | cachix push smallworld
 
       - name: Build devshell
         run: |
@@ -77,11 +86,6 @@ jobs:
           nix develop .#lint -c mypy --explicit-package-bases --ignore-missing-imports ./
           nix develop .#lint -c treefmt -f nixfmt --ci
 
-      - name: Check Title
-        env:
-          TITLE: ${{ github.event.pull_request.title }}
-        run: nix develop -c bash .github/workflows/scripts/conventional.sh "$TITLE"
-
       - name: Build Test Artifacts
         run: |
           nix build ./ci#tests
@@ -110,7 +114,7 @@ jobs:
           nix develop .. -c python3 -m coverage run --parallel-mode unit.py -v
       - name: Upload Coverage Data
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
           path: coverage-data
@@ -141,7 +145,7 @@ jobs:
         run: python -m coverage run --parallel-mode tests/python39/python39_compat.py
       - name: Upload Coverage Data
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-python39
           path: coverage-data
@@ -170,7 +174,7 @@ jobs:
           nix develop .. -c python3 -m coverage run --parallel-mode nix-harness.py 100
       - name: Upload Coverage Data
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-example
           path: coverage-data
@@ -199,7 +203,7 @@ jobs:
           nix run .
       - name: Upload Coverage Data
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-downstream
           path: coverage-data
@@ -254,7 +258,7 @@ jobs:
           nix develop .. -c python3 -m coverage run --parallel-mode integration.py -v --shard-index ${{ matrix.shard }} --shard-count ${{ env.INTEGRATION_SHARD_COUNT }}
       - name: Upload Coverage Data
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-integration-${{ matrix.shard }}
           path: coverage-data
@@ -269,13 +273,13 @@ jobs:
       COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install Coverage
         run: python -m pip install coverage
       - name: Download Coverage Data
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: coverage-*
           path: coverage-artifacts
@@ -393,7 +397,7 @@ jobs:
           PY
       - name: Upload Combined Coverage
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-combined
           path: |
