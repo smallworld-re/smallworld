@@ -41,12 +41,19 @@ ps.buildPythonPackage {
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit src;
-    # Resolve relative to the sub-workspace root and inject the pinned
-    # Cargo.lock that ships next to this file (since the styx-emulator repo
+    # Resolve relative to the sub-workspace root (since the styx-emulator repo
     # ships its bindings workspace with a transient lockfile we want to pin).
     sourceRoot = "${src.name}/styx/bindings";
-    cargoLockOverride = ./Cargo.lock;
-    hash = "sha256-IUNbjYpgjkFUjeQckiFfJt3OCH9tw4pc/KOnsSU2OZA=";
+    # fetchCargoVendor has no `cargoLockOverride` parameter: it vendors the
+    # `Cargo.lock` found at sourceRoot. Copy our pinned lock into place before
+    # the vendoring buildPhase runs so the vendored crate set matches the
+    # lockfile we actually build with (installed into the source by postUnpack
+    # below). This is what lets us bump vulnerable transitive crates here
+    # without touching upstream.
+    postPatch = ''
+      cp ${./Cargo.lock} Cargo.lock
+    '';
+    hash = "sha256-lrjjvAdlQ17zdcw7J0uo6OZPeoqQ0sR/yuTyZV3msTI=";
   };
 
   # Inject our pinned Cargo.lock into the unpacked source tree. cargoSetupHook
