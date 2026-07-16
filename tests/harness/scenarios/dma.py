@@ -85,6 +85,8 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
 }
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
+_PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 
 _SPECS = build_specs(
     DMASpec,
@@ -92,7 +94,7 @@ _SPECS = build_specs(
     # The MMIO register width always matches the pointer width for this scenario.
     field_aliases={"mmio_width": "pointer_size"},
     common={"mmio_address": 0x50014000},
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
 
@@ -110,6 +112,8 @@ SCENARIO_INFO = ScenarioInfo(
             "armel.panda": "Waiting for panda-ng fix",
             "armel.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
             "armhf.styx": "styx CycloneV target lacks MMIO mapping at test addresses",
+            "ppc.styx": "styx PPC405 target lacks MMIO mapping at test addresses",
+            "ppc.styx-mpc860": "styx MPC860 target lacks MMIO mapping at test addresses",
             "ppc64": "Unicorn ppc64 support buggy",
         },
     ),

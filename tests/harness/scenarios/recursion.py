@@ -102,11 +102,13 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
 }
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
+_PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 
 _SPECS = build_specs(
     RecursionSpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
 
@@ -118,7 +120,14 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "recursion"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            # styx-mpc866m's event controller has unimplemented tick/latch/
+            # execute (todo! in event-controllers/ppc/styx-mpc866m/src/lib.rs);
+            # short emulations don't trigger it, but recursion runs long enough
+            # that the controller thread panics and the main loop hangs.
+            "ppc.styx-mpc860": "styx MPC866M event controller unimplemented (hangs)",
+        },
     ),
     run_factory=assert_outputs(
         tuple(

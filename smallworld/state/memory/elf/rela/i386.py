@@ -33,10 +33,10 @@ class I386ElfRelocator(ElfRelocator):
         ):
             # Different semantics, all behave the same
             val = rela.symbol.value + rela.symbol.baseaddr + addend
-            return val.to_bytes(4, "little")
+            return (val & 0xFFFFFFFF).to_bytes(4, "little")
         elif rela.type == R_386_RELATIVE:
             val = elf.address + addend
-            return val.to_bytes(4, "little")
+            return (val & 0xFFFFFFFF).to_bytes(4, "little")
         elif rela.type >= 0 and rela.type < R_386_NUM:
             raise ConfigurationError(
                 f"Valid, but unsupported relocation for {rela.symbol.name}: {rela.type}"

@@ -23,9 +23,9 @@ _ARCH_SPECS = {
 _NO_FIXED_LOAD_ADDRESS = {"armel", "mips", "mips64", "mips64el", "mipsel", "ppc"}
 _NEEDS_T9 = {"mips", "mips64", "mips64el", "mipsel"}
 _EXPECTED_ERRORS = {
-    "read": ("Invalid access at", " of size 1"),
-    "write": ("Invalid access at ", " of size 1"),
-    "uaf": ("Invalid Free at ", None),
+    "read": ("Access uninitialized bytes at ", None),
+    "write": ("Access uninitialized bytes at ", None),
+    "uaf": ("Access freed memory at ", None),
     "double_free": ("Invalid Free at ", None),
 }
 

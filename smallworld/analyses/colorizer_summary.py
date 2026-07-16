@@ -204,10 +204,9 @@ class ColorizerSummary(analysis.Analysis):
                         base_reg_name=hint.base_reg_name,
                         index_reg_name=hint.index_reg_name,
                         offset=hint.offset,
-                        scale=hint.bscale,
+                        scale=hint.scale,
                         pc=hint.pc,
                         count=hk_c[hk],
-                        num_micro_executions=len(self.exec_ids),
                         message=hint.message + "-summary",
                     )
                 )

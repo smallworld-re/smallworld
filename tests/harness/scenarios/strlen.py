@@ -53,12 +53,14 @@ _ARCHS = (
 )
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
+_PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 
 _SPECS = build_specs(
     StrlenSpec,
     _ARCHS,
     field_aliases={"return_address_size": "pointer_size"},
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch={
         # i386 and m68k take the string pointer on the stack rather than in a reg.
         "i386": {"arg_register": None, "stack_argument_size": 4},

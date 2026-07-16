@@ -182,7 +182,7 @@ class SockaddrIn6(Sockaddr):
         return hash((self.addr, self.port, self.flowinfo, self.scopeid))
 
     def __repr__(self) -> str:
-        fields = [self.addr[2 * i] << 8 + self.addr[2 * i + 1] for i in range(0, 8)]
+        fields = [(self.addr[2 * i] << 8) + self.addr[2 * i + 1] for i in range(0, 8)]
         field_str = ":".join(map(lambda x: f"{x:04x}", fields))
         return f"AF_INET6:{field_str}:{self.port}"
 

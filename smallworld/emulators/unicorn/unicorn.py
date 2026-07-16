@@ -226,6 +226,13 @@ class UnicornEmulator(
                 # even after emu_stop() is called.
                 return
 
+            # Fast path: with no read hooks registered there is nothing to do,
+            # so skip the per-read int->bytes conversion entirely.
+            if not self.all_reads_hook and not self.is_memory_read_hooked(
+                address, size
+            ):
+                return
+
             orig_data = value.to_bytes(size, self.platform.byteorder.value)
             if self.all_reads_hook:
                 data = self.all_reads_hook(self, address, size, orig_data)
@@ -262,21 +269,15 @@ class UnicornEmulator(
                 # even after emu_stop() is called.
                 return
 
+            data = None
             if self.all_writes_hook:
-                self.all_writes_hook(
-                    self,
-                    address,
-                    size,
-                    value.to_bytes(size, self.platform.byteorder.value),
-                )
+                data = value.to_bytes(size, self.platform.byteorder.value)
+                self.all_writes_hook(self, address, size, data)
 
             if cb := self.is_memory_write_hooked(address, size):
-                cb(
-                    self,
-                    address,
-                    size,
-                    value.to_bytes(size, self.platform.byteorder.value),
-                )
+                if data is None:
+                    data = value.to_bytes(size, self.platform.byteorder.value)
+                cb(self, address, size, data)
 
         def mem_read_unmapped_callback(uc, type, address, size, value, user_data):
             logger.debug(f"unmapped read of address 0x{address:x}")
@@ -403,7 +404,7 @@ class UnicornEmulator(
         reg, _, _, _, is_msr = self._register(name)
         if reg == 0:
             raise exceptions.UnsupportedRegisterError(
-                "Unicorn does not support register {name} for {self.platform}"
+                f"Unicorn does not support register {name} for {self.platform}"
             )
         try:
             if is_msr:
@@ -424,6 +425,8 @@ class UnicornEmulator(
                     label = self.label[base_reg][i]
                     if label is not None:
                         labels.add(label)
+            if len(labels) == 0:
+                return None
             return ":".join(list(labels))
         return None
 
@@ -446,6 +449,10 @@ class UnicornEmulator(
             content = self._handle_thumb_interwork(content)
 
         reg, base_reg, size, start_offset, is_msr = self._register(name)
+        if reg == 0:
+            raise exceptions.UnsupportedRegisterError(
+                f"Unicorn does not support register {name} for {self.platform}"
+            )
         try:
             if is_msr:
                 self.engine.msr_write(reg, content)
@@ -725,7 +732,10 @@ class UnicornEmulator(
             raise exceptions.EmulationExitpoint
 
         disas = self.current_instruction()
-        logger.debug(f"step block at 0x{disas.address:x}: {disas}")
+        if disas is None:
+            logger.debug(f"step block at 0x{pc:x}: UNDECODABLE")
+        else:
+            logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
             self.engine.emu_start(pc, 0x0)
@@ -791,7 +801,7 @@ class UnicornEmulator(
 
         if typ == "mem":
             prefix = "Failed memory access"
-        if typ == "exec":
+        elif typ == "exec":
             prefix = "Quit emulation"
         else:
             prefix = "Unexpected Unicorn error"

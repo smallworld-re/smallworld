@@ -19,7 +19,9 @@ class CPU(state.StatefulSet):
         new_cpu = (type(self))()
         for x in self.__dict__:
             a = self.__getattribute__(x)
-            if type(a) is state.Register:
+            if isinstance(a, state.Register) and not isinstance(
+                a, (state.RegisterAlias, state.FixedRegister)
+            ):
                 new_cpu.__getattribute__(x).set(self.__getattribute__(x).get())
                 new_cpu.__getattribute__(x).set_label(
                     self.__getattribute__(x).get_label()

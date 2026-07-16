@@ -337,14 +337,14 @@ class Dup2(FDModel):
     name = "dup2"
 
     # int dup2(int, int)
-    argument_types = [ArgumentType.INT]
+    argument_types = [ArgumentType.INT, ArgumentType.INT]
     return_type = ArgumentType.INT
 
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
 
         old_fd = self.get_arg1(emulator)
-        new_fd = self.get_arg1(emulator)
+        new_fd = self.get_arg2(emulator)
         assert isinstance(old_fd, int)
         assert isinstance(new_fd, int)
 
@@ -1117,7 +1117,7 @@ class Lseek(FDModel):
         assert isinstance(whence, int)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
         except FDIOError:
             self.set_return_value(emulator, -1)
             return
@@ -1141,6 +1141,7 @@ class Nice(ProcInfoModel):
         new_nice = self._procmgr.nice + incr
         if new_nice < 0 or new_nice > 39:
             self.set_return_value(emulator, -1)
+            return
         self._procmgr.nice = new_nice
         self.set_return_value(emulator, new_nice - 20)
 
@@ -1224,7 +1225,7 @@ class Pread(FDModel):
         assert isinstance(off, int)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
 
             cursor = file.cursor
             file.seek(off, 0)
@@ -1283,7 +1284,7 @@ class Pwrite(FDModel):
         data = emulator.read_memory(buf, size)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
 
             cursor = file.cursor
             file.seek(off, 0)
@@ -1395,17 +1396,18 @@ class Sbrk(ProcInfoModel):
             )
             logger.warning("To avoid, please set model._procmgr.brk in your harness.")
 
-        new_brk = self._procmgr.brk + incr
-        if new_brk > self._procmgr.brk:
+        old_brk = self._procmgr.brk
+        new_brk = old_brk + incr
+        if new_brk > old_brk:
             # WARNING: This can fail
             logger.warning(
                 "Attempting to alter the program break from "
-                f"{hex(self._procmgr.brk)} to {new_brk}"
+                f"{hex(old_brk)} to {hex(new_brk)}"
             )
-            emulator.map_memory(self._procmgr.brk, incr)
+            emulator.map_memory(old_brk, incr)
 
         self._procmgr.brk = new_brk
-        self.set_return_value(emulator, new_brk)
+        self.set_return_value(emulator, old_brk)
 
 
 class Setegid(ProcInfoModel):
@@ -1599,13 +1601,19 @@ class Swab(CStdModel):
             # Why do we even have that lever?
             return
 
-        # swab()'s behavior for the last byte
-        # is technically undefined if size is odd.
-        # Be nice, and just leave it alone.
-        for i in range(0, size, 2):
-            data = emulator.read_memory(src + i, 2)
-            data = bytes([data[1], data[0]])
-            emulator.write_memory(dst + i, data)
+        # swab()'s behavior for the last byte is technically undefined if size
+        # is odd. Match the original loop, which via range(0, size, 2) also
+        # touched the byte at index `size` when size is odd, so round up to
+        # even. Read and write the whole region in one shot instead of one
+        # 2-byte read/write pair per word.
+        n = size + (size & 1)
+        if n == 0:
+            return
+        data = emulator.read_memory(src, n)
+        out = bytearray(n)
+        out[0::2] = data[1::2]
+        out[1::2] = data[0::2]
+        emulator.write_memory(dst, bytes(out))
 
 
 class Symlink(CStdModel):
@@ -1750,9 +1758,9 @@ class Ttyname(FDModel):
         fd = self.get_arg1(emulator)
         assert isinstance(fd, int)
 
-        if fd >= 0 or fd <= 2:
+        if 0 <= fd <= 2:
             try:
-                file = self._fdmgr.get(fd)
+                file = self._fdmgr.get_fd(fd)
                 out = (
                     file.name.encode("utf-8")[0 : self.static_space_needed - 1] + b"\0"
                 )
@@ -1785,9 +1793,9 @@ class TtynameR(FDModel):
         assert isinstance(ptr, int)
         assert isinstance(size, int)
 
-        if fd >= 0 or fd <= 2:
+        if 0 <= fd <= 2:
             try:
-                file = self._fdmgr.get(fd)
+                file = self._fdmgr.get_fd(fd)
                 out = file.name.encode("utf-8") + b"\0"
                 if len(out) > size:
                     self.set_return_value(emulator, -1)
@@ -1913,7 +1921,7 @@ class Write(FDModel):
         data = emulator.read_memory(buf, size)
 
         try:
-            file = self._fdmgr.get(fd)
+            file = self._fdmgr.get_fd(fd)
             file.write(data)
             self.set_return_value(emulator, len(data))
         except FDIOError:
