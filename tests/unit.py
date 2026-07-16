@@ -2379,7 +2379,7 @@ class StyxMachdefTests(unittest.TestCase):
     """Sanity checks on the SmallWorld Styx machine definitions.
 
     Mirrors the shape of :class:`UnicornMachdefTests` but only covers the
-    architectures Styx supports (32-bit ARM today).
+    architectures Styx supports (32-bit ARM and 32-bit PowerPC).
     """
 
     def _machdef_for(self, platform):
@@ -2404,6 +2404,30 @@ class StyxMachdefTests(unittest.TestCase):
         machdef = self._machdef_for(platform)
         for name in ("r0", "r1", "r2", "sp", "lr", "pc", "cpsr"):
             self.assertTrue(machdef.has_register(name))
+
+    def test_ppc_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        machdef = self._machdef_for(platform)
+        # Core PowerPC registers should all be addressable.
+        for name in ("r0", "r1", "r3", "sp", "bp", "lr", "pc", "ctr", "cr0", "msr", "xer"):
+            self.assertTrue(
+                machdef.has_register(name),
+                msg=f"ppc machdef missing register '{name}'",
+            )
+        # FPRs and cr1-cr6 are intentionally unmapped: the PPC405 Pcode register
+        # file can't access them, and the map is shared with the MPC860 core.
+        self.assertFalse(machdef.has_register("f0"))
+        self.assertFalse(machdef.has_register("cr3"))
+
+    def test_ppc64_raises_configuration_error(self):
+        # Styx has no 64-bit PowerPC core, so POWERPC64 is unsupported.
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC64, platforms.Byteorder.BIG
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            self._machdef_for(platform)
 
     def test_aarch64_raises_configuration_error(self):
         platform = platforms.Platform(
@@ -2471,6 +2495,98 @@ class StyxEmulatorTests(unittest.TestCase):
         self.emu.hook_instruction(0x1000, cb)
         # The hookable mixin stores the function in ``instruction_hooks``.
         self.assertIs(self.emu.is_instruction_hooked(0x1000), cb)
+
+    def test_ppc_cpu_model_selects_target(self):
+        # The PowerPC machdef serves both Styx cores; cpu_model picks the
+        # (Target, Backend) pair: PPC405 on Pcode, MPC860 on Unicorn.
+        from styx_emulator.cpu import Backend
+        from styx_emulator.processor import Target
+
+        ppc = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        default = emulators.StyxEmulator(ppc)
+        self.assertEqual(
+            (default._target, default._backend), (Target.Ppc4xx, Backend.Pcode)
+        )
+        ppc405 = emulators.StyxEmulator(ppc, cpu_model="ppc405")
+        self.assertEqual(
+            (ppc405._target, ppc405._backend), (Target.Ppc4xx, Backend.Pcode)
+        )
+        mpc860 = emulators.StyxEmulator(ppc, cpu_model="mpc860")
+        self.assertEqual(
+            (mpc860._target, mpc860._backend), (Target.Mpc8xx, Backend.Unicorn)
+        )
+
+    def test_unknown_cpu_model_rejected(self):
+        ppc = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        with self.assertRaises(exceptions.ConfigurationError):
+            emulators.StyxEmulator(ppc, cpu_model="does-not-exist")
+
+
+@unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
+class StyxPowerPCExecutionTests(unittest.TestCase):
+    """End-to-end execution checks for PowerPC on Styx.
+
+    Loads the ``square`` test fixture (``mullw r3, r3, r3``) and runs it to an
+    exit point, asserting the squared result lands back in ``r3``. The default
+    core is the PPC405 (``Target.Ppc4xx``).
+    """
+
+    def _square_on(self, cpu_model, base=0x1000, value=5):
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model=cpu_model)
+        code = (TESTS_DIR / "square" / "square.ppc.bin").read_bytes()
+        emu.write_code(base, code)
+        emu.write_register_content("pc", base)
+        emu.write_register_content("r3", value)
+        emu.add_exit_point(base + len(code))
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu.read_register_content("r3")
+
+    def test_ppc405_squares_argument(self):
+        self.assertEqual(self._square_on(None), 25)
+
+    def test_mpc860_squares_argument(self):
+        # MPC860 runs on the Unicorn backend (its Pcode path is unimplemented).
+        self.assertEqual(self._square_on("mpc860"), 25)
+
+    def _run_fuzz(self, user_input):
+        # Runs the styx fuzz program (tests/fuzz/fuzz.ppc.bin) on MPC860, whose
+        # firmware memory map leaves the bad-write target (0x12345678) unmapped
+        # so the "bad!" trigger faults (PPC405 maps the full 4 GiB instead).
+        platform = platforms.Platform(
+            platforms.Architecture.POWERPC32, platforms.Byteorder.BIG
+        )
+        emu = emulators.StyxEmulator(platform, cpu_model="mpc860")
+        code = (TESTS_DIR / "fuzz" / "fuzz.ppc.bin").read_bytes()
+        emu.write_code(0x1000, code)
+        emu.write_memory_content(
+            0x2000, len(user_input).to_bytes(4, "big") + user_input
+        )
+        emu.write_register_content("pc", 0x1000)
+        emu.write_register_content("r3", 0x2000)
+        emu.add_exit_point(0x1000 + 88)
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu
+
+    def test_mpc860_fuzz_benign_input_returns_zero(self):
+        self.assertEqual(self._run_fuzz(b"goodgoodgood").read_register_content("r3"), 0)
+
+    def test_mpc860_fuzz_trigger_input_crashes(self):
+        # "bad!" + a 5th byte makes the program store to unmapped 0x12345678.
+        with self.assertRaises(exceptions.EmulationError):
+            self._run_fuzz(b"bad!AAAAAAAA")
 
 
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")

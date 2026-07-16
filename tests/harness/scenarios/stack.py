@@ -216,7 +216,7 @@ _SPECS = {
         platform=PlatformSpec("POWERPC32", "BIG"),
         pc_register="pc",
         result_register="r3",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx", "styx-mpc860"),
         register_arguments=(
             ("r3", 0x1111),
             ("r4", 0x01010101),

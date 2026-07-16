@@ -13,8 +13,9 @@ Notable differences from the Unicorn / Ghidra backends:
   the builder. Once built, registration order doesn't matter — hooks and
   writes are routed straight through to the live processor.
 - **No symbolic values**: ``SymbolicValueError`` for any ``claripy`` input.
-- **32-bit ARM only**: ``ConfigurationError`` for anything else (Styx has no
-  x86 or 64-bit ARM target).
+- **Limited target set**: 32-bit ARM (armhf/armel) and 32-bit PowerPC (ppc) are
+  supported; anything else raises ``ConfigurationError``. For PowerPC an optional
+  ``cpu_model`` selects the Styx core (``"ppc405"`` default, or ``"mpc860"``).
 - **Function hooks short-circuit the body**: ``hook_function(addr, fn)``
   installs a code hook at ``addr`` whose callback runs the user function then
   jumps PC to the link register. This matches the Unicorn backend's semantics
@@ -110,7 +111,7 @@ class StyxEmulator(
     hookable.QMemoryWriteHookable,
     hookable.QInterruptHookable,
 ):
-    """Concrete 32-bit-ARM Styx emulator backend for SmallWorld."""
+    """Styx emulator backend for SmallWorld (32-bit ARM and PowerPC)."""
 
     name = "styx-emulator"
     description = "emulator based on the styx-emulator firmware emulation framework"
@@ -121,7 +122,9 @@ class StyxEmulator(
     # full 32-bit address space.
     _GLOBAL_HOOK_END = 0xFFFFFFFF
 
-    def __init__(self, platform: platforms.Platform):
+    def __init__(
+        self, platform: platforms.Platform, cpu_model: typing.Optional[str] = None
+    ):
         if not _STYX_AVAILABLE:
             raise exceptions.ConfigurationError(
                 "styx_emulator is not installed; install smallworld with the "
@@ -130,13 +133,18 @@ class StyxEmulator(
         super().__init__(platform)
         self.platform: platforms.Platform = platform
         self.machdef: StyxMachineDef = StyxMachineDef.for_platform(platform)
+        # Which Styx ``Target`` to build. Multi-core families (PowerPC) use an
+        # optional ``cpu_model`` to choose; otherwise the machdef default applies.
+        self.cpu_model: typing.Optional[str] = cpu_model
+        self._target: typing.Any = self.machdef.styx_target(cpu_model)
+        self._backend: typing.Any = self.machdef.styx_backend(cpu_model)
 
         # The Styx processor isn't built yet — we accumulate setup operations
         # in the builder until the first execution call.
         self._builder = ProcessorBuilder()
         self._builder.loader = RawLoader()
         self._builder.executor = DefaultExecutor()
-        self._builder.backend = self.machdef.backend
+        self._builder.backend = self._backend
         # RawLoader needs *some* program to chew on; an empty payload lets the
         # caller write code via ``write_code`` after build. We use a tempfile
         # because the binding expects a path string for ``target_program``.
@@ -173,7 +181,7 @@ class StyxEmulator(
             self._sync_exit_points()
             return
 
-        self._proc = self._builder.build(self.machdef.target)
+        self._proc = self._builder.build(self._target)
 
         for addr, data, is_code in self._pending_writes:
             self._do_write(addr, data, is_code=is_code)
