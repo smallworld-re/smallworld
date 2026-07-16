@@ -126,6 +126,7 @@ class StyxEmulator(
     def __init__(
         self,
         platform: platforms.Platform,
+        cpu_model: typing.Optional[str] = None,
         taint: bool = False,
         taint_addresses: bool = False,
     ):
