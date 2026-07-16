@@ -120,14 +120,7 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "recursion"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={
-            "ppc64": "Unicorn ppc64 support buggy",
-            # styx-mpc866m's event controller has unimplemented tick/latch/
-            # execute (todo! in event-controllers/ppc/styx-mpc866m/src/lib.rs);
-            # short emulations don't trigger it, but recursion runs long enough
-            # that the controller thread panics and the main loop hangs.
-            "ppc.styx-mpc860": "styx MPC866M event controller unimplemented (hangs)",
-        },
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
     ),
     run_factory=assert_outputs(
         tuple(

@@ -65,6 +65,19 @@ ps.buildPythonPackage {
     chmod -R u+w source
     install -m 0644 ${./Cargo.lock} source/styx/bindings/Cargo.lock
     install -m 0644 ${./Cargo.lock} source/styx/bindings/styx-py-api/Cargo.lock
+
+    # MPC860 (PowerQUICC I) event-controller fix: the upstream styx-mpc866m
+    # controller has `todo!()` in tick/latch/execute, so any MPC860 run that
+    # completes a full instruction stride (long emulation / fuzzing) panics and
+    # hangs. These carry a full implementation (exception delivery + decrementer)
+    # authored here in-tree, since we do not modify the styx repo. `.rs`-only,
+    # so no Cargo.lock / vendor-hash change. See patches/ and mpc860/.
+    install -m 0644 ${./mpc860/event.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/event.rs
+    install -m 0644 ${./mpc860/exception.rs} source/styx/event-controllers/ppc/styx-mpc866m/src/exception.rs
+    install -m 0644 ${./mpc860/hooks.rs}     source/styx/event-controllers/ppc/styx-mpc866m/src/hooks.rs
+    patch -p1 -d source < ${./patches/styx-mpc866m-lib.patch}
+    patch -p1 -d source < ${./patches/powerquicci-siu.patch}
+    patch -p1 -d source < ${./patches/powerquicci-mtspr.patch}
   '';
 
   postPatch = ''
