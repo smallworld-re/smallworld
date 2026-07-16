@@ -4,6 +4,12 @@ on:
     - cron: "00 3 * * *"
   workflow_dispatch:
 
+# Serialize runs so a scheduled build and a manual dispatch don't race on the
+# shared ':latest'/':buildcache' tags. Don't cancel an in-flight run mid-push.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   Build-Container:
     runs-on: smallworld-arc
@@ -17,17 +23,16 @@ jobs:
           update-ca-certificates
 
       - name: Log in to Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ${{ secrets.REGISTRY }}
           username: ${{ secrets.REGISTRY_USER }}
           password: ${{ secrets.REGISTRY_PASSWORD }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           driver-opts: |
-            image=moby/buildkit:master
             network=host
           buildkitd-config-inline: |
             [registry."${{ secrets.REGISTRY }}"]
@@ -42,3 +47,9 @@ jobs:
           tags: |
             ${{ secrets.REGISTRY }}/smallworld/smallworld_ci:${{ github.sha }}
             ${{ secrets.REGISTRY }}/smallworld/smallworld_ci:latest
+          # Reuse layers from the previous nightly build instead of rebuilding
+          # every layer cold. The cache is stored in the registry under a
+          # dedicated tag; image-manifest/oci-mediatypes keep it in a format
+          # the Harbor registry accepts.
+          cache-from: type=registry,ref=${{ secrets.REGISTRY }}/smallworld/smallworld_ci:buildcache
+          cache-to: type=registry,ref=${{ secrets.REGISTRY }}/smallworld/smallworld_ci:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
