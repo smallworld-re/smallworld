@@ -2411,7 +2411,19 @@ class StyxMachdefTests(unittest.TestCase):
         )
         machdef = self._machdef_for(platform)
         # Core PowerPC registers should all be addressable.
-        for name in ("r0", "r1", "r3", "sp", "bp", "lr", "pc", "ctr", "cr0", "msr", "xer"):
+        for name in (
+            "r0",
+            "r1",
+            "r3",
+            "sp",
+            "bp",
+            "lr",
+            "pc",
+            "ctr",
+            "cr0",
+            "msr",
+            "xer",
+        ):
             self.assertTrue(
                 machdef.has_register(name),
                 msg=f"ppc machdef missing register '{name}'",
@@ -2752,27 +2764,6 @@ class DocumentationReferenceTests(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
-<<<<<<< Updated upstream
-class _RawIntSizeValue(state.Value):
-    """Minimal concrete Value with int content and an arbitrary size.
-
-    Used to exercise Value.to_symbolic with sizes IntegerValue rejects.
-    """
-
-    def __init__(self, content: int, size: int) -> None:
-        super().__init__()
-        self._content = content
-        self._size = size
-
-    def get_size(self) -> int:
-        return self._size
-
-    def to_bytes(self) -> bytes:
-        return b""
-
-
-=======
->>>>>>> Stashed changes
 class RangeCollectionRemoveTests(unittest.TestCase):
     """Tests for utils.RangeCollection.remove_range."""
 
@@ -2996,33 +2987,6 @@ class MachineReadMemoryTests(unittest.TestCase):
         self.assertEqual(machine.read_memory(0x2001, 2), b"\xbe\xad")
 
 
-<<<<<<< Updated upstream
-class ValueToSymbolicTests(unittest.TestCase):
-    """Tests for state.Value.to_symbolic with integer content."""
-
-    def test_to_symbolic_int_little_endian_no_byteswap(self):
-        value = state.IntegerValue(0x11223344, 4, None, platforms.Byteorder.LITTLE)
-        bv = value.to_symbolic(platforms.Byteorder.LITTLE)
-        self.assertTrue(bv.structurally_match(claripy.BVV(0x11223344, 32)))
-
-    def test_to_symbolic_int_big_endian(self):
-        value = state.IntegerValue(0x1122, 2, None, platforms.Byteorder.BIG)
-        bv = value.to_symbolic(platforms.Byteorder.BIG)
-        self.assertTrue(bv.structurally_match(claripy.BVV(0x1122, 16)))
-
-    def test_to_symbolic_negative_int_twos_complement(self):
-        value = state.IntegerValue(-2, 4, None, platforms.Byteorder.LITTLE)
-        bv = value.to_symbolic(platforms.Byteorder.LITTLE)
-        self.assertTrue(bv.structurally_match(claripy.BVV(0xFFFFFFFE, 32)))
-
-    def test_to_symbolic_size_zero_raises_configuration_error(self):
-        value = _RawIntSizeValue(5, 0)
-        with self.assertRaises(exceptions.ConfigurationError):
-            value.to_symbolic(platforms.Byteorder.LITTLE)
-
-
-=======
->>>>>>> Stashed changes
 AARCH64_LE_PLATFORM = platforms.Platform(
     platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
 )
