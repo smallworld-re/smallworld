@@ -2636,6 +2636,7 @@ class DocumentationReferenceTests(unittest.TestCase):
         self.assertEqual(missing, [])
 
 
+<<<<<<< Updated upstream
 class _RawIntSizeValue(state.Value):
     """Minimal concrete Value with int content and an arbitrary size.
 
@@ -2654,6 +2655,8 @@ class _RawIntSizeValue(state.Value):
         return b""
 
 
+=======
+>>>>>>> Stashed changes
 class RangeCollectionRemoveTests(unittest.TestCase):
     """Tests for utils.RangeCollection.remove_range."""
 
@@ -2877,6 +2880,7 @@ class MachineReadMemoryTests(unittest.TestCase):
         self.assertEqual(machine.read_memory(0x2001, 2), b"\xbe\xad")
 
 
+<<<<<<< Updated upstream
 class ValueToSymbolicTests(unittest.TestCase):
     """Tests for state.Value.to_symbolic with integer content."""
 
@@ -2901,6 +2905,8 @@ class ValueToSymbolicTests(unittest.TestCase):
             value.to_symbolic(platforms.Byteorder.LITTLE)
 
 
+=======
+>>>>>>> Stashed changes
 AARCH64_LE_PLATFORM = platforms.Platform(
     platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
 )
