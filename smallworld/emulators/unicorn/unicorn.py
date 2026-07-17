@@ -104,6 +104,18 @@ class UnicornEmulator(
         # the label on that address in memory
         self.label: typing.Dict[str, typing.Dict[int, str]] = {}
 
+        # Set a default exit.
+        # Unicorn allows the specification of a single exit point
+        # in emu_start(), but we handle our exit points through a different mechanism.
+        # Use what amounts to the platform's max address as an exit point
+        # when calling emu_start()
+        self.default_exit = (1 << (self.platdef.address_size * 8)) - 8
+        if self.platform.architecture == platforms.Architecture.MIPS32:
+            # Using max address on mips32 platforms
+            # produces a spurious "read unmapped" error when emu_start() returns.
+            # Experimentally, this is the highest valid exit point.
+            self.default_exit = 0x80000000
+
         # this will run on *every instruction
         def code_callback(uc, address, size, user_data):
             # Save the current PC.
@@ -712,7 +724,12 @@ class UnicornEmulator(
                 logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, 0x0)
+            # Use a dummy sentinel as the Unicorn exit point.
+            # We manage exit points via a different mechanism.
+            # Previously, this was zero, but that caused spurious clean exits
+            # if code jumped to NULL.
+            # If anyone puts code at MAX_INT - 7, I will be very cross.
+            self.engine.emu_start(pc, self.default_exit)
         except unicorn.UcError as e:
             if (
                 e.errno == unicorn.UC_ERR_FETCH_UNMAPPED
@@ -738,12 +755,12 @@ class UnicornEmulator(
             logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, self.default_exit)
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, self.default_exit)
         except unicorn.UcError as e:
             self._error(e, "exec")
 
@@ -758,7 +775,13 @@ class UnicornEmulator(
         try:
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+
+            # Use a dummy sentinel as the Unicorn exit point.
+            # We manage exit points via a different mechanism.
+            # Previously, this was zero, but that caused spurious clean exits
+            # if code jumped to NULL.
+            # If anyone puts code at MAX_INT - 7, I will be very cross.
+            self.engine.emu_start(pc, self.default_exit)
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:
