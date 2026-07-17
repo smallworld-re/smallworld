@@ -1826,6 +1826,13 @@ class ConcreteAngrEmulator(AngrEmulator):
         self.machdef: AngrMachineDef = parent.machdef
         self.pagesize: int = parent.PAGE_SIZE
 
+        # Taint state is shared with the parent;
+        # _taint_sources is the same set, so labels added inside hooks
+        # are visible to the parent when it computes taint.
+        self._taint: bool = parent._taint
+        self._taint_addresses: bool = parent._taint_addresses
+        self._taint_sources: typing.Set[str] = parent._taint_sources
+
     # Function hooking is not supported;
     # it relies on state global to the angr project, not individual states.
     def hook_function(
