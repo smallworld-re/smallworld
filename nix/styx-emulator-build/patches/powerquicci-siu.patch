@@ -1,0 +1,40 @@
+--- a/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit.rs	2026-07-08 17:27:50.445519166 -0400
++++ b/styx/processors/ppc/styx-powerquicci-processor/src/system_interface_unit.rs	2026-07-08 17:32:46.687294697 -0400
+@@ -10,7 +10,9 @@
+ use styx_core::hooks::HookToken;
+ use styx_core::prelude::CpuBackend;
+ use styx_core::prelude::Peripheral;
++use styx_core::prelude::{Delta, EventControllerImpl, ExceptionNumber, Mmu};
+ use styx_core::sync::sync::Arc;
++use styx_mpc866m::Mpc866mIRQn;
+ use tracing::{debug, error, trace, warn};
+ 
+ mod mtspr_manager;
+@@ -187,4 +189,27 @@
+     fn name(&self) -> &str {
+         "System Interface Unit"
+     }
++
++    /// The SIU owns the decrementer, so it advertises that exception number.
++    fn irqs(&self) -> Vec<ExceptionNumber> {
++        vec![Mpc866mIRQn::Decrementer as ExceptionNumber]
++    }
++
++    /// Advance the timebase and decrementer once per stride. On decrementer
++    /// underflow, latch a Decrementer exception; the controller only delivers it
++    /// when the guest has enabled interrupts (MSR[EE]), so this is a no-op for
++    /// interrupt-disabled workloads.
++    fn tick(
++        &mut self,
++        _cpu: &mut dyn CpuBackend,
++        _mmu: &mut Mmu,
++        event_controller: &mut dyn EventControllerImpl,
++        delta: &Delta,
++    ) -> Result<(), UnknownError> {
++        let step = delta.count.min(u32::MAX as u64) as u32;
++        if self.mtspr_mgr.tick(step) {
++            let _ = event_controller.latch(Mpc866mIRQn::Decrementer as ExceptionNumber);
++        }
++        Ok(())
++    }
+ }
