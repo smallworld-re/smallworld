@@ -3808,7 +3808,9 @@ class SparseMemoryMappedModelTests(unittest.TestCase):
         emu = SimpleNamespace(read_register=lambda name: 0x400000)
 
         # A registered sub-region still works normally...
-        self.assertEqual(sparse.on_read(emu, 0x1010, 4, b"\x00" * 4), bytes([1, 2, 3, 4]))
+        self.assertEqual(
+            sparse.on_read(emu, 0x1010, 4, b"\x00" * 4), bytes([1, 2, 3, 4])
+        )
         # ...but the gap between registers faults like unmapped memory.
         with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
             sparse.on_read(emu, 0x1000, 4, b"\x00" * 4)
