@@ -131,9 +131,7 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 and not issubclass(x, Model),
             )
         except ValueError:
-            raise ValueError(
-                f"No CStdCallingContext for {platform} with ABI '{abi}'"
-            )
+            raise ValueError(f"No CStdCallingContext for {platform} with ABI '{abi}'")
 
     # *** Integer arithmetic constants ***
     #
