@@ -1,7 +1,7 @@
 import logging
 import typing
 
-from ... import emulators, platforms, utils
+from ... import emulators, platforms
 from .cstd import ArgumentType, CStdCallingContext
 from .model import Model
 
@@ -66,17 +66,11 @@ class ReturnConstant(Model):
         self.abi = abi
         self.value = value
 
-        # Borrow the ABI-specific return machinery.  We match on platform AND
-        # abi (CStdCallingContext.for_platform ignores the abi), and exclude
-        # Model subclasses so we resolve the pure calling-context base (e.g.
-        # AMD64SysVCallingContext) rather than a concrete function model that
-        # happens to share the platform.
+        # Borrow the ABI-specific return machinery from the calling context
+        # for this platform/ABI (the pure context base, not a function model).
         try:
-            self._context: CStdCallingContext = utils.find_subclass(
-                CStdCallingContext,
-                lambda x: x.platform == platform
-                and x.abi == abi
-                and not issubclass(x, Model),
+            self._context: CStdCallingContext = (
+                CStdCallingContext.for_platform_and_abi(platform, abi)
             )
         except ValueError:
             raise ValueError(f"no calling context for {platform} with ABI '{abi}'")
