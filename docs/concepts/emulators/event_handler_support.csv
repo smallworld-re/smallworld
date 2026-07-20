@@ -1,0 +1,6 @@
+,               angr,   ghidra,     panda,      unicorn
+Instruction,    Yes,    Yes,        Yes,        Yes
+Function,       Yes,    Yes,        Yes,        Yes
+Memory Access,  Yes,    Yes,        Yes,        Yes
+System Calls,   Yes,    No,         No,         No
+Interrupts,     No,     No,         Yes,        Yes
