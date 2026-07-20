@@ -340,7 +340,7 @@ to capture reads and writes to a certain location:
 Default MMIO Models
 -------------------
 
-Three ready-made ``MemoryMappedModel`` subclasses cover common cases so you
+Four ready-made ``MemoryMappedModel`` subclasses cover common cases so you
 don't have to write ``on_read()``/``on_write()`` by hand.  All handle partial
 and straddling accesses for you.
 
@@ -367,12 +367,23 @@ written are stored and read back.  The backing bytes are exposed as ``.data``
     # ... after emulation, inspect what was written:
     print(ram.data[0:4])
 
+``UnmappedMemoryMappedModel`` faults on any access: reads raise
+``EmulationReadUnmappedFailure`` and writes raise
+``EmulationWriteUnmappedFailure``, as though the region were not mapped.
+
+.. code-block:: python
+
+    from smallworld.state.models import UnmappedMemoryMappedModel
+
+    machine.add(UnmappedMemoryMappedModel(0x40000000, 0x1000))
+
 ``SparseMemoryMappedModel`` models a large region that is sparsely populated
 with registers.  A single model owns the whole region; register handlers for
 individual sub-regions with ``add_register()``.  Anything not covered is
-served by a "slack" model -- ``"null"`` (default) or ``"ram"``.  Each
-registered handler only ever sees accesses contained within its own
-sub-region, so you never deal with straddling accesses yourself.
+served by a "slack" model -- ``"null"`` (default), ``"ram"``, or
+``"unmapped"`` (fault on access).  Each registered handler only ever sees
+accesses contained within its own sub-region, so you never deal with
+straddling accesses yourself.
 
 .. code-block:: python
 

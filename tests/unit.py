@@ -88,6 +88,7 @@ from smallworld.state.models.defaultmmio import (
     NullMemoryMappedModel,
     RAMMemoryMappedModel,
     SparseMemoryMappedModel,
+    UnmappedMemoryMappedModel,
 )
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
@@ -3799,6 +3800,38 @@ class SparseMemoryMappedModelTests(unittest.TestCase):
     def test_bad_slack_policy_raises(self):
         with self.assertRaises(ValueError):
             SparseMemoryMappedModel(0x1000, 0x100, slack="bogus")
+
+    def test_unmapped_slack_faults_on_gap_but_not_registers(self):
+        sparse = SparseMemoryMappedModel(0x1000, 0x100, slack="unmapped")
+        reg = sparse.add_register(RAMMemoryMappedModel(0x1010, 4))
+        reg.data[:] = bytes([1, 2, 3, 4])
+        emu = SimpleNamespace(read_register=lambda name: 0x400000)
+
+        # A registered sub-region still works normally...
+        self.assertEqual(sparse.on_read(emu, 0x1010, 4, b"\x00" * 4), bytes([1, 2, 3, 4]))
+        # ...but the gap between registers faults like unmapped memory.
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+            sparse.on_read(emu, 0x1000, 4, b"\x00" * 4)
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            sparse.on_write(emu, 0x1000, 4, b"\x00" * 4)
+
+
+class UnmappedMemoryMappedModelTests(unittest.TestCase):
+    """defaultmmio.py UnmappedMemoryMappedModel: any access faults."""
+
+    def setUp(self):
+        self.emu = SimpleNamespace(read_register=lambda name: 0x400000)
+        self.model = UnmappedMemoryMappedModel(0x1000, 8)
+
+    def test_read_raises_unmapped(self):
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as ctx:
+            self.model.on_read(self.emu, 0x1000, 4, b"\x00" * 4)
+        self.assertEqual(ctx.exception.address, 0x1000)
+
+    def test_write_raises_unmapped(self):
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure) as ctx:
+            self.model.on_write(self.emu, 0x1004, 4, b"\x00" * 4)
+        self.assertEqual(ctx.exception.address, 0x1004)
 
 
 class NiceModelTests(ModelTestCase):

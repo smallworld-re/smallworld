@@ -19,6 +19,7 @@ from .defaultmmio import (
     NullMemoryMappedModel,
     RAMMemoryMappedModel,
     SparseMemoryMappedModel,
+    UnmappedMemoryMappedModel,
 )
 from .mmio import MemoryMappedModel
 from .model import *  # noqa: F401, F403
@@ -29,6 +30,7 @@ __all__ = __model__ + [
     "MemoryMappedModel",
     "NullMemoryMappedModel",
     "RAMMemoryMappedModel",
+    "UnmappedMemoryMappedModel",
     "SparseMemoryMappedModel",
     "ReturnConstant",
     "aarch64",

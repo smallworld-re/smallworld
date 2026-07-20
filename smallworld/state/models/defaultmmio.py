@@ -1,7 +1,7 @@
 import logging
 import typing
 
-from ... import emulators
+from ... import emulators, exceptions
 from .mmio import MemoryMappedModel
 
 logger = logging.getLogger(__name__)
@@ -106,6 +106,39 @@ class RAMMemoryMappedModel(MemoryMappedModel):
         self.data[reg_off : reg_off + length] = value[acc_off : acc_off + length]
 
 
+class UnmappedMemoryMappedModel(MemoryMappedModel):
+    """A default MMIO model that faults on any access.
+
+    Any read raises ``EmulationReadUnmappedFailure`` and any write raises
+    ``EmulationWriteUnmappedFailure``, as though the region were not mapped.
+    Useful as the slack for :class:`SparseMemoryMappedModel`, so that
+    accesses to the gaps between registers fault like unmapped memory
+    instead of silently succeeding.
+
+    Arguments:
+        address: Starting address of the MMIO region.
+        size: Size of the MMIO region in bytes.
+    """
+
+    def on_read(
+        self, emu: emulators.Emulator, addr: int, size: int, data: bytes
+    ) -> typing.Optional[bytes]:
+        raise exceptions.EmulationReadUnmappedFailure(
+            f"read from unmapped MMIO region at {addr:#x}",
+            emu.read_register("pc"),
+            address=addr,
+        )
+
+    def on_write(
+        self, emu: emulators.Emulator, addr: int, size: int, value: bytes
+    ) -> None:
+        raise exceptions.EmulationWriteUnmappedFailure(
+            f"write to unmapped MMIO region at {addr:#x}",
+            emu.read_register("pc"),
+            address=addr,
+        )
+
+
 class SparseMemoryMappedModel(MemoryMappedModel):
     """A default MMIO model for a large, sparsely-populated region.
 
@@ -126,9 +159,9 @@ class SparseMemoryMappedModel(MemoryMappedModel):
         size: Size of the region in bytes.
         slack: Behavior for bytes not covered by a registered handler.
             ``"null"`` (default) reports zeroes and discards writes; ``"ram"``
-            stores writes and reads them back.  A ``MemoryMappedModel``
-            instance spanning the whole region may be passed for custom
-            behavior.
+            stores writes and reads them back; ``"unmapped"`` faults on any
+            access.  A ``MemoryMappedModel`` instance spanning the whole
+            region may be passed for custom behavior.
     """
 
     def __init__(
@@ -146,6 +179,8 @@ class SparseMemoryMappedModel(MemoryMappedModel):
             self.slack = NullMemoryMappedModel(address, size)
         elif slack == "ram":
             self.slack = RAMMemoryMappedModel(address, size)
+        elif slack == "unmapped":
+            self.slack = UnmappedMemoryMappedModel(address, size)
         else:
             raise ValueError(f"unknown slack policy {slack!r}")
         # Kept sorted by address; guaranteed non-overlapping by add_register.
@@ -247,5 +282,6 @@ class SparseMemoryMappedModel(MemoryMappedModel):
 __all__ = [
     "NullMemoryMappedModel",
     "RAMMemoryMappedModel",
+    "UnmappedMemoryMappedModel",
     "SparseMemoryMappedModel",
 ]
