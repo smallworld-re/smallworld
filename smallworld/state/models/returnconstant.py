@@ -69,8 +69,8 @@ class ReturnConstant(Model):
         # Borrow the ABI-specific return machinery from the calling context
         # for this platform/ABI (the pure context base, not a function model).
         try:
-            self._context: CStdCallingContext = (
-                CStdCallingContext.for_platform_and_abi(platform, abi)
+            self._context: CStdCallingContext = CStdCallingContext.for_platform_and_abi(
+                platform, abi
             )
         except ValueError:
             raise ValueError(f"no calling context for {platform} with ABI '{abi}'")
