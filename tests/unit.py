@@ -95,6 +95,7 @@ from smallworld.state.models.model import Model
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.procinfo import ProcInfoManager
+from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
 
 logging.getLogger("angr").setLevel(logging.ERROR)
@@ -3581,6 +3582,66 @@ class Dup2ModelTests(ModelTestCase):
         self.assertIn(7, fdmgr._fds)
         self.assertEqual(fdmgr.get_fd(7).name, fdmgr.get_fd(1).name)
         self.assertTrue(fdmgr.get_fd(7).writable())
+
+
+class ReturnConstantModelTests(ModelTestCase):
+    """returnconstant.py ReturnConstant: parametric default model."""
+
+    def make(self, value=0, return_type=ArgumentType.POINTER, platform=MODELS_AMD64):
+        return ReturnConstant(
+            MODELS_HOOK_ADDR, platform, MODELS_SYSV, value=value, return_type=return_type
+        )
+
+    def test_pointer_constant_written_to_rax(self):
+        model = self.make(value=0xDEADBEEF)
+        model.model(self.emu)
+        # amd64 SysV returns pointer/8-byte values in rax.
+        self.assertEqual(self.emu.read_register("rax"), 0xDEADBEEF)
+
+    def test_default_value_is_zero(self):
+        model = self.make()
+        model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), 0)
+
+    def test_int_return_two_complements_negative(self):
+        model = self.make(value=-1, return_type=ArgumentType.INT)
+        model.model(self.emu)
+        # int returns land in eax (low 32 bits of rax).
+        self.assertEqual(self.emu.read_register("eax"), 0xFFFFFFFF)
+
+    def test_void_writes_no_register(self):
+        # Pre-seed the return register with a sentinel; a void model must
+        # consume the call without touching it.
+        self.emu.write_register("rax", 0x1111111111111111)
+        model = self.make(return_type=ArgumentType.VOID)
+        model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), 0x1111111111111111)
+
+    def test_argument_registers_are_left_untouched(self):
+        # The model returns a constant regardless of arguments, and must not
+        # clobber the argument registers it never reads.
+        args = {"rdi": 0xA, "rsi": 0xB, "rdx": 0xC, "rcx": 0xD, "r8": 0xE, "r9": 0xF}
+        for reg, value in args.items():
+            self.emu.write_register(reg, value)
+        model = self.make(value=7)
+        model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), 7)
+        for reg, value in args.items():
+            self.assertEqual(self.emu.read_register(reg), value)
+
+    def test_resolves_calling_context_per_platform(self):
+        # No per-ABI subclass exists: the model borrows the pure calling
+        # context for the requested platform/ABI (not a function model).
+        self.assertIsInstance(
+            self.make(platform=MODELS_AMD64)._context, AMD64SysVCallingContext
+        )
+        self.assertIsInstance(
+            self.make(platform=MODELS_AARCH64)._context, AArch64SysVCallingContext
+        )
+
+    def test_unknown_abi_raises(self):
+        with self.assertRaises(ValueError):
+            ReturnConstant(MODELS_HOOK_ADDR, MODELS_AMD64, platforms.ABI.NONE)
 
 
 class NiceModelTests(ModelTestCase):

@@ -203,6 +203,34 @@ to capture the behavior of ``puts()``:
     emu.run()  # Prints "Hello, world!" to stdout.
 
 
+Default Function Models
+-----------------------
+
+``ReturnConstant`` is a ready-made ``Model`` that ignores its arguments and
+returns a fixed value, using the correct return register(s) for the given
+platform and ABI.  It's handy for stubbing out a function whose return value
+you want to pin, without writing a bespoke model.
+
+Unlike the named C models, it is *parametric*, so construct it directly rather
+than via ``Model.lookup()``:
+
+.. code-block:: python
+
+    from smallworld.platforms import ABI, Architecture, Byteorder, Platform
+    from smallworld.state.models import ReturnConstant
+    from smallworld.state.models.cstd import ArgumentType
+
+    platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+
+    # Force the function at 0x2000 to return 0.
+    model = ReturnConstant(0x2000, platform, ABI.SYSTEMV, value=0)
+    machine.add(model)
+
+``value`` defaults to ``0``.  ``return_type`` (default
+``ArgumentType.POINTER``) controls which register(s) are written and how the
+value is encoded; pass ``ArgumentType.VOID`` for a no-op model that consumes
+the call and returns without writing a value.
+
 MMIO Models
 -----------
 
