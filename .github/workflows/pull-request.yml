@@ -268,7 +268,12 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/coverage-data"
           cd tests
-          nix develop .. -c python3 -m coverage run --parallel-mode integration.py -v --shard-index ${{ matrix.shard }} --shard-count ${{ env.INTEGRATION_SHARD_COUNT }}
+          # Timings ride along in the coverage artifact; Coverage-Combine
+          # merges them into case-timings.json, which is committed back to
+          # tests/case_timings.json periodically to keep shards balanced.
+          nix develop .. -c python3 -m coverage run --parallel-mode integration.py -v \
+            --shard-index ${{ matrix.shard }} --shard-count ${{ env.INTEGRATION_SHARD_COUNT }} \
+            --record-timings "$GITHUB_WORKSPACE/coverage-data/case-timings-shard-${{ matrix.shard }}.json"
       - name: Upload Coverage Data
         if: always()
         uses: actions/upload-artifact@v7
@@ -297,6 +302,38 @@ jobs:
           pattern: coverage-*
           path: coverage-artifacts
           merge-multiple: true
+      - name: Merge Case Timings
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          merged = {}
+          for path in sorted(
+              pathlib.Path("coverage-artifacts").glob("case-timings-shard-*.json")
+          ):
+              merged.update(json.loads(path.read_text()))
+          pathlib.Path("case-timings.json").write_text(
+              json.dumps(merged, indent=2, sort_keys=True) + "\n"
+          )
+          print(f"merged timings for {len(merged)} cases")
+
+          if merged:
+              slowest = sorted(merged.items(), key=lambda kv: -kv[1])[:15]
+              lines = [
+                  "## Slowest Integration Cases",
+                  "",
+                  "Refresh shard balance by copying `case-timings.json` from the",
+                  "`coverage-combined` artifact to `tests/case_timings.json`.",
+                  "",
+                  "| Case | Duration |",
+                  "| --- | ---: |",
+              ]
+              lines += [f"| `{cid}` | {dur:.1f}s |" for cid, dur in slowest]
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+                  handle.write("\n".join(lines) + "\n")
+          PY
       - name: Combine Coverage
         run: |
           mkdir -p coverage-artifacts
@@ -418,6 +455,7 @@ jobs:
             coverage-report.txt
             coverage.json
             coverage.xml
+            case-timings.json
             htmlcov
           include-hidden-files: true
           if-no-files-found: ignore

@@ -110,6 +110,12 @@ manifest-driven so the execution layer can stay mostly declarative.
 
 The actual driver for the integration tests is at ``smallworld/tests/integration.py``.
 It builds a manifest of cases and supports filters, listings, and sharding.
+CI shards are balanced using measured per-case durations from
+``smallworld/tests/case_timings.json`` when it exists; cases missing from that
+file fall back to their static ``weight``. Every CI run publishes a freshly
+merged ``case-timings.json`` inside the ``coverage-combined`` artifact — copy
+it over ``tests/case_timings.json`` and commit it whenever shard durations
+drift apart (for example after adding many cases).
 The stable per-scenario entrypoint is ``smallworld/tests/run_case.py``.
 For highly repetitive scenario families, prefer extending the shared runners in
 ``smallworld/tests/harness/scenarios/`` instead of cloning another
