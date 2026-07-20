@@ -105,6 +105,34 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
                 f"No CStdCallingContext for {platform.architecture}:{platform.byteorder}"
             )
 
+    @classmethod
+    def for_platform_and_abi(cls, platform: platforms.Platform, abi: platforms.ABI):
+        """Find the calling context for a specific platform and ABI.
+
+        Unlike for_platform, this disambiguates by ABI, and skips function
+        models (which need a hook address to construct), so it resolves the
+        pure calling-context base (e.g. AMD64SysVCallingContext).
+
+        Arguments:
+            platform: The platform you want
+            abi: The ABI you want
+
+        Returns:
+            An instance of the appropriate CStdCallingContext
+
+        Raises:
+            ValueError: If no CStdCallingContext subclass matches your request
+        """
+        try:
+            return utils.find_subclass(
+                cls,
+                lambda x: x.platform == platform
+                and x.abi == abi
+                and not issubclass(x, Model),
+            )
+        except ValueError:
+            raise ValueError(f"No CStdCallingContext for {platform} with ABI '{abi}'")
+
     # *** Integer arithmetic constants ***
     #
     # Generalized bitmasks for specific types,

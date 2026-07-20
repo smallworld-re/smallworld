@@ -84,6 +84,12 @@ from smallworld.state.models.c99.libc import C99Libc
 from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
 from smallworld.state.models.cstd import ArgumentType
+from smallworld.state.models.defaultmmio import (
+    NullMemoryMappedModel,
+    RAMMemoryMappedModel,
+    SparseMemoryMappedModel,
+    UnmappedMemoryMappedModel,
+)
 from smallworld.state.models.filedesc import BytesIO as SWBytesIO
 from smallworld.state.models.filedesc import FileDescriptorManager
 from smallworld.state.models.mips64.systemv.systemv import MIPS64SysVCallingContext
@@ -95,6 +101,7 @@ from smallworld.state.models.model import Model
 from smallworld.state.models.posix.filedesc import SockaddrIn, SocketIO
 from smallworld.state.models.posix.filedesc.sockaddr import SockaddrIn6
 from smallworld.state.models.posix.procinfo import ProcInfoManager
+from smallworld.state.models.returnconstant import ReturnConstant
 from smallworld.state.models.riscv64.systemv.systemv import RiscV64SysVCallingContext
 
 logging.getLogger("angr").setLevel(logging.ERROR)
@@ -3581,6 +3588,252 @@ class Dup2ModelTests(ModelTestCase):
         self.assertIn(7, fdmgr._fds)
         self.assertEqual(fdmgr.get_fd(7).name, fdmgr.get_fd(1).name)
         self.assertTrue(fdmgr.get_fd(7).writable())
+
+
+class ReturnConstantModelTests(ModelTestCase):
+    """returnconstant.py ReturnConstant: parametric default model."""
+
+    def make(self, value=0, return_type=ArgumentType.POINTER, platform=MODELS_AMD64):
+        return ReturnConstant(
+            MODELS_HOOK_ADDR,
+            platform,
+            MODELS_SYSV,
+            value=value,
+            return_type=return_type,
+        )
+
+    def test_pointer_constant_written_to_rax(self):
+        model = self.make(value=0xDEADBEEF)
+        model.model(self.emu)
+        # amd64 SysV returns pointer/8-byte values in rax.
+        self.assertEqual(self.emu.read_register("rax"), 0xDEADBEEF)
+
+    def test_default_value_is_zero(self):
+        model = self.make()
+        model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), 0)
+
+    def test_int_return_two_complements_negative(self):
+        model = self.make(value=-1, return_type=ArgumentType.INT)
+        model.model(self.emu)
+        # int returns land in eax (low 32 bits of rax).
+        self.assertEqual(self.emu.read_register("eax"), 0xFFFFFFFF)
+
+    def test_void_writes_no_register(self):
+        # Pre-seed the return register with a sentinel; a void model must
+        # consume the call without touching it.
+        self.emu.write_register("rax", 0x1111111111111111)
+        model = self.make(return_type=ArgumentType.VOID)
+        model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), 0x1111111111111111)
+
+    def test_argument_registers_are_left_untouched(self):
+        # The model returns a constant regardless of arguments, and must not
+        # clobber the argument registers it never reads.
+        args = {"rdi": 0xA, "rsi": 0xB, "rdx": 0xC, "rcx": 0xD, "r8": 0xE, "r9": 0xF}
+        for reg, value in args.items():
+            self.emu.write_register(reg, value)
+        model = self.make(value=7)
+        model.model(self.emu)
+        self.assertEqual(self.emu.read_register("rax"), 7)
+        for reg, value in args.items():
+            self.assertEqual(self.emu.read_register(reg), value)
+
+    def test_resolves_calling_context_per_platform(self):
+        # No per-ABI subclass exists: the model borrows the pure calling
+        # context for the requested platform/ABI (not a function model).
+        self.assertIsInstance(
+            self.make(platform=MODELS_AMD64)._context, AMD64SysVCallingContext
+        )
+        self.assertIsInstance(
+            self.make(platform=MODELS_AARCH64)._context, AArch64SysVCallingContext
+        )
+
+    def test_unknown_abi_raises(self):
+        with self.assertRaises(ValueError):
+            ReturnConstant(MODELS_HOOK_ADDR, MODELS_AMD64, platforms.ABI.NONE)
+
+
+class NullMemoryMappedModelTests(unittest.TestCase):
+    """defaultmmio.py NullMemoryMappedModel: reads zero, writes vanish."""
+
+    def test_read_reports_zeroes(self):
+        null = NullMemoryMappedModel(0x1000, 8)
+        self.assertEqual(null.on_read(None, 0x1000, 4, b"\xaa" * 4), b"\x00" * 4)
+
+    def test_write_is_a_noop(self):
+        null = NullMemoryMappedModel(0x1000, 8)
+        self.assertIsNone(null.on_write(None, 0x1000, 4, b"\xaa" * 4))
+
+    def test_straddle_end_preserves_neighbor_bytes(self):
+        # Access starts inside the region and runs past its end; only the
+        # in-region bytes (the first two of the access) are zeroed.
+        null = NullMemoryMappedModel(0x1000, 8)
+        out = null.on_read(None, 0x1006, 4, bytes([0xDE, 0xAD, 0xBE, 0xEF]))
+        self.assertEqual(out, bytes([0x00, 0x00, 0xBE, 0xEF]))
+
+    def test_straddle_start_preserves_neighbor_bytes(self):
+        # Access starts before the region; only the last two bytes are ours.
+        null = NullMemoryMappedModel(0x1000, 8)
+        out = null.on_read(None, 0x0FFE, 4, bytes([0x11, 0x22, 0x33, 0x44]))
+        self.assertEqual(out, bytes([0x11, 0x22, 0x00, 0x00]))
+
+    def test_access_outside_region_is_ignored(self):
+        null = NullMemoryMappedModel(0x1000, 8)
+        self.assertIsNone(null.on_read(None, 0x2000, 4, b"\x77" * 4))
+
+
+class RAMMemoryMappedModelTests(unittest.TestCase):
+    """defaultmmio.py RAMMemoryMappedModel: written bytes read back."""
+
+    def test_write_then_read_roundtrip(self):
+        ram = RAMMemoryMappedModel(0x1000, 8)
+        ram.on_write(None, 0x1000, 4, bytes([1, 2, 3, 4]))
+        self.assertEqual(ram.data[0:4], bytes([1, 2, 3, 4]))
+        self.assertEqual(ram.on_read(None, 0x1000, 4, b"\x00" * 4), bytes([1, 2, 3, 4]))
+
+    def test_straddle_write_records_only_overlap(self):
+        ram = RAMMemoryMappedModel(0x1000, 8)
+        # Write starts before the region; only its last two bytes land in it.
+        ram.on_write(None, 0x0FFE, 4, bytes([0xA, 0xB, 0xC, 0xD]))
+        self.assertEqual(ram.data[0:2], bytes([0xC, 0xD]))
+        self.assertEqual(ram.data[2:], bytes(6))
+
+    def test_straddle_read_preserves_neighbor_bytes(self):
+        ram = RAMMemoryMappedModel(0x1000, 8)
+        ram.data[6:8] = bytes([0x01, 0x02])
+        out = ram.on_read(None, 0x1006, 4, bytes([0xDE, 0xAD, 0xBE, 0xEF]))
+        self.assertEqual(out, bytes([0x01, 0x02, 0xBE, 0xEF]))
+
+    def test_access_outside_region_is_ignored(self):
+        ram = RAMMemoryMappedModel(0x1000, 8)
+        self.assertIsNone(ram.on_read(None, 0x2000, 4, b"\x77" * 4))
+
+
+class SparseMemoryMappedModelTests(unittest.TestCase):
+    """defaultmmio.py SparseMemoryMappedModel: routes to sub-registers."""
+
+    def setUp(self):
+        # Region [0x1000, 0x1100) with two 4-byte RAM registers and a gap.
+        self.sparse = SparseMemoryMappedModel(0x1000, 0x100, slack="null")
+        self.reg1 = self.sparse.add_register(RAMMemoryMappedModel(0x1010, 4))
+        self.reg2 = self.sparse.add_register(RAMMemoryMappedModel(0x1020, 4))
+        self.reg1.data[:] = bytes([0xDE, 0xAD, 0xBE, 0xEF])
+        self.reg2.data[:] = bytes([0x11, 0x22, 0x33, 0x44])
+
+    def test_read_whole_child_register(self):
+        out = self.sparse.on_read(None, 0x1010, 4, b"\x00" * 4)
+        self.assertEqual(out, bytes([0xDE, 0xAD, 0xBE, 0xEF]))
+
+    def test_read_subsection_of_child(self):
+        # A single byte in the middle of reg1.
+        self.assertEqual(self.sparse.on_read(None, 0x1012, 1, b"\x00"), bytes([0xBE]))
+        # Two bytes spanning the middle of reg1.
+        self.assertEqual(
+            self.sparse.on_read(None, 0x1011, 2, b"\x00" * 2), bytes([0xAD, 0xBE])
+        )
+
+    def test_write_subsection_of_child(self):
+        self.sparse.on_write(None, 0x1012, 2, bytes([0xAA, 0xBB]))
+        self.assertEqual(self.reg1.data, bytes([0xDE, 0xAD, 0xAA, 0xBB]))
+        # The rest of the region is undisturbed.
+        self.assertEqual(self.reg2.data, bytes([0x11, 0x22, 0x33, 0x44]))
+
+    def test_read_slack_reports_zeroes(self):
+        # 0x1000 is in the gap before reg1; null slack reports zeroes.
+        self.assertEqual(self.sparse.on_read(None, 0x1000, 4, b"\xff" * 4), b"\x00" * 4)
+
+    def test_read_straddling_slack_and_child_boundary(self):
+        # [0x100e, 0x1012): two slack bytes then the first two of reg1.
+        out = self.sparse.on_read(None, 0x100E, 4, b"\x00" * 4)
+        self.assertEqual(out, bytes([0x00, 0x00, 0xDE, 0xAD]))
+
+    def test_read_spanning_two_children_and_gap(self):
+        # reg1 (4) + slack gap (12) + reg2 (4) in a single 20-byte read.
+        out = self.sparse.on_read(None, 0x1010, 0x14, b"\x00" * 0x14)
+        expected = (
+            bytes([0xDE, 0xAD, 0xBE, 0xEF])
+            + bytes(12)
+            + bytes([0x11, 0x22, 0x33, 0x44])
+        )
+        self.assertEqual(out, expected)
+
+    def test_null_slack_write_is_discarded(self):
+        self.sparse.on_write(None, 0x1000, 4, bytes([1, 2, 3, 4]))
+        self.assertEqual(self.sparse.on_read(None, 0x1000, 4, b"\x00" * 4), b"\x00" * 4)
+
+    def test_ram_slack_roundtrip_and_boundary_write(self):
+        sparse = SparseMemoryMappedModel(0x1000, 0x100, slack="ram")
+        reg = sparse.add_register(RAMMemoryMappedModel(0x1010, 4))
+        # Write straddles the slack/register boundary at 0x1010.
+        sparse.on_write(None, 0x100E, 4, bytes([0xA, 0xB, 0xC, 0xD]))
+        # First two bytes go to the RAM slack, last two into the register.
+        self.assertEqual(sparse.slack.data[0x0E:0x10], bytes([0xA, 0xB]))
+        self.assertEqual(reg.data[0:2], bytes([0xC, 0xD]))
+        # And it reads back intact across the same boundary.
+        out = sparse.on_read(None, 0x100E, 4, b"\x00" * 4)
+        self.assertEqual(out, bytes([0xA, 0xB, 0xC, 0xD]))
+
+    def test_composite_straddle_passes_through_outside_bytes(self):
+        # Access begins before the whole region; those bytes are preserved.
+        out = self.sparse.on_read(None, 0x0FFE, 4, bytes([0x11, 0x22, 0x33, 0x44]))
+        self.assertEqual(out, bytes([0x11, 0x22, 0x00, 0x00]))
+
+    def test_access_entirely_outside_region_is_ignored(self):
+        self.assertIsNone(self.sparse.on_read(None, 0x2000, 4, b"\x77" * 4))
+        # A write fully outside must not raise.
+        self.sparse.on_write(None, 0x2000, 4, b"\x77" * 4)
+
+    def test_add_register_out_of_bounds_raises(self):
+        with self.assertRaises(ValueError):
+            self.sparse.add_register(RAMMemoryMappedModel(0x2000, 4))
+
+    def test_add_register_partially_out_of_bounds_raises(self):
+        # Ends one byte past the region.
+        with self.assertRaises(ValueError):
+            self.sparse.add_register(RAMMemoryMappedModel(0x10FE, 4))
+
+    def test_add_register_overlap_raises(self):
+        with self.assertRaises(ValueError):
+            self.sparse.add_register(RAMMemoryMappedModel(0x1012, 4))
+
+    def test_bad_slack_policy_raises(self):
+        with self.assertRaises(ValueError):
+            SparseMemoryMappedModel(0x1000, 0x100, slack="bogus")
+
+    def test_unmapped_slack_faults_on_gap_but_not_registers(self):
+        sparse = SparseMemoryMappedModel(0x1000, 0x100, slack="unmapped")
+        reg = sparse.add_register(RAMMemoryMappedModel(0x1010, 4))
+        reg.data[:] = bytes([1, 2, 3, 4])
+        emu = SimpleNamespace(read_register=lambda name: 0x400000)
+
+        # A registered sub-region still works normally...
+        self.assertEqual(
+            sparse.on_read(emu, 0x1010, 4, b"\x00" * 4), bytes([1, 2, 3, 4])
+        )
+        # ...but the gap between registers faults like unmapped memory.
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure):
+            sparse.on_read(emu, 0x1000, 4, b"\x00" * 4)
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure):
+            sparse.on_write(emu, 0x1000, 4, b"\x00" * 4)
+
+
+class UnmappedMemoryMappedModelTests(unittest.TestCase):
+    """defaultmmio.py UnmappedMemoryMappedModel: any access faults."""
+
+    def setUp(self):
+        self.emu = SimpleNamespace(read_register=lambda name: 0x400000)
+        self.model = UnmappedMemoryMappedModel(0x1000, 8)
+
+    def test_read_raises_unmapped(self):
+        with self.assertRaises(exceptions.EmulationReadUnmappedFailure) as ctx:
+            self.model.on_read(self.emu, 0x1000, 4, b"\x00" * 4)
+        self.assertEqual(ctx.exception.address, 0x1000)
+
+    def test_write_raises_unmapped(self):
+        with self.assertRaises(exceptions.EmulationWriteUnmappedFailure) as ctx:
+            self.model.on_write(self.emu, 0x1004, 4, b"\x00" * 4)
+        self.assertEqual(ctx.exception.address, 0x1004)
 
 
 class NiceModelTests(ModelTestCase):
