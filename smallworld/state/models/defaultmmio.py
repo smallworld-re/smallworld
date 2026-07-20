@@ -278,6 +278,7 @@ class SparseMemoryMappedModel(MemoryMappedModel):
             hi = run_end - addr
             owner.on_write(emu, run_start, run_end - run_start, value[lo:hi])
 
+
 class LogAccessModel(MemoryMappedModel):
     """A default MMIO model that logs accesses and delegates to another model.
 
@@ -300,7 +301,7 @@ class LogAccessModel(MemoryMappedModel):
         self,
         inner: MemoryMappedModel,
         log: logging.Logger,
-        name: typing.Optional[str] = None
+        name: typing.Optional[str] = None,
     ):
         super().__init__(inner.address, inner.size)
         self.inner = inner
@@ -320,8 +321,7 @@ class LogAccessModel(MemoryMappedModel):
     ) -> None:
         self.log.debug(f"{self.name} write addr={hex(addr)} size={size}")
         self.inner.on_write(emulator, addr, size, value)
-            
-        
+
 
 __all__ = [
     "NullMemoryMappedModel",
