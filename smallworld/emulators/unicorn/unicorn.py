@@ -89,6 +89,20 @@ class UnicornEmulator(
         self.memory_map: utils.RangeCollection = utils.RangeCollection()
         self.state: EmulatorState = EmulatorState.SETUP
         self.curr_pc: int = 0
+
+        # Address passed as the `until` argument to unicorn's emu_start().
+        # Unicorn treats this address as a natural stopping point: if execution
+        # ever reaches it, emu_start() returns *cleanly* instead of faulting.
+        # We normally rely on hooks (emu_stop) and errors to end emulation, so
+        # this doubles as a sentinel for "the program jumped somewhere it
+        # shouldn't have" -- see _diagnose_clean_stop().
+        #
+        # It defaults to 0 (NULL) because a jump to NULL is almost always a
+        # bug we want to surface. A harness author should change it if the
+        # target legitimately executes at address 0 (e.g. the NULL page is
+        # mapped) or otherwise expects to jump there, so that a real jump to 0
+        # is not misreported. Pick a value the program can never reach.
+        self.exit_sentinel: int = 0
         # labels are per byte
 
         # We'll have one entry in this dictionary per full-width base
@@ -694,6 +708,51 @@ class UnicornEmulator(
 
         return pc
 
+    def _diagnose_clean_stop(self) -> None:
+        """Diagnose an emu_start() call that returned without raising.
+
+        Call this immediately after any emu_start() that did not raise a
+        unicorn.UcError. There are two ways emu_start() can return cleanly:
+
+        1. One of our hooks stopped it -- every such path sets
+           ``self.state = EmulatorState.EXIT`` before calling emu_stop(). This
+           is a legitimate single-step / block / exit-point boundary; nothing
+           to do.
+
+        2. Unicorn stopped on its own because PC reached ``self.exit_sentinel``
+           (the `until` address). We do not otherwise use `until` to end
+           emulation, so this means the program jumped to the sentinel. For the
+           default sentinel of 0 this is a jump to NULL, which unicorn quietly
+           reports as a clean stop rather than the fetch fault it really is.
+
+        Only case 2 needs handling: re-raise it as the fault (or, if the
+        sentinel happens to be a configured exit point / out of bounds, the
+        corresponding stop) that it should have been.
+        """
+        if self.state == EmulatorState.EXIT:
+            # Case 1: one of our hooks initiated this stop.
+            return
+
+        pc = self.read_register("pc")
+        if pc != self.exit_sentinel:
+            # Stopped cleanly for some other reason (e.g. a user hook called
+            # emu_stop() directly). Not a sentinel hit; leave it alone.
+            return
+
+        # Case 2: execution reached the sentinel address.
+        if pc in self._exit_points:
+            raise exceptions.EmulationExitpoint
+        if not self._bounds.is_empty() and not self._bounds.contains_value(pc):
+            raise exceptions.EmulationBounds
+
+        self.state = EmulatorState.EXIT
+        raise exceptions.EmulationFetchUnmappedFailure(
+            f"emulation reached the exit sentinel at 0x{pc:x} without hitting a "
+            "configured exit point (likely a jump to unmapped memory)",
+            pc,
+            address=pc,
+        )
+
     def step_instruction(self) -> None:
         self._check()
         self.state = EmulatorState.START_STEP
@@ -712,7 +771,8 @@ class UnicornEmulator(
                 logger.debug(f"single step at 0x{disas.address:x}: {disas}")
 
         try:
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, self.exit_sentinel)
+            self._diagnose_clean_stop()
         except unicorn.UcError as e:
             if (
                 e.errno == unicorn.UC_ERR_FETCH_UNMAPPED
@@ -738,12 +798,14 @@ class UnicornEmulator(
             logger.debug(f"step block at 0x{disas.address:x}: {disas}")
         try:
             self.state = EmulatorState.START_BLOCK
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, self.exit_sentinel)
+            self._diagnose_clean_stop()
 
             self.state = EmulatorState.BLOCK
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, self.exit_sentinel)
+            self._diagnose_clean_stop()
         except unicorn.UcError as e:
             self._error(e, "exec")
 
@@ -758,7 +820,8 @@ class UnicornEmulator(
         try:
             pc = self.read_register("pc")
             pc = self._handle_thumb_interwork(pc)
-            self.engine.emu_start(pc, 0x0)
+            self.engine.emu_start(pc, self.exit_sentinel)
+            self._diagnose_clean_stop()
         except exceptions.EmulationStop:
             pass
         except unicorn.UcError as e:
