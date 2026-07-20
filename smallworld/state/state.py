@@ -52,6 +52,7 @@ class Value(metaclass=abc.ABCMeta):
         self._content: ValueContent = None
         self._type: typing.Optional[typing.Any] = None
         self._label: typing.Optional[str] = None
+        self._taint: typing.Set[str] = set()
 
     @abc.abstractmethod
     def get_size(self) -> int:
@@ -116,6 +117,28 @@ class Value(metaclass=abc.ABCMeta):
         """
 
         self._label = label
+
+    def get_taint(self) -> typing.Set[str]:
+        """Get the taint labels that reached this value.
+
+        Taint is the set of source labels (see :meth:`set_label`) that flowed
+        into this value during a taint-tracking emulation. It is empty unless
+        emulation was run with taint tracking enabled.
+
+        Returns:
+            The set of source labels tainting this value.
+        """
+
+        return self._taint
+
+    def set_taint(self, taint: typing.Set[str]) -> None:
+        """Set the taint labels for this value.
+
+        Arguments:
+            taint: The set of source labels to record as tainting this value.
+        """
+
+        self._taint = set(taint)
 
     def get(self) -> ValueContent:
         """A helper to get the content of this value.
@@ -476,6 +499,11 @@ class Register(Value, Stateful):
         except exceptions.SymbolicValueError:
             pass
 
+        try:
+            self.set_taint(emulator.read_register_taint(self.name))
+        except exceptions.SymbolicValueError:
+            pass
+
     def apply(self, emulator: emulators.Emulator) -> None:
         content = self.get_content()
         content = self._register_content_typecheck(content)
@@ -597,6 +625,12 @@ class RegisterAlias(Register):
     def set_label(self, label: typing.Optional[str]) -> None:
         self.reference.set_label(label)
 
+    def get_taint(self) -> typing.Set[str]:
+        return self.reference.get_taint()
+
+    def set_taint(self, taint: typing.Set[str]) -> None:
+        self.reference.set_taint(taint)
+
     def extract(self, emulator: emulators.Emulator) -> None:
         pass
 
@@ -637,6 +671,14 @@ class FixedRegister(Register):
 
     def set_label(self, label: typing.Optional[str]) -> None:
         # Fixed registers cannot have labels
+        pass
+
+    def get_taint(self) -> typing.Set[str]:
+        # Fixed registers cannot be tainted
+        return set()
+
+    def set_taint(self, taint: typing.Set[str]) -> None:
+        # Fixed registers cannot be tainted
         pass
 
     def get_type(self) -> typing.Optional[typing.Any]:

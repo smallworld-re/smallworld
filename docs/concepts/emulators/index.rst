@@ -41,3 +41,4 @@ of extracting and reapplying the machine state representation.
    angr
    panda
    ghidra
+   taint

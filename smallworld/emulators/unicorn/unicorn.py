@@ -12,6 +12,7 @@ import unicorn.ppc_const  # Not properly exposed by the unicorn module
 
 from ... import exceptions, instructions, platforms, utils
 from .. import emulator, hookable
+from ..taint import TaintTracker
 from .machdefs import UnicornMachineDef
 
 logger = logging.getLogger(__name__)
@@ -73,8 +74,13 @@ class UnicornEmulator(
 
     PAGE_SIZE = 0x1000
 
-    def __init__(self, platform: platforms.Platform):
-        super().__init__(platform)
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        taint: bool = False,
+        taint_addresses: bool = False,
+    ):
+        super().__init__(platform, taint=taint, taint_addresses=taint_addresses)
         self.platform = platform
         self.platdef = platforms.PlatformDef.for_platform(self.platform)
         self.machdef = UnicornMachineDef.for_platform(self.platform)
@@ -374,6 +380,16 @@ class UnicornEmulator(
         # keep track of which registers have been initialized
         self.initialized_registers: typing.Dict[str, typing.Set[int]] = {}
 
+        # Dynamic taint tracking (disabled unless taint=True). Installs
+        # propagation callbacks via the all-instruction / all-reads / all-writes
+        # hooks, so it reserves those hooks while enabled.
+        self._taint_tracker: typing.Optional[TaintTracker] = None
+        if self._taint:
+            self._taint_tracker = TaintTracker(
+                self, taint_addresses=self._taint_addresses
+            )
+            self._taint_tracker.install()
+
     def _check_pc_ok(self, pc):
         """Check if this pc is ok to emulate, i.e. in bounds and not an exit
         point."""
@@ -491,6 +507,17 @@ class UnicornEmulator(
             self.label[base_reg] = {}
         for i in range(offset, offset + size):
             self.label[base_reg][i] = label
+        if self._taint_tracker is not None:
+            self._taint_tracker.seed_register(name, label)
+
+    def read_register_taint(self, name: str) -> typing.Set[str]:
+        if self._taint_tracker is None:
+            return set()
+        return self._taint_tracker.read_register_taint(name)
+
+    def write_register_taint(self, name: str, taint: typing.Set[str]) -> None:
+        if self._taint_tracker is not None:
+            self._taint_tracker.write_register_taint(name, taint)
 
     def write_register(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -591,6 +618,19 @@ class UnicornEmulator(
             self.label["mem"] = dict()
         for a in range(address, address + size):
             self.label["mem"][a] = label
+        if self._taint_tracker is not None:
+            self._taint_tracker.seed_memory(address, size, label)
+
+    def read_memory_taint(self, address: int, size: int) -> typing.Set[str]:
+        if self._taint_tracker is None:
+            return set()
+        return self._taint_tracker.read_memory_taint(address, size)
+
+    def write_memory_taint(
+        self, address: int, size: int, taint: typing.Set[str]
+    ) -> None:
+        if self._taint_tracker is not None:
+            self._taint_tracker.write_memory_taint(address, size, taint)
 
     def write_memory(
         self, address: int, content: typing.Union[bytes, claripy.ast.bv.BV]
@@ -783,6 +823,9 @@ class UnicornEmulator(
             else:
                 # translate this unicorn error into something richer
                 self._error(e, "exec")
+        finally:
+            if self._taint_tracker is not None:
+                self._taint_tracker.finalize()
 
     def step_block(self) -> None:
         self._check()
@@ -808,6 +851,9 @@ class UnicornEmulator(
             self._diagnose_clean_stop()
         except unicorn.UcError as e:
             self._error(e, "exec")
+        finally:
+            if self._taint_tracker is not None:
+                self._taint_tracker.finalize()
 
     def run(self) -> None:
         self._check()
@@ -826,6 +872,10 @@ class UnicornEmulator(
             pass
         except unicorn.UcError as e:
             self._error(e, "exec")
+        finally:
+            if self._taint_tracker is not None:
+                # Flush the last executed instruction's deferred register writes.
+                self._taint_tracker.finalize()
 
         logger.debug("emulation complete")
 
