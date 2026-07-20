@@ -3594,7 +3594,11 @@ class ReturnConstantModelTests(ModelTestCase):
 
     def make(self, value=0, return_type=ArgumentType.POINTER, platform=MODELS_AMD64):
         return ReturnConstant(
-            MODELS_HOOK_ADDR, platform, MODELS_SYSV, value=value, return_type=return_type
+            MODELS_HOOK_ADDR,
+            platform,
+            MODELS_SYSV,
+            value=value,
+            return_type=return_type,
         )
 
     def test_pointer_constant_written_to_rax(self):
@@ -3747,7 +3751,9 @@ class SparseMemoryMappedModelTests(unittest.TestCase):
         # reg1 (4) + slack gap (12) + reg2 (4) in a single 20-byte read.
         out = self.sparse.on_read(None, 0x1010, 0x14, b"\x00" * 0x14)
         expected = (
-            bytes([0xDE, 0xAD, 0xBE, 0xEF]) + bytes(12) + bytes([0x11, 0x22, 0x33, 0x44])
+            bytes([0xDE, 0xAD, 0xBE, 0xEF])
+            + bytes(12)
+            + bytes([0x11, 0x22, 0x33, 0x44])
         )
         self.assertEqual(out, expected)
 
