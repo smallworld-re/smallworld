@@ -311,7 +311,7 @@ class LogAccessModel(MemoryMappedModel):
 
     def on_read(
         self, emulator: emulators.Emulator, addr: int, size: int, value: bytes
-    ) -> bytes:
+    ) -> typing.Optional[bytes]:
         self.log.debug(f"{self.name} read addr={hex(addr)} size={size}")
         return self.inner.on_read(emulator, addr, size, value)
 
