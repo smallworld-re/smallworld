@@ -336,3 +336,65 @@ to capture reads and writes to a certain location:
 
     # Print the final value of our variable
     print(myint.curr_value)
+
+Default MMIO Models
+-------------------
+
+Three ready-made ``MemoryMappedModel`` subclasses cover common cases so you
+don't have to write ``on_read()``/``on_write()`` by hand.  All handle partial
+and straddling accesses for you.
+
+``NullMemoryMappedModel`` makes a region inert: reads report zeroes and writes
+have no visible effect.  Useful for stubbing out an unmodeled peripheral so a
+driver doesn't fault on it.
+
+.. code-block:: python
+
+    from smallworld.state.models import NullMemoryMappedModel
+
+    machine.add(NullMemoryMappedModel(0x40000000, 0x1000))
+
+``RAMMemoryMappedModel`` makes a region behave like ordinary memory: bytes
+written are stored and read back.  The backing bytes are exposed as ``.data``
+(initially zeroed) so a harness can inspect or seed them.
+
+.. code-block:: python
+
+    from smallworld.state.models import RAMMemoryMappedModel
+
+    ram = RAMMemoryMappedModel(0x40000000, 0x1000)
+    machine.add(ram)
+    # ... after emulation, inspect what was written:
+    print(ram.data[0:4])
+
+``SparseMemoryMappedModel`` models a large region that is sparsely populated
+with registers.  A single model owns the whole region; register handlers for
+individual sub-regions with ``add_register()``.  Anything not covered is
+served by a "slack" model -- ``"null"`` (default) or ``"ram"``.  Each
+registered handler only ever sees accesses contained within its own
+sub-region, so you never deal with straddling accesses yourself.
+
+.. code-block:: python
+
+    from smallworld.state.models import (
+        RAMMemoryMappedModel,
+        SparseMemoryMappedModel,
+    )
+
+    # A 4KB device region, zero-filled except for two modeled registers.
+    device = SparseMemoryMappedModel(0x40000000, 0x1000, slack="null")
+
+    # A plain RAM-backed data register...
+    data_reg = device.add_register(RAMMemoryMappedModel(0x40000010, 4))
+
+    # ...and a custom status register that always reads "ready".
+    class StatusRegister(MemoryMappedModel):
+        def on_read(self, emu, addr, size, data):
+            return b"\x01" * size
+
+        def on_write(self, emu, addr, size, value):
+            pass
+
+    device.add_register(StatusRegister(0x40000020, 4))
+
+    machine.add(device)
