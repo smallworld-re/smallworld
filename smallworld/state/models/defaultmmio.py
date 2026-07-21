@@ -279,9 +279,54 @@ class SparseMemoryMappedModel(MemoryMappedModel):
             owner.on_write(emu, run_start, run_end - run_start, value[lo:hi])
 
 
+class LogAccessModel(MemoryMappedModel):
+    """A default MMIO model that logs accesses and delegates to another model.
+
+    Wraps an existing ``MemoryMappedModel`` and logs every read and write
+    before forwarding the access to the wrapped model unchanged.  Useful for
+    observing what a program does to a modeled region without altering the
+    region's behavior -- e.g. layering logging over a :class:`RAMMemoryMappedModel`
+    or a device-specific model.  The wrapper spans the same address range as
+    the model it wraps.
+
+    Arguments:
+        inner: The model to wrap; its behavior is preserved and its
+            ``address``/``size`` become this wrapper's own.
+        log: The logger to emit read/write messages to (at ``DEBUG`` level).
+        name: Label used to identify this region in log messages.  Defaults
+            to the class name of ``inner``.
+    """
+
+    def __init__(
+        self,
+        inner: MemoryMappedModel,
+        log: logging.Logger,
+        name: typing.Optional[str] = None,
+    ):
+        super().__init__(inner.address, inner.size)
+        self.inner = inner
+        self.log = log
+        if name is None:
+            name = self.inner.__class__.__name__
+        self.name = name
+
+    def on_read(
+        self, emulator: emulators.Emulator, addr: int, size: int, value: bytes
+    ) -> typing.Optional[bytes]:
+        self.log.debug(f"{self.name} read addr={hex(addr)} size={size}")
+        return self.inner.on_read(emulator, addr, size, value)
+
+    def on_write(
+        self, emulator: emulators.Emulator, addr: int, size: int, value: bytes
+    ) -> None:
+        self.log.debug(f"{self.name} write addr={hex(addr)} size={size}")
+        self.inner.on_write(emulator, addr, size, value)
+
+
 __all__ = [
     "NullMemoryMappedModel",
     "RAMMemoryMappedModel",
     "UnmappedMemoryMappedModel",
     "SparseMemoryMappedModel",
+    "LogAccessModel",
 ]
