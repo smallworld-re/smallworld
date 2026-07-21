@@ -340,7 +340,7 @@ to capture reads and writes to a certain location:
 Default MMIO Models
 -------------------
 
-Four ready-made ``MemoryMappedModel`` subclasses cover common cases so you
+Five ready-made ``MemoryMappedModel`` subclasses cover common cases so you
 don't have to write ``on_read()``/``on_write()`` by hand.  All handle partial
 and straddling accesses for you.
 
@@ -409,3 +409,25 @@ straddling accesses yourself.
     device.add_register(StatusRegister(0x40000020, 4))
 
     machine.add(device)
+
+``LogAccessModel`` wraps another ``MemoryMappedModel`` and logs every read and
+write (at ``DEBUG`` level) before forwarding the access to the wrapped model
+unchanged.  Use it to observe what a program does to a modeled region without
+altering the region's behavior -- e.g. layering logging over a
+``RAMMemoryMappedModel`` or a device-specific model.  The wrapper spans the
+same address range as the model it wraps.
+
+Its constructor takes the model to wrap, the ``logging.Logger`` to emit
+messages to, and an optional ``name`` used to identify the region in log
+messages (defaulting to the class name of the wrapped model).
+
+.. code-block:: python
+
+    import logging
+
+    from smallworld.state.models import LogAccessModel, RAMMemoryMappedModel
+
+    log = logging.getLogger(__name__)
+
+    ram = RAMMemoryMappedModel(0x40000000, 0x1000)
+    machine.add(LogAccessModel(ram, log, name="scratch"))
