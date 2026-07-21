@@ -85,6 +85,7 @@ from smallworld.state.models.c99.stdio import Freopen, Vsprintf, Vsscanf
 from smallworld.state.models.c99.utils import _emu_memcmp, _emu_strncmp, _emu_strnlen
 from smallworld.state.models.cstd import ArgumentType
 from smallworld.state.models.defaultmmio import (
+    LogAccessModel,
     NullMemoryMappedModel,
     RAMMemoryMappedModel,
     SparseMemoryMappedModel,
@@ -3834,6 +3835,63 @@ class UnmappedMemoryMappedModelTests(unittest.TestCase):
         with self.assertRaises(exceptions.EmulationWriteUnmappedFailure) as ctx:
             self.model.on_write(self.emu, 0x1004, 4, b"\x00" * 4)
         self.assertEqual(ctx.exception.address, 0x1004)
+
+
+class LogAccessModelTests(unittest.TestCase):
+    """defaultmmio.py LogAccessModel: logs accesses, delegates to inner."""
+
+    def setUp(self):
+        self.log = logging.getLogger("test.logaccessmodel")
+        self.inner = RAMMemoryMappedModel(0x1000, 8)
+
+    def test_inherits_inner_address_and_size(self):
+        model = LogAccessModel(self.inner, self.log)
+        self.assertEqual(model.address, self.inner.address)
+        self.assertEqual(model.size, self.inner.size)
+
+    def test_name_defaults_to_inner_class_name(self):
+        model = LogAccessModel(self.inner, self.log)
+        self.assertEqual(model.name, "RAMMemoryMappedModel")
+
+    def test_explicit_name_is_used(self):
+        model = LogAccessModel(self.inner, self.log, name="uart0")
+        self.assertEqual(model.name, "uart0")
+
+    def test_read_delegates_to_inner(self):
+        self.inner.data[0:4] = bytes([0xDE, 0xAD, 0xBE, 0xEF])
+        model = LogAccessModel(self.inner, self.log)
+        out = model.on_read(None, 0x1000, 4, b"\x00" * 4)
+        self.assertEqual(out, bytes([0xDE, 0xAD, 0xBE, 0xEF]))
+
+    def test_write_delegates_to_inner(self):
+        model = LogAccessModel(self.inner, self.log)
+        model.on_write(None, 0x1000, 4, bytes([1, 2, 3, 4]))
+        self.assertEqual(self.inner.data[0:4], bytes([1, 2, 3, 4]))
+
+    def test_read_emits_expected_log_message(self):
+        model = LogAccessModel(self.inner, self.log, name="uart0")
+        with self.assertLogs(self.log, level=logging.DEBUG) as ctx:
+            model.on_read(None, 0x1004, 2, b"\x00" * 2)
+        self.assertEqual(
+            ctx.output, ["DEBUG:test.logaccessmodel:uart0 read addr=0x1004 size=2"]
+        )
+
+    def test_write_emits_expected_log_message(self):
+        model = LogAccessModel(self.inner, self.log, name="uart0")
+        with self.assertLogs(self.log, level=logging.DEBUG) as ctx:
+            model.on_write(None, 0x1004, 2, bytes([0xAA, 0xBB]))
+        self.assertEqual(
+            ctx.output, ["DEBUG:test.logaccessmodel:uart0 write addr=0x1004 size=2"]
+        )
+
+    def test_default_name_appears_in_log_message(self):
+        model = LogAccessModel(self.inner, self.log)
+        with self.assertLogs(self.log, level=logging.DEBUG) as ctx:
+            model.on_read(None, 0x1000, 4, b"\x00" * 4)
+        self.assertEqual(
+            ctx.output,
+            ["DEBUG:test.logaccessmodel:RAMMemoryMappedModel read addr=0x1000 size=4"],
+        )
 
 
 class NiceModelTests(ModelTestCase):
