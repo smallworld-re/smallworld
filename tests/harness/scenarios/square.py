@@ -30,14 +30,25 @@ _ARCHS = (
     "xtensa",
 )
 
-_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
-# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
-_PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
+# Arches Triton supports get "triton" added to the default engine set.
+_TRITON_ENGINES = ("unicorn", "angr", "panda", "pcode", "triton")
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx", "triton")
+# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the
+# MPC860. Triton has no PowerPC target, so it is not included here.
+_PPC_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx", "styx-mpc860")
 
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
+    engines={
+        "aarch64": _TRITON_ENGINES,
+        "amd64": _TRITON_ENGINES,
+        "i386": _TRITON_ENGINES,
+        "riscv64": _TRITON_ENGINES,
+        "armel": _ARM_ENGINES,
+        "armhf": _ARM_ENGINES,
+        "ppc": _PPC_ENGINES,
+    },
     # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
     per_arch={"la64": {"result_register": "v0"}},
 )

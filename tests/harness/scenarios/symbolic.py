@@ -15,7 +15,7 @@ _SCENARIO_CONFIG = {
     "funchook": {"args": (), "stdin": None},
 }
 
-_ENGINES = ("angr", "pcode_symbolic")
+_ENGINES = ("angr", "pcode_symbolic", "triton_symbolic")
 
 _HOOKING_PCODE_SYMBOLIC_SKIP = (
     "PutsModel reads 11 input bytes via separate read_memory_symbolic "
@@ -25,10 +25,23 @@ _HOOKING_PCODE_SYMBOLIC_SKIP = (
     "test. Needs a bulk-read or caching path before this can run."
 )
 
+# TritonSymbolicEmulator is a linear (single-path) symbolic engine: it does not
+# fork at symbolic branches, so scenarios that explore multiple paths are not
+# supported yet. Only ``square`` (a straight-line computation queried with the
+# solver) is enabled; the branch-exploring scenarios are skipped pending a
+# forking implementation.
+_TRITON_SYMBOLIC_UNSUPPORTED = (
+    "TritonSymbolicEmulator only supports linear symbolic execution; this "
+    "scenario requires exploring multiple symbolic paths."
+)
+_TRITON_SYMBOLIC_SCENARIOS = ("square",)
+
 
 def _variant_skip(scenario: str, engine: str) -> str | None:
     if scenario == "hooking" and engine == "pcode_symbolic":
         return _HOOKING_PCODE_SYMBOLIC_SKIP
+    if engine == "triton_symbolic" and scenario not in _TRITON_SYMBOLIC_SCENARIOS:
+        return _TRITON_SYMBOLIC_UNSUPPORTED
     return None
 
 
