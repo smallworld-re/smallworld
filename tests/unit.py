@@ -2430,6 +2430,356 @@ except Exception:
     _STYX_AVAILABLE = False
 
 
+try:
+    import triton as _triton  # noqa: F401
+
+    _TRITON_AVAILABLE = True
+except Exception:
+    _TRITON_AVAILABLE = False
+
+# Triton only gained RISC-V support after (some of) its PyPI releases, so
+# feature-detect ARCH.RV64 and skip RISCV64 checks on older builds.
+_TRITON_HAS_RISCV = (
+    _TRITON_AVAILABLE and hasattr(_triton, "ARCH") and hasattr(_triton.ARCH, "RV64")
+)
+
+
+@unittest.skipUnless(_TRITON_AVAILABLE, "triton not installed")
+class TritonMachdefTests(unittest.TestCase):
+    def run_test(self, platform):
+        platdef = platforms.PlatformDef.for_platform(platform)
+        machdef = emulators.triton.machdefs.TritonMachineDef.for_platform(platform)
+
+        # Unlike the Unicorn machdef, we do NOT require Triton to cover every
+        # platform register: Triton models a subset of some architectures (e.g.
+        # ARM32 has no VFP/banked registers). We do require that (a) the machdef
+        # never names a register the platform doesn't define, and (b) reading
+        # any platform register either works or raises the dedicated
+        # UnsupportedRegisterError (never some other exception).
+        extra_regs = set(machdef._registers.keys()) - platdef.registers.keys()
+        self.assertEqual(
+            len(extra_regs),
+            0,
+            msg=f"Triton machine def for {platform} has extra registers {extra_regs}",
+        )
+
+        emu = emulators.TritonEmulator(platform)
+        bad_regs = set()
+        for reg in platdef.registers.keys():
+            try:
+                emu.read_register(reg)
+            except exceptions.UnsupportedRegisterError:
+                continue
+            except Exception as e:
+                print(f" {reg} {e}")
+                bad_regs.add(reg)
+        self.assertEqual(
+            len(bad_regs),
+            0,
+            msg=f"Triton did not handle the following registers for {platform}: {bad_regs}",
+        )
+
+    def test_triton_amd64(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_amd64_avx512(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.X86_64_AVX512, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_i386(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.X86_32, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_aarch64(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv5t(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv6m(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv6m_thumb(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv7m(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V7M, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv7r(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V7R, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def test_triton_armv7a(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE
+            )
+        )
+
+    @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
+    def test_triton_riscv64(self):
+        self.run_test(
+            platforms.Platform(
+                platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+            )
+        )
+
+    def _assert_rejects(self, arch, byteorder):
+        platform = platforms.Platform(arch, byteorder)
+        with self.assertRaises(exceptions.ConfigurationError):
+            emulators.triton.machdefs.TritonMachineDef.for_platform(platform)
+
+    def test_mips_raises_configuration_error(self):
+        self._assert_rejects(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+
+    def test_ppc_raises_configuration_error(self):
+        self._assert_rejects(platforms.Architecture.POWERPC32, platforms.Byteorder.BIG)
+
+    def test_m68k_raises_configuration_error(self):
+        self._assert_rejects(platforms.Architecture.M68K, platforms.Byteorder.BIG)
+
+    def test_xtensa_raises_configuration_error(self):
+        self._assert_rejects(platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE)
+
+
+@unittest.skipUnless(_TRITON_AVAILABLE, "triton not installed")
+class TritonEmulatorTests(unittest.TestCase):
+    """Black-box checks of the concrete TritonEmulator public surface."""
+
+    def setUp(self):
+        self.platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+        self.emu = emulators.TritonEmulator(self.platform)
+
+    def test_repr(self):
+        self.assertIn("TritonEmulator", repr(self.emu))
+
+    def test_map_memory_tracks_ranges(self):
+        self.emu.map_memory(0x1000, 0x100)
+        self.emu.map_memory(0x2000, 0x100)
+        self.assertEqual(len(self.emu.get_memory_map()), 2)
+
+    def test_unknown_register_rejected(self):
+        with self.assertRaises(exceptions.UnsupportedRegisterError):
+            self.emu.read_register_content("not_a_real_register")
+
+    def test_symbolic_register_write_rejected(self):
+        # The *concrete* emulator rejects symbolic values (contrast the symbolic
+        # subclass, which accepts them).
+        with self.assertRaises(exceptions.SymbolicValueError):
+            self.emu.write_register_content("rdi", claripy.BVS("x", 64))
+
+    def test_exit_point_bookkeeping(self):
+        self.emu.add_exit_point(0x4000)
+        self.assertIn(0x4000, self.emu.get_exit_points())
+
+    def test_hook_instruction_records_locally(self):
+        def cb(e):
+            pass
+
+        self.emu.hook_instruction(0x1000, cb)
+        self.assertIs(self.emu.is_instruction_hooked(0x1000), cb)
+
+    def test_register_roundtrip(self):
+        self.emu.write_register_content("rdi", 0x1234)
+        self.assertEqual(self.emu.read_register_content("rdi"), 0x1234)
+
+    def test_memory_roundtrip(self):
+        self.emu.write_memory_content(0x4000, b"\xde\xad\xbe\xef")
+        self.assertEqual(self.emu.read_memory_content(0x4000, 4), b"\xde\xad\xbe\xef")
+
+    def test_taint_roundtrip(self):
+        self.emu.taint_register("rdi")
+        self.assertTrue(self.emu.is_register_tainted("rdi"))
+        self.emu.untaint_register("rdi")
+        self.assertFalse(self.emu.is_register_tainted("rdi"))
+
+
+@unittest.skipUnless(_TRITON_AVAILABLE, "triton not installed")
+class TritonExecutionTests(unittest.TestCase):
+    """End-to-end stepping checks: square(5) == 25 on every supported ISA.
+
+    Uses minimal hand-assembled ``square`` snippets (imul/mul/mul) rather than
+    the built ``tests/square/*.bin`` so the checks are self-contained.
+    """
+
+    def _square(self, arch, byteorder, code, arg_reg, res_reg, value=5, base=0x1000):
+        platform = platforms.Platform(arch, byteorder)
+        emu = emulators.TritonEmulator(platform)
+        emu.write_code(base, code)
+        emu.write_register_content("pc", base)
+        emu.write_register_content(arg_reg, value)
+        emu.add_exit_point(base + len(code))
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        return emu.read_register_content(res_reg)
+
+    def test_amd64(self):
+        # imul edi, edi ; mov eax, edi
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.X86_64,
+                platforms.Byteorder.LITTLE,
+                bytes([0x0F, 0xAF, 0xFF, 0x89, 0xF8]),
+                "rdi",
+                "eax",
+            ),
+            25,
+        )
+
+    def test_i386(self):
+        # imul edi, edi ; mov eax, edi
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.X86_32,
+                platforms.Byteorder.LITTLE,
+                bytes([0x0F, 0xAF, 0xFF, 0x89, 0xF8]),
+                "edi",
+                "eax",
+            ),
+            25,
+        )
+
+    def test_aarch64(self):
+        # mul w0, w0, w0
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.AARCH64,
+                platforms.Byteorder.LITTLE,
+                bytes([0x00, 0x7C, 0x00, 0x1B]),
+                "x0",
+                "x0",
+            ),
+            25,
+        )
+
+    def test_armv7a(self):
+        # mul r0, r0, r0
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.ARM_V7A,
+                platforms.Byteorder.LITTLE,
+                bytes([0x90, 0x00, 0x00, 0xE0]),
+                "r0",
+                "r0",
+            ),
+            25,
+        )
+
+    @unittest.skipUnless(_TRITON_HAS_RISCV, "installed triton lacks RISC-V support")
+    def test_riscv64(self):
+        # mul a0, a0, a0
+        self.assertEqual(
+            self._square(
+                platforms.Architecture.RISCV64,
+                platforms.Byteorder.LITTLE,
+                bytes([0x33, 0x05, 0xA5, 0x02]),
+                "a0",
+                "a0",
+            ),
+            25,
+        )
+
+
+@unittest.skipUnless(_TRITON_AVAILABLE, "triton not installed")
+class TritonSymbolicTests(unittest.TestCase):
+    """Checks for the linear symbolic TritonSymbolicEmulator."""
+
+    def setUp(self):
+        self.platform = platforms.Platform(
+            platforms.Architecture.X86_64, platforms.Byteorder.LITTLE
+        )
+
+    def test_is_symbolic_and_constrained_emulator(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        self.assertIsInstance(emu, emulators.SymbolicEmulator)
+        self.assertIsInstance(emu, emulators.ConstrainedEmulator)
+
+    def test_symbolic_register_readback(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        emu.write_register_content("rdi", claripy.BVS("arg1", 64))
+        val = emu.read_register_symbolic("rdi")
+        self.assertTrue(val.symbolic)
+        self.assertEqual(val.size(), 64)
+
+    def test_read_content_raises_on_symbolic(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        emu.write_register_content("rdi", claripy.BVS("arg1", 64))
+        with self.assertRaises(exceptions.SymbolicValueError):
+            emu.read_register_content("rdi")
+
+    def test_symbolic_square_and_solve(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        code = bytes([0x0F, 0xAF, 0xFF, 0x89, 0xF8])  # imul edi,edi ; mov eax,edi
+        emu.write_code(0x1000, code)
+        emu.write_register_content("pc", 0x1000)
+        emu.write_register_content("rdi", claripy.BVS("arg1", 64))
+        emu.add_exit_point(0x1000 + len(code))
+        try:
+            emu.run()
+        except exceptions.EmulationExitpoint:
+            pass
+        eax = emu.read_register_symbolic("eax")
+        self.assertTrue(eax.symbolic)
+        # eax == arg1*arg1 (low 32 bits): 25 is reachable, 26 (a non-square) is not.
+        self.assertTrue(emu.satisfiable([eax == claripy.BVV(25, eax.size())]))
+        self.assertFalse(emu.satisfiable([eax == claripy.BVV(26, eax.size())]))
+
+    def test_add_constraint_and_eval(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        emu.write_register_content("rdi", claripy.BVS("v", 64))
+        rdi = emu.read_register_symbolic("rdi")
+        emu.add_constraint(rdi == claripy.BVV(7, 64))
+        self.assertEqual(emu.eval_atmost(rdi, 1), [7])
+
+    def test_enable_branching_raises(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        with self.assertRaises(NotImplementedError):
+            emu.enable_branching()
+
+    def test_get_active_states_single(self):
+        emu = emulators.TritonSymbolicEmulator(self.platform)
+        states = list(emu.get_active_states())
+        self.assertEqual(len(states), 1)
+        self.assertIs(states[0], emu)
+
+
 @unittest.skipUnless(_STYX_AVAILABLE, "styx_emulator not installed")
 class StyxMachdefTests(unittest.TestCase):
     """Sanity checks on the SmallWorld Styx machine definitions.

@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `TritonEmulator` and `TritonSymbolicEmulator` emulator backends based on the
+  Triton dynamic binary analysis framework (`[emu-triton]` extra), covering
+  x86, x86-64, ARM32, AArch64, and RISC-V 64, with concrete emulation, linear
+  symbolic execution, and taint-analysis escape hatches.
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.

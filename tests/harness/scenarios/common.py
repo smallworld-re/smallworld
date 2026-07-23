@@ -258,8 +258,10 @@ _EMULATOR_NAMES = {
     "pcode": "GhidraEmulator",
     "ghidra": "GhidraEmulator",
     "styx": "StyxEmulator",
+    "triton": "TritonEmulator",
     "pcode_symbolic": "GhidraSymbolicEmulator",
     "ghidra_symbolic": "GhidraSymbolicEmulator",
+    "triton_symbolic": "TritonSymbolicEmulator",
 }
 
 
