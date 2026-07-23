@@ -22,7 +22,7 @@ class MIPSMachineDef(AngrMachineDef):
         "v0": "v0",
         "2": "v0",
         "v1": "v1",
-        "3": "v3",
+        "3": "v1",
         # Argument Registers
         "a0": "a0",
         "4": "a0",

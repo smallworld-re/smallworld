@@ -14,6 +14,7 @@ class AngrNWBTAnalysis(analysis.Analysis):
     version = "0.0.1"
 
     def __init__(self, *args, initfunc=None, max_steps=500, **kwargs):
+        super().__init__(*args, **kwargs)
         self.steps_left = max_steps
         self.initfunc = initfunc
 

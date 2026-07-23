@@ -66,11 +66,13 @@ _PER_ARCH["i386"]["arg_register"] = None
 _PER_ARCH["tricore"]["entry_offset"] = 0x14
 
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
+_PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES},
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
 

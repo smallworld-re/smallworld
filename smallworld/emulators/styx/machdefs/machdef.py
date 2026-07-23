@@ -40,6 +40,14 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
     _registers: typing.Dict[str, typing.Any] = {}
     """Map from SmallWorld register name (lowercase) to the Styx register enum."""
 
+    cpu_models: typing.Dict[str, typing.Tuple[typing.Any, typing.Any]] = {}
+    """Optional map: ``cpu_model`` name (lowercase) -> ``(Target, Backend)``.
+
+    Families with more than one selectable core (e.g. PowerPC: ppc405 on Pcode,
+    mpc860 on Unicorn) populate this; single-core machdefs leave it empty and
+    always use the default ``target``/``backend``.
+    """
+
     pc_register: str = "pc"
     """Name of the program counter register in this architecture."""
 
@@ -57,6 +65,34 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
                 f"Styx machine def for {self.arch}:{self.byteorder} has no register '{name}'"
             )
         return self._registers[key]
+
+    def _resolve_cpu_model(
+        self, cpu_model: typing.Optional[str]
+    ) -> typing.Tuple[typing.Any, typing.Any]:
+        """Map an optional CPU model to its ``(Target, Backend)`` pair.
+
+        ``None`` selects this machdef's default ``target``/``backend``. A
+        non-``None`` ``cpu_model`` is looked up (case-insensitively) in
+        :attr:`cpu_models`; an unknown model raises ``ConfigurationError``.
+        """
+        if cpu_model is None:
+            return self.target, self.backend
+        key = cpu_model.lower()
+        if key not in self.cpu_models:
+            available = ", ".join(sorted(self.cpu_models)) or "none"
+            raise exceptions.ConfigurationError(
+                f"Styx machine def for {self.arch}:{self.byteorder} has no CPU "
+                f"model '{cpu_model}' (available: {available})"
+            )
+        return self.cpu_models[key]
+
+    def styx_target(self, cpu_model: typing.Optional[str] = None) -> typing.Any:
+        """Resolve the Styx ``Target`` to build for an optional CPU model."""
+        return self._resolve_cpu_model(cpu_model)[0]
+
+    def styx_backend(self, cpu_model: typing.Optional[str] = None) -> typing.Any:
+        """Resolve the Styx ``Backend`` to use for an optional CPU model."""
+        return self._resolve_cpu_model(cpu_model)[1]
 
     def has_register(self, name: str) -> bool:
         return name.lower() in self._registers
@@ -78,6 +114,7 @@ class StyxMachineDef(metaclass=abc.ABCMeta):
         except Exception as e:
             raise exceptions.ConfigurationError(
                 f"Styx has no target for {platform.architecture}:{platform.byteorder}. "
-                f"32-bit ARM (armhf/armel) is the only supported family at this time; "
+                f"32-bit ARM (armhf/armel) and 32-bit PowerPC (ppc) are the supported "
+                f"families at this time (PowerPC has no 64-bit Styx core); "
                 f"use UnicornEmulator or GhidraEmulator for other architectures."
             ) from e

@@ -502,3 +502,14 @@ and cause emulation to resume at a different instruction by setting the program 
 
 Both global and specific interrupt handlers can be registered at the same time.
 The order in which the callbacks fire is not guaranteed.
+
+Support
+*******
+
+The following is a matrix of which emulators support which event handler types.
+Specific caveats and details can be found in the documentation for specific backends.
+
+.. csv-table:: Event Handler Support
+    :file: event_handler_support.csv
+    :header-rows: 1
+    :stub-columns: 1

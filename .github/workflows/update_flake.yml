@@ -4,6 +4,12 @@ on:
     - cron: "00 5 * * MON"
   workflow_dispatch:
 
+# Serialize runs so a scheduled run and a manual dispatch don't both update
+# lockfiles and open competing PRs. Don't cancel an in-flight run.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   Update-Flake-UV:
     runs-on: ubuntu-latest
@@ -14,13 +20,13 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v6
-      - uses: astral-sh/setup-uv@v7
+      - uses: astral-sh/setup-uv@v8.2.0
       - name: Update UV lock file
         run: uv lock --upgrade
       - uses: DeterminateSystems/determinate-nix-action@v3
       - name: Update CI flake lock file
         run: nix flake update --flake ./ci
-      - uses: DeterminateSystems/update-flake-lock@main
+      - uses: DeterminateSystems/update-flake-lock@v28
         with:
           pr-title: "chore: update nix flake inputs and uv lock file"
           token: ${{ secrets.PR_TOKEN }}

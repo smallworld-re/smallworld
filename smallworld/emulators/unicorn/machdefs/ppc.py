@@ -438,4 +438,4 @@ class PPC64MachineDef(PPCMachineDef):
         logger.warning(
             "Unicorn PowerPC64 support is a work in progress.  This may not work."
         )
-        super(*args, **kwargs)
+        super().__init__(*args, **kwargs)
