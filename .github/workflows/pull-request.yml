@@ -7,7 +7,11 @@ on:
 env:
   TZ: UTC
   USER: root
-  INTEGRATION_SHARD_COUNT: "150"
+  # Sized to finish in a single wave on the self-hosted runner pool (observed
+  # ceiling ~125 concurrent jobs, minus a few slots for the other test jobs).
+  # A count above pool capacity forces a second wave that pays pod spin-up,
+  # checkout, and nix substitution overhead again.
+  INTEGRATION_SHARD_COUNT: "100"
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
   cancel-in-progress: true
@@ -50,10 +54,6 @@ jobs:
             | nix run nixpkgs#jq -- -r '[.. | objects | .path? // empty] | unique | .[]' \
             | cachix push smallworld
 
-      - name: Build devshell
-        run: |
-          nix -L develop -c true
-
       - name: Format
         env:
           bot_token: ${{ secrets.BOT_TOKEN }}
@@ -86,14 +86,29 @@ jobs:
           nix develop .#lint -c mypy --explicit-package-bases --ignore-missing-imports ./
           nix develop .#lint -c treefmt -f nixfmt --ci
 
+  # Builds the devshell and test artifacts once and pushes them to Cachix (via
+  # the cachix-action post hook) so every test job substitutes the PR-specific
+  # store paths instead of rebuilding them. Test jobs gate on this job rather
+  # than Lint, which keeps linting off the critical path; if the formatter
+  # auto-commits, the new push cancels this run through the concurrency group.
+  Build:
+    runs-on: smallworld-arc
+    steps:
+      - uses: cachix/cachix-action@v17
+        with:
+          name: smallworld
+          authToken: "${{ secrets.CACHIX_AUTH_TOKEN }}"
+      - uses: actions/checkout@v6
+      - name: Build Devshell
+        run: |
+          nix -L develop -c true
       - name: Build Test Artifacts
         run: |
-          nix build ./ci#tests
-          nix build ./ci#rtos_demo
+          nix build ./ci#tests ./ci#rtos_demo
 
   Unit-Test:
     runs-on: smallworld-arc
-    needs: Lint
+    needs: Build
     env:
       SMALLWORLD_COVERAGE: "1"
       SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
@@ -123,7 +138,6 @@ jobs:
 
   Python39:
     runs-on: ubuntu-latest
-    needs: Lint
     env:
       SMALLWORLD_COVERAGE: "1"
       SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
@@ -154,7 +168,7 @@ jobs:
 
   Example-Test:
     runs-on: smallworld-arc
-    needs: Lint
+    needs: Build
     env:
       SMALLWORLD_COVERAGE: "1"
       SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
@@ -183,7 +197,7 @@ jobs:
   
   Downstream-Flake:
     runs-on: smallworld-arc
-    needs: Lint
+    needs: Build
     env:
       SMALLWORLD_COVERAGE: "1"
       SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
@@ -212,7 +226,6 @@ jobs:
 
   Integration-Matrix:
     runs-on: ubuntu-latest
-    needs: Lint
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
@@ -230,7 +243,7 @@ jobs:
           
   Integration-Test:
     runs-on: smallworld-arc
-    needs: [Lint, Integration-Matrix]
+    needs: [Build, Integration-Matrix]
     env:
       SMALLWORLD_COVERAGE: "1"
       SMALLWORLD_COVERAGE_RCFILE: ${{ github.workspace }}/.coveragerc
@@ -255,7 +268,12 @@ jobs:
         run: |
           mkdir -p "$GITHUB_WORKSPACE/coverage-data"
           cd tests
-          nix develop .. -c python3 -m coverage run --parallel-mode integration.py -v --shard-index ${{ matrix.shard }} --shard-count ${{ env.INTEGRATION_SHARD_COUNT }}
+          # Timings ride along in the coverage artifact; Coverage-Combine
+          # merges them into case-timings.json, which is committed back to
+          # tests/case_timings.json periodically to keep shards balanced.
+          nix develop .. -c python3 -m coverage run --parallel-mode integration.py -v \
+            --shard-index ${{ matrix.shard }} --shard-count ${{ env.INTEGRATION_SHARD_COUNT }} \
+            --record-timings "$GITHUB_WORKSPACE/coverage-data/case-timings-shard-${{ matrix.shard }}.json"
       - name: Upload Coverage Data
         if: always()
         uses: actions/upload-artifact@v7
@@ -284,6 +302,38 @@ jobs:
           pattern: coverage-*
           path: coverage-artifacts
           merge-multiple: true
+      - name: Merge Case Timings
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          merged = {}
+          for path in sorted(
+              pathlib.Path("coverage-artifacts").glob("case-timings-shard-*.json")
+          ):
+              merged.update(json.loads(path.read_text()))
+          pathlib.Path("case-timings.json").write_text(
+              json.dumps(merged, indent=2, sort_keys=True) + "\n"
+          )
+          print(f"merged timings for {len(merged)} cases")
+
+          if merged:
+              slowest = sorted(merged.items(), key=lambda kv: -kv[1])[:15]
+              lines = [
+                  "## Slowest Integration Cases",
+                  "",
+                  "Refresh shard balance by copying `case-timings.json` from the",
+                  "`coverage-combined` artifact to `tests/case_timings.json`.",
+                  "",
+                  "| Case | Duration |",
+                  "| --- | ---: |",
+              ]
+              lines += [f"| `{cid}` | {dur:.1f}s |" for cid, dur in slowest]
+              with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as handle:
+                  handle.write("\n".join(lines) + "\n")
+          PY
       - name: Combine Coverage
         run: |
           mkdir -p coverage-artifacts
@@ -405,13 +455,16 @@ jobs:
             coverage-report.txt
             coverage.json
             coverage.xml
+            case-timings.json
             htmlcov
           include-hidden-files: true
           if-no-files-found: ignore
           
   Results:
-    runs-on: smallworld-arc
-    needs: [Lint, Unit-Test, Example-Test, Integration-Matrix, Integration-Test, Downstream-Flake, Python39, Coverage-Combine]
+    # ubuntu-latest so this pass/fail check does not wait on (or occupy) a
+    # self-hosted runner slot.
+    runs-on: ubuntu-latest
+    needs: [Lint, Build, Unit-Test, Example-Test, Integration-Matrix, Integration-Test, Downstream-Flake, Python39, Coverage-Combine]
     if: always()
     steps:
       - name: Formatter committed – new run will verify

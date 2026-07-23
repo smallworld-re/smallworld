@@ -2,6 +2,7 @@
 *.pyc
 *.jsonl
 *.json
+!tests/case_timings.json
 *.elf
 *.so
 *~

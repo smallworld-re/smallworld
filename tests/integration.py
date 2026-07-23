@@ -12,12 +12,15 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from harness.framework import (
+    load_case_timings,
     managed_output_logger,
     run_cases,
     stable_shards,
     summaries_json,
 )
 from harness.manifest import all_cases
+
+DEFAULT_TIMINGS_FILE = pathlib.Path(__file__).resolve().parent / "case_timings.json"
 
 
 def _matches(case_id: str, tags: tuple[str, ...], filters: list[str]) -> bool:
@@ -65,6 +68,18 @@ def main() -> int:
     )
     parser.add_argument("--shard-index", type=int, help="Shard to run, zero-based")
     parser.add_argument("--shard-count", type=int, help="Total number of shards")
+    parser.add_argument(
+        "--timings-file",
+        type=pathlib.Path,
+        default=DEFAULT_TIMINGS_FILE,
+        help="JSON map of case id to seconds used to balance shards; cases "
+        "missing from the file (or the whole file) fall back to static weights",
+    )
+    parser.add_argument(
+        "--record-timings",
+        type=pathlib.Path,
+        help="Write measured per-case durations to this JSON file",
+    )
     ns = parser.parse_args()
     log_path = ns.output_log.expanduser().resolve() if ns.output_log else None
 
@@ -82,7 +97,9 @@ def main() -> int:
                 raise SystemExit("--shard-count must be greater than zero")
             if ns.shard_index < 0 or ns.shard_index >= ns.shard_count:
                 raise SystemExit("--shard-index must be in [0, --shard-count)")
-            shards = stable_shards(cases, ns.shard_count)
+            shards = stable_shards(
+                cases, ns.shard_count, timings=load_case_timings(ns.timings_file)
+            )
             cases = shards[ns.shard_index]
 
         if ns.list:
@@ -99,7 +116,12 @@ def main() -> int:
             print("No integration cases matched the current selection.")
             return 0
 
-        return run_cases(cases, verbose=ns.verbose, output_logger=logger)
+        return run_cases(
+            cases,
+            verbose=ns.verbose,
+            output_logger=logger,
+            timings_path=ns.record_timings,
+        )
 
 
 if __name__ == "__main__":

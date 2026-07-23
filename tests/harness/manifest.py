@@ -82,7 +82,7 @@ def _run_afl_showmap(
             "afl-showmap",
             "-C",
             "-t",
-            "10000",
+            "30000",
             "-U",
             "-m",
             "none",
@@ -95,6 +95,15 @@ def _run_afl_showmap(
         ],
         cwd=cwd or TestsPath,
         stdin=stdin,
+        env={
+            # The instrumented targets are Python processes with heavy
+            # imports. On a fully loaded CI runner the default fork-server
+            # startup window is too short and afl-showmap aborts the case
+            # before the first input runs; the generous exec timeout above
+            # likewise keeps slow-under-load executions from being killed
+            # mid-run, which would change the coverage map the case asserts.
+            "AFL_FORKSRV_INIT_TMOUT": "120000",
+        },
         check=check,
     )
     return result.stdout, result.stderr

@@ -28,6 +28,7 @@ from harness.framework import (
     CaseRunner,
     CaseSpec,
     DetailedCalledProcessError,
+    load_case_timings,
     managed_output_logger,
     run_cases,
     stable_shards,
@@ -1965,6 +1966,53 @@ class FrameworkHarnessTests(unittest.TestCase):
         weights = [sum(case.weight for case in shard) for shard in shards]
 
         self.assertLessEqual(max(weights) - min(weights), 1)
+
+    def test_stable_shards_balances_with_measured_timings(self):
+        cases = [
+            CaseSpec(id="demo:slow", tags=("demo",), run=lambda runner: None),
+            CaseSpec(id="demo:mid", tags=("demo",), run=lambda runner: None),
+            CaseSpec(id="demo:fast", tags=("demo",), run=lambda runner: None),
+            CaseSpec(id="demo:new", tags=("demo",), run=lambda runner: None, weight=2),
+        ]
+        # demo:new is unmeasured, so it is costed at the measured median
+        # (20.0) times its weight (2) and lands on its own shard first.
+        timings = {"demo:slow": 30.0, "demo:mid": 20.0, "demo:fast": 10.0}
+
+        shards = stable_shards(cases, 2, timings=timings)
+
+        self.assertEqual(
+            [[case.id for case in shard] for shard in shards],
+            [["demo:fast", "demo:new"], ["demo:mid", "demo:slow"]],
+        )
+
+    def test_run_cases_records_timings(self):
+        cases = [
+            CaseSpec(id="demo:timed", tags=("demo",), run=lambda runner: None),
+            CaseSpec(
+                id="demo:skipped",
+                tags=("demo",),
+                run=lambda runner: None,
+                skip_reason="skip",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            timings_path = pathlib.Path(tmp) / "timings.json"
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                result = run_cases(cases, timings_path=timings_path)
+            payload = json.loads(timings_path.read_text())
+            loaded = load_case_timings(timings_path)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(set(payload), {"demo:timed"})
+        self.assertGreaterEqual(payload["demo:timed"], 0.0)
+        self.assertEqual(loaded, payload)
+
+    def test_load_case_timings_missing_file_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = pathlib.Path(tmp) / "does-not-exist.json"
+            self.assertEqual(load_case_timings(missing), {})
 
 
 class IntegrationHarnessTests(unittest.TestCase):
