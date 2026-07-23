@@ -483,9 +483,9 @@ class TlsGetAddr(CStdModel):
     argument_types = [ArgumentType.POINTER]
     return_type = ArgumentType.POINTER
 
-    TLS_ARENA_SIZE = 0x1000   # bytes of scratch per module arena
-    TLS_MAX_MODULES = 8       # distinct module arenas (extra modules alias in via %)
-    _TLS_HEADROOM = 0x40      # keep a wide access from a near-arena-end offset in-bounds
+    TLS_ARENA_SIZE = 0x1000  # bytes of scratch per module arena
+    TLS_MAX_MODULES = 8  # distinct module arenas (extra modules alias in via %)
+    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
     # Reserved once by the library, which sets self.static_buffer_address and maps
     # the (zeroed) region; sized to hold the whole arena pool.
     static_space_required = TLS_ARENA_SIZE * TLS_MAX_MODULES
@@ -511,7 +511,9 @@ class TlsGetAddr(CStdModel):
         # (garbage/overflow modules alias via %), and index by offset within it,
         # clamped so even a wide access from a near-end offset stays mapped.
         slot = module % self.TLS_MAX_MODULES
-        off = min(offset % self.TLS_ARENA_SIZE, self.TLS_ARENA_SIZE - self._TLS_HEADROOM)
+        off = min(
+            offset % self.TLS_ARENA_SIZE, self.TLS_ARENA_SIZE - self._TLS_HEADROOM
+        )
         addr = self.static_buffer_address + slot * self.TLS_ARENA_SIZE + off
         self.set_return_value(emulator, addr)
 
