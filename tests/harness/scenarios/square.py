@@ -30,8 +30,12 @@ _ARCHS = (
     "xtensa",
 )
 
-# Arches Triton supports get "triton" added to the default engine set.
+# Arches Triton supports get "triton" appended to that arch's existing engine
+# set. We build each list from the arch's real default rather than a blanket
+# tuple, because the engine sets differ per arch (e.g. riscv64 has no PANDA
+# support, so adding a blanket "panda" would create a failing square:riscv64.panda).
 _TRITON_ENGINES = ("unicorn", "angr", "panda", "pcode", "triton")
+_RISCV_ENGINES = ("unicorn", "angr", "pcode", "triton")
 _ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx", "triton")
 # PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the
 # MPC860. Triton has no PowerPC target, so it is not included here.
@@ -44,7 +48,7 @@ _SPECS = build_specs(
         "aarch64": _TRITON_ENGINES,
         "amd64": _TRITON_ENGINES,
         "i386": _TRITON_ENGINES,
-        "riscv64": _TRITON_ENGINES,
+        "riscv64": _RISCV_ENGINES,
         "armel": _ARM_ENGINES,
         "armhf": _ARM_ENGINES,
         "ppc": _PPC_ENGINES,
