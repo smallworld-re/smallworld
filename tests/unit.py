@@ -4301,7 +4301,8 @@ class SetArgumentEncodingTests(ModelTestCase):
 
 
 class TlsGetAddrModelTests(ModelTestCase):
-    """c99/stdlib.py TlsGetAddr: stable per-(module, offset) storage."""
+    """c99/stdlib.py TlsGetAddr: stable per-module arena storage in the model's
+    own reserved static buffer (not the malloc heap)."""
 
     TI1 = 0x4000
     TI2 = 0x4010
@@ -4318,13 +4319,15 @@ class TlsGetAddrModelTests(ModelTestCase):
         )
         self.model = self.lookup("__tls_get_addr")
 
-    def test_requires_heap(self):
+    def test_requires_static_buffer(self):
         self.emu.write_register("rdi", self.TI1)
         with self.assertRaises(exceptions.ConfigurationError):
             self.model.model(self.emu)
 
     def test_stable_and_distinct_addresses(self):
-        self.model.heap = BumpAllocator(0x60000, 0x4000)
+        # The library reserves static_space_required bytes and assigns
+        # static_buffer_address; emulate that here.
+        self.model.static_buffer_address = 0x60000
 
         first = self.call(self.model, self.TI1)
         self.assertNotEqual(first, 0)
