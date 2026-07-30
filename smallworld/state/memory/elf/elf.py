@@ -872,6 +872,22 @@ class ElfExecutable(Executable):
             null_sym = self._dynamic_symbols[0]
             self.update_symbol_value(null_sym, 0, rebase=False)
 
+            # Self-resolve GOT slots (e.g. GLOB_DAT) for dynamic symbols that
+            # are DEFINED in this image. A real loader resolves these against
+            # the image's own definition; without it their relocations stay
+            # null (e.g. a rip-relative load of a defined data symbol reads 0).
+            # A symbol is defined-in-image when its section index is a real
+            # section: not SHN_UNDEF (0, external -> left for link_elf) and
+            # below SHN_LORESERVE (0xFF00, which excludes SHN_ABS/SHN_COMMON
+            # whose values are not base-relative). We cannot use
+            # self._section_offsets here: it is empty for images loaded via
+            # program headers (e.g. stripped shared objects).
+            SHN_UNDEF = 0
+            SHN_LORESERVE = 0xFF00
+            for sym in self._dynamic_symbols[1:]:
+                if SHN_UNDEF < sym.shndx < SHN_LORESERVE:
+                    self.update_symbol_value(sym, sym.value, rebase=False)
+
     def _get_symbols(
         self, name: typing.Union[str, int], dynamic: bool
     ) -> typing.List[ElfSymbol]:
