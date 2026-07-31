@@ -195,12 +195,17 @@ class TraceExecution(analysis.Analysis):
                 i += 1
                 logger.debug(cs_insn)
                 self.emulator.step()
-            except (
-                smallworld.exceptions.EmulationBounds,
-                smallworld.exceptions.EmulationExitpoint,
-            ):
-                # this one really isnt an error of any kind; we
-                # encountered code we were not supposed to execute
+            except smallworld.exceptions.EmulationExitpoint:
+                # Reached a designated exit point (the harnessed function's
+                # ret/end): a clean, intended completion. Kept distinct from
+                # ER_BOUNDS so callers can tell "the function returned" from
+                # "control escaped the allowed region."
+                emu_result = TraceRes.ER_EXITPOINT
+                break
+            except smallworld.exceptions.EmulationBounds:
+                # Execution left the allowed bounds without hitting an exit
+                # point -- e.g. an indirect jump through a garbage pointer. Not
+                # a hard emulation fault, but not a clean return either.
                 emu_result = TraceRes.ER_BOUNDS
                 break
             except Exception as e:
