@@ -47,7 +47,33 @@ let
       pkgs = pkgsFor system;
       linuxBuilderSystem = linuxBuilderSystemFor system;
       libExt = if pkgs.stdenv.isDarwin then "dylib" else "so";
-      pyPkgs = pkgs.python3Packages;
+      # `tree-sitter-grammars.tree-sitter-c` (used below to build PANDA's
+      # headers) pulls in `datamodel-code-generator`, whose test suite pins
+      # exact `ruff`-formatted golden output. A `ruff` version bump elsewhere
+      # in nixpkgs can shift that formatting (e.g. blank-line placement) and
+      # break the golden-file comparison, which has nothing to do with
+      # whether the tool itself works. Skip its checks so that drift doesn't
+      # block every package that merely depends on it as a build tool.
+      #
+      # `tree-sitter-c` itself also fails nixpkgs' newer
+      # pythonMetadataCheckPhase: the derivation's `pname` doesn't match the
+      # project name recorded in its own dist-info metadata, so the sanity
+      # check raises `PackageNotFoundError` even though the module imports
+      # fine. That mismatch is a pre-existing packaging quirk, not something
+      # this project can fix upstream, so skip the check here too.
+      pyPkgs = pkgs.python3Packages.overrideScope (
+        _final: prev: {
+          datamodel-code-generator = prev.datamodel-code-generator.overridePythonAttrs (_: {
+            doCheck = false;
+            doInstallCheck = false;
+          });
+          tree-sitter-grammars = prev.tree-sitter-grammars // {
+            tree-sitter-c = prev.tree-sitter-grammars.tree-sitter-c.overridePythonAttrs (_: {
+              dontCheckPythonMetadata = true;
+            });
+          };
+        }
+      );
       pandaQemuBaseSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.panda-qemu-src.locked;
       pandaQemuSrc = pkgs.applyPatches {
         name = "panda-qemu-src";
