@@ -62,12 +62,26 @@ class AngrEmulator(
     description = "an emulator using angr as its backend"
     version = "0.0"
 
-    def __init__(self, platform: platforms.Platform, preinit=None, init=None):
+    def __init__(
+        self,
+        platform: platforms.Platform,
+        preinit=None,
+        init=None,
+        taint: bool = False,
+        taint_addresses: bool = False,
+    ):
         # Initialized bit; tells us if angr state is initialized
         self._initialized: bool = False
 
         # Dirty bit; tells us if we can modify self.state
         self._dirty: bool = False
+
+        # Dynamic taint tracking. angr already propagates labels as named
+        # symbolic variables; when enabled, taint is surfaced by intersecting a
+        # value's symbolic variables with the set of source labels below.
+        self._taint: bool = taint
+        self._taint_addresses: bool = taint_addresses
+        self._taint_sources: typing.Set[str] = set()
 
         # Linear mode bit; tells us if we're running in forced linear execution
         self._linear: bool = True
@@ -459,12 +473,34 @@ class AngrEmulator(
     ) -> None:
         pass
 
+    def read_register_taint(self, name: str) -> typing.Set[str]:
+        if not self._taint:
+            return set()
+        try:
+            out = self.read_register_symbolic(name)
+        except Exception:
+            return set()
+        if out is None:
+            return set()
+        return self._taint_of(out)
+
+    def _taint_of(self, expr: claripy.ast.bv.BV) -> typing.Set[str]:
+        # Simplify so that values that no longer depend on a source (e.g. a
+        # register cleared via ``xor r, r`` -> 0) drop that source's taint.
+        try:
+            expr = claripy.simplify(expr)
+        except Exception:
+            pass
+        return set(expr.variables) & self._taint_sources
+
     def write_register_label(
         self, name: str, label: typing.Optional[str] = None
     ) -> None:
         if label is None:
             return
-        elif not self._initialized:
+        if self._taint:
+            self._taint_sources.add(label)
+        if not self._initialized:
             if name == "pc":
                 name = self.platdef.pc_register
             # Test that the angr register exists
@@ -603,12 +639,25 @@ class AngrEmulator(
     ) -> None:
         pass
 
+    def read_memory_taint(self, address: int, size: int) -> typing.Set[str]:
+        if not self._taint:
+            return set()
+        try:
+            out = self.read_memory_symbolic(address, size)
+        except Exception:
+            return set()
+        if out is None:
+            return set()
+        return self._taint_of(out)
+
     def write_memory_label(
         self, address: int, size: int, label: typing.Optional[str] = None
     ) -> None:
         if label is None:
             return
-        elif not self._initialized:
+        if self._taint:
+            self._taint_sources.add(label)
+        if not self._initialized:
             self._memory_labels.append((address, size, label))
         elif self._dirty and not self._linear:
             raise NotImplementedError(
@@ -1776,6 +1825,13 @@ class ConcreteAngrEmulator(AngrEmulator):
         self.platdef: platforms.PlatformDef = parent.platdef
         self.machdef: AngrMachineDef = parent.machdef
         self.pagesize: int = parent.PAGE_SIZE
+
+        # Taint state is shared with the parent;
+        # _taint_sources is the same set, so labels added inside hooks
+        # are visible to the parent when it computes taint.
+        self._taint: bool = parent._taint
+        self._taint_addresses: bool = parent._taint_addresses
+        self._taint_sources: typing.Set[str] = parent._taint_sources
 
     # Function hooking is not supported;
     # it relies on state global to the angr project, not individual states.
