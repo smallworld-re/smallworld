@@ -56,6 +56,15 @@ class AMD64BasePlatformDef(PlatformDef):
         "jecxz",
         "jcxz",
     }
+
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
+        "jrcxz",
+        "jecxz",
+        "jcxz",
+    }
+
     # TODO: Should arithmetic operations that impact flags be compares?
     compare_mnemonics = {
         # Basic integer comparisons.

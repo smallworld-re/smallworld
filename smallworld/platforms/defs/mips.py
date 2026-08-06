@@ -51,7 +51,7 @@ class MIPSO32PlatformDef(PlatformDef):
         "bltz",
         # Conditional branch-and-link
         "bgezal",
-        "bltzal"
+        "bltzal",
         # Likely conditional branch
         # Skip the delay slot if they are not taken.
         "beql",
@@ -65,6 +65,10 @@ class MIPSO32PlatformDef(PlatformDef):
         "bgezall",
         "bltzall",
     }
+
+    # Every MIPS conditional branch compares general-purpose register
+    # values directly (there are no condition flags).
+    compare_branch_mnemonics = conditional_branch_mnemonics
 
     compare_mnemonics = {
         # Integer comparison: set-less-than writes a boolean to a GPR;

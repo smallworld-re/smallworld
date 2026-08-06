@@ -41,9 +41,17 @@ def get_cmp_info(
 
     Immediates come from the decoded operands: use/def reports
     locations, and a constant is not a location.
+
+    Compare-and-branch instructions (pdefs.compare_branch_mnemonics:
+    MIPS beq, AArch64 cbz/tbz, x86 jrcxz, PPC bdnz) are reported too —
+    they embed the comparison the branch decides on. For those, the
+    final immediate operand is the branch target, not a compared
+    value, so it is excluded.
     """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    if cs_insn.mnemonic not in pdefs.compare_mnemonics:
+    is_compare = cs_insn.mnemonic in pdefs.compare_mnemonics
+    is_compare_branch = cs_insn.mnemonic in pdefs.compare_branch_mnemonics
+    if not (is_compare or is_compare_branch):
         return ([], [])
     sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
     reads = sw_insn.reads
@@ -61,9 +69,10 @@ def get_cmp_info(
         ),
         key=repr,
     )
-    immediates = [
-        int(op.value.imm) for op in cs_insn.operands if op.type == capstone.CS_OP_IMM
-    ]
+    imm_ops = [op for op in cs_insn.operands if op.type == capstone.CS_OP_IMM]
+    if is_compare_branch and imm_ops:
+        imm_ops = imm_ops[:-1]  # drop the branch target
+    immediates = [int(op.value.imm) for op in imm_ops]
     cmp_info.extend(immediates)
     return (cmp_info, immediates)
 

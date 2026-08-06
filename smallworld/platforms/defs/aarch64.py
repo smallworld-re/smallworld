@@ -115,6 +115,15 @@ class AArch64(PlatformDef):
         "cbhlt",
     }
 
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
+        "cbz",
+        "cbnz",
+        "tbz",
+        "tbnz",
+    }
+
     # TODO: Should arithmetic operations that impact flags be compares?
     compare_mnemonics = {
         # Integer comparison

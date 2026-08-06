@@ -61,6 +61,11 @@ class PlatformDef(metaclass=abc.ABCMeta):
         """Set of comparison mnemonics"""
         raise NotImplementedError()
 
+    compare_branch_mnemonics: typing.Set[str] = set()
+    """Conditional branch mnemonics whose comparison reads registers or
+    memory directly (MIPS beq, AArch64 cbz, x86 jrcxz) rather than
+    condition flags set by an earlier compare."""
+
     delay_slot_mnemonics: typing.Set[str] = set()
     """Set of delay slot mnemonics"""
 
