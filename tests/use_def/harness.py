@@ -56,23 +56,54 @@ if REPO_ROOT not in sys.path:
 # ----------------------------------------------------------------------- #
 
 X86_FLAGS = {
-    "cf", "pf", "af", "zf", "sf", "of", "df", "tf", "if", "ac", "id",
-    "rflags", "eflags", "flags",
+    "cf",
+    "pf",
+    "af",
+    "zf",
+    "sf",
+    "of",
+    "df",
+    "tf",
+    "if",
+    "ac",
+    "id",
+    "rflags",
+    "eflags",
+    "flags",
 }
 
 FLAG_REGS = {
     "x86_64": X86_FLAGS,
     "i386": X86_FLAGS,
     "aarch64": {
-        "ng", "zr", "cy", "ov",
+        "ng",
+        "zr",
+        "cy",
+        "ov",
         # the flags as a unit (mrs/msr nzcv)
         "nzcv",
         # Ghidra AARCH64 scratch/status registers that can leak into pcode
-        "shift_carry", "tmpcy", "tmpov", "tmpng", "tmpzr",
+        "shift_carry",
+        "tmpcy",
+        "tmpov",
+        "tmpng",
+        "tmpzr",
     },
     "ppc32": {
-        "cr0", "cr1", "cr2", "cr3", "cr4", "cr5", "cr6", "cr7",
-        "xer_so", "xer_ov", "xer_ca", "xer_count", "xer_string", "xer",
+        "cr0",
+        "cr1",
+        "cr2",
+        "cr3",
+        "cr4",
+        "cr5",
+        "cr6",
+        "cr7",
+        "xer_so",
+        "xer_ov",
+        "xer_ca",
+        "xer_count",
+        "xer_string",
+        "xer",
         "crall",
     },
     "mips32": set(),
@@ -403,15 +434,25 @@ def load_corpora(corpus_dir, isas):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--isa", action="append", default=None,
-                    help="restrict to this ISA (repeatable)")
+    ap.add_argument(
+        "--isa", action="append", default=None, help="restrict to this ISA (repeatable)"
+    )
     ap.add_argument("--corpus-dir", default=HERE)
-    ap.add_argument("--json", default=None,
-                    help="write full per-entry results to this file")
-    ap.add_argument("-v", "--verbose", action="store_true",
-                    help="print per-entry detail for non-passing entries")
-    ap.add_argument("--max-details", type=int, default=15,
-                    help="max non-passing entries detailed per ISA (with -v)")
+    ap.add_argument(
+        "--json", default=None, help="write full per-entry results to this file"
+    )
+    ap.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="print per-entry detail for non-passing entries",
+    )
+    ap.add_argument(
+        "--max-details",
+        type=int,
+        default=15,
+        help="max non-passing entries detailed per ISA (with -v)",
+    )
     args = ap.parse_args(argv)
 
     corpora = load_corpora(args.corpus_dir, args.isa)
@@ -434,13 +475,17 @@ def main(argv=None):
             counts[r["status"]] += 1
         total = len(results)
         agree = counts["pass"] + counts["pass-normalized"]
-        print(f"\n=== {isa} ({total} instructions) "
-              f"[{os.path.basename(corpus['_path'])}] ===")
+        print(
+            f"\n=== {isa} ({total} instructions) "
+            f"[{os.path.basename(corpus['_path'])}] ==="
+        )
         for s in STATUS_ORDER:
             if counts[s]:
                 print(f"  {s:16s} {counts[s]:4d}")
-        print(f"  agreement (normalized): {agree}/{total} "
-              f"({100.0 * agree / total:.0f}%)")
+        print(
+            f"  agreement (normalized): {agree}/{total} "
+            f"({100.0 * agree / total:.0f}%)"
+        )
 
         if args.verbose:
             shown = 0
@@ -448,11 +493,11 @@ def main(argv=None):
                 if r["status"] in ("pass",):
                     continue
                 if shown >= args.max_details:
-                    remaining = sum(
-                        1 for x in results if x["status"] != "pass"
-                    ) - shown
-                    print(f"  ... {remaining} more non-passing entries "
-                          f"(see --json report)")
+                    remaining = sum(1 for x in results if x["status"] != "pass") - shown
+                    print(
+                        f"  ... {remaining} more non-passing entries "
+                        f"(see --json report)"
+                    )
                     break
                 shown += 1
                 print(f"  [{r['status']}] {r['asm']}  ({r['bytes']})")
@@ -465,10 +510,11 @@ def main(argv=None):
                         ("extra", f"extra_{kind}_norm"),
                     ):
                         if r.get(key):
-                            print(f"      {kind} {label}: "
-                                  f"{', '.join(r[key])}")
-                print(f"      analysis said: use={r['actual_use']} "
-                      f"def={r['actual_def']}")
+                            print(f"      {kind} {label}: " f"{', '.join(r[key])}")
+                print(
+                    f"      analysis said: use={r['actual_use']} "
+                    f"def={r['actual_def']}"
+                )
 
     # Global summary
     counts = {s: 0 for s in STATUS_ORDER}
@@ -479,13 +525,13 @@ def main(argv=None):
     print(f"\n=== TOTAL: {total} instructions ===")
     for s in STATUS_ORDER:
         print(f"  {s:16s} {counts[s]:4d}")
-    print(f"  agreement (normalized): {agree}/{total} "
-          f"({100.0 * agree / total:.0f}%)")
+    print(
+        f"  agreement (normalized): {agree}/{total} " f"({100.0 * agree / total:.0f}%)"
+    )
 
     if args.json:
         with open(args.json, "w") as f:
-            json.dump({"summary": counts, "results": all_results}, f,
-                      indent=2)
+            json.dump({"summary": counts, "results": all_results}, f, indent=2)
         print(f"\nfull report written to {args.json}")
 
     return 0 if agree == total else 1

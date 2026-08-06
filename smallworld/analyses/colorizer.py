@@ -18,7 +18,6 @@ from ..instructions import (
 from . import analysis
 from .trace_execution import TraceExecution, TraceExecutionCBPoint
 
-
 logger = logging.getLogger(__name__)
 
 BAD_COLOR = (2**64) - 1

@@ -1,4 +1,3 @@
-
 """
 Compute use/def sets for machine instructions using Ghidra's raw pcode,
 via pyghidra.
@@ -43,10 +42,11 @@ import argparse
 import atexit
 import functools
 import json
-import sys
 import logging
-import pyghidra
+import sys
 from enum import Enum, auto
+
+import pyghidra
 
 from smallworld.instructions import RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
@@ -74,27 +74,27 @@ def _ensure_pyghidra():
 # is passed through verbatim, so power users can name any language id
 # from Ghidra/Processors/*/data/languages/*.ldefs directly.
 ARCH_ALIASES = {
-    "x86":      "x86:LE:32:default",
-    "x86-32":   "x86:LE:32:default",
-    "i386":     "x86:LE:32:default",
-    "x86-64":   "x86:LE:64:default",
-    "amd64":    "x86:LE:64:default",
-    "x64":      "x86:LE:64:default",
-    "arm":      "ARM:LE:32:v8",
-    "arm32":    "ARM:LE:32:v8",
-    "armbe":    "ARM:BE:32:v8",
-    "aarch64":  "AARCH64:LE:64:v8A",
-    "arm64":    "AARCH64:LE:64:v8A",
-    "mips":     "MIPS:BE:32:default",
-    "mips32":   "MIPS:BE:32:default",
-    "mipsle":   "MIPS:LE:32:default",
-    "mips64":   "MIPS:BE:64:default",
-    "ppc":      "PowerPC:BE:32:default",
-    "ppc32":    "PowerPC:BE:32:default",
-    "ppc64":    "PowerPC:BE:64:default",
-    "sparc":    "sparc:BE:32:default",
-    "riscv":    "RISCV:LE:64:RV64GC",
-    "riscv32":  "RISCV:LE:32:RV32GC",
+    "x86": "x86:LE:32:default",
+    "x86-32": "x86:LE:32:default",
+    "i386": "x86:LE:32:default",
+    "x86-64": "x86:LE:64:default",
+    "amd64": "x86:LE:64:default",
+    "x64": "x86:LE:64:default",
+    "arm": "ARM:LE:32:v8",
+    "arm32": "ARM:LE:32:v8",
+    "armbe": "ARM:BE:32:v8",
+    "aarch64": "AARCH64:LE:64:v8A",
+    "arm64": "AARCH64:LE:64:v8A",
+    "mips": "MIPS:BE:32:default",
+    "mips32": "MIPS:BE:32:default",
+    "mipsle": "MIPS:LE:32:default",
+    "mips64": "MIPS:BE:64:default",
+    "ppc": "PowerPC:BE:32:default",
+    "ppc32": "PowerPC:BE:32:default",
+    "ppc64": "PowerPC:BE:64:default",
+    "sparc": "sparc:BE:32:default",
+    "riscv": "RISCV:LE:64:RV64GC",
+    "riscv32": "RISCV:LE:32:RV32GC",
 }
 
 
@@ -140,7 +140,7 @@ def parse_bytes_arg(spec):
 # registers, used to find the smallest named register containing a
 # varnode when no register starts at the varnode's address (e.g. the
 # upper-lane zeroing writes AArch64 emits at z0+8, or x0+4).
-_register_intervals = {}
+_register_intervals: dict = {}
 
 
 def _containing_register(program, vn):
@@ -195,7 +195,6 @@ def _varnode_operand(program, vn):
     if vn.isRegister():
         return RegisterOperand(_reg_name(program, vn))
 
-    
     # has to be true -- a concrete address
     assert vn.isAddress()
     addr = vn.getAddress()
@@ -210,7 +209,6 @@ def _varnode_operand(program, vn):
         offset=int(addr.getOffset()) & ((1 << 64) - 1),
         size=int(vn.getSize()),
     )
-
 
 
 def _unique_key(vn):
@@ -252,63 +250,64 @@ _GHIDRA_INTERNAL_REGS = {
 # unique's expression as a string keyed by its (offset, size) and
 # substitute it back when the STORE consumes it.
 
+
 class _PCODE_OP(Enum):
-    COPY = auto()           
-    LOAD = auto()           
-    STORE = auto()          
-    BRANCH = auto()         
-    CBRANCH = auto()        
-    BRANCHIND = auto()      
-    CALL = auto()           
-    CALLIND = auto()        
+    COPY = auto()
+    LOAD = auto()
+    STORE = auto()
+    BRANCH = auto()
+    CBRANCH = auto()
+    BRANCHIND = auto()
+    CALL = auto()
+    CALLIND = auto()
     RETURN = auto()
-    PIECE = auto()          
-    SUBPIECE = auto()       
-    INT_EQUAL = auto()      
-    INT_NOTEQUAL = auto()   
-    INT_LESS = auto()       
-    INT_SLESS = auto()      
-    INT_LESSEQUAL = auto()  
-    INT_SLESSEQUAL = auto() 
-    INT_ZEXT = auto()       
-    INT_SEXT = auto()       
-    INT_ADD = auto()        
-    INT_SUB = auto()        
-    INT_CARRY = auto()      
-    INT_SCARRY = auto()     
-    INT_SBORROW = auto()    
-    INT_2COMP = auto()      
-    INT_NEGATE = auto()     
-    INT_XOR = auto()        
-    INT_AND = auto()        
-    INT_OR = auto()         
-    INT_LEFT = auto()       
-    INT_RIGHT = auto()      
-    INT_SRIGHT = auto()     
-    INT_MULT = auto()       
-    INT_DIV = auto()        
-    INT_REM = auto()        
-    INT_SDIV = auto()       
-    INT_SREM = auto()       
-    BOOL_NEGATE = auto()    
-    BOOL_XOR = auto()       
-    BOOL_AND = auto()       
-    BOOL_OR = auto()        
-    FLOAT_EQUAL = auto()    
-    FLOAT_NOTEQUAL = auto() 
-    FLOAT_LESS = auto()     
+    PIECE = auto()
+    SUBPIECE = auto()
+    INT_EQUAL = auto()
+    INT_NOTEQUAL = auto()
+    INT_LESS = auto()
+    INT_SLESS = auto()
+    INT_LESSEQUAL = auto()
+    INT_SLESSEQUAL = auto()
+    INT_ZEXT = auto()
+    INT_SEXT = auto()
+    INT_ADD = auto()
+    INT_SUB = auto()
+    INT_CARRY = auto()
+    INT_SCARRY = auto()
+    INT_SBORROW = auto()
+    INT_2COMP = auto()
+    INT_NEGATE = auto()
+    INT_XOR = auto()
+    INT_AND = auto()
+    INT_OR = auto()
+    INT_LEFT = auto()
+    INT_RIGHT = auto()
+    INT_SRIGHT = auto()
+    INT_MULT = auto()
+    INT_DIV = auto()
+    INT_REM = auto()
+    INT_SDIV = auto()
+    INT_SREM = auto()
+    BOOL_NEGATE = auto()
+    BOOL_XOR = auto()
+    BOOL_AND = auto()
+    BOOL_OR = auto()
+    FLOAT_EQUAL = auto()
+    FLOAT_NOTEQUAL = auto()
+    FLOAT_LESS = auto()
     FLOAT_LESSEQUAL = auto()
-    FLOAT_ADD = auto()      
-    FLOAT_SUB = auto()      
-    FLOAT_MULT = auto()     
-    FLOAT_DIV = auto()      
-    FLOAT_NEG = auto()      
-    FLOAT_ABS = auto()      
-    FLOAT_SQRT = auto()     
-    FLOAT_CEIL = auto()     
-    FLOAT_FLOOR = auto()    
-    FLOAT_ROUND = auto()    
-    FLOAT_NAN = auto()      
+    FLOAT_ADD = auto()
+    FLOAT_SUB = auto()
+    FLOAT_MULT = auto()
+    FLOAT_DIV = auto()
+    FLOAT_NEG = auto()
+    FLOAT_ABS = auto()
+    FLOAT_SQRT = auto()
+    FLOAT_CEIL = auto()
+    FLOAT_FLOOR = auto()
+    FLOAT_ROUND = auto()
+    FLOAT_NAN = auto()
     INT2FLOAT = auto()
     FLOAT2FLOAT = auto()
     TRUNC = auto()
@@ -338,8 +337,6 @@ def _space_name(program, space_id_vn):
     space_id = int(space_id_vn.getOffset())
     space = program.getAddressFactory().getAddressSpace(space_id)
     return space.getName() if space is not None else f"space{space_id}"
-
-
 
 
 class UseDefError(Exception):
@@ -420,7 +417,7 @@ def update_symstate(op, sstate):
     # else: output is a ram address (absolute store via COPY); nothing
     # downstream reads it back through sstate, so don't track it
 
-        
+
 def _const_value(vn):
     """Value of a constant varnode, interpreted as signed at its size.
 
@@ -532,9 +529,7 @@ def expr_to_bsid(expr, program, size, addr_size):
             offset += sign * _const_value(term)
         elif term.isRegister():
             if sign < 0:
-                raise UseDefError(
-                    f"negated base register in address: {term}"
-                )
+                raise UseDefError(f"negated base register in address: {term}")
             plain_regs.append(_reg_name(program, term))
         else:
             raise UseDefError(f"unsupported address leaf: {term}")
@@ -575,14 +570,13 @@ def _load_store_mem(op, program, sstate, size):
     if space != "ram":
         raise UseDefError(f"{op.getMnemonic()} to address space {space!r}")
     addr_expr = resolve_input(inputs[1], sstate)
-    return expr_to_bsid(
-        addr_expr, program, size, int(inputs[1].getSize())
-    )
-        
+    return expr_to_bsid(addr_expr, program, size, int(inputs[1].getSize()))
+
 
 # --------------------------------------------------------------------------- #
 # Per-instruction use/def
 # --------------------------------------------------------------------------- #
+
 
 def instruction_use_def(program, instr):
     """Return (use_set, def_set) for a single machine instruction.
@@ -617,11 +611,13 @@ def instruction_use_def(program, instr):
         update_symstate(op, sstate)
 
         mnemonic = _PCODE_OP[op.getMnemonic()]
-        
+
         if pdebug:
             for i, inp in enumerate(op.getInputs()):
                 logger.info(f"input {i} {inp} {_varnode_operand(program, inp)}")
-            logger.info(f"output {op.getOutput()} {_varnode_operand(program, op.getOutput())}")
+            logger.info(
+                f"output {op.getOutput()} {_varnode_operand(program, op.getOutput())}"
+            )
 
         # A COPY to or from a Ghidra bookkeeping register (e.g. PPC
         # bl/blr shuffling the TOC pointer through 'r2Save') is not a
@@ -630,11 +626,7 @@ def instruction_use_def(program, instr):
         if mnemonic == _PCODE_OP.COPY:
             input0 = _varnode_operand(program, op.getInput(0))
             output = _varnode_operand(program, op.getOutput())
-            names = {
-                o.name
-                for o in (input0, output)
-                if isinstance(o, RegisterOperand)
-            }
+            names = {o.name for o in (input0, output) if isinstance(o, RegisterOperand)}
             if names & _GHIDRA_INTERNAL_REGS:
                 continue
 
@@ -674,9 +666,7 @@ def instruction_use_def(program, instr):
         if mnemonic == _PCODE_OP.STORE:
             inputs = op.getInputs()
             assert len(inputs) == 3
-            mem = _load_store_mem(
-                op, program, sstate, int(inputs[2].getSize())
-            )
+            mem = _load_store_mem(op, program, sstate, int(inputs[2].getSize()))
             if pdebug:
                 logger.info(f"2 def mem {mem}")
             defs.add(mem)
@@ -740,6 +730,7 @@ def instruction_use_def(program, instr):
 # Driver
 # --------------------------------------------------------------------------- #
 
+
 def iter_instructions(program, function_name=None):
     listing = program.getListing()
     if function_name is None:
@@ -758,8 +749,9 @@ def iter_instructions(program, function_name=None):
     yield from listing.getInstructions(body, True)
 
 
-def analyze(binary_path, function_name=None, project_dir=None,
-            project_name="usedef-proj"):
+def analyze(
+    binary_path, function_name=None, project_dir=None, project_name="usedef-proj"
+):
     _ensure_pyghidra()
     results = []
     with pyghidra.open_program(
@@ -770,12 +762,14 @@ def analyze(binary_path, function_name=None, project_dir=None,
         program = flat_api.getCurrentProgram()
         for instr in iter_instructions(program, function_name):
             uses, defs = instruction_use_def(program, instr)
-            results.append({
-                "address": str(instr.getAddress()),
-                "instr": instr.toString(),
-                "use": sorted(uses),
-                "def": sorted(defs),
-            })
+            results.append(
+                {
+                    "address": str(instr.getAddress()),
+                    "instr": instr.toString(),
+                    "use": sorted(uses),
+                    "def": sorted(defs),
+                }
+            )
     return results
 
 
@@ -791,7 +785,8 @@ def analyze(binary_path, function_name=None, project_dir=None,
 # bypass the context manager's __exit__ for the lifetime of the process and
 # rely on an atexit hook for graceful teardown.
 
-_program_cache = {}  # language_id (str) -> (open_program-cm, flat_api, addr_space)
+# language_id (str) -> (open_program-cm, flat_api, addr_space)
+_program_cache: dict = {}
 
 
 def _get_or_create_program(arch):
@@ -879,11 +874,11 @@ def _shutdown_program_cache():
 def _populate_program(program, addr_space, byte_data, base_address):
     """Swap whatever bytes are currently loaded for `byte_data` at
     `base_address`, then disassemble the new range."""
-    from ghidra.program.model.address import AddressSet
+    import jpype
     from ghidra.app.cmd.disassemble import DisassembleCommand
+    from ghidra.program.model.address import AddressSet
     from ghidra.util.task import TaskMonitor
     from java.io import ByteArrayInputStream
-    import jpype
 
     memory = program.getMemory()
     listing = program.getListing()
@@ -911,15 +906,20 @@ def _populate_program(program, addr_space, byte_data, base_address):
         jbytes = jpype.JArray(jpype.JByte)(signed)
         stream = ByteArrayInputStream(jbytes)
         memory.createInitializedBlock(
-            "code", addr, stream, len(byte_data),
-            TaskMonitor.DUMMY, False,
+            "code",
+            addr,
+            stream,
+            len(byte_data),
+            TaskMonitor.DUMMY,
+            False,
         )
 
         # 3. Disassemble the full range of the new block.
         block = memory.getBlock(addr)
         addr_set = AddressSet(block.getStart(), block.getEnd())
         DisassembleCommand(addr_set, addr_set, True).applyTo(
-            program, TaskMonitor.DUMMY,
+            program,
+            TaskMonitor.DUMMY,
         )
     finally:
         program.endTransaction(tx, True)
@@ -949,12 +949,14 @@ def _analyze_bytes_inner(byte_data, arch, base_address):
             if int(instr.getAddress().getOffset()) >= end:
                 continue
             uses, defs = instruction_use_def(program, instr)
-            results.append({
-                "address": str(instr.getAddress()),
-                "instr":   instr.toString(),
-                "use":     uses,
-                "def":     defs,
-            })
+            results.append(
+                {
+                    "address": str(instr.getAddress()),
+                    "instr": instr.toString(),
+                    "use": uses,
+                    "def": defs,
+                }
+            )
         return results
     except Exception:
         _evict_program(arch)
@@ -984,8 +986,7 @@ def _analyze_bytes_cached(byte_data: bytes, arch: str, base_address: int):
     tuple-of-tuples so callers can't accidentally mutate cached state."""
     raw = _analyze_bytes_inner(byte_data, arch, base_address)
     return tuple(
-        (r["address"], r["instr"], tuple(r["use"]), tuple(r["def"]))
-        for r in raw
+        (r["address"], r["instr"], tuple(r["use"]), tuple(r["def"])) for r in raw
     )
 
 
@@ -1025,16 +1026,17 @@ def analyze_bytes(byte_data, arch, base_address=0):
 
 # Expose the lru_cache control surface on the public function so callers
 # don't have to know the underscore-prefixed name exists.
-analyze_bytes.cache_clear = _analyze_bytes_cached.cache_clear
-analyze_bytes.cache_info = _analyze_bytes_cached.cache_info
+analyze_bytes.cache_clear = _analyze_bytes_cached.cache_clear  # type: ignore[attr-defined]
+analyze_bytes.cache_info = _analyze_bytes_cached.cache_info  # type: ignore[attr-defined]
 
 
 def _emit_results(results, json_path):
     if json_path:
         with open(json_path, "w") as f:
             json.dump(results, f, indent=2)
-        logger.info(f"wrote {len(results)} instructions to {json_path}",
-              file=sys.stderr)
+        logger.info(
+            f"wrote {len(results)} instructions to {json_path}", file=sys.stderr
+        )
         return
     for r in results:
         logger.info(f"{r['address']:>14}  {r['instr']}")
@@ -1045,20 +1047,23 @@ def _emit_results(results, json_path):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Per-instruction use/def via pyghidra. Two modes: "
-                    "analyze a binary on disk, or analyze a raw byte "
-                    "buffer plus an architecture string.",
+        "analyze a binary on disk, or analyze a raw byte "
+        "buffer plus an architecture string.",
     )
     sub = ap.add_subparsers(dest="mode", required=True)
 
     # ---- file mode ------------------------------------------------------- #
     p_file = sub.add_parser("file", help="analyze a binary file on disk")
     p_file.add_argument("binary", help="path to the binary to analyze")
-    p_file.add_argument("--function", default=None,
-                        help="restrict to a single function by name")
-    p_file.add_argument("--project-dir", default=None,
-                        help="Ghidra project directory (default: temp)")
-    p_file.add_argument("--json", default=None,
-                        help="write results to this JSON file instead of stdout")
+    p_file.add_argument(
+        "--function", default=None, help="restrict to a single function by name"
+    )
+    p_file.add_argument(
+        "--project-dir", default=None, help="Ghidra project directory (default: temp)"
+    )
+    p_file.add_argument(
+        "--json", default=None, help="write results to this JSON file instead of stdout"
+    )
 
     # ---- bytes mode ------------------------------------------------------ #
     p_bytes = sub.add_parser(
@@ -1072,22 +1077,27 @@ def main(argv=None):
         ),
     )
     p_bytes.add_argument(
-        "--arch", required=True,
+        "--arch",
+        required=True,
         help="architecture: a full Ghidra language id "
-             "('x86:LE:64:default') or an alias "
-             "(x86-64, arm64, mips, ppc, riscv, ...).",
+        "('x86:LE:64:default') or an alias "
+        "(x86-64, arm64, mips, ppc, riscv, ...).",
     )
     p_bytes.add_argument(
-        "--bytes", dest="byte_spec", required=True,
+        "--bytes",
+        dest="byte_spec",
+        required=True,
         help="hex string, @path/to/file, or - for stdin",
     )
     p_bytes.add_argument(
-        "--base", default="0",
+        "--base",
+        default="0",
         help="base address for the byte buffer (default: 0). "
-             "Hex like 0x1000 is accepted.",
+        "Hex like 0x1000 is accepted.",
     )
     p_bytes.add_argument(
-        "--json", default=None,
+        "--json",
+        default=None,
         help="write results to this JSON file instead of stdout",
     )
 

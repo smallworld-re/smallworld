@@ -118,9 +118,7 @@ class InstructionUseDefTests(unittest.TestCase):
             with self.subTest(instruction=desc):
                 platform = Platform(Architecture[arch], Byteorder[bo])
                 platdef = PlatformDef.for_platform(platform)
-                insn = Instruction.from_bytes(
-                    bytes.fromhex(hexbytes), 0x1000, platform
-                )
+                insn = Instruction.from_bytes(bytes.fromhex(hexbytes), 0x1000, platform)
                 for operands in (insn.reads, insn.writes):
                     self.assertIsInstance(operands, set)
                     for op in operands:
@@ -138,9 +136,7 @@ class InstructionUseDefTests(unittest.TestCase):
 
         platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
         insn = Instruction.from_bytes(b"\x50", 0x1000, platform)  # push rax
-        self.assertEqual(
-            insn.reads, {RegisterOperand("rax"), RegisterOperand("rsp")}
-        )
+        self.assertEqual(insn.reads, {RegisterOperand("rax"), RegisterOperand("rsp")})
         mems = [op for op in insn.writes if not isinstance(op, RegisterOperand)]
         self.assertEqual(len(mems), 1)
         self.assertEqual(mems[0].base, "rsp")
