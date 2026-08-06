@@ -141,7 +141,13 @@ def _varnode_operand(program, vn):
 
     if vn.isRegister():
         reg = program.getRegister(vn.getAddress(), vn.getSize())
-        assert (reg is not None)
+        if reg is None:
+            # No named register of exactly this size at this offset
+            # (e.g. an 8-byte access inside AArch64's 32-byte z0);
+            # fall back to the smallest named register containing it.
+            reg = program.getRegister(vn.getAddress())
+        if reg is None:
+            raise UseDefError(f"no register found for varnode {vn}")
         # Normalize to the canonical (largest) register name if you
         # prefer; here we keep the size-specific name (e.g. "EAX"
         # vs "RAX") because that's what the instruction actually
@@ -244,9 +250,27 @@ class _PCODE_OP(Enum):
     FLOAT_FLOOR = auto()    
     FLOAT_ROUND = auto()    
     FLOAT_NAN = auto()      
-    INT2FLOAT = auto()      
-    FLOAT2FLOAT = auto()    
-    TRUNC = auto()          
+    INT2FLOAT = auto()
+    FLOAT2FLOAT = auto()
+    TRUNC = auto()
+    # ops below occur in raw pcode but need no special handling in the
+    # use/def walk; they are listed so mnemonic lookup doesn't KeyError.
+    # POPCOUNT appears in x86 parity-flag computation, LZCOUNT in
+    # clz-style instructions, CALLOTHER wraps black-box user ops (locked
+    # RMW, syscalls, hints, ...).
+    CALLOTHER = auto()
+    POPCOUNT = auto()
+    LZCOUNT = auto()
+    MULTIEQUAL = auto()
+    INDIRECT = auto()
+    CAST = auto()
+    PTRADD = auto()
+    PTRSUB = auto()
+    SEGMENTOP = auto()
+    CPOOLREF = auto()
+    NEW = auto()
+    INSERT = auto()
+    EXTRACT = auto()
 
     
      
@@ -429,45 +453,65 @@ def _addr_expr_to_mem_ref_op(addr_expr, size):
         size=size)
 
 
-# resolve this input using sstate
-# recurse if you need to.
-# returns either
-# * register if that's not yet in sstate (not yet assigned)
-# * s-expr for unique
+class UseDefError(Exception):
+    """A pcode construct the use/def analysis cannot yet interpret."""
+
+    pass
+
+
+# Resolve one input varnode to an expression over quantities that were
+# live at instruction entry. Returns:
+# * the varnode itself for a const, ram address, or register that has
+#   not yet been written by this instruction
+# * the recorded expression for a unique, or for a register that HAS
+#   been written earlier in this instruction. Values stored in sstate
+#   were resolved when they were stored, so they can be returned as-is;
+#   they never need re-resolution.
 def resolve_input(inp, sstate):
-        
-    if isinstance(inp, tuple):
-        (mnem, rhs_inps) = inp
-        r_rhs_inps = []
-        for i in rhs_inps:
-            r_rhs_inps.append(resolve_input(i, sstate))
-        return (mnem, r_rhs_inps)
-    else:
-        if inp.isUnique():
-            ik = _unique_key(inp)
-            # this better be in sstate
-            assert (ik in sstate)
+    if inp.isUnique():
+        ik = _unique_key(inp)
+        if ik in sstate:
             return sstate[ik]
-        elif inp.isRegister():
-            if not (inp in sstate):
-                # register not yet assigned in this chain of pcode
-                return inp
-            breakpoint()
-            (mnem, rhs_inp) = sstate[inp]
-            # register has been assigned and this was the computation
-            if mnem == _PCODE_OP.COPY_PC:
-                return rhs_inp[0]
-            return sstate[inp]            
-    # addr or const?
+        # Ghidra sometimes reads a sub-range of a wider temporary
+        # directly by offset+size instead of emitting SUBPIECE (e.g.
+        # MIPS mult reads the low word of the 64-bit product as
+        # (unique, base+4, 4)). Truncation doesn't change which
+        # locations are used, so resolve to the containing expression.
+        off, size = ik
+        for k, val in sstate.items():
+            if not isinstance(k, tuple):
+                continue
+            koff, ksize = k
+            if koff <= off and off + size <= koff + ksize:
+                return val
+        raise UseDefError(f"unique read before write: {inp}")
+    if inp.isRegister():
+        if inp in sstate:
+            # Register assigned earlier in this instruction: a read now
+            # sees the value this instruction computed, not the
+            # instruction input.
+            return sstate[inp]
+        # same sub-range logic as uniques, for partial register reads
+        # of a register this instruction already wrote
+        off = int(inp.getAddress().getOffset())
+        size = int(inp.getSize())
+        for k, val in sstate.items():
+            if isinstance(k, tuple) or not k.isRegister():
+                continue
+            koff = int(k.getAddress().getOffset())
+            ksize = int(k.getSize())
+            if koff <= off and off + size <= koff + ksize:
+                return val
+        return inp
+    # const, ram address, or register still holding its entry value
     return inp
-    
+
+
 def update_symstate(op, sstate):
     # resolve all inputs (args) to this op in terms of
     # inputs-to-the-instruction, and then record
     # mapping from out to that resolution
-    ris = []
-    for inp in op.getInputs():
-        ris.append(resolve_input(inp, sstate))    
+    ris = [resolve_input(inp, sstate) for inp in op.getInputs()]
     # special case! There's no need for an s-expr. This is basically
     # just an assignment
     mnemonic = _PCODE_OP[op.getMnemonic()]
@@ -478,14 +522,14 @@ def update_symstate(op, sstate):
         val = (mnemonic, ris)
     outp = op.getOutput()
     if outp is None:
-        # ditch it; could be a store?
+        # no output to track (e.g. STORE, branches)
         return
-    assert (outp.isUnique() or outp.isRegister())    
     if outp.isUnique():
-        ok = _unique_key(outp)
-        sstate[ok] = val
+        sstate[_unique_key(outp)] = val
     elif outp.isRegister():
         sstate[outp] = val
+    # else: output is a ram address (absolute store via COPY); nothing
+    # downstream reads it back through sstate, so don't track it
 
         
 def uniq2bsid(u, sstate, program, size):
@@ -536,19 +580,15 @@ def instruction_use_def(program, instr):
     register_exprs = {}  # register-name   -> expression-string after a write
 
     sstate = {}
-    pdebug = True
+    pdebug = False
 
     for op in instr.getPcode():
 
         if pdebug:
             logger.info(f"pcode = {op}")
 
-        try:
-            update_symstate(op, sstate)
-        except Exception as e:
-            print(f"update_symstate seems to have had a problem {e}")
-            assert(1==0)
-                    
+        update_symstate(op, sstate)
+
         mnemonic = _PCODE_OP[op.getMnemonic()]
         
         if pdebug:
@@ -644,9 +684,9 @@ def instruction_use_def(program, instr):
             continue
         if out.isUnique():
             continue
-        assert out.isRegister()
+        if not out.isRegister():
+            raise UseDefError(f"unsupported output varnode {out} for op {op}")
         reg = _varnode_operand(program, out)
-        assert not ("Save" in reg.name)
         if pdebug:
             logger.info(f"5 def reg {reg}")
         defs.add(reg)
