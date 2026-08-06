@@ -13,6 +13,12 @@ truth.
 - `harness.py` — runs the corpora through `analyze_bytes` and reports
   agreement with ground truth. Run as
   `python tests/use_def/harness.py [--isa x86_64] [--json report.json]`.
+- `test_use_def.py` — unittest wrapper: the corpus regression (every
+  entry must pass at least normalized) plus consumer-facing checks that
+  `Instruction.reads`/`.writes` return sets of Operands whose register
+  names exist in the platform definition. Pulled into `tests/unit.py`,
+  so CI runs it with the rest of the unit suite; skips when pyghidra is
+  unavailable.
 
 ## Corpus file schema
 
