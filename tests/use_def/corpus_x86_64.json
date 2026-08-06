@@ -1,0 +1,3068 @@
+{
+  "isa": "x86_64",
+  "ghidra_lang": "x86:LE:64:default",
+  "llvm_triple": "x86_64-unknown-linux-gnu",
+  "base_address": 4096,
+  "entries": [
+    {
+      "asm": "mov rax, rbx",
+      "bytes": "4889d8",
+      "categories": [
+        "mov",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov ebx, ecx",
+      "bytes": "89cb",
+      "categories": [
+        "mov",
+        "reg-reg",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "ebx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov al, bl",
+      "bytes": "88d8",
+      "categories": [
+        "mov",
+        "reg-reg",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "bl"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "al"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov dx, cx",
+      "bytes": "6689ca",
+      "categories": [
+        "mov",
+        "reg-reg",
+        "word"
+      ],
+      "uses": [
+        {
+          "reg": "cx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "dx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov rax, 0x12345678",
+      "bytes": "48c7c078563412",
+      "categories": [
+        "mov",
+        "imm",
+        "qword"
+      ],
+      "uses": [],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "mov r64, imm32 sign-extended"
+    },
+    {
+      "asm": "mov rax, 0x1122334455667788",
+      "bytes": "48b88877665544332211",
+      "categories": [
+        "mov",
+        "imm",
+        "qword",
+        "movabs"
+      ],
+      "uses": [],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "64-bit immediate (movabs form)"
+    },
+    {
+      "asm": "mov ecx, 0xdeadbeef",
+      "bytes": "b9efbeadde",
+      "categories": [
+        "mov",
+        "imm",
+        "dword"
+      ],
+      "uses": [],
+      "defs": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov rax, qword ptr [rdx]",
+      "bytes": "488b02",
+      "categories": [
+        "load",
+        "reg-indirect",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rdx"
+        },
+        {
+          "mem": {
+            "base": "rdx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov rax, qword ptr [rdx + 8]",
+      "bytes": "488b4208",
+      "categories": [
+        "load",
+        "base+disp",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rdx"
+        },
+        {
+          "mem": {
+            "base": "rdx",
+            "index": null,
+            "scale": 1,
+            "offset": 8,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov eax, dword ptr [rbx + rcx]",
+      "bytes": "8b040b",
+      "categories": [
+        "load",
+        "base+index",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "rcx"
+        },
+        {
+          "mem": {
+            "base": "rbx",
+            "index": "rcx",
+            "scale": 1,
+            "offset": 0,
+            "size": 4
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov rax, qword ptr [rbx + rcx*4 + 0x10]",
+      "bytes": "488b448b10",
+      "categories": [
+        "load",
+        "base+index*scale+disp",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "rcx"
+        },
+        {
+          "mem": {
+            "base": "rbx",
+            "index": "rcx",
+            "scale": 4,
+            "offset": 16,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov al, byte ptr [rsi]",
+      "bytes": "8a06",
+      "categories": [
+        "load",
+        "reg-indirect",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "rsi"
+        },
+        {
+          "mem": {
+            "base": "rsi",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "al"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov cx, word ptr [rdi + 2]",
+      "bytes": "668b4f02",
+      "categories": [
+        "load",
+        "base+disp",
+        "word"
+      ],
+      "uses": [
+        {
+          "reg": "rdi"
+        },
+        {
+          "mem": {
+            "base": "rdi",
+            "index": null,
+            "scale": 1,
+            "offset": 2,
+            "size": 2
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "cx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov rax, qword ptr [4096]",
+      "bytes": "488b042500100000",
+      "categories": [
+        "load",
+        "absolute",
+        "qword"
+      ],
+      "uses": [
+        {
+          "mem": {
+            "base": null,
+            "index": null,
+            "scale": 1,
+            "offset": 4096,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "absolute (SIB, no base/index) addressing"
+    },
+    {
+      "asm": "mov rax, qword ptr [rip + 0x100]",
+      "bytes": "488b0500010000",
+      "categories": [
+        "load",
+        "rip-relative",
+        "qword"
+      ],
+      "uses": [
+        {
+          "mem": {
+            "base": null,
+            "index": null,
+            "scale": 1,
+            "offset": 4359,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rip-relative; offset is the resolved address base+len+disp"
+    },
+    {
+      "asm": "mov rax, qword ptr [rbp - 8]",
+      "bytes": "488b45f8",
+      "categories": [
+        "load",
+        "base+disp",
+        "negative-disp",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbp"
+        },
+        {
+          "mem": {
+            "base": "rbp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov qword ptr [rdx], rax",
+      "bytes": "488902",
+      "categories": [
+        "store",
+        "reg-indirect",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rdx"
+        },
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rdx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov dword ptr [rbx + 4], eax",
+      "bytes": "894304",
+      "categories": [
+        "store",
+        "base+disp",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "eax"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rbx",
+            "index": null,
+            "scale": 1,
+            "offset": 4,
+            "size": 4
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov byte ptr [rcx + rdx*2], al",
+      "bytes": "880451",
+      "categories": [
+        "store",
+        "base+index*scale",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "rcx"
+        },
+        {
+          "reg": "rdx"
+        },
+        {
+          "reg": "al"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rcx",
+            "index": "rdx",
+            "scale": 2,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov word ptr [rsi + 0x20], dx",
+      "bytes": "66895620",
+      "categories": [
+        "store",
+        "base+disp",
+        "word"
+      ],
+      "uses": [
+        {
+          "reg": "rsi"
+        },
+        {
+          "reg": "dx"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rsi",
+            "index": null,
+            "scale": 1,
+            "offset": 32,
+            "size": 2
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov dword ptr [rax], 0x12345678",
+      "bytes": "c70078563412",
+      "categories": [
+        "store",
+        "reg-indirect",
+        "imm",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 4
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "mov qword ptr [rip + 0x40], rbx",
+      "bytes": "48891d40000000",
+      "categories": [
+        "store",
+        "rip-relative",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": null,
+            "index": null,
+            "scale": 1,
+            "offset": 4167,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rip-relative store; offset is the resolved address"
+    },
+    {
+      "asm": "movzx eax, byte ptr [rbx]",
+      "bytes": "0fb603",
+      "categories": [
+        "ext",
+        "load",
+        "zero-extend",
+        "reg-indirect",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "mem": {
+            "base": "rbx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "movzx ecx, dx",
+      "bytes": "0fb7ca",
+      "categories": [
+        "ext",
+        "reg-reg",
+        "zero-extend",
+        "word"
+      ],
+      "uses": [
+        {
+          "reg": "dx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "movsx rax, word ptr [rdx + 4]",
+      "bytes": "480fbf4204",
+      "categories": [
+        "ext",
+        "load",
+        "sign-extend",
+        "base+disp",
+        "word"
+      ],
+      "uses": [
+        {
+          "reg": "rdx"
+        },
+        {
+          "mem": {
+            "base": "rdx",
+            "index": null,
+            "scale": 1,
+            "offset": 4,
+            "size": 2
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "movsxd rax, ecx",
+      "bytes": "4863c1",
+      "categories": [
+        "ext",
+        "reg-reg",
+        "sign-extend",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "movsx ebx, al",
+      "bytes": "0fbed8",
+      "categories": [
+        "ext",
+        "reg-reg",
+        "sign-extend",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "al"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "ebx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "lea rax, [rbx + rcx*8 + 0x40]",
+      "bytes": "488d44cb40",
+      "categories": [
+        "arith",
+        "lea",
+        "base+index*scale+disp"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "rcx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "pure address computation: no memory operand"
+    },
+    {
+      "asm": "lea rax, [rip + 0x100]",
+      "bytes": "488d0500010000",
+      "categories": [
+        "arith",
+        "lea",
+        "rip-relative"
+      ],
+      "uses": [],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "pc excluded from uses; computes base+len+disp = 0x1107, no memory operand"
+    },
+    {
+      "asm": "push rax",
+      "bytes": "50",
+      "categories": [
+        "stack",
+        "push",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rsp"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "pop rbx",
+      "bytes": "5b",
+      "categories": [
+        "stack",
+        "pop",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "rsp"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "push 0x42",
+      "bytes": "6a42",
+      "categories": [
+        "stack",
+        "push",
+        "imm",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rsp"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "imm8 sign-extended to 8 bytes pushed"
+    },
+    {
+      "asm": "push qword ptr [rax + 8]",
+      "bytes": "ff7008",
+      "categories": [
+        "stack",
+        "push",
+        "load",
+        "base+disp",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 8,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "add rax, rbx",
+      "bytes": "4801d8",
+      "categories": [
+        "arith",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "add eax, 0x10",
+      "bytes": "83c010",
+      "categories": [
+        "arith",
+        "imm",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "eax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "add qword ptr [rax + 8], rbx",
+      "bytes": "48015808",
+      "categories": [
+        "arith",
+        "rmw",
+        "base+disp",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        },
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 8,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 8,
+            "size": 8
+          }
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "read-modify-write: memory location in both uses and defs"
+    },
+    {
+      "asm": "add rbx, qword ptr [rcx]",
+      "bytes": "480319",
+      "categories": [
+        "arith",
+        "load",
+        "reg-indirect",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "rcx"
+        },
+        {
+          "mem": {
+            "base": "rcx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "sub rcx, rdx",
+      "bytes": "4829d1",
+      "categories": [
+        "arith",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rcx"
+        },
+        {
+          "reg": "rdx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rcx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "sub rsp, 0x20",
+      "bytes": "4883ec20",
+      "categories": [
+        "arith",
+        "imm",
+        "stack-adjust",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rsp"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "adc rax, rbx",
+      "bytes": "4811d8",
+      "categories": [
+        "arith",
+        "reg-reg",
+        "with-carry",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "cf"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "reads cf"
+    },
+    {
+      "asm": "sbb edx, ecx",
+      "bytes": "19ca",
+      "categories": [
+        "arith",
+        "reg-reg",
+        "with-carry",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "ecx"
+        },
+        {
+          "reg": "cf"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "reads cf"
+    },
+    {
+      "asm": "inc rax",
+      "bytes": "48ffc0",
+      "categories": [
+        "arith",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "cf not affected"
+    },
+    {
+      "asm": "dec dword ptr [rbx]",
+      "bytes": "ff0b",
+      "categories": [
+        "arith",
+        "rmw",
+        "reg-indirect",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "mem": {
+            "base": "rbx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 4
+          }
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rbx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 4
+          }
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "cf not affected; read-modify-write"
+    },
+    {
+      "asm": "neg rax",
+      "bytes": "48f7d8",
+      "categories": [
+        "arith",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "and rax, rbx",
+      "bytes": "4821d8",
+      "categories": [
+        "logic",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": "af architecturally undefined"
+    },
+    {
+      "asm": "or ecx, 0xff",
+      "bytes": "81c9ff000000",
+      "categories": [
+        "logic",
+        "imm",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "ecx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "asm": "xor eax, eax",
+      "bytes": "31c0",
+      "categories": [
+        "logic",
+        "reg-reg",
+        "zero-idiom",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "eax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": "zeroing idiom; architecturally still reads eax"
+    },
+    {
+      "asm": "xor r8, r9",
+      "bytes": "4d31c8",
+      "categories": [
+        "logic",
+        "reg-reg",
+        "rex",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "r8"
+        },
+        {
+          "reg": "r9"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "r8"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "asm": "not rax",
+      "bytes": "48f7d0",
+      "categories": [
+        "logic",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "no flags affected"
+    },
+    {
+      "asm": "test rax, rbx",
+      "bytes": "4885d8",
+      "categories": [
+        "cmp",
+        "test",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": "af architecturally undefined"
+    },
+    {
+      "asm": "cmp rax, rbx",
+      "bytes": "4839d8",
+      "categories": [
+        "cmp",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "cmp byte ptr [rdi], 0x41",
+      "bytes": "803f41",
+      "categories": [
+        "cmp",
+        "load",
+        "reg-indirect",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "rdi"
+        },
+        {
+          "mem": {
+            "base": "rdi",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "shl rax, 4",
+      "bytes": "48c1e004",
+      "categories": [
+        "shift",
+        "imm",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "of"
+        },
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": "of defined only for count 1; af undefined"
+    },
+    {
+      "asm": "shl rax, 1",
+      "bytes": "48d1e0",
+      "categories": [
+        "shift",
+        "by-one",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": "count 1: of defined"
+    },
+    {
+      "asm": "shr edx, cl",
+      "bytes": "d3ea",
+      "categories": [
+        "shift",
+        "by-cl",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "cl"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "of"
+        },
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": "count from cl; flags unchanged if cl masks to 0"
+    },
+    {
+      "asm": "sar rax, 3",
+      "bytes": "48c1f803",
+      "categories": [
+        "shift",
+        "imm",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "of"
+        },
+        {
+          "reg": "af"
+        }
+      ],
+      "notes": ""
+    },
+    {
+      "asm": "rol eax, 5",
+      "bytes": "c1c005",
+      "categories": [
+        "shift",
+        "rotate",
+        "imm",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "eax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "cf"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "of"
+        }
+      ],
+      "notes": "rotate: only cf defined for count != 1; of undefined"
+    },
+    {
+      "asm": "ror rbx, cl",
+      "bytes": "48d3cb",
+      "categories": [
+        "shift",
+        "rotate",
+        "by-cl",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "cl"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "cf"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "of"
+        }
+      ],
+      "notes": "count from cl"
+    },
+    {
+      "asm": "imul rax, rbx",
+      "bytes": "480fafc3",
+      "categories": [
+        "muldiv",
+        "imul",
+        "two-operand",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "notes": "pf/af/zf/sf architecturally undefined"
+    },
+    {
+      "asm": "imul rax, rbx, 0x10",
+      "bytes": "486bc310",
+      "categories": [
+        "muldiv",
+        "imul",
+        "three-operand",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "notes": "dest not read in three-operand form"
+    },
+    {
+      "asm": "mul rbx",
+      "bytes": "48f7e3",
+      "categories": [
+        "muldiv",
+        "mul",
+        "implicit-rax-rdx",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rdx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "notes": "implicit rax source, rdx:rax destination"
+    },
+    {
+      "asm": "imul ecx",
+      "bytes": "f7e9",
+      "categories": [
+        "muldiv",
+        "imul",
+        "one-operand",
+        "implicit-eax-edx",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "ecx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        }
+      ],
+      "notes": "implicit eax source, edx:eax destination"
+    },
+    {
+      "asm": "div rbx",
+      "bytes": "48f7f3",
+      "categories": [
+        "muldiv",
+        "div",
+        "implicit-rax-rdx",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rdx"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rdx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "notes": "divides rdx:rax; all flags architecturally undefined"
+    },
+    {
+      "asm": "idiv ecx",
+      "bytes": "f7f9",
+      "categories": [
+        "muldiv",
+        "idiv",
+        "implicit-eax-edx",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "ecx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "eax"
+        },
+        {
+          "reg": "edx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "pf"
+        },
+        {
+          "reg": "af"
+        },
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "notes": "divides edx:eax; all flags architecturally undefined"
+    },
+    {
+      "asm": "cdq",
+      "bytes": "99",
+      "categories": [
+        "ext",
+        "sign-extend",
+        "implicit-eax-edx"
+      ],
+      "uses": [
+        {
+          "reg": "eax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "edx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "sign-extends eax into edx"
+    },
+    {
+      "asm": "cqo",
+      "bytes": "4899",
+      "categories": [
+        "ext",
+        "sign-extend",
+        "implicit-rax-rdx"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rdx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "sign-extends rax into rdx"
+    },
+    {
+      "asm": "jmp 0x1010",
+      "bytes": "eb0e",
+      "categories": [
+        "branch",
+        "unconditional",
+        "pc-relative"
+      ],
+      "uses": [],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rel8; assembled via llvm-mc -filetype=obj (show-encoding leaves pc-relative fixups unresolved); target = 0x1000+2+0xe"
+    },
+    {
+      "asm": "jne 0x1010",
+      "bytes": "750e",
+      "categories": [
+        "branch",
+        "conditional",
+        "pc-relative"
+      ],
+      "uses": [
+        {
+          "reg": "zf"
+        }
+      ],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rel8; assembled via llvm-mc -filetype=obj"
+    },
+    {
+      "asm": "ja 0x1010",
+      "bytes": "770e",
+      "categories": [
+        "branch",
+        "conditional",
+        "pc-relative"
+      ],
+      "uses": [
+        {
+          "reg": "cf"
+        },
+        {
+          "reg": "zf"
+        }
+      ],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rel8; assembled via llvm-mc -filetype=obj"
+    },
+    {
+      "asm": "jl 0x1010",
+      "bytes": "7c0e",
+      "categories": [
+        "branch",
+        "conditional",
+        "pc-relative"
+      ],
+      "uses": [
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rel8; assembled via llvm-mc -filetype=obj"
+    },
+    {
+      "asm": "jb 0x1010",
+      "bytes": "720e",
+      "categories": [
+        "branch",
+        "conditional",
+        "pc-relative"
+      ],
+      "uses": [
+        {
+          "reg": "cf"
+        }
+      ],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rel8; assembled via llvm-mc -filetype=obj"
+    },
+    {
+      "asm": "jmp rax",
+      "bytes": "ffe0",
+      "categories": [
+        "branch",
+        "indirect",
+        "reg"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "jmp qword ptr [rax + 8]",
+      "bytes": "ff6008",
+      "categories": [
+        "branch",
+        "indirect",
+        "base+disp"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 8,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "call 0x1100",
+      "bytes": "e8fb000000",
+      "categories": [
+        "call",
+        "pc-relative"
+      ],
+      "uses": [
+        {
+          "reg": "rsp"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "rel32; assembled via llvm-mc -filetype=obj; pushes return address"
+    },
+    {
+      "asm": "call rax",
+      "bytes": "ffd0",
+      "categories": [
+        "call",
+        "indirect",
+        "reg"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rsp"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "call qword ptr [rbx]",
+      "bytes": "ff13",
+      "categories": [
+        "call",
+        "indirect",
+        "reg-indirect"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rbx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": -8,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "ret",
+      "bytes": "c3",
+      "categories": [
+        "ret"
+      ],
+      "uses": [
+        {
+          "reg": "rsp"
+        },
+        {
+          "mem": {
+            "base": "rsp",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsp"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "xchg rax, rbx",
+      "bytes": "4893",
+      "categories": [
+        "misc",
+        "xchg",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        },
+        {
+          "reg": "rbx"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "xchg qword ptr [rcx], rdx",
+      "bytes": "488711",
+      "categories": [
+        "misc",
+        "xchg",
+        "rmw",
+        "reg-indirect",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rcx"
+        },
+        {
+          "reg": "rdx"
+        },
+        {
+          "mem": {
+            "base": "rcx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rdx"
+        },
+        {
+          "mem": {
+            "base": "rcx",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 8
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "implicitly locked; memory is both read and written"
+    },
+    {
+      "asm": "cmove rax, rbx",
+      "bytes": "480f44c3",
+      "categories": [
+        "mov",
+        "cmov",
+        "reg-reg",
+        "qword"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "reg": "zf"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "uses_optional": [
+        {
+          "reg": "rax"
+        }
+      ],
+      "defs_optional": [],
+      "notes": "dest old value flows through when condition false; tools differ on modeling dest as a use"
+    },
+    {
+      "asm": "cmovl ecx, edx",
+      "bytes": "0f4cca",
+      "categories": [
+        "mov",
+        "cmov",
+        "reg-reg",
+        "dword"
+      ],
+      "uses": [
+        {
+          "reg": "edx"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "uses_optional": [
+        {
+          "reg": "ecx"
+        }
+      ],
+      "defs_optional": [],
+      "notes": "reads sf/of; dest-as-use is a modeling choice"
+    },
+    {
+      "asm": "sete al",
+      "bytes": "0f94c0",
+      "categories": [
+        "misc",
+        "setcc",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "zf"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "al"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "setg cl",
+      "bytes": "0f9fc1",
+      "categories": [
+        "misc",
+        "setcc",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "zf"
+        },
+        {
+          "reg": "sf"
+        },
+        {
+          "reg": "of"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "cl"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "nop",
+      "bytes": "90",
+      "categories": [
+        "misc",
+        "nop"
+      ],
+      "uses": [],
+      "defs": [],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "movsb",
+      "bytes": "a4",
+      "categories": [
+        "string",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "rsi"
+        },
+        {
+          "reg": "rdi"
+        },
+        {
+          "reg": "df"
+        },
+        {
+          "mem": {
+            "base": "rsi",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rsi"
+        },
+        {
+          "reg": "rdi"
+        },
+        {
+          "mem": {
+            "base": "rdi",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "copies [rsi] to [rdi], rsi/rdi stepped by df"
+    },
+    {
+      "asm": "stosb",
+      "bytes": "aa",
+      "categories": [
+        "string",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "al"
+        },
+        {
+          "reg": "rdi"
+        },
+        {
+          "reg": "df"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "rdi"
+        },
+        {
+          "mem": {
+            "base": "rdi",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "stores al to [rdi], rdi stepped by df"
+    },
+    {
+      "asm": "lodsb",
+      "bytes": "ac",
+      "categories": [
+        "string",
+        "byte"
+      ],
+      "uses": [
+        {
+          "reg": "rsi"
+        },
+        {
+          "reg": "df"
+        },
+        {
+          "mem": {
+            "base": "rsi",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 1
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "al"
+        },
+        {
+          "reg": "rsi"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "loads [rsi] into al, rsi stepped by df"
+    },
+    {
+      "asm": "movss xmm0, dword ptr [rax]",
+      "bytes": "f30f1000",
+      "categories": [
+        "fp",
+        "load",
+        "reg-indirect",
+        "dword",
+        "sse"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 4
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "xmm0"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "load form zeroes upper bits of xmm0"
+    },
+    {
+      "asm": "movsd xmm0, qword ptr [rbx + 8]",
+      "bytes": "f20f104308",
+      "categories": [
+        "fp",
+        "load",
+        "base+disp",
+        "qword",
+        "sse"
+      ],
+      "uses": [
+        {
+          "reg": "rbx"
+        },
+        {
+          "mem": {
+            "base": "rbx",
+            "index": null,
+            "scale": 1,
+            "offset": 8,
+            "size": 8
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "xmm0"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "load form zeroes upper bits of xmm0"
+    },
+    {
+      "asm": "movaps xmm1, xmm2",
+      "bytes": "0f28ca",
+      "categories": [
+        "fp",
+        "mov",
+        "reg-reg",
+        "sse"
+      ],
+      "uses": [
+        {
+          "reg": "xmm2"
+        }
+      ],
+      "defs": [
+        {
+          "reg": "xmm1"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    },
+    {
+      "asm": "movss dword ptr [rdi + 4], xmm2",
+      "bytes": "f30f115704",
+      "categories": [
+        "fp",
+        "store",
+        "base+disp",
+        "dword",
+        "sse"
+      ],
+      "uses": [
+        {
+          "reg": "rdi"
+        },
+        {
+          "reg": "xmm2"
+        }
+      ],
+      "defs": [
+        {
+          "mem": {
+            "base": "rdi",
+            "index": null,
+            "scale": 1,
+            "offset": 4,
+            "size": 4
+          }
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": "stores low 32 bits of xmm2"
+    },
+    {
+      "asm": "movaps xmm3, xmmword ptr [rax]",
+      "bytes": "0f2818",
+      "categories": [
+        "fp",
+        "load",
+        "reg-indirect",
+        "16-byte",
+        "sse"
+      ],
+      "uses": [
+        {
+          "reg": "rax"
+        },
+        {
+          "mem": {
+            "base": "rax",
+            "index": null,
+            "scale": 1,
+            "offset": 0,
+            "size": 16
+          }
+        }
+      ],
+      "defs": [
+        {
+          "reg": "xmm3"
+        }
+      ],
+      "uses_optional": [],
+      "defs_optional": [],
+      "notes": ""
+    }
+  ]
+}

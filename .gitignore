@@ -2,6 +2,8 @@
 *.pyc
 *.jsonl
 *.json
+# use/def validation corpora are tracked test data
+!tests/use_def/corpus_*.json
 *.elf
 *.so
 *~
