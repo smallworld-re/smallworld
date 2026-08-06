@@ -8,7 +8,7 @@ import capstone
 
 import smallworld
 from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
-from smallworld.instructions import RegisterOperand
+from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
 from .. import platforms
 from ..hinting.hints import TraceExecutionHint
@@ -27,24 +27,45 @@ def get_cmp_info(
     emulator: smallworld.emulators.Emulator,
     cs_insn: capstone.CsInsn,
 ) -> typing.Tuple[typing.List[CmpInfo], typing.List[int]]:
+    """For a comparison instruction, report what is being compared.
+
+    Returns (cmp_info, immediates). cmp_info holds the locations the
+    compare reads — register and memory Operands, taken from the
+    pcode-based use/def analysis (Instruction.reads) — followed by any
+    immediate operands. Registers that only serve to form an included
+    memory operand's address (rbp in 'cmp [rbp-0x1c], 47') are omitted:
+    the compared value is the memory cell, not the pointer. Locations
+    are deduplicated and sorted by repr so traces are stable run to
+    run; comparing a location against itself (test al, al) therefore
+    reports it once.
+
+    Immediates come from the decoded operands: use/def reports
+    locations, and a constant is not a location.
+    """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    if cs_insn.mnemonic in pdefs.compare_mnemonics:
-        # it's a compare -- return list of "reads'
-        sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
-        cmp_info = []
-        for op in cs_insn.operands:
-            if op.type == capstone.CS_OP_MEM: # and (op.access & capstone.CS_AC_READ):
-                cmp_info.append(sw_insn._memory_reference_operand(op))
-            if op.type == capstone.CS_OP_REG: # and (op.access & capstone.CS_AC_READ):
-                cmp_info.append(RegisterOperand(cs_insn.reg_name(op.value.reg)))
-            if op.type == capstone.CS_OP_IMM:
-                cmp_info.append(op.value.imm)
-        immediates = []
-        for op in cs_insn.operands:
-            if op.type == capstone.x86.X86_OP_IMM:
-                immediates.append(op.value.imm)
-        return (cmp_info, immediates)
-    return ([], [])
+    if cs_insn.mnemonic not in pdefs.compare_mnemonics:
+        return ([], [])
+    sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
+    reads = sw_insn.reads
+    address_regs = set()
+    for op in reads:
+        if isinstance(op, BSIDMemoryReferenceOperand):
+            for name in (op.base, op.index):
+                if name is not None:
+                    address_regs.add(name)
+    cmp_info: typing.List[CmpInfo] = sorted(
+        (
+            op
+            for op in reads
+            if not (isinstance(op, RegisterOperand) and op.name in address_regs)
+        ),
+        key=repr,
+    )
+    immediates = [
+        int(op.value.imm) for op in cs_insn.operands if op.type == capstone.CS_OP_IMM
+    ]
+    cmp_info.extend(immediates)
+    return (cmp_info, immediates)
 
 
 class TraceExecution(analysis.Analysis):

@@ -67,10 +67,13 @@ class MIPSO32PlatformDef(PlatformDef):
     }
 
     compare_mnemonics = {
-        # MIPS doesn't really have integer comparison instructions
-        # All of the conditional branches include a comparsion
-        # relative to zero; the compiler needs to reduce
-        # all conditional tests to comparisons against zero.
+        # Integer comparison: set-less-than writes a boolean to a GPR;
+        # this is how compilers materialize integer compares that
+        # aren't folded into a conditional branch.
+        "slt",
+        "slti",
+        "sltu",
+        "sltiu",
         # Floating-point comparison
         # Save to FCC
         # NOTE: Unlike branches, compares only support eq, lt, and le
