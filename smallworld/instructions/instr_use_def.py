@@ -194,21 +194,29 @@ def _varnode_operand(program, vn):
     addr = vn.getAddress()
     space = addr.getAddressSpace().getName()
     assert space == "ram"
-    # dont we want this to return size too?  Do we even have that?
     return BSIDMemoryReferenceOperand(
         segment=None,
         base=None,
         index=None,
         scale=1,
-        offset=addr.getOffset(),
-        size=0 # its just an address
-    )            
+        # Java's getOffset() is a signed long; addresses are unsigned
+        offset=int(addr.getOffset()) & ((1 << 64) - 1),
+        size=int(vn.getSize()),
+    )
 
 
 
 def _unique_key(vn):
     """Hashable key for a unique-space varnode."""
     return (int(vn.getAddress().getOffset()), int(vn.getSize()))
+
+
+# Registers (lowercase) that exist only as Ghidra modeling devices, not
+# architectural state, and must never appear in use/def sets:
+#   r2save        — PPC bl/blr TOC-pointer save slot
+#   tea           — PPC temporary effective address (lmw/stmw)
+#   isamodeswitch — MIPS16e/micromips mode bit written by indirect jumps
+_GHIDRA_INTERNAL_REGS = {"r2save", "tea", "isamodeswitch"}
 
 
 # --------------------------------------------------------------------------- #
@@ -607,6 +615,26 @@ def _flatten_sum(expr, sign, terms):
             _flatten_sum(args[0], sign, terms)
             _flatten_sum(args[1], -sign, terms)
             return
+        if mnem == _PCODE_OP.INT_AND:
+            # Alignment masking, as in MIPS lwl/lwr's
+            # addr - (addr & 3). BSID form can't express masking, so
+            # approximate within the mask's span (< the access size):
+            #   x & ~(2^k - 1)  (align down)      ~~> x
+            #   x & (2^k - 1)   (remainder bits)  ~~> 0
+            const, other = None, None
+            for cand, rest in ((args[0], args[1]), (args[1], args[0])):
+                if not isinstance(cand, tuple) and cand.isConstant():
+                    const, other = cand, rest
+                    break
+            if const is not None:
+                width = int(const.getSize()) * 8
+                mask = int(const.getOffset()) & ((1 << width) - 1)
+                inv = (~mask) & ((1 << width) - 1)
+                if inv & (inv + 1) == 0:  # x & ~(2^k-1): treat as x
+                    _flatten_sum(other, sign, terms)
+                    return
+                if mask & (mask + 1) == 0:  # x & (2^k-1): treat as 0
+                    return
     terms.append((sign, expr))
 
 
@@ -749,30 +777,52 @@ def instruction_use_def(program, instr):
                 logger.info(f"input {i} {inp} {_varnode_operand(program, inp)}")
             logger.info(f"output {op.getOutput()} {_varnode_operand(program, op.getOutput())}")
 
-        # This is blacklisting some odd PPCisms
+        # A COPY to or from a Ghidra bookkeeping register (e.g. PPC
+        # bl/blr shuffling the TOC pointer through 'r2Save') is not a
+        # real data effect; skip the whole op so neither side leaks
+        # into the use/def sets.
         if mnemonic == _PCODE_OP.COPY:
             input0 = _varnode_operand(program, op.getInput(0))
             output = _varnode_operand(program, op.getOutput())
-            # ghidra hallucinates a full-fledged register called `r2Save`
-            # in which case we bail since this copy isn't real
-            if input0 and isinstance(input0, RegisterOperand):
-                if input0.name == "r2Save" and output.name == "r2":
-                    continue
-            if output and isinstance(output, RegisterOperand):
-                if output.name == "r2Save" and input0.name == "r2":
-                    continue
-                
-        # ---- collect register reads from this op's inputs ------------ #
-        for inp in op.getInputs():            
+            names = {
+                o.name
+                for o in (input0, output)
+                if isinstance(o, RegisterOperand)
+            }
+            if names & _GHIDRA_INTERNAL_REGS:
+                continue
+
+        # ---- collect reads from this op's inputs --------------------- #
+        is_control_flow = mnemonic in (
+            _PCODE_OP.BRANCH,
+            _PCODE_OP.CBRANCH,
+            _PCODE_OP.BRANCHIND,
+            _PCODE_OP.CALL,
+            _PCODE_OP.CALLIND,
+            _PCODE_OP.RETURN,
+        )
+        for inp in op.getInputs():
             if inp.isRegister():
                 reg = _varnode_operand(program, inp)
-                assert isinstance(reg, RegisterOperand)                
-                assert not (reg is None)
+                assert isinstance(reg, RegisterOperand)
+                if reg.name in _GHIDRA_INTERNAL_REGS:
+                    continue
                 if reg in written_so_far:
                     continue
                 if pdebug:
                     logger.info(f"1 use {reg}")
                 uses.add(reg)
+            elif inp.isAddress() and not is_control_flow:
+                # Direct read of a ram-space varnode: absolute or
+                # pc-relative addressing that Ghidra resolved at
+                # disassembly (no LOAD op is emitted for these).
+                # Control-flow ops are excluded because their address
+                # input is a jump target, not a data read.
+                mem = _varnode_operand(program, inp)
+                if mem is not None and mem not in defs:
+                    if pdebug:
+                        logger.info(f"1 use mem {mem}")
+                    uses.add(mem)
 
         # ---- STORE: emit a symbolic memory def ----------------------- #
         if mnemonic == _PCODE_OP.STORE:
@@ -821,9 +871,20 @@ def instruction_use_def(program, instr):
             continue
         if out.isUnique():
             continue
+        if out.isAddress():
+            # Direct write to a ram-space varnode: an absolute or
+            # pc-relative store that Ghidra resolved at disassembly
+            # (no STORE op is emitted for these).
+            mem = _varnode_operand(program, out)
+            if pdebug:
+                logger.info(f"5 def mem {mem}")
+            defs.add(mem)
+            continue
         if not out.isRegister():
             raise UseDefError(f"unsupported output varnode {out} for op {op}")
         reg = _varnode_operand(program, out)
+        if reg.name in _GHIDRA_INTERNAL_REGS:
+            continue
         if pdebug:
             logger.info(f"5 def reg {reg}")
         defs.add(reg)
@@ -1029,16 +1090,23 @@ def _analyze_bytes_inner(byte_data, arch, base_address):
     """
     try:
         flat_api, program, addr_space = _get_or_create_program(arch)
-        _populate_program(program, addr_space, byte_data, base_address)
+        # Pad with zero bytes so instructions at the end of the buffer
+        # that need a successor to disassemble still decode — Ghidra
+        # refuses to form a delay-slot branch (MIPS, SPARC) unless the
+        # delay-slot instruction is present in memory. Instructions
+        # decoded inside the padding are filtered out of the results.
+        pad = b"\x00" * 8
+        _populate_program(program, addr_space, byte_data + pad, base_address)
 
         results = []
+        end = int(base_address) + len(byte_data)
         for instr in program.getListing().getInstructions(True):
+            if int(instr.getAddress().getOffset()) >= end:
+                continue
             uses, defs = instruction_use_def(program, instr)
             results.append({
                 "address": str(instr.getAddress()),
                 "instr":   instr.toString(),
-                # "use":     sorted(uses),
-                # "def":     sorted(defs),
                 "use":     uses,
                 "def":     defs,
             })
