@@ -129,8 +129,54 @@ def parse_bytes_arg(spec):
         raise SystemExit(f"invalid hex bytes: {exc}") from exc
 
 
+# Per-language cache of (offset, size, Register) for register-space
+# registers, used to find the smallest named register containing a
+# varnode when no register starts at the varnode's address (e.g. the
+# upper-lane zeroing writes AArch64 emits at z0+8, or x0+4).
+_register_intervals = {}
+
+
+def _containing_register(program, vn):
+    key = str(program.getLanguageID())
+    intervals = _register_intervals.get(key)
+    if intervals is None:
+        intervals = []
+        for reg in program.getLanguage().getRegisters():
+            addr = reg.getAddress()
+            if not addr.getAddressSpace().isRegisterSpace():
+                continue
+            size = max(1, reg.getBitLength() // 8)
+            intervals.append((int(addr.getOffset()), size, reg))
+        _register_intervals[key] = intervals
+    off = int(vn.getAddress().getOffset())
+    size = int(vn.getSize())
+    best = None
+    for koff, ksize, reg in intervals:
+        if koff <= off and off + size <= koff + ksize:
+            if best is None or ksize < best[1]:
+                best = (koff, ksize, reg)
+    return best[2] if best else None
+
+
+def _reg_name(program, vn):
+    """Name (lowercase) of the register a register-space varnode denotes.
+
+    Prefers the exactly-sized register at the varnode's address ("eax"
+    vs "rax"), then any register starting there, then the smallest
+    named register containing the varnode's byte range.
+    """
+    reg = program.getRegister(vn.getAddress(), vn.getSize())
+    if reg is None:
+        reg = program.getRegister(vn.getAddress())
+    if reg is None:
+        reg = _containing_register(program, vn)
+    if reg is None:
+        raise UseDefError(f"no register found for varnode {vn}")
+    return reg.getName().lower()
+
+
 def _varnode_operand(program, vn):
-    
+
     # returning None seems to signal that this is neither a Reg nor memory.
     if vn is None:
         return None
@@ -140,19 +186,7 @@ def _varnode_operand(program, vn):
         return None
 
     if vn.isRegister():
-        reg = program.getRegister(vn.getAddress(), vn.getSize())
-        if reg is None:
-            # No named register of exactly this size at this offset
-            # (e.g. an 8-byte access inside AArch64's 32-byte z0);
-            # fall back to the smallest named register containing it.
-            reg = program.getRegister(vn.getAddress())
-        if reg is None:
-            raise UseDefError(f"no register found for varnode {vn}")
-        # Normalize to the canonical (largest) register name if you
-        # prefer; here we keep the size-specific name (e.g. "EAX"
-        # vs "RAX") because that's what the instruction actually
-        # touches.
-        return RegisterOperand(reg.getName().lower())
+        return RegisterOperand(_reg_name(program, vn))
 
     
     # has to be true -- a concrete address
@@ -532,24 +566,143 @@ def update_symstate(op, sstate):
     # downstream reads it back through sstate, so don't track it
 
         
-def uniq2bsid(u, sstate, program, size):
-    assert u.isUnique()
-    k = _unique_key(u)
-    assert (k in sstate)
-    res = sstate[k]
-    if isinstance(res, tuple):
-        (mnemonic, args) = res
-        if mnemonic == _PCODE_OP.INT_ADD:
-            if args[0].isRegister() and args[1].isConstant():
-                reg = program.getRegister(args[0])
-                return BSIDMemoryReferenceOperand(
-                    segment=None,
-                    base = reg.name,
-                    index = None,
-                    offset = args[1].getOffset(),
-                    size = size
+def _const_value(vn):
+    """Value of a constant varnode, interpreted as signed at its size.
+
+    Java's getOffset() returns a signed 64-bit long, so mask to the
+    varnode's width first, then sign-interpret at that width.
+    """
+    size = int(vn.getSize())
+    if size < 1 or size > 8:
+        return int(vn.getOffset())
+    width = size * 8
+    val = int(vn.getOffset()) & ((1 << width) - 1)
+    if val & (1 << (width - 1)):
+        val -= 1 << width
+    return val
+
+
+def _unwrap_ext(expr):
+    """Strip INT_ZEXT/INT_SEXT wrappers; width changes in address
+    arithmetic don't alter the symbolic base+scale*index+offset form."""
+    while isinstance(expr, tuple) and expr[0] in (
+        _PCODE_OP.INT_ZEXT,
+        _PCODE_OP.INT_SEXT,
+    ):
+        expr = expr[1][0]
+    return expr
+
+
+def _flatten_sum(expr, sign, terms):
+    """Flatten an address expression into a list of (sign, term) where
+    each term is a varnode or a multiplicative sub-expression."""
+    expr = _unwrap_ext(expr)
+    if isinstance(expr, tuple):
+        mnem, args = expr
+        if mnem == _PCODE_OP.INT_ADD:
+            _flatten_sum(args[0], sign, terms)
+            _flatten_sum(args[1], sign, terms)
+            return
+        if mnem == _PCODE_OP.INT_SUB:
+            _flatten_sum(args[0], sign, terms)
+            _flatten_sum(args[1], -sign, terms)
+            return
+    terms.append((sign, expr))
+
+
+def expr_to_bsid(expr, program, size, addr_size):
+    """Convert a resolved address expression into a
+    BSIDMemoryReferenceOperand of the form base + scale*index + offset.
+
+    Handles every addressing shape expressible as a sum of: register,
+    signed constant, and register*constant / register<<constant (with
+    zext/sext wrappers ignored). Anything else — masked/aligned
+    addresses, memory-indirect addresses, negated registers — raises
+    UseDefError.
+    """
+    terms = []
+    _flatten_sum(expr, 1, terms)
+
+    offset = 0
+    plain_regs = []
+    scaled = []  # (reg_name, scale)
+
+    for sign, term in terms:
+        if isinstance(term, tuple):
+            mnem, args = term
+            if mnem not in (_PCODE_OP.INT_MULT, _PCODE_OP.INT_LEFT):
+                raise UseDefError(f"unsupported address term: {term}")
+            a = _unwrap_ext(args[0])
+            b = _unwrap_ext(args[1])
+            if isinstance(a, tuple) or isinstance(b, tuple):
+                raise UseDefError(f"unsupported address term: {term}")
+            if a.isConstant() and b.isConstant():
+                ca, cb = _const_value(a), _const_value(b)
+                prod = (ca << cb) if mnem == _PCODE_OP.INT_LEFT else ca * cb
+                offset += sign * prod
+                continue
+            # canonicalize to (register, constant)
+            if a.isConstant() and mnem == _PCODE_OP.INT_MULT:
+                a, b = b, a
+            if not (a.isRegister() and b.isConstant()):
+                raise UseDefError(f"unsupported address term: {term}")
+            if sign < 0:
+                raise UseDefError(f"negated index register in address: {term}")
+            c = _const_value(b)
+            scale = (1 << c) if mnem == _PCODE_OP.INT_LEFT else c
+            scaled.append((_reg_name(program, a), scale))
+            continue
+        # leaf varnode
+        if term.isConstant():
+            offset += sign * _const_value(term)
+        elif term.isRegister():
+            if sign < 0:
+                raise UseDefError(
+                    f"negated base register in address: {term}"
                 )
-    raise Exception(f"unexpected sstate: {res}")
+            plain_regs.append(_reg_name(program, term))
+        else:
+            raise UseDefError(f"unsupported address leaf: {term}")
+
+    base = None
+    index = None
+    scale = 1
+    if len(scaled) > 1:
+        raise UseDefError(f"multiple scaled index terms in address: {expr}")
+    if scaled:
+        index, scale = scaled[0]
+    for name in plain_regs:
+        if base is None:
+            base = name
+        elif index is None:
+            index = name
+        else:
+            raise UseDefError(f"too many registers in address: {expr}")
+
+    if base is None and index is None:
+        # pure absolute address: render unsigned at the pointer width
+        offset %= 1 << (addr_size * 8)
+
+    return BSIDMemoryReferenceOperand(
+        segment=None,
+        base=base,
+        index=index,
+        scale=scale,
+        offset=offset,
+        size=size,
+    )
+
+
+def _load_store_mem(op, program, sstate, size):
+    """Memory operand for a LOAD/STORE op's address (input 1)."""
+    inputs = op.getInputs()
+    space = _space_name(program, inputs[0])
+    if space != "ram":
+        raise UseDefError(f"{op.getMnemonic()} to address space {space!r}")
+    addr_expr = resolve_input(inputs[1], sstate)
+    return expr_to_bsid(
+        addr_expr, program, size, int(inputs[1].getSize())
+    )
         
 
 # --------------------------------------------------------------------------- #
@@ -624,17 +777,10 @@ def instruction_use_def(program, instr):
         # ---- STORE: emit a symbolic memory def ----------------------- #
         if mnemonic == _PCODE_OP.STORE:
             inputs = op.getInputs()
-            # logger.info(f"store {len(inputs)} inputs")
             assert len(inputs) == 3
-            space = _space_name(program, inputs[0])
-            assert (space == "ram")
-
-            if inputs[1].isUnique():
-                mem = uniq2bsid(inputs[1], sstate, program, inputs[2].size)                
-            else:
-                breakpoint()
-                raise Exception(f"store with address not a unique?")
-                
+            mem = _load_store_mem(
+                op, program, sstate, int(inputs[2].getSize())
+            )
             if pdebug:
                 logger.info(f"2 def mem {mem}")
             defs.add(mem)
@@ -643,20 +789,11 @@ def instruction_use_def(program, instr):
         # ---- LOAD: emit a symbolic memory use, propagate value ------- #
         if mnemonic == _PCODE_OP.LOAD:
             inputs = op.getInputs()
-            # logger.info(f"load {len(inputs)} inputs")
             assert len(inputs) == 2
-            out = op.getOutput()    # reg
+            out = op.getOutput()
             assert not (out is None)
-            space = _space_name(program, inputs[0])
-            assert (space == "ram")
-            # this should really get us a bsid for the address
-            # inputs[1] is the ptr
+            mem = _load_store_mem(op, program, sstate, int(out.getSize()))
 
-            if inputs[1].isUnique():
-                mem = uniq2bsid(inputs[1], sstate, program, op.getOutput().size)
-            else:
-                raise Exception(f"load with address not a unique?")
-            
             # why would mem be in defs... If we had previously stored to this in this op sequence?
             if not (mem in defs):
                 if pdebug:
