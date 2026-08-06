@@ -48,15 +48,22 @@ import logging
 import pyghidra
 from enum import Enum, auto
 
-pyghidra.start()  # boots the embedded JVM; must run before ghidra imports
-
-from ghidra.program.model.pcode import Varnode
-from ghidra.program.model.listing import Function  # noqa: E402
-
 from smallworld.instructions import RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 
 logger = logging.getLogger(__name__)
+
+_pyghidra_started = False
+
+
+def _ensure_pyghidra():
+    """Boot the embedded JVM on first use rather than at import time, so
+    that importing smallworld doesn't pay Ghidra's multi-second startup
+    (pyghidra.start() is idempotent; the flag just skips the call)."""
+    global _pyghidra_started
+    if not _pyghidra_started:
+        pyghidra.start()
+        _pyghidra_started = True
 
 
 # --------------------------------------------------------------------------- #
@@ -216,7 +223,17 @@ def _unique_key(vn):
 #   r2save        — PPC bl/blr TOC-pointer save slot
 #   tea           — PPC temporary effective address (lmw/stmw)
 #   isamodeswitch — MIPS16e/micromips mode bit written by indirect jumps
-_GHIDRA_INTERNAL_REGS = {"r2save", "tea", "isamodeswitch"}
+#   tmpcy/tmpng/tmpov/tmpzr, shift_carry — AArch64 SLEIGH flag scratch
+_GHIDRA_INTERNAL_REGS = {
+    "r2save",
+    "tea",
+    "isamodeswitch",
+    "tmpcy",
+    "tmpng",
+    "tmpov",
+    "tmpzr",
+    "shift_carry",
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -314,161 +331,6 @@ class _PCODE_OP(Enum):
     INSERT = auto()
     EXTRACT = auto()
 
-    
-     
-_PCODE_OP_INFO = { 
-    _PCODE_OP.COPY:             ("<-", [0], True),
-    _PCODE_OP.LOAD:             ("<m-", [1], True),
-    _PCODE_OP.STORE:            ("-m>", [1], True),
-    _PCODE_OP.BRANCH:           ("b", [], False),         # input is conc addr only
-    _PCODE_OP.CBRANCH:          ("cb", [1], False),       # the condition
-    _PCODE_OP.BRANCHIND:        ("bi", [0], False),       # the dynamically determined target
-    _PCODE_OP.CALL:             None,                     # exception
-    _PCODE_OP.CALLIND:          None,                     # exception
-    _PCODE_OP.RETURN:           None,                     # exception
-    _PCODE_OP.PIECE:            ("p", [0, 1], True),    
-    _PCODE_OP.SUBPIECE:         ("s", [0], True),
-    _PCODE_OP.INT_EQUAL:        ("==", [0, 1], True),
-    _PCODE_OP.INT_NOTEQUAL:     ("!=", [0, 1], True),
-    _PCODE_OP.INT_LESS:         ("<u", [0, 1], True),
-    _PCODE_OP.INT_SLESS:        ("<s", [0, 1], True),
-    _PCODE_OP.INT_LESSEQUAL:    ("<=u", [0, 1], True),
-    _PCODE_OP.INT_SLESSEQUAL:   ("<=u", [0, 1], True),
-    _PCODE_OP.INT_ZEXT:         ("zx", [0], True),
-    _PCODE_OP.INT_SEXT:         ("sx", [0], True),    
-    _PCODE_OP.INT_ADD:          ("+", [0, 1], True),
-    _PCODE_OP.INT_SUB:          ("-", [0, 1], True),
-    _PCODE_OP.INT_CARRY:        ("c", [0, 1], True),
-    _PCODE_OP.INT_SCARRY:       ("sc", [0, 1], True),
-    _PCODE_OP.INT_SBORROW:      ("sb", [0, 1], True),
-    _PCODE_OP.INT_2COMP:        ("-", [0], True),
-    _PCODE_OP.INT_NEGATE:       ("~", [0], True),    
-    _PCODE_OP.INT_XOR:          ("^", [0, 1], True),
-    _PCODE_OP.INT_AND:          ("&", [0, 1], True),
-    _PCODE_OP.INT_OR:           ("|", [0, 1], True),
-    _PCODE_OP.INT_LEFT:         ("<<", [0, 1], True),
-    _PCODE_OP.INT_RIGHT:        (">>", [0, 1], True),
-    _PCODE_OP.INT_SRIGHT:       (">>s", [0, 1], True),                
-    _PCODE_OP.INT_MULT:         ("*", [0, 1], True),                
-    _PCODE_OP.INT_DIV:          ("/", [0, 1], True),                
-    _PCODE_OP.INT_REM:          ("%", [0, 1], True),                
-    _PCODE_OP.INT_SDIV:         ("/s", [0, 1], True),                
-    _PCODE_OP.INT_SREM:         ("%s", [0, 1], True),                
-    _PCODE_OP.BOOL_NEGATE:      ("~", [0], True),    
-    _PCODE_OP.BOOL_XOR:         ("^", [0, 1], True),
-    _PCODE_OP.BOOL_AND:         ("&", [0, 1], True),
-    _PCODE_OP.BOOL_OR:          ("|", [0, 1], True),
-    _PCODE_OP.FLOAT_EQUAL:      ("==f", [0, 1], True),
-    _PCODE_OP.FLOAT_NOTEQUAL:   ("!=f", [0, 1], True),
-    _PCODE_OP.FLOAT_LESS:       ("<f", [0, 1], True),
-    _PCODE_OP.FLOAT_LESSEQUAL:  ("<=f", [0, 1], True),
-    _PCODE_OP.FLOAT_ADD:        ("+f", [0, 1], True),
-    _PCODE_OP.FLOAT_SUB:        ("-f", [0, 1], True),
-    _PCODE_OP.FLOAT_MULT:       ("*f", [0, 1], True),                
-    _PCODE_OP.FLOAT_DIV:        ("*/", [0, 1], True),                
-    _PCODE_OP.FLOAT_NEG:        ("-", [0], True),
-    _PCODE_OP.FLOAT_ABS:        ("!", [0], True),
-    _PCODE_OP.FLOAT_SQRT:       ("r", [0], True),        
-    _PCODE_OP.FLOAT_CEIL:       ("cf", [0], True),
-    _PCODE_OP.FLOAT_FLOOR:      ("f", [0], True),    
-    _PCODE_OP.FLOAT_ROUND:      ("r", [0], True),
-    _PCODE_OP.FLOAT_NAN:        ("n", [0], True),    
-    _PCODE_OP.INT2FLOAT:        ("i2f", [0], True),
-    _PCODE_OP.FLOAT2FLOAT:      ("f2f", [0], True),
-    _PCODE_OP.TRUNC:            ("t", [0], True)
-    }
-
-
-
-
-def _format_const(val, size_bytes):
-    """Render a constant signed (with a '-' sign) when its high bit is
-    set, otherwise as an unsigned hex literal. Makes addresses like
-    '0xffffffd0' read as the more natural '-0x30'."""
-    val = int(val)
-    if val == 0:
-        return "0"
-    if size_bytes <= 0 or size_bytes >= 8:
-        return f"0x{val:x}"
-    width = size_bytes * 8
-    sign_bit = 1 << (width - 1)
-    if val & sign_bit:
-        signed = val - (1 << width)
-        return f"-0x{-signed:x}"
-    return f"0x{val:x}"
-
-
-# def _vn_expr(vn, program, unique_exprs, register_exprs):
-#     """Stringify a varnode as a symbolic expression.
-
-#     Registers that have already been written earlier in this
-#     instruction render as their tracked expression rather than as
-#     their plain name, so 'STORE ram, RSP, ...' after 'RSP = RSP - 8'
-#     prints the address as '(RSP - 0x8)', not 'RSP'.
-
-# really this should return one of the following
-# * Int
-# * expr for a uniq, in terms of input quantities
-# * expr for a register at this point in seq, in terms of input quantities
-# note: i uniq and key isnt there, we return a default STRING
-
-# vn can be a constant, an address, a uniq or a register.# first two are easy -- return an int of some kind? 
-# last two are rendered in terms of input quantities to the op sequence
-def _vn_expr(vn, program, unique_exprs, register_exprs):
-
-    assert (vn is not None)
-
-    if isinstance(vn, Varnode):
-     
-        if vn.isConstant():
-            val = int(vn.getOffset())
-            width = vn.getSize() * 8
-            sign_bit = 1 << (width - 1)
-            if val & sign_bit:
-                return val - (1<<width)
-            return int(vn.getOffset())
-        if vn.isUnique():
-            key = _unique_key(vn)
-            assert(key in unique_exprs)
-            return unique_exprs[key]
-            # return unique_exprs.get(key, f"$U{key[0]:x}")
-        # i guess this could be a reg or an address?
-        operand = _varnode_operand(program, vn)
-        if operand is not None:
-            # this means its either a Reg or Memory
-            if vn.isRegister():
-                if operand in register_exprs:
-                    # re-express that reg in terms of inputs?
-                    return register_exprs[operand]
-            # ok to return 
-            return operand                       
-        operand = vn.getAddress()
-
-    else:
-        # maybe we are never here?
-        breakpoint()
-        assert isinstance(vn, list)
-        assert(len(vn) >= 2)
-        assert(len(vn) <= 3)
-        assert isinstance(vn[0], str)
-        name = vn[0]
-        if len(vn) == 2:
-            return [name, _vn_expr(vn[1], program, unique_exprs, register_exprs)]
-        return [name,
-                _vn_expr(vn[1], program, unique_exprs, register_exprs),
-                _vn_expr(vn[2], program, unique_exprs, register_exprs)]        
-        
-        
-def _op_expr(op, program, unique_exprs, register_exprs):
-    mnemonic_ind = _PCODE_OP[op.getMnemonic()]
-    (lab, inp_inds, outp) = _PCODE_OP_INFO[mnemonic_ind]
-    le = [mnemonic_ind]
-    inputs = op.getInputs()
-    for ind in inp_inds:
-        vne = _vn_expr(inputs[ind], program, unique_exprs, register_exprs)
-        le.append(vne)
-    return le
-
 
 def _space_name(program, space_id_vn):
     """STORE/LOAD encode the destination address space in input[0],
@@ -478,21 +340,6 @@ def _space_name(program, space_id_vn):
     return space.getName() if space is not None else f"space{space_id}"
 
 
-def _addr_expr_to_mem_ref_op(addr_expr, size):
-    if (len(addr_expr) != 3):
-        breakpoint()
-    assert (len(addr_expr) == 3)
-    (op, a1, a2) = addr_expr
-    assert type(a1) is RegisterOperand and type(a2) is int
-    assert op == "INT_ADD"
-    # assume that is the base
-    return BSIDMemoryReferenceOperand(
-        segment=None,
-        base=a1.name,
-        index=None,
-        scale=1,
-        offset=a2,
-        size=size)
 
 
 class UseDefError(Exception):
@@ -740,25 +587,24 @@ def _load_store_mem(op, program, sstate, size):
 def instruction_use_def(program, instr):
     """Return (use_set, def_set) for a single machine instruction.
 
-    The sets are strings:
-      * registers  — e.g. 'r1', 'RAX', 'CF'
-      * memory locations — e.g. 'ram[(r1 + -0x30):4]', meaning a
-        4-byte cell in the 'ram' address space at the symbolic
-        address '(r1 + -0x30)'. The address expression is rendered
-        algebraically over the registers and constants that
-        contributed to it within this instruction.
+    The sets contain Operand objects:
+      * RegisterOperand — Ghidra's size-specific register name,
+        lowercased (e.g. 'r1', 'rax', 'cf')
+      * BSIDMemoryReferenceOperand — a memory cell whose address is
+        rendered as base + scale*index + offset over the register
+        values at instruction entry (e.g. stwu r1,-0x30(r1) defines
+        the 4-byte cell at [r1 - 0x30]).
 
-    Memory defs come from STORE pcode ops; memory uses come from LOAD
-    pcode ops. Register defs come from non-STORE pcode ops whose
-    output varnode is in the register space. We trace data flow
-    through 'unique' varnodes so the memory address expression names
-    the original registers, not the pcode temporaries.
+    Memory defs come from STORE pcode ops (and direct writes to
+    ram-space varnodes); memory uses come from LOAD ops (and direct
+    ram-space reads). Register defs come from ops whose output varnode
+    is in the register space. Data flow is traced through 'unique'
+    varnodes so memory address expressions name the original
+    registers, not the pcode temporaries.
     """
     uses = set()
     defs = set()
-    written_so_far = set() # registers written so far 
-    unique_exprs = {}    # (offset, size) -> expression-string for pcode temps
-    register_exprs = {}  # register-name   -> expression-string after a write
+    written_so_far = set()  # registers written so far
 
     sstate = {}
     pdebug = False
@@ -844,25 +690,22 @@ def instruction_use_def(program, instr):
             assert not (out is None)
             mem = _load_store_mem(op, program, sstate, int(out.getSize()))
 
-            # why would mem be in defs... If we had previously stored to this in this op sequence?
+            # skip the use if this instruction already stored to the
+            # same location (the load reads its own store)
             if not (mem in defs):
                 if pdebug:
                     logger.info(f"3 use mem {mem}")
                 uses.add(mem)
-            if out.isUnique():
-                # remember that this unique is really this mem load
-                unique_exprs[_unique_key(out)] = mem
-            else:
+            if not out.isUnique():
+                # loads into a unique need no def; the loaded value is
+                # tracked through sstate by update_symstate
                 reg = _varnode_operand(program, out)
-                assert not (reg is None)
                 assert isinstance(reg, RegisterOperand)
                 if pdebug:
                     logger.info(f"4 def operand {reg}")
-                defs.add(reg)
+                if reg.name not in _GHIDRA_INTERNAL_REGS:
+                    defs.add(reg)
                 written_so_far.add(reg)
-                # remember that this register, which has been written,
-                # is really this loaded value
-                register_exprs[reg] = mem
             continue
 
         # ---- non-STORE/LOAD output handling -------------------------- #
@@ -904,7 +747,7 @@ def iter_instructions(program, function_name=None):
         return
 
     fm = program.getFunctionManager()
-    fn: Function | None = None
+    fn = None
     for f in fm.getFunctions(True):
         if f.getName() == function_name:
             fn = f
@@ -917,6 +760,7 @@ def iter_instructions(program, function_name=None):
 
 def analyze(binary_path, function_name=None, project_dir=None,
             project_name="usedef-proj"):
+    _ensure_pyghidra()
     results = []
     with pyghidra.open_program(
         binary_path,
@@ -953,6 +797,7 @@ _program_cache = {}  # language_id (str) -> (open_program-cm, flat_api, addr_spa
 def _get_or_create_program(arch):
     """Return (flat_api, program, addr_space) for a long-lived program
     of the given architecture, creating it on the first call."""
+    _ensure_pyghidra()
     lang_id = resolve_language_id(arch)
     entry = _program_cache.get(lang_id)
     if entry is not None:
