@@ -146,11 +146,6 @@ def randomize_uninitialized(
     logger.info(f"seed={seed} digest of changes made to machine: {m.hexdigest()}")
 
     return machine_copy
- 
-
- 
-         
-        
 
 
 class Colorizer(analysis.Analysis):
@@ -267,19 +262,18 @@ class Colorizer(analysis.Analysis):
         def check_rws(emu, pc, te, is_read):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
-            logger.info(f"instr={cs_insn}")
+            logger.debug(f"instr={cs_insn}")
             if is_read:
                 operand_list = sw_insn.reads
-                logger.info(f"reads={operand_list}")
+                logger.debug(f"reads={operand_list}")
             else:
                 operand_list = sw_insn.writes
-                logger.info(f"writes={operand_list}")
+                logger.debug(f"writes={operand_list}")
             rws = []
             for operand in operand_list:
-                if operand is None:
-                    breakpoint()
                 if type(operand) is RegisterOperand:
-                    if operand.name == "rflags":
+                    # flow through the flags register is not tracked
+                    if operand.name in ("rflags", "eflags", "flags"):
                         continue
                 sz = self._operand_size(operand)
                 if isinstance(operand, BSIDMemoryReferenceOperand):

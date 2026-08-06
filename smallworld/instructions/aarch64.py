@@ -10,6 +10,7 @@ class AArch64Instruction(Instruction):
     angr_arch = "AARCH64"
     cs_arch = capstone.CS_ARCH_ARM64
     cs_mode = capstone.CS_MODE_ARM
+    ghidra_lang = "AARCH64:LE:64:v8A"
     platform = platforms.Platform(
         platforms.Architecture.AARCH64, platforms.Byteorder.LITTLE
     )

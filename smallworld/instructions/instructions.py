@@ -1,10 +1,11 @@
 import abc
 import logging
+import re
 import typing
 
 import capstone
 
-from smallworld.platforms import Platform, PlatformDef
+from smallworld.platforms import Architecture, Platform, PlatformDef
 
 from .. import emulators, utils
 
@@ -65,6 +66,65 @@ class RegisterOperand(Operand):
         return f"{self.__class__.__name__}({self.name})"
 
 
+# --------------------------------------------------------------------------- #
+# Mapping Ghidra register names into SmallWorld's register namespace
+# --------------------------------------------------------------------------- #
+#
+# The pcode-based use/def analysis (instr_use_def) reports operands using
+# Ghidra's register naming, which mostly matches SmallWorld's platform
+# definitions but differs in a few places (flag bits vs. a flags register,
+# vector-lane pseudo-registers, hi/lo accumulator naming). Consumers
+# concretize operands against emulators via PlatformDef names, so every
+# reported register must exist there; names with no platform equivalent
+# even after aliasing (e.g. AArch64 condition flags today) are dropped.
+
+_X86_FLAG_BITS = frozenset(
+    ("cf", "pf", "af", "zf", "sf", "of", "df", "tf", "if", "ac", "id")
+)
+# Ghidra models SSE/AVX lanes as pseudo-registers: xmm0_qa, xmm0_da, ...
+_X86_VECTOR_LANE_RE = re.compile(r"([xyz]mm\d+)_\w+")
+_AARCH64_FLAG_BITS = frozenset(("ng", "zr", "cy", "ov", "nzcv"))
+_AARCH64_ZREG_RE = re.compile(r"z(\d+)")
+
+
+def _pcode_register_alias(name: str, platform: Platform) -> str:
+    arch = platform.architecture
+    if arch == Architecture.X86_64:
+        if name in _X86_FLAG_BITS:
+            return "rflags"
+        m = _X86_VECTOR_LANE_RE.fullmatch(name)
+        if m:
+            return m.group(1)
+    elif arch == Architecture.X86_32:
+        if name in _X86_FLAG_BITS:
+            return "eflags"
+        m = _X86_VECTOR_LANE_RE.fullmatch(name)
+        if m:
+            return m.group(1)
+    elif arch == Architecture.AARCH64:
+        # no PlatformDef register models the flags today; alias to nzcv
+        # so they all drop as one name (and start flowing through the
+        # moment the platform definition gains it)
+        if name in _AARCH64_FLAG_BITS:
+            return "nzcv"
+        # zN is Ghidra's full vector register; qN is the widest lane
+        # SmallWorld models
+        m = _AARCH64_ZREG_RE.fullmatch(name)
+        if m:
+            return f"q{m.group(1)}"
+    elif arch == Architecture.POWERPC32:
+        if name.startswith("xer_"):
+            return "xer"
+        if name.startswith("fp_"):
+            return "fpscr"
+    elif arch == Architecture.MIPS32:
+        if name == "hi":
+            return "hi0"
+        if name == "lo":
+            return "lo0"
+    return name
+
+
 class MemoryReferenceOperand(Operand):
     """An operand from an instruction which reads or writes memory."""
 
@@ -97,6 +157,12 @@ class MemoryReferenceOperand(Operand):
 
 class Instruction(metaclass=abc.ABCMeta):
     """An instruction storage and semantic metadata class."""
+
+    # Ghidra language id for the pcode-based use/def analysis
+    # (instr_use_def.analyze_bytes). Subclasses whose language has been
+    # validated against the corpus in tests/use_def set this; when it is
+    # None, reads/writes fall back to the Capstone-based implementation.
+    ghidra_lang: typing.Optional[str] = None
 
     def __init__(
         self,
@@ -199,13 +265,50 @@ class Instruction(metaclass=abc.ABCMeta):
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         pass
 
+    def _canonicalize_pcode_operand(
+        self, operand: Operand, platdef
+    ) -> typing.Optional[Operand]:
+        """Map one operand from the pcode analysis into this platform's
+        register namespace so consumers can concretize it against an
+        emulator. Returns None for operands naming state the platform
+        definition doesn't model."""
+        if isinstance(operand, RegisterOperand):
+            name = _pcode_register_alias(operand.name, self.platform)
+            if name not in platdef.registers:
+                logger.debug(
+                    f"dropping pcode operand {operand.name!r}: "
+                    f"no such register on {self.platform}"
+                )
+                return None
+            if name != operand.name:
+                return RegisterOperand(name)
+        return operand
+
+    def _pcode_use_def(self, kind: str) -> typing.Set[Operand]:
+        """Registers and memory references read ('use') or written
+        ('def') by this instruction, per the Ghidra-pcode analysis."""
+        # Deferred import: instr_use_def pulls in pyghidra.
+        from .instr_use_def import analyze_bytes
+
+        platdef = PlatformDef.for_platform(self.platform)
+        results = analyze_bytes(self.instruction, self.ghidra_lang, self.address)
+        operands: typing.Set[Operand] = set()
+        for op in results[0][kind]:
+            canon = self._canonicalize_pcode_operand(op, platdef)
+            if canon is not None:
+                operands.add(canon)
+        return operands
+
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
 
-        This is a list of string register names and dictionary memory reference
-        specifications (i.e., in the form `base + scale * index + offset`).
+        A set of Operand objects: RegisterOperand for registers and
+        MemoryReferenceOperand for memory (in the form
+        `base + scale * index + offset`).
         """
+        if self.ghidra_lang is not None:
+            return self._pcode_use_def("use")
 
         platdef = PlatformDef.for_platform(self.platform)
         read: typing.Set[Operand] = set()
@@ -237,6 +340,8 @@ class Instruction(metaclass=abc.ABCMeta):
 
         Same format as `reads`.
         """
+        if self.ghidra_lang is not None:
+            return self._pcode_use_def("def")
 
         write: typing.Set[Operand] = set()
 
