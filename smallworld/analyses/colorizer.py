@@ -258,7 +258,7 @@ class Colorizer(analysis.Analysis):
         self.platform = self.orig_cpu.platform
         self.pdef = platforms.PlatformDef.for_platform(self.platform)
 
-        def check_rws(emu, pc, te, is_read):
+        def check_rws(emu, pc, te, is_read, write_addresses=None):
             cs_insn = self._get_instr_at_pc(emu, pc)
             sw_insn = Instruction.from_capstone(cs_insn)
             logger.debug(f"instr={cs_insn}")
@@ -275,21 +275,34 @@ class Colorizer(analysis.Analysis):
                     if operand.name in ("rflags", "eflags", "flags"):
                         continue
                 sz = self._operand_size(operand)
+                addr = None
                 if isinstance(operand, BSIDMemoryReferenceOperand):
-                    # if addr not mapped, discard this operand
-                    a = operand.address(emu)
-                    ar = (a, a + sz)
-                    if not emu._is_address_range_mapped(ar):
+                    if write_addresses is None:
+                        addr = operand.address(emu)
+                    elif operand in write_addresses:
+                        addr = write_addresses[operand]
+                    else:
+                        # Can't happen: both callbacks disassemble the
+                        # same pc, so they see the same operands.
+                        logger.debug(f"no captured address for write {operand}")
                         continue
-                conc = operand.concretize(emu)
+                    # if addr not mapped, discard this operand
+                    if not emu._is_address_range_mapped((addr, addr + sz)):
+                        continue
+                    # Read the value at the address captured before the
+                    # instruction ran, not one recomputed from the
+                    # current registers.
+                    conc = emu.read_memory(addr, sz)
+                else:
+                    conc = operand.concretize(emu)
                 color = self._concrete_val_to_color(conc, sz)
-                tup = (operand, conc, color, sz)
+                tup = (operand, conc, color, sz, addr)
                 rws.append(tup)
             rws.sort(key=lambda e: e[0].__repr__())
             if len(rws) == 0:
                 return
             for rw in rws:
-                operand, conc, color, sz = rw
+                operand, conc, color, sz, addr = rw
                 if color == BAD_COLOR:
                     pass
                 else:
@@ -301,15 +314,30 @@ class Colorizer(analysis.Analysis):
 
         def before_instruction_cb(emu, pc, te):
             check_rws(emu, pc, te, True)
+            # A memory operand names registers, and its address is
+            # defined by their values at instruction *entry* -- so it
+            # has to be resolved now. The instruction may modify a
+            # register its own write address depends on (x86 push and
+            # string ops, AArch64 pre/post-index, PPC update forms),
+            # in which case resolving afterwards names the wrong cell.
+            cs_insn = self._get_instr_at_pc(emu, pc)
+            sw_insn = Instruction.from_capstone(cs_insn)
+            self.write_addresses = {
+                operand: operand.address(emu)
+                for operand in sw_insn.writes
+                if isinstance(operand, BSIDMemoryReferenceOperand)
+            }
 
         def after_instruction_cb(emu, pc, te):
             # note: we have to check writes *after* the instruction
             # executes since we might be writing a computed value
             # which we'll only know the value (color) of after the
-            # instruction executes!
-            check_rws(emu, pc, te, False)
+            # instruction executes! The addresses written, though, come
+            # from the pre-instruction capture above.
+            check_rws(emu, pc, te, False, self.write_addresses)
 
         self.colors = {}
+        self.write_addresses = {}
         self.shadow_register = {}
         self.shadow_memory = {}
         traceA = TraceExecution(self.hinter, num_insns=self.num_insns)
@@ -400,7 +428,7 @@ class Colorizer(analysis.Analysis):
         insn: Instruction,
         insn_num: int,
     ):
-        operand, conc, color, operand_size = rw
+        operand, conc, color, operand_size, address = rw
         if color in self.colors.keys():
             # previously observed color
             if is_read:
@@ -420,6 +448,7 @@ class Colorizer(analysis.Analysis):
                 False,
                 insn_num,
                 msg,
+                address,
             )
             self.hinter.send(hint)
         else:
@@ -442,6 +471,7 @@ class Colorizer(analysis.Analysis):
                 True,
                 insn_num,
                 msg,
+                address,
             )
             self.hinter.send(hint)
 
@@ -456,6 +486,7 @@ class Colorizer(analysis.Analysis):
         is_new: bool,
         insn_num: int,
         message: str,
+        address: typing.Optional[int] = None,
     ):
         pc = insn.address
         if type(operand) is RegisterOperand:
@@ -484,7 +515,7 @@ class Colorizer(analysis.Analysis):
                 index_name = operand.index
             return hinting.DynamicMemoryValueHint(
                 time=self.htime(),
-                address=operand.address(emu),
+                address=(address if address is not None else operand.address(emu)),
                 segment=segment_name,
                 base=base_name,
                 index=index_name,
