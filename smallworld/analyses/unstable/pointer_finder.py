@@ -39,7 +39,7 @@ class PointerFinder(analysis.Analysis):
                     break
 
         assert p, "we can't find the pointer"
-        hint = hinting.PointerHint(message="Pointer Found", instruction=i, pointer=r)
+        hint = hinting.PointerHint(message="Pointer Found", instruction=i, pointer=p)
         self.hinter.send(hint)
 
     def run(self, state: state.Machine) -> None:

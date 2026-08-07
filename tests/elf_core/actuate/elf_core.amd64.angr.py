@@ -49,5 +49,4 @@ machine.add_exit_point(cpu.rip.get() + 0x17)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
 machine.emulate(emulator)

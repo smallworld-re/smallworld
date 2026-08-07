@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from .common import (
     PlatformSpec,
@@ -12,10 +12,11 @@ from .common import (
     make_gets_model,
     make_platform,
     make_puts_model,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
+from .tricore_panda import install_tricore_panda_hooking_compatibility
 
 
 @dataclasses.dataclass(frozen=True)
@@ -31,6 +32,9 @@ class HookingSpec:
     puts_address: int = 0x1004
     stack_base: int = 0x2000
     stack_padding_bytes: dict[str, int] = dataclasses.field(default_factory=dict)
+    tricore_panda_callsite_offsets: dict[str, int] = dataclasses.field(
+        default_factory=dict
+    )
 
 
 _SPECS = {
@@ -61,7 +65,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
     "armhf": HookingSpec(
@@ -70,7 +74,7 @@ _SPECS = {
         pc_register="pc",
         stack_pointer_register="sp",
         pc_offset=8,
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         string_source=StringSource(register="r0"),
     ),
     "i386": HookingSpec(
@@ -178,6 +182,16 @@ _SPECS = {
         string_source=StringSource(register="a0"),
         puts_address=0x1002,
     ),
+    "tricore": HookingSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=8,
+        engines=("angr", "panda", "pcode"),
+        string_source=StringSource(register="a4"),
+        tricore_panda_callsite_offsets={"gets": 0x0C, "puts": 0x12},
+    ),
     "xtensa": HookingSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -192,6 +206,37 @@ _SPECS = {
 _SKIP_REASONS = {
     "ppc64": "Unicorn ppc64 support buggy",
 }
+
+
+SCENARIO_PREFIXES = (("hooking", "hooking"),)
+
+NATIVE_PARITY = True
+
+
+def _hooking_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    # mips64.panda and mips64el.panda drop the leading 'f' from the input string.
+    expected = (
+        "oo bar baz" if variant in {"mips64.panda", "mips64el.panda"} else "foo bar baz"
+    )
+    return (((), expected),)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="hooking",
+    scenario="hooking",
+    tags=("scenario", "hooking"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+        },
+        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
+    ),
+    run_factory=assert_outputs(_hooking_expectations, stdin="foo bar baz"),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -236,25 +281,34 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     stack.push_integer(0xFFFFFFFF, spec.pointer_size, "fake return address")
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
-    machine.add(
-        make_gets_model(
-            smallworld,
-            platform=platform,
-            address=spec.gets_address,
-            destination=spec.string_source,
+    if not install_tricore_panda_hooking_compatibility(
+        arch,
+        engine,
+        smallworld,
+        machine,
+        code,
+        pc_register=spec.pc_register,
+        string_source=spec.string_source,
+        callsite_offsets=spec.tricore_panda_callsite_offsets,
+    ):
+        machine.add(
+            make_gets_model(
+                smallworld,
+                platform=platform,
+                address=spec.gets_address,
+                destination=spec.string_source,
+            )
         )
-    )
-    machine.add(
-        make_puts_model(
-            smallworld,
-            platform=platform,
-            address=spec.puts_address,
-            source=spec.string_source,
+        machine.add(
+            make_puts_model(
+                smallworld,
+                platform=platform,
+                address=spec.puts_address,
+                source=spec.string_source,
+            )
         )
-    )
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     emulator.add_exit_point(code.address + code.get_capacity())
     machine.emulate(emulator)
     return 0

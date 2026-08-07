@@ -65,6 +65,9 @@ class Architecture(enum.Enum):
     RISCV64 = "riscv-64"
     """64-bit RiscV"""
 
+    TRICORE = "tricore"
+    """Infineon TriCore"""
+
     XTENSA = "xtensa"
     """Xtensa"""
 

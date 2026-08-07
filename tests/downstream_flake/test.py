@@ -75,5 +75,4 @@ check_emulator("ghidra", smallworld.emulators.GhidraEmulator(platform))
 check_emulator("unicorn", smallworld.emulators.UnicornEmulator(platform))
 
 angr = smallworld.emulators.AngrEmulator(platform)
-angr.enable_linear()
 check_emulator("angr", angr)

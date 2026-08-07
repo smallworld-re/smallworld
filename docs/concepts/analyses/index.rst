@@ -89,7 +89,7 @@ that communicate via ``Hint``:
 .. code-block:: python
 
     from smallworld.hinting import Hint, Hinter
-    from smallworld.analysis import Analyses
+    from smallworld.analyses import Analysis
     from smallworld.state import Machine
 
     class FirstAHint(Hint):

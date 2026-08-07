@@ -48,6 +48,27 @@ for reg in platdef.registers.keys():
         )
         bad = True
 
+if architecture == platforms.Architecture.TRICORE:
+    writeback_registers = ("d2", "d4", "a4", "sp", "ra")
+    for reg in writeback_registers:
+        try:
+            original = emu.read_register(reg)
+            emu.write_register(reg, original ^ 0x11111111)
+            updated = emu.read_register(reg)
+            if updated != (original ^ 0x11111111):
+                print(
+                    f"Register {reg} of {platform} did not round-trip through Panda writes",
+                    file=sys.stderr,
+                )
+                bad = True
+            emu.write_register(reg, original)
+        except Exception as e:
+            print(
+                f"Register {reg} of {platform} not writable through Panda: {e}",
+                file=sys.stderr,
+            )
+            bad = True
+
 if bad:
     os._exit(1)
 os._exit(0)

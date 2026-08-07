@@ -24,7 +24,7 @@ class ARMMachineDef(GhidraMachineDef):
             "sl": "r10",
             # r11 doubles as the Frame Pointer, if desired.
             "r11": "r11",
-            "fp": "r10",
+            "fp": "r11",
             # r12 doubles as the Intra-call scratch register
             "r12": "r12",
             "ip": "r12",

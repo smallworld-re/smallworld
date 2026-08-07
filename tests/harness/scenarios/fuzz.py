@@ -6,6 +6,7 @@ import logging
 from typing import Optional, Sequence
 
 from .common import PlatformSpec, TestsPath, make_emulator, make_platform
+from .spec import ScenarioInfo, from_variants
 
 
 @dataclasses.dataclass(frozen=True)
@@ -106,6 +107,43 @@ _SIMPLE_SPECS = {
         exit_offset=128,
         engine="unicorn",
     ),
+    "ppc": _FuzzSpec(
+        platform=PlatformSpec("POWERPC32", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        engine="unicorn",
+    ),
+    # Styx variants reuse the per-arch fuzz binary but pick an alternate
+    # emulator via the engine token (see common.make_emulator). PowerPC routes
+    # through the MPC860 core because the fuzz program's deliberate write to
+    # 0x12345678 only faults on a restricted memory map; the default PPC405
+    # core maps the full 4 GiB and the write would silently succeed.
+    "armhf.styx": _FuzzSpec(
+        platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="styx",
+    ),
+    "armel.styx": _FuzzSpec(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        exit_offset=92,
+        engine="styx",
+    ),
+    "ppc.styx-mpc860": _FuzzSpec(
+        platform=PlatformSpec("POWERPC32", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        engine="styx-mpc860",
+    ),
 }
 
 _AFL_SPECS = {
@@ -175,7 +213,116 @@ _AFL_SPECS = {
         engine="unicorn",
         heap_size=0x4000,
     ),
+    "ppc": _FuzzSpec(
+        platform=PlatformSpec("POWERPC32", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        exit_offset=88,
+        engine="unicorn",
+        heap_size=0x4000,
+    ),
 }
+
+
+SCENARIO_PREFIXES = (("fuzz", "fuzz"),)
+
+NATIVE_PARITY = True
+
+_FUZZ_ARCHES = ("amd64", "aarch64", "armel", "armhf", "m68k", "mips", "mipsel", "ppc")
+
+_AFL_EXPECTED = {
+    "amd64": ("001445:1", "003349:1", "022192:1", "040896:1"),
+    "aarch64": ("002975:1", "022192:1", "039638:1", "050871:1"),
+    "armel": ("002975:1", "022192:1", "050871:1"),
+    "armhf": ("002975:1", "022192:1", "050871:1"),
+    "m68k": ("021692:1", "022192:1", "059686:1"),
+    "mips": ("013057:1", "022192:1", "036571:1", "052670:1"),
+    "mipsel": ("013057:1", "022192:1", "036571:1", "052670:1"),
+    "ppc": ("002975:1", "022192:1", "050871:1"),
+}
+
+
+# variants_source enumerates every (variant, skip_reason) the fuzz scenarios
+# run. Engine-specific tokens (e.g. ".styx", ".styx-mpc860") select an
+# alternate emulator from common.make_emulator; the arch-only entries (e.g.
+# "ppc") default to the engine declared in the matching spec.
+_FUZZ_VARIANTS = tuple((arch, None) for arch in _FUZZ_ARCHES) + (
+    ("armhf.styx", None),
+    ("armel.styx", None),
+    ("ppc.styx-mpc860", None),
+)
+
+# AFL uses unicornafl, so it only enumerates the unicorn-backed arch variants.
+_AFL_VARIANTS = tuple((arch, None) for arch in _FUZZ_ARCHES)
+
+
+def _fuzz_run_factory(info, variant, kwargs):
+    from .. import manifest
+
+    def run(runner):
+        stdout, _ = manifest._run_case_command(runner, "fuzz", variant)
+        runner.assert_line_contains(stdout, "=0x0")
+        # The fuzz binary's deliberate crash is a store to 0x12345678. Whether
+        # it faults depends on the target's memory map: Unicorn maps nothing
+        # by default (always faults; UC_ERR_WRITE_UNMAPPED on stderr); Styx
+        # MPC860's firmware map also leaves 0x12345678 unmapped (the
+        # EmulationError printed by _run_simple ends in "UnmappedMemoryWrite");
+        # Styx CycloneV (armhf/armel) maps it, so the store succeeds and there
+        # is no crash to assert against.
+        spec = _SIMPLE_SPECS[variant]
+        if spec.engine == "unicorn":
+            _, stderr_c = manifest._run_case_command(
+                runner, "fuzz", variant, "-c", check=False
+            )
+            runner.assert_line_contains(stderr_c, "UC_ERR_WRITE_UNMAPPED")
+        elif spec.engine == "styx-mpc860":
+            stdout_c, _ = manifest._run_case_command(
+                runner, "fuzz", variant, "-c", check=False
+            )
+            runner.assert_line_contains(stdout_c, "UnmappedMemoryWrite")
+
+    return run
+
+
+def _afl_run_factory(info, variant, kwargs):
+    from .. import manifest
+
+    inputs_dir = TestsPath / "fuzz" / "fuzz_inputs"
+    expected = _AFL_EXPECTED[variant]
+
+    def run(runner):
+        stdout, _ = manifest._run_afl_showmap(
+            runner,
+            inputs_dir=inputs_dir,
+            target=[manifest.PYTHON, "run_case.py", "fuzz.afl_fuzz", variant, "@@"],
+            cwd=TestsPath,
+            check=False,
+        )
+        for line in expected:
+            runner.assert_line_contains(stdout, line)
+
+    return run
+
+
+SCENARIO_INFOS = (
+    ScenarioInfo(
+        prefix="fuzz",
+        scenario="fuzz",
+        tags=("scenario", "fuzz"),
+        variants_source=from_variants(_FUZZ_VARIANTS),
+        run_factory=_fuzz_run_factory,
+        weight=2,
+    ),
+    ScenarioInfo(
+        prefix="fuzz:afl",
+        scenario="fuzz.afl_fuzz",
+        tags=("scenario", "fuzz", "afl"),
+        variants_source=from_variants(_AFL_VARIANTS),
+        run_factory=_afl_run_factory,
+        weight=2,
+    ),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -297,10 +444,10 @@ def _run_afl(variant: str, args: Sequence[str]) -> int:
     machine.add(cpu)
     machine.add(code)
 
-    def input_callback(uc, input_bytes, persistent_round, data):
+    def input_callback(emulator, input_bytes, persistent_round, data):
         if len(input_bytes) > 0x1000:
             return False
-        uc.mem_write(size_addr, input_bytes)
+        emulator.write_memory_content(size_addr, bytes(input_bytes))
         return None
 
     emulator = make_emulator(smallworld, platform, spec.engine)

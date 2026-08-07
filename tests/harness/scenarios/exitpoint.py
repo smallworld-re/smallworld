@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import dataclasses
 import logging
 from typing import Sequence
@@ -9,10 +10,13 @@ from .common import (
     load_elf_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
+    run_case_subprocess,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_arch_table, just_run
+
+NATIVE_PARITY = True
 
 EXPECTED_RESULT = 42
 FAKE_EXITPOINT = 0x10101010
@@ -165,6 +169,15 @@ _SPECS = {
         load_address=0x400000,
         link_register="ra",
     ),
+    "tricore": ExitpointSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        mid_exit_offset=2,
+        fake_return_size=4,
+        link_register="ra",
+    ),
 }
 
 _SKIP_REASONS = {
@@ -180,6 +193,22 @@ _SKIP_REASONS = {
     "ppc.panda": "Waiting for panda-ng",
     "ppc64": "Unicorn ppc64 support buggy",
 }
+
+
+SCENARIO_PREFIXES = (("exitpoint", "exitpoint"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="exitpoint",
+    scenario="exitpoint",
+    tags=("scenario", "exitpoint"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=tuple(
+            (variant, reason, {}) for variant, reason in _SKIP_REASONS.items()
+        ),
+    ),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -235,7 +264,6 @@ def _run_exit_test(
     machine.add_exit_point(exitpoint)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
 
     final_cpu = machine.emulate(emulator).get_cpu()
     if final_cpu.pc.get() != exitpoint:
@@ -258,23 +286,35 @@ def _mid_exitpoint(entrypoint: int, code, engine: str, spec: ExitpointSpec) -> i
 
 
 def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
-    if args:
-        raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(args)}")
     if variant in _SKIP_REASONS:
         raise SystemExit(_SKIP_REASONS[variant])
 
     import smallworld
+
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--panda-subtest", choices=("fake", "mid"))
+    ns, extra = parser.parse_known_args(list(args))
+    if extra:
+        raise SystemExit(f"{scenario} does not take extra arguments: {' '.join(extra)}")
 
     arch, engine = split_variant(variant)
     spec = _SPECS[arch]
 
     smallworld.logging.setup_logging(level=logging.INFO)
 
-    _run_exit_test(smallworld, arch, engine, spec, FAKE_EXITPOINT)
-    print("Test 1 SUCCESS")
+    if engine == "panda" and ns.panda_subtest is None:
+        run_case_subprocess(scenario, variant, "--panda-subtest", "fake")
+        print("Test 1 SUCCESS")
+        run_case_subprocess(scenario, variant, "--panda-subtest", "mid")
+        print("Test 2 SUCCESS")
+        return 0
+
+    if ns.panda_subtest in {None, "fake"}:
+        _run_exit_test(smallworld, arch, engine, spec, FAKE_EXITPOINT)
+        if ns.panda_subtest == "fake":
+            return 0
 
     _, _, code, entrypoint = _build_machine(smallworld, arch, engine, spec)
     mid_exitpoint = _mid_exitpoint(entrypoint, code, engine, spec)
     _run_exit_test(smallworld, arch, engine, spec, mid_exitpoint)
-    print("Test 2 SUCCESS")
     return 0

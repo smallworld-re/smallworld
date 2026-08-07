@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import M68KSysVModel
+
+
+class M68KSysVPerror(Perror, M68KSysVModel):
+    pass
+
+
+class M68KSysVPrintfChk(PrintfChk, M68KSysVModel):
+    pass
+
+
+class M68KSysVFprintfChk(FprintfChk, M68KSysVModel):
+    pass
+
+
+class M68KSysVSnprintfChk(SnprintfChk, M68KSysVModel):
+    pass
+
+
+class M68KSysVSprintfChk(SprintfChk, M68KSysVModel):
+    pass
 
 
 class M68KSysVFclose(Fclose, M68KSysVModel):
@@ -219,6 +244,11 @@ class M68KSysVVsscanf(Vsscanf, M68KSysVModel):
 
 
 __all__ = [
+    "M68KSysVPerror",
+    "M68KSysVPrintfChk",
+    "M68KSysVFprintfChk",
+    "M68KSysVSnprintfChk",
+    "M68KSysVSprintfChk",
     "M68KSysVFclose",
     "M68KSysVFeof",
     "M68KSysVFerror",

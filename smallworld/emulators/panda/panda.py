@@ -190,6 +190,15 @@ class PandaEmulator(
                     not self.manager._bounds.is_empty()
                     and not self.manager._bounds.contains_value(pc)
                 ):
+                    if not self.manager._memory_is_mapped(pc, 1):
+                        self.state = PandaEmulator.ThreadState.EXIT
+                        self.signal_and_wait(
+                            exception=exceptions.EmulationFetchUnmappedFailure(
+                                "Fetched unmapped memory",
+                                pc,
+                                address=pc,
+                            )
+                        )
                     logger.debug(f"Panda: {pc} out of bounds")
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait()
@@ -213,9 +222,9 @@ class PandaEmulator(
 
                 if cb := self.manager.is_function_hooked(pc):
                     try:
-                        logger.info(f"Calling function callback at {hex(pc)}")
+                        logger.debug(f"Calling function callback at {hex(pc)}")
                         cb(self.manager)
-                        logger.info(f"Completed function callback at {hex(pc)}")
+                        logger.debug(f"Completed function callback at {hex(pc)}")
                     except exceptions.EmulationStop:
                         self.state = PandaEmulator.ThreadState.EXIT
                         self.signal_and_wait()
@@ -263,6 +272,15 @@ class PandaEmulator(
                     )
                 )
                 logger.debug(f"\ton_read: {addr}")
+                if not self.manager._memory_is_mapped(addr, size):
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(
+                        exception=exceptions.EmulationReadUnmappedFailure(
+                            "Read of unmapped memory",
+                            pc,
+                            address=addr,
+                        )
+                    )
                 orig_data = self.panda.virtual_memory_read(self.manager.cpu, addr, size)
                 try:
                     if self.manager.all_reads_hook:
@@ -295,6 +313,15 @@ class PandaEmulator(
                     )
                 )
                 logger.debug(f"\ton_write: {hex(addr)}")
+                if not self.manager._memory_is_mapped(addr, size):
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait(
+                        exception=exceptions.EmulationWriteUnmappedFailure(
+                            "Write of unmapped memory",
+                            pc,
+                            address=addr,
+                        )
+                    )
                 byte_val = bytes([buf[i] for i in range(size)])
                 try:
                     if self.manager.all_writes_hook:
@@ -317,11 +344,10 @@ class PandaEmulator(
                 logger.debug(
                     "cb_before_handle_interrupt(cpu={}, intno={})".format(cpu, intno)
                 )
-                logger.debug(f"\ton_interrupt: {intno}")
                 try:
                     # First if all interrupts are hooked, run that function
                     if self.manager.all_interrupts_hook:
-                        self.manager.all_interrupts_hook(self.manager)
+                        self.manager.all_interrupts_hook(self.manager, intno)
                     # Then run interrupt specific function
                     if cb := self.manager.is_interrupt_hooked(intno):
                         cb(self.manager)
@@ -333,24 +359,42 @@ class PandaEmulator(
                     self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
 
-            # @self.panda.cb_before_handle_exception(enabled=True)
+            @self.panda.cb_before_handle_exception(enabled=True)
             def on_exception(cpu, exception_index):
                 logger.debug(
                     "cb_before_handle_exception(cpu={}, exception_index={})".format(
                         cpu, exception_index
                     )
                 )
-                logger.error(
-                    f"Panda for help: you are hitting an exception at {exception_index}."
-                )
-                self.state = PandaEmulator.ThreadState.EXIT
-                # Generate an exception so we exit ungracefully
+                handled = False
                 try:
-                    raise exceptions.EmulationError(
-                        f"Panda exception {exception_index}"
+                    # First if all interrupts are hooked, run that function
+                    if self.manager.all_interrupts_hook:
+                        handled |= self.manager.all_interrupts_hook(
+                            self.manager, exception_index
+                        )
+                    # Then run interrupt specific function
+                    if cb := self.manager.is_interrupt_hooked(exception_index):
+                        handled |= cb(self.manager)
+                except exceptions.EmulationStop:
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    self.signal_and_wait()
+                except Exception as e:
+                    logger.exception(
+                        f"Exception running interrupt hook for {exception_index}"
                     )
-                except exceptions.EmulationError as e:
+                    self.state = PandaEmulator.ThreadState.EXIT
                     self.signal_and_wait(exception=e)
+
+                if not handled:
+                    # Generate an exception so we exit ungracefully
+                    self.state = PandaEmulator.ThreadState.EXIT
+                    try:
+                        raise exceptions.EmulationError(
+                            f"Panda exception {exception_index}"
+                        )
+                    except exceptions.EmulationError as e:
+                        self.signal_and_wait(exception=e)
 
             self.panda.run()
 
@@ -411,6 +455,18 @@ class PandaEmulator(
             # Clear the event for the next iteration
             self.run_main = False
 
+    def _page_range_for_memory(self, address: int, size: int) -> typing.Tuple[int, int]:
+        if size <= 0:
+            raise ValueError("memory access size must be positive")
+        start_page = address // self.PAGE_SIZE
+        end_page = ((address + size - 1) // self.PAGE_SIZE) + 1
+        return (start_page, end_page)
+
+    def _memory_is_mapped(self, address: int, size: int) -> bool:
+        return not self.mapped_pages.get_missing_ranges(
+            self._page_range_for_memory(address, size)
+        )
+
     def read_register_content(self, name: str) -> int:
         # If we are reading a "pc" reg, refer to the manager's notion of PC
         # QEMU thinks in blocks, so the register contained in self.cpu will be inaccurate.
@@ -457,7 +513,13 @@ class PandaEmulator(
             # This is my internal pc
             self.pc = content
             if self.panda_thread.panda:
-                self.panda_thread.panda.arch.set_pc(self.cpu, content)
+                try:
+                    self.panda_thread.panda.arch.set_pc(self.cpu, content)
+                except RuntimeError:
+                    panda_pc = self.panda_thread.machdef.panda_reg(
+                        "pc", self.panda_thread.panda, self.cpu
+                    )
+                    self.panda_thread.panda.arch.set_reg(self.cpu, panda_pc, content)
             else:
                 raise exceptions.EmulationError("PANDA not started")
             return
@@ -493,32 +555,23 @@ class PandaEmulator(
             raise exceptions.EmulationError("PANDA not started")
 
     def map_memory(self, address: int, size: int) -> None:
-        def page_down(address):
-            return address // self.PAGE_SIZE
-
-        def page_up(address):
-            return (address + self.PAGE_SIZE - 1) // self.PAGE_SIZE
-
-        logger.info(
+        logger.debug(
             f"map_memory:asking for mapping at {hex(address)}, size {hex(size)}"
         )
-        # Translate an addressi + size to a page range
-        if page_down(address) == page_down(address + size):
-            region = (page_down(address), page_up(address + size) + 1)
-        else:
-            region = (page_down(address), page_up(address + size))
+        # Translate an address + size to a page range
+        region = self._page_range_for_memory(address, size)
 
-        logger.info(f"map_memory: Page range: {region}")
+        logger.debug(f"map_memory: Page range: {region}")
 
         # Get the missing pages first. Those are the ones we want to map
         missing_range = self.mapped_pages.get_missing_ranges(region)
 
         # Map in those pages and change the memory mapping
         # Whatever you do map just map a page size or above
-        logger.info(f"Mapping memory {missing_range} page(s).")
+        logger.debug(f"Mapping memory {missing_range} page(s).")
         for start_page, end_page in missing_range:
             page_size = end_page - start_page
-            logger.info(
+            logger.debug(
                 f"Mapping at {hex(start_page * self.PAGE_SIZE)} in panda of size {hex(page_size * self.PAGE_SIZE)}"
             )
             if self.panda_thread.panda:
@@ -585,7 +638,7 @@ class PandaEmulator(
         # can return fewer than the requested number of bytes if the upper bound
         # is past the end of the list being sliced.
         if address % self.PAGE_SIZE != 0:
-            block_size = address % self.PAGE_SIZE
+            block_size = self.PAGE_SIZE - (address % self.PAGE_SIZE)
             if self.panda_thread.panda:
                 self.panda_thread.panda.physical_memory_write(
                     address, content[0:block_size]
@@ -651,10 +704,10 @@ class PandaEmulator(
 
     def run(self) -> None:
         self.check()
-        logger.info(f"starting emulation at {hex(self.pc)}")
+        logger.debug(f"starting emulation at {hex(self.pc)}")
         self.panda_thread.state = self.ThreadState.RUN
         self.signal_and_wait()
-        logger.info("emulation complete")
+        logger.debug("emulation complete")
 
     def signal_and_wait(self) -> None:
         logger.debug("Main signaling panda to run")
@@ -686,7 +739,7 @@ class PandaEmulator(
             assert False, "impossible state"
         instr, disas = self.disassemble(code, pc, 1)
 
-        logger.info(f"block step at 0x{pc:x}: {disas}")
+        logger.debug(f"block step at 0x{pc:x}: {disas}")
 
         self.panda_thread.state = self.ThreadState.BLOCK
         self.signal_and_wait()
@@ -712,7 +765,7 @@ class PandaEmulator(
             assert False, "impossible state"
         instr, disas = self.disassemble(code, pc, 1)
 
-        logger.info(f"single step at 0x{pc:x}: {disas}")
+        logger.debug(f"single step at 0x{pc:x}: {disas}")
 
         # We can run now and wait at next instr;
         self.signal_and_wait()

@@ -207,7 +207,7 @@ class PEExecutable(Executable):
                     # Entry is a no-op; continue
                     continue
                 for off, val in self.items():
-                    if entry.address >= off and entry.address <= val.get_size():
+                    if off <= entry.address < off + val.get_size():
                         # Find the section containing this address
                         contents = bytearray(val.get_content())
                         fix_off = entry.address - off
@@ -278,8 +278,6 @@ class PEExecutable(Executable):
                     forwarder=None,
                     value=None,
                 )
-                if e.name == "puts":
-                    print(f"puts IAT at {e.iat_address:x} or {e.iat_value:x}")
                 self._imports.append(imp)
                 if e.is_ordinal:
                     self._imports_by_ordinal[(d.name, e.ordinal)] = imp

@@ -52,13 +52,13 @@ class AngrMachineDef:
         """Find the offset and size of a register in the angr state's register file."""
         if name not in self._registers:
             raise KeyError(f"Unknown register for {self.arch}:{self.byteorder}: {name}")
-        name = self._registers[name]
+        angr_name = self._registers[name]
 
-        if name not in self.angr_arch.registers:
+        if angr_name not in self.angr_arch.registers:
             raise exceptions.UnsupportedRegisterError(
                 f"Register {name} not recognized by angr for {self.arch}:{self.byteorder}"
             )
-        return self.angr_arch.registers[name]
+        return self.angr_arch.registers[angr_name]
 
     def successors(self, state: angr.SimState, **kwargs) -> typing.Any:
         """Compute successor states for this architecture

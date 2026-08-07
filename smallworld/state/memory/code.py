@@ -33,9 +33,6 @@ class Executable(memory.RawMemory):
                     self.address + offset, value.get_size(), value.get_type()
                 )
             if value.get_label() is not None:
-                print(
-                    f"Writing label for [{self.address + offset:x} - {self.address + offset + value.get_size():x}]"
-                )
                 emulator.write_memory_label(
                     self.address + offset, value.get_size(), value.get_label()
                 )

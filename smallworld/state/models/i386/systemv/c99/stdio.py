@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import I386SysVModel
+
+
+class I386SysVPerror(Perror, I386SysVModel):
+    pass
+
+
+class I386SysVPrintfChk(PrintfChk, I386SysVModel):
+    pass
+
+
+class I386SysVFprintfChk(FprintfChk, I386SysVModel):
+    pass
+
+
+class I386SysVSnprintfChk(SnprintfChk, I386SysVModel):
+    pass
+
+
+class I386SysVSprintfChk(SprintfChk, I386SysVModel):
+    pass
 
 
 class I386SysVFclose(Fclose, I386SysVModel):
@@ -219,6 +244,11 @@ class I386SysVVsscanf(Vsscanf, I386SysVModel):
 
 
 __all__ = [
+    "I386SysVPerror",
+    "I386SysVPrintfChk",
+    "I386SysVFprintfChk",
+    "I386SysVSnprintfChk",
+    "I386SysVSprintfChk",
     "I386SysVFclose",
     "I386SysVFeof",
     "I386SysVFerror",

@@ -112,7 +112,7 @@ class Value(metaclass=abc.ABCMeta):
         """Set the label of this value.
 
         Arguments:
-            type: The label value to set.
+            label: The label value to set.
         """
 
         self._label = label
@@ -140,8 +140,8 @@ class Value(metaclass=abc.ABCMeta):
     ) -> typing.Optional[claripy.ast.bv.BV]:
         """Convert this value into a symbolic expression
 
-        For an unlabeled value, this will be a bit vector symbol containing the label.
-        Otherwise, it will be a bit vector value containing the contents.
+        For a labeled value, this will be a bit vector symbol named after the label.
+        Otherwise, it will be a concrete bit vector value containing the contents.
 
         Arguments:
             byteorder: The byte order to use in the conversion.
@@ -194,7 +194,7 @@ class Value(metaclass=abc.ABCMeta):
                     f"Expected size {size}, but content has size {len(content)}"
                 )
 
-            return claripy.BVV(content)
+            return claripy.BVV(bytes(content))
 
         else:
             return None
@@ -369,7 +369,7 @@ class BytesValue(Value):
         self, content: typing.Union[bytes, bytearray], label: typing.Optional[str]
     ) -> None:
         super().__init__()
-        self._content = bytes(content)
+        self._content = bytearray(content)
         self._label = label
         self._size = len(self._content)
         self._type = ctypes.c_ubyte * self._size
@@ -378,9 +378,12 @@ class BytesValue(Value):
         return self._size
 
     def to_bytes(self) -> bytes:
-        if self._content is None or not isinstance(self._content, bytes):
+        if self._content is None or (
+            not isinstance(self._content, bytes)
+            and not isinstance(self._content, bytearray)
+        ):
             raise ValueError("BytesValue must have a bytes value")
-        return self._content
+        return bytes(self._content)
 
 
 class Register(Value, Stateful):
@@ -784,6 +787,72 @@ class Machine(StatefulSet):
         """
         return list(self._constraints)
 
+    def _build_solver(self) -> claripy.solvers.SolverHybrid:
+        solver = claripy.solvers.SolverHybrid()
+
+        for constraint in self._constraints:
+            solver.add(constraint)
+
+        return solver
+
+    def concretize(self, value: ValueContent) -> typing.Optional[bytes]:
+        """Concretize a value
+
+        This will convert whatever the value happens to be into bytes.
+        If it's a symbolic expression, it will find an assignment
+        that satisfies the constraints present in this machine.
+
+        Arguments:
+            value: The value to concretize
+
+        Returns:
+            A bytes object representing the value, or None if expr was None.
+        """
+        if value is None:
+            return None
+        elif isinstance(value, bytes):
+            return value
+        elif isinstance(value, int):
+            return value.to_bytes((value.bit_length() + 7) // 8, "big")
+        elif isinstance(value, claripy.ast.bv.BV):
+            solver = self._build_solver()
+            try:
+                (res,) = solver.eval(value, 1)
+            except claripy.errors.UnsatError:
+                raise exceptions.UnsatError("No assignment given constraints")
+            return res.to_bytes((res.bit_length() + 7) // 8, "big")
+        else:
+            raise TypeError(f"Unexpected value type {type(value)}")
+
+    def concretize_symbols(
+        self, expr: claripy.ast.bv.BV
+    ) -> typing.Generator[typing.Tuple[str, typing.Optional[bytes]], None, None]:
+        """Concretize all symbols present in a symbolic expression.
+
+        This is useful for finding satisfying assignments
+        that will allow you to reach this particular state;
+        feed all constraint expressions for a state into this function,
+        and you will get back assignments for all path-critical labels.
+
+        Arguments:
+            expr: The expression for which to find assignments
+
+        Yields:
+            Tuples of symbol name, symbol value.
+        """
+        solver = self._build_solver()
+        for leaf in expr.leaf_asts():
+            if leaf.op == "BVS":
+                try:
+                    (res,) = solver.eval(leaf, 1)
+                    if res == 0:
+                        val = b"\x00"
+                    else:
+                        val = res.to_bytes((res.bit_length() + 7) // 8, "big")
+                    yield (leaf.args[0], val)
+                except claripy.errors.UnsatError:
+                    yield (leaf.args[0], None)
+
     def apply(self, emulator: emulators.Emulator) -> None:
         for address in self._exit_points:
             emulator.add_exit_point(address)
@@ -856,7 +925,7 @@ class Machine(StatefulSet):
                 yield machine_copy
 
             except exceptions.EmulationStop:
-                print(
+                logger.debug(
                     "emulation complete; encountered exit point or went out of bounds"
                 )
                 break
@@ -870,17 +939,25 @@ class Machine(StatefulSet):
         always_validate: bool = False,
         iterations: int = 1,
     ) -> None:
-        """Fuzz the machine using unicornafl.
+        """Fuzz the machine via AFL++.
+
+        Parses the input file path from ``argv[1]`` (the placement AFL uses
+        when it substitutes ``@@``) and delegates to :meth:`fuzz_with_file`.
+        The concrete backend (unicornafl or styxafl) is selected based on
+        the type of ``emulator``.
 
         Arguments:
-            emulator: Currently, must be the unicorn emulator
-            input_callback: A callback that applies an input to a machine
-            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
-            crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
-            always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
-            iterations: The number of iterations to run before forking a new child
-        Returns:
-            Bytes for this value with the given byteorder.
+            emulator: A :class:`UnicornEmulator` or :class:`StyxEmulator`.
+            input_callback: A callback that applies an input to the machine.
+                Signature: ``(emulator, input_bytes, persistent_round, data)``
+                where ``emulator`` is the same SmallWorld emulator passed in
+                here. Return ``False`` to skip the input, ``None``/``True``
+                to continue.
+            crash_callback: Optional callback to decide whether to record a
+                crash. (See backend documentation for the exact signature.)
+            always_validate: Whether to run ``crash_callback`` on every run
+                or only when the backend reports an error.
+            iterations: Number of iterations before forking a new child.
         """
         import argparse
 
@@ -907,18 +984,60 @@ class Machine(StatefulSet):
         always_validate: bool = False,
         iterations: int = 1,
     ) -> None:
-        """Fuzz the machine using unicornafl.
+        """Fuzz the machine via AFL++ using the given input file.
+
+        Dispatches to the appropriate AFL bridge based on the emulator type:
+        :class:`UnicornEmulator` routes through ``unicornafl``;
+        :class:`StyxEmulator` routes through ``styxafl``. The user-supplied
+        ``input_callback`` always receives the SmallWorld ``emulator`` as
+        its first argument, regardless of backend — use methods like
+        :meth:`Emulator.write_memory_content` and :meth:`Emulator.write_code`
+        to mutate state.
 
         Arguments:
-            emulator: Currently, must be the unicorn emulator
-            input_callback: A callback that applies an input to a machine
-            input_file_path: The path of the input file AFL will mutate. If not given, we assume argv[1].
-            crash_callback: An optional callback that is given the unicorn state and can decide whether or not to record it as a crash. (See unicornafl documentation for more info)
-            always_validate: Whether to run the crash_callback on every run or only when unicorn returns an error.
-            iterations: The number of iterations to run before forking a new child
-        Returns:
-            Bytes for this value with the given byteorder.
+            emulator: A :class:`UnicornEmulator` or :class:`StyxEmulator`.
+            input_callback: ``(emulator, input_bytes, persistent_round, data)``
+                — return ``False`` to skip the input, ``None``/``True`` to
+                continue.
+            input_file_path: The path of the input file AFL will mutate.
+            crash_callback: Optional crash-validation callback. (Backend-
+                specific signature; see the bridge documentation.)
+            always_validate: Run ``crash_callback`` on every iteration.
+            iterations: Iterations before forking a new child.
         """
+        if isinstance(emulator, emulators.UnicornEmulator):
+            self._fuzz_with_unicorn(
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback,
+                always_validate,
+                iterations,
+            )
+        elif isinstance(emulator, emulators.StyxEmulator):
+            self._fuzz_with_styx(
+                emulator,
+                input_callback,
+                input_file_path,
+                crash_callback,
+                always_validate,
+                iterations,
+            )
+        else:
+            raise RuntimeError(
+                "fuzz_with_file requires a UnicornEmulator or StyxEmulator; "
+                f"got {type(emulator).__name__}"
+            )
+
+    def _fuzz_with_unicorn(
+        self,
+        emulator: emulators.UnicornEmulator,
+        input_callback: typing.Callable,
+        input_file_path: str,
+        crash_callback: typing.Optional[typing.Callable],
+        always_validate: bool,
+        iterations: int,
+    ) -> None:
         try:
             import unicornafl
         except ImportError:
@@ -926,20 +1045,140 @@ class Machine(StatefulSet):
                 "missing `unicornafl` - afl++ must be installed manually from source"
             )
 
-        if not isinstance(emulator, emulators.UnicornEmulator):
-            raise RuntimeError("you must use a unicorn emulator to fuzz")
-
         self.apply(emulator)
+
+        # In persistent mode (iterations > 1) a single forked child runs many
+        # inputs back-to-back, so any state a run mutates bleeds into later
+        # inputs -- giving non-deterministic coverage and phantom crashes (AFL
+        # "stability" collapses). unicornafl restores nothing here, and it cannot
+        # see smallworld's Python-side model state (e.g. a BumpAllocator's
+        # offset) at all. So snapshot the post-apply state once (registers,
+        # writable memory, and the Python state of resettable objects) and
+        # restore it before every iteration after the first (iteration 0 runs on
+        # the freshly forked child, which is already clean).
+        # Local import: heap.py imports from this module, so importing Heap at
+        # module scope would be circular.
+        from .memory.heap import Heap
+
+        _snap: typing.Dict[str, typing.Any] = {}
+        if iterations > 1:
+            _snap["ctx"] = emulator.engine.context_save()
+            _snap["mem"] = {
+                addr: bytes(emulator.engine.mem_read(addr, end - addr + 1))
+                for (addr, end, perm) in emulator.engine.mem_regions()
+                if perm & 0x2  # UC_PROT_WRITE: read-only code never changes
+            }
+            _snap["pystate"] = [
+                (obj, copy.deepcopy(obj.__dict__))
+                for obj in self
+                if isinstance(obj, Heap)
+            ]
+
+        def _reset() -> None:
+            emulator.engine.context_restore(_snap["ctx"])
+            for addr, content in _snap["mem"].items():
+                emulator.engine.mem_write(addr, content)
+            for obj, saved in _snap["pystate"]:
+                obj.__dict__.clear()
+                obj.__dict__.update(copy.deepcopy(saved))
+
+        def _adapter(_uc, input_bytes, persistent_round, data):
+            if _snap and persistent_round > 0:
+                _reset()
+            return input_callback(emulator, input_bytes, persistent_round, data)
 
         unicornafl.uc_afl_fuzz(
             uc=emulator.engine,
             input_file=input_file_path,
-            place_input_callback=input_callback,
+            place_input_callback=_adapter,
             exits=emulator.get_exit_points(),
             validate_crash_callback=crash_callback,
             always_validate=always_validate,
             persistent_iters=iterations,
         )
+
+    def _fuzz_with_styx(
+        self,
+        emulator: emulators.StyxEmulator,
+        input_callback: typing.Callable,
+        input_file_path: str,
+        crash_callback: typing.Optional[typing.Callable],
+        always_validate: bool,
+        iterations: int,
+    ) -> None:
+        try:
+            import styxafl
+        except ImportError:
+            raise RuntimeError(
+                "missing `styxafl` - install smallworld with the [emu-styx] extra "
+                "(built from source via the nix flake)"
+            )
+
+        self.apply(emulator)
+
+        def _adapter(_processor, input_bytes, persistent_round, data):
+            return input_callback(emulator, input_bytes, persistent_round, data)
+
+        styxafl.styx_afl_fuzz(
+            processor=emulator.get_processor(),
+            input_file=input_file_path,
+            place_input_callback=_adapter,
+            exits=list(emulator.get_exit_points()),
+            validate_crash_callback=crash_callback,
+            always_validate=always_validate,
+            persistent_iters=iterations,
+        )
+
+    def symbolic_emulate(
+        self, emulator: emulators.SymbolicEmulator
+    ) -> typing.Generator[Machine, None, None]:
+        """Symbolically execute this machine with the given emulator.
+
+        Arguments:
+            emulator: An emulator instance on which this machine state should
+                run,
+
+        Yields:
+            All possible system states after emulation
+        """
+
+        assert isinstance(emulator, emulators.Emulator)
+
+        self.apply(emulator)
+        try:
+            emulator.run()
+        except exceptions.EmulationStop:
+            pass
+
+        for emu in emulator.get_active_states():
+            machine_copy = copy.deepcopy(self)
+            machine_copy.extract(emu)
+            yield machine_copy
+
+        for emu in emulator.get_deadended_states():
+            machine_copy = copy.deepcopy(self)
+            machine_copy.extract(emu)
+            yield machine_copy
+
+    def get_symbolic_states(
+        self, emulator: emulators.SymbolicEmulator
+    ) -> typing.Generator[Machine, None, None]:
+        """Get a Machine for each active state tracked by a symbolic emulator
+
+        Symbolic execution allows an emulator to consider multiple states at once,
+        one for each path the program could possibly take.
+        This function yields a Machine for each such state
+
+        Arguments:
+            emulator: The symbolic emulator to examine
+
+        Yields:
+            One Machine for each active state tracked by the emulator
+        """
+        for emu in emulator.get_active_states():
+            machine = copy.deepcopy(self)
+            machine.extract(emu)
+            yield machine
 
     def get_cpus(self):
         """Gets a list of :class:`~smallworld.state.cpus.cpu.CPU` attached to this machine.
@@ -1008,8 +1247,8 @@ class Machine(StatefulSet):
         for m in self:
             if issubclass(type(m), state.memory.Memory):
                 for po, v in m.items():
-                    if m.address + po <= address <= m.address + po + v.get_size():
-                        c = m[po].get()
+                    if m.address + po <= address < m.address + po + v.get_size():
+                        c = v.to_bytes()
                         o = address - (m.address + po)
                         return c[o : o + size]
         return None

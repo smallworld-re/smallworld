@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import dataclasses
 import pathlib
-from typing import Tuple
+import subprocess
+import sys
+from typing import Any, Mapping, Sequence, Tuple
+
+from ..coverage import wrap_python_command
 
 TestsPath = pathlib.Path(__file__).resolve().parents[2]
 RepoRoot = TestsPath.parent
@@ -12,6 +16,230 @@ RepoRoot = TestsPath.parent
 class PlatformSpec:
     architecture: str
     byteorder: str
+
+
+@dataclasses.dataclass(frozen=True)
+class ArchInfo:
+    # Canonical architectural facts shared by every raw-binary scenario. Each
+    # field is what the *scenarios* use rather than the strict ABI: the result
+    # register is the natural-width return register for these tests, and the
+    # engines tuple is the default set known to work on this architecture.
+    platform: PlatformSpec
+    pc_register: str
+    arg_register: str | None
+    result_register: str | None
+    stack_pointer_register: str
+    pointer_size: int
+    engines: tuple[str, ...]
+
+
+_ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
+
+ARCH_REGISTERS: dict[str, ArchInfo] = {
+    "aarch64": ArchInfo(
+        platform=PlatformSpec("AARCH64", "LITTLE"),
+        pc_register="pc",
+        arg_register="x0",
+        result_register="x0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
+    "amd64": ArchInfo(
+        platform=PlatformSpec("X86_64", "LITTLE"),
+        pc_register="rip",
+        arg_register="rdi",
+        result_register="eax",
+        stack_pointer_register="rsp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
+    "armel": ArchInfo(
+        platform=PlatformSpec("ARM_V5T", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "armhf": ArchInfo(
+        platform=PlatformSpec("ARM_V7A", "LITTLE"),
+        pc_register="pc",
+        arg_register="r0",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "i386": ArchInfo(
+        platform=PlatformSpec("X86_32", "LITTLE"),
+        pc_register="eip",
+        arg_register="edi",
+        result_register="eax",
+        stack_pointer_register="esp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "la64": ArchInfo(
+        platform=PlatformSpec("LOONGARCH64", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="a0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=("angr", "pcode"),
+    ),
+    "m68k": ArchInfo(
+        platform=PlatformSpec("M68K", "BIG"),
+        pc_register="pc",
+        arg_register="d0",
+        result_register="d0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("unicorn", "pcode"),
+    ),
+    "mips": ArchInfo(
+        platform=PlatformSpec("MIPS32", "BIG"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "mipsel": ArchInfo(
+        platform=PlatformSpec("MIPS32", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "mips64": ArchInfo(
+        platform=PlatformSpec("MIPS64", "BIG"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
+    "mips64el": ArchInfo(
+        platform=PlatformSpec("MIPS64", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="v0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=_ENGINES_ALL,
+    ),
+    "msp430": ArchInfo(
+        platform=PlatformSpec("MSP430", "LITTLE"),
+        pc_register="pc",
+        arg_register="r15",
+        result_register="r14",
+        stack_pointer_register="sp",
+        pointer_size=2,
+        engines=("pcode",),
+    ),
+    "msp430x": ArchInfo(
+        platform=PlatformSpec("MSP430X", "LITTLE"),
+        pc_register="pc",
+        arg_register="r15",
+        result_register="r14",
+        stack_pointer_register="sp",
+        pointer_size=2,
+        engines=("angr", "pcode"),
+    ),
+    "ppc": ArchInfo(
+        platform=PlatformSpec("POWERPC32", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=_ENGINES_ALL,
+    ),
+    "ppc64": ArchInfo(
+        platform=PlatformSpec("POWERPC64", "BIG"),
+        pc_register="pc",
+        arg_register="r3",
+        result_register="r3",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "riscv64": ArchInfo(
+        platform=PlatformSpec("RISCV64", "LITTLE"),
+        pc_register="pc",
+        arg_register="a0",
+        result_register="a0",
+        stack_pointer_register="sp",
+        pointer_size=8,
+        engines=("unicorn", "angr", "pcode"),
+    ),
+    "tricore": ArchInfo(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        arg_register="d4",
+        result_register="d2",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "panda", "pcode"),
+    ),
+    "xtensa": ArchInfo(
+        platform=PlatformSpec("XTENSA", "LITTLE"),
+        pc_register="pc",
+        arg_register="a2",
+        result_register="a2",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode"),
+    ),
+}
+
+
+def build_specs(
+    spec_cls: type,
+    archs: Sequence[str],
+    *,
+    common: Mapping[str, Any] | None = None,
+    per_arch: Mapping[str, Mapping[str, Any]] | None = None,
+    engines: Mapping[str, tuple[str, ...]] | None = None,
+    field_aliases: Mapping[str, str] | None = None,
+) -> dict[str, Any]:
+    """Construct ``{arch: spec_cls(...)}`` from ``ARCH_REGISTERS``.
+
+    For each arch in ``archs`` the kwargs are layered: ArchInfo defaults
+    projected onto ``spec_cls`` fields → ``common`` → engines override →
+    ``per_arch[arch]``. ``field_aliases`` maps spec_cls field names to ArchInfo
+    field names when they differ (e.g., ``return_address_size`` → ``pointer_size``).
+    """
+    spec_fields = {f.name for f in dataclasses.fields(spec_cls)}
+    info_fields = {f.name for f in dataclasses.fields(ArchInfo)}
+    aliases = dict(field_aliases or {})
+    result: dict[str, Any] = {}
+    for arch in archs:
+        info = ARCH_REGISTERS[arch]
+        kwargs: dict[str, Any] = {}
+        for field in spec_fields:
+            info_field = aliases.get(field, field)
+            if info_field in info_fields:
+                kwargs[field] = getattr(info, info_field)
+        if common:
+            for key, value in common.items():
+                if key in spec_fields:
+                    kwargs[key] = value
+        if engines and arch in engines and "engines" in spec_fields:
+            kwargs["engines"] = engines[arch]
+        if per_arch and arch in per_arch:
+            for key, value in per_arch[arch].items():
+                if key in spec_fields:
+                    kwargs[key] = value
+        result[arch] = spec_cls(**kwargs)
+    return result
 
 
 @dataclasses.dataclass(frozen=True)
@@ -29,11 +257,18 @@ _EMULATOR_NAMES = {
     "panda": "PandaEmulator",
     "pcode": "GhidraEmulator",
     "ghidra": "GhidraEmulator",
+    "styx": "StyxEmulator",
+    "pcode_symbolic": "GhidraSymbolicEmulator",
+    "ghidra_symbolic": "GhidraSymbolicEmulator",
 }
 
 
 def normalise_engine(engine: str) -> str:
-    return "pcode" if engine == "ghidra" else engine
+    if engine == "ghidra":
+        return "pcode"
+    if engine == "ghidra_symbolic":
+        return "pcode_symbolic"
+    return engine
 
 
 def split_variant(variant: str) -> Tuple[str, str]:
@@ -49,9 +284,13 @@ def make_platform(smallworld, spec: PlatformSpec):
 
 
 def make_emulator(smallworld, platform, engine: str):
-    return getattr(smallworld.emulators, _EMULATOR_NAMES[normalise_engine(engine)])(
-        platform
-    )
+    engine = normalise_engine(engine)
+    # Styx engine tokens may carry a CPU model after a dash, e.g. "styx"
+    # (the machdef's default core) or "styx-mpc860". Everything else maps 1:1.
+    if engine == "styx" or engine.startswith("styx-"):
+        cpu_model = engine[len("styx") :].lstrip("-") or None
+        return smallworld.emulators.StyxEmulator(platform, cpu_model=cpu_model)
+    return getattr(smallworld.emulators, _EMULATOR_NAMES[engine])(platform)
 
 
 def set_register(cpu, name: str, value: int) -> None:
@@ -250,8 +489,39 @@ def resolve_ppc64_function_descriptor(code, symbol: str) -> int:
     raise ValueError(f"Failed parsing Function Descriptor for {symbol}")
 
 
-def maybe_enable_linear(smallworld, emulator, engine: str) -> None:
-    if normalise_engine(engine) == "angr" and isinstance(
-        emulator, smallworld.emulators.AngrEmulator
-    ):
-        emulator.enable_linear()
+def install_tricore_panda_shadow_returns(emulator, code) -> None:
+    shadow_returns: list[int] = []
+
+    def on_call(inner_emulator) -> None:
+        instruction = inner_emulator.current_instruction()
+        shadow_returns.append(inner_emulator.read_register("pc") + instruction.size)
+
+    def on_ret(inner_emulator) -> None:
+        if not shadow_returns:
+            raise RuntimeError("TriCore PANDA shadow return stack underflow")
+        inner_emulator.write_register("pc", shadow_returns.pop())
+
+    for offset, value in code.items():
+        instructions, _ = emulator.disassemble(value.to_bytes(), code.address + offset)
+        for instruction in instructions:
+            if instruction.mnemonic in {"call", "calla", "fcall", "fcalla"}:
+                emulator.hook_instruction(instruction.address, on_call)
+            elif instruction.mnemonic == "ret":
+                emulator.hook_instruction(instruction.address, on_ret)
+
+
+def run_case_subprocess(scenario: str, variant: str, *args: str) -> None:
+    # A few PANDA cases rerun isolated subtests this way so one emulator run
+    # cannot leave process-global state behind for the next assertion.
+    command = wrap_python_command(
+        [
+            sys.executable,
+            (TestsPath / "run_case.py").as_posix(),
+            scenario,
+            variant,
+            *args,
+        ]
+    )
+    completed = subprocess.run(command, cwd=TestsPath, check=False)
+    if completed.returncode != 0:
+        raise SystemExit(completed.returncode)

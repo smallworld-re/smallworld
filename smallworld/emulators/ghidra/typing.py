@@ -1,9 +1,11 @@
 from ..emulator import (
+    ConstrainedEmulator,
     Emulator,
     FunctionHookable,
     InstructionHookable,
     MemoryReadHookable,
     MemoryWriteHookable,
+    SymbolicEmulator,
 )
 
 
@@ -23,6 +25,26 @@ class AbstractGhidraEmulator(
     interfaces supported by GhidraEmulator,
     but it can't use GhidraEmulator in its signature
     because it's not imported until after the first call to the factory.
+    """
+
+    pass
+
+
+class AbstractGhidraSymbolicEmulator(
+    Emulator,
+    InstructionHookable,
+    FunctionHookable,
+    MemoryReadHookable,
+    MemoryWriteHookable,
+    ConstrainedEmulator,
+    SymbolicEmulator,
+):
+    """Abstract type for GhidraSymbolicEmulator.
+
+    Mirror of :class:`AbstractGhidraEmulator` for the symbolic sibling, which
+    additionally implements :class:`ConstrainedEmulator` and
+    :class:`SymbolicEmulator`. The factory function in ``__init__.py`` uses
+    this as its return-type annotation.
     """
 
     pass

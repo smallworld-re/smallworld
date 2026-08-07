@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from .common import (
     PlatformSpec,
     load_raw_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -63,7 +63,7 @@ _SPECS = {
         platform=PlatformSpec("ARM_V5T", "LITTLE"),
         pc_register="pc",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         register_arguments=(
             ("r0", 0x11111111),
             ("r1", 0x01010101),
@@ -76,7 +76,7 @@ _SPECS = {
         platform=PlatformSpec("ARM_V7A", "LITTLE"),
         pc_register="pc",
         result_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         register_arguments=(
             ("r0", 0x11111111),
             ("r1", 0x01010101),
@@ -216,7 +216,7 @@ _SPECS = {
         platform=PlatformSpec("POWERPC32", "BIG"),
         pc_register="pc",
         result_register="r3",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx", "styx-mpc860"),
         register_arguments=(
             ("r3", 0x1111),
             ("r4", 0x01010101),
@@ -265,6 +265,19 @@ _SPECS = {
         ),
         stack_arguments=((0x55555555, 8),),
     ),
+    "tricore": StackCaseSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        register_arguments=(
+            ("d4", 0x11111111),
+            ("d5", 0x01010101),
+            ("d6", 0x22222222),
+            ("d7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
     "xtensa": StackCaseSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
@@ -281,6 +294,43 @@ _SPECS = {
         stack_arguments=((0x44444444, 4),),
     ),
 }
+
+
+SCENARIO_PREFIXES = (("stack", "stack"),)
+
+NATIVE_PARITY = True
+
+_STACK_RES = {
+    "aarch64": "0xffffffff",
+    "la64": "0xffff",
+    "mips": "0xaaaa",
+    "mips64": "0xffff",
+    "mips64el": "0xffff",
+    "mipsel": "0xaaaa",
+    "ppc": "0xffff",
+    "ppc64": "0xffff",
+    "riscv64": "0xffffffff",
+    "tricore": "0xffffffff",
+}
+
+
+def _stack_expectations(
+    variant: str, kwargs: Mapping[str, Any]
+) -> tuple[tuple[tuple[str, ...], str], ...]:
+    return (((), str(kwargs.get("res", "0xaaaaaaaa"))),)
+
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="stack",
+    scenario="stack",
+    tags=("scenario", "stack"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        arch_kwargs={arch: {"res": res} for arch, res in _STACK_RES.items()},
+    ),
+    run_factory=assert_outputs(_stack_expectations, case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -329,7 +379,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     emulator.add_exit_point(code.address + code.get_capacity())
 
     final_machine = machine.emulate(emulator)

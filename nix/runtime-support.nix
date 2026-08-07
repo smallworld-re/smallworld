@@ -396,6 +396,33 @@ let
       '';
     };
 
+  mkLintShell =
+    system:
+    let
+      pkgs = pkgsFor system;
+      python = pythonFor system;
+      # nixpkgs' isort runs its own install checks against `pylama`, which
+      # pulls in `vulture`, whose test suite links `numpy`/`scipy`. That drags
+      # a from-source scientific-computing build into a plain formatter
+      # shell, so skip checks for the binary we only run as a CLI tool.
+      isort = python.pkgs.isort.overridePythonAttrs (_: {
+        doCheck = false;
+        doInstallCheck = false;
+      });
+    in
+    pkgs.mkShell {
+      packages = [
+        python.pkgs.black
+        python.pkgs.flake8
+        isort
+        python.pkgs.mypy
+        pkgs.nixfmt
+        pkgs.nixfmt-tree
+      ];
+
+      hardeningDisable = [ "all" ];
+    };
+
   mkPackageOutputs =
     system:
     let
@@ -467,6 +494,7 @@ in
 {
   inherit
     mkDeveloperShell
+    mkLintShell
     mkDownstreamPython
     mkDownstreamPythonShell
     mkPackageOutputs

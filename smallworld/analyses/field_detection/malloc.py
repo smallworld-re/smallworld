@@ -152,12 +152,12 @@ class MallocModel(state.models.Model):
                     raise TypeError("BVS isn't a bitvector: {sym}")
                 n = emulator.eval_atmost(sym, 1)[0]
 
-                if length // n != struct_length:
+                if n == 0 or length // n != struct_length:
                     # Don't track; not an obvious "n * sizeof(struct foo)"
                     log.warn(f"  {length} // {n} != {struct_length}")
                 elif length % struct_length != 0:
                     # Don't track; not an obvious "n * sizeof(struct foo)"
-                    log.warn(f"  {length} not evenly divisible by {n}")
+                    log.warn(f"  {length} not evenly divisible by {struct_length}")
                 else:
                     # Track!
                     log.warn(f"  Alloc of {n} items")

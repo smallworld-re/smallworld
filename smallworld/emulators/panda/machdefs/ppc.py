@@ -109,7 +109,6 @@ class PowerPC32MachineDef(PowerPCMachineDef):
         # HACKHACK: export something in pypanda to do this instead of duplicating.
         # We'll also be paranoid in reading this in case the upstream patch hasn't landed.
         if getattr(panda_obj.arch, "registers_spr", None) is None:
-            # print(f'obtaining PANDA spr regs')
             env = panda_obj.cpu_env(panda_cpu)
             panda_obj.arch.registers_spr = {}
             for idx, spr_cb in enumerate(env.spr_cb):

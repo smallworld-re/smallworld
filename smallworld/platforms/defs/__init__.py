@@ -10,6 +10,7 @@ from .msp430 import MSP430, MSP430X
 from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 from .powerpc import PowerPC32, PowerPC64
 from .riscv import RiscV64
+from .tricore import TriCore
 from .xtensa import Xtensa
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
     "RegisterDef",
     "RegisterAliasDef",
     "RiscV64",
+    "TriCore",
     "Xtensa",
 ]

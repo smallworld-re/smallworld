@@ -11,11 +11,11 @@ from .common import (
     make_emulator,
     make_platform,
     make_puts_model,
-    maybe_enable_linear,
     resolve_ppc64_function_descriptor,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -161,6 +161,7 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         string_source=StringSource(register="r3"),
         function_descriptor_entrypoint=True,
+        load_address=0x80000000,
         print_entrypoint=True,
     ),
     "riscv64": RelaSpec(
@@ -173,12 +174,47 @@ _SPECS = {
         load_address=0x80000000,
         print_entrypoint=True,
     ),
+    "tricore": RelaSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "panda", "pcode"),
+        string_source=StringSource(register="a4"),
+        print_entrypoint=True,
+    ),
 }
+
+_SKIP_REASONS = {
+    "ppc64": "Relocations not supported",
+    "ppc64.angr": "Relocations not supported",
+    "ppc64.pcode": "Relocations not supported",
+    "tricore.angr": "No C compiler",
+    "tricore.panda": "No C compiler",
+    "tricore.pcode": "No C compiler",
+}
+
+SCENARIO_PREFIXES = (("rela", "rela"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="rela",
+    scenario="rela",
+    tags=("scenario", "rela"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons=_SKIP_REASONS,
+    ),
+    run_factory=assert_contains("Hello, world!"),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
     if scenario != "rela":
         return False
+    if variant in _SKIP_REASONS:
+        return True
     arch, engine = split_variant(variant)
     return arch in _SPECS and engine in _SPECS[arch].engines
 
@@ -190,12 +226,12 @@ def _prepare_stack(smallworld, machine, platform, arch: str, engine: str):
     if arch in {"mips", "mipsel"}:
         stack.push_integer(0x7FFFFFF8, 4, "Arg Slot 2")
         stack.push_integer(0x7FFFFFF8, 4, "Arg Slot 1")
-    elif arch == "ppc" and engine != "panda":
+    elif arch == "ppc":
         stack.push_integer(0, 4, None)
         stack.push_integer(0, 4, None)
     elif arch in {"mips64", "mips64el", "la64", "riscv64", "ppc64"}:
         stack.push_integer(0x7FFFFFF8, 8, "fake return address")
-    elif arch in {"armhf", "ppc"} and engine == "panda":
+    elif arch == "armhf" and engine == "panda":
         stack.push_integer(0xFFFFFFFF, 4, "fake return address")
 
     return stack
@@ -220,7 +256,7 @@ def _configure_exit(
         stack.push_integer(exitpoint, 4, None)
     elif arch in {"aarch64", "armel", "armhf", "ppc", "ppc64"}:
         set_register(cpu, "lr", exitpoint)
-    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64"}:
+    elif arch in {"la64", "mips", "mips64", "mips64el", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
 
 
@@ -275,7 +311,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         set_register(cpu, "r2", 0x10027F00)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     _configure_exit(machine, emulator, cpu, code, stack, arch, engine, entrypoint)
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 

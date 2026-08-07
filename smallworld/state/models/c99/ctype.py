@@ -433,17 +433,15 @@ class CtypeBLoc(CStdModel):
         assert self.static_buffer_address is not None
 
         # Initialize the array
-        array_data = b""
-        for val in self._b_values:
-            # NOTE: NOT A TYPO!
-            #
-            # Rather than accounting for byte order when loading
-            # the locale files, glibc just changes the decoder macros
-            # to account for differences in host byte order.
-            #
-            # Thus, the bitmaps always appear in memory in little-endian.
-            val_bytes = val.to_bytes(2, "little")
-            array_data += val_bytes
+        #
+        # NOTE: NOT A TYPO!
+        #
+        # Rather than accounting for byte order when loading
+        # the locale files, glibc just changes the decoder macros
+        # to account for differences in host byte order.
+        #
+        # Thus, the bitmaps always appear in memory in little-endian.
+        array_data = b"".join(val.to_bytes(2, "little") for val in self._b_values)
         emulator.write_memory(self.static_buffer_address, array_data)
 
         # Initialize the output pointer.
@@ -881,13 +879,14 @@ class CtypeTolowerLoc(CStdModel):
         assert self.static_buffer_address is not None
 
         # Initialize the array
-        array_data = b""
-        for val in self._tolower_values:
-            if self.platform.byteorder == Byteorder.BIG:
-                val_bytes = val.to_bytes(4, "big")
-            else:
-                val_bytes = val.to_bytes(4, "little")
-            array_data += val_bytes
+        if self.platform.byteorder == Byteorder.BIG:
+            array_data = b"".join(
+                val.to_bytes(4, "big") for val in self._tolower_values
+            )
+        else:
+            array_data = b"".join(
+                val.to_bytes(4, "little") for val in self._tolower_values
+            )
         emulator.write_memory(self.static_buffer_address, array_data)
 
         # Initialize the output pointer.
@@ -1323,13 +1322,14 @@ class CtypeToupperLoc(CStdModel):
         assert self.static_buffer_address is not None
 
         # Initialize the array
-        array_data = b""
-        for val in self._toupper_values:
-            if self.platform.byteorder == Byteorder.BIG:
-                val_bytes = val.to_bytes(4, "big")
-            else:
-                val_bytes = val.to_bytes(4, "little")
-            array_data += val_bytes
+        if self.platform.byteorder == Byteorder.BIG:
+            array_data = b"".join(
+                val.to_bytes(4, "big") for val in self._toupper_values
+            )
+        else:
+            array_data = b"".join(
+                val.to_bytes(4, "little") for val in self._toupper_values
+            )
         emulator.write_memory(self.static_buffer_address, array_data)
 
         # Initialize the output pointer.

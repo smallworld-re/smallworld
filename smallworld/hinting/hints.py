@@ -243,7 +243,7 @@ class MemoryPointerHint(TypeHint):
 
 
 @dataclass(frozen=True)
-class MemoryPointsToHint(RegisterPointerHint):
+class MemoryPointsToHint(MemoryPointerHint):
     """Signal that a memory address is probably a pointer and points to a type.
 
     Arguments:

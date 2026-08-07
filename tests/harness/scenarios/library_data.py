@@ -1,6 +1,45 @@
-# Generated from the legacy library-model suite definitions in tests/integration.py.
+# Frozen catalog of (library, function, test-base) tuples that drive the
+# library-model scenarios. Originally generated from the unittest classes in
+# tests/integration.py; treat the entries as authoritative facts about which
+# library models exist and how to drive them.
 
-LEGACY_LIBRARY_MODELS = [
+LIBRARY_MODELS = [
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99PerrorTests",
+        "function": "perror",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99PrintfChkTests",
+        "function": "__printf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99FprintfChkTests",
+        "function": "__fprintf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99SnprintfChkTests",
+        "function": "__snprintf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "C99SprintfChkTests",
+        "function": "__sprintf_chk",
+        "library": "c99",
+    },
+    {
+        "bases": ["NoArgLibraryModelTest"],
+        "class_name": "PosixErrnoLocationTests",
+        "function": "__errno_location",
+        "library": "posix",
+    },
     {
         "bases": ["NoArgLibraryModelTest"],
         "class_name": "C99CtypeBLocTests",

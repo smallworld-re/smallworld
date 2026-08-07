@@ -218,8 +218,8 @@ indicating required imports, and just generally indicating
 interesting locations and metadata within the file.
 
 SmallWorld harnesses can access symbols within an ELF
-using ``ELFExecutable.get_symbol_value()``
-and ``ELFExecutable.get_symbol_size()``.
+using ``ElfExecutable.get_symbol_value()``
+and ``ElfExecutable.get_symbol_size()``.
 These both take a string specifying the symbol's name,
 and will raise an exception if the symbol doesn't exist.
 
@@ -234,17 +234,17 @@ Currently, only common, relatively simple relocation types are supported by Smal
 
 SmallWorld has two methods to populate a symbol and update its relocations.
 
-The first is ``ELFExecutable.update_symbol_value()``
+The first is ``ElfExecutable.update_symbol_value()``
 It takes the name of a symbol, and the new integer value.
-It will overwrite the value of the symbol recorded in the ``ELFExecutable``,
+It will overwrite the value of the symbol recorded in the ``ElfExecutable``,
 and apply any relocations associated with the symbol.
 It will raise an exception if there is no symbol with that
 name in the ELF, if the symbol has an associated relocation
 that SmallWorld can't handle, or (in rare cases) where there
 are multiple symbols with the same name in the ELF.
 
-The second is ``ELFExecutable.link_elf()``
-This takes a second ``ELFExecutable``,
+The second is ``ElfExecutable.link_elf()``
+This takes a second ``ElfExecutable``,
 and updates all undefined symbols in the first ELF
 with the values of defined symbols that share the same name
 in the second ELF.
@@ -276,7 +276,7 @@ symbol with that name in the first ELF.
    and copy the retrieved data into the image.
 
    This is extremely annoying to model in a harness,
-   since the ``ELFExecutable`` objects don't have access to a complete memory image,
+   since the ``ElfExecutable`` objects don't have access to a complete memory image,
    and in a number of cases, the relevant memory gets initialized at runtime,
    between program start and dynamic symbol resolution.
 
@@ -295,7 +295,7 @@ Core Dump Loader
 ----------------
 
 SmallWorld supports loading Linux core dumps.
-These are modified versions of ``ELFExecutable``, loaded
+These are modified versions of ``ElfExecutable``, loaded
 using ``Executable.from_elf_core()``
 
 Linux core files are very simple ELF files,

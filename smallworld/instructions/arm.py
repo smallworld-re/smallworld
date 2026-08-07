@@ -23,11 +23,18 @@ class ARMInstruction(Instruction):
 
 class ARMV5TInstruction(ARMInstruction):
     platform = platforms.Platform(
-        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+        platforms.Architecture.ARM_V5T, platforms.Byteorder.LITTLE
     )
 
 
 class ARMV6MInstruction(ARMInstruction):
+    platform = platforms.Platform(
+        platforms.Architecture.ARM_V6M, platforms.Byteorder.LITTLE
+    )
+
+
+class ARMV6MThumbInstruction(ARMInstruction):
+    cs_mode = capstone.CS_MODE_THUMB
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE
     )

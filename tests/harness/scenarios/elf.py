@@ -10,11 +10,11 @@ from .common import (
     load_elf_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     push_cli_argv,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_arch_table, just_run
 
 
 @dataclasses.dataclass(frozen=True)
@@ -129,6 +129,13 @@ _SPECS = {
         print_register="a0",
         use_platform_loader=False,
     ),
+    "tricore": ElfSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        engines=("angr", "panda", "pcode"),
+    ),
     "xtensa": ElfSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pointer_size=4,
@@ -149,6 +156,22 @@ _UNICORN_BOUND_EXITS = {
     "armel": 0x88,
     "armhf": 0x88,
 }
+
+
+SCENARIO_PREFIXES = (("elf", "elf"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="elf",
+    scenario="elf",
+    tags=("scenario", "elf"),
+    variants_source=from_arch_table(
+        _SPECS,
+        extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
+    ),
+    run_factory=just_run(args=("foobar",)),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -223,6 +246,11 @@ def _configure_exitpoints(
         emulator.add_exit_point(entrypoint + 0x3C)
         return
 
+    if arch == "tricore":
+        set_register(cpu, "ra", 0xFFFF0)
+        machine.add_exit_point(0xFFFF0)
+        return
+
     if arch == "ppc" and engine == "panda":
         machine.add_exit_point(entrypoint + 0x34)
 
@@ -262,7 +290,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     push_cli_argv(stack, args[0], pointer_size=spec.pointer_size)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     add_code_bounds(machine, code)
     _configure_exitpoints(machine, emulator, cpu, code, stack, arch, engine)
 

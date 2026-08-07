@@ -313,7 +313,14 @@ class Calloc(CStdModel):
         assert isinstance(amt, int)
         assert isinstance(size, int)
 
-        data = b"\0" * amt * size
+        total = amt * size
+        size_t_max = (1 << (self.platdef.address_size * 8)) - 1
+        if total > size_t_max:
+            # calloc detects the size_t overflow and returns NULL
+            self.set_return_value(emulator, 0)
+            return
+
+        data = b"\0" * total
 
         res = self.heap.allocate_bytes(data, None)
         # This is calloc; zero out the memory
@@ -421,7 +428,7 @@ class Getenv(CStdModel):
         data = emulator.read_memory(ptr, size)
         name = data.decode("utf-8")
 
-        logger.info(f"getenv({name});")
+        logger.debug(f"getenv({name});")
         self.set_return_value(emulator, 0)
 
 
@@ -452,6 +459,63 @@ class Malloc(CStdModel):
         res = self.heap.allocate_bytes(b"\0" * size, None)
 
         self.set_return_value(emulator, res)
+
+
+class TlsGetAddr(CStdModel):
+    # void *__tls_get_addr(tls_index *ti);  -- the glibc dynamic-TLS resolver.
+    #
+    # tls_index is { unsigned long ti_module; unsigned long ti_offset; } and the
+    # real resolver returns dtv[ti_module] + ti_offset, i.e. the address of a
+    # thread-local *within* that module's TLS block -- ti_offset indexes into the
+    # block, it does not name a distinct block.  The harness has no DTV or
+    # threads, so we model it with a small fixed pool of per-module arenas in our
+    # own zeroed static buffer (NOT the malloc heap): a call returns
+    #   arena[module] + offset
+    # so ti_offset indexes within the module's arena, exactly like the real
+    # resolver, and repeated accesses to the same thread-local see the same
+    # storage.  This is bounded by construction -- the module->arena map is
+    # capped and offsets are confined to an arena -- so a garbage or
+    # loop-varying descriptor can no longer drive the old behaviour (a fresh
+    # never-freed 4 KiB block per distinct (module, offset)), which exhausted the
+    # shared allocator heap.  Keeping TLS off the malloc heap also stops the two
+    # from starving each other.
+    name = "__tls_get_addr"
+    argument_types = [ArgumentType.POINTER]
+    return_type = ArgumentType.POINTER
+
+    TLS_ARENA_SIZE = 0x1000  # bytes of scratch per module arena
+    TLS_MAX_MODULES = 8  # distinct module arenas (extra modules alias in via %)
+    _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
+    # Reserved once by the library, which sets self.static_buffer_address and maps
+    # the (zeroed) region; sized to hold the whole arena pool.
+    static_space_required = TLS_ARENA_SIZE * TLS_MAX_MODULES
+
+    def __init__(self, address: int):
+        super().__init__(address)
+        # Kept for interface compatibility (the library assigns it, like
+        # malloc/calloc), but TLS no longer draws from the heap.
+        self.heap: typing.Optional[Heap] = None
+
+    def model(self, emulator: emulators.Emulator) -> None:
+        super().model(emulator)
+        if self.static_buffer_address is None:
+            raise exceptions.ConfigurationError(
+                "__tls_get_addr needs its static buffer; none was reserved"
+            )
+        ti = self.get_arg1(emulator)
+        assert isinstance(ti, int)
+        ptr = ArgumentType.POINTER
+        module = self.read_integer(ti, ptr, emulator)
+        offset = self.read_integer(ti + self.platdef.address_size, ptr, emulator)
+        # Map (module, offset) into the bounded arena pool: pick a module arena
+        # (garbage/overflow modules alias via %), and index by offset within it,
+        # clamped so even a wide access from a near-end offset stays mapped.
+        slot = module % self.TLS_MAX_MODULES
+        off = min(
+            offset % self.TLS_ARENA_SIZE, self.TLS_ARENA_SIZE - self._TLS_HEADROOM
+        )
+        addr = self.static_buffer_address + slot * self.TLS_ARENA_SIZE + off
+        self.set_return_value(emulator, addr)
 
 
 class Mblen(CStdModel):
@@ -698,7 +762,7 @@ class System(CStdModel):
         data = emulator.read_memory(ptr, size)
         cmd = data.decode("utf-8")
 
-        logger.info(f"system({cmd});")
+        logger.debug(f"system({cmd});")
         self.set_return_value(emulator, 0)
 
 
@@ -753,6 +817,7 @@ __all__ = [
     "Free",
     "Getenv",
     "Malloc",
+    "TlsGetAddr",
     "Mblen",
     "Mbstowcs",
     "Mbtowc",

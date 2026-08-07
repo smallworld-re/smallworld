@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import MIPS64SysVModel
+
+
+class MIPS64SysVErrnoLocation(ErrnoLocation, MIPS64SysVModel):
+    pass
 
 
 class MIPS64SysVAccess(Access, MIPS64SysVModel):
@@ -414,6 +419,7 @@ class MIPS64SysVWrite(Write, MIPS64SysVModel):
 
 
 __all__ = [
+    "MIPS64SysVErrnoLocation",
     "MIPS64SysVAccess",
     "MIPS64SysVAlarm",
     "MIPS64SysVBrk",

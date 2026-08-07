@@ -141,7 +141,7 @@ class AMD64MachineDef(UnicornMachineDef):
             # x87 Control Register
             "fctrl": unicorn.x86_const.UC_X86_REG_FPCW,
             # x87 Status Register
-            "fstat": unicorn.x86_const.UC_X86_REG_FPCW,
+            "fstat": unicorn.x86_const.UC_X86_REG_FPSW,
             # x87 Tag Register
             "ftag": unicorn.x86_const.UC_X86_REG_FPTAG,
             # x87 Last Instruction Register

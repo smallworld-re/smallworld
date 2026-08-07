@@ -1,5 +1,5 @@
 from ... import platforms
-from .typing import AbstractGhidraEmulator
+from .typing import AbstractGhidraEmulator, AbstractGhidraSymbolicEmulator
 
 
 def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
@@ -34,4 +34,29 @@ def GhidraEmulator(platform: platforms.Platform) -> AbstractGhidraEmulator:
     return Emu(platform)
 
 
-__all__ = ["GhidraEmulator"]
+def GhidraSymbolicEmulator(
+    platform: platforms.Platform,
+) -> AbstractGhidraSymbolicEmulator:
+    """Factory for creating a :class:`GhidraSymbolicEmulator`.
+
+    Same lazy-boot pattern as :func:`GhidraEmulator`, but additionally
+    extracts and loads Ghidra's ``SymbolicSummaryZ3`` extension (jars + native
+    libz3) into the JVM before the symbolic module is imported.
+
+    Arguments:
+        platform: The platform to use when creating the emulator.
+
+    Returns:
+        A :class:`GhidraSymbolicEmulator` instance.
+    """
+
+    from . import symz3_loader
+
+    symz3_loader.ensure_loaded()
+
+    from .symbolic import GhidraSymbolicEmulator as Emu
+
+    return Emu(platform)
+
+
+__all__ = ["GhidraEmulator", "GhidraSymbolicEmulator"]

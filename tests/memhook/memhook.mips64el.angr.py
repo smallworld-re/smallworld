@@ -110,6 +110,5 @@ cpu.t9.set(entrypoint)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
 emulator.add_exit_point(code.address + code.get_capacity())
 final_machine = machine.emulate(emulator)

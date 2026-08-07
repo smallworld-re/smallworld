@@ -11,11 +11,11 @@ from .common import (
     load_elf_library,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     push_cli_argv,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -156,6 +156,15 @@ _SPECS = {
         argument_registers=("a0", "a1"),
         add_zero_exitpoint=True,
     ),
+    "tricore": LinkElfSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        result_register="d2",
+        engines=("angr", "panda", "pcode"),
+        argument_registers=("d4", "a4"),
+    ),
 }
 
 _SKIP_REASONS = {
@@ -170,7 +179,33 @@ _SKIP_REASONS = {
     "ppc64": "This test case doesn't work.",
     "ppc64.angr": "This test case doesn't work.",
     "ppc64.pcode": "This test case doesn't work.",
+    "tricore.angr": "No C compiler",
+    "tricore.panda": "No C compiler",
+    "tricore.pcode": "No C compiler",
 }
+
+
+SCENARIO_PREFIXES = (("link_elf", "link_elf"),)
+
+NATIVE_PARITY = True
+
+_LINK_ELF_LEGACY_SKIPS = tuple(
+    (variant, "Unexpected failure", {})
+    for arch in ("mips64", "mips64el")
+    for variant in (arch, f"{arch}.angr", f"{arch}.panda", f"{arch}.pcode")
+)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="link_elf",
+    scenario="link_elf",
+    tags=("scenario", "link_elf"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons=_SKIP_REASONS,
+        extra_variants=_LINK_ELF_LEGACY_SKIPS,
+    ),
+    run_factory=assert_contains("0x2a", args=("42",), case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -242,7 +277,7 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     elif arch in {"aarch64", "armel", "armhf", "ppc"}:
         set_register(cpu, "lr", exitpoint)
         machine.add_exit_point(exitpoint)
-    elif arch in {"la64", "mips", "mipsel", "riscv64"}:
+    elif arch in {"la64", "mips", "mipsel", "riscv64", "tricore"}:
         set_register(cpu, "ra", exitpoint)
         machine.add_exit_point(exitpoint)
 
@@ -261,7 +296,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
         print(f"str_addr: {string_address:x}")
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     if spec.add_zero_exitpoint:
         emulator.add_exit_point(0)
     add_code_bounds(machine, code, lib)

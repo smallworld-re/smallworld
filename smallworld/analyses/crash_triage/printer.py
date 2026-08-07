@@ -131,7 +131,7 @@ class CrashTriagePrinter(analysis.Analysis):
         for operand, expr in diagnosis.unconstrained_operands.items():
             log.warning(f"If operand {operand} is an address, it's unconstrained")
             self.print_expression(expr)
-        for operand, epxr in diagnosis.unsat_operands.items():
+        for operand, expr in diagnosis.unsat_operands.items():
             log.warning(f"Operand {operand} is unsatisfiable; something's weird here")
             self.print_expression(expr)
 

@@ -207,7 +207,7 @@ class CrashTriage(analysis.Analysis):
                 if not emu._bounds.contains_value(pc):
                     raise exceptions.EmulationBounds
 
-                log.info(f"Stepping through {pc:x}")
+                log.debug(f"Stepping through {pc:x}")
                 trace.append(pc)
                 emu.step()
                 idx += 1
@@ -640,7 +640,7 @@ class CrashTriage(analysis.Analysis):
         ip = emu.read_register_symbolic("pc")
         apc = emu.state.solver.eval_one(ip)
 
-        log.info(f"Stepping through {apc:x} ({ip})")
+        log.debug(f"Stepping through {apc:x} ({ip})")
         if epc != apc:
             log.debug(
                 f"Unexpected PC at step {i}: expected {epc:x}, got {apc:x} ({ip})"
@@ -700,7 +700,6 @@ class CrashTriage(analysis.Analysis):
             emu.state.memory.write_strategies = [SimConcretizationStrategyFault(False)]
 
         emu = emulators.AngrEmulator(self.platform, init=angr_init)
-        emu.enable_linear()
         machine.apply(emu)
         emu.initialize()
 

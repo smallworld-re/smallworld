@@ -98,7 +98,6 @@ elif (input_arg != 100) and (unicorn_r3 != 0):
 
 # Create an angr emulator.
 angr = smallworld.emulators.AngrEmulator(platform)
-angr.enable_linear()
 
 # Emulate our machine
 angr_machine = machine.emulate(angr)

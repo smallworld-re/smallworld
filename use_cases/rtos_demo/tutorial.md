@@ -124,17 +124,13 @@ Buffer: b'ABCDEFGHIJKLMNOP'
 ## Fuzzing
 *The `rtos_1_fuzz.py` script is included for reference with this section.*
 
-With our harness configured, we can finally start fuzzing for potential vulnerabilities. Thankfully, SmallWorld makes fuzzing with Unicorn and AFL very simple. We can replace our execution step from the snippet above with `machine.fuzz` as shown below. The accompanying `input_callback` is used to configure the machine's state prior to execution using the mutated input from AFL. In our case, it writes to the input buffer. This input receives `uc`, a reference to our emulator, which can be used to modify state and type hinted as `Uc`.
+With our harness configured, we can finally start fuzzing for potential vulnerabilities. Thankfully, SmallWorld makes fuzzing with AFL very simple. We can replace our execution step from the snippet above with `machine.fuzz` as shown below. The accompanying `input_callback` is used to configure the machine's state prior to execution using the mutated input from AFL. In our case, it writes to the input buffer. The first parameter is the SmallWorld `emulator` instance — using its high-level API (`write_memory_content`, etc.) means the same callback works against either the Unicorn or the Styx backend.
 
 ```python
-from unicorn.unicorn import Uc
-
-...
-
 # Fuzz
-def input_callback(uc: Uc, input, persistent_round, data):
+def input_callback(emulator, input, persistent_round, data):
 	if len(input) > 0x1000: return False
-	uc.mem_write(buffer_memory_address, input)
+	emulator.write_memory_content(buffer_memory_address, bytes(input))
 machine.fuzz(emulator, input_callback)
 ```
 
@@ -165,12 +161,11 @@ After a 2 hours of fuzzing, my sample campaign's 777k executions yielded 1469 to
 Now that we've discovered 2 unique crashing inputs, we can begin investigating their causes. To do this, we can use [angr](https://angr.io/), a symbolic execution engine which is included in SmallWorld. By configuring our input buffer as a labelled concrete value, we can observe how it affects our output state, allowing us to draw informed inferences about the code's behavior.
 
 ### Setting up angr
-SmallWorld makes switching between emulators a simple task. We can start by replacing `UnicornEmulator` with `AngrEmulator` in our harness. Then, we can enable linear mode for angr so that our emulator halts when it encounters a divergence in the symbolic execution path.
+SmallWorld makes switching between emulators a simple task. We can start by replacing `UnicornEmulator` with `AngrEmulator` in our harness.
 
 ```python
 # Emulator
 emulator = smallworld.emulators.AngrEmulator(code.platform)
-emulator.enable_linear()
 ```
 
 Next, we can modify our creation of the `input_buffer` to ensure it is labelled. The label will help us track where this buffer appears in our output state. We can also modify the contents of the buffer to match one of our crashing inputs.

@@ -22,11 +22,11 @@ class AMD64Stack(stack.DescendingStack):
         for i, arg in enumerate(argv):
             arg_size = len(arg)
             total_strings_bytes += arg_size
-            argv_address.append((i, s.push_bytes(arg, label=f"argv[{i}]")))
+            argv_address.append((i, s.address + s.push_bytes(arg, label=f"argv[{i}]")))
 
         argc = len(argv)
         total_space = (8 * (argc + 2)) + total_strings_bytes
-        padding = 16 - (total_space % 16)
+        padding = (-total_space) % 16
         s.push_bytes(bytes(padding), label="stack alignment padding bytes")
         s.push_integer(0, size=8, label="null terminator of argv array")
         for i, addr in reversed(argv_address):

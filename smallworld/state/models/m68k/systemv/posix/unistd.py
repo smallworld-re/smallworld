@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import M68KSysVModel
+
+
+class M68KSysVErrnoLocation(ErrnoLocation, M68KSysVModel):
+    pass
 
 
 class M68KSysVAccess(Access, M68KSysVModel):
@@ -414,6 +419,7 @@ class M68KSysVWrite(Write, M68KSysVModel):
 
 
 __all__ = [
+    "M68KSysVErrnoLocation",
     "M68KSysVAccess",
     "M68KSysVAlarm",
     "M68KSysVBrk",

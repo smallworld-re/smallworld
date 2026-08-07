@@ -61,7 +61,6 @@ machine.add_exit_point(cpu.pc.get() + 0x38)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
 # Extracting the full machine goes a bit bonkers
 machine.apply(emulator)
 emulator.run()

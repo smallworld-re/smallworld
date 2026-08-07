@@ -13,4 +13,4 @@ about some of the concepts in smallworld.
     local-types-and-the-heap
     modeling-and-hooking/index
     analyses/index
-    fuzzing
+    fuzzing/index

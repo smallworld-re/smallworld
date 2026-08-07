@@ -48,7 +48,7 @@ code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
 # Resolved puts target recovered from the current core image.
-puts_addr = 0x409082F0
+puts_addr = 0x40908384
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
@@ -59,7 +59,6 @@ machine.add_exit_point(cpu.pc.get() + 0x2C)
 
 # Emulate
 emulator = smallworld.emulators.AngrEmulator(platform)
-emulator.enable_linear()
 # Extracting the machine afterward takes forever.
 machine.apply(emulator)
 emulator.run()

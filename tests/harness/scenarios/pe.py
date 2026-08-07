@@ -12,10 +12,10 @@ from .common import (
     make_noop_model,
     make_platform,
     make_puts_model,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, from_arch_table, just_run
 
 
 @dataclasses.dataclass(frozen=True)
@@ -62,6 +62,19 @@ _SPECS = {
         exit_offset=0x102E,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("pe", "pe"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="pe",
+    scenario="pe",
+    tags=("scenario", "pe"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=just_run(),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -122,7 +135,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     set_register(cpu, spec.pc_register, code.address + 0x1000)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     emulator.add_exit_point(code.address + spec.exit_offset)
     machine.emulate(emulator)
     return 0

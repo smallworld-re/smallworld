@@ -13,6 +13,7 @@ from ....posix.unistd import (
     Dup,
     Dup2,
     Encrypt,
+    ErrnoLocation,
     Execl,
     Execle,
     Execlp,
@@ -83,6 +84,10 @@ from ....posix.unistd import (
     Write,
 )
 from ..systemv import I386SysVModel
+
+
+class I386SysVErrnoLocation(ErrnoLocation, I386SysVModel):
+    pass
 
 
 class I386SysVAccess(Access, I386SysVModel):
@@ -414,6 +419,7 @@ class I386SysVWrite(Write, I386SysVModel):
 
 
 __all__ = [
+    "I386SysVErrnoLocation",
     "I386SysVAccess",
     "I386SysVAlarm",
     "I386SysVBrk",

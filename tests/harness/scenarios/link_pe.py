@@ -12,11 +12,11 @@ from .common import (
     make_emulator,
     make_noop_model,
     make_platform,
-    maybe_enable_linear,
     push_cli_argv,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
 
 
 @dataclasses.dataclass(frozen=True)
@@ -55,6 +55,19 @@ _SPECS = {
         exit_offset=0x10BF,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("link_pe", "link_pe"),)
+
+NATIVE_PARITY = True
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="link_pe",
+    scenario="link_pe",
+    tags=("scenario", "link_pe"),
+    variants_source=from_arch_table(_SPECS),
+    run_factory=assert_contains("0x2a", args=("42",), case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -112,7 +125,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     )
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     emulator.add_exit_point(0)
     emulator.add_exit_point(code.address + spec.exit_offset)
     add_code_bounds(machine, code, lib)

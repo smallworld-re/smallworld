@@ -156,7 +156,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             content: The content to write.
 
         Raises:
-            TypeError: If content is a BV, and this emulator cannot handle bitvector expressions
+            SymbolicValueError: If content is a bitvector expression, and this emulator doesn't support them.
         """
 
         return self.write_register_content(name, content)
@@ -181,7 +181,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
     def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
         """Read memory content from a specific address as a symbolic expression.
 
-        If the implementation of read_register_content()
+        If the implementation of read_memory_content()
         raises SymbolicValueError, this must be implemented.
 
         Arguments:
@@ -398,7 +398,7 @@ class Emulator(utils.MetadataMixin, metaclass=abc.ABCMeta):
             A list of registered exit points.
         """
 
-        return self._exit_points
+        return set(self._exit_points)
 
     def add_exit_point(self, address: int) -> None:
         """Add an exit point.
@@ -520,7 +520,7 @@ class InstructionHookable(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def unhook_instructions(self) -> None:
-        """Unhook all system interrupts."""
+        """Unhook all instruction hooks."""
 
         pass
 
@@ -738,7 +738,7 @@ class MemoryReadHookable(metaclass=abc.ABCMeta):
             [Emulator, int, int, claripy.ast.bv.BV], typing.Optional[claripy.ast.bv.BV]
         ],
     ) -> None:
-        """Hook all memory reads, handling concrete values
+        """Hook all memory reads, handling symbolic values
 
         Arguments:
             function: The function to execute when the memory region is read.
@@ -891,8 +891,23 @@ class InterruptHookable(metaclass=abc.ABCMeta):
     """An Emulator mixin that supports interrupt hooking."""
 
     @abc.abstractmethod
-    def hook_interrupts(self, function: typing.Callable[[Emulator, int], None]) -> None:
+    def hook_interrupts(self, function: typing.Callable[[Emulator, int], bool]) -> None:
         """Hook any system interrupts.
+
+        This registers a function that will be called any time
+        the emulator registers an interrupt or exception.
+
+        The function is passed the current emulator and the interrupt number.
+        Note that the interrupt number is currently back-end and platform dependent.
+        Unicorn and Panda will report QEMU exception numbers.
+
+        The function should return True if the harness author expects
+        that the program will continue through the interrupt successfully,
+        either due to the behavior of the handler or the way the harness was configured.
+        Otherwise, the function should return false.
+
+        WARNING: If the function returns True and the emulator is not in a survivable state,
+        the behavior of the emulator is undefined!
 
         Arguments:
             function: The function to execute when an interrupt is triggered.
@@ -900,7 +915,7 @@ class InterruptHookable(metaclass=abc.ABCMeta):
         Example:
             The hook function looks like::
 
-                def hook(emulator: Emulator, interrupt: int) -> None:
+                def hook(emulator: Emulator, interrupt: int) -> bool:
                     ...
         """
 
@@ -914,9 +929,25 @@ class InterruptHookable(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def hook_interrupt(
-        self, interrupt: int, function: typing.Callable[[Emulator], None]
+        self, interrupt: int, function: typing.Callable[[Emulator], bool]
     ) -> None:
         """Hook a specific system interrupt.
+
+        This registers a function that will be called any time
+        the emulator registers a specific interrupt or exception.
+
+        Note that the interrupt number is currently back-end and platform dependent.
+        Unicorn and Panda will use QEMU exception numbers.
+
+        The function is passed the current emulator.
+
+        The function should return True if the harness author expects
+        that the program will continue through the interrupt successfully,
+        either due to the behavior of the handler or the way the harness was configured.
+        Otherwise, the function should return false.
+
+        WARNING: If the function returns True and the emulator is not in a survivable state,
+        the behavior of the emulator is undefined!
 
         Arguments:
             function: The function to execute when the interrupt is triggered.
@@ -941,7 +972,7 @@ class InterruptHookable(metaclass=abc.ABCMeta):
         pass
 
 
-class ConstrainedEmulator:
+class ConstrainedEmulator(metaclass=abc.ABCMeta):
     """Emulator that supports constraints
 
     It must also support some means of evaluating constraints,
@@ -1048,12 +1079,75 @@ class ConstrainedEmulator:
         raise NotImplementedError("Abstract method")
 
 
+class SymbolicEmulator(metaclass=abc.ABCMeta):
+    """Emulator that supports symbolic path exploration
+
+    By default, symbolic emulators will explore the entire state space
+    by forking separate machine states for every possible branch
+    the program could take.
+    Once execution starts in this default mode,
+    it is no longer possible to access machine state
+    such as registers, memory, hooks, or constraints.
+    Which machine state are you trying to access?
+
+    Programs can use get_active_states()
+    to retrieve a stub Emulator object wrapping each active state.
+    These can be accessed normally, but can't be used to control emulation,
+    and should not be retained once emulation begins again.
+
+    These emulators will also support linear emulation.
+    This constrains the emulator to only explore one path;
+    if the path diverges, emulation halts,
+    and the frontier states can be examined using get_active_states().
+
+    This mode must be set before execution starts, and is not possible to change later.
+
+    """
+
+    @abc.abstractmethod
+    def enable_branching(self):
+        """Set this emulator to support execution of unconstrained branches.
+
+        With branching enabled the emulator will not halt
+        when it encounters an unconstrained branch.
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def get_active_states(self) -> typing.Generator[Emulator, None, None]:
+        """Access each active machine state currently considered by this emulator.
+
+        WARNING: Do not retain the stub objects produced by this generator.
+        They are tied to parts of the internal state of the parent emulator
+        that will be invalidated once emulation resumes.
+
+        Yields:
+            Stub emulator objects wrapping each active machine state
+        """
+        raise NotImplementedError("Abstract method")
+
+    @abc.abstractmethod
+    def get_deadended_states(self) -> typing.Generator[Emulator, None, None]:
+        """Access each active machine state currently considered by this emulator.
+
+        WARNING: Do not retain the stub objects produced by this generator.
+        They are tied to parts of the internal state of the parent emulator
+        that will be invalidated once emulation resumes.
+
+        Yields:
+            Stub emulator objects wrapping each deadended machine state
+        """
+        raise NotImplementedError("Abstract method")
+
+
 __all__ = [
     "Emulator",
     "InstructionHookable",
     "FunctionHookable",
+    "SyscallHookable",
     "MemoryReadHookable",
     "MemoryWriteHookable",
     "InterruptHookable",
     "ConstrainedEmulator",
+    "SymbolicEmulator",
 ]

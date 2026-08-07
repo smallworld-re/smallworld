@@ -103,10 +103,7 @@ Event Handlers
 - Instruction Hooks
 - Function Models
 - Memory Accesses
-
-.. warning::
-   Panda also has an interface for interrupt hooking,
-   but it is non-functional.
+- Interrupts
 
 These have no special behaviors.
 

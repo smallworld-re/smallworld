@@ -9,10 +9,12 @@ from .common import (
     load_raw_code,
     make_emulator,
     make_platform,
-    maybe_enable_linear,
     set_register,
     split_variant,
 )
+from .spec import ScenarioInfo, assert_contains, from_arch_table
+
+NATIVE_PARITY = True
 
 
 @dataclasses.dataclass(frozen=True)
@@ -56,7 +58,7 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         model_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         entry_offset=4,
         stack_pointer_register="sp",
         model_address=0x1000,
@@ -66,7 +68,7 @@ _SPECS = {
         pc_register="pc",
         result_register="r0",
         model_register="r0",
-        engines=("unicorn", "angr", "panda", "pcode"),
+        engines=("unicorn", "angr", "panda", "pcode", "styx"),
         entry_offset=4,
         stack_pointer_register="sp",
         model_address=0x1000,
@@ -172,6 +174,16 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    "tricore": StaticBufferSpec(
+        platform=PlatformSpec("TRICORE", "LITTLE"),
+        pc_register="pc",
+        result_register="d2",
+        model_register="a2",
+        engines=("angr", "panda", "pcode"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "xtensa": StaticBufferSpec(
         platform=PlatformSpec("XTENSA", "LITTLE"),
         pc_register="pc",
@@ -184,6 +196,24 @@ _SPECS = {
         exit_offset=0xA,
     ),
 }
+
+
+SCENARIO_PREFIXES = (("static_buf", "static_buf"),)
+
+SCENARIO_INFO = ScenarioInfo(
+    prefix="static_buf",
+    scenario="static_buf",
+    tags=("scenario", "static_buf"),
+    variants_source=from_arch_table(
+        _SPECS,
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+        },
+    ),
+    run_factory=assert_contains("0x4a1", case_sensitive=False),
+)
 
 
 def can_run(scenario: str, variant: str) -> bool:
@@ -255,7 +285,6 @@ def run_case(scenario: str, variant: str, args: Sequence[str]) -> int:
     machine.add(foobar)
 
     emulator = make_emulator(smallworld, platform, engine)
-    maybe_enable_linear(smallworld, emulator, engine)
     if spec.exit_offset is not None:
         emulator.add_exit_point(code.address + spec.exit_offset)
     else:

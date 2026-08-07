@@ -9,6 +9,7 @@ from ....c99 import (
     Fgets,
     Fopen,
     Fprintf,
+    FprintfChk,
     Fputc,
     Fputs,
     Fread,
@@ -21,7 +22,9 @@ from ....c99 import (
     Getc,
     Getchar,
     Gets,
+    Perror,
     Printf,
+    PrintfChk,
     Putc,
     Putchar,
     Puts,
@@ -30,7 +33,9 @@ from ....c99 import (
     Rewind,
     Scanf,
     Snprintf,
+    SnprintfChk,
     Sprintf,
+    SprintfChk,
     Sscanf,
     Tmpfile,
     Tmpnam,
@@ -44,6 +49,26 @@ from ....c99 import (
     Vsscanf,
 )
 from ..systemv import MIPS64ELSysVModel
+
+
+class MIPS64ELSysVPerror(Perror, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVPrintfChk(PrintfChk, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVFprintfChk(FprintfChk, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVSnprintfChk(SnprintfChk, MIPS64ELSysVModel):
+    pass
+
+
+class MIPS64ELSysVSprintfChk(SprintfChk, MIPS64ELSysVModel):
+    pass
 
 
 class MIPS64ELSysVFclose(Fclose, MIPS64ELSysVModel):
@@ -219,6 +244,11 @@ class MIPS64ELSysVVsscanf(Vsscanf, MIPS64ELSysVModel):
 
 
 __all__ = [
+    "MIPS64ELSysVPerror",
+    "MIPS64ELSysVPrintfChk",
+    "MIPS64ELSysVFprintfChk",
+    "MIPS64ELSysVSnprintfChk",
+    "MIPS64ELSysVSprintfChk",
     "MIPS64ELSysVFclose",
     "MIPS64ELSysVFeof",
     "MIPS64ELSysVFerror",

@@ -324,10 +324,10 @@ class AMD64(cpu.CPU):
         self.add(self.mm7)
 
         # this is msr 0xC0000100
-        self.fsbase = state.Register("fsbase", 64)
+        self.fsbase = state.Register("fsbase", 8)
         self.add(self.fsbase)
         # this is msr 0xC0000101
-        self.gsbase = state.Register("gsbase", 64)
+        self.gsbase = state.Register("gsbase", 8)
         self.add(self.gsbase)
 
 

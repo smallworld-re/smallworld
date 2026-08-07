@@ -119,6 +119,7 @@
     {
       devShells = forEachSystem (system: {
         default = runtimeSupport.mkDeveloperShell system;
+        lint = runtimeSupport.mkLintShell system;
       });
 
       packages = forEachSystem runtimeSupport.mkPackageOutputs;

@@ -74,7 +74,7 @@ info = {
     "ds": ("ds", (0, 2)),
     "es": ("es", (0, 2)),
     "fs": ("fs", (0, 2)),
-    "gs": ("fs", (0, 2)),
+    "gs": ("gs", (0, 2)),
     "rflags": ("rflags", (0, 8)),
     "eflags": ("rflags", (0, 4)),
     "flags": ("rflags", (0, 2)),

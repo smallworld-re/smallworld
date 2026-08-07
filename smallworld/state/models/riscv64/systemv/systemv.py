@@ -53,9 +53,9 @@ class RiscV64SysVCallingContext(CStdCallingContext):
     _soft_float = False
     _variadic_soft_float = True
     _floats_are_doubles = False
-    _float_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6"]
+    _float_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
 
-    _double_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6"]
+    _double_arg_regs = ["fa0", "fa1", "fa2", "fa3", "fa4", "fa5", "fa6", "fa7"]
 
     _init_stack_offset = 0
     _align_stack = False
