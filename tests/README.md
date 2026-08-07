@@ -32,6 +32,17 @@ back to the old path.
 The library-model tests have an extra layer of organization. Test cases for
 specific functions are grouped by API standard, for example `c99/atoi`.
 
+The colorizer scenarios compare a run against recorded expected results, which
+live in `colorizer/truth/<scenario>.json` rather than inline in the scripts.
+Regenerate them with `colorizer/regen_truth.py` (all scenarios by default, or
+name one). It reads each scenario's parameters from its own `test(...)` call,
+so it cannot drift from what the test runs. It refuses to record a change to
+the set of pcs the trace visits — that means execution took a different path,
+not just that the hints changed — unless passed `--allow-pc-change`. Always
+review the resulting diff: these files record what the analysis currently
+does, so regenerating without reading is how a wrong answer becomes the
+expected answer.
+
 There are also two test suites in the root directory:
 
 - `unit.py`: Performs a collection of basic unit tests on the `smallworld` library

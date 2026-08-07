@@ -4,6 +4,8 @@
 *.json
 # use/def validation corpora are tracked test data
 !tests/use_def/corpus_*.json
+# colorizer expected results are tracked test data
+!tests/colorizer/truth/*.json
 *.elf
 *.so
 *~
