@@ -1007,7 +1007,7 @@ def _build_trace_execution_cases() -> list[CaseSpec]:
             "trace is 18 instructions which is correct",
             "execption args are what we expect",
             "exception type is correct -- EmulationReadUnmappedFailure",
-            "exception operands are correct -- [(x86BSIDMemoryReferenceOperand([rax]), 0)]",
+            "exception operands are correct -- [(BSIDMemoryReferenceOperand([rax]), 0)]",
             "EXPECTED  No unexpected results",
         ],
         "trace_executor/test_trace_is_correct_2.py": [

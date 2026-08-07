@@ -169,7 +169,7 @@ if __name__ == "__main__":
                 base="rsp",
                 index="None",
                 scale=1,
-                offset=0,
+                offset=-8,
                 addresses=[81912],
             ),
             DynamicRegisterValueSummaryHint(
@@ -215,6 +215,32 @@ if __name__ == "__main__":
                 reg_name="rsp",
             ),
         ],
+        8538: [
+            DynamicRegisterValueSummaryHint(
+                message="write-copy-summary",
+                pc=8538,
+                color=3,
+                size=8,
+                use=False,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8538,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rsp",
+            ),
+        ],
         8541: [
             DynamicMemoryValueSummaryHint(
                 message="write-copy-summary",
@@ -256,6 +282,20 @@ if __name__ == "__main__":
                 dynamic_values=[131072],
                 num_micro_executions=5,
                 reg_name="rdi",
+            ),
+        ],
+        8545: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8545,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
             ),
         ],
         8548: [
@@ -313,6 +353,34 @@ if __name__ == "__main__":
                 reg_name="rbp",
             ),
         ],
+        8551: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8551,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+        ],
+        8558: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8558,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+        ],
         8568: [
             DynamicMemoryValueSummaryHint(
                 message="read-flow-summary",
@@ -340,6 +408,62 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8568,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+        ],
+        8574: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8574,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+        ],
+        8579: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8579,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+        ],
+        8582: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8582,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
+        ],
+        8591: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8591,
                 color=3,
                 size=8,
                 use=True,
@@ -393,259 +517,6 @@ if __name__ == "__main__":
                 reg_name="rbp",
             ),
         ],
-        8604: [
-            DynamicMemoryValueSummaryHint(
-                message="read-def-summary",
-                pc=8604,
-                color=10,
-                size=1,
-                use=True,
-                new=True,
-                count=3,
-                dynamic_values=[232, 207, 150, 247],
-                num_micro_executions=5,
-                segment="None",
-                base="rax",
-                index="None",
-                scale=1,
-                offset=0,
-                addresses=[131074, 131075, 131076],
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="write-copy-summary",
-                pc=8604,
-                color=10,
-                size=4,
-                use=False,
-                new=False,
-                count=3,
-                dynamic_values=[232, 207, 150, 247],
-                num_micro_executions=5,
-                reg_name="edx",
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8604,
-                color=4,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[131072, 131073, 131074, 131075, 131076],
-                num_micro_executions=5,
-                reg_name="rax",
-            ),
-        ],
-        8678: [
-            DynamicMemoryValueSummaryHint(
-                message="read-flow-summary",
-                pc=8678,
-                color=4,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[131072],
-                num_micro_executions=5,
-                segment="None",
-                base="rbp",
-                index="None",
-                scale=1,
-                offset=-24,
-                addresses=[81888],
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="write-copy-summary",
-                pc=8678,
-                color=4,
-                size=8,
-                use=False,
-                new=False,
-                count=5,
-                dynamic_values=[131072],
-                num_micro_executions=5,
-                reg_name="rax",
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8678,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            ),
-        ],
-        8685: [
-            DynamicMemoryValueSummaryHint(
-                message="read-flow-summary",
-                pc=8685,
-                color=10,
-                size=1,
-                use=True,
-                new=False,
-                count=2,
-                dynamic_values=[232, 150, 247],
-                num_micro_executions=5,
-                segment="None",
-                base="rax",
-                index="None",
-                scale=1,
-                offset=0,
-                addresses=[131074, 131075],
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="write-copy-summary",
-                pc=8685,
-                color=10,
-                size=4,
-                use=False,
-                new=False,
-                count=2,
-                dynamic_values=[232, 150, 247],
-                num_micro_executions=5,
-                reg_name="eax",
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8685,
-                color=4,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[131072, 131073, 131074, 131075],
-                num_micro_executions=5,
-                reg_name="rax",
-            ),
-        ],
-        8538: [
-            DynamicRegisterValueSummaryHint(
-                message="write-copy-summary",
-                pc=8538,
-                color=3,
-                size=8,
-                use=False,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            ),
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8538,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rsp",
-            ),
-        ],
-        8545: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8545,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
-        8551: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8551,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
-        8558: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8558,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
-        8574: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8574,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
-        8579: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8579,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
-        8582: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8582,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
-        8591: [
-            DynamicRegisterValueSummaryHint(
-                message="read-flow-summary",
-                pc=8591,
-                color=3,
-                size=8,
-                use=True,
-                new=False,
-                count=5,
-                dynamic_values=[81912],
-                num_micro_executions=5,
-                reg_name="rbp",
-            )
-        ],
         8601: [
             DynamicRegisterValueSummaryHint(
                 message="write-copy-summary",
@@ -684,23 +555,54 @@ if __name__ == "__main__":
                 reg_name="rax",
             ),
         ],
-        8614: [
-            DynamicRegisterValueSummaryHint(
-                message="write-def-summary",
-                pc=8614,
-                color=8,
+        8604: [
+            DynamicMemoryValueSummaryHint(
+                message="read-def-summary",
+                pc=8604,
+                color=9,
                 size=1,
-                use=False,
+                use=True,
                 new=True,
-                count=4,
-                dynamic_values=[224, 170, 138, 240, 148, 250, 254],
+                count=3,
+                dynamic_values=[232, 207, 150, 247],
                 num_micro_executions=5,
-                reg_name="al",
+                segment="None",
+                base="rax",
+                index="None",
+                scale=1,
+                offset=0,
+                addresses=[131074, 131075, 131076],
+            ),
+            DynamicRegisterValueSummaryHint(
+                message="write-copy-summary",
+                pc=8604,
+                color=9,
+                size=4,
+                use=False,
+                new=False,
+                count=3,
+                dynamic_values=[232, 207, 150, 247],
+                num_micro_executions=5,
+                reg_name="edx",
             ),
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
+                pc=8604,
+                color=4,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[131072, 131073, 131074, 131075, 131076],
+                num_micro_executions=5,
+                reg_name="rax",
+            ),
+        ],
+        8614: [
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
                 pc=8614,
-                color=10,
+                color=9,
                 size=1,
                 use=True,
                 new=False,
@@ -750,7 +652,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-def-summary",
                 pc=8616,
-                color=10,
+                color=9,
                 size=2,
                 use=False,
                 new=True,
@@ -788,7 +690,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-copy-summary",
                 pc=8620,
-                color=10,
+                color=9,
                 size=4,
                 use=False,
                 new=False,
@@ -800,7 +702,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8620,
-                color=10,
+                color=9,
                 size=4,
                 use=True,
                 new=False,
@@ -814,7 +716,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-copy-summary",
                 pc=8622,
-                color=11,
+                color=10,
                 size=1,
                 use=False,
                 new=False,
@@ -826,7 +728,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-def-summary",
                 pc=8622,
-                color=11,
+                color=10,
                 size=1,
                 use=False,
                 new=True,
@@ -838,7 +740,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8622,
-                color=10,
+                color=9,
                 size=1,
                 use=True,
                 new=False,
@@ -852,7 +754,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-def-summary",
                 pc=8625,
-                color=12,
+                color=11,
                 size=4,
                 use=False,
                 new=True,
@@ -864,7 +766,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8625,
-                color=10,
+                color=9,
                 size=4,
                 use=True,
                 new=False,
@@ -876,7 +778,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8625,
-                color=11,
+                color=10,
                 size=4,
                 use=True,
                 new=False,
@@ -890,7 +792,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-copy-summary",
                 pc=8627,
-                color=12,
+                color=11,
                 size=4,
                 use=False,
                 new=False,
@@ -902,7 +804,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8627,
-                color=12,
+                color=11,
                 size=4,
                 use=True,
                 new=False,
@@ -916,7 +818,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-def-summary",
                 pc=8629,
-                color=13,
+                color=12,
                 size=4,
                 use=False,
                 new=True,
@@ -928,7 +830,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8629,
-                color=12,
+                color=11,
                 size=4,
                 use=True,
                 new=False,
@@ -942,7 +844,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-def-summary",
                 pc=8631,
-                color=14,
+                color=13,
                 size=4,
                 use=False,
                 new=True,
@@ -954,7 +856,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8631,
-                color=12,
+                color=11,
                 size=4,
                 use=True,
                 new=False,
@@ -966,7 +868,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8631,
-                color=13,
+                color=12,
                 size=4,
                 use=True,
                 new=False,
@@ -980,7 +882,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-copy-summary",
                 pc=8633,
-                color=10,
+                color=9,
                 size=4,
                 use=False,
                 new=False,
@@ -992,7 +894,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8633,
-                color=10,
+                color=9,
                 size=4,
                 use=True,
                 new=False,
@@ -1006,7 +908,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-copy-summary",
                 pc=8635,
-                color=11,
+                color=10,
                 size=4,
                 use=False,
                 new=False,
@@ -1018,7 +920,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="write-def-summary",
                 pc=8635,
-                color=15,
+                color=14,
                 size=4,
                 use=False,
                 new=True,
@@ -1030,7 +932,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8635,
-                color=10,
+                color=9,
                 size=4,
                 use=True,
                 new=False,
@@ -1042,7 +944,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8635,
-                color=14,
+                color=13,
                 size=4,
                 use=True,
                 new=False,
@@ -1056,7 +958,7 @@ if __name__ == "__main__":
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8637,
-                color=11,
+                color=10,
                 size=1,
                 use=True,
                 new=False,
@@ -1064,7 +966,7 @@ if __name__ == "__main__":
                 dynamic_values=[255],
                 num_micro_executions=5,
                 reg_name="al",
-            )
+            ),
         ],
         8641: [
             DynamicRegisterValueSummaryHint(
@@ -1078,7 +980,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8650: [
             DynamicRegisterValueSummaryHint(
@@ -1092,7 +994,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8655: [
             DynamicRegisterValueSummaryHint(
@@ -1106,7 +1008,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8669: [
             DynamicRegisterValueSummaryHint(
@@ -1120,7 +1022,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8672: [
             DynamicRegisterValueSummaryHint(
@@ -1134,7 +1036,50 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
+        ],
+        8678: [
+            DynamicMemoryValueSummaryHint(
+                message="read-flow-summary",
+                pc=8678,
+                color=4,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[131072],
+                num_micro_executions=5,
+                segment="None",
+                base="rbp",
+                index="None",
+                scale=1,
+                offset=-24,
+                addresses=[81888],
+            ),
+            DynamicRegisterValueSummaryHint(
+                message="write-copy-summary",
+                pc=8678,
+                color=4,
+                size=8,
+                use=False,
+                new=False,
+                count=5,
+                dynamic_values=[131072],
+                num_micro_executions=5,
+                reg_name="rax",
+            ),
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8678,
+                color=3,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[81912],
+                num_micro_executions=5,
+                reg_name="rbp",
+            ),
         ],
         8682: [
             DynamicRegisterValueSummaryHint(
@@ -1162,11 +1107,54 @@ if __name__ == "__main__":
                 reg_name="rax",
             ),
         ],
+        8685: [
+            DynamicMemoryValueSummaryHint(
+                message="read-flow-summary",
+                pc=8685,
+                color=9,
+                size=1,
+                use=True,
+                new=False,
+                count=2,
+                dynamic_values=[232, 150, 247],
+                num_micro_executions=5,
+                segment="None",
+                base="rax",
+                index="None",
+                scale=1,
+                offset=0,
+                addresses=[131074, 131075],
+            ),
+            DynamicRegisterValueSummaryHint(
+                message="write-copy-summary",
+                pc=8685,
+                color=9,
+                size=4,
+                use=False,
+                new=False,
+                count=2,
+                dynamic_values=[232, 150, 247],
+                num_micro_executions=5,
+                reg_name="eax",
+            ),
+            DynamicRegisterValueSummaryHint(
+                message="read-flow-summary",
+                pc=8685,
+                color=4,
+                size=8,
+                use=True,
+                new=False,
+                count=5,
+                dynamic_values=[131072, 131073, 131074, 131075],
+                num_micro_executions=5,
+                reg_name="rax",
+            ),
+        ],
         8688: [
             DynamicRegisterValueSummaryHint(
                 message="read-flow-summary",
                 pc=8688,
-                color=10,
+                color=9,
                 size=1,
                 use=True,
                 new=False,
@@ -1174,7 +1162,7 @@ if __name__ == "__main__":
                 dynamic_values=[232, 150, 247],
                 num_micro_executions=5,
                 reg_name="al",
-            )
+            ),
         ],
         8692: [
             DynamicRegisterValueSummaryHint(
@@ -1188,7 +1176,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8699: [
             DynamicRegisterValueSummaryHint(
@@ -1202,7 +1190,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8703: [
             DynamicRegisterValueSummaryHint(
@@ -1216,7 +1204,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
         8706: [
             DynamicRegisterValueSummaryHint(
@@ -1230,7 +1218,7 @@ if __name__ == "__main__":
                 dynamic_values=[81912],
                 num_micro_executions=5,
                 reg_name="rbp",
-            )
+            ),
         ],
     }
 
@@ -1283,9 +1271,16 @@ if __name__ == "__main__":
                     pc=8604,
                     wr=ReadInfo(
                         info=MemoryLvalInfo(
-                            color=8,
+                            color=7,
                             is_new=True,
-                            bsid=BSIDMemoryReferenceOperand(segment=None, base="rax"),
+                            bsid=BSIDMemoryReferenceOperand(
+                                segment=None,
+                                base="rax",
+                                index=None,
+                                scale=1,
+                                offset=0,
+                                size=4,
+                            ),
                             size=1,
                         )
                     ),
