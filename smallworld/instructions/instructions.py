@@ -328,6 +328,27 @@ class Instruction(metaclass=abc.ABCMeta):
             canon = self._canonicalize_pcode_operand(op, platdef)
             if canon is not None:
                 operands.add(canon)
+        if (
+            kind == "use"
+            and self._instruction.mnemonic in platdef.implicit_dereference_mnemonics
+        ):
+            # This ISA dereferences a register operand implicitly (MIPS
+            # jr/jalr transfer control through a register). Both facts
+            # are true -- the register is read to form the address, and
+            # the location at that address is accessed -- so report
+            # both. The Capstone-based path replaced the register with
+            # the memory reference and lost the register read.
+            #
+            # Reads only, deliberately: for jalr, writes name the link
+            # register, and dereferencing those would fabricate memory
+            # writes at 'ra' and 'pc'.
+            from .bsid import BSIDMemoryReferenceOperand
+
+            operands |= {
+                BSIDMemoryReferenceOperand(base=op.name, size=platdef.address_size)
+                for op in operands
+                if isinstance(op, RegisterOperand)
+            }
         if kind == "def":
             operands = self._collapse_widened_defs(operands, platdef)
         return operands
