@@ -284,6 +284,37 @@ class Instruction(metaclass=abc.ABCMeta):
                 return RegisterOperand(name)
         return operand
 
+    @staticmethod
+    def _collapse_widened_defs(
+        operands: typing.Set[Operand], platdef
+    ) -> typing.Set[Operand]:
+        """Drop a register def that is redundant given a def of one of
+        its own sub-registers.
+
+        Ghidra models a 32-bit x86-64 write as zero-extending, so
+        `mov ecx, eax` reports defs of both ECX and RCX. Both are
+        true, but consumers key on the architectural destination, so
+        keep the narrower name the instruction actually names and drop
+        the widened parent.
+
+        Applied to defs only: for a def the parent is the strictly
+        larger effect and is safe to summarize by its part, whereas
+        dropping a parent *read* would understate what was consumed.
+        """
+        names = {op.name for op in operands if isinstance(op, RegisterOperand)}
+        redundant = set()
+        for name in names:
+            parent = getattr(platdef.registers.get(name), "parent", None)
+            if parent is not None and parent in names:
+                redundant.add(parent)
+        if not redundant:
+            return operands
+        return {
+            op
+            for op in operands
+            if not (isinstance(op, RegisterOperand) and op.name in redundant)
+        }
+
     def _pcode_use_def(self, kind: str) -> typing.Set[Operand]:
         """Registers and memory references read ('use') or written
         ('def') by this instruction, per the Ghidra-pcode analysis."""
@@ -297,6 +328,8 @@ class Instruction(metaclass=abc.ABCMeta):
             canon = self._canonicalize_pcode_operand(op, platdef)
             if canon is not None:
                 operands.add(canon)
+        if kind == "def":
+            operands = self._collapse_widened_defs(operands, platdef)
         return operands
 
     @property
