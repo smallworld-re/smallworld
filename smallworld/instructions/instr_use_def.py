@@ -631,15 +631,22 @@ def instruction_use_def(program, instr):
                 continue
 
         # ---- collect reads from this op's inputs --------------------- #
-        is_control_flow = mnemonic in (
-            _PCODE_OP.BRANCH,
-            _PCODE_OP.CBRANCH,
-            _PCODE_OP.BRANCHIND,
-            _PCODE_OP.CALL,
-            _PCODE_OP.CALLIND,
-            _PCODE_OP.RETURN,
+        # For the direct control-flow ops, input 0 is the destination
+        # itself: a ram-space varnode whose *address* is where we go
+        # next, not a location whose contents are read. Skip just that
+        # input. The indirect forms (BRANCHIND/CALLIND/RETURN) are the
+        # opposite: their input's *value* is the destination, so an
+        # absolute memory-indirect jump like `jmp [0x1234]`, which
+        # Ghidra emits as a bare `BRANCHIND (ram, 0x1234, 8)` with no
+        # LOAD op, genuinely reads that pointer out of memory.
+        skip_input = (
+            0
+            if mnemonic in (_PCODE_OP.BRANCH, _PCODE_OP.CBRANCH, _PCODE_OP.CALL)
+            else None
         )
-        for inp in op.getInputs():
+        for i, inp in enumerate(op.getInputs()):
+            if i == skip_input:
+                continue
             if inp.isRegister():
                 reg = _varnode_operand(program, inp)
                 assert isinstance(reg, RegisterOperand)
@@ -650,12 +657,10 @@ def instruction_use_def(program, instr):
                 if pdebug:
                     logger.info(f"1 use {reg}")
                 uses.add(reg)
-            elif inp.isAddress() and not is_control_flow:
+            elif inp.isAddress():
                 # Direct read of a ram-space varnode: absolute or
                 # pc-relative addressing that Ghidra resolved at
                 # disassembly (no LOAD op is emitted for these).
-                # Control-flow ops are excluded because their address
-                # input is a jump target, not a data read.
                 mem = _varnode_operand(program, inp)
                 if mem is not None and mem not in defs:
                     if pdebug:
