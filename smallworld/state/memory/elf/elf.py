@@ -368,10 +368,17 @@ class ElfExecutable(Executable):
                 # Everyone requested the same base address, so we're okay.
                 self.address = self._user_base
             else:
+                # A user base was requested that differs from the file's
+                # own load address. The upstream loader raised here (a
+                # fixed-position image "probably cannot move without
+                # problems"); this branch instead honors the requested
+                # base as authoritative, treating it exactly like the
+                # equal-bases case above. Both self.address and
+                # self._file_base must be set to it, or _rebase_file
+                # (val - file_base + address) rebases against a stale
+                # address of 0 and silently mislocates every segment.
                 self._file_base = self._user_base
-                # File base is defined.
-                # We (probably) cannot move the image without problems.
-                # raise ConfigurationError("Base address defined for fixed-position ELF")
+                self.address = self._user_base
         log.debug(f"Address: {self.address:x}")
 
     def _rebase_file(self, val: int):
@@ -468,10 +475,10 @@ class ElfExecutable(Executable):
 
     def _map_segment(self, phdr, image):
         # Compute segment boundaries
-        seg_start = phdr.file_offset
-        seg_end = phdr.file_offset + phdr.physical_size
-        seg_addr = self._rebase_file(phdr.virtual_address)
-        seg_size = phdr.virtual_size + (phdr.file_offset - seg_start)
+        seg_start = self._page_align(phdr.file_offset, up=False)
+        seg_end = self._page_align(phdr.file_offset + phdr.physical_size)
+        seg_addr = self._page_align(self._rebase_file(phdr.virtual_address), up=False)
+        seg_size = self._page_align(phdr.virtual_size + (phdr.file_offset - seg_start))
 
         log.debug("Mapping: ")
         log.debug(
