@@ -522,6 +522,18 @@ def expr_to_bsid(expr, program, size, addr_size):
             raise UseDefError(f"too many registers in address: {expr}")
 
     if base is None and index is None:
+        if offset == 0:
+            # No base, no index, and a zero displacement: the expression
+            # names no location. A well-formed operand always has at
+            # least one of base / index / offset, so this is an analysis
+            # bug (an address that flattened to nothing), not a real
+            # access -- fail loudly instead of silently resolving to
+            # address 0. (A genuine absolute [0] reaches use/def as a
+            # ram varnode via _varnode_operand, not through here.)
+            raise UseDefError(
+                f"degenerate memory operand: address {expr!r} has no "
+                f"base, index, or offset"
+            )
         # pure absolute address: render unsigned at the pointer width
         offset %= 1 << (addr_size * 8)
 
