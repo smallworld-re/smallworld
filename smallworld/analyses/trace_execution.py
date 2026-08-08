@@ -61,9 +61,19 @@ def get_cmp_info(
     followed by any immediate operands. Registers that only serve to
     form an included memory operand's address (rbp in
     'cmp [rbp-0x1c], 47') are omitted: the compared value is the memory
-    cell, not the pointer. Locations are deduplicated and sorted by
-    repr so traces are stable run to run; comparing a location against
-    itself (test al, al) therefore reports it once.
+    cell, not the pointer.
+
+    The location entries are deduplicated and sorted by repr; the
+    immediates follow, in decode order. Repr order (not operand order)
+    is deliberate and matches how the colorizer orders its own
+    read/write tuples: it makes traces stable run to run regardless of
+    the order the analysis happens to yield reads, and lets a compare
+    of a location against itself (test al, al) report it once.
+    cmp_values below is aligned to this final order, so consumers must
+    not assume operand (destination-first) order.
+
+    If the pcode use/def analysis cannot interpret this instruction,
+    the three lists come back empty rather than aborting the trace.
 
     cmp_values is index-aligned with cmp_info: the concrete value of
     each entry read from the live emulator now, while it sits exactly
@@ -85,7 +95,14 @@ def get_cmp_info(
     if not (is_compare or is_compare_branch):
         return ([], [], [])
     sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
-    reads = sw_insn.reads
+    try:
+        reads = sw_insn.reads
+    except Exception as exc:
+        # A compare whose pcode use/def can't be interpreted must not
+        # take down the whole trace; report it as "no cmp info" and
+        # keep going, mirroring the degrade-to-unknown handling below.
+        logger.warning(f"get_cmp_info: reads() failed for {cs_insn.mnemonic}: {exc}")
+        return ([], [], [])
     address_regs = set()
     for op in reads:
         if isinstance(op, BSIDMemoryReferenceOperand):

@@ -260,16 +260,25 @@ class Colorizer(analysis.Analysis):
         self.platform = self.orig_cpu.platform
         self.pdef = platforms.PlatformDef.for_platform(self.platform)
 
-        def check_rws(emu, pc, te, is_read, write_addresses=None):
-            cs_insn = self._get_instr_at_pc(emu, pc)
-            sw_insn = Instruction.from_capstone(cs_insn)
-            logger.debug(f"instr={cs_insn}")
-            if is_read:
-                operand_list = sw_insn.reads
-                logger.debug(f"reads={operand_list}")
-            else:
-                operand_list = sw_insn.writes
-                logger.debug(f"writes={operand_list}")
+        def check_rws(
+            emu,
+            pc,
+            te,
+            is_read,
+            write_addresses=None,
+            sw_insn=None,
+            operand_list=None,
+        ):
+            # sw_insn / operand_list let a caller pass in results it has
+            # already computed for this pc, so reads/writes -- which run
+            # through the pyghidra-backed analysis -- aren't re-derived.
+            if sw_insn is None:
+                cs_insn = self._get_instr_at_pc(emu, pc)
+                sw_insn = Instruction.from_capstone(cs_insn)
+            logger.debug(f"instr={sw_insn}")
+            if operand_list is None:
+                operand_list = sw_insn.reads if is_read else sw_insn.writes
+            logger.debug(f"{'reads' if is_read else 'writes'}={operand_list}")
             rws = []
             for operand in operand_list:
                 if type(operand) is RegisterOperand:
@@ -315,18 +324,23 @@ class Colorizer(analysis.Analysis):
                 self.reads = rws
 
         def before_instruction_cb(emu, pc, te):
-            check_rws(emu, pc, te, True)
+            cs_insn = self._get_instr_at_pc(emu, pc)
+            sw_insn = Instruction.from_capstone(cs_insn)
+            check_rws(emu, pc, te, True, sw_insn=sw_insn)
             # A memory operand names registers, and its address is
             # defined by their values at instruction *entry* -- so it
             # has to be resolved now. The instruction may modify a
             # register its own write address depends on (x86 push and
             # string ops, AArch64 pre/post-index, PPC update forms),
             # in which case resolving afterwards names the wrong cell.
-            cs_insn = self._get_instr_at_pc(emu, pc)
-            sw_insn = Instruction.from_capstone(cs_insn)
+            # Stash the write operands too, so after_instruction_cb
+            # reuses them instead of re-running the analysis.
+            writes = sw_insn.writes
+            self._pending_write_insn = sw_insn
+            self._pending_writes = writes
             self.write_addresses = {
                 operand: operand.address(emu)
-                for operand in sw_insn.writes
+                for operand in writes
                 if isinstance(operand, BSIDMemoryReferenceOperand)
             }
 
@@ -334,12 +348,23 @@ class Colorizer(analysis.Analysis):
             # note: we have to check writes *after* the instruction
             # executes since we might be writing a computed value
             # which we'll only know the value (color) of after the
-            # instruction executes! The addresses written, though, come
-            # from the pre-instruction capture above.
-            check_rws(emu, pc, te, False, self.write_addresses)
+            # instruction executes! The addresses written, and the
+            # write operands themselves, come from the pre-instruction
+            # capture above.
+            check_rws(
+                emu,
+                pc,
+                te,
+                False,
+                self.write_addresses,
+                sw_insn=self._pending_write_insn,
+                operand_list=self._pending_writes,
+            )
 
         self.colors = {}
         self.write_addresses = {}
+        self._pending_write_insn = None
+        self._pending_writes = []
         self.shadow_register = {}
         self.shadow_memory = {}
         traceA = TraceExecution(self.hinter, num_insns=self.num_insns)

@@ -323,6 +323,18 @@ class Instruction(metaclass=abc.ABCMeta):
 
         platdef = PlatformDef.for_platform(self.platform)
         results = analyze_bytes(self.instruction, self.ghidra_lang, self.address)
+        if not results:
+            # Ghidra decoded no instruction from bytes Capstone accepted
+            # (the two disassemblers can disagree on rare encodings).
+            # Degrade to an empty set rather than raising IndexError into
+            # the colorizer/trace analyses -- with a warning, since it
+            # means this instruction's data flow is unknown, not absent.
+            logger.warning(
+                f"pcode analysis produced no instruction for "
+                f"{self.instruction.hex()} on {self.ghidra_lang}; "
+                f"{kind} set is empty"
+            )
+            return set()
         operands: typing.Set[Operand] = set()
         for op in results[0][kind]:
             canon = self._canonicalize_pcode_operand(op, platdef)

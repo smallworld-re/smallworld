@@ -32,18 +32,14 @@ instruction itself produced). We mirror that by tracking what has
 already been written in the current instruction and excluding it from
 the use set.
 
-Usage:
-    python instr_use_def.py path/to/binary
-    python instr_use_def.py path/to/binary --function main
-    python instr_use_def.py path/to/binary --json out.json
+The public entry point is analyze_bytes(byte_data, ghidra_language,
+base_address), used by smallworld.instructions.Instruction.reads /
+.writes.
 """
 
-import argparse
 import atexit
 import functools
-import json
 import logging
-import sys
 from enum import Enum, auto
 
 import pyghidra
@@ -110,30 +106,6 @@ def resolve_language_id(arch):
         f"like 'x86:LE:64:default' or one of: "
         f"{', '.join(sorted(ARCH_ALIASES))}"
     )
-
-
-def parse_bytes_arg(spec):
-    """Decode a CLI bytes spec into raw bytes.
-
-    Accepts:
-      * a hex string ('deadbeef', '0xdead beef', 'de,ad,be,ef')
-      * '@path' to read raw binary bytes from a file
-      * '-' to read raw binary bytes from stdin
-    """
-    if spec == "-":
-        return sys.stdin.buffer.read()
-    if spec.startswith("@"):
-        with open(spec[1:], "rb") as f:
-            return f.read()
-    cleaned = spec.replace(" ", "").replace("\n", "").replace(",", "")
-    if cleaned.lower().startswith("0x"):
-        cleaned = cleaned[2:]
-    if len(cleaned) % 2 != 0:
-        raise SystemExit("hex bytes must have an even number of hex digits")
-    try:
-        return bytes.fromhex(cleaned)
-    except ValueError as exc:
-        raise SystemExit(f"invalid hex bytes: {exc}") from exc
 
 
 # Per-language cache of (offset, size, Register) for register-space
@@ -732,53 +704,6 @@ def instruction_use_def(program, instr):
 
 
 # --------------------------------------------------------------------------- #
-# Driver
-# --------------------------------------------------------------------------- #
-
-
-def iter_instructions(program, function_name=None):
-    listing = program.getListing()
-    if function_name is None:
-        yield from listing.getInstructions(True)
-        return
-
-    fm = program.getFunctionManager()
-    fn = None
-    for f in fm.getFunctions(True):
-        if f.getName() == function_name:
-            fn = f
-            break
-    if fn is None:
-        raise SystemExit(f"function {function_name!r} not found")
-    body = fn.getBody()
-    yield from listing.getInstructions(body, True)
-
-
-def analyze(
-    binary_path, function_name=None, project_dir=None, project_name="usedef-proj"
-):
-    _ensure_pyghidra()
-    results = []
-    with pyghidra.open_program(
-        binary_path,
-        project_location=project_dir,
-        project_name=project_name,
-    ) as flat_api:
-        program = flat_api.getCurrentProgram()
-        for instr in iter_instructions(program, function_name):
-            uses, defs = instruction_use_def(program, instr)
-            results.append(
-                {
-                    "address": str(instr.getAddress()),
-                    "instr": instr.toString(),
-                    "use": sorted(uses),
-                    "def": sorted(defs),
-                }
-            )
-    return results
-
-
-# --------------------------------------------------------------------------- #
 # Long-lived program cache (one open Ghidra program per architecture)
 # --------------------------------------------------------------------------- #
 #
@@ -1033,98 +958,3 @@ def analyze_bytes(byte_data, arch, base_address=0):
 # don't have to know the underscore-prefixed name exists.
 analyze_bytes.cache_clear = _analyze_bytes_cached.cache_clear  # type: ignore[attr-defined]
 analyze_bytes.cache_info = _analyze_bytes_cached.cache_info  # type: ignore[attr-defined]
-
-
-def _emit_results(results, json_path):
-    if json_path:
-        with open(json_path, "w") as f:
-            json.dump(results, f, indent=2)
-        logger.info(
-            f"wrote {len(results)} instructions to {json_path}", file=sys.stderr
-        )
-        return
-    for r in results:
-        logger.info(f"{r['address']:>14}  {r['instr']}")
-        logger.info(f"                use = {{{', '.join(r['use'])}}}")
-        logger.info(f"                def = {{{', '.join(r['def'])}}}")
-
-
-def main(argv=None):
-    ap = argparse.ArgumentParser(
-        description="Per-instruction use/def via pyghidra. Two modes: "
-        "analyze a binary on disk, or analyze a raw byte "
-        "buffer plus an architecture string.",
-    )
-    sub = ap.add_subparsers(dest="mode", required=True)
-
-    # ---- file mode ------------------------------------------------------- #
-    p_file = sub.add_parser("file", help="analyze a binary file on disk")
-    p_file.add_argument("binary", help="path to the binary to analyze")
-    p_file.add_argument(
-        "--function", default=None, help="restrict to a single function by name"
-    )
-    p_file.add_argument(
-        "--project-dir", default=None, help="Ghidra project directory (default: temp)"
-    )
-    p_file.add_argument(
-        "--json", default=None, help="write results to this JSON file instead of stdout"
-    )
-
-    # ---- bytes mode ------------------------------------------------------ #
-    p_bytes = sub.add_parser(
-        "bytes",
-        help="analyze a raw byte buffer plus an architecture",
-        description=(
-            "Disassemble raw machine-code bytes with the given "
-            "architecture and emit per-instruction use/def. The bytes "
-            "input accepts a hex string ('deadbeef'), '@path' to read "
-            "raw bytes from a file, or '-' to read raw bytes from stdin."
-        ),
-    )
-    p_bytes.add_argument(
-        "--arch",
-        required=True,
-        help="architecture: a full Ghidra language id "
-        "('x86:LE:64:default') or an alias "
-        "(x86-64, arm64, mips, ppc, riscv, ...).",
-    )
-    p_bytes.add_argument(
-        "--bytes",
-        dest="byte_spec",
-        required=True,
-        help="hex string, @path/to/file, or - for stdin",
-    )
-    p_bytes.add_argument(
-        "--base",
-        default="0",
-        help="base address for the byte buffer (default: 0). "
-        "Hex like 0x1000 is accepted.",
-    )
-    p_bytes.add_argument(
-        "--json",
-        default=None,
-        help="write results to this JSON file instead of stdout",
-    )
-
-    args = ap.parse_args(argv)
-
-    if args.mode == "file":
-        results = analyze(
-            args.binary,
-            function_name=args.function,
-            project_dir=args.project_dir,
-        )
-    elif args.mode == "bytes":
-        byte_data = parse_bytes_arg(args.byte_spec)
-        if not byte_data:
-            raise SystemExit("no bytes to analyze")
-        base = int(args.base, 0)
-        results = analyze_bytes(byte_data, args.arch, base_address=base)
-    else:  # pragma: no cover
-        ap.error("unknown mode")
-
-    _emit_results(results, args.json)
-
-
-if __name__ == "__main__":
-    main()
