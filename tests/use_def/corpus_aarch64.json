@@ -1,2946 +1,2946 @@
 {
-  "isa": "aarch64",
-  "ghidra_lang": "AARCH64:LE:64:v8A",
-  "llvm_triple": "aarch64-unknown-linux-gnu",
-  "base_address": 4096,
-  "entries": [
-    {
-      "asm": "mov x0, x1",
-      "bytes": "e00301aa",
-      "categories": [
-        "mov",
-        "reg"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of orr x0, xzr, x1"
-    },
-    {
-      "asm": "mov w0, w1",
-      "bytes": "e003012a",
-      "categories": [
-        "mov",
-        "reg"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "wzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of orr w0, wzr, w1"
-    },
-    {
-      "asm": "mov x0, sp",
-      "bytes": "e0030091",
-      "categories": [
-        "mov",
-        "sp"
-      ],
-      "uses": [
-        {
-          "reg": "sp"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of add x0, sp, #0"
-    },
-    {
-      "asm": "mov sp, x1",
-      "bytes": "3f000091",
-      "categories": [
-        "mov",
-        "sp"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "sp"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of add sp, x1, #0"
-    },
-    {
-      "asm": "movz x0, #0x1234",
-      "bytes": "804682d2",
-      "categories": [
-        "mov",
-        "imm"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "movz x0, #0x1234, lsl #16",
-      "bytes": "8046a2d2",
-      "categories": [
-        "mov",
-        "imm",
-        "shifted-imm"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "movk x0, #0xbeef, lsl #16",
-      "bytes": "e0ddb7f2",
-      "categories": [
-        "mov",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "movk reads and writes its destination (inserts 16 bits)"
-    },
-    {
-      "asm": "movn w0, #0x10",
-      "bytes": "00028012",
-      "categories": [
-        "mov",
-        "imm"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mov x0, #-1",
-      "bytes": "00008092",
-      "categories": [
-        "mov",
-        "imm"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of movn x0, #0"
-    },
-    {
-      "asm": "add x0, x1, #16",
-      "bytes": "20400091",
-      "categories": [
-        "arith",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add w0, w1, #4095",
-      "bytes": "20fc3f11",
-      "categories": [
-        "arith",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add x0, x1, x2",
-      "bytes": "2000028b",
-      "categories": [
-        "arith",
-        "reg"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add w0, w1, w2",
-      "bytes": "2000020b",
-      "categories": [
-        "arith",
-        "reg"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sub x0, x1, #32",
-      "bytes": "208000d1",
-      "categories": [
-        "arith",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sub w0, w1, w2",
-      "bytes": "2000024b",
-      "categories": [
-        "arith",
-        "reg"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add x0, x1, x2, lsl #3",
-      "bytes": "200c028b",
-      "categories": [
-        "arith",
-        "shifted-operand"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sub x0, x1, x2, lsr #4",
-      "bytes": "201042cb",
-      "categories": [
-        "arith",
-        "shifted-operand"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add x0, x1, w2, uxtw",
-      "bytes": "2040228b",
-      "categories": [
-        "arith",
-        "extended-reg"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add x0, sp, #0x10",
-      "bytes": "e0430091",
-      "categories": [
-        "arith",
-        "imm",
-        "sp"
-      ],
-      "uses": [
-        {
-          "reg": "sp"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "adds x0, x1, x2",
-      "bytes": "200002ab",
-      "categories": [
-        "arith",
-        "flags"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "subs w0, w1, #1",
-      "bytes": "20040071",
-      "categories": [
-        "arith",
-        "flags",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "adc x0, x1, x2",
-      "bytes": "2000029a",
-      "categories": [
-        "arith",
-        "carry"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "reg": "cy"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads carry flag"
-    },
-    {
-      "asm": "sbc x0, x1, x2",
-      "bytes": "200002da",
-      "categories": [
-        "arith",
-        "carry"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "reg": "cy"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads carry flag"
-    },
-    {
-      "asm": "adcs x0, x1, x2",
-      "bytes": "200002ba",
-      "categories": [
-        "arith",
-        "carry",
-        "flags"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "reg": "cy"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "neg x0, x1",
-      "bytes": "e00301cb",
-      "categories": [
-        "arith"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of sub x0, xzr, x1"
-    },
-    {
-      "asm": "cmp x0, x1",
-      "bytes": "1f0001eb",
-      "categories": [
-        "cmp"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "notes": "alias of subs xzr, x0, x1"
-    },
-    {
-      "asm": "cmp w0, #10",
-      "bytes": "1f280071",
-      "categories": [
-        "cmp",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [
-        {
-          "reg": "wzr"
-        }
-      ],
-      "notes": "alias of subs wzr, w0, #10"
-    },
-    {
-      "asm": "cmn x0, x1",
-      "bytes": "1f0001ab",
-      "categories": [
-        "cmp"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "notes": "alias of adds xzr, x0, x1"
-    },
-    {
-      "asm": "cmp x0, x1, lsl #2",
-      "bytes": "1f0801eb",
-      "categories": [
-        "cmp",
-        "shifted-operand"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "notes": ""
-    },
-    {
-      "asm": "tst x0, x1",
-      "bytes": "1f0001ea",
-      "categories": [
-        "cmp"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "notes": "alias of ands xzr, x0, x1; cy and ov are set to zero"
-    },
-    {
-      "asm": "and x0, x1, x2",
-      "bytes": "2000028a",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "orr w0, w1, w2",
-      "bytes": "2000022a",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "eor x0, x1, x2",
-      "bytes": "200002ca",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "and x0, x1, #0xff",
-      "bytes": "201c4092",
-      "categories": [
-        "logic",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ands x0, x1, x2",
-      "bytes": "200002ea",
-      "categories": [
-        "logic",
-        "flags"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "cy and ov are set to zero"
-    },
-    {
-      "asm": "bic x0, x1, x2",
-      "bytes": "2000228a",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mvn x0, x1",
-      "bytes": "e00321aa",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of orn x0, xzr, x1"
-    },
-    {
-      "asm": "lsl x0, x1, #4",
-      "bytes": "20ec7cd3",
-      "categories": [
-        "shift",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of ubfm"
-    },
-    {
-      "asm": "lsr w0, w1, #3",
-      "bytes": "207c0353",
-      "categories": [
-        "shift",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "asr x0, x1, #63",
-      "bytes": "20fc7f93",
-      "categories": [
-        "shift",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ror x0, x1, #8",
-      "bytes": "2020c193",
-      "categories": [
-        "shift",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of extr x0, x1, x1, #8"
-    },
-    {
-      "asm": "lsl x0, x1, x2",
-      "bytes": "2020c29a",
-      "categories": [
-        "shift",
-        "reg-counted"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lsr w0, w1, w2",
-      "bytes": "2024c21a",
-      "categories": [
-        "shift",
-        "reg-counted"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "asr x0, x1, x2",
-      "bytes": "2028c29a",
-      "categories": [
-        "shift",
-        "reg-counted"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ror x0, x1, x2",
-      "bytes": "202cc29a",
-      "categories": [
-        "shift",
-        "reg-counted"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mul x0, x1, x2",
-      "bytes": "207c029b",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of madd x0, x1, x2, xzr"
-    },
-    {
-      "asm": "madd x0, x1, x2, x3",
-      "bytes": "200c029b",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "reg": "x3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads three sources"
-    },
-    {
-      "asm": "msub w0, w1, w2, w3",
-      "bytes": "208c021b",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        },
-        {
-          "reg": "w3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads three sources"
-    },
-    {
-      "asm": "udiv x0, x1, x2",
-      "bytes": "2008c29a",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sdiv w0, w1, w2",
-      "bytes": "200cc21a",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "smull x0, w1, w2",
-      "bytes": "207c229b",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of smaddl x0, w1, w2, xzr"
-    },
-    {
-      "asm": "umulh x0, x1, x2",
-      "bytes": "207cc29b",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr x0, [x1]",
-      "bytes": "200040f9",
-      "categories": [
-        "load",
-        "base"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr x0, [x1, #16]",
-      "bytes": "200840f9",
-      "categories": [
-        "load",
-        "base+disp"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 16,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr w0, [x1, #8]",
-      "bytes": "200840b9",
-      "categories": [
-        "load",
-        "base+disp"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldrb w0, [x1]",
-      "bytes": "20004039",
-      "categories": [
-        "load",
-        "byte"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 1
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldrh w0, [x1, #2]",
-      "bytes": "20044079",
-      "categories": [
-        "load",
-        "halfword"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 2,
-            "size": 2
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldrsb w0, [x1]",
-      "bytes": "2000c039",
-      "categories": [
-        "load",
-        "byte",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 1
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldrsh x0, [x1]",
-      "bytes": "20008079",
-      "categories": [
-        "load",
-        "halfword",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 2
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldrsw x0, [x1, #4]",
-      "bytes": "200480b9",
-      "categories": [
-        "load",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 4,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr x0, [x1, x2]",
-      "bytes": "206862f8",
-      "categories": [
-        "load",
-        "base+index"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": "x2",
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr x0, [x1, x2, lsl #3]",
-      "bytes": "207862f8",
-      "categories": [
-        "load",
-        "scaled-index"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": "x2",
-            "scale": 8,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr w0, [x1, w2, uxtw #2]",
-      "bytes": "205862b8",
-      "categories": [
-        "load",
-        "scaled-index",
-        "extended-reg"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "w2"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": "w2",
-            "scale": 4,
-            "offset": 0,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "index register is 32-bit, zero-extended then scaled by 4"
-    },
-    {
-      "asm": "ldr x0, [x1, #8]!",
-      "bytes": "208c40f8",
-      "categories": [
-        "load",
-        "pre-index"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "pre-index writeback defs base"
-    },
-    {
-      "asm": "ldr x0, [x1], #8",
-      "bytes": "208440f8",
-      "categories": [
-        "load",
-        "post-index"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "post-index writeback defs base; access at old base"
-    },
-    {
-      "asm": "ldr x0, #16",
-      "bytes": "80000058",
-      "categories": [
-        "load",
-        "literal",
-        "pc-relative"
-      ],
-      "uses": [
-        {
-          "mem": {
-            "base": null,
-            "index": null,
-            "scale": 1,
-            "offset": 4112,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "pc-relative literal load resolved to absolute 0x1010"
-    },
-    {
-      "asm": "ldur x0, [x1, #-4]",
-      "bytes": "20c05ff8",
-      "categories": [
-        "load",
-        "unscaled"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": -4,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "str x0, [x1]",
-      "bytes": "200000f9",
-      "categories": [
-        "store",
-        "base"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "str w0, [sp, #12]",
-      "bytes": "e00f00b9",
-      "categories": [
-        "store",
-        "base+disp",
-        "sp"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "sp"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "sp",
-            "index": null,
-            "scale": 1,
-            "offset": 12,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "strb w0, [x1, #1]",
-      "bytes": "20040039",
-      "categories": [
-        "store",
-        "byte"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 1,
-            "size": 1
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "strh w0, [x1, x2]",
-      "bytes": "20682278",
-      "categories": [
-        "store",
-        "halfword",
-        "base+index"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x1",
-            "index": "x2",
-            "scale": 1,
-            "offset": 0,
-            "size": 2
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "str x0, [x1, x2, lsl #3]",
-      "bytes": "207822f8",
-      "categories": [
-        "store",
-        "scaled-index"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x1",
-            "index": "x2",
-            "scale": 8,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "str x0, [sp, #-16]!",
-      "bytes": "e00f1ff8",
-      "categories": [
-        "store",
-        "pre-index",
-        "sp"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "sp"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "sp"
-        },
-        {
-          "mem": {
-            "base": "sp",
-            "index": null,
-            "scale": 1,
-            "offset": -16,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "pre-index writeback defs base"
-    },
-    {
-      "asm": "str x0, [x1], #16",
-      "bytes": "200401f8",
-      "categories": [
-        "store",
-        "post-index"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x1"
-        },
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "post-index writeback defs base; access at old base"
-    },
-    {
-      "asm": "stur w0, [x1, #-2]",
-      "bytes": "20e01fb8",
-      "categories": [
-        "store",
-        "unscaled"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": -2,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldp x0, x1, [x2]",
-      "bytes": "400440a9",
-      "categories": [
-        "stack",
-        "pair",
-        "load"
-      ],
-      "uses": [
-        {
-          "reg": "x2"
-        },
-        {
-          "mem": {
-            "base": "x2",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        },
-        {
-          "mem": {
-            "base": "x2",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldp w0, w1, [x2, #8]",
-      "bytes": "40044129",
-      "categories": [
-        "stack",
-        "pair",
-        "load"
-      ],
-      "uses": [
-        {
-          "reg": "x2"
-        },
-        {
-          "mem": {
-            "base": "x2",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        },
-        {
-          "mem": {
-            "base": "x2",
-            "index": null,
-            "scale": 1,
-            "offset": 12,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "w1"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "stp x0, x1, [sp, #-16]!",
-      "bytes": "e007bfa9",
-      "categories": [
-        "stack",
-        "pair",
-        "store",
-        "pre-index"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "sp"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "sp"
-        },
-        {
-          "mem": {
-            "base": "sp",
-            "index": null,
-            "scale": 1,
-            "offset": -16,
-            "size": 8
-          }
-        },
-        {
-          "mem": {
-            "base": "sp",
-            "index": null,
-            "scale": 1,
-            "offset": -8,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "prologue idiom; pre-index writeback defs sp"
-    },
-    {
-      "asm": "ldp x29, x30, [sp], #16",
-      "bytes": "fd7bc1a8",
-      "categories": [
-        "stack",
-        "pair",
-        "load",
-        "post-index"
-      ],
-      "uses": [
-        {
-          "reg": "sp"
-        },
-        {
-          "mem": {
-            "base": "sp",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 8
-          }
-        },
-        {
-          "mem": {
-            "base": "sp",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x29"
-        },
-        {
-          "reg": "x30"
-        },
-        {
-          "reg": "sp"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "epilogue idiom; post-index writeback defs sp"
-    },
-    {
-      "asm": "stp w0, w1, [x2, #4]",
-      "bytes": "40840029",
-      "categories": [
-        "stack",
-        "pair",
-        "store"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        },
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x2",
-            "index": null,
-            "scale": 1,
-            "offset": 4,
-            "size": 4
-          }
-        },
-        {
-          "mem": {
-            "base": "x2",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sxtw x0, w1",
-      "bytes": "207c4093",
-      "categories": [
-        "ext",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of sbfm"
-    },
-    {
-      "asm": "uxtb w0, w1",
-      "bytes": "201c0053",
-      "categories": [
-        "ext",
-        "zero-extend"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "alias of ubfm"
-    },
-    {
-      "asm": "sxth x0, w1",
-      "bytes": "203c4093",
-      "categories": [
-        "ext",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "b #16",
-      "bytes": "04000014",
-      "categories": [
-        "branch",
-        "unconditional"
-      ],
-      "uses": [],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "b.eq #8",
-      "bytes": "40000054",
-      "categories": [
-        "branch",
-        "conditional"
-      ],
-      "uses": [
-        {
-          "reg": "zr"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "b.lt #8",
-      "bytes": "4b000054",
-      "categories": [
-        "branch",
-        "conditional"
-      ],
-      "uses": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "b.hs #-8",
-      "bytes": "c2ffff54",
-      "categories": [
-        "branch",
-        "conditional"
-      ],
-      "uses": [
-        {
-          "reg": "cy"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "cbz x0, #16",
-      "bytes": "800000b4",
-      "categories": [
-        "branch",
-        "compare-and-branch"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "cbnz w1, #8",
-      "bytes": "41000035",
-      "categories": [
-        "branch",
-        "compare-and-branch"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "tbz w0, #3, #12",
-      "bytes": "60001836",
-      "categories": [
-        "branch",
-        "test-and-branch"
-      ],
-      "uses": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "tbnz x0, #33, #-16",
-      "bytes": "80ff0fb7",
-      "categories": [
-        "branch",
-        "test-and-branch"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "br x2",
-      "bytes": "40001fd6",
-      "categories": [
-        "branch",
-        "indirect"
-      ],
-      "uses": [
-        {
-          "reg": "x2"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "bl #64",
-      "bytes": "10000094",
-      "categories": [
-        "call"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "x30"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "blr x3",
-      "bytes": "60003fd6",
-      "categories": [
-        "call",
-        "indirect"
-      ],
-      "uses": [
-        {
-          "reg": "x3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x30"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ret",
-      "bytes": "c0035fd6",
-      "categories": [
-        "ret"
-      ],
-      "uses": [
-        {
-          "reg": "x30"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "csel x0, x1, x2, eq",
-      "bytes": "2000829a",
-      "categories": [
-        "misc",
-        "cond-select"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "reg": "zr"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "csinc x0, x1, x2, ne",
-      "bytes": "2014829a",
-      "categories": [
-        "misc",
-        "cond-select"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        },
-        {
-          "reg": "x2"
-        },
-        {
-          "reg": "zr"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "csneg w0, w1, w2, lt",
-      "bytes": "20b4825a",
-      "categories": [
-        "misc",
-        "cond-select"
-      ],
-      "uses": [
-        {
-          "reg": "w1"
-        },
-        {
-          "reg": "w2"
-        },
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "cset x0, gt",
-      "bytes": "e0d79f9a",
-      "categories": [
-        "misc",
-        "cond-select"
-      ],
-      "uses": [
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xzr"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "alias of csinc x0, xzr, xzr, le"
-    },
-    {
-      "asm": "adr x0, #32",
-      "bytes": "00010010",
-      "categories": [
-        "misc",
-        "pc-relative"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "pure address computation, no memory operand; result 0x1020"
-    },
-    {
-      "asm": "adrp x0, #4096",
-      "bytes": "000000b0",
-      "categories": [
-        "misc",
-        "pc-relative"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "pure address computation, no memory operand; result 0x2000"
-    },
-    {
-      "asm": "fadd d0, d1, d2",
-      "bytes": "2028621e",
-      "categories": [
-        "fp"
-      ],
-      "uses": [
-        {
-          "reg": "d1"
-        },
-        {
-          "reg": "d2"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "d0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "fmov d0, x1",
-      "bytes": "2000679e",
-      "categories": [
-        "fp",
-        "mov"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "d0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "fmov w0, s1",
-      "bytes": "2000261e",
-      "categories": [
-        "fp",
-        "mov"
-      ],
-      "uses": [
-        {
-          "reg": "s1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "w0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "ldr q0, [x0]",
-      "bytes": "0000c03d",
-      "categories": [
-        "fp",
-        "load",
-        "simd"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        },
-        {
-          "mem": {
-            "base": "x0",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 16
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "q0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "str d0, [x1, #8]",
-      "bytes": "200400fd",
-      "categories": [
-        "fp",
-        "store"
-      ],
-      "uses": [
-        {
-          "reg": "d0"
-        },
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "x1",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "fcmp d0, d1",
-      "bytes": "0020611e",
-      "categories": [
-        "fp",
-        "cmp"
-      ],
-      "uses": [
-        {
-          "reg": "d0"
-        },
-        {
-          "reg": "d1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "nop",
-      "bytes": "1f2003d5",
-      "categories": [
-        "misc"
-      ],
-      "uses": [],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "clz x0, x1",
-      "bytes": "2010c0da",
-      "categories": [
-        "misc"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "rev x0, x1",
-      "bytes": "200cc0da",
-      "categories": [
-        "misc"
-      ],
-      "uses": [
-        {
-          "reg": "x1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mrs x0, nzcv",
-      "bytes": "00423bd5",
-      "categories": [
-        "misc",
-        "sysreg"
-      ],
-      "uses": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads all four condition flags into x0[31:28]"
-    },
-    {
-      "asm": "msr nzcv, x0",
-      "bytes": "00421bd5",
-      "categories": [
-        "misc",
-        "sysreg"
-      ],
-      "uses": [
-        {
-          "reg": "x0"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ng"
-        },
-        {
-          "reg": "zr"
-        },
-        {
-          "reg": "cy"
-        },
-        {
-          "reg": "ov"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "writes all four condition flags from x0[31:28]"
+ "isa": "aarch64",
+ "ghidra_lang": "AARCH64:LE:64:v8A",
+ "llvm_triple": "aarch64-unknown-linux-gnu",
+ "base_address": 4096,
+ "entries": [
+  {
+   "asm": "mov x0, x1",
+   "bytes": "e00301aa",
+   "categories": [
+    "mov",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
     }
-  ]
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of orr x0, xzr, x1"
+  },
+  {
+   "asm": "mov w0, w1",
+   "bytes": "e003012a",
+   "categories": [
+    "mov",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "wzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of orr w0, wzr, w1"
+  },
+  {
+   "asm": "mov x0, sp",
+   "bytes": "e0030091",
+   "categories": [
+    "mov",
+    "sp"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of add x0, sp, #0"
+  },
+  {
+   "asm": "mov sp, x1",
+   "bytes": "3f000091",
+   "categories": [
+    "mov",
+    "sp"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of add sp, x1, #0"
+  },
+  {
+   "asm": "movz x0, #0x1234",
+   "bytes": "804682d2",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movz x0, #0x1234, lsl #16",
+   "bytes": "8046a2d2",
+   "categories": [
+    "mov",
+    "imm",
+    "shifted-imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movk x0, #0xbeef, lsl #16",
+   "bytes": "e0ddb7f2",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "movk reads and writes its destination (inserts 16 bits)"
+  },
+  {
+   "asm": "movn w0, #0x10",
+   "bytes": "00028012",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov x0, #-1",
+   "bytes": "00008092",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of movn x0, #0"
+  },
+  {
+   "asm": "add x0, x1, #16",
+   "bytes": "20400091",
+   "categories": [
+    "arith",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add w0, w1, #4095",
+   "bytes": "20fc3f11",
+   "categories": [
+    "arith",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add x0, x1, x2",
+   "bytes": "2000028b",
+   "categories": [
+    "arith",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add w0, w1, w2",
+   "bytes": "2000020b",
+   "categories": [
+    "arith",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sub x0, x1, #32",
+   "bytes": "208000d1",
+   "categories": [
+    "arith",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sub w0, w1, w2",
+   "bytes": "2000024b",
+   "categories": [
+    "arith",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add x0, x1, x2, lsl #3",
+   "bytes": "200c028b",
+   "categories": [
+    "arith",
+    "shifted-operand"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sub x0, x1, x2, lsr #4",
+   "bytes": "201042cb",
+   "categories": [
+    "arith",
+    "shifted-operand"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add x0, x1, w2, uxtw",
+   "bytes": "2040228b",
+   "categories": [
+    "arith",
+    "extended-reg"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add x0, sp, #0x10",
+   "bytes": "e0430091",
+   "categories": [
+    "arith",
+    "imm",
+    "sp"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "adds x0, x1, x2",
+   "bytes": "200002ab",
+   "categories": [
+    "arith",
+    "flags"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "subs w0, w1, #1",
+   "bytes": "20040071",
+   "categories": [
+    "arith",
+    "flags",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "adc x0, x1, x2",
+   "bytes": "2000029a",
+   "categories": [
+    "arith",
+    "carry"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "reg": "cy"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads carry flag"
+  },
+  {
+   "asm": "sbc x0, x1, x2",
+   "bytes": "200002da",
+   "categories": [
+    "arith",
+    "carry"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "reg": "cy"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads carry flag"
+  },
+  {
+   "asm": "adcs x0, x1, x2",
+   "bytes": "200002ba",
+   "categories": [
+    "arith",
+    "carry",
+    "flags"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "reg": "cy"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "neg x0, x1",
+   "bytes": "e00301cb",
+   "categories": [
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of sub x0, xzr, x1"
+  },
+  {
+   "asm": "cmp x0, x1",
+   "bytes": "1f0001eb",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "notes": "alias of subs xzr, x0, x1"
+  },
+  {
+   "asm": "cmp w0, #10",
+   "bytes": "1f280071",
+   "categories": [
+    "cmp",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "wzr"
+    }
+   ],
+   "notes": "alias of subs wzr, w0, #10"
+  },
+  {
+   "asm": "cmn x0, x1",
+   "bytes": "1f0001ab",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "notes": "alias of adds xzr, x0, x1"
+  },
+  {
+   "asm": "cmp x0, x1, lsl #2",
+   "bytes": "1f0801eb",
+   "categories": [
+    "cmp",
+    "shifted-operand"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "tst x0, x1",
+   "bytes": "1f0001ea",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "notes": "alias of ands xzr, x0, x1; cy and ov are set to zero"
+  },
+  {
+   "asm": "and x0, x1, x2",
+   "bytes": "2000028a",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "orr w0, w1, w2",
+   "bytes": "2000022a",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "eor x0, x1, x2",
+   "bytes": "200002ca",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "and x0, x1, #0xff",
+   "bytes": "201c4092",
+   "categories": [
+    "logic",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ands x0, x1, x2",
+   "bytes": "200002ea",
+   "categories": [
+    "logic",
+    "flags"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cy and ov are set to zero"
+  },
+  {
+   "asm": "bic x0, x1, x2",
+   "bytes": "2000228a",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mvn x0, x1",
+   "bytes": "e00321aa",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of orn x0, xzr, x1"
+  },
+  {
+   "asm": "lsl x0, x1, #4",
+   "bytes": "20ec7cd3",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of ubfm"
+  },
+  {
+   "asm": "lsr w0, w1, #3",
+   "bytes": "207c0353",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "asr x0, x1, #63",
+   "bytes": "20fc7f93",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ror x0, x1, #8",
+   "bytes": "2020c193",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of extr x0, x1, x1, #8"
+  },
+  {
+   "asm": "lsl x0, x1, x2",
+   "bytes": "2020c29a",
+   "categories": [
+    "shift",
+    "reg-counted"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lsr w0, w1, w2",
+   "bytes": "2024c21a",
+   "categories": [
+    "shift",
+    "reg-counted"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "asr x0, x1, x2",
+   "bytes": "2028c29a",
+   "categories": [
+    "shift",
+    "reg-counted"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ror x0, x1, x2",
+   "bytes": "202cc29a",
+   "categories": [
+    "shift",
+    "reg-counted"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mul x0, x1, x2",
+   "bytes": "207c029b",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of madd x0, x1, x2, xzr"
+  },
+  {
+   "asm": "madd x0, x1, x2, x3",
+   "bytes": "200c029b",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "reg": "x3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads three sources"
+  },
+  {
+   "asm": "msub w0, w1, w2, w3",
+   "bytes": "208c021b",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    },
+    {
+     "reg": "w3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads three sources"
+  },
+  {
+   "asm": "udiv x0, x1, x2",
+   "bytes": "2008c29a",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sdiv w0, w1, w2",
+   "bytes": "200cc21a",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "smull x0, w1, w2",
+   "bytes": "207c229b",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of smaddl x0, w1, w2, xzr"
+  },
+  {
+   "asm": "umulh x0, x1, x2",
+   "bytes": "207cc29b",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr x0, [x1]",
+   "bytes": "200040f9",
+   "categories": [
+    "load",
+    "base"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr x0, [x1, #16]",
+   "bytes": "200840f9",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 16,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr w0, [x1, #8]",
+   "bytes": "200840b9",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldrb w0, [x1]",
+   "bytes": "20004039",
+   "categories": [
+    "load",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldrh w0, [x1, #2]",
+   "bytes": "20044079",
+   "categories": [
+    "load",
+    "halfword"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 2,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldrsb w0, [x1]",
+   "bytes": "2000c039",
+   "categories": [
+    "load",
+    "byte",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldrsh x0, [x1]",
+   "bytes": "20008079",
+   "categories": [
+    "load",
+    "halfword",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldrsw x0, [x1, #4]",
+   "bytes": "200480b9",
+   "categories": [
+    "load",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr x0, [x1, x2]",
+   "bytes": "206862f8",
+   "categories": [
+    "load",
+    "base+index"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": "x2",
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr x0, [x1, x2, lsl #3]",
+   "bytes": "207862f8",
+   "categories": [
+    "load",
+    "scaled-index"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": "x2",
+      "scale": 8,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr w0, [x1, w2, uxtw #2]",
+   "bytes": "205862b8",
+   "categories": [
+    "load",
+    "scaled-index",
+    "extended-reg"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "w2"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": "w2",
+      "scale": 4,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "index register is 32-bit, zero-extended then scaled by 4"
+  },
+  {
+   "asm": "ldr x0, [x1, #8]!",
+   "bytes": "208c40f8",
+   "categories": [
+    "load",
+    "pre-index"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pre-index writeback defs base"
+  },
+  {
+   "asm": "ldr x0, [x1], #8",
+   "bytes": "208440f8",
+   "categories": [
+    "load",
+    "post-index"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "post-index writeback defs base; access at old base"
+  },
+  {
+   "asm": "ldr x0, #16",
+   "bytes": "80000058",
+   "categories": [
+    "load",
+    "literal",
+    "pc-relative"
+   ],
+   "uses": [
+    {
+     "mem": {
+      "base": null,
+      "index": null,
+      "scale": 1,
+      "offset": 4112,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pc-relative literal load resolved to absolute 0x1010"
+  },
+  {
+   "asm": "ldur x0, [x1, #-4]",
+   "bytes": "20c05ff8",
+   "categories": [
+    "load",
+    "unscaled"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "str x0, [x1]",
+   "bytes": "200000f9",
+   "categories": [
+    "store",
+    "base"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "str w0, [sp, #12]",
+   "bytes": "e00f00b9",
+   "categories": [
+    "store",
+    "base+disp",
+    "sp"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 12,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "strb w0, [x1, #1]",
+   "bytes": "20040039",
+   "categories": [
+    "store",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "strh w0, [x1, x2]",
+   "bytes": "20682278",
+   "categories": [
+    "store",
+    "halfword",
+    "base+index"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x1",
+      "index": "x2",
+      "scale": 1,
+      "offset": 0,
+      "size": 2
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "str x0, [x1, x2, lsl #3]",
+   "bytes": "207822f8",
+   "categories": [
+    "store",
+    "scaled-index"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x1",
+      "index": "x2",
+      "scale": 8,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "str x0, [sp, #-16]!",
+   "bytes": "e00f1ff8",
+   "categories": [
+    "store",
+    "pre-index",
+    "sp"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": -16,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pre-index writeback defs base"
+  },
+  {
+   "asm": "str x0, [x1], #16",
+   "bytes": "200401f8",
+   "categories": [
+    "store",
+    "post-index"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x1"
+    },
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "post-index writeback defs base; access at old base"
+  },
+  {
+   "asm": "stur w0, [x1, #-2]",
+   "bytes": "20e01fb8",
+   "categories": [
+    "store",
+    "unscaled"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": -2,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldp x0, x1, [x2]",
+   "bytes": "400440a9",
+   "categories": [
+    "stack",
+    "pair",
+    "load"
+   ],
+   "uses": [
+    {
+     "reg": "x2"
+    },
+    {
+     "mem": {
+      "base": "x2",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    },
+    {
+     "mem": {
+      "base": "x2",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldp w0, w1, [x2, #8]",
+   "bytes": "40044129",
+   "categories": [
+    "stack",
+    "pair",
+    "load"
+   ],
+   "uses": [
+    {
+     "reg": "x2"
+    },
+    {
+     "mem": {
+      "base": "x2",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    },
+    {
+     "mem": {
+      "base": "x2",
+      "index": null,
+      "scale": 1,
+      "offset": 12,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "w1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "stp x0, x1, [sp, #-16]!",
+   "bytes": "e007bfa9",
+   "categories": [
+    "stack",
+    "pair",
+    "store",
+    "pre-index"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": -16,
+      "size": 8
+     }
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": -8,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "prologue idiom; pre-index writeback defs sp"
+  },
+  {
+   "asm": "ldp x29, x30, [sp], #16",
+   "bytes": "fd7bc1a8",
+   "categories": [
+    "stack",
+    "pair",
+    "load",
+    "post-index"
+   ],
+   "uses": [
+    {
+     "reg": "sp"
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    },
+    {
+     "mem": {
+      "base": "sp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x29"
+    },
+    {
+     "reg": "x30"
+    },
+    {
+     "reg": "sp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "epilogue idiom; post-index writeback defs sp"
+  },
+  {
+   "asm": "stp w0, w1, [x2, #4]",
+   "bytes": "40840029",
+   "categories": [
+    "stack",
+    "pair",
+    "store"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    },
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x2",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    },
+    {
+     "mem": {
+      "base": "x2",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sxtw x0, w1",
+   "bytes": "207c4093",
+   "categories": [
+    "ext",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of sbfm"
+  },
+  {
+   "asm": "uxtb w0, w1",
+   "bytes": "201c0053",
+   "categories": [
+    "ext",
+    "zero-extend"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "alias of ubfm"
+  },
+  {
+   "asm": "sxth x0, w1",
+   "bytes": "203c4093",
+   "categories": [
+    "ext",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "b #16",
+   "bytes": "04000014",
+   "categories": [
+    "branch",
+    "unconditional"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "b.eq #8",
+   "bytes": "40000054",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "zr"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "b.lt #8",
+   "bytes": "4b000054",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "b.hs #-8",
+   "bytes": "c2ffff54",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "cy"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cbz x0, #16",
+   "bytes": "800000b4",
+   "categories": [
+    "branch",
+    "compare-and-branch"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cbnz w1, #8",
+   "bytes": "41000035",
+   "categories": [
+    "branch",
+    "compare-and-branch"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "tbz w0, #3, #12",
+   "bytes": "60001836",
+   "categories": [
+    "branch",
+    "test-and-branch"
+   ],
+   "uses": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "tbnz x0, #33, #-16",
+   "bytes": "80ff0fb7",
+   "categories": [
+    "branch",
+    "test-and-branch"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "br x2",
+   "bytes": "40001fd6",
+   "categories": [
+    "branch",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "x2"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bl #64",
+   "bytes": "10000094",
+   "categories": [
+    "call"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "x30"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "blr x3",
+   "bytes": "60003fd6",
+   "categories": [
+    "call",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "x3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x30"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ret",
+   "bytes": "c0035fd6",
+   "categories": [
+    "ret"
+   ],
+   "uses": [
+    {
+     "reg": "x30"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "csel x0, x1, x2, eq",
+   "bytes": "2000829a",
+   "categories": [
+    "misc",
+    "cond-select"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "reg": "zr"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "csinc x0, x1, x2, ne",
+   "bytes": "2014829a",
+   "categories": [
+    "misc",
+    "cond-select"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    },
+    {
+     "reg": "x2"
+    },
+    {
+     "reg": "zr"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "csneg w0, w1, w2, lt",
+   "bytes": "20b4825a",
+   "categories": [
+    "misc",
+    "cond-select"
+   ],
+   "uses": [
+    {
+     "reg": "w1"
+    },
+    {
+     "reg": "w2"
+    },
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cset x0, gt",
+   "bytes": "e0d79f9a",
+   "categories": [
+    "misc",
+    "cond-select"
+   ],
+   "uses": [
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "xzr"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "alias of csinc x0, xzr, xzr, le"
+  },
+  {
+   "asm": "adr x0, #32",
+   "bytes": "00010010",
+   "categories": [
+    "misc",
+    "pc-relative"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pure address computation, no memory operand; result 0x1020"
+  },
+  {
+   "asm": "adrp x0, #4096",
+   "bytes": "000000b0",
+   "categories": [
+    "misc",
+    "pc-relative"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pure address computation, no memory operand; result 0x2000"
+  },
+  {
+   "asm": "fadd d0, d1, d2",
+   "bytes": "2028621e",
+   "categories": [
+    "fp"
+   ],
+   "uses": [
+    {
+     "reg": "d1"
+    },
+    {
+     "reg": "d2"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "d0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "fmov d0, x1",
+   "bytes": "2000679e",
+   "categories": [
+    "fp",
+    "mov"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "d0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "fmov w0, s1",
+   "bytes": "2000261e",
+   "categories": [
+    "fp",
+    "mov"
+   ],
+   "uses": [
+    {
+     "reg": "s1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "w0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ldr q0, [x0]",
+   "bytes": "0000c03d",
+   "categories": [
+    "fp",
+    "load",
+    "simd"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    },
+    {
+     "mem": {
+      "base": "x0",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 16
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "q0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "str d0, [x1, #8]",
+   "bytes": "200400fd",
+   "categories": [
+    "fp",
+    "store"
+   ],
+   "uses": [
+    {
+     "reg": "d0"
+    },
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "x1",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "fcmp d0, d1",
+   "bytes": "0020611e",
+   "categories": [
+    "fp",
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "d0"
+    },
+    {
+     "reg": "d1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "nop",
+   "bytes": "1f2003d5",
+   "categories": [
+    "misc"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "clz x0, x1",
+   "bytes": "2010c0da",
+   "categories": [
+    "misc"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "rev x0, x1",
+   "bytes": "200cc0da",
+   "categories": [
+    "misc"
+   ],
+   "uses": [
+    {
+     "reg": "x1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mrs x0, nzcv",
+   "bytes": "00423bd5",
+   "categories": [
+    "misc",
+    "sysreg"
+   ],
+   "uses": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads all four condition flags into x0[31:28]"
+  },
+  {
+   "asm": "msr nzcv, x0",
+   "bytes": "00421bd5",
+   "categories": [
+    "misc",
+    "sysreg"
+   ],
+   "uses": [
+    {
+     "reg": "x0"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ng"
+    },
+    {
+     "reg": "zr"
+    },
+    {
+     "reg": "cy"
+    },
+    {
+     "reg": "ov"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "writes all four condition flags from x0[31:28]"
+  }
+ ]
 }
