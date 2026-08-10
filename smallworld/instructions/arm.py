@@ -1,3 +1,5 @@
+import typing
+
 import capstone
 
 from smallworld import platforms
@@ -14,8 +16,10 @@ class ARMInstruction(Instruction):
     # tests/use_def/corpus_arm32.json). The Thumb subclass overrides
     # this back to None -- analyze_bytes disassembles in the language's
     # default (ARM) mode, so Thumb bytes would be mis-decoded; Thumb
-    # falls back to the Capstone implementation.
-    ghidra_lang = "ARM:LE:32:v8"
+    # falls back to the Capstone implementation. Annotated Optional[str]
+    # (rather than letting the string literal narrow it to str) so that
+    # None override typechecks.
+    ghidra_lang: typing.Optional[str] = "ARM:LE:32:v8"
 
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         return BSIDMemoryReferenceOperand(
