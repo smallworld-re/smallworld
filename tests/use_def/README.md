@@ -19,6 +19,11 @@ truth.
   names exist in the platform definition. Pulled into `tests/unit.py`,
   so CI runs it with the rest of the unit suite; skips when pyghidra is
   unavailable.
+- `CORPUS.md` — a human-readable rendering of all corpora (one
+  instruction per row, uses/defs in columns) for review. Derived; do
+  not hand-edit. Regenerate with `python tests/use_def/render_corpus.py`
+  after changing any corpus.
+- `render_corpus.py` — regenerates `CORPUS.md` from the JSON corpora.
 
 ## Corpus file schema
 
