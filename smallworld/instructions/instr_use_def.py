@@ -193,7 +193,8 @@ def _unique_key(vn):
 #   r2save        — PPC bl/blr TOC-pointer save slot
 #   tea           — PPC temporary effective address (lmw/stmw)
 #   isamodeswitch — MIPS16e/micromips mode bit written by indirect jumps
-#   tmpcy/tmpng/tmpov/tmpzr, shift_carry — AArch64 SLEIGH flag scratch
+#   tmpcy/tmpng/tmpov/tmpzr, shift_carry — ARM/AArch64 SLEIGH flag scratch
+#   mult_addr     — ARM running-address accumulator for ldm/stm/push/pop
 _GHIDRA_INTERNAL_REGS = {
     "r2save",
     "tea",
@@ -203,7 +204,21 @@ _GHIDRA_INTERNAL_REGS = {
     "tmpov",
     "tmpzr",
     "shift_carry",
+    "mult_addr",
 }
+
+# Internal registers for which a COPY is pure noise on BOTH sides and the
+# whole op should be dropped, versus internals that merely relay a real
+# register (an address accumulator seeded from a base register), where
+# the op must still be processed so the real operand is captured.
+#
+# r2save is the PPC bl/blr TOC-pointer save/restore shuffle: it copies
+# r2 <-> r2save, and neither is a genuine data effect, so erase the op.
+# By contrast ARM ldm/stm's mult_addr and PPC lmw/stmw's tea are seeded
+# by 'COPY base -> accumulator' / written back by 'COPY accumulator ->
+# base'; dropping those ops would lose the base register's read and
+# writeback, so they are handled by per-operand filtering instead.
+_GHIDRA_COPY_ERASE_REGS = {"r2save"}
 
 
 # --------------------------------------------------------------------------- #
@@ -603,15 +618,17 @@ def instruction_use_def(program, instr):
                 f"output {op.getOutput()} {_varnode_operand(program, op.getOutput())}"
             )
 
-        # A COPY to or from a Ghidra bookkeeping register (e.g. PPC
-        # bl/blr shuffling the TOC pointer through 'r2Save') is not a
-        # real data effect; skip the whole op so neither side leaks
-        # into the use/def sets.
+        # A COPY that only shuffles a save/restore bookkeeping register
+        # (PPC bl/blr moving the TOC pointer through 'r2Save') is not a
+        # real data effect on either side; skip the whole op so neither
+        # leaks into the use/def sets. Accumulator internals like ARM
+        # mult_addr / PPC tea are deliberately NOT erased here -- their
+        # COPY relays a real base register, filtered per-operand below.
         if mnemonic == _PCODE_OP.COPY:
             input0 = _varnode_operand(program, op.getInput(0))
             output = _varnode_operand(program, op.getOutput())
             names = {o.name for o in (input0, output) if isinstance(o, RegisterOperand)}
-            if names & _GHIDRA_INTERNAL_REGS:
+            if names & _GHIDRA_COPY_ERASE_REGS:
                 continue
 
         # ---- collect reads from this op's inputs --------------------- #

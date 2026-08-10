@@ -107,6 +107,25 @@ FLAG_REGS = {
         "crall",
     },
     "mips32": set(),
+    "arm32": {
+        # ARM condition flags (Ghidra names them like AArch64)
+        "ng",
+        "zr",
+        "cy",
+        "ov",
+        "cpsr",
+        # Ghidra ARM scratch/status registers that leak into pcode:
+        # shift_carry is the barrel-shifter carry (even a plain add
+        # copies cy into it), tmp* are the flag-computation temporaries,
+        # tb/isamodeswitch are Thumb-interworking state.
+        "shift_carry",
+        "tmpcy",
+        "tmpov",
+        "tmpng",
+        "tmpzr",
+        "tb",
+        "isamodeswitch",
+    },
 }
 
 ADDRESS_BITS = {
@@ -115,6 +134,7 @@ ADDRESS_BITS = {
     "ppc32": 32,
     "aarch64": 64,
     "mips32": 32,
+    "arm32": 32,
 }
 
 
@@ -176,6 +196,8 @@ SUBREG_MAP = {
     "ppc32": {},
     "aarch64": _aarch64_subregs(),
     "mips32": {},
+    # ARM GPRs (r0-r15) have no narrower aliases; sp/lr/pc are r13/r14/r15.
+    "arm32": {"r13": "sp", "r14": "lr", "r15": "pc"},
 }
 
 
@@ -247,6 +269,7 @@ PC_REGS = {
     "ppc32": {"pc"},
     "aarch64": {"pc"},
     "mips32": {"pc"},
+    "arm32": {"pc"},
 }
 
 
