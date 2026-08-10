@@ -52,12 +52,35 @@ logger = logging.getLogger(__name__)
 _pyghidra_started = False
 
 
+def _prepare_symz3_extension():
+    """Best-effort: extract Ghidra's SymbolicSummaryZ3 extension (and add its
+    native libraries to the loader path) *before* we boot the JVM.
+
+    Ghidra only discovers extensions while its Application initializes, during
+    the first ``pyghidra.start()`` in the process. When our use/def analysis is
+    that first starter, a :class:`GhidraSymbolicEmulator` constructed later can
+    no longer load the extension (its own loader would run too late). Preparing
+    it here keeps both consumers working regardless of which boots the JVM
+    first. Silently does nothing when the symbolic extension isn't available
+    (e.g. a base install without the Ghidra symbolic emulator)."""
+    try:
+        from smallworld.emulators.ghidra import symz3_loader
+
+        symz3_loader.prepare_extension()
+    except Exception:
+        # The extension is optional; use/def must work without it. Any failure
+        # here (no install dir, missing extension, unsupported Ghidra) just
+        # means a later GhidraSymbolicEmulator will report the problem itself.
+        pass
+
+
 def _ensure_pyghidra():
     """Boot the embedded JVM on first use rather than at import time, so
     that importing smallworld doesn't pay Ghidra's multi-second startup
     (pyghidra.start() is idempotent; the flag just skips the call)."""
     global _pyghidra_started
     if not _pyghidra_started:
+        _prepare_symz3_extension()
         pyghidra.start()
         _pyghidra_started = True
 
