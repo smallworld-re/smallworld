@@ -3285,6 +3285,155 @@ class X86ImmediateOperandTests(unittest.TestCase):
         self.assertIn(RegisterOperand("rax"), insn.writes)
 
 
+class InstructionReadsWritesTests(unittest.TestCase):
+    """Instruction.reads / .writes for register and memory operands.
+
+    ARM and AArch64 carry per-operand Capstone access flags, so their reads and
+    writes are precise (unlike MIPS, whose operands are untagged).
+    """
+
+    ARM = platforms.Platform(platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE)
+    A64 = AARCH64_LE_PLATFORM
+
+    def test_alu_reads_sources_and_writes_destination(self):
+        # add r0, r1, r2
+        insn = Instruction.from_bytes(bytes.fromhex("020081e0"), 0x1000, self.ARM)
+        self.assertIn("add", insn.disasm)
+        self.assertEqual(insn.reads, {RegisterOperand("r1"), RegisterOperand("r2")})
+        self.assertEqual(insn.writes, {RegisterOperand("r0")})
+        # A plain ALU op transfers no control, so it fetches nothing.
+        self.assertEqual(insn.fetches, set())
+
+    def test_load_reads_dereferenced_memory_operand(self):
+        # ldr r0, [r1] -- the dereferenced address is read; r0 is written.
+        insn = Instruction.from_bytes(bytes.fromhex("000091e5"), 0x1000, self.ARM)
+        self.assertIn("ldr", insn.disasm)
+        self.assertEqual(insn.reads, {BSIDMemoryReferenceOperand(base="r1")})
+        self.assertEqual(insn.writes, {RegisterOperand("r0")})
+
+    def test_store_writes_dereferenced_memory_operand(self):
+        # str r0, [r1] -- r0 is read; the dereferenced address is written.
+        insn = Instruction.from_bytes(bytes.fromhex("000081e5"), 0x1000, self.ARM)
+        self.assertIn("str", insn.disasm)
+        self.assertEqual(insn.reads, {RegisterOperand("r0")})
+        self.assertEqual(insn.writes, {BSIDMemoryReferenceOperand(base="r1")})
+
+    def test_aarch64_load_reads_memory_and_writes_register(self):
+        # ldr x0, [x1]
+        insn = Instruction.from_bytes(bytes.fromhex("200040f9"), 0x1000, self.A64)
+        self.assertIn("ldr", insn.disasm)
+        self.assertEqual(insn.reads, {BSIDMemoryReferenceOperand(base="x1")})
+        self.assertEqual(insn.writes, {RegisterOperand("x0")})
+
+    def test_aarch64_store_reads_source_and_base_writes_memory(self):
+        # str x0, [x1] -- both the stored value (x0) and the base (x1) are reads.
+        insn = Instruction.from_bytes(bytes.fromhex("200000f9"), 0x1000, self.A64)
+        self.assertIn("str", insn.disasm)
+        self.assertIn(RegisterOperand("x0"), insn.reads)
+        self.assertIn(BSIDMemoryReferenceOperand(base="x1"), insn.reads)
+        self.assertEqual(insn.writes, {BSIDMemoryReferenceOperand(base="x1")})
+
+
+class InstructionFetchesTests(unittest.TestCase):
+    """Instruction.fetches for direct and register-indirect control transfers."""
+
+    MIPS = platforms.Platform(platforms.Architecture.MIPS32, platforms.Byteorder.BIG)
+    ARM = platforms.Platform(platforms.Architecture.ARM_V7A, platforms.Byteorder.LITTLE)
+    A64 = AARCH64_LE_PLATFORM
+    AMD = AMD64_LE_PLATFORM
+
+    # --- register-indirect branches: the target is the register's value, [reg] ---
+
+    def test_mips_jr_fetches_register_target_and_not_read(self):
+        # jr $ra
+        insn = Instruction.from_bytes(bytes.fromhex("03e00008"), 0x1000, self.MIPS)
+        self.assertIn("jr", insn.disasm)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(base="ra")})
+        # The target is a fetch, not a data read -- it must not leak into reads.
+        self.assertNotIn(BSIDMemoryReferenceOperand(base="ra"), insn.reads)
+
+    def test_mips_jalr_fetches_register_target(self):
+        # jalr $t9
+        insn = Instruction.from_bytes(bytes.fromhex("0320f809"), 0x1000, self.MIPS)
+        self.assertIn("jalr", insn.disasm)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(base="t9")})
+
+    def test_arm_bx_fetches_register_target_without_access_flag(self):
+        # bx lr -- Capstone tags the operand with no access at all, so fetch
+        # detection must key on the mnemonic, not on a read-access flag.
+        insn = Instruction.from_bytes(bytes.fromhex("1eff2fe1"), 0x1000, self.ARM)
+        self.assertIn("bx", insn.disasm)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(base="lr")})
+
+    def test_aarch64_br_and_blr_fetch_register_target(self):
+        br = Instruction.from_bytes(bytes.fromhex("20001fd6"), 0x1000, self.A64)  # br x1
+        self.assertIn("br", br.disasm)
+        self.assertEqual(br.fetches, {BSIDMemoryReferenceOperand(base="x1")})
+        blr = Instruction.from_bytes(bytes.fromhex("20003fd6"), 0x1000, self.A64)  # blr x1
+        self.assertIn("blr", blr.disasm)
+        self.assertEqual(blr.fetches, {BSIDMemoryReferenceOperand(base="x1")})
+
+    # --- direct branches: the target is the (Capstone-resolved absolute) immediate ---
+
+    def test_mips_direct_jumps_fetch_immediate_target(self):
+        for encoding, mnem in (("0c000440", "jal"), ("08000440", "j")):
+            insn = Instruction.from_bytes(bytes.fromhex(encoding), 0x1000, self.MIPS)
+            self.assertIn(mnem, insn.disasm)
+            self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(offset=0x1100)})
+
+    def test_arm_direct_call_fetches_immediate_target(self):
+        # bl #0x1000
+        insn = Instruction.from_bytes(bytes.fromhex("feffffeb"), 0x1000, self.ARM)
+        self.assertIn("bl", insn.disasm)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(offset=0x1000)})
+
+    def test_aarch64_direct_branch_fetches_immediate_target(self):
+        # b #0x1000
+        insn = Instruction.from_bytes(bytes.fromhex("00000014"), 0x1000, self.A64)
+        self.assertIn("b", insn.disasm)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(offset=0x1000)})
+
+    # --- conditional branches: compared registers are reads, target is a fetch ---
+
+    def test_mips_beq_separates_register_reads_from_fetch_target(self):
+        # beq $t1, $v0, 0xffc
+        insn = Instruction.from_bytes(bytes.fromhex("1122fffe"), 0x1000, self.MIPS)
+        self.assertIn("beq", insn.disasm)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(offset=0xFFC)})
+        self.assertIn(RegisterOperand("t1"), insn.reads)
+        self.assertIn(RegisterOperand("v0"), insn.reads)
+
+    def test_aarch64_cbz_reads_register_and_fetches_target(self):
+        # cbz x0, #0x19008
+        insn = Instruction.from_bytes(bytes.fromhex("40000cb4"), 0x1000, self.A64)
+        self.assertIn("cbz", insn.disasm)
+        self.assertIn(RegisterOperand("x0"), insn.reads)
+        self.assertEqual(insn.fetches, {BSIDMemoryReferenceOperand(offset=0x19008)})
+
+    # --- negative cases ---
+
+    def test_non_branch_immediate_is_not_a_fetch(self):
+        # addiu $v0, $v0, 4 -- the immediate 4 must not be mistaken for a target.
+        insn = Instruction.from_bytes(bytes.fromhex("24420004"), 0x1000, self.MIPS)
+        self.assertIn("addiu", insn.disasm)
+        self.assertEqual(insn.fetches, set())
+
+    def test_aarch64_bare_ret_exposes_no_fetch_operand(self):
+        # A bare `ret` returns via x30 implicitly, exposing no operand; this
+        # documented gap means it contributes no fetch target.
+        insn = Instruction.from_bytes(bytes.fromhex("c0035fd6"), 0x1000, self.A64)
+        self.assertIn("ret", insn.disasm)
+        self.assertEqual(insn.fetches, set())
+
+    def test_x86_register_indirect_branch_is_out_of_scope(self):
+        # jmp rax -- x86 register-indirect control flow is intentionally not
+        # modeled, so it yields no fetch target; rax is a plain register read.
+        insn = Instruction.from_bytes(bytes.fromhex("ffe0"), 0x1000, self.AMD)
+        self.assertIn("jmp", insn.disasm)
+        self.assertEqual(insn.fetches, set())
+        self.assertIn(RegisterOperand("rax"), insn.reads)
+
+
 class UnicornAmd64FpuRegisterTests(unittest.TestCase):
     """The unicorn amd64 machdef mapped fstat to the FPU control word."""
 

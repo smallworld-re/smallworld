@@ -64,8 +64,22 @@ class PlatformDef(metaclass=abc.ABCMeta):
     delay_slot_mnemonics: typing.Set[str] = set()
     """Set of delay slot mnemonics"""
 
-    implicit_dereference_mnemonics: typing.Set[str] = set()
-    """Set of mnemonics for instructions that implicitly dereference a register"""
+    implicit_read_mnemonics: typing.Set[str] = set()
+    """Mnemonics whose register operand is implicitly dereferenced as a data read.
+
+    For these instructions a register operand does not contribute its value;
+    instead the value is used as an address and the memory at that address is
+    read (i.e., an implicit load).  Distinct from ``implicit_fetch_mnemonics``,
+    which dereference the register for an instruction *fetch* (control flow).
+    """
+
+    implicit_fetch_mnemonics: typing.Set[str] = set()
+    """Mnemonics whose register operand is implicitly dereferenced as an instruction fetch.
+
+    For these instructions a register operand holds a control-flow target: its
+    value becomes the program counter and the CPU fetches instructions from that
+    address (e.g., MIPS ``jr``/``jalr``, ARM ``bx``, AArch64 ``br``).
+    """
 
     @property
     @abc.abstractmethod

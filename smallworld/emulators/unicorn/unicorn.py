@@ -872,22 +872,16 @@ class UnicornEmulator(
         # rws is list of either reads or writes. get list of these
         # reads or writes that is not actually available, i.e. memory
         # not mapped
-        def get_unavailable_rw(insn, rws):
+        def get_unavailable_rw(rws):
+            # `rws` is a collection of read/write/fetch operands.  Return those
+            # that reference memory which is not currently mapped.  Reads,
+            # writes, and fetches all describe their accessed address via a
+            # memory-reference operand (register-indirect and direct-branch
+            # fetch targets included), so a single check covers every case.
             out = []
             for rw in rws:
                 if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
-                    # This operation accesses memory
                     a = rw.address(self)
-                    if not (self._is_address_mapped(a)):
-                        out.append((rw, a))
-                elif (
-                    insn._instruction.mnemonic
-                    in self.platdef.implicit_dereference_mnemonics
-                    and isinstance(rw, instructions.RegisterOperand)
-                ):
-                    # This operand is a register that's implicitly derferenced
-                    # by this ISA
-                    a = rw.concretize(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out
@@ -915,7 +909,7 @@ class UnicornEmulator(
         if error.errno == unicorn.UC_ERR_READ_UNMAPPED:
             msg = f"{prefix} due to read of unmapped memory"
             if i is not None:
-                operands = get_unavailable_rw(i, i.reads)
+                operands = get_unavailable_rw(i.reads)
 
             exc = exceptions.EmulationReadUnmappedFailure(msg, pc, operands=operands)
 
@@ -940,7 +934,10 @@ class UnicornEmulator(
 
                     prev_mnem = insn.mnemonic
                     prev_i = instructions.Instruction.from_capstone(insn)
-                    prev_operands = get_unavailable_rw(prev_i, prev_i.reads)
+                    # A delay-slot branch (e.g. MIPS `jr`) fetches its target
+                    # after this instruction runs, so an unmapped-target fault
+                    # surfaces here.  Look at the branch's fetches, not reads.
+                    prev_operands = get_unavailable_rw(prev_i.fetches)
                 except Exception:
                     prev_mnem = None
                     prev_i = None
@@ -959,31 +956,31 @@ class UnicornEmulator(
         elif error.errno == unicorn.UC_ERR_READ_PROT:
             msg = f"{prefix} due to read of mapped but protected memory"
             if i is not None:
-                operands = get_unavailable_rw(i, i.reads)
+                operands = get_unavailable_rw(i.reads)
             exc = exceptions.EmulationReadProtectedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_READ_UNALIGNED:
             msg = f"{prefix} due to unaligned read"
             if i is not None:
-                operands = get_unavailable_rw(i, i.reads)
+                operands = get_unavailable_rw(i.reads)
             exc = exceptions.EmulationReadUnalignedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNMAPPED:
             msg = f"{prefix} due to write to unmapped memory"
             if i is not None:
-                operands = get_unavailable_rw(i, i.writes)
+                operands = get_unavailable_rw(i.writes)
             exc = exceptions.EmulationWriteUnmappedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_PROT:
             msg = f"{prefix} due to write to mapped but protected memory"
             if i is not None:
-                operands = get_unavailable_rw(i, i.writes)
+                operands = get_unavailable_rw(i.writes)
             exc = exceptions.EmulationWriteProtectedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_WRITE_UNALIGNED:
             msg = f"{prefix} due to unaligned write"
             if i is not None:
-                operands = get_unavailable_rw(i, i.writes)
+                operands = get_unavailable_rw(i.writes)
             exc = exceptions.EmulationWriteUnalignedFailure(msg, pc, operands=operands)
 
         elif error.errno == unicorn.UC_ERR_FETCH_UNMAPPED:

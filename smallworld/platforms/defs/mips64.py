@@ -108,7 +108,8 @@ class MIPSN64PlatformDef(PlatformDef):
         "jalr",
     } | conditional_branch_mnemonics
 
-    implicit_dereference_mnemonics = {
+    implicit_fetch_mnemonics = {
+        # Register-indirect jumps: the register value becomes the PC.
         "jr",
         "jalr",
     }

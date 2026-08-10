@@ -44,6 +44,16 @@ class ARMPlatformDef(PlatformDef):
         "cbnz",
     }
 
+    implicit_fetch_mnemonics = {
+        # Register-indirect branches: the register value becomes the PC.
+        # `blx` also has an immediate (direct) form, but that exposes an
+        # immediate operand rather than a register, so it is never matched by
+        # the register-operand handling in Instruction.fetches.
+        "bx",
+        "blx",
+        "bxj",
+    }
+
     pc_register = "pc"
     sp_register = "sp"
 

@@ -199,6 +199,40 @@ class Instruction(metaclass=abc.ABCMeta):
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         pass
 
+    def _register_dereference(self, operand) -> MemoryReferenceOperand:
+        """Build a memory reference for an implicitly-dereferenced register operand.
+
+        Some instructions use a register operand's *value* directly as an
+        address rather than as data (e.g., MIPS ``jr``, where ``$ra`` holds the
+        jump target).  Unlike a normal memory operand, Capstone reports this as
+        a bare register, so we synthesize the reference ``[reg]`` -- the
+        register's contents with no offset -- sized to the platform's address
+        width.
+        """
+        from .bsid import BSIDMemoryReferenceOperand
+
+        platdef = PlatformDef.for_platform(self.platform)
+        return BSIDMemoryReferenceOperand(
+            base=self._instruction.reg_name(operand.reg),
+            offset=0,
+            size=platdef.address_size,
+        )
+
+    def _immediate_fetch(self, address: int) -> MemoryReferenceOperand:
+        """Build a memory reference for a direct branch's constant target.
+
+        For a branch to a label, Capstone resolves the immediate operand to an
+        absolute target address; we wrap it as a base-less reference whose
+        address is that constant, sized to the platform's address width.
+        """
+        from .bsid import BSIDMemoryReferenceOperand
+
+        platdef = PlatformDef.for_platform(self.platform)
+        return BSIDMemoryReferenceOperand(
+            offset=address,
+            size=platdef.address_size,
+        )
+
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
@@ -220,16 +254,73 @@ class Instruction(metaclass=abc.ABCMeta):
             elif operand.type == capstone.CS_OP_REG and (
                 not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
             ):
-                if self._instruction.mnemonic in platdef.implicit_dereference_mnemonics:
-                    # This is a register operand that's
-                    # actually dereferenced by the instruction.
+                if self._instruction.mnemonic in platdef.implicit_read_mnemonics:
+                    # This is a register operand whose value is implicitly
+                    # dereferenced as an address to read data from.
                     # Handle as a memory operand.
-                    read.add(self._memory_reference(operand))
+                    read.add(self._register_dereference(operand))
                 else:
                     # This is a register reference that's used for its value.
                     read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
 
         return read
+
+    @property
+    def fetches(self) -> typing.Set[Operand]:
+        """Memory references fetched (executed) by this instruction.
+
+        These are the control-flow targets an instruction transfers to: the
+        addresses the CPU will fetch instructions from.  Targets come in two
+        forms:
+
+        * **Direct** -- a branch/call to a label, whose (absolute) target
+          Capstone exposes as an immediate operand (e.g., ``b 0x1000``).
+        * **Register-indirect** -- a branch whose target is the *value* of a
+          register operand, listed in the platform's
+          :attr:`~PlatformDef.implicit_fetch_mnemonics` (e.g., MIPS ``jr $ra``).
+
+        Both are returned as :class:`MemoryReferenceOperand` objects describing
+        the fetched address, mirroring how :attr:`reads` and :attr:`writes`
+        describe data addresses.
+
+        Not covered: memory-indirect / load-to-PC fetches such as ARM
+        ``ldr pc, [..]`` or ``pop {pc}`` (the target is the *contents* of
+        memory, a second dereference), and instructions whose target register
+        is implicit and thus absent from the operand list (e.g., a bare
+        AArch64 ``ret``, which uses ``x30``).
+        """
+
+        platdef = PlatformDef.for_platform(self.platform)
+        fetch: typing.Set[Operand] = set()
+
+        mnemonic = self._instruction.mnemonic
+        # Capstone's generic JUMP/CALL groups identify most control transfers
+        # across architectures; the mnemonic-set fallback catches the few it
+        # omits (notably MIPS `jal`, which carries only an arch-specific group).
+        is_control_transfer = (
+            self._instruction.group(capstone.CS_GRP_JUMP)
+            or self._instruction.group(capstone.CS_GRP_CALL)
+            or mnemonic in platdef.conditional_branch_mnemonics
+            or mnemonic in platdef.delay_slot_mnemonics
+            or mnemonic in platdef.implicit_fetch_mnemonics
+        )
+        if not is_control_transfer:
+            return fetch
+
+        for operand in self._instruction.operands:
+            if operand.type == capstone.CS_OP_IMM:
+                # Direct branch: the immediate is the absolute target address.
+                fetch.add(self._immediate_fetch(operand.imm))
+            elif (
+                operand.type == capstone.CS_OP_REG
+                and mnemonic in platdef.implicit_fetch_mnemonics
+            ):
+                # Register-indirect branch: the register value is the target.
+                # (Register operands of other branches -- e.g., the compared
+                # registers of `beq` -- are data reads, handled by `reads`.)
+                fetch.add(self._register_dereference(operand))
+
+        return fetch
 
     @property
     def writes(self) -> typing.Set[Operand]:

@@ -616,7 +616,11 @@ class CrashTriage(analysis.Analysis):
 
         disas = self._disassemble(emu, pc)
         insn = instructions.Instruction.from_capstone(disas)
-        ops = insn.reads if is_read else insn.writes
+        # An instruction fetch reads code memory, so a faulting fetch target
+        # (e.g. a jump-to-register whose target is unbound) surfaces with
+        # is_read=True; include the instruction's fetch targets alongside its
+        # data reads so the culpable operand can still be identified.
+        ops = (insn.reads | insn.fetches) if is_read else insn.writes
         for op in ops:
             if isinstance(op, instructions.BSIDMemoryReferenceOperand):
                 val = op.symbolic_address(emu)

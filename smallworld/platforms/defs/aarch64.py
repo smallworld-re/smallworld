@@ -15,6 +15,20 @@ class AArch64(PlatformDef):
     pc_register = "pc"
     sp_register = "sp"
 
+    implicit_fetch_mnemonics = {
+        # Register-indirect branches: the register value becomes the PC.
+        "br",
+        "blr",
+        # `ret <reg>` names the return-address register explicitly.  Bare
+        # `ret` uses x30 implicitly and exposes no operand, so it is not
+        # captured here.
+        "ret",
+        # NOTE: the ARMv8.3-A pointer-authentication variants (braa/brab,
+        # blraa/blrab, retaa/retab, ...) are intentionally omitted; the
+        # two-register forms would need to distinguish the target operand from
+        # the modifier operand, which Instruction.fetches does not currently do.
+    }
+
     # NOTE: aarch64 has unconditional conditions.
     # "al" is always true, and "nv" is never true.
     conditional_branch_mnemonics = {
