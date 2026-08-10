@@ -103,6 +103,11 @@ class InstructionUseDefTests(unittest.TestCase):
         ("AARCH64", "LITTLE", "20040039", "strb w0, [x1, #1]"),
         ("MIPS32", "BIG", "8fa80004", "lw t0, 4(sp)"),
         ("MIPS32", "BIG", "01090018", "mult t0, t1"),
+        # ARM-mode (little-endian bytes); routed through pcode now that
+        # ARMInstruction sets ghidra_lang.
+        ("ARM_V7A", "LITTLE", "081092e5", "ldr r1, [r2, #8]"),
+        ("ARM_V7A", "LITTLE", "70402de9", "push {r4, r5, r6, lr}"),
+        ("ARM_V7A", "LITTLE", "1eff2fe1", "bx lr"),
     ]
 
     def test_reads_writes_are_platform_valid(self):
