@@ -1529,11 +1529,7 @@
     "zero-idiom",
     "dword"
    ],
-   "uses": [
-    {
-     "reg": "eax"
-    }
-   ],
+   "uses": [],
    "defs": [
     {
      "reg": "eax"
@@ -1560,7 +1556,7 @@
      "reg": "af"
     }
    ],
-   "notes": "zeroing idiom; architecturally still reads eax"
+   "notes": "zeroing idiom; the self-XOR result is 0 regardless of eax, so eax is not a genuine read (dependency-breaking idiom -- see instr_use_def)"
   },
   {
    "asm": "xor r8, r9",

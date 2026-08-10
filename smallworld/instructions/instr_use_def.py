@@ -188,6 +188,17 @@ def _unique_key(vn):
     return (int(vn.getAddress().getOffset()), int(vn.getSize()))
 
 
+def _same_register(a, b):
+    """True if two varnodes denote the exact same register (same
+    register-space offset and size)."""
+    return (
+        a.isRegister()
+        and b.isRegister()
+        and a.getAddress().getOffset() == b.getAddress().getOffset()
+        and a.getSize() == b.getSize()
+    )
+
+
 # Registers (lowercase) that exist only as Ghidra modeling devices, not
 # architectural state, and must never appear in use/def sets:
 #   r2save        — PPC bl/blr TOC-pointer save slot
@@ -316,6 +327,29 @@ class _PCODE_OP(Enum):
     NEW = auto()
     INSERT = auto()
     EXTRACT = auto()
+
+
+# Binary pcode ops whose result is a constant when both inputs are the
+# same value: x-x=0, x^x=0, signed borrow of x-x=0, and the reflexive
+# comparisons (x==x, x<x, x<=x). For these, an operand read of a
+# register against itself carries no information, so it is not a real
+# use. INT_ADD/INT_MULT (depend on the value), INT_AND/INT_OR (return
+# the value), and INT_CARRY/INT_SCARRY (a+a overflow depends on a) are
+# intentionally absent.
+_CONST_ON_IDENTICAL_INPUTS = frozenset(
+    {
+        _PCODE_OP.INT_XOR,
+        _PCODE_OP.INT_SUB,
+        _PCODE_OP.INT_SBORROW,
+        _PCODE_OP.INT_EQUAL,
+        _PCODE_OP.INT_NOTEQUAL,
+        _PCODE_OP.INT_LESS,
+        _PCODE_OP.INT_SLESS,
+        _PCODE_OP.INT_LESSEQUAL,
+        _PCODE_OP.INT_SLESSEQUAL,
+        _PCODE_OP.BOOL_XOR,
+    }
+)
 
 
 def _space_name(program, space_id_vn):
@@ -645,10 +679,30 @@ def instruction_use_def(program, instr):
             if mnemonic in (_PCODE_OP.BRANCH, _PCODE_OP.CBRANCH, _PCODE_OP.CALL)
             else None
         )
+        # Dependency-breaking idiom: an op whose result is a constant
+        # when both inputs are the same register does not genuinely read
+        # that register. This is x86's canonical zeroing -- `xor eax,eax`
+        # / `sub eax,eax` and the per-lane form of pxor/xorps -- but the
+        # test is architecture-neutral. It covers the subtraction/xor
+        # itself AND the flag ops that reference the operands directly:
+        # `sub` emits INT_SBORROW(eax,eax) *before* the subtract, which
+        # would otherwise re-introduce the read. Suppressing these keeps
+        # the use/def graph free of a false edge to the register's prior
+        # definition; the output is still a def (the register is written,
+        # to 0). INT_AND/INT_OR (which return the register) and INT_ADD/
+        # carry (which depend on it) are deliberately excluded.
+        self_zeroing = (
+            mnemonic in _CONST_ON_IDENTICAL_INPUTS
+            and len(op.getInputs()) == 2
+            and _same_register(op.getInput(0), op.getInput(1))
+        )
         for i, inp in enumerate(op.getInputs()):
             if i == skip_input:
                 continue
             if inp.isRegister():
+                if self_zeroing:
+                    # spurious self-read; result does not depend on it
+                    continue
                 reg = _varnode_operand(program, inp)
                 assert isinstance(reg, RegisterOperand)
                 if reg.name in _GHIDRA_INTERNAL_REGS:
