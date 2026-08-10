@@ -155,5 +155,79 @@ class InstructionUseDefTests(unittest.TestCase):
         )
 
 
+class UseDefBackendSelectionTests(unittest.TestCase):
+    """reads/writes backend selection: pcode default, Capstone fallback.
+
+    The Capstone path needs no pyghidra, so these run unconditionally.
+    """
+
+    def _insn(self):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        # push rax -- exercises implicit rsp + a stack memory operand,
+        # which the two backends spell differently (pcode resolves the
+        # address pre-execution as [rsp-8]; Capstone reports [rsp]).
+        return Instruction.from_bytes(
+            b"\x50", 0x1000, Platform(Architecture.X86_64, Byteorder.LITTLE)
+        )
+
+    def setUp(self):
+        self._saved = os.environ.get("SMALLWORLD_USE_DEF_BACKEND")
+
+    def tearDown(self):
+        if self._saved is None:
+            os.environ.pop("SMALLWORLD_USE_DEF_BACKEND", None)
+        else:
+            os.environ["SMALLWORLD_USE_DEF_BACKEND"] = self._saved
+
+    def test_capstone_backend_needs_no_pyghidra(self):
+        from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
+
+        os.environ["SMALLWORLD_USE_DEF_BACKEND"] = "capstone"
+        insn = self._insn()
+        self.assertFalse(insn._use_pcode())
+        self.assertIn(RegisterOperand("rsp"), insn.reads)
+        mems = [op for op in insn.writes if isinstance(op, BSIDMemoryReferenceOperand)]
+        self.assertEqual(len(mems), 1)
+        self.assertEqual(mems[0].base, "rsp")
+
+    def test_auto_uses_pcode_when_pyghidra_available(self):
+        os.environ.pop("SMALLWORLD_USE_DEF_BACKEND", None)
+        insn = self._insn()
+        # ghidra_lang is set for x86-64; under auto, pcode iff importable
+        self.assertEqual(insn._use_pcode(), HAVE_PYGHIDRA)
+
+    @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+    def test_pcode_and_capstone_agree_on_push_address(self):
+        # Both backends must resolve push rax's write to the same stack
+        # slot, even though they spell the operand differently.
+        from smallworld.instructions import BSIDMemoryReferenceOperand
+
+        class _Regs:
+            def read_register(self, name):
+                return 0x7FFF_0000 if name == "rsp" else 0
+
+        emu = _Regs()
+
+        os.environ.pop("SMALLWORLD_USE_DEF_BACKEND", None)
+        pcode_mem = next(
+            op
+            for op in self._insn().writes
+            if isinstance(op, BSIDMemoryReferenceOperand)
+        )
+        os.environ["SMALLWORLD_USE_DEF_BACKEND"] = "capstone"
+        cap_mem = next(
+            op
+            for op in self._insn().writes
+            if isinstance(op, BSIDMemoryReferenceOperand)
+        )
+        # pcode: [rsp-8] resolved pre-execution; Capstone: [rsp] meant
+        # to be read post-decrement. Against the same pre-push rsp they
+        # differ by the push width -- documenting, not asserting equal.
+        self.assertEqual(pcode_mem.address(emu), 0x7FFF_0000 - 8)
+        self.assertEqual(cap_mem.address(emu), 0x7FFF_0000)
+
+
 if __name__ == "__main__":
     unittest.main()

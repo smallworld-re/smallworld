@@ -1,5 +1,8 @@
 import abc
+import functools
+import importlib.util
 import logging
+import os
 import re
 import typing
 
@@ -10,6 +13,26 @@ from smallworld.platforms import Architecture, Platform, PlatformDef
 from .. import emulators, utils
 
 logger = logging.getLogger(__name__)
+
+# Which implementation backs Instruction.reads / .writes.
+#
+#   auto     (default) use the Ghidra-pcode analysis when the ISA
+#            supports it (ghidra_lang set) and pyghidra is installed;
+#            otherwise fall back to the Capstone-based implementation.
+#   pcode    force the pcode analysis (raises later if pyghidra or a
+#            Ghidra install is genuinely missing).
+#   capstone force the Capstone implementation everywhere -- the
+#            alternate, usable but not the default.
+#
+# pyghidra lives under the optional 'emu-ghidra' extra, so the pcode
+# path cannot be assumed present; auto keeps use/def working on a base
+# install (or a unicorn/angr-only one) by degrading to Capstone.
+USE_DEF_BACKEND_ENV = "SMALLWORLD_USE_DEF_BACKEND"
+
+
+@functools.lru_cache(maxsize=1)
+def _pyghidra_available() -> bool:
+    return importlib.util.find_spec("pyghidra") is not None
 
 
 class Operand(metaclass=abc.ABCMeta):
@@ -365,6 +388,55 @@ class Instruction(metaclass=abc.ABCMeta):
             operands = self._collapse_widened_defs(operands, platdef)
         return operands
 
+    def _use_pcode(self) -> bool:
+        """Whether reads/writes should use the Ghidra-pcode analysis
+        rather than the Capstone implementation, honoring the
+        SMALLWORLD_USE_DEF_BACKEND override (see module docstring)."""
+        backend = os.environ.get(USE_DEF_BACKEND_ENV, "auto").lower()
+        if backend == "capstone":
+            return False
+        if self.ghidra_lang is None:
+            # No validated pcode implementation for this ISA.
+            return False
+        if backend == "pcode":
+            # Explicitly requested; let it raise downstream if pyghidra
+            # or a Ghidra install turns out to be missing.
+            return True
+        return _pyghidra_available()
+
+    def _capstone_use_def(self, kind: str) -> typing.Set[Operand]:
+        """Capstone-based use ('use') / def ('def') set.
+
+        The fallback used when the pcode backend is unavailable or
+        disabled. Architectures whose _memory_reference does not take a
+        single Capstone operand (x86) override this.
+        """
+        platdef = PlatformDef.for_platform(self.platform)
+        access = capstone.CS_AC_READ if kind == "use" else capstone.CS_AC_WRITE
+        operands: typing.Set[Operand] = set()
+        for operand in self._instruction.operands:
+            if operand.type == capstone.CS_OP_MEM and (
+                not hasattr(operand, "access") or operand.access & access
+            ):
+                # Memory operand; handling is architecture-specific.
+                operands.add(self._memory_reference(operand))
+            elif operand.type == capstone.CS_OP_REG and (
+                not hasattr(operand, "access") or operand.access & access
+            ):
+                if (
+                    kind == "use"
+                    and self._instruction.mnemonic
+                    in platdef.implicit_dereference_mnemonics
+                ):
+                    # A register the instruction dereferences implicitly;
+                    # treat as a memory reference.
+                    operands.add(self._memory_reference(operand))
+                else:
+                    operands.add(
+                        RegisterOperand(self._instruction.reg_name(operand.reg))
+                    )
+        return operands
+
     @property
     def reads(self) -> typing.Set[Operand]:
         """Registers and memory references read by this instruction.
@@ -373,32 +445,9 @@ class Instruction(metaclass=abc.ABCMeta):
         MemoryReferenceOperand for memory (in the form
         `base + scale * index + offset`).
         """
-        if self.ghidra_lang is not None:
+        if self._use_pcode():
             return self._pcode_use_def("use")
-
-        platdef = PlatformDef.for_platform(self.platform)
-        read: typing.Set[Operand] = set()
-
-        for operand in self._instruction.operands:
-            if operand.type == capstone.CS_OP_MEM and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
-            ):
-                # This is a memory operand.
-                # Handling is architecture-specific
-                read.add(self._memory_reference(operand))
-            elif operand.type == capstone.CS_OP_REG and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ
-            ):
-                if self._instruction.mnemonic in platdef.implicit_dereference_mnemonics:
-                    # This is a register operand that's
-                    # actually dereferenced by the instruction.
-                    # Handle as a memory operand.
-                    read.add(self._memory_reference(operand))
-                else:
-                    # This is a register reference that's used for its value.
-                    read.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
-
-        return read
+        return self._capstone_use_def("use")
 
     @property
     def writes(self) -> typing.Set[Operand]:
@@ -406,22 +455,9 @@ class Instruction(metaclass=abc.ABCMeta):
 
         Same format as `reads`.
         """
-        if self.ghidra_lang is not None:
+        if self._use_pcode():
             return self._pcode_use_def("def")
-
-        write: typing.Set[Operand] = set()
-
-        for operand in self._instruction.operands:
-            if operand.type == capstone.CS_OP_MEM and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_WRITE
-            ):
-                write.add(self._memory_reference(operand))
-            elif operand.type == capstone.CS_OP_REG and (
-                not hasattr(operand, "access") or operand.access & capstone.CS_AC_WRITE
-            ):
-                write.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
-
-        return write
+        return self._capstone_use_def("def")
 
     # def to_json(self) -> dict:
     #     return {

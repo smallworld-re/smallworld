@@ -38,6 +38,7 @@ from harness.scenarios import fuzz as fuzz_scenario
 from harness.scenarios import static_buf as static_buf_scenario
 from use_def.test_use_def import (  # noqa: F401 - registers the TestCases
     InstructionUseDefTests,
+    UseDefBackendSelectionTests,
     UseDefCorpusTests,
 )
 
