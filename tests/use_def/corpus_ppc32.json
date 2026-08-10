@@ -1,2052 +1,2042 @@
 {
-  "isa": "ppc32",
-  "ghidra_lang": "PowerPC:BE:32:default",
-  "llvm_triple": "powerpc-unknown-linux-gnu",
-  "base_address": 4096,
-  "entries": [
-    {
-      "asm": "li 3, 42",
-      "bytes": "3860002a",
-      "categories": [
-        "mov",
-        "imm"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "addi rD,0,imm; rA=0 means literal zero, no register read"
-    },
-    {
-      "asm": "lis 4, 4660",
-      "bytes": "3c801234",
-      "categories": [
-        "mov",
-        "imm"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "addis rD,0,imm; rA=0 means literal zero"
-    },
-    {
-      "asm": "mr 5, 6",
-      "bytes": "7cc53378",
-      "categories": [
-        "mov"
-      ],
-      "uses": [
-        {
-          "reg": "r6"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r5"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "or rD,rS,rS underlying form"
-    },
-    {
-      "asm": "mr. 7, 8",
-      "bytes": "7d074379",
-      "categories": [
-        "mov",
-        "record-form"
-      ],
-      "uses": [
-        {
-          "reg": "r8"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r7"
-        },
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "or. underlying form; cr0[so] copies xer_so"
-    },
-    {
-      "asm": "ori 3, 4, 255",
-      "bytes": "608300ff",
-      "categories": [
-        "logic",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "addi 3, 4, 100",
-      "bytes": "38640064",
-      "categories": [
-        "arith",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "addis 5, 6, 1",
-      "bytes": "3ca60001",
-      "categories": [
-        "arith",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r6"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r5"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add 3, 4, 5",
-      "bytes": "7c642a14",
-      "categories": [
-        "arith"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "add. 3, 4, 5",
-      "bytes": "7c642a15",
-      "categories": [
-        "arith",
-        "record-form"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "record form: cr0[so] copies xer_so"
-    },
-    {
-      "asm": "subf 3, 4, 5",
-      "bytes": "7c642850",
-      "categories": [
-        "arith"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "r3 = r5 - r4"
-    },
-    {
-      "asm": "subf. 6, 7, 8",
-      "bytes": "7cc74051",
-      "categories": [
-        "arith",
-        "record-form"
-      ],
-      "uses": [
-        {
-          "reg": "r7"
-        },
-        {
-          "reg": "r8"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r6"
-        },
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "record form: cr0[so] copies xer_so"
-    },
-    {
-      "asm": "neg 3, 4",
-      "bytes": "7c6400d0",
-      "categories": [
-        "arith"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "addc 3, 4, 5",
-      "bytes": "7c642814",
-      "categories": [
-        "arith",
-        "carry"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "writes carry"
-    },
-    {
-      "asm": "adde 3, 4, 5",
-      "bytes": "7c642914",
-      "categories": [
-        "arith",
-        "carry"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads and writes carry"
-    },
-    {
-      "asm": "addic 3, 4, 1",
-      "bytes": "30640001",
-      "categories": [
-        "arith",
-        "carry",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "writes carry"
-    },
-    {
-      "asm": "addic. 3, 4, 1",
-      "bytes": "34640001",
-      "categories": [
-        "arith",
-        "carry",
-        "record-form",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        },
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "writes carry and records; cr0[so] copies xer_so"
-    },
-    {
-      "asm": "subfic 3, 4, 10",
-      "bytes": "2064000a",
-      "categories": [
-        "arith",
-        "carry",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "r3 = 10 - r4; writes carry"
-    },
-    {
-      "asm": "addze 3, 4",
-      "bytes": "7c640194",
-      "categories": [
-        "arith",
-        "carry"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "add to zero extended: reads and writes carry"
-    },
-    {
-      "asm": "subfe 3, 4, 5",
-      "bytes": "7c642910",
-      "categories": [
-        "arith",
-        "carry"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads and writes carry"
-    },
-    {
-      "asm": "mtxer 6",
-      "bytes": "7cc103a6",
-      "categories": [
-        "mov",
-        "spr",
-        "overflow"
-      ],
-      "uses": [
-        {
-          "reg": "r6"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "xer_so"
-        },
-        {
-          "reg": "xer_ov"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "mtspr xer: writes all of XER incl. so/ov/ca. Stand-in for addo-style overflow forms, which capstone 5.0.3 cannot decode"
-    },
-    {
-      "asm": "mfxer 6",
-      "bytes": "7cc102a6",
-      "categories": [
-        "mov",
-        "spr",
-        "overflow"
-      ],
-      "uses": [
-        {
-          "reg": "xer_so"
-        },
-        {
-          "reg": "xer_ov"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r6"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "mfspr xer: reads all of XER incl. so/ov/ca"
-    },
-    {
-      "asm": "and 3, 4, 5",
-      "bytes": "7c832838",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "or 3, 4, 5",
-      "bytes": "7c832b78",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "xor 3, 4, 5",
-      "bytes": "7c832a78",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "nand 3, 4, 5",
-      "bytes": "7c832bb8",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "nor 3, 4, 5",
-      "bytes": "7c8328f8",
-      "categories": [
-        "logic"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "andi. 3, 4, 255",
-      "bytes": "708300ff",
-      "categories": [
-        "logic",
-        "record-form",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "andi. always records; cr0[so] copies xer_so"
-    },
-    {
-      "asm": "rlwinm 3, 4, 4, 0, 27",
-      "bytes": "54832036",
-      "categories": [
-        "shift",
-        "rotate"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "rlwimi 3, 4, 8, 16, 23",
-      "bytes": "5083442e",
-      "categories": [
-        "shift",
-        "rotate",
-        "insert"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "insert under mask: destination is read-modify-write"
-    },
-    {
-      "asm": "slw 3, 4, 5",
-      "bytes": "7c832830",
-      "categories": [
-        "shift"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "srw 3, 4, 5",
-      "bytes": "7c832c30",
-      "categories": [
-        "shift"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sraw 3, 4, 5",
-      "bytes": "7c832e30",
-      "categories": [
-        "shift"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "algebraic shift right writes xer_ca"
-    },
-    {
-      "asm": "srawi 3, 4, 2",
-      "bytes": "7c831670",
-      "categories": [
-        "shift",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "xer_ca"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "algebraic shift right writes xer_ca"
-    },
-    {
-      "asm": "mullw 3, 4, 5",
-      "bytes": "7c6429d6",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mulhw 3, 4, 5",
-      "bytes": "7c642896",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mulli 3, 4, 100",
-      "bytes": "1c640064",
-      "categories": [
-        "muldiv",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "divw 3, 4, 5",
-      "bytes": "7c642bd6",
-      "categories": [
-        "muldiv"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "cmpwi 3, 10",
-      "bytes": "2c03000a",
-      "categories": [
-        "cmp",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "cr0[so] copies xer_so"
-    },
-    {
-      "asm": "cmpw 3, 4",
-      "bytes": "7c032000",
-      "categories": [
-        "cmp"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "cr0[so] copies xer_so"
-    },
-    {
-      "asm": "cmpw 7, 3, 4",
-      "bytes": "7f832000",
-      "categories": [
-        "cmp"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "cr7"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "compare into cr7; cr7[so] copies xer_so"
-    },
-    {
-      "asm": "cmplwi 7, 100",
-      "bytes": "28070064",
-      "categories": [
-        "cmp",
-        "unsigned",
-        "imm"
-      ],
-      "uses": [
-        {
-          "reg": "r7"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "cr0[so] copies xer_so"
-    },
-    {
-      "asm": "cmplw 3, 4",
-      "bytes": "7c032040",
-      "categories": [
-        "cmp",
-        "unsigned"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "cr0"
-        }
-      ],
-      "uses_optional": [
-        {
-          "reg": "xer_so"
-        }
-      ],
-      "defs_optional": [],
-      "notes": "cr0[so] copies xer_so"
-    },
-    {
-      "asm": "lwz 3, 8(4)",
-      "bytes": "80640008",
-      "categories": [
-        "load",
-        "base+disp"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lhz 3, 2(4)",
-      "bytes": "a0640002",
-      "categories": [
-        "load",
-        "base+disp",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 2,
-            "size": 2
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lha 3, 6(4)",
-      "bytes": "a8640006",
-      "categories": [
-        "load",
-        "base+disp",
-        "sub-word",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 6,
-            "size": 2
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lbz 3, 1(4)",
-      "bytes": "88640001",
-      "categories": [
-        "load",
-        "base+disp",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 1,
-            "size": 1
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lwz 3, 8(0)",
-      "bytes": "80600008",
-      "categories": [
-        "load",
-        "r0-base"
-      ],
-      "uses": [
-        {
-          "mem": {
-            "base": null,
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "rA=0 in D-form load means base is literal zero, not r0"
-    },
-    {
-      "asm": "lwzx 3, 4, 5",
-      "bytes": "7c64282e",
-      "categories": [
-        "load",
-        "indexed"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": "r5",
-            "scale": 1,
-            "offset": 0,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lbzx 3, 4, 5",
-      "bytes": "7c6428ae",
-      "categories": [
-        "load",
-        "indexed",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": "r5",
-            "scale": 1,
-            "offset": 0,
-            "size": 1
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lwzu 4, 8(5)",
-      "bytes": "84850008",
-      "categories": [
-        "load",
-        "update-form"
-      ],
-      "uses": [
-        {
-          "reg": "r5"
-        },
-        {
-          "mem": {
-            "base": "r5",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "update form writes effective address back to base register"
-    },
-    {
-      "asm": "lbzu 4, 1(5)",
-      "bytes": "8c850001",
-      "categories": [
-        "load",
-        "update-form",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r5"
-        },
-        {
-          "mem": {
-            "base": "r5",
-            "index": null,
-            "scale": 1,
-            "offset": 1,
-            "size": 1
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "update form writes effective address back to base register"
-    },
-    {
-      "asm": "lmw 29, 0(1)",
-      "bytes": "bba10000",
-      "categories": [
-        "stack",
-        "load",
-        "multiple"
-      ],
-      "uses": [
-        {
-          "reg": "r1"
-        },
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 4
-          }
-        },
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": 4,
-            "size": 4
-          }
-        },
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r29"
-        },
-        {
-          "reg": "r30"
-        },
-        {
-          "reg": "r31"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "load multiple word: three 4-byte cells at 0(r1),4(r1),8(r1) into r29,r30,r31"
-    },
-    {
-      "asm": "stw 3, 8(4)",
-      "bytes": "90640008",
-      "categories": [
-        "store",
-        "base+disp"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "sth 3, 2(4)",
-      "bytes": "b0640002",
-      "categories": [
-        "store",
-        "base+disp",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 2,
-            "size": 2
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "stb 3, 1(4)",
-      "bytes": "98640001",
-      "categories": [
-        "store",
-        "base+disp",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 1,
-            "size": 1
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "stwx 3, 4, 5",
-      "bytes": "7c64292e",
-      "categories": [
-        "store",
-        "indexed"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        },
-        {
-          "reg": "r5"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "r4",
-            "index": "r5",
-            "scale": 1,
-            "offset": 0,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "stwu 1, -48(1)",
-      "bytes": "9421ffd0",
-      "categories": [
-        "stack",
-        "store",
-        "update-form"
-      ],
-      "uses": [
-        {
-          "reg": "r1"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r1"
-        },
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": -48,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "frame push: stores r1 at r1-48 then r1 -= 48; offset relative to pre-instruction r1"
-    },
-    {
-      "asm": "stbu 3, 1(4)",
-      "bytes": "9c640001",
-      "categories": [
-        "store",
-        "update-form",
-        "sub-word"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r4"
-        },
-        {
-          "mem": {
-            "base": "r4",
-            "index": null,
-            "scale": 1,
-            "offset": 1,
-            "size": 1
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "update form writes effective address back to base register"
-    },
-    {
-      "asm": "stmw 29, 0(1)",
-      "bytes": "bfa10000",
-      "categories": [
-        "stack",
-        "store",
-        "multiple"
-      ],
-      "uses": [
-        {
-          "reg": "r1"
-        },
-        {
-          "reg": "r29"
-        },
-        {
-          "reg": "r30"
-        },
-        {
-          "reg": "r31"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": 0,
-            "size": 4
-          }
-        },
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": 4,
-            "size": 4
-          }
-        },
-        {
-          "mem": {
-            "base": "r1",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 4
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "store multiple word: r29,r30,r31 into three 4-byte cells at 0(r1),4(r1),8(r1)"
-    },
-    {
-      "asm": "b .+16",
-      "bytes": "48000010",
-      "categories": [
-        "branch"
-      ],
-      "uses": [],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "pc excluded by convention"
-    },
-    {
-      "asm": "ba 8192",
-      "bytes": "48002002",
-      "categories": [
-        "branch",
-        "absolute"
-      ],
-      "uses": [],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "bl .+16",
-      "bytes": "48000011",
-      "categories": [
-        "call"
-      ],
-      "uses": [],
-      "defs": [
-        {
-          "reg": "lr"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "branch and link: defines lr"
-    },
-    {
-      "asm": "blr",
-      "bytes": "4e800020",
-      "categories": [
-        "ret"
-      ],
-      "uses": [
-        {
-          "reg": "lr"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "bctr",
-      "bytes": "4e800420",
-      "categories": [
-        "branch",
-        "indirect"
-      ],
-      "uses": [
-        {
-          "reg": "ctr"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "bctrl",
-      "bytes": "4e800421",
-      "categories": [
-        "call",
-        "indirect"
-      ],
-      "uses": [
-        {
-          "reg": "ctr"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "lr"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "bne .+8",
-      "bytes": "40820008",
-      "categories": [
-        "branch",
-        "conditional"
-      ],
-      "uses": [
-        {
-          "reg": "cr0"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "beq 1, .+8",
-      "bytes": "41860008",
-      "categories": [
-        "branch",
-        "conditional"
-      ],
-      "uses": [
-        {
-          "reg": "cr1"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "tests cr1"
-    },
-    {
-      "asm": "blt .+12",
-      "bytes": "4180000c",
-      "categories": [
-        "branch",
-        "conditional"
-      ],
-      "uses": [
-        {
-          "reg": "cr0"
-        }
-      ],
-      "defs": [],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "bdnz .+8",
-      "bytes": "42000008",
-      "categories": [
-        "branch",
-        "conditional",
-        "ctr"
-      ],
-      "uses": [
-        {
-          "reg": "ctr"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ctr"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "decrements ctr and branches if nonzero: reads and writes ctr"
-    },
-    {
-      "asm": "mflr 3",
-      "bytes": "7c6802a6",
-      "categories": [
-        "mov",
-        "spr"
-      ],
-      "uses": [
-        {
-          "reg": "lr"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mtlr 3",
-      "bytes": "7c6803a6",
-      "categories": [
-        "mov",
-        "spr"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "lr"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mfctr 4",
-      "bytes": "7c8902a6",
-      "categories": [
-        "mov",
-        "spr"
-      ],
-      "uses": [
-        {
-          "reg": "ctr"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mtctr 4",
-      "bytes": "7c8903a6",
-      "categories": [
-        "mov",
-        "spr"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "ctr"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "mfcr 5",
-      "bytes": "7ca00026",
-      "categories": [
-        "mov",
-        "spr"
-      ],
-      "uses": [
-        {
-          "reg": "cr0"
-        },
-        {
-          "reg": "cr1"
-        },
-        {
-          "reg": "cr2"
-        },
-        {
-          "reg": "cr3"
-        },
-        {
-          "reg": "cr4"
-        },
-        {
-          "reg": "cr5"
-        },
-        {
-          "reg": "cr6"
-        },
-        {
-          "reg": "cr7"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r5"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": "reads the whole condition register (all eight fields)"
-    },
-    {
-      "asm": "extsb 3, 4",
-      "bytes": "7c830774",
-      "categories": [
-        "ext",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "extsh 3, 4",
-      "bytes": "7c830734",
-      "categories": [
-        "ext",
-        "sign-extend"
-      ],
-      "uses": [
-        {
-          "reg": "r4"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "r3"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "lfd 1, 8(3)",
-      "bytes": "c8230008",
-      "categories": [
-        "load",
-        "fp"
-      ],
-      "uses": [
-        {
-          "reg": "r3"
-        },
-        {
-          "mem": {
-            "base": "r3",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 8
-          }
-        }
-      ],
-      "defs": [
-        {
-          "reg": "f1"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "stfd 1, 8(3)",
-      "bytes": "d8230008",
-      "categories": [
-        "store",
-        "fp"
-      ],
-      "uses": [
-        {
-          "reg": "f1"
-        },
-        {
-          "reg": "r3"
-        }
-      ],
-      "defs": [
-        {
-          "mem": {
-            "base": "r3",
-            "index": null,
-            "scale": 1,
-            "offset": 8,
-            "size": 8
-          }
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [],
-      "notes": ""
-    },
-    {
-      "asm": "fadd 1, 2, 3",
-      "bytes": "fc22182a",
-      "categories": [
-        "fp",
-        "arith"
-      ],
-      "uses": [
-        {
-          "reg": "f2"
-        },
-        {
-          "reg": "f3"
-        }
-      ],
-      "defs": [
-        {
-          "reg": "f1"
-        }
-      ],
-      "uses_optional": [],
-      "defs_optional": [
-        {
-          "reg": "fpscr"
-        }
-      ],
-      "notes": "also updates FPSCR status bits; modeling differs between tools"
+ "isa": "ppc32",
+ "ghidra_lang": "PowerPC:BE:32:default",
+ "llvm_triple": "powerpc-unknown-linux-gnu",
+ "base_address": 4096,
+ "entries": [
+  {
+   "asm": "li 3, 42",
+   "bytes": "3860002a",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "r3"
     }
-  ]
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "addi rD,0,imm; rA=0 means literal zero, no register read"
+  },
+  {
+   "asm": "lis 4, 4660",
+   "bytes": "3c801234",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "addis rD,0,imm; rA=0 means literal zero"
+  },
+  {
+   "asm": "mr 5, 6",
+   "bytes": "7cc53378",
+   "categories": [
+    "mov"
+   ],
+   "uses": [
+    {
+     "reg": "r6"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r5"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "or rD,rS,rS underlying form"
+  },
+  {
+   "asm": "mr. 7, 8",
+   "bytes": "7d074379",
+   "categories": [
+    "mov",
+    "record-form"
+   ],
+   "uses": [
+    {
+     "reg": "r8"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r7"
+    },
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "or. underlying form; cr0[so] copies xer_so"
+  },
+  {
+   "asm": "ori 3, 4, 255",
+   "bytes": "608300ff",
+   "categories": [
+    "logic",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "addi 3, 4, 100",
+   "bytes": "38640064",
+   "categories": [
+    "arith",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "addis 5, 6, 1",
+   "bytes": "3ca60001",
+   "categories": [
+    "arith",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r6"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r5"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add 3, 4, 5",
+   "bytes": "7c642a14",
+   "categories": [
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add. 3, 4, 5",
+   "bytes": "7c642a15",
+   "categories": [
+    "arith",
+    "record-form"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "record form: cr0[so] copies xer_so"
+  },
+  {
+   "asm": "subf 3, 4, 5",
+   "bytes": "7c642850",
+   "categories": [
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "r3 = r5 - r4"
+  },
+  {
+   "asm": "subf. 6, 7, 8",
+   "bytes": "7cc74051",
+   "categories": [
+    "arith",
+    "record-form"
+   ],
+   "uses": [
+    {
+     "reg": "r7"
+    },
+    {
+     "reg": "r8"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r6"
+    },
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "record form: cr0[so] copies xer_so"
+  },
+  {
+   "asm": "neg 3, 4",
+   "bytes": "7c6400d0",
+   "categories": [
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "addc 3, 4, 5",
+   "bytes": "7c642814",
+   "categories": [
+    "arith",
+    "carry"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "writes carry"
+  },
+  {
+   "asm": "adde 3, 4, 5",
+   "bytes": "7c642914",
+   "categories": [
+    "arith",
+    "carry"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads and writes carry"
+  },
+  {
+   "asm": "addic 3, 4, 1",
+   "bytes": "30640001",
+   "categories": [
+    "arith",
+    "carry",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "writes carry"
+  },
+  {
+   "asm": "addic. 3, 4, 1",
+   "bytes": "34640001",
+   "categories": [
+    "arith",
+    "carry",
+    "record-form",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    },
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "writes carry and records; cr0[so] copies xer_so"
+  },
+  {
+   "asm": "subfic 3, 4, 10",
+   "bytes": "2064000a",
+   "categories": [
+    "arith",
+    "carry",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "r3 = 10 - r4; writes carry"
+  },
+  {
+   "asm": "addze 3, 4",
+   "bytes": "7c640194",
+   "categories": [
+    "arith",
+    "carry"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "add to zero extended: reads and writes carry"
+  },
+  {
+   "asm": "subfe 3, 4, 5",
+   "bytes": "7c642910",
+   "categories": [
+    "arith",
+    "carry"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads and writes carry"
+  },
+  {
+   "asm": "mtxer 6",
+   "bytes": "7cc103a6",
+   "categories": [
+    "mov",
+    "spr",
+    "overflow"
+   ],
+   "uses": [
+    {
+     "reg": "r6"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "xer_so"
+    },
+    {
+     "reg": "xer_ov"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "mtspr xer: writes all of XER incl. so/ov/ca. Stand-in for addo-style overflow forms, which capstone 5.0.3 cannot decode"
+  },
+  {
+   "asm": "mfxer 6",
+   "bytes": "7cc102a6",
+   "categories": [
+    "mov",
+    "spr",
+    "overflow"
+   ],
+   "uses": [
+    {
+     "reg": "xer_so"
+    },
+    {
+     "reg": "xer_ov"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r6"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "mfspr xer: reads all of XER incl. so/ov/ca"
+  },
+  {
+   "asm": "and 3, 4, 5",
+   "bytes": "7c832838",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "or 3, 4, 5",
+   "bytes": "7c832b78",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "xor 3, 4, 5",
+   "bytes": "7c832a78",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "nand 3, 4, 5",
+   "bytes": "7c832bb8",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "nor 3, 4, 5",
+   "bytes": "7c8328f8",
+   "categories": [
+    "logic"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "andi. 3, 4, 255",
+   "bytes": "708300ff",
+   "categories": [
+    "logic",
+    "record-form",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "andi. always records; cr0[so] copies xer_so"
+  },
+  {
+   "asm": "rlwinm 3, 4, 4, 0, 27",
+   "bytes": "54832036",
+   "categories": [
+    "shift",
+    "rotate"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "rlwimi 3, 4, 8, 16, 23",
+   "bytes": "5083442e",
+   "categories": [
+    "shift",
+    "rotate",
+    "insert"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "insert under mask: destination is read-modify-write"
+  },
+  {
+   "asm": "slw 3, 4, 5",
+   "bytes": "7c832830",
+   "categories": [
+    "shift"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "srw 3, 4, 5",
+   "bytes": "7c832c30",
+   "categories": [
+    "shift"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sraw 3, 4, 5",
+   "bytes": "7c832e30",
+   "categories": [
+    "shift"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "algebraic shift right writes xer_ca"
+  },
+  {
+   "asm": "srawi 3, 4, 2",
+   "bytes": "7c831670",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_ca"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "algebraic shift right writes xer_ca"
+  },
+  {
+   "asm": "mullw 3, 4, 5",
+   "bytes": "7c6429d6",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mulhw 3, 4, 5",
+   "bytes": "7c642896",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mulli 3, 4, 100",
+   "bytes": "1c640064",
+   "categories": [
+    "muldiv",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "divw 3, 4, 5",
+   "bytes": "7c642bd6",
+   "categories": [
+    "muldiv"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cmpwi 3, 10",
+   "bytes": "2c03000a",
+   "categories": [
+    "cmp",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cr0[so] copies xer_so"
+  },
+  {
+   "asm": "cmpw 3, 4",
+   "bytes": "7c032000",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cr0[so] copies xer_so"
+  },
+  {
+   "asm": "cmpw 7, 3, 4",
+   "bytes": "7f832000",
+   "categories": [
+    "cmp"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cr7"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "compare into cr7; cr7[so] copies xer_so"
+  },
+  {
+   "asm": "cmplwi 7, 100",
+   "bytes": "28070064",
+   "categories": [
+    "cmp",
+    "unsigned",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "r7"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cr0[so] copies xer_so"
+  },
+  {
+   "asm": "cmplw 3, 4",
+   "bytes": "7c032040",
+   "categories": [
+    "cmp",
+    "unsigned"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "xer_so"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cr0"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cr0[so] copies xer_so"
+  },
+  {
+   "asm": "lwz 3, 8(4)",
+   "bytes": "80640008",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lhz 3, 2(4)",
+   "bytes": "a0640002",
+   "categories": [
+    "load",
+    "base+disp",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 2,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lha 3, 6(4)",
+   "bytes": "a8640006",
+   "categories": [
+    "load",
+    "base+disp",
+    "sub-word",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 6,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lbz 3, 1(4)",
+   "bytes": "88640001",
+   "categories": [
+    "load",
+    "base+disp",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lwz 3, 8(0)",
+   "bytes": "80600008",
+   "categories": [
+    "load",
+    "r0-base"
+   ],
+   "uses": [
+    {
+     "mem": {
+      "base": null,
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "rA=0 in D-form load means base is literal zero, not r0"
+  },
+  {
+   "asm": "lwzx 3, 4, 5",
+   "bytes": "7c64282e",
+   "categories": [
+    "load",
+    "indexed"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": "r5",
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lbzx 3, 4, 5",
+   "bytes": "7c6428ae",
+   "categories": [
+    "load",
+    "indexed",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": "r5",
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lwzu 4, 8(5)",
+   "bytes": "84850008",
+   "categories": [
+    "load",
+    "update-form"
+   ],
+   "uses": [
+    {
+     "reg": "r5"
+    },
+    {
+     "mem": {
+      "base": "r5",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "update form writes effective address back to base register"
+  },
+  {
+   "asm": "lbzu 4, 1(5)",
+   "bytes": "8c850001",
+   "categories": [
+    "load",
+    "update-form",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r5"
+    },
+    {
+     "mem": {
+      "base": "r5",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "update form writes effective address back to base register"
+  },
+  {
+   "asm": "lmw 29, 0(1)",
+   "bytes": "bba10000",
+   "categories": [
+    "stack",
+    "load",
+    "multiple"
+   ],
+   "uses": [
+    {
+     "reg": "r1"
+    },
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    },
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    },
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r29"
+    },
+    {
+     "reg": "r30"
+    },
+    {
+     "reg": "r31"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "load multiple word: three 4-byte cells at 0(r1),4(r1),8(r1) into r29,r30,r31"
+  },
+  {
+   "asm": "stw 3, 8(4)",
+   "bytes": "90640008",
+   "categories": [
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sth 3, 2(4)",
+   "bytes": "b0640002",
+   "categories": [
+    "store",
+    "base+disp",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 2,
+      "size": 2
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "stb 3, 1(4)",
+   "bytes": "98640001",
+   "categories": [
+    "store",
+    "base+disp",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "stwx 3, 4, 5",
+   "bytes": "7c64292e",
+   "categories": [
+    "store",
+    "indexed"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    },
+    {
+     "reg": "r5"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "r4",
+      "index": "r5",
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "stwu 1, -48(1)",
+   "bytes": "9421ffd0",
+   "categories": [
+    "stack",
+    "store",
+    "update-form"
+   ],
+   "uses": [
+    {
+     "reg": "r1"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r1"
+    },
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": -48,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "frame push: stores r1 at r1-48 then r1 -= 48; offset relative to pre-instruction r1"
+  },
+  {
+   "asm": "stbu 3, 1(4)",
+   "bytes": "9c640001",
+   "categories": [
+    "store",
+    "update-form",
+    "sub-word"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r4"
+    },
+    {
+     "mem": {
+      "base": "r4",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "update form writes effective address back to base register"
+  },
+  {
+   "asm": "stmw 29, 0(1)",
+   "bytes": "bfa10000",
+   "categories": [
+    "stack",
+    "store",
+    "multiple"
+   ],
+   "uses": [
+    {
+     "reg": "r1"
+    },
+    {
+     "reg": "r29"
+    },
+    {
+     "reg": "r30"
+    },
+    {
+     "reg": "r31"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    },
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    },
+    {
+     "mem": {
+      "base": "r1",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "store multiple word: r29,r30,r31 into three 4-byte cells at 0(r1),4(r1),8(r1)"
+  },
+  {
+   "asm": "b .+16",
+   "bytes": "48000010",
+   "categories": [
+    "branch"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pc excluded by convention"
+  },
+  {
+   "asm": "ba 8192",
+   "bytes": "48002002",
+   "categories": [
+    "branch",
+    "absolute"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bl .+16",
+   "bytes": "48000011",
+   "categories": [
+    "call"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "lr"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "branch and link: defines lr"
+  },
+  {
+   "asm": "blr",
+   "bytes": "4e800020",
+   "categories": [
+    "ret"
+   ],
+   "uses": [
+    {
+     "reg": "lr"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bctr",
+   "bytes": "4e800420",
+   "categories": [
+    "branch",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "ctr"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bctrl",
+   "bytes": "4e800421",
+   "categories": [
+    "call",
+    "indirect"
+   ],
+   "uses": [
+    {
+     "reg": "ctr"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "lr"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bne .+8",
+   "bytes": "40820008",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "cr0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "beq 1, .+8",
+   "bytes": "41860008",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "cr1"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "tests cr1"
+  },
+  {
+   "asm": "blt .+12",
+   "bytes": "4180000c",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "cr0"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "bdnz .+8",
+   "bytes": "42000008",
+   "categories": [
+    "branch",
+    "conditional",
+    "ctr"
+   ],
+   "uses": [
+    {
+     "reg": "ctr"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ctr"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "decrements ctr and branches if nonzero: reads and writes ctr"
+  },
+  {
+   "asm": "mflr 3",
+   "bytes": "7c6802a6",
+   "categories": [
+    "mov",
+    "spr"
+   ],
+   "uses": [
+    {
+     "reg": "lr"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mtlr 3",
+   "bytes": "7c6803a6",
+   "categories": [
+    "mov",
+    "spr"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "lr"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mfctr 4",
+   "bytes": "7c8902a6",
+   "categories": [
+    "mov",
+    "spr"
+   ],
+   "uses": [
+    {
+     "reg": "ctr"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mtctr 4",
+   "bytes": "7c8903a6",
+   "categories": [
+    "mov",
+    "spr"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ctr"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mfcr 5",
+   "bytes": "7ca00026",
+   "categories": [
+    "mov",
+    "spr"
+   ],
+   "uses": [
+    {
+     "reg": "cr0"
+    },
+    {
+     "reg": "cr1"
+    },
+    {
+     "reg": "cr2"
+    },
+    {
+     "reg": "cr3"
+    },
+    {
+     "reg": "cr4"
+    },
+    {
+     "reg": "cr5"
+    },
+    {
+     "reg": "cr6"
+    },
+    {
+     "reg": "cr7"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r5"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "reads the whole condition register (all eight fields)"
+  },
+  {
+   "asm": "extsb 3, 4",
+   "bytes": "7c830774",
+   "categories": [
+    "ext",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "extsh 3, 4",
+   "bytes": "7c830734",
+   "categories": [
+    "ext",
+    "sign-extend"
+   ],
+   "uses": [
+    {
+     "reg": "r4"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "r3"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lfd 1, 8(3)",
+   "bytes": "c8230008",
+   "categories": [
+    "load",
+    "fp"
+   ],
+   "uses": [
+    {
+     "reg": "r3"
+    },
+    {
+     "mem": {
+      "base": "r3",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "f1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "stfd 1, 8(3)",
+   "bytes": "d8230008",
+   "categories": [
+    "store",
+    "fp"
+   ],
+   "uses": [
+    {
+     "reg": "f1"
+    },
+    {
+     "reg": "r3"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "r3",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 8
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "fadd 1, 2, 3",
+   "bytes": "fc22182a",
+   "categories": [
+    "fp",
+    "arith"
+   ],
+   "uses": [
+    {
+     "reg": "f2"
+    },
+    {
+     "reg": "f3"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "f1"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "fpscr"
+    }
+   ],
+   "notes": "also updates FPSCR status bits; modeling differs between tools"
+  }
+ ]
 }

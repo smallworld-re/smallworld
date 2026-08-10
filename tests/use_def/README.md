@@ -73,6 +73,23 @@ An operand item is either `{"reg": "<name>"}` or
    `offset` = the fully resolved address (`base_address` + instruction
    length + displacement for x86; `base_address` + imm for AArch64), since
    the disassembler resolves it at decode time.
+
+   Caveat — this folds the PC dependency into a constant, and it is a
+   deliberate convention, not the only defensible one. Ghidra resolves
+   a PC-relative reference to a concrete `ram` address at decode time,
+   so `rip`/`pc` genuinely does not appear in the pcode address
+   expression; treating it as absolute matches that and keeps PC
+   excluded consistently (as it is for branches). Two consequences:
+   (a) the resolved `offset` is only correct for this `base_address` —
+   the reference is really position-*independent*, whereas the absolute
+   is position-*dependent*, so relocating the code would change the true
+   target but not this constant; and (b) the operand no longer records
+   that it was PC-relative, nor the raw displacement. The Capstone
+   backend instead keeps such operands symbolic (`base: rip`) and lists
+   `rip` as a register read — a more literal view — so the two backends
+   differ here by design. If a downstream analysis needs to know a
+   reference is position-independent, that information lives only in the
+   raw encoding, not in the use/def operand.
 4. **Memory operands** are expressed in terms of register values *before*
    the instruction executes:
    - x86 `push rax` → uses `rax`, `rsp`; defs `rsp`,
@@ -94,12 +111,35 @@ An operand item is either `{"reg": "<name>"}` or
 7. **Flags** are individual registers, lowercase, named as Ghidra names
    them:
    - x86: `cf pf af zf sf of df`
-   - AArch64: `ng zr cy ov`
+   - ARM / AArch64: `ng zr cy ov`
    - PPC: `cr0`..`cr7` (one item per 4-bit field), `xer_so xer_ov xer_ca`
    - MIPS: none
    A flag genuinely read (e.g. `adc`, `jne`, conditional select) or written
    goes in `uses`/`defs`. Flags whose result is *architecturally undefined*
    for that instruction (e.g. `af` after `and`) go in `defs_optional`.
+
+   Known analysis limitation — ARM barrel-shifter spurious flag reads.
+   Ghidra's 32-bit ARM model routes every data-processing operand
+   through the barrel shifter and seeds a `shift_carry` scratch from
+   the carry flag, so it reports a *spurious* read of `cy` (sometimes
+   `ov`) on instructions that do not actually consume a flag — e.g. a
+   plain `adds`, `sub`, or immediate `lsl`/`lsr`/`asr`/`ror`. These are
+   not real dependencies. They are left in `uses_optional` where the
+   corpus lists them at all, and they never reach consumers: the ARM
+   condition flags are not in the platform definition, so
+   `Instruction.reads`/`.writes` drops them (and the harness drops all
+   flags in its normalized comparison). Genuine carry consumers on ARM
+   (`adc`/`sbc`) are the exception and DO read `cy` (required). This is
+   the analog of x86's `xor reg,reg` idiom (see the note below), but
+   unlike that case it is not cleanly separable from a real carry read,
+   so it is documented rather than suppressed.
+
+   Dependency-breaking idioms. An operation whose result is a constant
+   regardless of a source operand does not truly read it. The analysis
+   recognizes `xor reg,reg` / `sub reg,reg` (and the per-lane form of
+   `pxor`/`xorps`), plus the reflexive comparisons, and omits the
+   self-read — so `xor eax, eax` has empty `uses` even though the
+   encoding names `eax` twice. Ground truth reflects the omission.
 8. **`uses_optional`/`defs_optional`** list operands that are acceptable
    but not required — the analysis is not penalized for reporting or
    omitting them. Use for: architecturally-undefined flag effects, reads
