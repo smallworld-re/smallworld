@@ -873,19 +873,29 @@ class UnicornEmulator(
         # reads or writes that is not actually available, i.e. memory
         # not mapped
         def get_unavailable_rw(insn, rws):
-            # Only memory operands can name an unmapped location.
-            # Implicitly-dereferenced registers used to be handled here
-            # too, because reads/writes reported them as bare
-            # registers; they now come through as memory references
-            # alongside the register, so there is nothing extra to
-            # synthesize -- and the operands this returns must all be
-            # memory references, since consumers resolve them with
-            # symbolic_address().
+            # A data memory access names its unmapped location directly as a
+            # memory reference. Register-indirect *control transfers* (MIPS
+            # jr/jalr) are different: pcode reports the jump target as a bare
+            # register read, not a memory reference, because the dereference is
+            # an instruction fetch rather than a data read. Those still need to
+            # be concretized here -- notably so the delay-slot handling below
+            # can recognize a jump to unmapped memory and reclassify the fault
+            # as a fetch failure.
             out = []
             for rw in rws:
                 if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
                     # This operation accesses memory
                     a = rw.address(self)
+                    if not (self._is_address_mapped(a)):
+                        out.append((rw, a))
+                elif (
+                    insn._instruction.mnemonic
+                    in self.platdef.implicit_dereference_mnemonics
+                    and isinstance(rw, instructions.RegisterOperand)
+                ):
+                    # A register that this ISA implicitly dereferences as a
+                    # branch/jump target (jr/jalr).
+                    a = rw.concretize(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out

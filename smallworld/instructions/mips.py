@@ -35,6 +35,7 @@ class MIPSELInstruction(MIPSInstruction):
 class MIPS64Instruction(MIPSInstruction):
     angr_arch = "MIPS64"
     cs_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
+    ghidra_lang = "MIPS:BE:64:default"
     platform = platforms.Platform(
         platforms.Architecture.MIPS64, platforms.Byteorder.BIG
     )
@@ -54,6 +55,7 @@ class MIPS64Instruction(MIPSInstruction):
 
 class MIPS64ELInstruction(MIPS64Instruction):
     cs_mode = capstone.CS_MODE_MIPS64
+    ghidra_lang = "MIPS:LE:64:default"
     platform = platforms.Platform(
         platforms.Architecture.MIPS64, platforms.Byteorder.LITTLE
     )
