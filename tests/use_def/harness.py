@@ -107,6 +107,10 @@ FLAG_REGS = {
         "crall",
     },
     "mips32": set(),
+    # MIPS has no integer condition-code registers; hi/lo are real defs.
+    "mipsel": set(),
+    "mips64": set(),
+    "mips64el": set(),
     "arm32": {
         # ARM condition flags (Ghidra names them like AArch64)
         "ng",
@@ -134,6 +138,9 @@ ADDRESS_BITS = {
     "ppc32": 32,
     "aarch64": 64,
     "mips32": 32,
+    "mipsel": 32,
+    "mips64": 64,
+    "mips64el": 64,
     "arm32": 32,
 }
 
@@ -196,6 +203,11 @@ SUBREG_MAP = {
     "ppc32": {},
     "aarch64": _aarch64_subregs(),
     "mips32": {},
+    # MIPS GPRs have no narrower aliases (a 32-bit op on MIPS64 still names
+    # the full register); endianness does not change the register model.
+    "mipsel": {},
+    "mips64": {},
+    "mips64el": {},
     # ARM GPRs (r0-r15) have no narrower aliases; sp/lr/pc are r13/r14/r15.
     "arm32": {"r13": "sp", "r14": "lr", "r15": "pc"},
 }
@@ -269,6 +281,9 @@ PC_REGS = {
     "ppc32": {"pc"},
     "aarch64": {"pc"},
     "mips32": {"pc"},
+    "mipsel": {"pc"},
+    "mips64": {"pc"},
+    "mips64el": {"pc"},
     "arm32": {"pc"},
 }
 
@@ -286,9 +301,18 @@ def _alias(isa, name):
         m = re.fullmatch(r"[bhsdqz](\d+)", name)
         if m:
             return f"v{m.group(1)}"
-    if isa == "mips32" and name == "s8":
+    if isa in ("mips32", "mipsel", "mips64", "mips64el") and name == "s8":
         # Capstone calls register 30 "fp"; Ghidra calls it "s8"
         return "fp"
+    if isa in ("mips64", "mips64el"):
+        # Ghidra's MIPS64 model names the low/high 32-bit views of a 64-bit
+        # GPR as <reg>_lo / <reg>_hi. A 32-bit MIPS64 op (addu, sll, lw, ...)
+        # operates on the _lo view and sign-extends into the full register;
+        # collapse both views to the architectural register for use/def, the
+        # same way x86 eax->rax and AArch64 w3->x3 are handled.
+        m = re.fullmatch(r"(.+)_(lo|hi)", name)
+        if m:
+            return m.group(1)
     return name
 
 

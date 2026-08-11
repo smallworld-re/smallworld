@@ -9,7 +9,14 @@ truth.
 ## Files
 
 - `corpus_<isa>.json` — one corpus per ISA: `x86_64`, `i386`, `ppc32`,
-  `aarch64`, `mips32`.
+  `aarch64`, `mips32`, `mipsel`, `mips64`, `mips64el`.
+- `make_mips_corpora.py` — generates `corpus_mipsel.json`,
+  `corpus_mips64.json`, and `corpus_mips64el.json` from `corpus_mips32.json`:
+  `mipsel` is mips32 with each instruction word byte-reversed (same ground
+  truth), `mips64` reuses the mips32 entries (a 32-bit op sign-extends into
+  the 64-bit register) plus hand-written doubleword instructions, and
+  `mips64el` is `mips64` byte-reversed. Re-run after editing the mips32
+  corpus or the doubleword table.
 - `harness.py` — runs the corpora through `analyze_bytes` and reports
   agreement with ground truth. Run as
   `python tests/use_def/harness.py [--isa x86_64] [--json report.json]`.

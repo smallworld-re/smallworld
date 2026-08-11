@@ -25,6 +25,9 @@ ORDER = [
     ("aarch64", "AArch64"),
     ("arm32", "ARM (ARMv7-A, ARM mode)"),
     ("mips32", "MIPS32 (big-endian)"),
+    ("mipsel", "MIPS32 (little-endian)"),
+    ("mips64", "MIPS64 (big-endian)"),
+    ("mips64el", "MIPS64 (little-endian)"),
     ("ppc32", "PowerPC32 (big-endian)"),
 ]
 

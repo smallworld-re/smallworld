@@ -11,6 +11,9 @@ Operand notation: registers by name; memory as `[base+scale*index±0xoffset]:siz
 - [AArch64](#aarch64) - 112 instructions, `AARCH64:LE:64:v8A`
 - [ARM (ARMv7-A, ARM mode)](#arm-armv7-a-arm-mode) - 74 instructions, `ARM:LE:32:v8`
 - [MIPS32 (big-endian)](#mips32-big-endian) - 77 instructions, `MIPS:BE:32:default`
+- [MIPS32 (little-endian)](#mips32-little-endian) - 77 instructions, `MIPS:LE:32:default`
+- [MIPS64 (big-endian)](#mips64-big-endian) - 99 instructions, `MIPS:BE:64:default`
+- [MIPS64 (little-endian)](#mips64-little-endian) - 99 instructions, `MIPS:LE:64:default`
 - [PowerPC32 (big-endian)](#powerpc32-big-endian) - 79 instructions, `PowerPC:BE:32:default`
 
 ## x86-64
@@ -497,6 +500,308 @@ Category breakdown: load 9, mov 8, branch 8, logic 7, shift 7, arith 6, muldiv 6
 | 75 | `add.s $f0, $f1, $f2` | `46020800` | f1, f2 | f0 | FCSR flag/cause side effects not modeled (no MIPS flag regs per conventions) |
 | 76 | `mfc1 $t0, $f0` | `44080000` | f0 | t0 |  |
 | 77 | `mtc1 $t0, $f0` | `44880000` | t0 | f0 |  |
+
+## MIPS32 (little-endian)
+
+77 instructions - Ghidra language `MIPS:LE:32:default` - base address `0x1000`
+
+Category breakdown: load 9, mov 8, branch 8, logic 7, shift 7, arith 6, muldiv 6, call 5, misc 5, fp 5, cmp 4, store 4, ext 2, ret 1
+
+| # | asm | bytes | uses | defs | notes |
+|--:|-----|-------|------|------|-------|
+| 1 | `lui $t0, 0x1234` | `3412083c` | — | t0 |  |
+| 2 | `addiu $t0, $zero, 42` | `2a000824` | zero? | t0 | li via addiu: reads hardwired zero |
+| 3 | `ori $t0, $zero, 0xbeef` | `efbe0834` | zero? | t0 | li via ori: reads hardwired zero |
+| 4 | `addu $t2, $t3, $zero` | `21506001` | t3, zero? | t2 | canonical move; capstone may alias to move |
+| 5 | `mfhi $t0` | `10400000` | hi | t0 |  |
+| 6 | `mflo $t1` | `12480000` | lo | t1 |  |
+| 7 | `mthi $t0` | `11000001` | t0 | hi |  |
+| 8 | `mtlo $t1` | `13002001` | t1 | lo |  |
+| 9 | `addu $t0, $t1, $t2` | `21402a01` | t1, t2 | t0 |  |
+| 10 | `addiu $sp, $sp, -32` | `e0ffbd27` | sp | sp |  |
+| 11 | `subu $v0, $a0, $a1` | `23108500` | a0, a1 | v0 |  |
+| 12 | `add $t0, $t1, $t2` | `20402a01` | t1, t2 | t0 | trapping add: overflow raises exception, no flag regs on MIPS |
+| 13 | `addi $t0, $t1, 100` | `64002821` | t1 | t0 | trapping addi (removed in r6) |
+| 14 | `sub $t0, $t1, $t2` | `22402a01` | t1, t2 | t0 | trapping sub |
+| 15 | `and $t0, $t1, $t2` | `24402a01` | t1, t2 | t0 |  |
+| 16 | `andi $t0, $t1, 0xff` | `ff002831` | t1 | t0 |  |
+| 17 | `or $s0, $s1, $s2` | `25803202` | s1, s2 | s0 |  |
+| 18 | `ori $t0, $t1, 0x1234` | `34122835` | t1 | t0 |  |
+| 19 | `xor $t0, $t1, $t2` | `26402a01` | t1, t2 | t0 |  |
+| 20 | `xori $t0, $t1, 0xff` | `ff002839` | t1 | t0 |  |
+| 21 | `nor $t0, $t1, $t2` | `27402a01` | t1, t2 | t0 |  |
+| 22 | `slt $t0, $t1, $t2` | `2a402a01` | t1, t2 | t0 |  |
+| 23 | `slti $t0, $t1, 10` | `0a002829` | t1 | t0 |  |
+| 24 | `sltu $t0, $t1, $t2` | `2b402a01` | t1, t2 | t0 |  |
+| 25 | `sltiu $t0, $t1, -5` | `fbff282d` | t1 | t0 | imm sign-extended then compared unsigned |
+| 26 | `sll $t0, $t1, 4` | `00410900` | t1 | t0 |  |
+| 27 | `srl $t0, $t1, 4` | `02410900` | t1 | t0 |  |
+| 28 | `sra $t0, $t1, 4` | `03410900` | t1 | t0 |  |
+| 29 | `sllv $t0, $t1, $t2` | `04404901` | t1, t2 | t0 | count reg $t2 is read |
+| 30 | `srlv $t0, $t1, $t2` | `06404901` | t1, t2 | t0 | count reg $t2 is read |
+| 31 | `srav $t0, $t1, $t2` | `07404901` | t1, t2 | t0 | count reg $t2 is read |
+| 32 | `rotr $t0, $t1, 8` | `02422900` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 33 | `mult $t0, $t1` | `18000901` | t0, t1 | hi, lo |  |
+| 34 | `multu $t0, $t1` | `19000901` | t0, t1 | hi, lo |  |
+| 35 | `div $zero, $t0, $t1` | `1a000901` | t0, t1, zero? | hi, lo | raw div form ($zero dest marker) to avoid llvm-mc trap-check pseudo expansion |
+| 36 | `divu $zero, $t2, $t3` | `1b004b01` | t2, t3, zero? | hi, lo | raw divu form ($zero dest marker) |
+| 37 | `madd $t0, $t1` | `00000971` | t0, t1, hi, lo | hi, lo | multiply-add: reads AND writes hi/lo |
+| 38 | `msub $t0, $t1` | `04000971` | t0, t1, hi, lo | hi, lo | multiply-subtract: reads AND writes hi/lo |
+| 39 | `lw $t0, 8($sp)` | `0800a88f` | sp, [sp+0x8]:4 | t0 |  |
+| 40 | `lh $t0, 4($a0)` | `04008884` | a0, [a0+0x4]:2 | t0 |  |
+| 41 | `lhu $t0, 6($a0)` | `06008894` | a0, [a0+0x6]:2 | t0 |  |
+| 42 | `lb $t0, 1($a0)` | `01008880` | a0, [a0+0x1]:1 | t0 |  |
+| 43 | `lbu $t0, -1($a0)` | `ffff8890` | a0, [a0-0x1]:1 | t0 |  |
+| 44 | `lw $s0, -4($fp)` | `fcffd08f` | fp, [fp-0x4]:4 | s0 | capstone calls reg 30 fp |
+| 45 | `lwl $t0, 3($a0)` | `03008888` | a0, t0, [a0+0x3]:4 | t0 | unaligned load-left: merges into dest, so $t0 is read AND written; actual bytes accessed depend on alignment, size 4 is the max/nominal word |
+| 46 | `lwr $t0, 0($a0)` | `00008898` | a0, t0, [a0]:4 | t0 | unaligned load-right: merges into dest, $t0 read AND written; size 4 nominal |
+| 47 | `ll $t0, 0($a0)` | `000088c0` | a0, [a0]:4 | t0 | load-linked; LLbit side effect not modeled |
+| 48 | `sw $t0, 8($sp)` | `0800a8af` | t0, sp | [sp+0x8]:4 |  |
+| 49 | `sh $t0, 2($a0)` | `020088a4` | t0, a0 | [a0+0x2]:2 |  |
+| 50 | `sb $t0, 0($a0)` | `000088a0` | t0, a0 | [a0]:1 |  |
+| 51 | `sc $t0, 0($a0)` | `000088e0` | t0, a0 | t0, [a0]:4 | store-conditional: writes success flag into source reg $t0; memory write is conditional on LLbit |
+| 52 | `beq $t0, $t1, 16` | `04000911` | t0, t1 | — |  |
+| 53 | `bne $a0, $zero, 8` | `02008014` | a0, zero? | — | compare against hardwired zero |
+| 54 | `bgez $t0, 16` | `04000105` | t0 | — |  |
+| 55 | `bltz $t0, 16` | `04000005` | t0 | — |  |
+| 56 | `blez $t0, 16` | `04000019` | t0 | — |  |
+| 57 | `bgtz $t0, 16` | `0400001d` | t0 | — |  |
+| 58 | `j 4096` | `00040008` | — | — | PC excluded per conventions; no data effects |
+| 59 | `jr $t9` | `08002003` | t9 | — |  |
+| 60 | `jal 4096` | `0004000c` | — | ra |  |
+| 61 | `jalr $t9` | `09f82003` | t9 | ra |  |
+| 62 | `jalr $s0, $t9` | `09802003` | t9 | s0 | jalr with explicit link register $s0 instead of $ra |
+| 63 | `bal 8` | `02001104` | zero? | ra | bal encodes as bgezal $zero: reads hardwired zero |
+| 64 | `bgezal $t0, 16` | `04001105` | t0 | ra | conditional call: defs ra unconditionally per arch (link happens regardless of branch taken) |
+| 65 | `jr $ra` | `0800e003` | ra | — |  |
+| 66 | `seb $t0, $t1` | `2044097c` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 67 | `seh $t0, $t1` | `2046097c` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 68 | `wsbh $t0, $t1` | `a040097c` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 69 | `clo $t0, $t1` | `21402871` | t1 | t0 |  |
+| 70 | `clz $t0, $t1` | `20402871` | t1 | t0 |  |
+| 71 | `movn $t0, $t1, $t2` | `0b402a01` | t1, t2, t0? | t0 | conditional move: writes $t0 only if $t2 != 0; dest is architecturally read-or-preserved, so $t0 also in uses_optional |
+| 72 | `movz $t0, $t1, $t2` | `0a402a01` | t1, t2, t0? | t0 | conditional move: writes $t0 only if $t2 == 0; dest also in uses_optional |
+| 73 | `lwc1 $f0, 8($sp)` | `0800a0c7` | sp, [sp+0x8]:4 | f0 |  |
+| 74 | `swc1 $f2, 4($sp)` | `0400a2e7` | f2, sp | [sp+0x4]:4 |  |
+| 75 | `add.s $f0, $f1, $f2` | `00080246` | f1, f2 | f0 | FCSR flag/cause side effects not modeled (no MIPS flag regs per conventions) |
+| 76 | `mfc1 $t0, $f0` | `00000844` | f0 | t0 |  |
+| 77 | `mtc1 $t0, $f0` | `00008844` | t0 | f0 |  |
+
+## MIPS64 (big-endian)
+
+99 instructions - Ghidra language `MIPS:BE:64:default` - base address `0x1000`
+
+Category breakdown: shift 13, load 13, muldiv 10, arith 9, mov 8, branch 8, logic 7, store 5, call 5, misc 5, fp 5, cmp 4, ext 2, bitfield 2, ret 1, bit 1, rotate 1
+
+| # | asm | bytes | uses | defs | notes |
+|--:|-----|-------|------|------|-------|
+| 1 | `lui $t0, 0x1234` | `3c081234` | — | t0 |  |
+| 2 | `addiu $t0, $zero, 42` | `2408002a` | zero? | t0 | li via addiu: reads hardwired zero |
+| 3 | `ori $t0, $zero, 0xbeef` | `3408beef` | zero? | t0 | li via ori: reads hardwired zero |
+| 4 | `addu $t2, $t3, $zero` | `01605021` | t3, zero? | t2 | canonical move; capstone may alias to move |
+| 5 | `mfhi $t0` | `00004010` | hi | t0 |  |
+| 6 | `mflo $t1` | `00004812` | lo | t1 |  |
+| 7 | `mthi $t0` | `01000011` | t0 | hi |  |
+| 8 | `mtlo $t1` | `01200013` | t1 | lo |  |
+| 9 | `addu $t0, $t1, $t2` | `012a4021` | t1, t2 | t0 |  |
+| 10 | `addiu $sp, $sp, -32` | `27bdffe0` | sp | sp |  |
+| 11 | `subu $v0, $a0, $a1` | `00851023` | a0, a1 | v0 |  |
+| 12 | `add $t0, $t1, $t2` | `012a4020` | t1, t2 | t0 | trapping add: overflow raises exception, no flag regs on MIPS |
+| 13 | `addi $t0, $t1, 100` | `21280064` | t1 | t0 | trapping addi (removed in r6) |
+| 14 | `sub $t0, $t1, $t2` | `012a4022` | t1, t2 | t0 | trapping sub |
+| 15 | `and $t0, $t1, $t2` | `012a4024` | t1, t2 | t0 |  |
+| 16 | `andi $t0, $t1, 0xff` | `312800ff` | t1 | t0 |  |
+| 17 | `or $s0, $s1, $s2` | `02328025` | s1, s2 | s0 |  |
+| 18 | `ori $t0, $t1, 0x1234` | `35281234` | t1 | t0 |  |
+| 19 | `xor $t0, $t1, $t2` | `012a4026` | t1, t2 | t0 |  |
+| 20 | `xori $t0, $t1, 0xff` | `392800ff` | t1 | t0 |  |
+| 21 | `nor $t0, $t1, $t2` | `012a4027` | t1, t2 | t0 |  |
+| 22 | `slt $t0, $t1, $t2` | `012a402a` | t1, t2 | t0 |  |
+| 23 | `slti $t0, $t1, 10` | `2928000a` | t1 | t0 |  |
+| 24 | `sltu $t0, $t1, $t2` | `012a402b` | t1, t2 | t0 |  |
+| 25 | `sltiu $t0, $t1, -5` | `2d28fffb` | t1 | t0 | imm sign-extended then compared unsigned |
+| 26 | `sll $t0, $t1, 4` | `00094100` | t1 | t0 |  |
+| 27 | `srl $t0, $t1, 4` | `00094102` | t1 | t0 |  |
+| 28 | `sra $t0, $t1, 4` | `00094103` | t1 | t0 |  |
+| 29 | `sllv $t0, $t1, $t2` | `01494004` | t1, t2 | t0 | count reg $t2 is read |
+| 30 | `srlv $t0, $t1, $t2` | `01494006` | t1, t2 | t0 | count reg $t2 is read |
+| 31 | `srav $t0, $t1, $t2` | `01494007` | t1, t2 | t0 | count reg $t2 is read |
+| 32 | `rotr $t0, $t1, 8` | `00294202` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 33 | `mult $t0, $t1` | `01090018` | t0, t1 | hi, lo |  |
+| 34 | `multu $t0, $t1` | `01090019` | t0, t1 | hi, lo |  |
+| 35 | `div $zero, $t0, $t1` | `0109001a` | t0, t1, zero? | hi, lo | raw div form ($zero dest marker) to avoid llvm-mc trap-check pseudo expansion |
+| 36 | `divu $zero, $t2, $t3` | `014b001b` | t2, t3, zero? | hi, lo | raw divu form ($zero dest marker) |
+| 37 | `madd $t0, $t1` | `71090000` | t0, t1, hi, lo | hi, lo | multiply-add: reads AND writes hi/lo |
+| 38 | `msub $t0, $t1` | `71090004` | t0, t1, hi, lo | hi, lo | multiply-subtract: reads AND writes hi/lo |
+| 39 | `lw $t0, 8($sp)` | `8fa80008` | sp, [sp+0x8]:4 | t0 |  |
+| 40 | `lh $t0, 4($a0)` | `84880004` | a0, [a0+0x4]:2 | t0 |  |
+| 41 | `lhu $t0, 6($a0)` | `94880006` | a0, [a0+0x6]:2 | t0 |  |
+| 42 | `lb $t0, 1($a0)` | `80880001` | a0, [a0+0x1]:1 | t0 |  |
+| 43 | `lbu $t0, -1($a0)` | `9088ffff` | a0, [a0-0x1]:1 | t0 |  |
+| 44 | `lw $s0, -4($fp)` | `8fd0fffc` | fp, [fp-0x4]:4 | s0 | capstone calls reg 30 fp |
+| 45 | `lwl $t0, 3($a0)` | `88880003` | a0, t0, [a0+0x3]:4 | t0 | unaligned load-left: merges into dest, so $t0 is read AND written; actual bytes accessed depend on alignment, size 4 is the max/nominal word |
+| 46 | `lwr $t0, 0($a0)` | `98880000` | a0, t0, [a0]:4 | t0 | unaligned load-right: merges into dest, $t0 read AND written; size 4 nominal |
+| 47 | `ll $t0, 0($a0)` | `c0880000` | a0, [a0]:4 | t0 | load-linked; LLbit side effect not modeled |
+| 48 | `sw $t0, 8($sp)` | `afa80008` | t0, sp | [sp+0x8]:4 |  |
+| 49 | `sh $t0, 2($a0)` | `a4880002` | t0, a0 | [a0+0x2]:2 |  |
+| 50 | `sb $t0, 0($a0)` | `a0880000` | t0, a0 | [a0]:1 |  |
+| 51 | `sc $t0, 0($a0)` | `e0880000` | t0, a0 | t0, [a0]:4 | store-conditional: writes success flag into source reg $t0; memory write is conditional on LLbit |
+| 52 | `beq $t0, $t1, 16` | `11090004` | t0, t1 | — |  |
+| 53 | `bne $a0, $zero, 8` | `14800002` | a0, zero? | — | compare against hardwired zero |
+| 54 | `bgez $t0, 16` | `05010004` | t0 | — |  |
+| 55 | `bltz $t0, 16` | `05000004` | t0 | — |  |
+| 56 | `blez $t0, 16` | `19000004` | t0 | — |  |
+| 57 | `bgtz $t0, 16` | `1d000004` | t0 | — |  |
+| 58 | `j 4096` | `08000400` | — | — | PC excluded per conventions; no data effects |
+| 59 | `jr $t9` | `03200008` | t9 | — |  |
+| 60 | `jal 4096` | `0c000400` | — | ra |  |
+| 61 | `jalr $t9` | `0320f809` | t9 | ra |  |
+| 62 | `jalr $s0, $t9` | `03208009` | t9 | s0 | jalr with explicit link register $s0 instead of $ra |
+| 63 | `bal 8` | `04110002` | zero? | ra | bal encodes as bgezal $zero: reads hardwired zero |
+| 64 | `bgezal $t0, 16` | `05110004` | t0 | ra | conditional call: defs ra unconditionally per arch (link happens regardless of branch taken) |
+| 65 | `jr $ra` | `03e00008` | ra | — |  |
+| 66 | `seb $t0, $t1` | `7c094420` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 67 | `seh $t0, $t1` | `7c094620` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 68 | `wsbh $t0, $t1` | `7c0940a0` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 69 | `clo $t0, $t1` | `71284021` | t1 | t0 |  |
+| 70 | `clz $t0, $t1` | `71284020` | t1 | t0 |  |
+| 71 | `movn $t0, $t1, $t2` | `012a400b` | t1, t2, t0? | t0 | conditional move: writes $t0 only if $t2 != 0; dest is architecturally read-or-preserved, so $t0 also in uses_optional |
+| 72 | `movz $t0, $t1, $t2` | `012a400a` | t1, t2, t0? | t0 | conditional move: writes $t0 only if $t2 == 0; dest also in uses_optional |
+| 73 | `lwc1 $f0, 8($sp)` | `c7a00008` | sp, [sp+0x8]:4 | f0 |  |
+| 74 | `swc1 $f2, 4($sp)` | `e7a20004` | f2, sp | [sp+0x4]:4 |  |
+| 75 | `add.s $f0, $f1, $f2` | `46020800` | f1, f2 | f0 | FCSR flag/cause side effects not modeled (no MIPS flag regs per conventions) |
+| 76 | `mfc1 $t0, $f0` | `44080000` | f0 | t0 |  |
+| 77 | `mtc1 $t0, $f0` | `44880000` | t0 | f0 |  |
+| 78 | `daddu $a0, $a1, $a2` | `00a6202d` | a1, a2 | a0 |  |
+| 79 | `daddiu $a0, $a1, 16` | `64a40010` | a1 | a0 |  |
+| 80 | `dsubu $a0, $a1, $a2` | `00a6202f` | a1, a2 | a0 |  |
+| 81 | `dsll $a0, $a1, 4` | `00052138` | a1 | a0 |  |
+| 82 | `dsrl $a0, $a1, 4` | `0005213a` | a1 | a0 |  |
+| 83 | `dsra $a0, $a1, 4` | `0005213b` | a1 | a0 |  |
+| 84 | `dsll32 $a0, $a1, 4` | `0005213c` | a1 | a0 | shift amount is +32 |
+| 85 | `dsllv $a0, $a1, $a2` | `00c52014` | a1, a2 | a0 |  |
+| 86 | `dsrlv $a0, $a1, $a2` | `00c52016` | a1, a2 | a0 |  |
+| 87 | `ld $a0, 8($sp)` | `dfa40008` | sp, [sp+0x8]:8 | a0 |  |
+| 88 | `sd $a0, 8($sp)` | `ffa40008` | a0, sp | [sp+0x8]:8 |  |
+| 89 | `ldl $a0, 7($s0)` | `6a040007` | s0, a0, [s0+0x7]:8 | a0 | unaligned load-left merges into dest, so $a0 is read and written |
+| 90 | `ldr $a0, 0($s0)` | `6e040000` | s0, a0, [s0]:8 | a0 | unaligned load-right merges into dest |
+| 91 | `lwu $a0, 4($s0)` | `9e040004` | s0, [s0+0x4]:4 | a0 | load word unsigned: zero-extends a 32-bit word into the 64-bit reg |
+| 92 | `dmult $a0, $a1` | `0085001c` | a0, a1 | hi, lo |  |
+| 93 | `dmultu $a0, $a1` | `0085001d` | a0, a1 | hi, lo |  |
+| 94 | `ddiv $zero, $a0, $a1` | `0085001e` | a0, a1, zero? | hi, lo | raw ddiv form ($zero dest marker) to avoid llvm-mc trap-check expansion |
+| 95 | `ddivu $zero, $a0, $a1` | `0085001f` | a0, a1, zero? | hi, lo | raw ddivu form |
+| 96 | `dclz $a0, $a1` | `70a42024` | a1 | a0 |  |
+| 97 | `drotr $a0, $a1, 8` | `0025223a` | a1 | a0 |  |
+| 98 | `dext $a0, $a1, 4, 8` | `7ca43903` | a1 | a0 |  |
+| 99 | `dins $a0, $a1, 4, 8` | `7ca45907` | a1, a0 | a0 | insert merges into dest, so $a0 is read and written |
+
+## MIPS64 (little-endian)
+
+99 instructions - Ghidra language `MIPS:LE:64:default` - base address `0x1000`
+
+Category breakdown: shift 13, load 13, muldiv 10, arith 9, mov 8, branch 8, logic 7, store 5, call 5, misc 5, fp 5, cmp 4, ext 2, bitfield 2, ret 1, bit 1, rotate 1
+
+| # | asm | bytes | uses | defs | notes |
+|--:|-----|-------|------|------|-------|
+| 1 | `lui $t0, 0x1234` | `3412083c` | — | t0 |  |
+| 2 | `addiu $t0, $zero, 42` | `2a000824` | zero? | t0 | li via addiu: reads hardwired zero |
+| 3 | `ori $t0, $zero, 0xbeef` | `efbe0834` | zero? | t0 | li via ori: reads hardwired zero |
+| 4 | `addu $t2, $t3, $zero` | `21506001` | t3, zero? | t2 | canonical move; capstone may alias to move |
+| 5 | `mfhi $t0` | `10400000` | hi | t0 |  |
+| 6 | `mflo $t1` | `12480000` | lo | t1 |  |
+| 7 | `mthi $t0` | `11000001` | t0 | hi |  |
+| 8 | `mtlo $t1` | `13002001` | t1 | lo |  |
+| 9 | `addu $t0, $t1, $t2` | `21402a01` | t1, t2 | t0 |  |
+| 10 | `addiu $sp, $sp, -32` | `e0ffbd27` | sp | sp |  |
+| 11 | `subu $v0, $a0, $a1` | `23108500` | a0, a1 | v0 |  |
+| 12 | `add $t0, $t1, $t2` | `20402a01` | t1, t2 | t0 | trapping add: overflow raises exception, no flag regs on MIPS |
+| 13 | `addi $t0, $t1, 100` | `64002821` | t1 | t0 | trapping addi (removed in r6) |
+| 14 | `sub $t0, $t1, $t2` | `22402a01` | t1, t2 | t0 | trapping sub |
+| 15 | `and $t0, $t1, $t2` | `24402a01` | t1, t2 | t0 |  |
+| 16 | `andi $t0, $t1, 0xff` | `ff002831` | t1 | t0 |  |
+| 17 | `or $s0, $s1, $s2` | `25803202` | s1, s2 | s0 |  |
+| 18 | `ori $t0, $t1, 0x1234` | `34122835` | t1 | t0 |  |
+| 19 | `xor $t0, $t1, $t2` | `26402a01` | t1, t2 | t0 |  |
+| 20 | `xori $t0, $t1, 0xff` | `ff002839` | t1 | t0 |  |
+| 21 | `nor $t0, $t1, $t2` | `27402a01` | t1, t2 | t0 |  |
+| 22 | `slt $t0, $t1, $t2` | `2a402a01` | t1, t2 | t0 |  |
+| 23 | `slti $t0, $t1, 10` | `0a002829` | t1 | t0 |  |
+| 24 | `sltu $t0, $t1, $t2` | `2b402a01` | t1, t2 | t0 |  |
+| 25 | `sltiu $t0, $t1, -5` | `fbff282d` | t1 | t0 | imm sign-extended then compared unsigned |
+| 26 | `sll $t0, $t1, 4` | `00410900` | t1 | t0 |  |
+| 27 | `srl $t0, $t1, 4` | `02410900` | t1 | t0 |  |
+| 28 | `sra $t0, $t1, 4` | `03410900` | t1 | t0 |  |
+| 29 | `sllv $t0, $t1, $t2` | `04404901` | t1, t2 | t0 | count reg $t2 is read |
+| 30 | `srlv $t0, $t1, $t2` | `06404901` | t1, t2 | t0 | count reg $t2 is read |
+| 31 | `srav $t0, $t1, $t2` | `07404901` | t1, t2 | t0 | count reg $t2 is read |
+| 32 | `rotr $t0, $t1, 8` | `02422900` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 33 | `mult $t0, $t1` | `18000901` | t0, t1 | hi, lo |  |
+| 34 | `multu $t0, $t1` | `19000901` | t0, t1 | hi, lo |  |
+| 35 | `div $zero, $t0, $t1` | `1a000901` | t0, t1, zero? | hi, lo | raw div form ($zero dest marker) to avoid llvm-mc trap-check pseudo expansion |
+| 36 | `divu $zero, $t2, $t3` | `1b004b01` | t2, t3, zero? | hi, lo | raw divu form ($zero dest marker) |
+| 37 | `madd $t0, $t1` | `00000971` | t0, t1, hi, lo | hi, lo | multiply-add: reads AND writes hi/lo |
+| 38 | `msub $t0, $t1` | `04000971` | t0, t1, hi, lo | hi, lo | multiply-subtract: reads AND writes hi/lo |
+| 39 | `lw $t0, 8($sp)` | `0800a88f` | sp, [sp+0x8]:4 | t0 |  |
+| 40 | `lh $t0, 4($a0)` | `04008884` | a0, [a0+0x4]:2 | t0 |  |
+| 41 | `lhu $t0, 6($a0)` | `06008894` | a0, [a0+0x6]:2 | t0 |  |
+| 42 | `lb $t0, 1($a0)` | `01008880` | a0, [a0+0x1]:1 | t0 |  |
+| 43 | `lbu $t0, -1($a0)` | `ffff8890` | a0, [a0-0x1]:1 | t0 |  |
+| 44 | `lw $s0, -4($fp)` | `fcffd08f` | fp, [fp-0x4]:4 | s0 | capstone calls reg 30 fp |
+| 45 | `lwl $t0, 3($a0)` | `03008888` | a0, t0, [a0+0x3]:4 | t0 | unaligned load-left: merges into dest, so $t0 is read AND written; actual bytes accessed depend on alignment, size 4 is the max/nominal word |
+| 46 | `lwr $t0, 0($a0)` | `00008898` | a0, t0, [a0]:4 | t0 | unaligned load-right: merges into dest, $t0 read AND written; size 4 nominal |
+| 47 | `ll $t0, 0($a0)` | `000088c0` | a0, [a0]:4 | t0 | load-linked; LLbit side effect not modeled |
+| 48 | `sw $t0, 8($sp)` | `0800a8af` | t0, sp | [sp+0x8]:4 |  |
+| 49 | `sh $t0, 2($a0)` | `020088a4` | t0, a0 | [a0+0x2]:2 |  |
+| 50 | `sb $t0, 0($a0)` | `000088a0` | t0, a0 | [a0]:1 |  |
+| 51 | `sc $t0, 0($a0)` | `000088e0` | t0, a0 | t0, [a0]:4 | store-conditional: writes success flag into source reg $t0; memory write is conditional on LLbit |
+| 52 | `beq $t0, $t1, 16` | `04000911` | t0, t1 | — |  |
+| 53 | `bne $a0, $zero, 8` | `02008014` | a0, zero? | — | compare against hardwired zero |
+| 54 | `bgez $t0, 16` | `04000105` | t0 | — |  |
+| 55 | `bltz $t0, 16` | `04000005` | t0 | — |  |
+| 56 | `blez $t0, 16` | `04000019` | t0 | — |  |
+| 57 | `bgtz $t0, 16` | `0400001d` | t0 | — |  |
+| 58 | `j 4096` | `00040008` | — | — | PC excluded per conventions; no data effects |
+| 59 | `jr $t9` | `08002003` | t9 | — |  |
+| 60 | `jal 4096` | `0004000c` | — | ra |  |
+| 61 | `jalr $t9` | `09f82003` | t9 | ra |  |
+| 62 | `jalr $s0, $t9` | `09802003` | t9 | s0 | jalr with explicit link register $s0 instead of $ra |
+| 63 | `bal 8` | `02001104` | zero? | ra | bal encodes as bgezal $zero: reads hardwired zero |
+| 64 | `bgezal $t0, 16` | `04001105` | t0 | ra | conditional call: defs ra unconditionally per arch (link happens regardless of branch taken) |
+| 65 | `jr $ra` | `0800e003` | ra | — |  |
+| 66 | `seb $t0, $t1` | `2044097c` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 67 | `seh $t0, $t1` | `2046097c` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 68 | `wsbh $t0, $t1` | `a040097c` | t1 | t0 | assembled with -mcpu=mips32r2 |
+| 69 | `clo $t0, $t1` | `21402871` | t1 | t0 |  |
+| 70 | `clz $t0, $t1` | `20402871` | t1 | t0 |  |
+| 71 | `movn $t0, $t1, $t2` | `0b402a01` | t1, t2, t0? | t0 | conditional move: writes $t0 only if $t2 != 0; dest is architecturally read-or-preserved, so $t0 also in uses_optional |
+| 72 | `movz $t0, $t1, $t2` | `0a402a01` | t1, t2, t0? | t0 | conditional move: writes $t0 only if $t2 == 0; dest also in uses_optional |
+| 73 | `lwc1 $f0, 8($sp)` | `0800a0c7` | sp, [sp+0x8]:4 | f0 |  |
+| 74 | `swc1 $f2, 4($sp)` | `0400a2e7` | f2, sp | [sp+0x4]:4 |  |
+| 75 | `add.s $f0, $f1, $f2` | `00080246` | f1, f2 | f0 | FCSR flag/cause side effects not modeled (no MIPS flag regs per conventions) |
+| 76 | `mfc1 $t0, $f0` | `00000844` | f0 | t0 |  |
+| 77 | `mtc1 $t0, $f0` | `00008844` | t0 | f0 |  |
+| 78 | `daddu $a0, $a1, $a2` | `2d20a600` | a1, a2 | a0 |  |
+| 79 | `daddiu $a0, $a1, 16` | `1000a464` | a1 | a0 |  |
+| 80 | `dsubu $a0, $a1, $a2` | `2f20a600` | a1, a2 | a0 |  |
+| 81 | `dsll $a0, $a1, 4` | `38210500` | a1 | a0 |  |
+| 82 | `dsrl $a0, $a1, 4` | `3a210500` | a1 | a0 |  |
+| 83 | `dsra $a0, $a1, 4` | `3b210500` | a1 | a0 |  |
+| 84 | `dsll32 $a0, $a1, 4` | `3c210500` | a1 | a0 | shift amount is +32 |
+| 85 | `dsllv $a0, $a1, $a2` | `1420c500` | a1, a2 | a0 |  |
+| 86 | `dsrlv $a0, $a1, $a2` | `1620c500` | a1, a2 | a0 |  |
+| 87 | `ld $a0, 8($sp)` | `0800a4df` | sp, [sp+0x8]:8 | a0 |  |
+| 88 | `sd $a0, 8($sp)` | `0800a4ff` | a0, sp | [sp+0x8]:8 |  |
+| 89 | `ldl $a0, 7($s0)` | `0700046a` | s0, a0, [s0+0x7]:8 | a0 | unaligned load-left merges into dest, so $a0 is read and written |
+| 90 | `ldr $a0, 0($s0)` | `0000046e` | s0, a0, [s0]:8 | a0 | unaligned load-right merges into dest |
+| 91 | `lwu $a0, 4($s0)` | `0400049e` | s0, [s0+0x4]:4 | a0 | load word unsigned: zero-extends a 32-bit word into the 64-bit reg |
+| 92 | `dmult $a0, $a1` | `1c008500` | a0, a1 | hi, lo |  |
+| 93 | `dmultu $a0, $a1` | `1d008500` | a0, a1 | hi, lo |  |
+| 94 | `ddiv $zero, $a0, $a1` | `1e008500` | a0, a1, zero? | hi, lo | raw ddiv form ($zero dest marker) to avoid llvm-mc trap-check expansion |
+| 95 | `ddivu $zero, $a0, $a1` | `1f008500` | a0, a1, zero? | hi, lo | raw ddivu form |
+| 96 | `dclz $a0, $a1` | `2420a470` | a1 | a0 |  |
+| 97 | `drotr $a0, $a1, 8` | `3a222500` | a1 | a0 |  |
+| 98 | `dext $a0, $a1, 4, 8` | `0339a47c` | a1 | a0 |  |
+| 99 | `dins $a0, $a1, 4, 8` | `0759a47c` | a1, a0 | a0 | insert merges into dest, so $a0 is read and written |
 
 ## PowerPC32 (big-endian)
 
