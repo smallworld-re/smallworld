@@ -173,6 +173,32 @@ let
         outputHashAlgo = "sha256";
         outputHashMode = "recursive";
       };
+      # `pkgs.qemu` carries nixpkgs patches written against the exact QEMU
+      # release nixpkgs pins. We swap in PANDA's QEMU fork, whose tree has
+      # drifted from that release, so a nixpkgs bump can introduce a patch
+      # that no longer applies here and breaks the whole PANDA stack for
+      # reasons unrelated to SmallWorld.
+      #
+      # Drop such patches when they only touch upstream's test suite: we
+      # build with an explicit `--target-list` and never build or run qtest,
+      # so they cannot affect the QEMU binaries or the PANDA plugin
+      # interfaces we actually consume. Patches that touch real sources must
+      # be rebased instead of listed here.
+      droppedQemuPatches = [
+        # Relocates an `#ifdef CONFIG_TASN1` guard in
+        # `tests/qtest/migration/tls-tests.c`; PANDA's fork has moved that
+        # code, so hunks 2 and 3 fail to apply.
+        "fix-tls-tests-without-tasn1.patch"
+      ];
+      keepQemuPatch =
+        patch:
+        let
+          name = builtins.baseNameOf (toString patch);
+        in
+        !(lib.any (dropped: lib.hasSuffix dropped name) droppedQemuPatches);
+      # Store paths for fetched patches carry a hash prefix, so match on the
+      # trailing filename rather than requiring an exact basename.
+      pandaQemuPatches = old: builtins.filter keepQemuPatch (old.patches or [ ]);
       mkQemuSourceSetup =
         {
           includeLibpanda ? false,
@@ -187,6 +213,7 @@ let
       qemu = pkgs.qemu.overrideAttrs (old: {
         version = "main";
         src = pandaQemuSrc;
+        patches = pandaQemuPatches old;
         configureFlags = qemuConfigureFlags;
         postUnpack = (old.postUnpack or "") + mkQemuSourceSetup { };
         postInstall = (old.postInstall or "") + ''
@@ -203,6 +230,7 @@ let
             outputs = [ "out" ];
             separateDebugInfo = false;
             src = pandaQemuSrc;
+            patches = pandaQemuPatches old;
             dontFixup = true;
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
             configureFlags = qemuConfigureFlags;
