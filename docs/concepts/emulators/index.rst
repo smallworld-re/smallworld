@@ -17,17 +17,18 @@ means we emulate with our current best harness in order to get hints to improve
 our harness for emulation.  In other words, we emulate in order to emulate
 better.
 
-SmallWorld currently supports four emulation backends:
+SmallWorld currently supports five emulation backends:
 
 * **angr**: A user-space symbolic executor based on VEX or Pcode
 * **Ghidra**: A user-space concrete emulator based on Pcode
 * **Panda**: A full-system concrete emulator based on QEMU
+* **Styx**: A firmware-oriented concrete emulator based on Pcode or Unicorn
 * **Unicorn**: A user-space concrete emulator based on QEMU
 
 These are abstracted behind a common interface.
 While they all have different strengths and support slightly different
 sets of features, most smallworld harnesses can be applied
-to any of the four emulators,
+to any of the five emulators,
 with only a single line of code changed to specify which one.
 
 Although the :ref:`state` interface is the preferred method of

@@ -54,11 +54,20 @@ let
       ghidra = mkGhidraRuntime pkgs;
       aflplusplus =
         if system == "aarch64-darwin" then aflplusplusPackages.${system}.aflplusplus else pkgs.aflplusplus;
+      # Berkeley TestFloat, for the `testfloat` scenario. Built from upstream
+      # (see nix/testfloat.nix); its `testfloat_gen`/`testfloat_ver` pair has to
+      # be on PATH at *test* time, not build time, because the harness pipes
+      # emulated FPU results between them. Linux only - upstream ships no
+      # Darwin build configuration.
+      testfloat = lib.optional pkgs.stdenv.hostPlatform.isLinux (
+        pkgs.callPackage ./testfloat.nix { }
+      );
     in
     [
       aflplusplus
       pkgs.z3
     ]
+    ++ testfloat
     ++ ghidra.tools;
 
   # `buildEnv` is how we merge several derivations into one user-facing

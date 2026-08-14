@@ -1,0 +1,888 @@
+# Local PANDA/QEMU patch adding the Renesas SH-2A / SH2A-FPU instruction set to
+# the sh4 target, for SmallWorld's `superh-sh2a-fpu` platform.
+#
+# Applies on top of panda-qemu-superh.patch, which adds the SH-4 PANDA glue and
+# owns the exported sh_sr_read()/sh_sr_write() accessors this target relies on.
+#
+# QEMU's sh4 target only ever modelled SH-4 (sh7750r/sh7751r/sh7785). SH-2A is a
+# different branch of the SuperH family: it shares the SH-2 base ISA with SH-4
+# but adds ~40 instructions of its own -- including SuperH's only 32-bit
+# encodings -- and drops SH-4's MMU, cache-control and vector-FPU instructions.
+# Running SH-2A code on an SH-4 core therefore mis-executes exactly the
+# instructions a real SH-2A compiler emits most (GCC -m2a uses MOVML/MOVMU in
+# every prologue, and MOVI20 for large constants).
+#
+# The encodings implemented here are taken from the binutils opcode table this
+# same tree already vendors at disas/sh4.c: every row tagged arch_sh2a_up or
+# arch_sh2a_nofpu_up and not shared with SH-3/SH-4, with `arch_op32` marking the
+# 32-bit forms. All 56 such rows are covered.
+#
+# What is implemented:
+#   - SH_FEATURE_SH2A, TBR, SR.CS, and sh7264/sh7269 CPU models (SH2A-FPU parts)
+#   - a second-word fetch for the three 32-bit first-word families
+#   - all 32 SH-2A-only 16-bit encodings and all 24 32-bit rows
+#   - RTS/N, RTV/N and JSR/N as genuinely delay-slot-free control transfers
+#   - SH-4-only instructions (ldtlb, movca.l, ocb*, frchg, fsrra, fipr, ftrv)
+#     now fault on an SH-2A CPU
+#
+# What is NOT implemented, deliberately:
+#   - the SH-2A register bank (LDBANK/STBANK/RESBANK). These are driven by the
+#     automatic bank save/restore the SH-2A interrupt controller performs on
+#     exception entry, which QEMU's SH-4 model does not have at all, so there is
+#     never anything meaningful in the bank. They are decoded and then raise an
+#     illegal-instruction exception rather than silently returning zeroes.
+#     This only affects interrupt-handler firmware.
+#   - SR.CS is set on CLIPS/CLIPU saturation and never auto-cleared (sticky),
+#     which is my reading of the Renesas "1 -> CS" pseudocode; unverified.
+#
+# See nix/patches/README.panda-qemu-sh2a.md. This is a new QEMU feature rather
+# than PANDA glue and should be offered upstream; drop it once QEMU carries
+# SH-2A support natively.
+diff --git a/target/sh4/cpu.h b/target/sh4/cpu.h
+--- a/target/sh4/cpu.h
++++ b/target/sh4/cpu.h
+@@ -33,6 +33,8 @@
+ #define SH_CPU_SH7751  (1 << 3)
+ #define SH_CPU_SH7751R (1 << 4)
+ #define SH_CPU_SH7785  (1 << 5)
++#define SH_CPU_SH7264  (1 << 6)
++#define SH_CPU_SH7269  (1 << 7)
+ #define SH_CPU_SH7750_ALL (SH_CPU_SH7750 | SH_CPU_SH7750S | SH_CPU_SH7750R)
+ #define SH_CPU_SH7751_ALL (SH_CPU_SH7751 | SH_CPU_SH7751R)
+ 
+@@ -40,6 +42,7 @@
+ #define SR_RB 29
+ #define SR_BL 28
+ #define SR_FD 15
++#define SR_CS 13                /* SH-2A only: CLIPS/CLIPU saturation status */
+ #define SR_M  9
+ #define SR_Q  8
+ #define SR_I3 7
+@@ -130,6 +133,13 @@ typedef struct tlb_t {
+ enum sh_features {
+     SH_FEATURE_SH4A = 1,
+     SH_FEATURE_BCR3_AND_BCR4 = 2,
++    /*
++     * SH-2A / SH2A-FPU instruction set.  Selects the SH-2A-only opcodes
++     * (MOVI20, MOVU, MOVML/MOVMU, the bit-manipulation group, the 32-bit
++     * @(disp12,Rn) forms, RTS/N & friends) and disables the SH-4-only
++     * cache/MMU/vector instructions.  Mutually exclusive with SH_FEATURE_SH4A.
++     */
++    SH_FEATURE_SH2A = 4,
+ };
+ 
+ typedef struct memory_content {
+@@ -156,6 +166,7 @@ typedef struct CPUArchState {
+     uint32_t delayed_pc;        /* target of delayed branch */
+     uint32_t delayed_cond;      /* condition of delayed branch */
+     uint32_t pr;                /* procedure register */
++    uint32_t tbr;               /* SH-2A only: jump table base register */
+     uint32_t fpscr;             /* floating point status/control register */
+     uint32_t fpul;              /* floating point communication register */
+ 
+diff --git a/target/sh4/cpu-qom.h b/target/sh4/cpu-qom.h
+--- a/target/sh4/cpu-qom.h
++++ b/target/sh4/cpu-qom.h
+@@ -27,6 +27,9 @@
+ #define TYPE_SH7750R_CPU SUPERH_CPU_TYPE_NAME("sh7750r")
+ #define TYPE_SH7751R_CPU SUPERH_CPU_TYPE_NAME("sh7751r")
+ #define TYPE_SH7785_CPU  SUPERH_CPU_TYPE_NAME("sh7785")
++/* SH2A-FPU parts.  SH7264 and SH7269 share the same SH-2A core. */
++#define TYPE_SH7264_CPU  SUPERH_CPU_TYPE_NAME("sh7264")
++#define TYPE_SH7269_CPU  SUPERH_CPU_TYPE_NAME("sh7269")
+ 
+ OBJECT_DECLARE_CPU_TYPE(SuperHCPU, SuperHCPUClass, SUPERH_CPU)
+ 
+diff --git a/target/sh4/cpu.c b/target/sh4/cpu.c
+--- a/target/sh4/cpu.c
++++ b/target/sh4/cpu.c
+@@ -159,8 +159,25 @@ static void superh_cpu_reset_hold(Object *obj, ResetType type)
+     env->fpscr = FPSCR_PR; /* value for userspace according to the kernel */
+     set_float_rounding_mode(float_round_nearest_even, &env->fp_status); /* ?! */
+ #else
+-    env->sr = (1u << SR_MD) | (1u << SR_RB) | (1u << SR_BL) |
+-              (1u << SR_I3) | (1u << SR_I2) | (1u << SR_I1) | (1u << SR_I0);
++    if (env->features & SH_FEATURE_SH2A) {
++        /*
++         * SH-2A has neither an MMU nor a user mode, and no banked R0-R7.
++         * Keep SR.MD set so that QEMU's SH-4 plumbing (IS_USER(), memidx,
++         * privileged-instruction checks) treats us as privileged, but leave
++         * SR.RB clear so ctx->gbank stays 0 and R0-R7 map to gregs[0..7].
++         * SR.BL likewise does not exist on SH-2A.
++         *
++         * The architectural reset sequence loads PC and R15 from the vector
++         * table at address 0; there is no P2 mirror, so the SH-4 reset vector
++         * would be meaningless here.  Boards/harnesses set PC explicitly.
++         */
++        env->pc = 0x00000000;
++        env->sr = (1u << SR_MD) |
++                  (1u << SR_I3) | (1u << SR_I2) | (1u << SR_I1) | (1u << SR_I0);
++    } else {
++        env->sr = (1u << SR_MD) | (1u << SR_RB) | (1u << SR_BL) |
++                  (1u << SR_I3) | (1u << SR_I2) | (1u << SR_I1) | (1u << SR_I0);
++    }
+     env->fpscr = FPSCR_DN | FPSCR_RM_ZERO; /* CPU reset value according to SH4 manual */
+     set_float_rounding_mode(float_round_to_zero, &env->fp_status);
+     set_flush_to_zero(1, &env->fp_status);
+@@ -181,9 +198,17 @@ static void superh_cpu_reset_hold(Object *obj, ResetType type)
+ 
+ static void superh_cpu_disas_set_info(CPUState *cpu, disassemble_info *info)
+ {
++    CPUSH4State *env = cpu_env(cpu);
++
+     info->endian = TARGET_BIG_ENDIAN ? BFD_ENDIAN_BIG
+                                      : BFD_ENDIAN_LITTLE;
+-    info->mach = bfd_mach_sh4;
++    /*
++     * print_insn_sh() maps the bfd machine onto a binutils architecture set,
++     * which is what gates the SH-2A-only rows (and the 32-bit @(disp12,Rn)
++     * forms) of the opcode table.  Ask for SH-2A when that is what we are.
++     */
++    info->mach = (env->features & SH_FEATURE_SH2A) ? bfd_mach_sh2a
++                                                   : bfd_mach_sh4;
+     info->print_insn = print_insn_sh;
+ }
+ 
+@@ -258,6 +283,35 @@ static void sh7785_class_init(ObjectClass *oc, const void *data)
+     scc->cvr = 0x71440211;
+ }
+ 
++/*
++ * SH7264 / SH7269: SH2A-FPU MCUs.  No MMU, no user mode, single FPU register
++ * bank.  PVR/PRR/CVR are SH-4 cache/version registers that do not exist on
++ * SH-2A; they are left at zero rather than invented.
++ */
++static void sh7264_cpu_initfn(Object *obj)
++{
++    CPUSH4State *env = cpu_env(CPU(obj));
++
++    env->id = SH_CPU_SH7264;
++    env->features = SH_FEATURE_SH2A;
++}
++
++static void sh7264_class_init(ObjectClass *oc, const void *data)
++{
++}
++
++static void sh7269_cpu_initfn(Object *obj)
++{
++    CPUSH4State *env = cpu_env(CPU(obj));
++
++    env->id = SH_CPU_SH7269;
++    env->features = SH_FEATURE_SH2A;
++}
++
++static void sh7269_class_init(ObjectClass *oc, const void *data)
++{
++}
++
+ static void superh_cpu_realizefn(DeviceState *dev, Error **errp)
+ {
+     CPUState *cs = CPU(dev);
+@@ -374,6 +428,10 @@ static const TypeInfo superh_cpu_type_infos[] = {
+                            sh7751r_cpu_initfn),
+     DEFINE_SUPERH_CPU_TYPE(TYPE_SH7785_CPU, sh7785_class_init,
+                            sh7785_cpu_initfn),
++    DEFINE_SUPERH_CPU_TYPE(TYPE_SH7264_CPU, sh7264_class_init,
++                           sh7264_cpu_initfn),
++    DEFINE_SUPERH_CPU_TYPE(TYPE_SH7269_CPU, sh7269_class_init,
++                           sh7269_cpu_initfn),
+ 
+ };
+ 
+diff --git a/target/sh4/helper.h b/target/sh4/helper.h
+--- a/target/sh4/helper.h
++++ b/target/sh4/helper.h
+@@ -11,6 +11,14 @@ DEF_HELPER_3(movcal, void, env, i32, i32)
+ DEF_HELPER_1(discard_movcal_backup, void, env)
+ DEF_HELPER_2(ocbi, void, env, i32)
+ 
++/*
++ * SH-2A DIVS/DIVU.  Done in helpers rather than tcg_gen_div{,u}_i32 because the
++ * architecture leaves a zero divisor (and INT_MIN / -1) undefined, whereas the
++ * host would trap.
++ */
++DEF_HELPER_FLAGS_2(divs, TCG_CALL_NO_RWG_SE, s32, s32, s32)
++DEF_HELPER_FLAGS_2(divu, TCG_CALL_NO_RWG_SE, i32, i32, i32)
++
+ DEF_HELPER_3(macl, void, env, s32, s32)
+ DEF_HELPER_3(macw, void, env, s32, s32)
+ 
+diff --git a/target/sh4/op_helper.c b/target/sh4/op_helper.c
+--- a/target/sh4/op_helper.c
++++ b/target/sh4/op_helper.c
+@@ -157,6 +157,32 @@ void helper_ocbi(CPUSH4State *env, uint32_t address)
+     }
+ }
+ 
++/*
++ * SH-2A DIVS.L / DIVU.L (32-bit / 32-bit -> 32-bit).
++ *
++ * The SH-2A manual leaves the result undefined when the divisor is zero, and
++ * signed INT_MIN / -1 is likewise not representable; both would raise SIGFPE on
++ * common hosts, so pin down a defined, non-trapping answer here.
++ */
++int32_t helper_divs(int32_t num, int32_t den)
++{
++    if (den == 0) {
++        return 0;
++    }
++    if (num == INT32_MIN && den == -1) {
++        return INT32_MIN;
++    }
++    return num / den;
++}
++
++uint32_t helper_divu(uint32_t num, uint32_t den)
++{
++    if (den == 0) {
++        return 0;
++    }
++    return num / den;
++}
++
+ void helper_macl(CPUSH4State *env, int32_t arg0, int32_t arg1)
+ {
+     const int64_t min = -(1ll << 47);
+diff --git a/target/sh4/translate.c b/target/sh4/translate.c
+--- a/target/sh4/translate.c
++++ b/target/sh4/translate.c
+@@ -45,6 +45,13 @@ typedef struct DisasContext {
+     uint32_t features;
+ 
+     uint16_t opcode;
++    /*
++     * SH-2A has a handful of 32-bit instructions; opcode2 holds their second
++     * word and insn_len is the byte length of the instruction being decoded
++     * (2 everywhere else).  Both are set up by sh4_tr_translate_insn().
++     */
++    uint16_t opcode2;
++    uint8_t insn_len;
+ 
+     bool has_movcal;
+ } DisasContext;
+@@ -68,6 +75,7 @@ static TCGv cpu_sr, cpu_sr_m, cpu_sr_q, cpu_sr_t;
+ static TCGv cpu_pc, cpu_ssr, cpu_spc, cpu_gbr;
+ static TCGv cpu_vbr, cpu_sgr, cpu_dbr, cpu_mach, cpu_macl;
+ static TCGv cpu_pr, cpu_fpscr, cpu_fpul;
++static TCGv cpu_tbr;            /* SH-2A only */
+ static TCGv cpu_lock_addr, cpu_lock_value;
+ static TCGv cpu_fregs[32];
+ 
+@@ -118,6 +126,8 @@ void sh4_translate_init(void)
+                                      offsetof(CPUSH4State, spc), "SPC");
+     cpu_gbr = tcg_global_mem_new_i32(tcg_env,
+                                      offsetof(CPUSH4State, gbr), "GBR");
++    cpu_tbr = tcg_global_mem_new_i32(tcg_env,
++                                     offsetof(CPUSH4State, tbr), "TBR");
+     cpu_vbr = tcg_global_mem_new_i32(tcg_env,
+                                      offsetof(CPUSH4State, vbr), "VBR");
+     cpu_sgr = tcg_global_mem_new_i32(tcg_env,
+@@ -387,6 +397,123 @@ static inline void gen_store_fpr64(DisasContext *ctx, TCGv_i64 t, int reg)
+         goto do_illegal;                      \
+     }
+ 
++#define CHECK_SH2A \
++    if (!(ctx->features & SH_FEATURE_SH2A)) { \
++        goto do_illegal;                      \
++    }
++
++/* SH-4-only instructions that SH-2A does not implement (no MMU, no cache
++   control, no vector FPU, single FP register bank).  */
++#define CHECK_NOT_SH2A \
++    if (ctx->features & SH_FEATURE_SH2A) { \
++        goto do_illegal;                   \
++    }
++
++/*
++ * SH-2A 32-bit instruction first words:
++ *
++ *   0011nnnnmmmm0001   mov.{b,w,l} / movu.{b,w} / fmov.{s,d} @(disp12,Rn)
++ *   0011nnnn0iii1001   b{clr,set,st,ld,ldnot,and,andnot,or,ornot,xor}.b
++ *   0000nnnniiii0000   movi20  #imm20,Rn
++ *   0000nnnniiii0001   movi20s #imm20,Rn
++ *
++ * None of these patterns is used by SH-1..SH-4, so this never changes how an
++ * SH-4 instruction stream is decoded; the caller gates on SH_FEATURE_SH2A
++ * anyway so that a non-SH-2A CPU keeps consuming two bytes per instruction.
++ */
++static bool sh2a_insn_is_op32(uint16_t opcode)
++{
++    switch (opcode & 0xf00f) {
++    case 0x3001:
++    case 0x0000:
++    case 0x0001:
++        return true;
++    }
++    return (opcode & 0xf08f) == 0x3009;
++}
++
++/*
++ * SH-2A RTS/N, RTV/N and JSR/N transfer control with *no* delay slot, so they
++ * must not set TB_FLAG_DELAY_SLOT or stage ctx->delayed_pc the way the
++ * SH-1..SH-4 branches do; the jump happens as part of this instruction.
++ */
++static void gen_sh2a_jump_now(DisasContext *ctx, TCGv target)
++{
++    gen_save_cpu_state(ctx, false);
++    tcg_gen_mov_i32(cpu_pc, target);
++    if (use_exit_tb(ctx)) {
++        tcg_gen_exit_tb(NULL, 0);
++    } else {
++        tcg_gen_lookup_and_goto_ptr();
++    }
++    ctx->base.is_jmp = DISAS_NORETURN;
++}
++
++/*
++ * SH-2A CLIPS/CLIPU record saturation in SR.CS (bit 13), which the manual
++ * describes as "1 -> CS" on clipping.  It is not cleared when no clipping
++ * occurs, i.e. it is sticky until software clears it.
++ */
++static void gen_sh2a_clip(TCGv reg, int bits, bool signed_clip)
++{
++    TCGv clipped = tcg_temp_new();
++    TCGv cs = tcg_temp_new();
++
++    if (signed_clip) {
++        tcg_gen_smin_i32(clipped, reg, tcg_constant_i32((1 << (bits - 1)) - 1));
++        tcg_gen_smax_i32(clipped, clipped, tcg_constant_i32(-(1 << (bits - 1))));
++    } else {
++        tcg_gen_umin_i32(clipped, reg, tcg_constant_i32((1u << bits) - 1));
++    }
++    tcg_gen_setcond_i32(TCG_COND_NE, cs, reg, clipped);
++    tcg_gen_shli_i32(cs, cs, SR_CS);
++    tcg_gen_or_i32(cpu_sr, cpu_sr, cs);
++    tcg_gen_mov_i32(reg, clipped);
++}
++
++/*
++ * SH-2A MOVML.L / MOVMU.L -- multi-register push/pop through R15.
++ *
++ *   MOVML.L Rm,@-R15   transfers R0..Rm      (R0 at the lowest address)
++ *   MOVML.L @R15+,Rm   the mirror image
++ *   MOVMU.L Rm,@-R15   transfers Rm..R14,PR  (Rm at the lowest address)
++ *   MOVMU.L @R15+,Rm   the mirror image
++ *
++ * In *both* instructions and *both* directions, transfer slot 15 is PR rather
++ * than R15 -- so MOVMU.L R15,@-R15 transfers PR alone, and MOVML.L R15,@-R15
++ * transfers R0..R14 and PR.  R15 is therefore never itself a transfer operand.
++ * (Checked against Ghidra's SH-2A sleigh, whose MovML/MovMU slot-15 rules all
++ * read `storeRegister(pr, r15)` / `loadRegister(pr, r15)`.)
++ *
++ * R15 is adjusted once, after every access, so that a fault part-way through
++ * leaves it untouched and the instruction restarts cleanly.
++ */
++static void gen_sh2a_movml(DisasContext *ctx, int m, bool upper, bool load)
++{
++    int count = upper ? 16 - m : m + 1;
++    TCGv addr = tcg_temp_new();
++    int i;
++
++    for (i = 0; i < count; i++) {
++        int r = upper ? m + i : i;
++        TCGv reg = (r == 15) ? cpu_pr : REG(r);
++
++        if (load) {
++            tcg_gen_addi_i32(addr, REG(15), i * 4);
++            tcg_gen_qemu_ld_i32(reg, addr, ctx->memidx, MO_TESL | MO_ALIGN);
++        } else {
++            tcg_gen_subi_i32(addr, REG(15), (count - i) * 4);
++            tcg_gen_qemu_st_i32(reg, addr, ctx->memidx, MO_TEUL | MO_ALIGN);
++        }
++    }
++
++    if (load) {
++        tcg_gen_addi_i32(REG(15), REG(15), count * 4);
++    } else {
++        tcg_gen_subi_i32(REG(15), REG(15), count * 4);
++    }
++}
++
+ static void _decode_opc(DisasContext * ctx)
+ {
+     /* This code tries to make movcal emulation sufficiently
+@@ -447,6 +574,7 @@ static void _decode_opc(DisasContext * ctx)
+         tcg_gen_movi_i32(cpu_sr_t, 0);
+         return;
+     case 0x0038: /* ldtlb */
++        CHECK_NOT_SH2A
+         CHECK_PRIVILEGED
+         gen_helper_ldtlb(tcg_env);
+         return;
+@@ -466,6 +594,7 @@ static void _decode_opc(DisasContext * ctx)
+         tcg_gen_movi_i32(cpu_sr_t, 1);
+         return;
+     case 0xfbfd: /* frchg */
++        CHECK_NOT_SH2A     /* SH-2A has a single FP register bank */
+         CHECK_FPSCR_PR_0
+         tcg_gen_xori_i32(cpu_fpscr, cpu_fpscr, FPSCR_FR);
+         ctx->base.is_jmp = DISAS_STOP;
+@@ -480,6 +609,27 @@ static void _decode_opc(DisasContext * ctx)
+         tcg_gen_xori_i32(cpu_fpscr, cpu_fpscr, FPSCR_PR);
+         ctx->base.is_jmp = DISAS_STOP;
+         return;
++    case 0x0068: /* nott (SH-2A) */
++        CHECK_SH2A
++        tcg_gen_xori_i32(cpu_sr_t, cpu_sr_t, 1);
++        return;
++    case 0x006b: /* rts/n (SH-2A) */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        /* No delay slot: PR -> PC right here.  */
++        gen_sh2a_jump_now(ctx, cpu_pr);
++        return;
++    case 0x005b: /* resbank (SH-2A) */
++        CHECK_SH2A
++        /*
++         * Restores R0-R14/GBR/MACH/MACL/PR/IVN from the SH-2A register bank.
++         * The bank is only ever filled by the automatic save the interrupt
++         * controller performs on exception entry, which QEMU's SH-4 model does
++         * not implement at all -- so there is never anything meaningful to
++         * restore.  Faulting is honest; silently restoring zeroes would not be.
++         * See nix/patches/README.panda-qemu-sh2a.md.
++         */
++        goto do_illegal;
+     case 0x0009: /* nop */
+         return;
+     case 0x001b: /* sleep */
+@@ -555,6 +705,102 @@ static void _decode_opc(DisasContext * ctx)
+     }
+ 
+     switch (ctx->opcode & 0xf00f) {
++    case 0x0000: /* movi20 #imm20,Rn (SH-2A, 32-bit) */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        tcg_gen_movi_i32(REG(B11_8),
++                         sextract32((B7_4 << 16) | ctx->opcode2, 0, 20));
++        return;
++    case 0x0001: /* movi20s #imm20,Rn (SH-2A, 32-bit) */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        tcg_gen_movi_i32(REG(B11_8),
++                         sextract32((B7_4 << 16) | ctx->opcode2, 0, 20) << 8);
++        return;
++    case 0x3001: /* SH-2A 32-bit mov/movu/fmov @(disp12,Rn) */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        {
++            uint32_t disp = ctx->opcode2 & 0xfff;
++            TCGv addr = tcg_temp_new();
++
++            switch (ctx->opcode2 >> 12) {
++            case 0x0: /* mov.b Rm,@(disp12,Rn) */
++                tcg_gen_addi_i32(addr, REG(B11_8), disp);
++                tcg_gen_qemu_st_i32(REG(B7_4), addr, ctx->memidx, MO_UB);
++                return;
++            case 0x1: /* mov.w Rm,@(disp12*2,Rn) */
++                tcg_gen_addi_i32(addr, REG(B11_8), disp * 2);
++                tcg_gen_qemu_st_i32(REG(B7_4), addr, ctx->memidx,
++                                    MO_TEUW | UNALIGN(ctx));
++                return;
++            case 0x2: /* mov.l Rm,@(disp12*4,Rn) */
++                tcg_gen_addi_i32(addr, REG(B11_8), disp * 4);
++                tcg_gen_qemu_st_i32(REG(B7_4), addr, ctx->memidx,
++                                    MO_TEUL | UNALIGN(ctx));
++                return;
++            case 0x3: /* fmov.s FRm,@(disp12*4,Rn) / fmov.d DRm,@(disp12*8,Rn) */
++                CHECK_FPU_ENABLED
++                if (ctx->tbflags & FPSCR_SZ) {
++                    TCGv_i64 fp = tcg_temp_new_i64();
++                    /* SH-2A has no XF bank, so an odd DR number is illegal. */
++                    if (B7_4 & 1) {
++                        goto do_illegal;
++                    }
++                    gen_load_fpr64(ctx, fp, B7_4);
++                    tcg_gen_addi_i32(addr, REG(B11_8), disp * 8);
++                    tcg_gen_qemu_st_i64(fp, addr, ctx->memidx,
++                                        MO_TEUQ | MO_ALIGN);
++                } else {
++                    tcg_gen_addi_i32(addr, REG(B11_8), disp * 4);
++                    tcg_gen_qemu_st_i32(FREG(B7_4), addr, ctx->memidx,
++                                        MO_TEUL | MO_ALIGN);
++                }
++                return;
++            case 0x4: /* mov.b @(disp12,Rm),Rn - sign extended */
++                tcg_gen_addi_i32(addr, REG(B7_4), disp);
++                tcg_gen_qemu_ld_i32(REG(B11_8), addr, ctx->memidx, MO_SB);
++                return;
++            case 0x5: /* mov.w @(disp12*2,Rm),Rn - sign extended */
++                tcg_gen_addi_i32(addr, REG(B7_4), disp * 2);
++                tcg_gen_qemu_ld_i32(REG(B11_8), addr, ctx->memidx,
++                                    MO_TESW | UNALIGN(ctx));
++                return;
++            case 0x6: /* mov.l @(disp12*4,Rm),Rn */
++                tcg_gen_addi_i32(addr, REG(B7_4), disp * 4);
++                tcg_gen_qemu_ld_i32(REG(B11_8), addr, ctx->memidx,
++                                    MO_TESL | UNALIGN(ctx));
++                return;
++            case 0x7: /* fmov.s @(disp12*4,Rm),FRn / fmov.d @(disp12*8,Rm),DRn */
++                CHECK_FPU_ENABLED
++                if (ctx->tbflags & FPSCR_SZ) {
++                    TCGv_i64 fp = tcg_temp_new_i64();
++                    /* SH-2A has no XF bank, so an odd DR number is illegal. */
++                    if (B11_8 & 1) {
++                        goto do_illegal;
++                    }
++                    tcg_gen_addi_i32(addr, REG(B7_4), disp * 8);
++                    tcg_gen_qemu_ld_i64(fp, addr, ctx->memidx,
++                                        MO_TEUQ | MO_ALIGN);
++                    gen_store_fpr64(ctx, fp, B11_8);
++                } else {
++                    tcg_gen_addi_i32(addr, REG(B7_4), disp * 4);
++                    tcg_gen_qemu_ld_i32(FREG(B11_8), addr, ctx->memidx,
++                                        MO_TEUL | MO_ALIGN);
++                }
++                return;
++            case 0x8: /* movu.b @(disp12,Rm),Rn - zero extended */
++                tcg_gen_addi_i32(addr, REG(B7_4), disp);
++                tcg_gen_qemu_ld_i32(REG(B11_8), addr, ctx->memidx, MO_UB);
++                return;
++            case 0x9: /* movu.w @(disp12*2,Rm),Rn - zero extended */
++                tcg_gen_addi_i32(addr, REG(B7_4), disp * 2);
++                tcg_gen_qemu_ld_i32(REG(B11_8), addr, ctx->memidx,
++                                    MO_TEUW | UNALIGN(ctx));
++                return;
++            }
++        }
++        goto do_illegal;
+     case 0x6003: /* mov Rm,Rn */
+         tcg_gen_mov_i32(REG(B11_8), REG(B7_4));
+         return;
+@@ -1268,6 +1514,39 @@ static void _decode_opc(DisasContext * ctx)
+             ctx->base.is_jmp = DISAS_NORETURN;
+         }
+         return;
++    case 0x8300: /* jsr/n @@(disp8,TBR) (SH-2A) */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        {
++            TCGv addr = tcg_temp_new();
++            TCGv target = tcg_temp_new();
++
++            /* Memory-indirect through the jump table: PC <- (TBR + disp*4). */
++            tcg_gen_addi_i32(addr, cpu_tbr, B7_0 * 4);
++            tcg_gen_qemu_ld_i32(target, addr, ctx->memidx,
++                                MO_TESL | MO_ALIGN);
++            /* No delay slot, so the return address is the next instruction. */
++            tcg_gen_movi_i32(cpu_pr, ctx->base.pc_next + 2);
++            gen_sh2a_jump_now(ctx, target);
++        }
++        return;
++    case 0x8600: /* bclr/bset #imm3,Rn (SH-2A) */
++        CHECK_SH2A
++        if (ctx->opcode & 0x0008) {         /* 10000110nnnn1iii bset */
++            tcg_gen_ori_i32(REG(B11_8), REG(B11_8), 1u << (B3_0 & 7));
++        } else {                           /* 10000110nnnn0iii bclr */
++            tcg_gen_andi_i32(REG(B11_8), REG(B11_8), ~(1u << (B3_0 & 7)));
++        }
++        return;
++    case 0x8700: /* bst/bld #imm3,Rn (SH-2A) */
++        CHECK_SH2A
++        if (ctx->opcode & 0x0008) {        /* 10000111nnnn1iii bld: bit -> T */
++            tcg_gen_extract_i32(cpu_sr_t, REG(B11_8), B3_0 & 7, 1);
++        } else {                           /* 10000111nnnn0iii bst: T -> bit */
++            tcg_gen_deposit_i32(REG(B11_8), REG(B11_8), cpu_sr_t,
++                                B3_0 & 7, 1);
++        }
++        return;
+     case 0xc800: /* tst #imm,R0 */
+         {
+             TCGv val = tcg_temp_new();
+@@ -1301,6 +1580,58 @@ static void _decode_opc(DisasContext * ctx)
+     }
+ 
+     switch (ctx->opcode & 0xf08f) {
++    case 0x3009: /* SH-2A 32-bit bit manipulation on @(disp12,Rn) */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        {
++            int imm3 = B7_4 & 7;
++            TCGv addr = tcg_temp_new();
++            TCGv val = tcg_temp_new();
++            TCGv bit = tcg_temp_new();
++
++            tcg_gen_addi_i32(addr, REG(B11_8), ctx->opcode2 & 0xfff);
++            tcg_gen_qemu_ld_i32(val, addr, ctx->memidx, MO_UB);
++            tcg_gen_extract_i32(bit, val, imm3, 1);
++
++            switch (ctx->opcode2 >> 12) {
++            case 0x0: /* bclr.b #imm3,@(disp12,Rn) */
++                tcg_gen_andi_i32(val, val, ~(1u << imm3) & 0xff);
++                tcg_gen_qemu_st_i32(val, addr, ctx->memidx, MO_UB);
++                return;
++            case 0x1: /* bset.b #imm3,@(disp12,Rn) */
++                tcg_gen_ori_i32(val, val, 1u << imm3);
++                tcg_gen_qemu_st_i32(val, addr, ctx->memidx, MO_UB);
++                return;
++            case 0x2: /* bst.b #imm3,@(disp12,Rn) : T -> bit */
++                tcg_gen_deposit_i32(val, val, cpu_sr_t, imm3, 1);
++                tcg_gen_qemu_st_i32(val, addr, ctx->memidx, MO_UB);
++                return;
++            case 0x3: /* bld.b #imm3,@(disp12,Rn) : bit -> T */
++                tcg_gen_mov_i32(cpu_sr_t, bit);
++                return;
++            case 0x4: /* band.b #imm3,@(disp12,Rn) : T & bit -> T */
++                tcg_gen_and_i32(cpu_sr_t, cpu_sr_t, bit);
++                return;
++            case 0x5: /* bor.b #imm3,@(disp12,Rn) : T | bit -> T */
++                tcg_gen_or_i32(cpu_sr_t, cpu_sr_t, bit);
++                return;
++            case 0x6: /* bxor.b #imm3,@(disp12,Rn) : T ^ bit -> T */
++                tcg_gen_xor_i32(cpu_sr_t, cpu_sr_t, bit);
++                return;
++            case 0xb: /* bldnot.b #imm3,@(disp12,Rn) : ~bit -> T */
++                tcg_gen_xori_i32(cpu_sr_t, bit, 1);
++                return;
++            case 0xc: /* bandnot.b #imm3,@(disp12,Rn) : T & ~bit -> T */
++                tcg_gen_xori_i32(bit, bit, 1);
++                tcg_gen_and_i32(cpu_sr_t, cpu_sr_t, bit);
++                return;
++            case 0xd: /* bornot.b #imm3,@(disp12,Rn) : T | ~bit -> T */
++                tcg_gen_xori_i32(bit, bit, 1);
++                tcg_gen_or_i32(cpu_sr_t, cpu_sr_t, bit);
++                return;
++            }
++        }
++        goto do_illegal;
+     case 0x408e: /* ldc Rm,Rn_BANK */
+         CHECK_PRIVILEGED
+         tcg_gen_mov_i32(ALTREG(B6_4), REG(B11_8));
+@@ -1328,6 +1659,138 @@ static void _decode_opc(DisasContext * ctx)
+     }
+ 
+     switch (ctx->opcode & 0xf0ff) {
++    /* ---------------- SH-2A 16-bit additions ---------------- */
++    case 0x0039: /* movrt Rn : ~T -> Rn */
++        CHECK_SH2A
++        tcg_gen_xori_i32(REG(B11_8), cpu_sr_t, 1);
++        return;
++    case 0x004a: /* stc TBR,Rn */
++        CHECK_SH2A
++        tcg_gen_mov_i32(REG(B11_8), cpu_tbr);
++        return;
++    case 0x404a: /* ldc Rm,TBR */
++        CHECK_SH2A
++        tcg_gen_mov_i32(cpu_tbr, REG(B11_8));
++        return;
++    case 0x007b: /* rtv/n Rm : Rm -> R0, PR -> PC, no delay slot */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        tcg_gen_mov_i32(REG(0), REG(B11_8));
++        gen_sh2a_jump_now(ctx, cpu_pr);
++        return;
++    case 0x404b: /* jsr/n @Rm : no delay slot, so PR = pc + 2 */
++        CHECK_SH2A
++        CHECK_NOT_DELAY_SLOT
++        {
++            TCGv target = tcg_temp_new();
++
++            tcg_gen_mov_i32(target, REG(B11_8));
++            tcg_gen_movi_i32(cpu_pr, ctx->base.pc_next + 2);
++            gen_sh2a_jump_now(ctx, target);
++        }
++        return;
++    case 0x4080: /* mulr R0,Rn : R0 * Rn -> Rn */
++        CHECK_SH2A
++        tcg_gen_mul_i32(REG(B11_8), REG(B11_8), REG(0));
++        return;
++    case 0x4081: /* clipu.b Rn */
++        CHECK_SH2A
++        gen_sh2a_clip(REG(B11_8), 8, false);
++        return;
++    case 0x4085: /* clipu.w Rn */
++        CHECK_SH2A
++        gen_sh2a_clip(REG(B11_8), 16, false);
++        return;
++    case 0x4091: /* clips.b Rn */
++        CHECK_SH2A
++        gen_sh2a_clip(REG(B11_8), 8, true);
++        return;
++    case 0x4095: /* clips.w Rn */
++        CHECK_SH2A
++        gen_sh2a_clip(REG(B11_8), 16, true);
++        return;
++    case 0x4084: /* divu R0,Rn : Rn / R0 -> Rn, unsigned */
++        CHECK_SH2A
++        gen_helper_divu(REG(B11_8), REG(B11_8), REG(0));
++        return;
++    case 0x4094: /* divs R0,Rn : Rn / R0 -> Rn, signed */
++        CHECK_SH2A
++        gen_helper_divs(REG(B11_8), REG(B11_8), REG(0));
++        return;
++    case 0x408b: /* mov.b R0,@Rn+ */
++        CHECK_SH2A
++        tcg_gen_qemu_st_i32(REG(0), REG(B11_8), ctx->memidx, MO_UB);
++        tcg_gen_addi_i32(REG(B11_8), REG(B11_8), 1);
++        return;
++    case 0x409b: /* mov.w R0,@Rn+ */
++        CHECK_SH2A
++        tcg_gen_qemu_st_i32(REG(0), REG(B11_8), ctx->memidx,
++                            MO_TEUW | UNALIGN(ctx));
++        tcg_gen_addi_i32(REG(B11_8), REG(B11_8), 2);
++        return;
++    case 0x40ab: /* mov.l R0,@Rn+ */
++        CHECK_SH2A
++        tcg_gen_qemu_st_i32(REG(0), REG(B11_8), ctx->memidx,
++                            MO_TEUL | UNALIGN(ctx));
++        tcg_gen_addi_i32(REG(B11_8), REG(B11_8), 4);
++        return;
++    case 0x40cb: /* mov.b @-Rm,R0 : Rm -= 1 first, then load sign extended */
++        CHECK_SH2A
++        {
++            TCGv addr = tcg_temp_new();
++            tcg_gen_subi_i32(addr, REG(B11_8), 1);
++            tcg_gen_qemu_ld_i32(REG(0), addr, ctx->memidx, MO_SB);
++            tcg_gen_mov_i32(REG(B11_8), addr);
++        }
++        return;
++    case 0x40db: /* mov.w @-Rm,R0 */
++        CHECK_SH2A
++        {
++            TCGv addr = tcg_temp_new();
++            tcg_gen_subi_i32(addr, REG(B11_8), 2);
++            tcg_gen_qemu_ld_i32(REG(0), addr, ctx->memidx,
++                                MO_TESW | UNALIGN(ctx));
++            tcg_gen_mov_i32(REG(B11_8), addr);
++        }
++        return;
++    case 0x40eb: /* mov.l @-Rm,R0 */
++        CHECK_SH2A
++        {
++            TCGv addr = tcg_temp_new();
++            tcg_gen_subi_i32(addr, REG(B11_8), 4);
++            tcg_gen_qemu_ld_i32(REG(0), addr, ctx->memidx,
++                                MO_TESL | UNALIGN(ctx));
++            tcg_gen_mov_i32(REG(B11_8), addr);
++        }
++        return;
++    case 0x40f0: /* movmu.l Rm,@-R15 */
++        CHECK_SH2A
++        gen_sh2a_movml(ctx, B11_8, true, false);
++        return;
++    case 0x40f1: /* movml.l Rm,@-R15 */
++        CHECK_SH2A
++        gen_sh2a_movml(ctx, B11_8, false, false);
++        return;
++    case 0x40f4: /* movmu.l @R15+,Rm */
++        CHECK_SH2A
++        gen_sh2a_movml(ctx, B11_8, true, true);
++        return;
++    case 0x40f5: /* movml.l @R15+,Rm */
++        CHECK_SH2A
++        gen_sh2a_movml(ctx, B11_8, false, true);
++        return;
++    case 0x40e1: /* stbank R0,@Rn (SH-2A) */
++    case 0x40e5: /* ldbank @Rm,R0 (SH-2A) */
++        CHECK_SH2A
++        /*
++         * The SH-2A register bank (512 entries x 20 longwords) is filled and
++         * drained by the interrupt controller's automatic save/restore, which
++         * QEMU's SH-4 model does not have.  Without it these have no coherent
++         * meaning, so fault rather than invent a layout.  See
++         * nix/patches/README.panda-qemu-sh2a.md.
++         */
++        goto do_illegal;
++    /* -------------- end of SH-2A 16-bit additions -------------- */
+     case 0x0023: /* braf Rn */
+         CHECK_NOT_DELAY_SLOT
+         tcg_gen_addi_i32(cpu_delayed_pc, REG(B11_8), ctx->base.pc_next + 4);
+@@ -1473,6 +1936,7 @@ static void _decode_opc(DisasContext * ctx)
+         }
+         return;
+     case 0x00c3: /* movca.l R0,@Rm */
++        CHECK_NOT_SH2A
+         {
+             TCGv val = tcg_temp_new();
+             tcg_gen_qemu_ld_i32(val, REG(B11_8), ctx->memidx,
+@@ -1563,12 +2027,14 @@ static void _decode_opc(DisasContext * ctx)
+         }
+         return;
+     case 0x0093: /* ocbi @Rn */
++        CHECK_NOT_SH2A
+         {
+             gen_helper_ocbi(tcg_env, REG(B11_8));
+         }
+         return;
+     case 0x00a3: /* ocbp @Rn */
+     case 0x00b3: /* ocbwb @Rn */
++        CHECK_NOT_SH2A
+         /* These instructions are supposed to do nothing in case of
+            a cache miss. Given that we only partially emulate caches
+            it is safe to simply ignore them. */
+@@ -1708,6 +2174,7 @@ static void _decode_opc(DisasContext * ctx)
+         }
+         return;
+     case 0xf07d: /* fsrra FRn */
++        CHECK_NOT_SH2A
+         CHECK_FPU_ENABLED
+         CHECK_FPSCR_PR_0
+         gen_helper_fsrra_FT(FREG(B11_8), tcg_env, FREG(B11_8));
+@@ -1739,6 +2206,7 @@ static void _decode_opc(DisasContext * ctx)
+         }
+         return;
+     case 0xf0ed: /* fipr FVm,FVn */
++        CHECK_NOT_SH2A
+         CHECK_FPU_ENABLED
+         CHECK_FPSCR_PR_1
+         {
+@@ -1749,6 +2217,7 @@ static void _decode_opc(DisasContext * ctx)
+         }
+         break;
+     case 0xf0fd: /* ftrv XMTRX,FVn */
++        CHECK_NOT_SH2A
+         CHECK_FPU_ENABLED
+         CHECK_FPSCR_PR_1
+         {
+@@ -2227,9 +2696,15 @@ static void sh4_tr_init_disas_context(DisasContextBase *dcbase, CPUState *cs)
+     }
+ #endif
+ 
+-    /* Since the ISA is fixed-width, we can bound by the number
+-       of instructions remaining on the page.  */
+-    bound = -(ctx->base.pc_next | TARGET_PAGE_MASK) / 2;
++    /*
++     * Bound the TB by the number of instructions remaining on the page.
++     * SH-1..SH-4 are fixed 2-byte, so two bytes per instruction is exact;
++     * SH-2A mixes in 4-byte instructions, so divide by the worst case to keep
++     * the bound conservative rather than letting a run of 32-bit instructions
++     * walk off the end of the page.
++     */
++    bound = -(ctx->base.pc_next | TARGET_PAGE_MASK)
++            / ((ctx->features & SH_FEATURE_SH2A) ? 4 : 2);
+     ctx->base.max_insns = MIN(ctx->base.max_insns, bound);
+ }
+ 
+@@ -2273,8 +2748,15 @@ static void sh4_tr_translate_insn(DisasContextBase *dcbase, CPUState *cs)
+ #endif
+ 
+     ctx->opcode = translator_lduw(env, &ctx->base, ctx->base.pc_next);
++    ctx->opcode2 = 0;
++    ctx->insn_len = 2;
++    if ((ctx->features & SH_FEATURE_SH2A)
++        && sh2a_insn_is_op32(ctx->opcode)) {
++        ctx->opcode2 = translator_lduw(env, &ctx->base, ctx->base.pc_next + 2);
++        ctx->insn_len = 4;
++    }
+     decode_opc(ctx);
+-    ctx->base.pc_next += 2;
++    ctx->base.pc_next += ctx->insn_len;
+ }
+ 
+ static void sh4_tr_tb_stop(DisasContextBase *dcbase, CPUState *cs)
+diff --git a/disas/sh4.c b/disas/sh4.c
+--- a/disas/sh4.c
++++ b/disas/sh4.c
+@@ -1523,6 +1523,12 @@ print_insn_sh (bfd_vma memaddr, struct disassemble_info *info)
+     case bfd_mach_sh:
+       target_arch = arch_sh1;
+       break;
++    case bfd_mach_sh2a:
++      target_arch = arch_sh2a;
++      break;
++    case bfd_mach_sh2a_nofpu:
++      target_arch = arch_sh2a_nofpu;
++      break;
+     case bfd_mach_sh4:
+       target_arch = arch_sh4;
+       break;

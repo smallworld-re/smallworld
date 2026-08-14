@@ -65,6 +65,12 @@ class Architecture(enum.Enum):
     RISCV64 = "riscv-64"
     """64-bit RiscV"""
 
+    SUPERH_SH4 = "superh-sh4"
+    """Renesas SuperH SH-4/SH-4A"""
+
+    SUPERH_SH2A_FPU = "superh-sh2a-fpu"
+    """Renesas SuperH SH-2A with FPU"""
+
     TRICORE = "tricore"
     """Infineon TriCore"""
 

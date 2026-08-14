@@ -21,6 +21,7 @@ EM_MIPS = 8  # MIPS; all kinds
 EM_PPC = 20  # PowerPC 32-bit
 EM_PPC64 = 21  # PowerPC 64-bit
 EM_ARM = 40  # ARM 32-bit
+EM_SH = 42  # Renesas/Hitachi SuperH; all generations
 EM_TRICORE = 44  # Infineon TriCore
 EM_X86_64 = 62  # AMD/Intel x86-64
 EM_XTENSA = 94  # Xtensa
@@ -32,6 +33,53 @@ EM_LOONGARCH = 258  # LoongArch
 EF_ARM_VFP_FLOAT = 0x400
 EF_ARM_SOFT_FLOAT = 0x200
 EF_ARM_EABI_VER5 = 0x05000000
+
+# SuperH-specific flag values.
+#
+# EM_SH covers every SuperH generation, and they are not binary compatible with
+# each other, so e_flags is the only way to tell them apart. The low five bits
+# name the ISA; values confirmed empirically against binutils 2.46 by assembling
+# with each --isa= and reading back e_flags.
+EF_SH_MACH_MASK = 0x1F
+EF_SH_UNKNOWN = 0x0
+EF_SH1 = 0x1
+EF_SH2 = 0x2
+EF_SH3 = 0x3
+EF_SH_DSP = 0x4
+EF_SH3E = 0x8
+EF_SH4 = 0x9
+EF_SH2E = 0xB
+EF_SH4A = 0xC
+EF_SH2A = 0xD
+EF_SH4_NOFPU = 0x10
+EF_SH4A_NOFPU = 0x11
+EF_SH4_NOMMU_NOFPU = 0x12
+EF_SH2A_NOFPU = 0x13
+EF_SH3_NOMMU = 0x14
+EF_SH2A_SH4_NOFPU = 0x15
+EF_SH2A_SH3_NOFPU = 0x16
+EF_SH2A_SH4 = 0x17
+EF_SH2A_SH3E = 0x18
+
+# ISA values we can map onto a SmallWorld platform.
+#
+# The `NOFPU` variants are included: they only say the image does not *use* the
+# FPU, and our SH-2A and SH-4 models have one, so running them is safe.
+EF_SH_SH2A_MACHINES = {
+    EF_SH2A,
+    EF_SH2A_NOFPU,
+    EF_SH2A_SH3_NOFPU,
+    EF_SH2A_SH3E,
+    EF_SH2A_SH4,
+    EF_SH2A_SH4_NOFPU,
+}
+EF_SH_SH4_MACHINES = {
+    EF_SH4,
+    EF_SH4A,
+    EF_SH4_NOFPU,
+    EF_SH4A_NOFPU,
+    EF_SH4_NOMMU_NOFPU,
+}
 
 # Program header types
 PT_NULL = 0  # Empty/unused program header
@@ -283,6 +331,52 @@ class ElfExecutable(Executable):
                     "defaulting to ARM_V7A."
                 )
                 architecture = Architecture.ARM_V7A
+        elif elf.header.machine_type.value == EM_SH:
+            # Some kind of SuperH.
+            #
+            # NOTE: lief has no SuperH flag enums, so `flags_list` comes back
+            # empty here and we have to read the raw e_flags.
+            mach = elf.header.processor_flag & EF_SH_MACH_MASK
+
+            # An explicitly requested SuperH platform always wins; the ISA field
+            # cannot distinguish, say, an SH-2A image the caller wants to run on
+            # our SH-4 model.
+            if self.platform is not None and self.platform.architecture in (
+                Architecture.SUPERH_SH2A_FPU,
+                Architecture.SUPERH_SH4,
+            ):
+                architecture = self.platform.architecture
+            elif mach in EF_SH_SH2A_MACHINES:
+                architecture = Architecture.SUPERH_SH2A_FPU
+            elif mach in EF_SH_SH4_MACHINES:
+                architecture = Architecture.SUPERH_SH4
+            elif mach in (EF_SH1, EF_SH2, EF_SH2E):
+                # SH-2A is a strict superset of these.
+                log.warning(
+                    f"SuperH ISA {hex(mach)} has no SmallWorld model; "
+                    "running it as SH-2A-FPU"
+                )
+                architecture = Architecture.SUPERH_SH2A_FPU
+            elif mach in (EF_SH3, EF_SH3E, EF_SH3_NOMMU):
+                # SH-4 is a superset of these.
+                log.warning(
+                    f"SuperH ISA {hex(mach)} has no SmallWorld model; "
+                    "running it as SH-4"
+                )
+                architecture = Architecture.SUPERH_SH4
+            elif mach == EF_SH_UNKNOWN:
+                # No ISA recorded at all - a core dump, or an image linked by a
+                # toolchain that never set the field. Same fallback as the ARM
+                # branch above rather than a hard failure.
+                log.warning(
+                    "SuperH image records no ISA in e_flags; defaulting to SH-4"
+                )
+                architecture = Architecture.SUPERH_SH4
+            else:
+                # SH-DSP and friends.
+                raise ConfigurationError(
+                    f"Unsupported SuperH ISA in e_flags: {hex(mach)}"
+                )
         elif elf.header.machine_type.value == EM_TRICORE:
             architecture = Architecture.TRICORE
         elif elf.header.machine_type.value == EM_LOONGARCH:

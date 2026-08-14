@@ -29,9 +29,12 @@ preferred_arches = [
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "xtensa",
 ]
-engine_order = ["unicorn", "angr", "panda", "pcode", "afl"]
+engine_order = ["unicorn", "angr", "panda", "pcode", "styx", "afl"]
 
 coverage = defaultdict(lambda: defaultdict(set))
 seen_arches = set()

@@ -180,6 +180,45 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=("unicorn", "angr", "pcode"),
     ),
+    # SuperH passes integer arguments in r4-r7 and returns in r0; `sp` is an
+    # alias of r15 and the return address lives in `pr` (aliased `ra`/`lr`).
+    #
+    # Unicorn has no SuperH backend at all, so no SuperH row lists it - which
+    # also means none of these ever produce a bare, engine-less variant id.
+    "sh2a": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        # Styx's SuperH2A core is SH-2A specific; panda runs on the QEMU SH-2A
+        # instruction port from nix/patches/panda-qemu-sh2a.patch.
+        engines=("angr", "pcode", "panda", "styx"),
+    ),
+    "sh4": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode", "panda"),
+    ),
+    "sh4el": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        # Styx is absent from both SH-4 rows, not just this one: its SH-4 arch
+        # spec is a stub and its targets only exist with
+        # nix/patches/styx-superh4-target.patch applied, so the machdefs ship
+        # unexercised.  (Both endiannesses do exist there - Target.SuperH4Be and
+        # Target.SuperH4Le - so this is a coverage gap, not a Styx limitation.)
+        engines=("angr", "pcode", "panda"),
+    ),
     "tricore": ArchInfo(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",

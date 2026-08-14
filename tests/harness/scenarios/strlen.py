@@ -48,6 +48,9 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "tricore",
     "xtensa",
 )
@@ -75,13 +78,33 @@ _SPECS = build_specs(
 
 SCENARIO_PREFIXES = (("strlen", "strlen"),)
 
+# Ghidra's SuperH4 sleigh never writes pr on bsr/jsr - the ghidra and angr
+# backends read it back as 0 or unconstrained, where SH-2A's sleigh correctly
+# yields the address after the delay slot - so call-and-return does not work on
+# SH-4 through either pcode-derived backend.  PANDA does not share that sleigh:
+# it runs on real QEMU, whose bsr does set pr, which makes it the only backend
+# where SH-4 call-and-return actually works.
+_SH4_SLEIGH_PR = "Ghidra SuperH4 sleigh does not write pr on bsr/jsr"
+_SH4_CALL_SKIPS = {
+    f"{arch}.{engine}": reason
+    for arch in ("sh4", "sh4el")
+    for engine, reason in (
+        ("angr", _SH4_SLEIGH_PR),
+        ("pcode", _SH4_SLEIGH_PR),
+    )
+}
+
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="strlen",
     scenario="strlen",
     tags=("scenario", "strlen"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            **_SH4_CALL_SKIPS,
+        },
     ),
     run_factory=assert_outputs(
         (

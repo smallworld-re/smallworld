@@ -174,6 +174,20 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    # SH-2A only.  This scenario calls a hooked model, and the model returns via
+    # `pr` - which Ghidra's SuperH4 sleigh never writes on `bsr`, so SH-4 cannot
+    # return from the call under angr or pcode.  See the SuperH note in
+    # docs/concepts/platforms/support.rst.
+    "sh2a": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "tricore": StaticBufferSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -207,6 +221,7 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
+            "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
             "ppc64": "Unicorn ppc64 support buggy",
             "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
