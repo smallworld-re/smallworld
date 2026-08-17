@@ -5967,6 +5967,78 @@ class ColorizerReadWriteFirstObsGuardTests(unittest.TestCase):
         self.assertEqual(info.addresses, [(3, 0xBEEF0)])
 
 
+class ColorizerBigEndianStoreLoadTests(unittest.TestCase):
+    """A value has the same colorizer color in a register and in memory, on
+    both byte orders.
+
+    The colorizer keys a register value by its integer value and a memory
+    value by ``int.from_bytes(bytes, target_byteorder)`` (colorizer.py
+    ``_concrete_val_to_color``). Interpreting memory in the target byte order
+    is what lets a stored register value keep its color on a big-endian
+    target; reading memory little-endian only would hash the value to
+    byteswap(V) in memory, so a plain store would be misreported as creating a
+    new value (write-def) instead of copying it (write-copy).
+
+    Program (MIPS32), the same instructions in both byte orders:
+        lui $t0, 0xABCD ; ori $t0, $t0, 0x1234 ; sw $t0, 0($sp) ; lw $t1, 0($sp)
+    The store of $t0 must be recognized as a copy under both byte orders.
+    """
+
+    # lui $t0,0xABCD ; ori $t0,$t0,0x1234 ; sw $t0,0($sp) ; lw $t1,0($sp)  (BE)
+    _CODE_BE = bytes.fromhex("3c08abcd" "35081234" "afa80000" "8fa90000")
+    _VALUE = 0xABCD1234
+    _SW_PC = 0x1008
+    _SP = 0x12000  # inside the mapped stack (not the exclusive top)
+
+    @staticmethod
+    def _swap_words(b):
+        return b"".join(b[i : i + 4][::-1] for i in range(0, len(b), 4))
+
+    def _store_write_hint(self, byteorder, code_bytes):
+        from smallworld.analyses.colorizer import Colorizer
+
+        platform = platforms.Platform(platforms.Architecture.MIPS32, byteorder)
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(state.memory.code.Executable.from_bytes(code_bytes, address=0x1000))
+        stack = state.memory.stack.Stack.for_platform(platform, 0x10000, 0x4000)
+        machine.add(stack)
+        cpu.sp.set(self._SP)
+        cpu.pc.set(0x1000)
+        machine.add(cpu)
+        machine.add_exit_point(0x1010)
+
+        hints: list = []
+        hinter = hinting.Hinter()
+        hinter.register(DynamicMemoryValueHint, lambda h: hints.append(h))
+        Colorizer(hinter, num_insns=8, exec_id=0).run(machine)
+
+        writes = [h for h in hints if h.pc == self._SW_PC and not h.use]
+        self.assertEqual(
+            len(writes), 1, f"expected exactly one store-write hint, got {writes}"
+        )
+        return writes[0]
+
+    def _assert_store_is_a_copy(self, byteorder, code_bytes):
+        h = self._store_write_hint(byteorder, code_bytes)
+        self.assertFalse(
+            h.new,
+            "store of a known register value should be a write-copy, got "
+            f"write-def with color 0x{h.color:x}",
+        )
+        self.assertEqual(h.color, self._VALUE)
+
+    def test_le_store_of_register_value_is_a_copy(self):
+        self._assert_store_is_a_copy(
+            platforms.Byteorder.LITTLE, self._swap_words(self._CODE_BE)
+        )
+
+    def test_be_store_of_register_value_is_a_copy(self):
+        # The big-endian case: the register value and its stored image must
+        # share one color, so the store is a copy rather than a new value.
+        self._assert_store_is_a_copy(platforms.Byteorder.BIG, self._CODE_BE)
+
+
 class _FakeAngrMallocEmulator(emulators.AngrEmulator):
     """Just enough AngrEmulator surface for MallocModel.model().
 
