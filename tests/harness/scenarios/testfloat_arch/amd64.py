@@ -48,6 +48,7 @@ from .base import (
     ENTRY_F32_UNARY,
     ENTRY_F64_BINARY,
     ENTRY_F64_UNARY,
+    GHIDRA_FLUSHES_SUBNORMALS,
     ArchSupport,
     Kernel,
     TestFloatSpec,
@@ -167,11 +168,15 @@ _PANDA_NO_SSE = (
 
 
 def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
-    """No per-function skips: every enabled cell computes the right answer.
-
-    Kept for symmetry with the other architecture modules, and so that a
-    regression can be recorded here without reshaping ``SUPPORT``.
-    """
+    # The same Ghidra defect already recorded for armhf and SuperH, reached
+    # through a third instruction set: `mulss`/`divss` return +-0 where the
+    # reference is the least positive subnormal. Measured shape, from the
+    # testfloat_ver report - `+00.000001 * +7E.000001 => +00.000000, expected
+    # +00.000001` - is identical to the armhf `vmul.f32` one, which is what
+    # places the defect in Ghidra's float evaluation rather than in any single
+    # processor specification. Double precision and add/sub/sqrt are unaffected.
+    if func in {"f32_mul", "f32_div"} and engine == "pcode":
+        return GHIDRA_FLUSHES_SUBNORMALS
     return None
 
 

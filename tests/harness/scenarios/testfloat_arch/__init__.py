@@ -25,6 +25,7 @@ from typing import Dict, Optional, Tuple
 
 from .base import (
     ANGR_NO_FP,
+    ANGR_NO_SCALAR_SQRT,
     ENTRY_F32_BINARY,
     ENTRY_F32_UNARY,
     ENTRY_F64_BINARY,
@@ -95,6 +96,7 @@ def skip_reason(arch: str, engine: str, func: str) -> Optional[str]:
 
 __all__ = [
     "ANGR_NO_FP",
+    "ANGR_NO_SCALAR_SQRT",
     "ENTRY_F32_BINARY",
     "ENTRY_F32_UNARY",
     "ENTRY_F64_BINARY",

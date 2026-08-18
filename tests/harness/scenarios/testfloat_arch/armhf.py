@@ -30,6 +30,7 @@ from typing import Dict, Mapping, Optional, Tuple
 
 from ..common import PlatformSpec
 from .base import (
+    ANGR_NO_SCALAR_SQRT,
     ENTRY_F32_BINARY,
     ENTRY_F32_UNARY,
     ENTRY_F64_BINARY,
@@ -131,15 +132,49 @@ SPECS: Dict[str, TestFloatSpec] = {
 
 
 def function_skip(arch: str, engine: str, func: str) -> Optional[str]:
-    # Reproduces on armhf exactly as it does on SuperH, which is the point:
-    # `vmul.f32`/`vdiv.f32` return +-0 where the reference is the least positive
-    # subnormal, so the defect is in Ghidra's float evaluation rather than in any
-    # one processor spec. Double precision and add/sub/sqrt are unaffected.
+    # Reproduces on armhf exactly as it does on SuperH and amd64, which is the
+    # point: `vmul.f32`/`vdiv.f32` return +-0 where the reference is the least
+    # positive subnormal, so the defect is in Ghidra's float evaluation rather
+    # than in any one processor spec. Double precision and add/sub/sqrt are
+    # unaffected.
     if func in {"f32_mul", "f32_div"} and engine == "pcode":
         return GHIDRA_FLUSHES_SUBNORMALS
+    # `vsqrt.f32`/`vsqrt.f64` lower to the scalar VEX sqrt ops, which angr does
+    # not implement; the other four functions pass. Measured for both
+    # precisions independently.
+    if func in {"f32_sqrt", "f64_sqrt"} and engine == "angr":
+        return ANGR_NO_SCALAR_SQRT
     return None
 
 
-SUPPORT = ArchSupport(specs=SPECS, function_skip=function_skip)
+# PANDA's ARM CPU comes up with the VFP unit inaccessible, so every
+# floating-point instruction raises EXCP_UDEF (`Panda exception 1`, and
+# EXCP_UDEF is 1 in QEMU's target/arm/cpu.h). Measured on a two-instruction
+# blob - a bare `vmov.f32 s0,s1` faults on its own, with none of this
+# scenario's kernel logic involved - so it is the FP unit being off rather than
+# anything about how the kernels are built. Also measured: the FPEXC.EN write
+# these kernels already perform for Unicorn's benefit does not help, since all
+# ten functions fault with it in place. The remaining gate is architectural
+# rather than something observed here - on ARMv7-A, CPACR's cp10/cp11 fields
+# govern VFP access, and CPACR is a privileged CP15 register the harness has no
+# way to write.
+#
+# This is the ARM counterpart of `amd64.panda` below-the-line: PANDA's bare
+# `-M configurable` machine sets up no FP unit on either architecture. It also
+# matches what the project already documents - `float_support.csv` records
+# `arm-v7 double scalar` as No for panda, and the `floats` scenario never
+# registered an `armhf.panda` variant at all. `testfloat` was the outlier.
+_PANDA_NO_VFP = (
+    "PANDA's ARM CPU starts with the VFP unit inaccessible, so every "
+    "floating-point instruction raises EXCP_UDEF (exception 1); enabling it "
+    "needs a privileged CPACR write the harness cannot make"
+)
+
+
+SUPPORT = ArchSupport(
+    specs=SPECS,
+    variant_skips={"armhf.panda": _PANDA_NO_VFP},
+    function_skip=function_skip,
+)
 
 __all__ = ["SUPPORT", "SPECS", "kernel_key"]

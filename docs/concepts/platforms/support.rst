@@ -390,7 +390,28 @@ Every skip is an upstream defect, reduced to a minimal case first:
   specification - Styx executes the *same* sleigh through its own p-code engine
   and passes all five single-precision functions - so the defect is in Ghidra's
   float evaluation and is not specific to SuperH. Double precision is
-  unaffected.
+  unaffected. It reproduces on **three** unrelated instruction sets, which is
+  what settles the attribution: SuperH ``fmul``, armhf ``vmul.f32`` and amd64
+  ``mulss`` all return signed zero for the same operands, so ``amd64`` and
+  ``armhf`` carry the same two per-function skips as SuperH.
+- **armhf square root** is skipped under ``angr``. ARM's ``vsqrt.f32`` and
+  ``vsqrt.f64`` lower to VEX's *scalar* ``Iop_SqrtF32``/``Iop_SqrtF64``, and
+  angr implements neither, so the run raises
+  ``UnsupportedIROpError``. This is specific to the scalar opcodes rather than
+  to square root: amd64's ``sqrtss``/``sqrtsd`` lower to the SIMD
+  ``Iop_Sqrt32F0x4``/``Iop_Sqrt64F0x2``, which angr does implement, so
+  ``amd64.angr`` and ``aarch64.angr`` pass all five functions.
+- **Panda is skipped on every non-SuperH architecture here**, always because its
+  bare ``-M configurable`` machine brings the CPU up with the floating-point
+  unit switched off and nothing in the harness able to switch it on. On x86-64
+  the CPU starts in real mode with ``CR4=0`` and every ``xmm`` instruction is
+  ``#UD``; on i386 likewise; on ARM every VFP instruction raises ``EXCP_UDEF``
+  (reported as ``Panda exception 1``), which a bare ``vmov.f32 s0,s1`` blob
+  reproduces on its own, and the ``FPEXC.EN`` write the kernels already perform
+  for Unicorn's benefit is not sufficient - ARMv7-A also gates VFP behind
+  ``CPACR``'s ``cp10``/``cp11`` fields, a privileged CP15 register. SuperH is
+  the exception because its FPU needs no enable step, which is why Panda is the
+  only backend passing all ten SuperH functions.
 
 Panda passes all ten functions on all three SuperH platforms, which is the
 strongest available evidence that the SH-2A instruction set added to QEMU in
