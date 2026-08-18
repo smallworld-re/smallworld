@@ -85,9 +85,7 @@ let
       # be on PATH at *test* time, not build time, because the harness pipes
       # emulated FPU results between them. Linux only - upstream ships no
       # Darwin build configuration.
-      testfloat = lib.optional pkgs.stdenv.hostPlatform.isLinux (
-        pkgs.callPackage ./testfloat.nix { }
-      );
+      testfloat = lib.optional pkgs.stdenv.hostPlatform.isLinux (pkgs.callPackage ./testfloat.nix { });
     in
     [
       aflplusplus
