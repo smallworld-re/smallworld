@@ -14,6 +14,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A `testfloat` scenario that checks emulated FPUs against
+  [Berkeley TestFloat](http://www.jhauser.us/arithmetic/TestFloat.html).
+  TestFloat and its SoftFloat reference are built from upstream by
+  `nix/testfloat.nix` rather than vendored, and `testfloat_gen`/`testfloat_ver`
+  are on `PATH` inside `nix develop`. Results are compared; exception flags and
+  NaN payloads are not (the latter are architecture-specific by design).
+- Renesas SuperH support: `Architecture.SUPERH_SH2A_FPU` (big-endian) and
+  `Architecture.SUPERH_SH4` (both endiannesses), across the angr, Ghidra, Panda
+  and Styx backends. Unicorn has no SuperH emulation of any kind, so it is
+  unsupported. QEMU has no SH-2A model at all, so Panda's SH-2A support comes
+  from a local patch adding the SH-2A ISA to QEMU's `target/sh4`; see
+  `nix/patches/README.panda-qemu-sh2a.md` for what it does and does not
+  implement.
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.

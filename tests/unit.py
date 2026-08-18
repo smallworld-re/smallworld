@@ -1048,6 +1048,24 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1210,6 +1228,27 @@ class UnicornMachdefTests(unittest.TestCase):
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+    def test_unicorn_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_unicorn_tricore(self):
         platform = platforms.Platform(
@@ -1389,6 +1428,24 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_angr_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1552,6 +1609,27 @@ class PandaMachdefTests(unittest.TestCase):
         )
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so
+        # this runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch
+        # adds along with the SH-2A instruction set.
+        self.run_test(platform)
+
+    def test_panda_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
 
     def test_panda_tricore(self):
         platform = platforms.Platform(
@@ -1735,6 +1813,24 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -2435,7 +2531,7 @@ class StyxMachdefTests(unittest.TestCase):
     """Sanity checks on the SmallWorld Styx machine definitions.
 
     Mirrors the shape of :class:`UnicornMachdefTests` but only covers the
-    architectures Styx supports (32-bit ARM and 32-bit PowerPC).
+    architectures Styx supports (32-bit ARM, 32-bit PowerPC and SuperH).
     """
 
     def _machdef_for(self, platform):
@@ -2488,6 +2584,51 @@ class StyxMachdefTests(unittest.TestCase):
         # file can't access them, and the map is shared with the MPC860 core.
         self.assertFalse(machdef.has_register("f0"))
         self.assertFalse(machdef.has_register("cr3"))
+
+    def test_sh2a_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "r4", "sp", "fp", "pr", "ra", "lr", "pc", "sr", "tbr"):
+            self.assertTrue(
+                machdef.has_register(name),
+                msg=f"sh2a machdef missing register '{name}'",
+            )
+        # `lr_register` is handed straight to Styx's own register lookup by
+        # StyxEmulator.hook_function, and SuperHRegister has no Ra/Lr member -
+        # so it must name the architectural register, not a SmallWorld alias.
+        self.assertEqual(machdef.lr_register, "pr")
+        # Only the double-precision pairs are reachable on this core; the fr
+        # halves are computed in Python.  See the machdef's module docstring.
+        self.assertTrue(machdef.has_register("dr0"))
+        self.assertFalse(machdef.has_register("fr0"))
+
+    def test_sh4_machdef_resolves_when_styx_is_patched(self):
+        from smallworld.emulators.styx.machdefs.superh4 import STYX_SUPPORTS_SUPERH4
+
+        for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE):
+            platform = platforms.Platform(platforms.Architecture.SUPERH_SH4, byteorder)
+            if not STYX_SUPPORTS_SUPERH4:
+                # nix/patches/styx-superh4-target.patch is not applied, so no
+                # SH-4 machdef was registered at all.
+                with self.assertRaises(exceptions.ConfigurationError):
+                    self._machdef_for(platform)
+                continue
+            machdef = self._machdef_for(platform)
+            for name in ("r0", "r4", "sp", "pr", "ra", "lr", "pc", "sr", "dr0"):
+                self.assertTrue(
+                    machdef.has_register(name),
+                    msg=f"sh4 machdef missing register '{name}'",
+                )
+            self.assertEqual(machdef.lr_register, "pr")
+            # SH-4 has no `tbr`, and styx's enum/arch spec cannot reach the
+            # banked GPRs, ssr/spc/sgr/dbr or the alternate FP bank.
+            for name in ("tbr", "ssr", "sgr", "r0_bank", "xd0", "xf0"):
+                self.assertFalse(
+                    machdef.has_register(name),
+                    msg=f"sh4 machdef unexpectedly maps '{name}'",
+                )
 
     def test_ppc64_raises_configuration_error(self):
         # Styx has no 64-bit PowerPC core, so POWERPC64 is unsupported.

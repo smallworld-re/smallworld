@@ -26,9 +26,38 @@ _ARCHS = (
     "mips",
     "mipsel",
     "ppc",
+    "sh2a",
+    "sh4",
+    "sh4el",
 )
 
 _ENGINES_UNICORN_PANDA = ("unicorn", "panda")
+
+# SuperH has no unicorn backend, so panda is the only engine here, and it works:
+# QEMU's `helper_trapa()` sets `cs->exception_index = 0x160` unconditionally,
+# which reaches PANDA's `cb_before_handle_exception` and so `hook_interrupts`,
+# which sees interrupt 352 on all three SuperH variants.
+#
+# The other three engines are excluded, and for two different reasons:
+#
+#   * angr, pcode - `hook_interrupts` does not exist on those emulator classes.
+#     Only `QInterruptHookable` provides it, and `AngrEmulator` mixes in
+#     `SyscallHookable` but not `InterruptHookable`, while `GhidraEmulator` mixes
+#     in neither.  Measured, `hasattr(cls, "hook_interrupts")`: AngrEmulator
+#     False, GhidraEmulator False, PandaEmulator True, StyxEmulator True,
+#     UnicornEmulator True.  On angr this is not merely a gap: `trapa` is
+#     deliberately surfaced there as a *syscall* instead, by the rewrite in
+#     `smallworld/emulators/angr/machdefs/superh{,4}.py`, which is what the
+#     `syscall` scenario covers.  So the same instruction is an interrupt here
+#     and a syscall there - see the long comment in `machdefs/superh.py`.
+#   * styx - does implement `hook_interrupts` (it mixes in
+#     `QInterruptHookable`), so it was a real candidate, but SuperH `trapa` never
+#     reaches it.  Measured on sh2a: `trapa` writes to the stack - with no stack
+#     mapped it fails with UnmappedMemoryWrite - and then falls through to the
+#     next instruction instead of vectoring through VBR, raising nothing.  Ghidra
+#     on the identical sleigh semantics instead faults on the vector read, so
+#     Styx is the one that is wrong here.
+_ENGINES_PANDA = ("panda",)
 
 _SPECS = build_specs(
     RawBinarySpec,
@@ -43,6 +72,9 @@ _SPECS = build_specs(
         "mips": _ENGINES_UNICORN_PANDA,
         "mipsel": _ENGINES_UNICORN_PANDA,
         "ppc": _ENGINES_UNICORN_PANDA,
+        "sh2a": _ENGINES_PANDA,
+        "sh4": _ENGINES_PANDA,
+        "sh4el": _ENGINES_PANDA,
     },
     # interrupt reads the full-width return register on amd64.
     per_arch={"amd64": {"result_register": "rax"}},

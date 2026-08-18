@@ -4,6 +4,7 @@
   zig,
   gdb,
   qemu-user,
+  superHBinutils,
   tricoreGcc,
   xtensaGcc,
   pkgsCross,
@@ -18,6 +19,7 @@ stdenv.mkDerivation {
     zig
     qemu-user
     gdb
+    superHBinutils
     tricoreGcc
     xtensaGcc
     pkgsCross.m68k.stdenv.cc
@@ -44,6 +46,11 @@ stdenv.mkDerivation {
     ln -sf elf_wrapper.sh tricore-elf-elfasm
     ln -sf asm_wrapper.sh xtensa-lx106-elf-asm
     ln -sf elf_wrapper.sh xtensa-lx106-elf-elfasm
+    # One SuperH binutils serves SH-4 big/little and SH-2A; the Makefile picks
+    # the generation and endianness with per-platform ASFLAGS, and
+    # elf_wrapper.sh mirrors that choice onto `ld` as -EB/-EL.
+    ln -sf asm_wrapper.sh sh4-unknown-linux-gnu-asm
+    ln -sf elf_wrapper.sh sh4-unknown-linux-gnu-elfasm
 
     make -j$(nproc)
     cd elf_core

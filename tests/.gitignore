@@ -8,3 +8,7 @@
 *.lib
 $TMPDIR
 result
+
+# Toolchain wrapper symlinks created by tests/default.nix buildPhase
+*-asm
+*-elfasm

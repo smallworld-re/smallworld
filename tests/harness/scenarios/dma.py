@@ -47,6 +47,9 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "tricore",
     "xtensa",
 )
@@ -76,6 +79,9 @@ _PER_ARCH: dict[str, dict[str, Any]] = {
     "ppc": {"argument_registers": ("r3", "r4")},
     "ppc64": {"argument_registers": ("r3", "r4")},
     "riscv64": {"argument_registers": ("a0", "a1")},
+    "sh2a": {"argument_registers": ("r4", "r5")},
+    "sh4": {"argument_registers": ("r4", "r5")},
+    "sh4el": {"argument_registers": ("r4", "r5")},
     "tricore": {"argument_registers": ("d4", "d5")},
     "xtensa": {
         "argument_registers": ("a2", "a3"),
@@ -115,6 +121,7 @@ SCENARIO_INFO = ScenarioInfo(
             "ppc.styx": "styx PPC405 target lacks MMIO mapping at test addresses",
             "ppc.styx-mpc860": "styx MPC860 target lacks MMIO mapping at test addresses",
             "ppc64": "Unicorn ppc64 support buggy",
+            "sh2a.styx": "styx hangs when a hook is installed, and HDivModel is a MemoryMappedModel",
         },
     ),
     run_factory=assert_contains("0x5", args=("10", "2")),

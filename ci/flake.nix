@@ -117,6 +117,18 @@
         else
           pkgs.callPackage "${nixpkgs-esp-dev}/pkgs/esp8266/gcc-xtensa-lx106-elf-bin.nix" { };
 
+      # Unlike TriCore and Xtensa, SuperH is a first-class binutils target in
+      # nixpkgs, so there is no prebuilt tarball to patchelf: we just build the
+      # cross assembler/linker/objcopy from source. `binutils-unwrapped` is
+      # deliberate - the wrapped `binutils` pulls in a bootstrap gcc and a full
+      # sh4 glibc, which we do not need because every SuperH test is assembly.
+      #
+      # The tools come out prefixed `sh4-unknown-linux-gnu-*`, and one build
+      # serves SH-4 big/little and SH-2A: `as` takes `-big`/`-little` and
+      # `--isa=`, and gates out-of-ISA instructions with "opcode not valid for
+      # this cpu variant", so a test source cannot silently drift generations.
+      mkSuperHBinutils = system: (pkgsFor system).pkgsCross.sh4.buildPackages.binutils-unwrapped;
+
       mkTricoreGcc =
         system:
         let
@@ -181,9 +193,10 @@
           pkgs = pkgsFor system;
           xtensaGcc = mkXtensaGcc system;
           tricoreGcc = mkTricoreGcc system;
+          superHBinutils = mkSuperHBinutils system;
 
           tests = pkgs.callPackage ../tests {
-            inherit tricoreGcc xtensaGcc;
+            inherit superHBinutils tricoreGcc xtensaGcc;
             x86_64_glibc_path = x86LinuxPkgs.glibc.outPath;
           };
 
