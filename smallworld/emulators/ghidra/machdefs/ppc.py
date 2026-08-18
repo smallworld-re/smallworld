@@ -416,9 +416,7 @@ class PowerPCMachineDef(GhidraMachineDef):
 
 class PowerPC32MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC32
-    language_id = "PowerPC:BE:32:default"
 
 
 class PowerPC64MachineDef(PowerPCMachineDef):
     arch = Architecture.POWERPC64
-    language_id = "PowerPC:BE:64:default"

@@ -27,6 +27,7 @@ TRICORE_REGISTER_ALIASES = {
 class TriCore(PlatformDef):
     architecture = Architecture.TRICORE
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "tricore:LE:32:default"
 
     address_size = 4
 

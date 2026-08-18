@@ -575,6 +575,7 @@ class PowerPCPlatformDef(PlatformDef):
 
 class PowerPC32(PowerPCPlatformDef):
     architecture = Architecture.POWERPC32
+    ghidra_language_id = "PowerPC:BE:32:default"
 
     address_size = 4
     capstone_mode = capstone.CS_MODE_32 | capstone.CS_MODE_BIG_ENDIAN
@@ -582,6 +583,7 @@ class PowerPC32(PowerPCPlatformDef):
 
 class PowerPC64(PowerPCPlatformDef):
     architecture = Architecture.POWERPC64
+    ghidra_language_id = "PowerPC:BE:64:default"
 
     address_size = 8
     capstone_mode = capstone.CS_MODE_64 | capstone.CS_MODE_BIG_ENDIAN

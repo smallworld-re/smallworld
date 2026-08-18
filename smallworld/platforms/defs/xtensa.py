@@ -12,6 +12,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 class Xtensa(PlatformDef):
     architecture = Architecture.XTENSA
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "Xtensa:LE:32:default"
 
     address_size = 4
 

@@ -19,6 +19,11 @@ class RegisterAliasDef(RegisterDef):
 
 
 class PlatformDef(metaclass=abc.ABCMeta):
+    #: Ghidra/SLEIGH language id (arch+byteorder) -- the single source of
+    #: truth for both the Ghidra emulator's machine defs and the pcode
+    #: analysis. None if this platform has no Ghidra language.
+    ghidra_language_id: typing.Optional[str] = None
+
     @property
     @abc.abstractmethod
     def architecture(self) -> Architecture:

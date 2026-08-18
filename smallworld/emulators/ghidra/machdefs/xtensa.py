@@ -13,9 +13,11 @@ class XTensaMachineDef(GhidraMachineDef):
 
 class XTensaELMachineDef(XTensaMachineDef):
     byteorder = Byteorder.LITTLE
-    language_id = "Xtensa:LE:32:default"
 
 
 class XTensaBEMachineDef(XTensaMachineDef):
     byteorder = Byteorder.BIG
+    # No big-endian Xtensa PlatformDef exists yet, so this machine def keeps
+    # its literal language id until one is added; every other machdef sources
+    # it from PlatformDef.ghidra_language_id.
     language_id = "Xtensa:BE:32:default"

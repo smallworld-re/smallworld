@@ -482,12 +482,14 @@ class ARMv5T(ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv5t little-endian."""
 
     architecture = Architecture.ARM_V5T
+    ghidra_language_id = "ARM:LE:32:v5t"
 
 
 class ARMv6M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv6m little-endian."""
 
     architecture = Architecture.ARM_V6M
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv6MThumb(ARMv6M):
@@ -499,12 +501,17 @@ class ARMv6MThumb(ARMv6M):
     """
 
     architecture = Architecture.ARM_V6M_THUMB
+    # Don't inherit ARMv6M's language id: this platform has no Ghidra machine
+    # def, and main associated no Ghidra language with it. Leave it unset so
+    # the refactor introduces no new (Thumb -> v6) association.
+    ghidra_language_id = None
 
 
 class ARMv7M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv7m little-endian"""
 
     architecture = Architecture.ARM_V7M
+    ghidra_language_id = "ARM:LE:32:v7"
 
 
 class ARMv7R(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
@@ -517,3 +524,4 @@ class ARMv7A(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
     """Platform definition for ARMv7a little-endian"""
 
     architecture = Architecture.ARM_V7A
+    ghidra_language_id = "ARM:LE:32:v7"
