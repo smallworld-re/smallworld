@@ -212,11 +212,18 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         result_register="r0",
         stack_pointer_register="sp",
         pointer_size=4,
-        # Styx is absent from both SH-4 rows, not just this one: its SH-4 arch
-        # spec is a stub and its targets only exist with
-        # nix/patches/styx-superh4-target.patch applied, so the machdefs ship
-        # unexercised.  (Both endiannesses do exist there - Target.SuperH4Be and
-        # Target.SuperH4Le - so this is a coverage gap, not a Styx limitation.)
+        # Styx is absent from both SH-4 rows, not just this one.  Its SH-4
+        # targets only exist with nix/patches/styx-superh4-target.patch applied
+        # (both endiannesses - Target.SuperH4Be and Target.SuperH4Le), and its
+        # SH-4 arch spec leaves several sleigh userops as no-ops.
+        #
+        # This is a coverage gap rather than a Styx limitation, and less of one
+        # than it looks: styx runs the `delay` blob correctly on both sh4 and
+        # sh4el (r0 == 4, no hooks installed), and `testfloat` already emits and
+        # passes sh4/sh4el styx variants through its own engine table.  Adding
+        # styx here would enable it across every build_specs scenario at once,
+        # which wants measuring first - most hook-bearing scenarios would only
+        # gain skips, because styx hangs once a hook fires.
         engines=("angr", "pcode", "panda"),
     ),
     "tricore": ArchInfo(

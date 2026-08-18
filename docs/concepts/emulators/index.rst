@@ -25,6 +25,10 @@ SmallWorld currently supports five emulation backends:
 * **Styx**: A firmware-oriented concrete emulator based on Pcode or Unicorn
 * **Unicorn**: A user-space concrete emulator based on QEMU
 
+Each backend below has a page of its own except Styx, which does not have one
+yet; its caveats are recorded per platform in :ref:`platforms_support` and in the
+docstrings of ``smallworld.emulators.styx``.
+
 These are abstracted behind a common interface.
 While they all have different strengths and support slightly different
 sets of features, most smallworld harnesses can be applied

@@ -98,7 +98,17 @@ Notes per emulator:
   those. Styx also hangs rather than faulting if a SmallWorld hook is installed
   and the processor is then single-stepped, so hook-based scenarios skip it.
 
-**⚠ ``bclr #imm3,Rn`` corrupts memory on angr and Styx.** The two bundled copies
+  The **SH-4 rows of the table above assume a patched Styx.** Upstream Styx
+  1.2.0 has the SH-4 machinery on its Rust side but never exposes it to Python;
+  ``nix/patches/styx-superh4-target.patch`` adds the ``Target.SuperH4Be`` /
+  ``Target.SuperH4Le`` enum entries, so a plain
+  ``pip install smallworld-re[emu-styx]`` gets SH-2A but not SH-4 and raises
+  ``ConfigurationError`` for the latter. ``smallworld.emulators.styx.machdefs
+  .superh4.STYX_SUPPORTS_SUPERH4`` reports which build is installed. Styx is
+  also absent from every SH-4 scenario except ``testfloat`` for this reason, so
+  its SH-4 coverage is much thinner than the table suggests.
+
+**⚠** ``bclr #imm3,Rn`` **corrupts memory on angr and Styx.** The two bundled copies
 of Ghidra's SH-2A specification are not identical, and this is their only
 difference. Ghidra 12.1.2 implements the register form correctly as
 ``rn = rn & ~(1 << imm)``; the copies shipped in pypcode 3.3.3 and Styx instead
@@ -115,19 +125,33 @@ correct. Both the plain ``@Rn`` form and SH-2A's displaced 32-bit form are
 affected, and since the bundled specifications differ only in ``bclr`` this is
 not a specification defect.
 
-**⚠ SH-4 calls do not set PR under angr or Ghidra.** This is a defect in Ghidra's
-SuperH4 sleigh specification, not in SmallWorld, and it affects both backends
-that derive from it. In ``SuperH4.sinc``, ``:bsr`` - the ordinary PC-relative
-call - performs its ``delayslot(1); call ...`` with no assignment to ``PR`` at
-all, so the return address is simply never recorded. ``:bsrf`` and ``:jsr`` do
-assign ``PR``, but to ``inst_next`` (the delay-slot instruction) rather than the
-architectural ``inst_start + 4`` (past it). Ghidra's separate SH-2A
-specification gets all three correct, so *sh2a-fpu is unaffected*, and Panda
-runs on real QEMU and is also unaffected. Consequences for SH-4 on angr and
-Ghidra: any harness relying on call-and-return through ``bsr`` will read a stale
-or zero ``pr``. Test scenarios that depend on it (``call``, ``strlen``) are
-skipped for ``sh4``/``sh4el`` on those two engines. Use Panda, or ``jsr @Rn``
-with a two-byte correction, if you need calls on SH-4.
+**⚠ SH-4** ``bsr`` **does not set PR under angr or Ghidra.** This is a defect in
+Ghidra's SuperH4 sleigh specification, not in SmallWorld, and it affects both
+backends that derive from it. In ``SuperH4.sinc``, ``:bsr`` - the ordinary
+PC-relative call - performs its ``delayslot(1); call ...`` with no assignment to
+``PR`` at all, so the return address is simply never recorded. Ghidra's separate
+SH-2A specification gets it right, so *sh2a-fpu is unaffected*, and Panda runs
+on real QEMU and is also unaffected. On SH-4 under angr, ``pr`` is left
+unconstrained and reading it raises ``SymbolicValueError``; under Ghidra it
+reads back as zero and the return faults with
+``EmulationFetchUnmappedFailure``.
+
+The defect is limited to ``:bsr``. ``:bsrf`` and ``:jsr`` both assign
+``PR = inst_next``, and sleigh's ``inst_next`` counts the delay slot as part of
+the instruction, so that is exactly the architectural ``inst_start + 4``. This
+was confirmed by measurement rather than by reading the specification: a ``jsr``
+whose delay slot increments a register - so that returning into the slot would
+increment it twice - yields ``pr = inst_start + 4`` and a single increment on
+all of angr, Ghidra and Panda, for sh2a, sh4 and sh4el alike. **No two-byte
+correction is needed, and none should be applied.**
+
+So on SH-4 under angr and Ghidra, use ``jsr @Rn`` (or ``bsrf``) rather than
+``bsr`` if you need calls; materialise the target with
+``mov #imm,Rn``/``shll8`` rather than a PC-relative literal pool. The ``hooking``
+scenario does exactly this and passes on all three SH-4 engines. The scenarios
+that deliberately keep ``bsr``, to hold the defect pinned until it is fixed
+upstream, are ``call``, ``strlen`` and ``static_buf``; those skip ``sh4`` and
+``sh4el`` on angr and Ghidra.
 
 **SuperH delay slots:** every SuperH control transfer except the SH-2A ``/n``
 forms executes the following instruction *before* branching. Hand-written SuperH
@@ -152,6 +176,59 @@ general-purpose one, so SmallWorld exposes ``pr`` under the additional names
 The double-precision registers are the parents of the single-precision ones -
 ``drN`` is composed of ``frN`` (upper half) and ``frN+1`` (lower half) - so
 writing ``dr0`` changes ``fr0`` and ``fr1``, in both endiannesses.
+
+**SuperH event handlers:** instruction, function and memory-access hooks work on
+all three SuperH platforms under angr, Ghidra and Panda. Syscall hooks work under
+angr, which is the only backend that implements ``hook_syscall``/``hook_syscalls``
+at all, so that is not a SuperH limitation. Interrupt hooks work under Panda;
+Unicorn and Styx also implement ``hook_interrupt``/``hook_interrupts``, but
+Unicorn has no SuperH support and SuperH's ``trapa`` never reaches Styx's
+interrupt machinery. Four SuperH specifics are worth knowing before writing a
+hook:
+
+- **Styx hangs once a hook fires.** Installing an instruction or memory hook and
+  reaching it hangs the run rather than raising, on sh2a and on both SH-4
+  endiannesses. A hook that is installed but never reached is harmless, and Styx
+  is otherwise correct on these platforms - it runs the delay-slot scenario to
+  the right answer in both byte orders - so this is a hook-machinery problem
+  rather than a core problem. Every SuperH scenario that installs a hook skips
+  its styx variant for this reason.
+- **Delay slots change which PC a hook reports**, and the three backends do it
+  three different ways. For a branch at *A* whose delay slot at *A+2* writes
+  memory: Ghidra folds the pair and attributes the write to *A*, firing no
+  instruction hook for *A+2* at all; angr also folds, but *does* fire the hook,
+  reporting *A* as the PC; Panda translates the two separately and reports
+  *A+2*, which is the architecturally faithful answer. So a harness that hooks a
+  delay slot by address gets three different observations. ``tests/delay`` pins
+  all three.
+- ``trapa`` **is an interrupt on Panda and nothing at all on the sleigh
+  backends.** Panda raises it through ``hook_interrupts`` as interrupt 352
+  (``0x160``), because QEMU's ``helper_trapa()`` sets ``exception_index`` to that
+  value. Sleigh instead models ``trapa`` as machine state rather than as an
+  event - ``SuperH4.sinc`` lowers it to the ``TrapAlways`` userop and
+  ``superh.sinc`` lowers it to a literal vector dispatch through
+  ``VBR + imm*4`` - so Ghidra and angr cannot deliver it as an interrupt.
+  Two caveats: the 352 is an artifact of QEMU delivering SH-2A ``trapa`` the SH-4
+  way, whereas real SH-2A dispatches through the table at address 0, so a
+  harness that installs a real handler will see the wrong vector on SH-2A; and
+  Styx gets this wrong outright, performing ``trapa``'s stack writes and then
+  falling through to the next instruction instead of vectoring, raising nothing.
+- ``trapa`` **is a syscall on angr, and that takes explicit machdef work.**
+  angr's Pcode lifter derives the jumpkind from the terminating p-code opcode
+  alone, and sleigh p-code has no syscall opcode - so *no* Pcode-lifted
+  architecture gets ``Ijk_Sys_syscall`` from the lifter, and syscall hooks are
+  unreachable without help. The SuperH machine definitions therefore rewrite the
+  lifted block themselves, exactly as the Xtensa one does: they locate the trap,
+  truncate the block at that instruction, set the jumpkind by hand, and register
+  a Linux/SH syscall convention (number in ``r3``, arguments
+  ``r4``-``r7``/``r0``/``r1``, result in ``r0``, resume two bytes past the trap -
+  taken from QEMU's ``linux-user/sh4/cpu_loop.c``). Two consequences: the trap
+  immediate is deliberately *not* checked, so **any** ``trapa`` reads as a
+  syscall, matching QEMU, which keys on the exception number alone; and a
+  ``trapa`` sitting in a branch's delay slot is declined rather than rewritten,
+  because sleigh lifts a branch and its delay slot under a single IMARK, leaving
+  no boundary to truncate at without discarding the branch. Delay-slot ``trapa``
+  is architecturally prohibited on SuperH anyway, but assemblers accept it.
 
 **xtensa:** The Xtensa ISA is made up of a core feature set, a number of open ISA options,
 and some proprietary extensions introduced by the manufacturer.
@@ -242,17 +319,25 @@ handful of round numbers.
 
 TestFloat's source is **not vendored**. ``nix/testfloat.nix`` fetches
 SoftFloat-3e and TestFloat-3e by URL with pinned SRI hashes and builds them for
-``Linux-x86_64-GCC``; ``runtimeToolsFor`` in ``nix/runtime-support.nix`` puts
-``testfloat_gen`` and ``testfloat_ver`` on the test shell's ``PATH`` on Linux.
-The reference is built with ``SPECIALIZE_TYPE=8086-SSE``.
+``Linux-x86_64-GCC``; ``testfloatFor`` in ``nix/runtime-support.nix`` puts
+``testfloat_gen`` and ``testfloat_ver`` on the *developer shell's* ``PATH`` on
+little-endian 64-bit Linux. It is deliberately kept out of ``runtimeToolsFor``,
+so ``nix build`` and the Docker image do not carry a test-only conformance
+suite - which also means ``testfloat_gen`` is absent from a plain runtime
+environment, and the scenario must be run from ``nix develop``. The reference is
+built with ``SPECIALIZE_TYPE=8086-SSE``.
 
 Each architecture supplies one assembly file containing four loop kernels - one
 per (precision, arity) - at fixed offsets, sharing one exit label. The harness
 picks an entry point, patches the single arithmetic instruction in place, and
-lets the guest walk an array. The contract is the same everywhere: ``r4`` is the
-input cursor, ``r5`` the output cursor, ``r6`` the case count, and on SuperH
-``r7`` carries the FPSCR value that the kernel installs with ``lds`` - a direct
-register write would leave the split ``FPSCR_PR`` stale, as described above. A
+lets the guest walk an array. The contract has the same *shape* everywhere - an
+input cursor, an output cursor and a case count - but each architecture names its
+own registers in ``tests/harness/scenarios/testfloat_arch/``: ``r4``/``r5``/``r6``
+on SuperH, ``r0``/``r1``/``r2`` on armhf, ``x0``/``x1``/``x2`` on aarch64,
+``esi``/``edi``/``ecx`` on i386 and ``rdi``/``rsi``/``rdx`` on amd64. On SuperH
+``r7`` additionally carries the FPSCR value that the kernel installs with
+``lds`` - a direct register write would leave the split ``FPSCR_PR`` stale, as
+described above. A
 memory loop is used rather than one instruction stepped per case because Panda
 turns every second ``step_instruction()`` after a ``pc`` rewrite into a no-op.
 Because the kernels are ordinary scenario assembly, the existing pattern rules
@@ -275,8 +360,11 @@ Two things are deliberately **not** compared:
   result* is a NaN are dropped before comparison and the count is reported on
   each line.
 
-Measured results, 2000 generated cases per function. The five functions per
-precision are add, subtract, multiply, divide and square root.
+Measured results, at 2000 generated cases per function (``run_case.py testfloat
+<variant> --cases 2000``; the harness default, ``testfloat.DEFAULT_CASES``, is
+3000, so an unqualified run exercises more cases than the table was measured
+against). The five functions per precision are add, subtract, multiply, divide
+and square root.
 
 .. csv-table:: TestFloat results
     :file: testfloat_results.csv

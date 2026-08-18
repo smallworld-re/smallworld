@@ -338,15 +338,7 @@ class ElfExecutable(Executable):
             # empty here and we have to read the raw e_flags.
             mach = elf.header.processor_flag & EF_SH_MACH_MASK
 
-            # An explicitly requested SuperH platform always wins; the ISA field
-            # cannot distinguish, say, an SH-2A image the caller wants to run on
-            # our SH-4 model.
-            if self.platform is not None and self.platform.architecture in (
-                Architecture.SUPERH_SH2A_FPU,
-                Architecture.SUPERH_SH4,
-            ):
-                architecture = self.platform.architecture
-            elif mach in EF_SH_SH2A_MACHINES:
+            if mach in EF_SH_SH2A_MACHINES:
                 architecture = Architecture.SUPERH_SH2A_FPU
             elif mach in EF_SH_SH4_MACHINES:
                 architecture = Architecture.SUPERH_SH4
@@ -377,6 +369,32 @@ class ElfExecutable(Executable):
                 raise ConfigurationError(
                     f"Unsupported SuperH ISA in e_flags: {hex(mach)}"
                 )
+
+            # An explicitly requested SuperH platform wins over the derived one:
+            # the ISA field cannot express, say, an SH-2A image the caller wants
+            # to run on our SH-4 model.
+            #
+            # This has to come *after* the derivation, not instead of it.
+            # `_platform_for_ehdr` feeds the "Platform mismatch" guard in
+            # `__init__`, so short-circuiting on `self.platform` made the raise
+            # above unreachable - an SH-DSP image loaded with `platform=SH-4`
+            # was silently accepted - and swallowed every warning here. Say so
+            # out loud when it happens, rather than overriding in silence.
+            if (
+                self.platform is not None
+                and self.platform.architecture != architecture
+                and self.platform.architecture
+                in (
+                    Architecture.SUPERH_SH2A_FPU,
+                    Architecture.SUPERH_SH4,
+                )
+            ):
+                log.warning(
+                    f"SuperH image records ISA {hex(mach)} ({architecture}), but "
+                    f"{self.platform.architecture} was requested; using the "
+                    "requested platform"
+                )
+                architecture = self.platform.architecture
         elif elf.header.machine_type.value == EM_TRICORE:
             architecture = Architecture.TRICORE
         elif elf.header.machine_type.value == EM_LOONGARCH:

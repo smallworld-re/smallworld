@@ -111,6 +111,12 @@ stdenv.mkDerivation {
     description = "Berkeley TestFloat: IEEE-754 arithmetic conformance test suite";
     homepage = "http://www.jhauser.us/arithmetic/TestFloat.html";
     license = licenses.bsd3;
-    platforms = platforms.linux;
+    # Only the little-endian 64-bit Linux hosts the `Linux-x86_64-GCC` build
+    # directory actually serves: it sets LITTLEENDIAN and enables
+    # SOFTFLOAT_INTRINSIC_INT128, so `unsigned __int128` has to exist. Claiming
+    # all of `platforms.linux` would offer i686/armv7 builds that cannot compile.
+    platforms = intersectLists platforms.linux (
+      platforms.x86_64 ++ platforms.aarch64 ++ platforms.riscv64
+    );
   };
 }

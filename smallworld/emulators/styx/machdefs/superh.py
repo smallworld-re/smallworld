@@ -49,10 +49,19 @@ model.
 
 With that mapping, **single-precision** arithmetic is correct - ``fadd fr1,fr0``
 on 1.5 + 2.25 gives 3.75, and a value written to ``dr0`` is observed by a
-subsequent ``fmov``. **Double-precision is broken**: with ``FPSCR.PR`` set,
-``fadd dr2,dr0`` returns garbage (1.5 + 2.25 gives 480.0, 2.0 + 3.0 gives 640.0,
-1.0 + 1.0 gives 256.0). That is a styx-wide SuperH limitation - SH-4 behaves
-identically - so treat styx as single-precision-only for SuperH.
+subsequent ``fmov``.
+
+**Double precision needs the FPSCR written by an instruction, not by the API.**
+Writing ``fpscr`` through ``write_register`` and then running ``fadd dr2,dr0``
+returns garbage (1.5 + 2.25 gives 480.0, 2.0 + 3.0 gives 640.0, 1.0 + 1.0 gives
+256.0) - it silently takes the single-precision path. That is not a styx defect:
+Ghidra's sleigh keeps ``FPSCR_PR`` as a *separate* register that the semantics
+branch on, refreshed from ``FPSCR`` only inside ``lds Rm,FPSCR``, so every
+pcode-derived backend behaves this way. A blob that loads the FPSCR with ``lds``
+gets correct double precision on SH-4 - see the ``testfloat`` scenario's SuperH
+kernel, and ``docs/concepts/platforms/testfloat_results.csv``. SH-2A is a real
+limitation rather than a harness one: ``superh.sinc`` defines ``FP_PR`` and then
+never reads it, so styx and Ghidra are single-precision-only there.
 """
 
 from styx_emulator.arch.superh import SuperHRegister

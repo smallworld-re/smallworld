@@ -56,7 +56,10 @@ ps.buildPythonPackage {
     src = rawSrc;
     # Resolve relative to the sub-workspace root (since the styx-emulator repo
     # ships its bindings workspace with a transient lockfile we want to pin).
-    sourceRoot = "${src.name}/styx/bindings";
+    # Spelled off `rawSrc`, which is what `src` is here - using `${src.name}`
+    # would silently read the *patched* derivation's name and break the moment
+    # the `applyPatches` call above stops being named "source".
+    sourceRoot = "${rawSrc.name}/styx/bindings";
     # fetchCargoVendor has no `cargoLockOverride` parameter: it vendors the
     # `Cargo.lock` found at sourceRoot. Copy our pinned lock into place before
     # the vendoring buildPhase runs so the vendored crate set matches the

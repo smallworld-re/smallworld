@@ -30,9 +30,23 @@ sh2a_bitreg:
     bclr    #5, r1              ! r1 = 0x02   <- the instruction under test
     bld     #1, r1              ! T = bit1 = 1
     movt    r2                  ! r2 = 1
+    ! bst's set path: T=1 deposited into a cleared register.
     mov     #0, r3
     bst     #7, r3              ! bit7 = T -> r3 = 0x80
+
     nott                        ! T = 0
-    bst     #7, r3              ! bit7 = T -> r3 = 0x00
+
+    ! bst's clear path, deliberately on a *different* register whose target bit
+    ! is already set.  The obvious form - storing T=0 back into r3's bit7, which
+    ! the bst above had just set - cancels, and r3 == 0 is then also satisfied by
+    ! bst doing nothing at all, because r3 was zeroed a moment earlier.  Writing
+    ! into 0xffffffff instead means a bst that no-ops leaves 0xffffffff, which
+    ! the expectation rejects.
+    mov     #-1, r5             ! r5 = 0xffffffff
+    bst     #7, r5              ! bit7 = T -> r5 = 0xffffff7f
+
+    ! r4 is seeded 0xffffffff by the harness for the same reason: r4 reads 0 at
+    ! reset on every backend here, so an unseeded `r4 == 0` would also hold if
+    ! movt never executed.
     movt    r4                  ! r4 = 0
     nop

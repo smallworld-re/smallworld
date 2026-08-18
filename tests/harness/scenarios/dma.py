@@ -121,7 +121,7 @@ SCENARIO_INFO = ScenarioInfo(
             "ppc.styx": "styx PPC405 target lacks MMIO mapping at test addresses",
             "ppc.styx-mpc860": "styx MPC860 target lacks MMIO mapping at test addresses",
             "ppc64": "Unicorn ppc64 support buggy",
-            "sh2a.styx": "styx SuperH2A target lacks MMIO mapping at test addresses",
+            "sh2a.styx": "styx hangs when a hook is installed, and HDivModel is a MemoryMappedModel",
         },
     ),
     run_factory=assert_contains("0x5", args=("10", "2")),

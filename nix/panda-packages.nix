@@ -125,8 +125,13 @@ let
         "loongarch64-softmmu"
         "riscv32-softmmu"
         "riscv64-softmmu"
-        # Both SuperH endiannesses. `sh4eb` also carries SH-2A, since the SH-2A
-        # CPU model our patch adds is big-endian.
+        # Both SuperH endiannesses. SmallWorld only exposes SH-2A big-endian
+        # (`sh4eb`), because sleigh has no little-endian SH-2A language, but note
+        # that `panda-qemu-sh2a.patch` registers `sh7264`/`sh7269` in
+        # `target/sh4/cpu.c` with no `TARGET_BIG_ENDIAN` guard, so the
+        # little-endian `sh4-softmmu` build carries them too. There is no
+        # SmallWorld machdef, platform def or Ghidra language for that
+        # combination, so do not reach for it via `arg_overrides`.
         "sh4-softmmu"
         "sh4eb-softmmu"
       ];

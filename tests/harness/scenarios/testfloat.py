@@ -258,12 +258,27 @@ def run_function(spec: TestFloatSpec, variant: str, func: str, count: int) -> in
     )
     machine.add(code)
 
+    packed_inputs = _pack(flat, width, big)
+    out_size = len(cases) * width
+    # IN_BASE and OUT_BASE are REGION_SIZE apart, and `--cases` is caller-supplied
+    # (the module docstring advertises `--cases 46464` for an exhaustive sweep), so
+    # bound both regions rather than letting a large sweep silently run the input
+    # array into the output one. A binary f64 function packs 16 bytes per case, so
+    # the input region reaches OUT_BASE at 65536 cases.
+    for what, size in (("input", len(packed_inputs)), ("output", out_size)):
+        if size > REGION_SIZE:
+            raise ValueError(
+                f"testfloat {what} region needs {size} bytes but only "
+                f"{REGION_SIZE} are mapped; reduce --cases (currently "
+                f"{len(cases)})"
+            )
+
     inputs = smallworld.state.memory.RawMemory.from_bytes(
-        _pack(flat, width, big), address=IN_BASE
+        packed_inputs, address=IN_BASE
     )
     machine.add(inputs)
     outputs = smallworld.state.memory.RawMemory.from_bytes(
-        b"\0" * (len(cases) * width), address=OUT_BASE
+        b"\0" * out_size, address=OUT_BASE
     )
     machine.add(outputs)
 

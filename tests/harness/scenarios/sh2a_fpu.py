@@ -111,12 +111,12 @@ _SLEIGH_NO_DOUBLE = (
 # OpBehaviorIntAdd and friends are implemented.  So this is an upstream angr
 # limitation affecting every pcode-backed architecture - SuperH, TriCore, MSP430,
 # Xtensa, LoongArch - and not something these tests can work around.
-_ANGR_NO_FP = "angr's pcode engine implements no floating-point ops (upstream)"
+_ANGR_NO_FP = "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
 
-# PANDA's SH-2A support comes from nix/patches/panda-qemu-sh2a.patch, which
-# needs a libpanda built with the sh4eb target.  The machine definition exists,
-# so these variants are declared and skipped rather than omitted: drop the skip
-# once `nix build .#default` has produced a PANDA carrying that target.
+# NOTE: PANDA's SH-2A support comes from nix/patches/panda-qemu-sh2a.patch, which
+# needs a libpanda built with the sh4eb target.  That target is built (see
+# nix/panda-packages.nix), so the panda variants below are live and unskipped -
+# there is deliberately no panda entry in `_SKIPS`.
 
 
 def f32(value: float) -> int:
@@ -300,13 +300,13 @@ _SKIPS: Dict[str, Dict[str, str]] = {
     "sh2a_fpu": {
         f"{_ARCH}.angr": _ANGR_NO_FP,
     },
-    # Every engine is skipped here today, deliberately.  This scenario is the
-    # executable specification of the sleigh defect above: its expectations are
-    # the architecturally correct double-precision results, and PANDA - which
-    # runs real QEMU, whose translate.c does branch on FPSCR.PR - is the backend
-    # expected to satisfy them.  Keeping it (rather than deleting a test with no
-    # passing engine) is what makes the bug visible in `--list` and what makes it
-    # go green on its own once PANDA lands.
+    # This scenario is the executable specification of the sleigh defect above:
+    # its expectations are the architecturally correct double-precision results.
+    # angr and pcode are skipped because they cannot produce them; PANDA is NOT
+    # skipped and is the single load-bearing engine here - it runs real QEMU,
+    # whose translate.c does branch on FPSCR.PR.  So the whole double-precision
+    # signal rests on `sh2a_fpu_double:sh2a.panda`; do not narrow it further
+    # without replacing the coverage.
     "sh2a_fpu_double": {
         f"{_ARCH}.angr": _ANGR_NO_FP,
         f"{_ARCH}.pcode": _SLEIGH_NO_DOUBLE,

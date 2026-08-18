@@ -65,9 +65,11 @@ UNARY_PATCHES = {
 # What each patch must disassemble to. A disassembler cannot know FPSCR.PR, so
 # it spells the double-precision forms with `fr` names too -- which is why the
 # register *numbers* carry the whole distinction here: fr1 is the second
-# single-precision operand, fr2 is the low half of the dr2 pair. Pinning these
-# is the point of the check; the fr1/fr2 confusion is a mistake that has already
-# been made once in this scenario and produced believable arithmetic.
+# single-precision operand, while fr2 is the upper half of the dr2 pair
+# (DRn = FRn:FRn+1, FRn upper -- see platforms.defs.superh.float_bank_registers).
+# Pinning these is the point of the check; the fr1/fr2 confusion is a mistake
+# that has already been made once in this scenario and produced believable
+# arithmetic.
 EXPECT_BINARY = {op: f"f{op} fr1,fr0" for op in BINARY_PATCHES}
 EXPECT_BINARY_DOUBLE = {op: f"f{op} fr2,fr0" for op in BINARY_PATCHES_DOUBLE}
 EXPECT_UNARY = {op: f"f{op} fr0" for op in UNARY_PATCHES}

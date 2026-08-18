@@ -61,12 +61,16 @@ SPECS: Dict[str, RegisterCaseSpec] = {
         fpscr=FPSCR_SINGLE,
         # SR seeded so T is concrete before bld/bst/movt touch it; see
         # sh2a_delayslot for why this comes from the harness rather than an `ldc`.
-        inputs={"sr": 0x40000000},
+        # r4 is seeded non-zero on purpose: it reads 0 at reset on both engines
+        # that run this scenario, so an unseeded `r4 == 0` would be satisfied by
+        # `movt` never executing. Seeding makes the write observable.
+        inputs={"sr": 0x40000000, "r4": 0xFFFFFFFF},
         expected={
             "r1": 0x00000002,  # bset #5, bset #1, bclr #5
             "r2": 1,  # bld #1 -> T, then movt
-            "r3": 0x00000000,  # bst #7 with T=1, nott, bst #7 with T=0
-            "r4": 0,  # movt after nott
+            "r3": 0x00000080,  # bst #7 with T=1: the deposit-a-one path
+            "r4": 0,  # movt after nott, over a seeded 0xffffffff
+            "r5": 0xFFFFFF7F,  # bst #7 with T=0: the deposit-a-zero path
         },
     )
 }

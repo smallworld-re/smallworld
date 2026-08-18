@@ -51,11 +51,11 @@ def _expectations(
     #   + 1 (movt, T=1 after nott) + 0 (movrt, the inverse)
     #
     # NOTE: movt and movrt are folded into the same checksum, and since movrt
-    # stores the inverse of T their contributions sum to 1 for *either* value of
-    # T.  So this total does not actually constrain nott/movt/movrt - a backend
-    # where nott is a no-op, or where movt and movrt are swapped, still produces
-    # 0x36b4f.  Checking r4 and r8 separately (as sh2a_bitreg and sh2a_diff do)
-    # is what would pin them down.
+    # stores the inverse of T their *unweighted* contributions would sum to 1 for
+    # either value of T.  The blob therefore doubles the movrt result with a
+    # `shll` before adding it (see the comment in sh2a_isa.sh2a.s), which breaks
+    # that symmetry: nott being a no-op, or movt and movrt being swapped, gives
+    # 0x36b50 rather than 0x36b4f.  So this total does constrain all three.
     return ((("0",), "0x36b4f"),)
 
 

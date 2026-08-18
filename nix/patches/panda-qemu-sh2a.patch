@@ -572,17 +572,17 @@ diff --git a/target/sh4/translate.c b/target/sh4/translate.c
 +    case 0x8600: /* bclr/bset #imm3,Rn (SH-2A) */
 +        CHECK_SH2A
 +        if (ctx->opcode & 0x0008) {         /* 10000110nnnn1iii bset */
-+            tcg_gen_ori_i32(REG(B11_8), REG(B11_8), 1u << (B3_0 & 7));
++            tcg_gen_ori_i32(REG(B7_4), REG(B7_4), 1u << (B3_0 & 7));
 +        } else {                           /* 10000110nnnn0iii bclr */
-+            tcg_gen_andi_i32(REG(B11_8), REG(B11_8), ~(1u << (B3_0 & 7)));
++            tcg_gen_andi_i32(REG(B7_4), REG(B7_4), ~(1u << (B3_0 & 7)));
 +        }
 +        return;
 +    case 0x8700: /* bst/bld #imm3,Rn (SH-2A) */
 +        CHECK_SH2A
 +        if (ctx->opcode & 0x0008) {        /* 10000111nnnn1iii bld: bit -> T */
-+            tcg_gen_extract_i32(cpu_sr_t, REG(B11_8), B3_0 & 7, 1);
++            tcg_gen_extract_i32(cpu_sr_t, REG(B7_4), B3_0 & 7, 1);
 +        } else {                           /* 10000111nnnn0iii bst: T -> bit */
-+            tcg_gen_deposit_i32(REG(B11_8), REG(B11_8), cpu_sr_t,
++            tcg_gen_deposit_i32(REG(B7_4), REG(B7_4), cpu_sr_t,
 +                                B3_0 & 7, 1);
 +        }
 +        return;

@@ -22,10 +22,16 @@ processor rather than inferred:
 * Integer emulation works, in **both** endiannesses. ``mov``/``nop``/``rts`` with
   its delay slot step correctly and land on the right PC.
 * **Single-precision** floating point works (``fadd fr1,fr0`` with 1.5 + 2.25
-  gives 3.75). **Double-precision is broken**: with ``FPSCR.PR`` set,
+  gives 3.75). **Double precision works too, but only if the blob loads FPSCR
+  with ``lds``.** Setting ``fpscr`` through ``write_register`` and then running
   ``fadd dr2,dr0`` returns garbage - 1.5 + 2.25 gives 480.0, 2.0 + 3.0 gives
-  640.0, 1.0 + 1.0 gives 256.0. This affects SH-2A equally, so it is a general
-  styx SuperH limitation rather than an SH-4 one.
+  640.0, 1.0 + 1.0 gives 256.0 - because sleigh branches on a separate
+  ``FPSCR_PR`` register that only ``lds Rm,FPSCR`` refreshes. That is a
+  pcode-wide harness hazard, not an SH-4 or a styx defect; the ``testfloat``
+  scenario's SuperH kernel installs FPSCR with ``lds`` and styx passes all five
+  double-precision functions on both SH-4 endiannesses (see
+  ``docs/concepts/platforms/testfloat_results.csv``). SH-2A is genuinely
+  single-precision-only, because ``superh.sinc`` never reads its ``FP_PR``.
 * The missing call-other handlers do **not** surface as errors. ``ldtlb``,
   ``mac.l`` and ``ocbi`` all step without raising, so unhandled userops are
   silently not modelled rather than reported. Treat any result that depends on
@@ -35,7 +41,7 @@ processor rather than inferred:
   those parts of the platform definition are simply unreachable here.
 
 Prefer ``GhidraEmulator`` or ``PandaEmulator`` for SH-4 work that needs
-double-precision floating point or privileged instructions.
+privileged instructions or any of the userops above.
 """
 
 from styx_emulator.cpu import Backend

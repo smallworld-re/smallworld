@@ -67,9 +67,11 @@ sh2a_isa:
     sub     r6, r3              ! r3 = 0x100
 
     ! clips.b saturates a signed value into signed-byte range, so 0x369cf
-    ! clamps to 0x7f.  Only the clamped value is checked: the hardware also
-    ! sets T on saturation, but Ghidra's SH-2A sleigh does not model that side
-    ! effect, and this test is not the place to litigate it.
+    ! clamps to 0x7f.  Only the clamped value is checked; the saturation side
+    ! effect is SR.CS (bit 9), which Ghidra's SH-2A sleigh does not model, and
+    ! this test is not the place to litigate it.  Note that clips.b leaves T
+    ! alone - that is load-bearing here, because the nott below assumes T is
+    ! still clear from the preamble.
     mov     r1, r7
     clips.b r7                  ! r7 = 0x7f
 

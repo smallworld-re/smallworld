@@ -79,9 +79,12 @@ _SKIP_REASONS = {
     "mips64.panda": "Waiting for panda-ng",
     "mips64el.panda": "Waiting for panda-ng",
     "ppc.panda": "Waiting for panda-ng",
-    "sh2a.panda": "Waiting for panda-ng",
-    "sh4.panda": "Waiting for panda-ng",
-    "sh4el.panda": "Waiting for panda-ng",
+    "sh2a.panda": "measured: hangs rather than reporting the jump to NULL "
+    "(PANDA SuperH otherwise works; this scenario needs an unmapped-fetch fault)",
+    "sh4.panda": "measured: hangs rather than reporting the jump to NULL "
+    "(PANDA SuperH otherwise works; this scenario needs an unmapped-fetch fault)",
+    "sh4el.panda": "measured: hangs rather than reporting the jump to NULL "
+    "(PANDA SuperH otherwise works; this scenario needs an unmapped-fetch fault)",
     "tricore.panda": "Waiting for panda-ng",
     # Measured: this scenario requires an unmapped-fetch fault, and Styx's
     # SuperH2A target maps a flat 4 GiB RWX space, so a fetch at 0 cannot fault.

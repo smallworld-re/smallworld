@@ -11,15 +11,20 @@ _VARIANTS = tuple(
 ) + (
     # SuperH is the second delay-slot family here.  Unlike MIPS it has no
     # unicorn backend, and its angr machdef is pcode-based rather than VEX, so
-    # every SuperH engine folds the delay slot into its parent branch and
-    # single-stepping is permitted on all of them.
+    # every sleigh-derived SuperH engine folds the delay slot into its parent
+    # branch and single-stepping is permitted on all of them.  panda does not
+    # fold: it is real QEMU, so it reports the delay slot's own pc for both the
+    # instruction hook and the memory write, exactly as it does for MIPS.
     ("sh2a.pcode", None),
     ("sh2a.angr", None),
+    ("sh2a.panda", None),
     ("sh2a.styx", "styx hangs when an instruction or memory hook is installed"),
     ("sh4.pcode", None),
     ("sh4.angr", None),
+    ("sh4.panda", None),
     ("sh4el.pcode", None),
     ("sh4el.angr", None),
+    ("sh4el.panda", None),
 )
 
 SCENARIO_INFO = ScenarioInfo(

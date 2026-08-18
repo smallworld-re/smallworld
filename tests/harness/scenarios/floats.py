@@ -30,12 +30,27 @@ _VARIANTS = (
     # The runner scripts are written and correct; drop the skip when angr
     # implements the behaviors.
     ("sh2a.pcode", None),
-    ("sh2a.angr", "angr's pcode engine has no float behaviors implemented"),
+    (
+        "sh2a.angr",
+        (
+            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
+        ),
+    ),
     ("sh2a.styx", None),
     ("sh4.pcode", None),
-    ("sh4.angr", "angr's pcode engine has no float behaviors implemented"),
+    (
+        "sh4.angr",
+        (
+            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
+        ),
+    ),
     ("sh4el.pcode", None),
-    ("sh4el.angr", "angr's pcode engine has no float behaviors implemented"),
+    (
+        "sh4el.angr",
+        (
+            "angr's pcode engine implements no floating-point arithmetic: every OpBehaviorFloat* in angr/engines/pcode/behavior.py is unimplemented (upstream, affects every pcode-backed arch)"
+        ),
+    ),
 )
 
 SCENARIO_INFO = ScenarioInfo(

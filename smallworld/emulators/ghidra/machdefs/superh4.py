@@ -58,15 +58,14 @@ class SuperH4MachineDef(GhidraMachineDef):
         **SH4_GHIDRA_NAMES,
         # *** Floating-Point Registers ***
         # Two banks: fr/dr is the active one, xf/xd the alternate, swapped by
-        # `frchg`. This name map is endian-independent, but the *layouts* behind
-        # the names are not, and only half of that is Ghidra being consistent:
-        # its little-endian spec swaps the names of each fr pair so that
-        # DRn = FRn:FRn+1 holds in both endiannesses, yet leaves the xf names
-        # unswapped, so in `SuperH4:LE:32:default` xf{n} is the *low* half of
-        # xd{n}. SmallWorld's platform definition models the architectural
-        # layout for both banks, so xf reads/writes are transposed against this
-        # backend on little-endian SH-4 - see
-        # `platforms.defs.superh.float_bank_registers`.
+        # `frchg`. This name map is endian-independent for the primary bank, but
+        # not for the alternate one, and only half of that is Ghidra being
+        # consistent: its little-endian spec swaps the names of each fr pair so
+        # that DRn = FRn:FRn+1 holds in both endiannesses, yet leaves the xf
+        # names unswapped, so in `SuperH4:LE:32:default` xf{n} is the *low* half
+        # of xd{n}. SmallWorld's platform definition models the architectural
+        # layout for both banks, so `SuperH4ELMachineDef` below transposes the xf
+        # pairs back - see `platforms.defs.superh.float_bank_registers`.
         **{f"dr{i}": f"dr{i}" for i in range(0, 16, 2)},
         **{f"fr{i}": f"fr{i}" for i in range(0, 16)},
         **{f"xd{i}": f"xd{i}" for i in range(0, 16, 2)},
@@ -91,3 +90,16 @@ class SuperH4BEMachineDef(SuperH4MachineDef):
 class SuperH4ELMachineDef(SuperH4MachineDef):
     byteorder = Byteorder.LITTLE
     language_id = "SuperH4:LE:32:default"
+
+    # Undo sleigh's unswapped alternate-bank names; see the note on
+    # `_registers` above. Measured on `SuperH4:LE:32:default`: xd0 sits at
+    # register-space offset 0x240 size 8, xf0 at 0x240 size 4, xf1 at 0x244, so
+    # sleigh's xf0 is the low half of xd0 while SmallWorld's is the high half.
+    # Left as-is, every xf read and write on little-endian SH-4 would silently
+    # name the opposite half from the platform definition, the CPU state model
+    # and PANDA.
+    _registers = {
+        **SuperH4MachineDef._registers,
+        **{f"xf{i}": f"xf{i + 1}" for i in range(0, 16, 2)},
+        **{f"xf{i + 1}": f"xf{i}" for i in range(0, 16, 2)},
+    }

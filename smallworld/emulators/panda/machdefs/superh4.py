@@ -38,8 +38,12 @@ _SUPERH4_REGISTERS: typing.Dict[str, typing.Optional[str]] = {
 }
 
 
-class SuperH4BEMachineDef(PandaMachineDef):
-    """SH-4/SH-4A on PANDA, big-endian.
+class SuperH4MachineDef(PandaMachineDef):
+    """Shared SH-4/SH-4A definition; the subclasses set `byteorder`/`panda_arch`.
+
+    Has no `byteorder` or `panda_arch`, so `find_subclass` never selects it -
+    the same shape as the angr, Ghidra, Styx, platform-def and CPU-model SuperH4
+    classes, rather than hanging the little-endian def off the big-endian one.
 
     Note the absence of a `machine` attribute: PandaEmulator falls back to
     `-M configurable`, the Avatar machine, which builds a bare CPU with no
@@ -49,14 +53,20 @@ class SuperH4BEMachineDef(PandaMachineDef):
     """
 
     arch = Architecture.SUPERH_SH4
-    byteorder = Byteorder.BIG
 
-    panda_arch = "sh4eb"
     cpu = SH4_PANDA_CPU
     _registers = _SUPERH4_REGISTERS
 
 
-class SuperH4ELMachineDef(SuperH4BEMachineDef):
+class SuperH4BEMachineDef(SuperH4MachineDef):
+    """SH-4/SH-4A on PANDA, big-endian."""
+
+    byteorder = Byteorder.BIG
+
+    panda_arch = "sh4eb"
+
+
+class SuperH4ELMachineDef(SuperH4MachineDef):
     """SH-4/SH-4A on PANDA, little-endian."""
 
     byteorder = Byteorder.LITTLE

@@ -34,7 +34,18 @@ preferred_arches = [
     "sh4el",
     "xtensa",
 ]
-engine_order = ["unicorn", "angr", "panda", "pcode", "styx", "afl"]
+# Every engine the manifest can emit; the print loop below iterates this list, so
+# anything missing from it is silently dropped from the report.
+engine_order = [
+    "unicorn",
+    "angr",
+    "panda",
+    "pcode",
+    "pcode_symbolic",
+    "styx",
+    "styx-mpc860",
+    "afl",
+]
 
 coverage = defaultdict(lambda: defaultdict(set))
 seen_arches = set()
@@ -67,5 +78,5 @@ for scenario in sorted(coverage):
         for arch in arch_order:
             row.append(arch if arch in coverage[scenario][engine] else " " * len(arch))
         if any(item.strip() for item in row):
-            print(f"  {engine:7} {' '.join(row)}")
+            print(f"  {engine:14} {' '.join(row)}")
 PY

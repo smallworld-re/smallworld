@@ -61,15 +61,15 @@ def float_bank_registers(
     FRn as the upper half, so the even-numbered single-precision register sits
     at numeric offset 4 and the odd-numbered one at 0, in both endiannesses.
 
-    WARNING: that architectural layout is what SmallWorld models, and it is
-    what Ghidra's sleigh implements for the *primary* bank in both
-    endiannesses - ``SuperH4.sinc``'s little-endian block swaps the names of
-    each ``fr`` pair precisely to keep ``DRn = FRn:FRn+1`` fixed. It does not
-    do the same for SH-4's alternate bank: the ``xf`` names are left unswapped,
-    so on ``SuperH4:LE:32:default`` sleigh puts ``xf{n}`` in the *lower* half of
-    ``xd{n}``. Any harness that reads or writes ``xf*`` on little-endian SH-4
-    through a pcode-derived backend (angr, Ghidra, Styx) therefore sees the two
-    halves transposed relative to this model; ``xd*`` itself is unaffected.
+    NOTE: that architectural layout is what SmallWorld models, and it is what
+    Ghidra's sleigh implements for the *primary* bank in both endiannesses -
+    ``SuperH4.sinc``'s little-endian block swaps the names of each ``fr`` pair
+    precisely to keep ``DRn = FRn:FRn+1`` fixed. It does not do the same for
+    SH-4's alternate bank: the ``xf`` names are left unswapped, so on
+    ``SuperH4:LE:32:default`` sleigh puts ``xf{n}`` in the *lower* half of
+    ``xd{n}``. The little-endian angr and Ghidra machdefs therefore transpose
+    the ``xf`` pairs back when mapping onto sleigh; Styx maps no ``xf`` at all.
+    ``xd*`` is unaffected either way.
     """
     registers: typing.Dict[str, RegisterDef] = {}
     for i in range(0, 16, 2):

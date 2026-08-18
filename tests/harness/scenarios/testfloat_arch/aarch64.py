@@ -5,14 +5,14 @@ two-source form is::
 
     0001 1110 | type[23:22] | 1 | Rm[20:16] | opcode[15:12] | 10 | Rn | Rd
 
-so fadd/fsub/fmul/fdiv differ only in ``opcode``
-(0010/0011/0000/0001), and the one-source form (FSQRT/FABS/FNEG) differs only in
-bits [20:15].  In both, ``type`` selects single (00) from double (01), which is
-why each precision needs its own table: a single-precision word dropped into the
-double-precision loop is still a *legal* instruction that quietly computes in the
-wrong precision, so nothing would crash - the answers would just be wrong.
-Every entry below was taken from the assembler's own output rather than derived
-by hand; the scenario's --check-patches re-disassembles them.
+so fadd/fsub/fmul/fdiv differ only in ``opcode`` (0010/0011/0000/0001), and the
+one-source form (FSQRT/FABS/FNEG) differs only in bits [20:15].  In both,
+``type`` selects single (00) from double (01), which is why each precision needs
+its own table: a single-precision word dropped into the double-precision loop is
+still a *legal* instruction that quietly computes in the wrong precision on the
+wrong register file, so nothing crashes - the answers are just wrong.  Every
+entry below came from the assembler's own output rather than being derived by
+hand, and --check-patches re-disassembles them against ``expect``.
 
 FPCR is installed by the kernel itself (``msr fpcr, xzr``) rather than seeded
 here.  Two reasons: FPCR's reset value is architecturally UNKNOWN, and angr's
@@ -141,7 +141,7 @@ KERNELS: Dict[str, Kernel] = {
 SPECS: Dict[str, TestFloatSpec] = {
     "aarch64": TestFloatSpec(
         platform=PlatformSpec("AARCH64", "LITTLE"),
-        engines=("unicorn", "angr", "pcode", "panda"),
+        engines=("unicorn", "angr", "panda", "pcode"),
         in_register="x0",
         out_register="x1",
         count_register="x2",
