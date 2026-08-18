@@ -12,7 +12,6 @@ from .machdef import GhidraMachineDef
 class TriCoreMachineDef(GhidraMachineDef):
     arch = Architecture.TRICORE
     byteorder = Byteorder.LITTLE
-    language_id = "tricore:LE:32:default"
 
     _registers: typing.Dict[str, typing.Optional[str]] = {
         **{f"a{i}": f"a{i}" for i in range(0, 16)},

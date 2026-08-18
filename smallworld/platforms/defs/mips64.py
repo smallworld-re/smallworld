@@ -281,6 +281,7 @@ class MIPSN64PlatformDef(PlatformDef):
 
 class MIPS64EL(MIPSN64PlatformDef):
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "MIPS:LE:64:default"
 
     def __init__(self):
         super().__init__()
@@ -305,6 +306,7 @@ class MIPS64EL(MIPSN64PlatformDef):
 
 class MIPS64BE(MIPSN64PlatformDef):
     byteorder = Byteorder.BIG
+    ghidra_language_id = "MIPS:BE:64:default"
 
     capstone_mode = capstone.CS_MODE_MIPS64 | capstone.CS_MODE_BIG_ENDIAN
 

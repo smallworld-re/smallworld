@@ -482,12 +482,14 @@ class ARMv5T(ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv5t little-endian."""
 
     architecture = Architecture.ARM_V5T
+    ghidra_language_id = "ARM:LE:32:v5t"
 
 
 class ARMv6M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv6m little-endian."""
 
     architecture = Architecture.ARM_V6M
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv6MThumb(ARMv6M):
@@ -499,12 +501,16 @@ class ARMv6MThumb(ARMv6M):
     """
 
     architecture = Architecture.ARM_V6M_THUMB
+    # ARMv6-M is Thumb; Ghidra decodes Thumb via the TMode context register
+    # within the same SLEIGH language, so this shares ARMv6M's language id.
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv7M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):
     """Platform definition for ARMv7m little-endian"""
 
     architecture = Architecture.ARM_V7M
+    ghidra_language_id = "ARM:LE:32:v7"
 
 
 class ARMv7R(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
@@ -517,3 +523,4 @@ class ARMv7A(ARMPlatformMixinVFPEL, ARMPlatformMixinRA, ARMPlatformDef):
     """Platform definition for ARMv7a little-endian"""
 
     architecture = Architecture.ARM_V7A
+    ghidra_language_id = "ARM:LE:32:v7"

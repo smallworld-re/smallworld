@@ -289,6 +289,7 @@ class MIPSO32PlatformDef(PlatformDef):
 
 class MIPS32EL(MIPSO32PlatformDef):
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "MIPS:LE:32:default"
 
     def __init__(self):
         super().__init__()
@@ -313,6 +314,7 @@ class MIPS32EL(MIPSO32PlatformDef):
 
 class MIPS32BE(MIPSO32PlatformDef):
     byteorder = Byteorder.BIG
+    ghidra_language_id = "MIPS:BE:32:default"
 
     capstone_mode = capstone.CS_MODE_MIPS32 | capstone.CS_MODE_BIG_ENDIAN
 

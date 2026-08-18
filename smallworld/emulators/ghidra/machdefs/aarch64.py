@@ -5,7 +5,6 @@ from .machdef import GhidraMachineDef
 class AArch64MachineDef(GhidraMachineDef):
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
-    language_id = "AARCH64:LE:64:v8A"
 
     _registers = {
         # *** General Purpose Registers ***

@@ -5,7 +5,6 @@ from .machdef import GhidraMachineDef
 class RISCV64MachineDef(GhidraMachineDef):
     arch = Architecture.RISCV64
     byteorder = Byteorder.LITTLE
-    language_id = "RISCV:LE:64:default"
 
     _registers = {
         # *** General-Purpose Registers ***

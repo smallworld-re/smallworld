@@ -11,7 +11,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 from .powerpc import PowerPC32, PowerPC64
 from .riscv import RiscV64
 from .tricore import TriCore
-from .xtensa import Xtensa
+from .xtensa import Xtensa, XtensaBE
 
 __all__ = [
     "AArch64",
@@ -40,4 +40,5 @@ __all__ = [
     "RiscV64",
     "TriCore",
     "Xtensa",
+    "XtensaBE",
 ]

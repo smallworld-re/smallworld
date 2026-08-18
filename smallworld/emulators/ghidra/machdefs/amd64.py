@@ -7,7 +7,6 @@ from .machdef import GhidraMachineDef
 class AMD64MachineDef(GhidraMachineDef):
     arch: platforms.Architecture = platforms.Architecture.X86_64
     byteorder: platforms.Byteorder = platforms.Byteorder.LITTLE
-    language_id: str = "x86:LE:64:default"
 
     _registers: typing.Dict[str, typing.Optional[str]] = {
         # *** General Purpose Registers ***
