@@ -47,6 +47,32 @@ let
     '';
   };
 
+  # Berkeley TestFloat, for the `testfloat` scenario. Built from upstream (see
+  # nix/testfloat.nix); its `testfloat_gen`/`testfloat_ver` pair has to be on
+  # PATH at *test* time, not build time, because the harness pipes emulated FPU
+  # results between them. Linux only - upstream ships no Darwin build
+  # configuration.
+  #
+  # Deliberately NOT part of `runtimeToolsFor`: that list feeds `mkRuntimeEnv`,
+  # which is `packages.default` and the contents of `dockerImage`, so putting a
+  # test-only conformance suite there would fetch and compile SoftFloat-3e plus
+  # TestFloat-3e for every library consumer and bake it into the published
+  # image. Only the developer shell - which is what CI runs the scenarios
+  # under - needs it.
+  testfloatFor =
+    system:
+    let
+      pkgs = pkgsFor system;
+      host = pkgs.stdenv.hostPlatform;
+    in
+    # Upstream's `Linux-x86_64-GCC` build directory sets LITTLEENDIAN and asks
+    # for `unsigned __int128`, so it serves any little-endian 64-bit Linux host
+    # and nothing else - a bare `isLinux` gate would offer i686/armv7 builds
+    # that fail inside SoftFloat.
+    lib.optional (host.isLinux && host.is64bit && host.isLittleEndian) (
+      pkgs.callPackage ./testfloat.nix { }
+    );
+
   runtimeToolsFor =
     system:
     let
@@ -379,6 +405,9 @@ let
         pkgs.nixfmt
         pkgs.nixfmt-tree
       ]
+      # `testfloat_gen`/`testfloat_ver` for the `testfloat` scenario; see
+      # `testfloatFor`. Developer shell only, not the runtime closure.
+      ++ testfloatFor system
       ++ lib.optional (binaryNinja != null) binaryNinja;
 
       hardeningDisable = [ "all" ];

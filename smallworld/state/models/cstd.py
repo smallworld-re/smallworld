@@ -925,15 +925,19 @@ class CStdCallingContext(metaclass=abc.ABCMeta):
             or self.platform.architecture == platforms.Architecture.MIPS32
             or self.platform.architecture == platforms.Architecture.MIPS64
             or self.platform.architecture == platforms.Architecture.RISCV64
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH2A_FPU
+            or self.platform.architecture == platforms.Architecture.SUPERH_SH4
         ):
-            # mips32, mips64, and riscv64: branch to register 'ra'
+            # mips32, mips64, riscv64 and superh: branch to register 'ra'.  On
+            # SuperH that is an alias of the architectural PR register, matching
+            # the 'ra' branch of state.models.model.Model.get_return_address.
             emulator.write_register("ra", address)
         elif self.platform.architecture == platforms.Architecture.XTENSA:
             # xtensa: branch to register 'a0'
             emulator.write_register("a0", address)
         else:
             raise exceptions.ConfigurationError(
-                "Don't know how to return for {self.platform.architecture}"
+                f"Don't know how to return for {self.platform.architecture}"
             )
 
 

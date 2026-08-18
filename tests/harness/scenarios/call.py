@@ -23,6 +23,9 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "tricore",
     "xtensa",
 )
@@ -56,6 +59,12 @@ _STACKS = {
     "ppc": _stack("ppc"),
     "ppc64": _stack("ppc64"),
     "riscv64": _stack("riscv64"),
+    # SuperH leaves the return address in pr rather than on the stack, so like
+    # tricore it needs no synthetic return slot; the sh binaries still touch the
+    # stack (sts.l pr,@-r15), so sp itself must be valid.
+    "sh2a": _stack("sh2a", fake_return_size=None),
+    "sh4": _stack("sh4", fake_return_size=None),
+    "sh4el": _stack("sh4el", fake_return_size=None),
     "tricore": _stack("tricore", fake_return_size=None),
 }
 
@@ -91,13 +100,37 @@ def _call_expectations(
     return tuple(((str(n),), f"{r:#x}") for n, r in outputs)
 
 
+# Ghidra's SuperH4 sleigh never writes pr on bsr - the ghidra and angr backends
+# read it back as 0 or unconstrained, where SH-2A's sleigh correctly yields the
+# address after the delay slot - so bsr-based call-and-return does not work on
+# SH-4 through either pcode-derived backend.  PANDA does not share that sleigh:
+# it runs on real QEMU, whose bsr does set pr.
+#
+# The defect is specific to bsr.  :bsrf and :jsr both assign PR = inst_next,
+# and sleigh counts the delay slot as part of the instruction, so that is the
+# architectural inst_start + 4 - measured on all three engines, sh2a and sh4
+# alike, with a jsr whose delay slot increments a register.  The `hooking`
+# scenario uses jsr @Rn and therefore needs no SH-4 skips at all.  This
+# scenario keeps bsr on purpose, so the defect stays pinned until it is fixed
+# upstream; the skips below can be deleted when it is.
+_SH4_SLEIGH_PR = "Ghidra SuperH4 sleigh does not write pr on bsr"
+_SH4_CALL_SKIPS = {
+    f"{arch}.{engine}": reason
+    for arch in ("sh4", "sh4el")
+    for engine, reason in (
+        ("angr", _SH4_SLEIGH_PR),
+        ("pcode", _SH4_SLEIGH_PR),
+    )
+}
+
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="call",
     scenario="call",
     tags=("scenario", "call"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unexpected trap"},
+        skip_reasons={"ppc64": "Unexpected trap", **_SH4_CALL_SKIPS},
         arch_kwargs={
             arch: {"signext": True}
             for arch in ("la64", "mips64", "mips64el", "ppc64", "riscv64")

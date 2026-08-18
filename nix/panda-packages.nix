@@ -90,6 +90,12 @@ let
         patches = [
           ./patches/panda-qemu-tricore.patch
           ./patches/panda-qemu-remove-debug-printf.patch
+          # SuperH, in two layers: `superh` adds the PANDA glue for QEMU's
+          # existing SH-4 target, and `sh2a` then teaches that target the SH-2A
+          # ISA. `sh2a` is generated on top of `superh` - they both touch
+          # target/sh4/cpu.{h,c} - so this order matters.
+          ./patches/panda-qemu-superh.patch
+          ./patches/panda-qemu-sh2a.patch
         ];
       };
       libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
@@ -101,6 +107,7 @@ let
         patches = [
           ./patches/panda-ng-darwin.patch
           ./patches/panda-ng-tricore.patch
+          ./patches/panda-ng-superh.patch
         ];
       };
       targetList = [
@@ -118,6 +125,15 @@ let
         "loongarch64-softmmu"
         "riscv32-softmmu"
         "riscv64-softmmu"
+        # Both SuperH endiannesses. SmallWorld only exposes SH-2A big-endian
+        # (`sh4eb`), because sleigh has no little-endian SH-2A language, but note
+        # that `panda-qemu-sh2a.patch` registers `sh7264`/`sh7269` in
+        # `target/sh4/cpu.c` with no `TARGET_BIG_ENDIAN` guard, so the
+        # little-endian `sh4-softmmu` build carries them too. There is no
+        # SmallWorld machdef, platform def or Ghidra language for that
+        # combination, so do not reach for it via `arg_overrides`.
+        "sh4-softmmu"
+        "sh4eb-softmmu"
       ];
       qemuConfigureFlags = [
         "--enable-plugins"
@@ -145,6 +161,7 @@ let
         patches = [
           libpandaPatch
           ./patches/libpanda-build-linux-builder.patch
+          ./patches/libpanda-superh.patch
         ];
       };
       qemuSubprojects = pkgs.stdenv.mkDerivation {

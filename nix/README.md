@@ -12,7 +12,8 @@ If you only remember one thing, remember this data flow:
 3. `nix/runtime-support.nix` turns those packages into user-facing shells and runtime environments.
 4. `nix/aflplusplus-packages.nix` provides the repo-local Darwin AFL++ build.
 5. `nix/panda-packages.nix` handles the other unusual dependency, PANDA.
-6. `nix/unicornafl-build/` keeps the repo-local `unicornafl` packaging helper next to the rest of the flake code.
+6. `nix/testfloat.nix` builds Berkeley TestFloat, the FPU conformance suite the `testfloat` scenario drives.
+7. `nix/unicornafl-build/` keeps the repo-local `unicornafl` packaging helper next to the rest of the flake code.
 
 ## File Guide
 
@@ -26,8 +27,10 @@ If you only remember one thing, remember this data flow:
   Holds the custom `unicornafl` derivation and its pinned Rust `Cargo.lock`, so the Python binding stays reproducible without leaving the `nix/` tree.
 - `panda-packages.nix`
   Packages PANDA, QEMU, and `pypanda`. This file is special because PANDA needs generated headers and extra native build steps that do not fit the normal Python lockfile flow.
+- `testfloat.nix`
+  Builds Berkeley TestFloat and its SoftFloat reference from the upstream release zips. Nothing is vendored: `testfloat_gen` and `testfloat_ver` land on the developer shell's `PATH` at *test* time so the `testfloat` scenario can pipe emulated FPU results between them. It is deliberately outside `runtimeToolsFor`, so it stays out of `nix build` and the Docker image. Note that SoftFloat's `SPECIALIZE_TYPE` selects NaN-propagation semantics rather than a host architecture, which is why the harness leaves `testfloat_ver -checkNaNs` off.
 - `patches/`
-  Temporary local fixes for PANDA/libpanda packaging. These should go away once the equivalent changes exist upstream.
+  Temporary local fixes for PANDA/libpanda, SuperH support in PANDA/QEMU, and the Styx Python bindings. These should go away once the equivalent changes exist upstream.
 
 ## User-Facing Commands
 

@@ -48,8 +48,20 @@ for reg in platdef.registers.keys():
         )
         bad = True
 
+writeback_registers = ()
 if architecture == platforms.Architecture.TRICORE:
     writeback_registers = ("d2", "d4", "a4", "sp", "ra")
+elif architecture in (
+    platforms.Architecture.SUPERH_SH4,
+    platforms.Architecture.SUPERH_SH2A_FPU,
+):
+    # r0 is the return value, r4 the first argument, pr the return address, and
+    # sp/ra are aliases of r15/pr - so this also checks that writes through an
+    # alias reach the parent.  fr0 covers the floating-point path, which QEMU
+    # keeps in a separate array from the GPRs.
+    writeback_registers = ("r0", "r4", "pr", "sp", "ra", "fr0")
+
+if writeback_registers:
     for reg in writeback_registers:
         try:
             original = emu.read_register(reg)
