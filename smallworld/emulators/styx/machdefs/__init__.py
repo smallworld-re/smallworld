@@ -2,6 +2,8 @@
 from . import armel  # noqa: F401
 from . import armhf  # noqa: F401
 from . import powerpc  # noqa: F401
+from . import superh  # noqa: F401
+from . import superh4  # noqa: F401
 from .machdef import StyxMachineDef
 
 __all__ = ["StyxMachineDef"]

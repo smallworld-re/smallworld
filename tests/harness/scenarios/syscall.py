@@ -20,6 +20,17 @@ _VARIANTS = tuple(
         "ppc",
         "ppc64",
         "riscv64",
+        # SuperH's `trapa #imm` reaches hook_syscall(s) only because
+        # `machdefs/superh.py` and `machdefs/superh4.py` rewrite it into an
+        # Ijk_Sys_syscall; sleigh p-code has no syscall opcode, so angr's pcode
+        # lifter cannot produce that jumpkind on its own.  Xtensa below is the
+        # same arrangement for the same reason.  angr is the only engine here
+        # because it is the only backend that implements hook_syscall at all -
+        # on PANDA the very same instruction is an interrupt instead, which is
+        # what the `interrupt` scenario covers.
+        "sh2a",
+        "sh4",
+        "sh4el",
         "xtensa",
     )
 )

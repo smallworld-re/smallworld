@@ -1,0 +1,94 @@
+# Local styx-emulator patch exposing SuperH SH-4 to the Python bindings for
+# SmallWorld's SuperH bring-up.
+#
+# Styx already supports SH-4 on the Rust side: its Pcode backend bundles Ghidra's
+# SuperH4 module and `arch_spec/superh/{sh4eb,sh4el}.rs` build specs for both
+# endiannesses. Only the Python surface is missing - `Target` has no SH-4 entry,
+# and the generic `Target::Raw` arm is an unreachable `todo!()`. This patch:
+#
+#   1. adds `Target::SuperH4Be` / `Target::SuperH4Le` to the pyo3 enum (the
+#      `Target` enum carries no endianness, so SH-4 needs one entry per byte
+#      order; pyo3_stub_gen regenerates processor.pyi for them automatically),
+#   2. routes them through the existing `RawProcessor`, which gives instruction
+#      emulation over a flat address space with no peripherals - exactly what
+#      SmallWorld wants, since it maps its own memory,
+#   3. stops `build_arch_spec` hard-wiring SH-4 to the big-endian spec. `endian`
+#      is already a parameter and `sh4el.rs` already exists (upstream marks it
+#      `#[allow(dead_code)]` with "right now we dont use little endian SH4"), so
+#      honouring it is a four-line change and gives us SH-4 LE - the endianness
+#      most real SH-4 systems use.
+#
+# Caveat, documented in smallworld/emulators/styx/machdefs/superh4.py: both SH-4
+# arch specs are bare stubs. Unlike `sh2a.rs` they register no floating-point
+# register handlers and no call-other handlers, so FP state and any sleigh userop
+# (LoadTranslationLookasideBuffer, mac_lOp, the cache-block ops) are unsupported.
+# Integer emulation works.
+#
+# Remove once styx-emulator ships SH-4 in its Python bindings and fleshes out the
+# SH-4 arch specs.
+diff --git a/styx/bindings/styx-py-api/src/processor/target.rs b/styx/bindings/styx-py-api/src/processor/target.rs
+--- a/styx/bindings/styx-py-api/src/processor/target.rs
++++ b/styx/bindings/styx-py-api/src/processor/target.rs
+@@ -16,4 +16,6 @@
+     Stm32f107,
+     Stm32f405,
+     SuperH2A,
++    SuperH4Be,
++    SuperH4Le,
+ }
+diff --git a/styx/bindings/styx-py-api/src/processor/builder.rs b/styx/bindings/styx-py-api/src/processor/builder.rs
+--- a/styx/bindings/styx-py-api/src/processor/builder.rs
++++ b/styx/bindings/styx-py-api/src/processor/builder.rs
+@@ -13,6 +13,7 @@
+ use pyo3_stub_gen::derive::*;
+ use styx_emulator::{
+     cpu::arch::ppc32::Ppc32Variants,
++    cpu::arch::superh::SuperHVariants,
+     prelude::anyhow,
+     processors::{
+         arm::{
+@@ -22,6 +23,7 @@
+         bfin::blackfin::BlackfinBuilder,
+         ppc::{powerquicci::Mpc8xxBuilder, ppc4xx::PowerPC405Builder},
+         superh::superh2a::SuperH2aBuilder,
++        RawProcessor,
+     },
+ };
+ 
+@@ -155,6 +157,19 @@
+                 todo!("need cannot determine variant, arch, and endian here");
+             }
+             Target::SuperH2A => builder.with_builder(SuperH2aBuilder),
++            // SH-4 has no dedicated Styx processor crate, so it goes through
++            // RawProcessor: instruction emulation with a flat address space and
++            // no peripherals, which is what SmallWorld wants anyway.
++            Target::SuperH4Be => builder.with_builder(RawProcessor::new(
++                styx_emulator::prelude::Arch::SuperH,
++                SuperHVariants::SH4,
++                styx_emulator::prelude::ArchEndian::BigEndian,
++            )),
++            Target::SuperH4Le => builder.with_builder(RawProcessor::new(
++                styx_emulator::prelude::Arch::SuperH,
++                SuperHVariants::SH4,
++                styx_emulator::prelude::ArchEndian::LittleEndian,
++            )),
+         };
+         let cpu = builder.build_sync()?;
+ 
+diff --git a/styx/core/styx-cpu-pcode-backend/src/arch_spec/mod.rs b/styx/core/styx-cpu-pcode-backend/src/arch_spec/mod.rs
+--- a/styx/core/styx-cpu-pcode-backend/src/arch_spec/mod.rs
++++ b/styx/core/styx-cpu-pcode-backend/src/arch_spec/mod.rs
+@@ -174,7 +174,12 @@
+             arch::superh::SuperHMetaVariants::SH1(_) => superh::sh1::build().build(arch),
+             arch::superh::SuperHMetaVariants::SH2(_) => superh::sh2::build().build(arch),
+             arch::superh::SuperHMetaVariants::SH2A(_) => superh::sh2a::build().build(arch),
+-            arch::superh::SuperHMetaVariants::SH4(_) => superh::sh4eb::build().build(arch),
++            // The SH-4 spec exists for both endiannesses; pick per request
++            // rather than hard-wiring big-endian.
++            arch::superh::SuperHMetaVariants::SH4(_) => match endian {
++                ArchEndian::BigEndian => superh::sh4eb::build().build(arch),
++                ArchEndian::LittleEndian => superh::sh4el::build().build(arch),
++            },
+             _ => unimplemented!("SH variant {variant:?} not explicitly supported by pcode backend, please reach out to dev team"),
+         },
+ 

@@ -509,6 +509,22 @@ Support
 The following is a matrix of which emulators support which event handler types.
 Specific caveats and details can be found in the documentation for specific backends.
 
+This matrix records which handler *interfaces* a backend implements, not whether
+every handler behaves usefully on every platform. A backend can implement an
+interface and still be unable to deliver the event on a given ISA, usually
+because the event does not exist in that backend's model of the instruction.
+Two measured examples:
+
+* Styx implements instruction and memory hooks, but hangs on SuperH once a hook
+  actually fires, so SuperH harnesses cannot use them.
+* Only angr implements syscall hooking at all, and even there it is per-ISA
+  work rather than a free consequence of the interface: for a Pcode-lifted
+  architecture, sleigh has no syscall opcode, so the machine definition has to
+  rewrite the relevant ``CALLOTHER`` into a syscall jumpkind and register a
+  syscall calling convention itself.
+
+See :ref:`platforms_support` for the per-platform picture.
+
 .. csv-table:: Event Handler Support
     :file: event_handler_support.csv
     :header-rows: 1
