@@ -501,10 +501,9 @@ class ARMv6MThumb(ARMv6M):
     """
 
     architecture = Architecture.ARM_V6M_THUMB
-    # Don't inherit ARMv6M's language id: this platform has no Ghidra machine
-    # def, and main associated no Ghidra language with it. Leave it unset so
-    # the refactor introduces no new (Thumb -> v6) association.
-    ghidra_language_id = None
+    # ARMv6-M is Thumb; Ghidra decodes Thumb via the TMode context register
+    # within the same SLEIGH language, so this shares ARMv6M's language id.
+    ghidra_language_id = "ARM:LE:32:v6"
 
 
 class ARMv7M(ARMPlatformMixinFPEL, ARMPlatformMixinM, ARMPlatformDef):

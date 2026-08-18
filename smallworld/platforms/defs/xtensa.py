@@ -95,3 +95,15 @@ class Xtensa(PlatformDef):
         # This thing is actually 6 bits.
         "sar": RegisterDef(name="sar", size=4),
     }
+
+
+class XtensaBE(Xtensa):
+    """Big-endian Xtensa.
+
+    Same register model as little-endian Xtensa -- register names don't depend
+    on byte order -- so only the byte order and the Ghidra language differ.
+    Capstone does not support Xtensa in either byte order (arch/mode -1).
+    """
+
+    byteorder = Byteorder.BIG
+    ghidra_language_id = "Xtensa:BE:32:default"
