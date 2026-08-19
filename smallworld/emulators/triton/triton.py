@@ -58,6 +58,16 @@ except ImportError:  # pragma: no cover - depends on installed extras
     _TRITON_AVAILABLE = False
 
 
+# Mnemonic prefixes of ARM32 instructions that write memory without reading it.
+# Triton implements every ARM32 store as ``mem = cond ? value : mem`` -- the
+# conditional-execution model needs the old contents to fall back on -- so a
+# plain ``str``/``stm`` reports a *read* of its own destination through the
+# GET_CONCRETE_MEMORY_VALUE callback. ARM32 is a load/store architecture, so a
+# store-only instruction never reads memory architecturally; the backend uses
+# this set to tell that artifact apart from a real load. ``swp`` is deliberately
+# absent: it genuinely does read and write the same location.
+_ARM32_STORE_ONLY_PREFIXES = ("str", "stm", "stl", "stc", "push")
+
 # SmallWorld architectures that use Triton's ARM32 target (all little-endian).
 _ARM32_ARCHITECTURES = frozenset(
     {
@@ -83,6 +93,7 @@ class TritonEmulator(
     hookable.QMemoryReadHookable,
     hookable.QMemoryWriteHookable,
     hookable.QInterruptHookable,
+    emulator.SyscallHookable,
 ):
     """Concrete emulator backend for SmallWorld based on Triton."""
 
@@ -119,6 +130,17 @@ class TritonEmulator(
         # The most recently processed instruction, used by step_block to detect
         # the end of a basic block.
         self._last_instruction: typing.Optional[typing.Any] = None
+        # Set while executing an ARM32 store-only instruction; see
+        # ``_ARM32_STORE_ONLY_PREFIXES`` and ``_on_memory_read``.
+        self._in_arm32_store: bool = False
+
+        # Syscall hooks, dispatched from the run loop alongside interrupts.
+        self._syscall_hooks: typing.Dict[
+            int, typing.Callable[[emulator.Emulator], None]
+        ] = {}
+        self._all_syscalls_hook: typing.Optional[
+            typing.Callable[[emulator.Emulator, int], None]
+        ] = None
 
         # Memory read/write hooks are dispatched through Triton callbacks. They
         # are registered once and fall through immediately when no hook matches.
@@ -196,11 +218,59 @@ class TritonEmulator(
     def get_memory_map(self) -> typing.List[typing.Tuple[int, int]]:
         return list(self._memory_map.ranges)
 
+    def _check_mapped(self, address: int, size: int, kind: str) -> None:
+        """Raise if no part of ``[address, address + size)`` was ever mapped.
+
+        Triton's own memory is flat and lazy: every address is readable,
+        writable and executable, and unwritten cells read back as zero. Without
+        this check the backend would silently succeed where every other one
+        faults -- and, worse, a wild jump would grind through gigabytes of
+        zero-filled "instructions" instead of stopping. The bookkeeping
+        ``map_memory``/``write_memory_content`` already keep in ``_memory_map``
+        is exactly the mapping SmallWorld asked for, so enforce against it here.
+
+        The test is overlap rather than containment: an access that runs off the
+        end of a mapped region is let through, because SmallWorld's own map is
+        sometimes coarser than the real one (a ``Model`` reserves 16 bytes at its
+        address, say), and a false fault there would be worse than a missed one.
+        Wholly-unmapped accesses -- the ones this exists to catch -- are still
+        reported.
+        """
+        if self._memory_map.contains((address, address + size)):
+            return
+        message = f"{kind} of {size} byte(s) at {hex(address)} is outside mapped memory"
+        pc = int(self.ctx.getConcreteRegisterValue(self._reg("pc")))
+        if kind == "fetch":
+            raise exceptions.EmulationFetchUnmappedFailure(message, pc, address=address)
+        if kind == "write":
+            raise exceptions.EmulationWriteUnmappedFailure(message, pc, address=address)
+        raise exceptions.EmulationReadUnmappedFailure(message, pc, address=address)
+
     # -------------------------------------------------------------- execution
 
-    def _translate_processing(self, rc: typing.Any, pc: int, inst: typing.Any) -> None:
-        """Raise a SmallWorld exception if ``processing`` reported a fault."""
-        if rc == EXCEPTION.NO_FAULT:
+    def _handle_fault(self, rc: typing.Any, pc: int, inst: typing.Any) -> None:
+        """Deal with a ``processing`` result that reported a fault.
+
+        Triton reports anything it has no semantics for as an undefined
+        instruction, which lumps genuinely invalid encodings together with
+        perfectly valid instructions it simply does not model (``hlt``, and the
+        trap instructions on every target except x86-64 and AArch64). Recognise
+        the latter by mnemonic and give them their architectural meaning; only
+        what is left over is reported as an execution failure.
+        """
+        mnemonic = self._mnemonic(inst)
+        if mnemonic in self.machdef.halt_mnemonics:
+            # A valid instruction that stops the machine: a clean stop, not a
+            # failure to execute.
+            raise exceptions.EmulationExitpoint(
+                f"execution halted at pc={hex(pc)} ({mnemonic})"
+            )
+        if mnemonic in self.machdef.interrupt_mnemonics:
+            # A valid trap instruction Triton does not model. Run the hooks and
+            # resume at the next instruction, which is what the architecture
+            # does once the handler returns.
+            self._dispatch_trap(inst)
+            self.write_register_content("pc", pc + inst.getSize())
             return
         disasm = ""
         try:
@@ -213,30 +283,68 @@ class TritonEmulator(
             None,
         )
 
-    def _dispatch_interrupt(self, inst: typing.Any) -> None:
-        """Best-effort interrupt/syscall hook dispatch for the current insn."""
-        if self.all_interrupts_hook is None and not self.interrupt_hooks:
-            return
-        try:
-            mnemonic = inst.getDisassembly().split(None, 1)[0].lower()
-        except Exception:
-            return
+    def _interrupt_number(self, mnemonic: str, inst: typing.Any) -> int:
+        """The software-interrupt number for x86 ``int N``/``int3``; 0 otherwise."""
+        if mnemonic == "int3":
+            return 3
+        if mnemonic == "int":
+            try:
+                return int(inst.getOperands()[0].getValue())
+            except Exception:
+                return 0
+        return 0
+
+    def _is_syscall(self, mnemonic: str, intno: int) -> bool:
+        if mnemonic in self.machdef.syscall_mnemonics:
+            return True
+        return (
+            self.machdef.syscall_interrupt is not None
+            and mnemonic == "int"
+            and intno == self.machdef.syscall_interrupt
+        )
+
+    def _dispatch_trap(self, inst: typing.Any) -> None:
+        """Dispatch syscall then interrupt hooks for a trap instruction.
+
+        On most architectures one instruction serves both purposes (``svc``,
+        ``ecall``, ``int 0x80``), so a syscall hook gets first refusal and the
+        interrupt hooks see anything it did not claim.
+        """
+        mnemonic = self._mnemonic(inst)
         if mnemonic not in self.machdef.interrupt_mnemonics:
             return
-        # Recover the interrupt number for x86 ``int N``; otherwise use 0.
-        intno = 0
-        if mnemonic == "int3":
-            intno = 3
-        elif mnemonic == "int":
-            try:
-                intno = int(inst.getOperands()[0].getValue())
-            except Exception:
-                intno = 0
+        intno = self._interrupt_number(mnemonic, inst)
+        if self._dispatch_syscall(mnemonic, intno):
+            return
+        if self.all_interrupts_hook is None and not self.interrupt_hooks:
+            return
         handler = self.is_interrupt_hooked(intno)
         if handler is not None:
             handler(self)
         elif self.all_interrupts_hook is not None:
             self.all_interrupts_hook(self, intno)
+
+    def _dispatch_syscall(self, mnemonic: str, intno: int) -> bool:
+        """Run the syscall hooks for this instruction; report whether any fired."""
+        if not self._is_syscall(mnemonic, intno):
+            return False
+        if self._all_syscalls_hook is None and not self._syscall_hooks:
+            return False
+        register = self.machdef.syscall_number_register
+        if register is None:
+            raise exceptions.ConfigurationError(
+                f"Triton has no syscall-number register for {self.platform}"
+            )
+        number = self.read_register_content(register)
+        fired = False
+        if self._all_syscalls_hook is not None:
+            self._all_syscalls_hook(self, number)
+            fired = True
+        hook = self._syscall_hooks.get(number)
+        if hook is not None:
+            hook(self)
+            fired = True
+        return fired
 
     def _check_pc(self, pc: int) -> None:
         """Raise if ``pc`` is an exit point or outside configured bounds."""
@@ -258,30 +366,70 @@ class TritonEmulator(
         if insn_hook is not None:
             insn_hook(self)
 
-        # Function hooks replace the body: run the hook, then return to caller.
+        # Function hooks replace the body: the hook runs in place of the call,
+        # and — as with every other backend — the hook itself is responsible for
+        # returning to the caller (``Model.run`` pops the return address and
+        # writes PC). Returning here as well would pop a second frame.
         fn_hook = self.is_function_hooked(pc)
         if fn_hook is not None:
             fn_hook(self)
-            self._return_from_function()
             self._last_instruction = None
             return
 
+        # One byte is enough to decide the fetch is legal; the window below may
+        # legitimately run past the end of the mapped region for a short final
+        # instruction, exactly as it does on the other backends.
+        self._check_mapped(pc, 1, "fetch")
         opcode = bytes(
             self.ctx.getConcreteMemoryAreaValue(pc, self._MAX_INSN_BYTES, False)
         )
         inst = Instruction(pc, opcode)
-        rc = self.ctx.processing(inst)
-        self._translate_processing(rc, pc, inst)
-        self._dispatch_interrupt(inst)
+        rc = self._execute(inst)
+        if rc == EXCEPTION.NO_FAULT:
+            self._dispatch_trap(inst)
+        else:
+            self._handle_fault(rc, pc, inst)
         self._last_instruction = inst
 
         new_pc = self.read_register_content("pc")
         if new_pc == pc and not inst.isControlFlow():
-            # A non-branch instruction that didn't advance PC means execution
-            # can make no further progress (e.g. HLT); treat as a clean stop.
+            # A non-branch instruction that executed without advancing PC means
+            # execution can make no further progress. The named halt
+            # instructions are caught earlier, in _handle_fault; this is the
+            # backstop for anything else that wedges the same way.
             raise exceptions.EmulationExitpoint(
                 f"execution halted at pc={hex(pc)} (pc did not advance)"
             )
+
+    def _mnemonic(self, inst: typing.Any) -> str:
+        """The instruction's mnemonic, lowercased, or ``""`` if unavailable."""
+        try:
+            return inst.getDisassembly().split(None, 1)[0].lower()
+        except Exception:
+            return ""
+
+    def _execute(self, inst: typing.Any) -> typing.Any:
+        """Run one decoded instruction, flagging ARM32 stores while they run.
+
+        ``ctx.processing`` is ``disassembly`` followed by ``buildSemantics``.
+        Splitting it on ARM32 costs nothing and lets the backend know the
+        mnemonic *before* the semantics fire their memory callbacks, which is
+        what ``_on_memory_read`` needs to recognise a store's phantom read.
+        """
+        if not self._is_arm32():
+            return self.ctx.processing(inst)
+        try:
+            self.ctx.disassembly(inst)
+        except Exception:
+            # Undecodable: let processing report the fault the usual way.
+            return self.ctx.processing(inst)
+        self._in_arm32_store = self._mnemonic(inst).startswith(
+            _ARM32_STORE_ONLY_PREFIXES
+        )
+        try:
+            return self.ctx.buildSemantics(inst)
+        finally:
+            self._in_arm32_store = False
 
     def step_block(self) -> None:
         while True:
@@ -296,31 +444,29 @@ class TritonEmulator(
                 "TritonEmulator.run() needs at least one exit point or execution "
                 "bound to know when to stop"
             )
-        while True:
-            self.step_instruction()
-
-    def _return_from_function(self) -> None:
-        """Advance PC out of a hooked function using the platform's ABI."""
-        if self.machdef.lr_register is not None:
-            ret = self.read_register_content(self.machdef.lr_register)
-            self.write_register_content("pc", ret & ~1)
-        else:
-            # x86 convention: pop the return address off the stack.
-            sp = self.read_register_content(self.machdef.sp_register)
-            data = self.read_memory_content(sp, self.machdef.address_size)
-            ret = int.from_bytes(data, self._byteorder())
-            self.write_register_content(
-                self.machdef.sp_register, sp + self.machdef.address_size
-            )
-            self.write_register_content("pc", ret)
+        try:
+            while True:
+                self.step_instruction()
+        except exceptions.EmulationStop:
+            # Reaching an exit point or the end of the configured bounds is how
+            # a run finishes; like the other backends, return rather than let
+            # the stop escape to the caller.
+            pass
 
     # -------------------------------------------------------- memory callbacks
 
     def _on_memory_read(self, ctx: typing.Any, mem: typing.Any) -> None:
-        if not self.memory_read_hooks and self.all_reads_hook is None:
+        if self._in_arm32_store:
+            # Triton's ARM32 store semantics read the destination back so the
+            # conditional form has an old value to keep. The program performed
+            # no read, so neither the read hooks nor the unmapped check should
+            # see one; the matching write callback still runs for both.
             return
         address = mem.getAddress()
         size = mem.getSize()
+        self._check_mapped(address, size, "read")
+        if not self.memory_read_hooks and self.all_reads_hook is None:
+            return
         data = bytes(ctx.getConcreteMemoryAreaValue(address, size, False))
         replacement: typing.Optional[bytes] = None
         if self.all_reads_hook is not None:
@@ -336,10 +482,11 @@ class TritonEmulator(
             ctx.setConcreteMemoryAreaValue(address, bytes(replacement), False)
 
     def _on_memory_write(self, ctx: typing.Any, mem: typing.Any, value: int) -> None:
-        if not self.memory_write_hooks and self.all_writes_hook is None:
-            return
         address = mem.getAddress()
         size = mem.getSize()
+        self._check_mapped(address, size, "write")
+        if not self.memory_write_hooks and self.all_writes_hook is None:
+            return
         data = int(value).to_bytes(size, self._byteorder())
         if self.all_writes_hook is not None:
             self.all_writes_hook(self, address, size, data)
@@ -362,6 +509,34 @@ class TritonEmulator(
                 "set_thumb() is only meaningful on ARM32 platforms"
             )
         self.ctx.setThumb(bool(enabled))
+
+    # ---------------------------------------------------------- syscall hooks
+
+    def hook_syscall(
+        self, number: int, function: typing.Callable[[emulator.Emulator], None]
+    ) -> None:
+        if number in self._syscall_hooks:
+            raise exceptions.ConfigurationError(
+                f"Already have a syscall hook for {number}"
+            )
+        self._syscall_hooks[number] = function
+
+    def unhook_syscall(self, number: int) -> None:
+        if number not in self._syscall_hooks:
+            raise exceptions.ConfigurationError(f"No syscall hook for {number}")
+        del self._syscall_hooks[number]
+
+    def hook_syscalls(
+        self, function: typing.Callable[[emulator.Emulator, int], None]
+    ) -> None:
+        if self._all_syscalls_hook is not None:
+            raise exceptions.ConfigurationError("Already have a global syscall hook")
+        self._all_syscalls_hook = function
+
+    def unhook_syscalls(self) -> None:
+        if self._all_syscalls_hook is None:
+            raise exceptions.ConfigurationError("No global syscall hook registered")
+        self._all_syscalls_hook = None
 
     # ------------------------------------------------- taint (backend-specific)
 

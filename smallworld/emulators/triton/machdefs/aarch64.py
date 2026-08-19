@@ -277,4 +277,7 @@ class TritonAArch64MachineDef(TritonMachineDef):
     lr_register = "x30"
     address_size = 8
     interrupt_mnemonics = {"svc", "hvc", "smc"}
+    halt_mnemonics = {"wfi", "wfe"}
+    syscall_mnemonics = {"svc"}
+    syscall_number_register = "x8"
     _registers = _AARCH64_REGISTERS

@@ -25,6 +25,32 @@ from .. import emulator
 from . import z3bridge
 from .triton import MemoryAccess, TritonEmulator
 
+# Sizes, in bytes, that Triton's MemoryAccess accepts.
+_ACCESS_SIZES = (64, 32, 16, 8, 4, 2, 1)
+
+
+def _is_access_size(size: int) -> bool:
+    return size in _ACCESS_SIZES
+
+
+def _access_chunks(address: int, size: int) -> typing.List[typing.Tuple[int, int]]:
+    """Split ``size`` bytes at ``address`` into MemoryAccess-sized pieces.
+
+    Greedy largest-first, so an 11-byte buffer becomes 8 + 2 + 1 rather than
+    eleven separate byte accesses.
+    """
+    chunks: typing.List[typing.Tuple[int, int]] = []
+    offset = address
+    remaining = size
+    while remaining:
+        for candidate in _ACCESS_SIZES:
+            if candidate <= remaining:
+                break
+        chunks.append((offset, candidate))
+        offset += candidate
+        remaining -= candidate
+    return chunks
+
 
 class TritonSymbolicEmulator(
     TritonEmulator,
@@ -68,7 +94,7 @@ class TritonSymbolicEmulator(
             return
         if bv.op == "BVS":
             varname = list(bv.variables)[0]
-            self.ctx.symbolizeRegister(reg, varname)
+            self.ctx.symbolizeRegister(reg, z3bridge.smt_symbol(varname))
             self._symbolic_inputs[varname] = bv
         else:
             # Compound expression: symbolize the register with a fresh variable
@@ -83,16 +109,32 @@ class TritonSymbolicEmulator(
             data = int(bv.concrete_value).to_bytes(size, self._byteorder())
             self.ctx.setConcreteMemoryAreaValue(address, data, False)
             return
-        mem = MemoryAccess(address, size)
+        self._memory_symbolized = True
+        if _is_access_size(size):
+            mem = MemoryAccess(address, size)
+            if bv.op == "BVS":
+                varname = list(bv.variables)[0]
+                self.ctx.symbolizeMemory(mem, z3bridge.smt_symbol(varname))
+                self._symbolic_inputs[varname] = bv
+            else:
+                self.ctx.symbolizeMemory(mem)
+                mem_bv = z3bridge.triton_to_claripy(
+                    self.ctx, self.ctx.getMemoryAst(mem)
+                )
+                self._user_constraints.append(mem_bv == bv)
+            return
+        # Triton's MemoryAccess only takes power-of-two sizes, so a wider or
+        # odd-sized buffer is symbolized in chunks and tied back to the caller's
+        # expression with constraints, one slice per chunk.
         if bv.op == "BVS":
-            varname = list(bv.variables)[0]
-            self.ctx.symbolizeMemory(mem, varname)
-            self._symbolic_inputs[varname] = bv
-        else:
+            self._symbolic_inputs[list(bv.variables)[0]] = bv
+        for offset, chunk in _access_chunks(address, size):
+            mem = MemoryAccess(offset, chunk)
             self.ctx.symbolizeMemory(mem)
             mem_bv = z3bridge.triton_to_claripy(self.ctx, self.ctx.getMemoryAst(mem))
-            self._user_constraints.append(mem_bv == bv)
-        self._memory_symbolized = True
+            self._user_constraints.append(
+                mem_bv == self._slice(bv, address, offset, chunk)
+            )
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
@@ -118,8 +160,31 @@ class TritonSymbolicEmulator(
         return z3bridge.triton_to_claripy(self.ctx, node)
 
     def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
-        node = self.ctx.getMemoryAst(MemoryAccess(address, size))
-        return z3bridge.triton_to_claripy(self.ctx, node)
+        if _is_access_size(size):
+            node = self.ctx.getMemoryAst(MemoryAccess(address, size))
+            return z3bridge.triton_to_claripy(self.ctx, node)
+        # As in _write_symbolic_memory: read in power-of-two chunks and glue
+        # them back together in memory order.
+        parts = [
+            z3bridge.triton_to_claripy(
+                self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
+            )
+            for offset, chunk in _access_chunks(address, size)
+        ]
+        if self._byteorder() == "little":
+            # Chunk 0 holds the least significant bytes, and Concat is MSB-first.
+            parts.reverse()
+        return claripy.Concat(*parts)
+
+    def _slice(
+        self, bv: claripy.ast.bv.BV, base: int, offset: int, size: int
+    ) -> claripy.ast.bv.BV:
+        """The part of ``bv`` that lives in ``size`` bytes at ``offset``."""
+        if self._byteorder() == "little":
+            low = (offset - base) * 8
+        else:
+            low = bv.size() - (offset - base + size) * 8
+        return bv[low + size * 8 - 1 : low]
 
     def read_register_content(self, name: str) -> int:
         reg = self._reg(name)

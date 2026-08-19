@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
+- `TritonEmulator` no longer returns from a hooked function twice; the hook
+  itself performs the return, as it does on every other backend.
+- `TritonEmulator` reports unmapped fetches, reads and writes instead of
+  silently succeeding on Triton's flat, lazy memory.
+- `TritonEmulator` no longer raises a spurious memory-read hook for the
+  destination of an ARM32 store.
+- `TritonEmulator` treats `hlt` (and the AArch64/RISC-V wait-for-event
+  instructions) as a clean stop rather than an invalid instruction.
+- `TritonEmulator.run()` returns when execution reaches an exit point or leaves
+  its bounds, instead of letting the stop escape to the caller.
+- `TritonSymbolicEmulator` handles labels whose names are not SMT-LIB symbols
+  (`"fake return address"`), and symbolic memory of any size rather than only
+  Triton's power-of-two access widths.
 
 ### Added
 
@@ -18,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Triton dynamic binary analysis framework (`[emu-triton]` extra), covering
   x86, x86-64, ARM32, AArch64, and RISC-V 64, with concrete emulation, linear
   symbolic execution, and taint-analysis escape hatches.
+- `TritonEmulator` implements `SyscallHookable`, dispatching syscall hooks for
+  `syscall`/`svc`/`ecall`/`int 0x80` using each platform's Linux syscall-number
+  register.
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.

@@ -155,6 +155,9 @@ class TritonRISCV64MachineDef(TritonMachineDef):
     lr_register = "ra"
     address_size = 8
     interrupt_mnemonics = {"ecall", "ebreak"}
+    halt_mnemonics = {"wfi"}
+    syscall_mnemonics = {"ecall"}
+    syscall_number_register = "a7"
     _registers = _RISCV64_REGISTERS
 
     @property

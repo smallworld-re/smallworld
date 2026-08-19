@@ -17,6 +17,7 @@ no claripy -> Triton path.
 
 from __future__ import annotations
 
+import re
 import typing
 
 import claripy
@@ -25,6 +26,29 @@ import z3
 
 class TritonBridgeUnavailable(Exception):
     """Raised when a Triton build cannot serialise ASTs for the bridge."""
+
+
+# SMT-LIB2 "simple symbols": letters, digits and a fixed set of punctuation,
+# not starting with a digit. Anything else has to be written as a quoted symbol.
+_SIMPLE_SYMBOL = re.compile(
+    r"^[A-Za-z~!@$%^&*_\-+=<>.?/][A-Za-z0-9~!@$%^&*_\-+=<>.?/]*$"
+)
+
+
+def smt_symbol(name: str) -> str:
+    """Render ``name`` as an SMT-LIB2 symbol, quoting it when necessary.
+
+    SmallWorld labels are free text -- ``"fake return address"`` is a real one
+    from the stack helpers -- and Triton prints a symbolic variable's alias
+    verbatim into its SMT-LIB output. Storing the *quoted* spelling as the alias
+    keeps Triton's expression text and this module's declarations agreeing with
+    each other, and z3 strips the quoting when it parses, so the claripy
+    variable comes back under the original label.
+    """
+    if _SIMPLE_SYMBOL.match(name):
+        return name
+    # ``|`` and ``\`` are the only characters a quoted symbol cannot contain.
+    return "|" + name.replace("|", "_").replace("\\", "_") + "|"
 
 
 def ensure_available(astctx) -> None:

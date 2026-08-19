@@ -110,4 +110,8 @@ class TritonI386MachineDef(TritonMachineDef):
     lr_register = None
     address_size = 4
     interrupt_mnemonics = {"int", "int3", "sysenter"}
+    halt_mnemonics = {"hlt"}
+    syscall_mnemonics = {"sysenter"}
+    syscall_interrupt = 0x80
+    syscall_number_register = "eax"
     _registers = _I386_REGISTERS

@@ -54,11 +54,10 @@ class TritonMachineDef(metaclass=abc.ABCMeta):
     """SmallWorld name of the stack pointer register for this architecture."""
 
     lr_register: typing.Optional[str] = None
-    """SmallWorld name of the link register, if the ABI returns via one.
+    """SmallWorld name of the link register, where the ABI has one.
 
-    ``None`` selects the stack-based return convention (x86): a function hook
-    pops the return address off the stack. A non-``None`` value selects the
-    link-register convention (ARM/AArch64/RISC-V).
+    ``None`` on the architectures that return through the stack (x86); the
+    register's name (ARM/AArch64/RISC-V) otherwise.
     """
 
     is_thumb: bool = False
@@ -72,6 +71,36 @@ class TritonMachineDef(metaclass=abc.ABCMeta):
 
     Used by the emulator's run loop to dispatch interrupt hooks. Empty when the
     architecture has no relevant software-interrupt instruction.
+    """
+
+    halt_mnemonics: typing.Set[str] = set()
+    """Instruction mnemonics that stop the machine on this arch.
+
+    Triton implements no semantics for these and reports them as undefined
+    instructions, so the run loop matches on the mnemonic and treats them as a
+    clean stop rather than an execution fault.
+    """
+
+    syscall_mnemonics: typing.Set[str] = set()
+    """Instruction mnemonics that request a system call on this architecture.
+
+    A subset of ``interrupt_mnemonics``: on the architectures where the same
+    instruction serves both purposes, the run loop offers it to the syscall
+    hooks first and falls back to the interrupt hooks.
+    """
+
+    syscall_interrupt: typing.Optional[int] = None
+    """Software-interrupt number that requests a system call, if any.
+
+    Set on i386, where Linux syscalls arrive as ``int 0x80`` rather than a
+    dedicated instruction. ``None`` everywhere else.
+    """
+
+    syscall_number_register: typing.Optional[str] = None
+    """SmallWorld name of the register holding the system-call number.
+
+    Follows the Linux ABI for each architecture (``rax``/``eax`` on x86,
+    ``x8`` on AArch64, ``r7`` on ARM32 EABI, ``a7`` on RISC-V).
     """
 
     def triton_register(self, name: str) -> str:

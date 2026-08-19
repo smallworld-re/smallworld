@@ -179,6 +179,9 @@ class TritonAMD64MachineDef(TritonMachineDef):
     lr_register = None
     address_size = 8
     interrupt_mnemonics = {"int", "int3", "syscall", "sysenter"}
+    halt_mnemonics = {"hlt"}
+    syscall_mnemonics = {"syscall"}
+    syscall_number_register = "rax"
     _registers = _AMD64_REGISTERS
 
 
