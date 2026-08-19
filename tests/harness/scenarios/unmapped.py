@@ -7,6 +7,7 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    enroll_triton,
     load_elf_code,
     make_emulator,
     make_platform,
@@ -123,6 +124,9 @@ _SPECS = {
     ),
 }
 
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
+
 _SKIP_REASONS = {
     "aarch64.panda": "Waiting for panda-ng",
     "amd64.panda": "Waiting for panda-ng",
@@ -185,7 +189,11 @@ def _build_machine(smallworld, arch: str, engine: str, spec: UnmappedSpec):
         stack.push_bytes(b"\0" * spec.stack_padding_bytes, None)
     set_register(cpu, spec.stack_pointer_register, stack.get_pointer())
 
-    if engine == "unicorn":
+    if engine in ("unicorn", "triton"):
+        # Neither backend will start without somewhere to stop: Unicorn needs an
+        # exit sentinel and Triton's run loop refuses to run with no exit point
+        # or bound. Nothing here jumps to 0 -- the unmapped target is 0x8000 --
+        # so this stays out of the way of the faults under test.
         machine.add_exit_point(0)
 
     return machine, cpu, platform, code

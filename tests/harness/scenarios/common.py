@@ -35,6 +35,14 @@ class ArchInfo:
 
 _ENGINES_ALL = ("unicorn", "angr", "panda", "pcode")
 
+# Architectures the Triton backend can emulate. Triton's targets are x86,
+# x86-64, ARM32, AArch64 and RISC-V (see smallworld/emulators/triton/machdefs),
+# all little-endian, so every big-endian arch and everything Triton has no
+# target for (LoongArch, m68k, MIPS, MSP430, PowerPC, TriCore, Xtensa) is
+# absent. Scenarios enroll Triton through :func:`enroll_triton` rather than
+# spelling this set out again.
+TRITON_ARCHS = frozenset({"aarch64", "amd64", "armel", "armhf", "i386", "riscv64"})
+
 ARCH_REGISTERS: dict[str, ArchInfo] = {
     "aarch64": ArchInfo(
         platform=PlatformSpec("AARCH64", "LITTLE"),
@@ -239,6 +247,22 @@ def build_specs(
                 if key in spec_fields:
                     kwargs[key] = value
         result[arch] = spec_cls(**kwargs)
+    return result
+
+
+def enroll_triton(specs: Mapping[str, Any]) -> dict[str, Any]:
+    """Return ``specs`` with ``"triton"`` appended to every Triton-capable arch.
+
+    Scenarios keep their engine tables written against the other backends and
+    pipe the result through this helper, so enrolling Triton is one call rather
+    than a per-arch tuple edit, and an arch Triton cannot emulate can never be
+    enrolled by accident.
+    """
+    result: dict[str, Any] = {}
+    for arch, spec in specs.items():
+        if arch in TRITON_ARCHS and "triton" not in spec.engines:
+            spec = dataclasses.replace(spec, engines=spec.engines + ("triton",))
+        result[arch] = spec
     return result
 
 

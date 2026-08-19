@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, Mapping, Sequence
 
-from .common import build_specs
+from .common import build_specs, enroll_triton
 from .raw_binary import RawBinarySpec, run_integer_case, supports_variant
 from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
@@ -30,32 +30,20 @@ _ARCHS = (
     "xtensa",
 )
 
-# Arches Triton supports get "triton" appended to that arch's existing engine
-# set. We build each list from the arch's real default rather than a blanket
-# tuple, because the engine sets differ per arch (e.g. riscv64 has no PANDA
-# support, so adding a blanket "panda" would create a failing square:riscv64.panda).
-_TRITON_ENGINES = ("unicorn", "angr", "panda", "pcode", "triton")
-_RISCV_ENGINES = ("unicorn", "angr", "pcode", "triton")
-_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx", "triton")
-# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the
-# MPC860. Triton has no PowerPC target, so it is not included here.
-_PPC_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx", "styx-mpc860")
+_ARM_ENGINES = ("unicorn", "angr", "panda", "pcode", "styx")
+# PowerPC also runs on Styx: "styx" selects the PPC405 core, "styx-mpc860" the MPC860.
+_PPC_ENGINES = _ARM_ENGINES + ("styx-mpc860",)
 
 _SPECS = build_specs(
     RawBinarySpec,
     _ARCHS,
-    engines={
-        "aarch64": _TRITON_ENGINES,
-        "amd64": _TRITON_ENGINES,
-        "i386": _TRITON_ENGINES,
-        "riscv64": _RISCV_ENGINES,
-        "armel": _ARM_ENGINES,
-        "armhf": _ARM_ENGINES,
-        "ppc": _PPC_ENGINES,
-    },
+    engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     # la64's mul.w writes a0; the binary reads v0, which aliases the same reg.
     per_arch={"la64": {"result_register": "v0"}},
 )
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 _SPECIAL_VARIANTS = {
     "ppc.panda": dataclasses.replace(

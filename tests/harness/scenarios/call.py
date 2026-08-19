@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-from .common import ARCH_REGISTERS, build_specs
+from .common import ARCH_REGISTERS, build_specs, enroll_triton
 from .raw_binary import RawBinarySpec, StackSpec, run_integer_case, supports_variant
 from .spec import ScenarioInfo, assert_outputs, from_arch_table
 
@@ -75,6 +75,9 @@ _SPECS = build_specs(
     engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 SCENARIO_PREFIXES = (("call", "call"),)
 

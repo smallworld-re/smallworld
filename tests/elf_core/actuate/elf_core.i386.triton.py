@@ -8,7 +8,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_32, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -24,7 +24,7 @@ filename = (
     filepath.name.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".triton", "")
 )
 filename = (filepath.parent.parent / filename).as_posix()
 with open(filename, "rb") as f:
@@ -32,35 +32,29 @@ with open(filename, "rb") as f:
     machine.add(code)
     code.populate_cpu(cpu)
 
-# Load the original binary so we can copy .text
-# I can't get my system to dump the executable segments.
-origname = filename.replace(".core", "")
-with open(origname, "rb") as f:
-    orig = smallworld.state.memory.code.Executable.from_elf(
-        f, platform=platform, address=code.address
-    )
-
-# The core file reserves space before the true load address for its metadata.
-code_offset = (cpu.pc.get() - code.address) & 0xFFFFFFFFFFFFF000
-code[code_offset] = orig[0x0]
-
 # Replace the instruction bytes at pc with a nop
-nop = b"\x1f\x20\x03\xd5"
+nop = b"\x66\x90"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler
-# Hook the local PLT stub in the restored text page.
-puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x6F0
+# puts address recovered from manual RE
+puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFF0000) | 0x10A0
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
 machine.add(puts)
 
+# Nuke the segment registers
+cpu.cs.set(0)
+cpu.ss.set(0)
+cpu.ds.set(0)
+cpu.es.set(0)
+cpu.fs.set(0)
+cpu.gs.set(0)
+
 # Add an exit point
-machine.add_exit_point(cpu.pc.get() + 0x38)
+machine.add_exit_point(cpu.pc.get() + 0x22)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-# Extracting the full machine goes a bit bonkers
-machine.apply(emulator)
-emulator.run()
+emulator = smallworld.emulators.TritonEmulator(platform)
+machine.emulate(emulator)

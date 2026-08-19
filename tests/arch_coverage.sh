@@ -31,10 +31,11 @@ preferred_arches = [
     "riscv64",
     "xtensa",
 ]
-engine_order = ["unicorn", "angr", "panda", "pcode", "afl"]
+preferred_engines = ["unicorn", "angr", "panda", "pcode", "triton", "afl"]
 
 coverage = defaultdict(lambda: defaultdict(set))
 seen_arches = set()
+seen_engines = set()
 
 for case in all_cases():
     if "scenario" not in case.tags:
@@ -53,9 +54,16 @@ for case in all_cases():
     if arch and arch[0].isalpha():
         coverage[scenario][engine].add(arch)
         seen_arches.add(arch)
+        seen_engines.add(engine)
 
 arch_order = [arch for arch in preferred_arches if arch in seen_arches]
 arch_order.extend(sorted(seen_arches - set(arch_order)))
+
+# Same idea as arch_order: the familiar engines in a familiar order, then
+# whatever else the manifest turned out to contain, so a newly added backend
+# shows up in the report without editing this list.
+engine_order = [engine for engine in preferred_engines if engine in seen_engines]
+engine_order.extend(sorted(seen_engines - set(engine_order)))
 
 for scenario in sorted(coverage):
     print(f"{scenario}:")

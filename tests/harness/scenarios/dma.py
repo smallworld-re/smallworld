@@ -8,6 +8,7 @@ from typing import Any, Sequence
 from .common import (
     PlatformSpec,
     build_specs,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -97,6 +98,9 @@ _SPECS = build_specs(
     engines={"armel": _ARM_ENGINES, "armhf": _ARM_ENGINES, "ppc": _PPC_ENGINES},
     per_arch=_PER_ARCH,
 )
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 SCENARIO_PREFIXES = (("dma", "dma"),)
 

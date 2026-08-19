@@ -24,7 +24,7 @@ filename = (
     filepath.name.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".triton", "")
 )
 filename = (filepath.parent.parent / filename).as_posix()
 with open(filename, "rb") as f:
@@ -60,7 +60,7 @@ machine.add(puts)
 machine.add_exit_point(cpu.pc.get() + 0x38)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-# Extracting the full machine goes a bit bonkers
+emulator = smallworld.emulators.TritonEmulator(platform)
+# Extracting the full machine state is slow and unnecessary here
 machine.apply(emulator)
 emulator.run()

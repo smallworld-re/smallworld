@@ -8,7 +8,7 @@ smallworld.logging.setup_logging(level=logging.INFO)
 
 # Define the platform
 platform = smallworld.platforms.Platform(
-    smallworld.platforms.Architecture.AARCH64, smallworld.platforms.Byteorder.LITTLE
+    smallworld.platforms.Architecture.X86_64, smallworld.platforms.Byteorder.LITTLE
 )
 
 # Create a machine
@@ -24,7 +24,7 @@ filename = (
     filepath.name.replace(".py", ".elf.core")
     .replace(".angr", "")
     .replace(".panda", "")
-    .replace(".pcode", "")
+    .replace(".triton", "")
 )
 filename = (filepath.parent.parent / filename).as_posix()
 with open(filename, "rb") as f:
@@ -44,23 +44,23 @@ with open(origname, "rb") as f:
 code_offset = (cpu.pc.get() - code.address) & 0xFFFFFFFFFFFFF000
 code[code_offset] = orig[0x0]
 
-# Replace the instruction bytes at pc with a nop
-nop = b"\x1f\x20\x03\xd5"
-code.write_bytes(cpu.pc.get(), nop)
+# Replace the instruction bytes at rip with a nop
+nop = b"\x66\x90"
+code.write_bytes(cpu.rip.get(), nop)
 
 # Set up a puts handler
-# Hook the local PLT stub in the restored text page.
-puts_addr = (cpu.pc.get() & 0xFFFFFFFFFFFFF000) | 0x6F0
+# puts address recovered from manual RE
+puts_addr = (cpu.rip.get() & 0xFFFFFFFFFFFFF000) | 0x610
 puts = smallworld.state.models.Model.lookup(
     "puts", platform, smallworld.platforms.ABI.SYSTEMV, puts_addr
 )
 machine.add(puts)
 
 # Add an exit point
-machine.add_exit_point(cpu.pc.get() + 0x38)
+machine.add_exit_point(cpu.rip.get() + 0x23)
 
 # Emulate
-emulator = smallworld.emulators.AngrEmulator(platform)
-# Extracting the full machine goes a bit bonkers
+emulator = smallworld.emulators.TritonEmulator(platform)
+# Extracting the full machine state is slow and unnecessary here
 machine.apply(emulator)
 emulator.run()

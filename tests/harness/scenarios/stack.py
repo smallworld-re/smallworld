@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 
 from .common import (
     PlatformSpec,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -294,6 +295,9 @@ _SPECS = {
         stack_arguments=((0x44444444, 4),),
     ),
 }
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 
 SCENARIO_PREFIXES = (("stack", "stack"),)

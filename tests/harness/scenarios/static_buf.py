@@ -6,6 +6,7 @@ from typing import Sequence
 
 from .common import (
     PlatformSpec,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -196,6 +197,9 @@ _SPECS = {
         exit_offset=0xA,
     ),
 }
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 
 SCENARIO_PREFIXES = (("static_buf", "static_buf"),)

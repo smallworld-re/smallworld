@@ -25,23 +25,33 @@ _HOOKING_PCODE_SYMBOLIC_SKIP = (
     "test. Needs a bulk-read or caching path before this can run."
 )
 
-# TritonSymbolicEmulator is a linear (single-path) symbolic engine: it does not
-# fork at symbolic branches, so scenarios that explore multiple paths are not
-# supported yet. Only ``square`` (a straight-line computation queried with the
-# solver) is enabled; the branch-exploring scenarios are skipped pending a
-# forking implementation.
-_TRITON_SYMBOLIC_UNSUPPORTED = (
+# TritonSymbolicEmulator is a linear (single-path) symbolic engine: Triton is
+# concolic and picks each branch from the concrete state rather than forking, so
+# a scenario that has to see both sides of a symbolic branch cannot run on it.
+_TRITON_SYMBOLIC_LINEAR = (
     "TritonSymbolicEmulator only supports linear symbolic execution; this "
     "scenario requires exploring multiple symbolic paths."
 )
-_TRITON_SYMBOLIC_SCENARIOS = ("square",)
+
+# The symbolic MMIO models hook memory through read_memory_symbolic /
+# write_memory_symbolic hooks. Triton's memory callbacks carry concrete values
+# only, so the backend has no symbolic hook path to route them through yet.
+_TRITON_SYMBOLIC_NO_MMIO = (
+    "TritonSymbolicEmulator does not implement symbolic memory hooks, which "
+    "this scenario's SymbolicMemoryMappedModel needs."
+)
+
+_TRITON_SYMBOLIC_SKIPS = {
+    "branch": _TRITON_SYMBOLIC_LINEAR,
+    "dma": _TRITON_SYMBOLIC_NO_MMIO,
+}
 
 
 def _variant_skip(scenario: str, engine: str) -> str | None:
     if scenario == "hooking" and engine == "pcode_symbolic":
         return _HOOKING_PCODE_SYMBOLIC_SKIP
-    if engine == "triton_symbolic" and scenario not in _TRITON_SYMBOLIC_SCENARIOS:
-        return _TRITON_SYMBOLIC_UNSUPPORTED
+    if engine == "triton_symbolic":
+        return _TRITON_SYMBOLIC_SKIPS.get(scenario)
     return None
 
 
