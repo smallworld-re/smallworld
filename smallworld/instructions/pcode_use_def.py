@@ -542,7 +542,12 @@ def _flatten_sum(expr, sign, terms):
     terms.append((sign, expr))
 
 
-def expr_to_bsid(expr, program, size, addr_size):
+def _expr_to_bsid(
+    expr: typing.Any,
+    program: typing.Any,
+    size: int,
+    addr_size: int,
+) -> BSIDMemoryReferenceOperand:
     """Convert a resolved address expression into a
     BSIDMemoryReferenceOperand of the form base + scale*index + offset.
 
@@ -552,7 +557,7 @@ def expr_to_bsid(expr, program, size, addr_size):
     addresses, memory-indirect addresses, negated registers — raises
     UseDefError.
     """
-    terms = []
+    terms: typing.List[typing.Any] = []
     _flatten_sum(expr, 1, terms)
 
     offset = 0
@@ -642,7 +647,7 @@ def _load_store_mem(op, program, sstate, size):
     if space != "ram":
         raise UseDefError(f"{op.getMnemonic()} to address space {space!r}")
     addr_expr = _resolve_input(inputs[1], sstate)
-    return expr_to_bsid(addr_expr, program, size, int(inputs[1].getSize()))
+    return _expr_to_bsid(addr_expr, program, size, int(inputs[1].getSize()))
 
 
 # --------------------------------------------------------------------------- #
@@ -1040,7 +1045,11 @@ def _analyze_cached(byte_data: bytes, arch: str, base_address: int):
     return _analyze_inner(byte_data, arch, base_address)
 
 
-def analyze(byte_data, arch, base_address=0) -> typing.Optional[InstructionUseDef]:
+def analyze(
+    byte_data: typing.Union[bytes, bytearray, memoryview],
+    arch: str,
+    base_address: int = 0,
+) -> typing.Optional[InstructionUseDef]:
     """Return the use/def of the instruction at `base_address`.
 
     `byte_data` must contain that instruction; trailing bytes are ignored

@@ -39,6 +39,7 @@ import os
 import re
 import sys
 import traceback
+import typing
 
 # Neutralize the analysis code's debug scaffolding *before* importing it:
 # pcode_use_def currently contains live breakpoint() calls, and logs every
@@ -229,7 +230,7 @@ def _clean_reg(name):
     return str(name).lower()
 
 
-def canon_expected(item):
+def canon_expected(item: typing.Dict[str, typing.Any]) -> typing.Tuple[typing.Any, ...]:
     """Ground-truth JSON item -> canonical tuple."""
     if "reg" in item:
         return ("reg", _clean_reg(item["reg"]))
@@ -248,7 +249,7 @@ def canon_expected(item):
     raise ValueError(f"malformed ground-truth item: {item!r}")
 
 
-def canon_actual(op):
+def canon_actual(op: typing.Any) -> typing.Tuple[typing.Any, ...]:
     """Operand object from analyze -> canonical tuple."""
     # Imported lazily so canonicalization is testable without smallworld.
     from smallworld.instructions import RegisterOperand
@@ -316,7 +317,9 @@ def _alias(isa, name):
     return name
 
 
-def normalize(item, isa):
+def normalize(
+    item: typing.Tuple[typing.Any, ...], isa: str
+) -> typing.Optional[typing.Tuple[typing.Any, ...]]:
     """Canonical tuple -> normalized tuple, or None if it should be dropped
     from the normalized comparison (flag and pc registers)."""
     subregs = SUBREG_MAP[isa]
@@ -342,7 +345,7 @@ def normalize(item, isa):
     return item
 
 
-def fmt_item(item):
+def fmt_item(item: typing.Optional[typing.Tuple[typing.Any, ...]]) -> str:
     if item is None:
         return "<dropped>"
     if item[0] == "reg":
@@ -365,7 +368,11 @@ def fmt_item(item):
 # ----------------------------------------------------------------------- #
 
 
-def compare(expected, optional, actual):
+def compare(
+    expected: typing.Iterable[typing.Any],
+    optional: typing.Iterable[typing.Any],
+    actual: typing.Iterable[typing.Any],
+) -> typing.Tuple[bool, typing.Set[typing.Any], typing.Set[typing.Any]]:
     """Set comparison where `optional` items are allowed but not required.
 
     Returns (ok, missing, extra).
@@ -378,7 +385,11 @@ def compare(expected, optional, actual):
     return (not missing and not extra), missing, extra
 
 
-def check_entry(entry, corpus, analyze):
+def check_entry(
+    entry: typing.Dict[str, typing.Any],
+    corpus: typing.Dict[str, typing.Any],
+    analyze: typing.Callable[..., typing.Any],
+) -> typing.Dict[str, typing.Any]:
     isa = corpus["isa"]
     lang = corpus["ghidra_lang"]
     base = int(corpus["base_address"])
@@ -475,7 +486,10 @@ def check_entry(entry, corpus, analyze):
 STATUS_ORDER = ["pass", "pass-normalized", "mismatch", "error", "decode"]
 
 
-def load_corpora(corpus_dir, isas):
+def load_corpora(
+    corpus_dir: str,
+    isas: typing.Optional[typing.Sequence[str]],
+) -> typing.List[typing.Dict[str, typing.Any]]:
     corpora = []
     for path in sorted(glob.glob(os.path.join(corpus_dir, "corpus_*.json"))):
         with open(path) as f:
@@ -487,7 +501,7 @@ def load_corpora(corpus_dir, isas):
     return corpora
 
 
-def main(argv=None):
+def main(argv: typing.Optional[typing.Sequence[str]] = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument(
         "--isa", action="append", default=None, help="restrict to this ISA (repeatable)"

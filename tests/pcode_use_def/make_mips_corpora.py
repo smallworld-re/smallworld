@@ -233,7 +233,7 @@ def _write(path, corpus):
         f.write("\n")
 
 
-def main():
+def main() -> None:
     with open(SRC) as f:
         mips32 = json.load(f)
     base = mips32["base_address"]

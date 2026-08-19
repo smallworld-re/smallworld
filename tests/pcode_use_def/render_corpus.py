@@ -13,6 +13,7 @@ import collections
 import glob
 import json
 import os
+import typing
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "CORPUS.md")
@@ -32,19 +33,19 @@ ORDER = [
 ]
 
 
-def cell(s):
+def cell(s: str) -> str:
     """Make a string safe for a markdown table cell."""
     return s.replace("|", "\\|").replace("\n", " ").strip()
 
 
-def anchor(name):
+def anchor(name: str) -> str:
     """GitHub heading anchor: lowercase, drop punctuation, spaces->hyphens."""
     return "".join(c for c in name.lower() if c.isalnum() or c in " -").replace(
         " ", "-"
     )
 
 
-def mem(m):
+def mem(m: typing.Dict[str, typing.Any]) -> str:
     base = m.get("base")
     index = m.get("index")
     scale = m.get("scale", 1) or 1
@@ -64,17 +65,20 @@ def mem(m):
     return f"[{inner}]:{size}"
 
 
-def operand(o):
+def operand(o: typing.Dict[str, typing.Any]) -> str:
     return o["reg"] if "reg" in o else mem(o["mem"])
 
 
-def opset(items, optional):
+def opset(
+    items: typing.Sequence[typing.Dict[str, typing.Any]],
+    optional: typing.Sequence[typing.Dict[str, typing.Any]],
+) -> str:
     # required operands, then optional ones with a trailing '?'
     parts = [operand(o) for o in items] + [operand(o) + "?" for o in optional]
     return ", ".join(parts) if parts else "\u2014"
 
 
-def load_corpora():
+def load_corpora() -> typing.List[typing.Tuple[str, typing.Dict[str, typing.Any]]]:
     named = dict(ORDER)
     paths = sorted(glob.glob(os.path.join(HERE, "corpus_*.json")))
     out = []
@@ -94,7 +98,7 @@ def load_corpora():
     return out
 
 
-def main():
+def main() -> None:
     corpora = load_corpora()
     lines = [
         "# Instruction use/def ground-truth corpora\n",
