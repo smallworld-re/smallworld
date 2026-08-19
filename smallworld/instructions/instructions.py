@@ -359,8 +359,8 @@ class Instruction(metaclass=abc.ABCMeta):
         from .pcode_use_def import analyze
 
         platdef = PlatformDef.for_platform(self.platform)
-        results = analyze(self.instruction, platdef.ghidra_language_id, self.address)
-        if not results:
+        result = analyze(self.instruction, platdef.ghidra_language_id, self.address)
+        if result is None:
             # Ghidra decoded no instruction from bytes Capstone accepted
             # (the two disassemblers can disagree on rare encodings).
             # Degrade to an empty set rather than raising IndexError into
@@ -373,7 +373,7 @@ class Instruction(metaclass=abc.ABCMeta):
             )
             return set()
         operands: typing.Set[Operand] = set()
-        for op in results[0][kind]:
+        for op in result.uses if kind == "use" else result.defs:
             canon = self._canonicalize_pcode_operand(op, platdef)
             if canon is not None:
                 operands.add(canon)

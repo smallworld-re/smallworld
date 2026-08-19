@@ -400,15 +400,23 @@ def check_entry(entry, corpus, analyze):
         result["traceback"] = traceback.format_exc(limit=6)
         return result
 
-    if len(analyzed) != 1:
+    if analyzed is None:
+        result["status"] = "decode"
+        result["error"] = "Ghidra decoded no instruction at the base address"
+        return result
+
+    if analyzed.size != len(raw):
+        # The entry's bytes are not exactly one instruction to Ghidra --
+        # either it decoded a shorter instruction and left bytes over, or
+        # the two disassemblers disagree about this encoding.
         result["status"] = "decode"
         result["error"] = (
-            f"decoded to {len(analyzed)} instructions: "
-            f"{[r['instr'] for r in analyzed]}"
+            f"decoded {analyzed.size} of {len(raw)} bytes as one "
+            f"instruction: {analyzed.disassembly}"
         )
         return result
 
-    result["ghidra_disasm"] = analyzed[0]["instr"]
+    result["ghidra_disasm"] = analyzed.disassembly
 
     exp = {
         "use": [canon_expected(i) for i in entry.get("uses", [])],
@@ -419,8 +427,8 @@ def check_entry(entry, corpus, analyze):
         "def": [canon_expected(i) for i in entry.get("defs_optional", [])],
     }
     act = {
-        "use": [canon_actual(o) for o in analyzed[0]["use"]],
-        "def": [canon_actual(o) for o in analyzed[0]["def"]],
+        "use": [canon_actual(o) for o in analyzed.uses],
+        "def": [canon_actual(o) for o in analyzed.defs],
     }
 
     strict_ok = True

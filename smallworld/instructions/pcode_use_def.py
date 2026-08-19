@@ -33,18 +33,20 @@ already been written in the current instruction and excluding it from
 the use set.
 
 The public entry point is analyze(byte_data, ghidra_language,
-base_address), used by smallworld.instructions.Instruction.reads /
+base_address), which returns the use/def of the single instruction at
+base_address. It is used by smallworld.instructions.Instruction.reads /
 .writes.
 """
 
 import atexit
 import functools
 import logging
+import typing
 from enum import Enum, auto
 
 import pyghidra
 
-from smallworld.instructions import RegisterOperand
+from smallworld.instructions import Operand, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 
 logger = logging.getLogger(__name__)
@@ -381,6 +383,20 @@ def _space_name(program, space_id_vn):
     space_id = int(space_id_vn.getOffset())
     space = program.getAddressFactory().getAddressSpace(space_id)
     return space.getName() if space is not None else f"space{space_id}"
+
+
+class InstructionUseDef(typing.NamedTuple):
+    """Use/def of a single decoded instruction; the result of `analyze`.
+
+    `size` is how many bytes Ghidra consumed for this instruction, which
+    lets a caller confirm the buffer held exactly the instruction it
+    meant to analyze.
+    """
+
+    disassembly: str
+    size: int
+    uses: typing.Tuple[Operand, ...]
+    defs: typing.Tuple[Operand, ...]
 
 
 class UseDefError(Exception):
@@ -979,21 +995,22 @@ def _analyze_inner(byte_data, arch, base_address):
         pad = b"\x00" * 8
         _populate_program(program, addr_space, byte_data + pad, base_address)
 
-        results = []
-        end = int(base_address) + len(byte_data)
-        for instr in program.getListing().getInstructions(True):
-            if int(instr.getAddress().getOffset()) >= end:
-                continue
-            uses, defs = _instruction_use_def(program, instr)
-            results.append(
-                {
-                    "address": str(instr.getAddress()),
-                    "instr": instr.toString(),
-                    "use": uses,
-                    "def": defs,
-                }
-            )
-        return results
+        # Look the instruction up *at* the requested address rather than
+        # taking whatever decoded first, so the result is always the
+        # instruction the caller asked about. Anything Ghidra decoded in
+        # the padding (or after this instruction) is ignored.
+        instr = program.getListing().getInstructionAt(
+            addr_space.getAddress(int(base_address))
+        )
+        if instr is None:
+            return None
+        uses, defs = _instruction_use_def(program, instr)
+        return InstructionUseDef(
+            disassembly=instr.toString(),
+            size=int(instr.getLength()),
+            uses=tuple(uses),
+            defs=tuple(defs),
+        )
     except Exception:
         _evict_program(arch)
         raise
@@ -1018,17 +1035,17 @@ _DEFAULT_CACHE_SIZE = 4096
 
 @functools.lru_cache(maxsize=_DEFAULT_CACHE_SIZE)
 def _analyze_cached(byte_data: bytes, arch: str, base_address: int):
-    """Hashable wrapper around _analyze_inner; returns a frozen
-    tuple-of-tuples so callers can't accidentally mutate cached state."""
-    raw = _analyze_inner(byte_data, arch, base_address)
-    return tuple(
-        (r["address"], r["instr"], tuple(r["use"]), tuple(r["def"])) for r in raw
-    )
+    """Hashable wrapper around _analyze_inner. Its result is an immutable
+    NamedTuple (or None), so callers can't mutate cached state."""
+    return _analyze_inner(byte_data, arch, base_address)
 
 
-def analyze(byte_data, arch, base_address=0):
-    """Disassemble a raw byte buffer with the given architecture and
-    return per-instruction use/def.
+def analyze(byte_data, arch, base_address=0) -> typing.Optional[InstructionUseDef]:
+    """Return the use/def of the instruction at `base_address`.
+
+    `byte_data` must contain that instruction; trailing bytes are ignored
+    (and are sometimes necessary -- see the delay-slot note below).
+    Returns None if Ghidra decoded no instruction at `base_address`.
 
     Caching is layered for speed:
 
@@ -1050,14 +1067,7 @@ def analyze(byte_data, arch, base_address=0):
     # Normalize byte_data so memoryview/bytearray callers also hit the cache
     if not isinstance(byte_data, bytes):
         byte_data = bytes(byte_data)
-    cached = _analyze_cached(byte_data, arch, int(base_address))
-    # Thaw back to the mutable list-of-dicts the rest of the script
-    # expects. This is cheap (O(n) over instructions) and prevents
-    # callers from mutating the cached representation.
-    return [
-        {"address": a, "instr": i, "use": list(u), "def": list(d)}
-        for (a, i, u, d) in cached
-    ]
+    return _analyze_cached(byte_data, arch, int(base_address))
 
 
 # Expose the lru_cache control surface on the public function so callers
