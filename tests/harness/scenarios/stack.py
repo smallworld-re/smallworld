@@ -266,6 +266,45 @@ _SPECS = {
         ),
         stack_arguments=((0x55555555, 8),),
     ),
+    "sh2a": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode", "styx"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
+    "sh4": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode", "panda"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
+    "sh4el": StackCaseSpec(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        engines=("angr", "pcode", "panda"),
+        register_arguments=(
+            ("r4", 0x11111111),
+            ("r5", 0x01010101),
+            ("r6", 0x22222222),
+            ("r7", 0x01010101),
+        ),
+        stack_arguments=((0xCCCCCCCC, 4),),
+    ),
     "tricore": StackCaseSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -314,6 +353,10 @@ _STACK_RES = {
     "ppc": "0xffff",
     "ppc64": "0xffff",
     "riscv64": "0xffffffff",
+    # 0xcccccccc + 0x11111111 + 0x22222222
+    "sh2a": "0xffffffff",
+    "sh4": "0xffffffff",
+    "sh4el": "0xffffffff",
     "tricore": "0xffffffff",
 }
 

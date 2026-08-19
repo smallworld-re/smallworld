@@ -175,6 +175,51 @@ _SPECS = {
         stack_pointer_register="sp",
         model_address=0x1000,
     ),
+    # SuperH.  This scenario calls its hooked model with `bsr`, and the model
+    # returns via `pr`, so it is sensitive to how each backend implements that
+    # call.  Measured, per engine:
+    #   * sh2a - all four engines record pr = inst_start + 4 correctly, so angr,
+    #     pcode and panda all run.  styx is skipped below: it hangs as soon as
+    #     an instruction or memory hook is installed, which is how models work.
+    #   * sh4 / sh4el - panda runs on real QEMU and sets pr correctly.  angr and
+    #     pcode share Ghidra's SuperH4.sinc, whose `:bsr` never assigns PR at
+    #     all: pcode then returns to pc=0x0 and faults, and angr raises
+    #     SymbolicValueError because pr is still unconstrained.  Both are
+    #     skipped below.  (`:jsr` *is* correct in that sleigh - see
+    #     tests/hooking/hooking.sh4.s, which uses it and passes everywhere - so
+    #     the defect is specific to `bsr`, and this scenario keeps `bsr` on
+    #     purpose to cover that path where it works.)
+    # styx is absent from the SH-4 rows entirely: its SH-4 arch spec is a stub.
+    "sh2a": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode", "panda", "styx"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "sh4": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode", "panda"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
+    "sh4el": StaticBufferSpec(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pc_register="pc",
+        result_register="r0",
+        model_register="r2",
+        engines=("angr", "pcode", "panda"),
+        entry_offset=4,
+        stack_pointer_register="sp",
+        model_address=0x1000,
+    ),
     "tricore": StaticBufferSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -204,6 +249,18 @@ _SPECS = enroll_triton(_SPECS)
 
 SCENARIO_PREFIXES = (("static_buf", "static_buf"),)
 
+# Ghidra's SuperH4 sleigh `:bsr` never assigns PR, so the model cannot return.
+# Measured: pcode reads pr back as 0 and faults fetching pc=0x0; angr leaves pr
+# unconstrained and raises SymbolicValueError.  `:bsrf` and `:jsr` in the same
+# sleigh *do* write pr, and to the architectural inst_start + 4, so the wording
+# here names `bsr` only.
+_SH4_SLEIGH_PR = "Ghidra SuperH4 sleigh does not write pr on bsr"
+_SH4_BSR_SKIPS = {
+    f"{arch}.{engine}": _SH4_SLEIGH_PR
+    for arch in ("sh4", "sh4el")
+    for engine in ("angr", "pcode")
+}
+
 SCENARIO_INFO = ScenarioInfo(
     prefix="static_buf",
     scenario="static_buf",
@@ -211,9 +268,11 @@ SCENARIO_INFO = ScenarioInfo(
     variants_source=from_arch_table(
         _SPECS,
         skip_reasons={
+            "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
             "ppc64": "Unicorn ppc64 support buggy",
             "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            **_SH4_BSR_SKIPS,
         },
     ),
     run_factory=assert_contains("0x4a1", case_sensitive=False),

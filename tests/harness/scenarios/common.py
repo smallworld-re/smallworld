@@ -188,6 +188,52 @@ ARCH_REGISTERS: dict[str, ArchInfo] = {
         pointer_size=8,
         engines=("unicorn", "angr", "pcode"),
     ),
+    # SuperH passes integer arguments in r4-r7 and returns in r0; `sp` is an
+    # alias of r15 and the return address lives in `pr` (aliased `ra`/`lr`).
+    #
+    # Unicorn has no SuperH backend at all, so no SuperH row lists it - which
+    # also means none of these ever produce a bare, engine-less variant id.
+    "sh2a": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        # Styx's SuperH2A core is SH-2A specific; panda runs on the QEMU SH-2A
+        # instruction port from nix/patches/panda-qemu-sh2a.patch.
+        engines=("angr", "pcode", "panda", "styx"),
+    ),
+    "sh4": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        engines=("angr", "pcode", "panda"),
+    ),
+    "sh4el": ArchInfo(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pc_register="pc",
+        arg_register="r4",
+        result_register="r0",
+        stack_pointer_register="sp",
+        pointer_size=4,
+        # Styx is absent from both SH-4 rows, not just this one.  Its SH-4
+        # targets only exist with nix/patches/styx-superh4-target.patch applied
+        # (both endiannesses - Target.SuperH4Be and Target.SuperH4Le), and its
+        # SH-4 arch spec leaves several sleigh userops as no-ops.
+        #
+        # This is a coverage gap rather than a Styx limitation, and less of one
+        # than it looks: styx runs the `delay` blob correctly on both sh4 and
+        # sh4el (r0 == 4, no hooks installed), and `testfloat` already emits and
+        # passes sh4/sh4el styx variants through its own engine table.  Adding
+        # styx here would enable it across every build_specs scenario at once,
+        # which wants measuring first - most hook-bearing scenarios would only
+        # gain skips, because styx hangs once a hook fires.
+        engines=("angr", "pcode", "panda"),
+    ),
     "tricore": ArchInfo(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",

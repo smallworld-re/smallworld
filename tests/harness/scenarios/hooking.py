@@ -183,6 +183,47 @@ _SPECS = {
         string_source=StringSource(register="a0"),
         puts_address=0x1002,
     ),
+    # SuperH: two-byte instructions, so the fake-PLT slots are two bytes apart
+    # (puts_address=0x1002) exactly like m68k, not the default four.
+    #
+    # The sources call through `jsr @Rn` rather than `bsr`.  Models return by
+    # writing Model.get_return_address, which on SuperH reads `pr`; Ghidra's
+    # SuperH4.sinc `:bsr` never assigns PR, so a `bsr` call breaks on angr
+    # (pr unconstrained -> SymbolicValueError) and pcode (pr still 0 -> return
+    # to pc=0x0).  `:jsr` does assign `PR = inst_next`, and sleigh counts the
+    # delay slot in inst_next, so pr gets the architectural inst_start+4; that
+    # was measured byte-identical on angr, pcode and panda, which is why SH-4
+    # needs no skip here even though static_buf's `bsr` call does.
+    "sh2a": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode", "panda", "styx"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
+    "sh4": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode", "panda"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
+    "sh4el": HookingSpec(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pointer_size=4,
+        pc_register="pc",
+        stack_pointer_register="sp",
+        pc_offset=4,
+        engines=("angr", "pcode", "panda"),
+        string_source=StringSource(register="r4"),
+        puts_address=0x1002,
+    ),
     "tricore": HookingSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pointer_size=4,
@@ -236,6 +277,7 @@ SCENARIO_INFO = ScenarioInfo(
         skip_reasons={
             "armel.styx": "styx function-hook semantics don't satisfy this scenario yet",
             "armhf.styx": "styx function-hook semantics don't satisfy this scenario yet",
+            "sh2a.styx": "styx hangs when an instruction or memory hook is installed",
         },
         extra_variants=(("ppc64", "Unicorn ppc64 support buggy", {}),),
     ),

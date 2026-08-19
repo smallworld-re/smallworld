@@ -28,6 +28,7 @@ from harness.framework import (
     CaseRunner,
     CaseSpec,
     DetailedCalledProcessError,
+    load_case_timings,
     managed_output_logger,
     run_cases,
     stable_shards,
@@ -1047,6 +1048,24 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1209,6 +1228,27 @@ class UnicornMachdefTests(unittest.TestCase):
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+    def test_unicorn_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_unicorn_tricore(self):
         platform = platforms.Platform(
@@ -1388,6 +1428,24 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_angr_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1551,6 +1609,27 @@ class PandaMachdefTests(unittest.TestCase):
         )
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so
+        # this runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch
+        # adds along with the SH-2A instruction set.
+        self.run_test(platform)
+
+    def test_panda_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
 
     def test_panda_tricore(self):
         platform = platforms.Platform(
@@ -1734,6 +1813,24 @@ class GhidraMachdefTests(unittest.TestCase):
     def test_ghidra_riscv64(self):
         platform = platforms.Platform(
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
 
@@ -1965,6 +2062,53 @@ class FrameworkHarnessTests(unittest.TestCase):
         weights = [sum(case.weight for case in shard) for shard in shards]
 
         self.assertLessEqual(max(weights) - min(weights), 1)
+
+    def test_stable_shards_balances_with_measured_timings(self):
+        cases = [
+            CaseSpec(id="demo:slow", tags=("demo",), run=lambda runner: None),
+            CaseSpec(id="demo:mid", tags=("demo",), run=lambda runner: None),
+            CaseSpec(id="demo:fast", tags=("demo",), run=lambda runner: None),
+            CaseSpec(id="demo:new", tags=("demo",), run=lambda runner: None, weight=2),
+        ]
+        # demo:new is unmeasured, so it is costed at the measured median
+        # (20.0) times its weight (2) and lands on its own shard first.
+        timings = {"demo:slow": 30.0, "demo:mid": 20.0, "demo:fast": 10.0}
+
+        shards = stable_shards(cases, 2, timings=timings)
+
+        self.assertEqual(
+            [[case.id for case in shard] for shard in shards],
+            [["demo:fast", "demo:new"], ["demo:mid", "demo:slow"]],
+        )
+
+    def test_run_cases_records_timings(self):
+        cases = [
+            CaseSpec(id="demo:timed", tags=("demo",), run=lambda runner: None),
+            CaseSpec(
+                id="demo:skipped",
+                tags=("demo",),
+                run=lambda runner: None,
+                skip_reason="skip",
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmp:
+            timings_path = pathlib.Path(tmp) / "timings.json"
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                result = run_cases(cases, timings_path=timings_path)
+            payload = json.loads(timings_path.read_text())
+            loaded = load_case_timings(timings_path)
+
+        self.assertEqual(result, 0)
+        self.assertEqual(set(payload), {"demo:timed"})
+        self.assertGreaterEqual(payload["demo:timed"], 0.0)
+        self.assertEqual(loaded, payload)
+
+    def test_load_case_timings_missing_file_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = pathlib.Path(tmp) / "does-not-exist.json"
+            self.assertEqual(load_case_timings(missing), {})
 
 
 class IntegrationHarnessTests(unittest.TestCase):
@@ -2737,7 +2881,7 @@ class StyxMachdefTests(unittest.TestCase):
     """Sanity checks on the SmallWorld Styx machine definitions.
 
     Mirrors the shape of :class:`UnicornMachdefTests` but only covers the
-    architectures Styx supports (32-bit ARM and 32-bit PowerPC).
+    architectures Styx supports (32-bit ARM, 32-bit PowerPC and SuperH).
     """
 
     def _machdef_for(self, platform):
@@ -2790,6 +2934,51 @@ class StyxMachdefTests(unittest.TestCase):
         # file can't access them, and the map is shared with the MPC860 core.
         self.assertFalse(machdef.has_register("f0"))
         self.assertFalse(machdef.has_register("cr3"))
+
+    def test_sh2a_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "r4", "sp", "fp", "pr", "ra", "lr", "pc", "sr", "tbr"):
+            self.assertTrue(
+                machdef.has_register(name),
+                msg=f"sh2a machdef missing register '{name}'",
+            )
+        # `lr_register` is handed straight to Styx's own register lookup by
+        # StyxEmulator.hook_function, and SuperHRegister has no Ra/Lr member -
+        # so it must name the architectural register, not a SmallWorld alias.
+        self.assertEqual(machdef.lr_register, "pr")
+        # Only the double-precision pairs are reachable on this core; the fr
+        # halves are computed in Python.  See the machdef's module docstring.
+        self.assertTrue(machdef.has_register("dr0"))
+        self.assertFalse(machdef.has_register("fr0"))
+
+    def test_sh4_machdef_resolves_when_styx_is_patched(self):
+        from smallworld.emulators.styx.machdefs.superh4 import STYX_SUPPORTS_SUPERH4
+
+        for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE):
+            platform = platforms.Platform(platforms.Architecture.SUPERH_SH4, byteorder)
+            if not STYX_SUPPORTS_SUPERH4:
+                # nix/patches/styx-superh4-target.patch is not applied, so no
+                # SH-4 machdef was registered at all.
+                with self.assertRaises(exceptions.ConfigurationError):
+                    self._machdef_for(platform)
+                continue
+            machdef = self._machdef_for(platform)
+            for name in ("r0", "r4", "sp", "pr", "ra", "lr", "pc", "sr", "dr0"):
+                self.assertTrue(
+                    machdef.has_register(name),
+                    msg=f"sh4 machdef missing register '{name}'",
+                )
+            self.assertEqual(machdef.lr_register, "pr")
+            # SH-4 has no `tbr`, and styx's enum/arch spec cannot reach the
+            # banked GPRs, ssr/spc/sgr/dbr or the alternate FP bank.
+            for name in ("tbr", "ssr", "sgr", "r0_bank", "xd0", "xf0"):
+                self.assertFalse(
+                    machdef.has_register(name),
+                    msg=f"sh4 machdef unexpectedly maps '{name}'",
+                )
 
     def test_ppc64_raises_configuration_error(self):
         # Styx has no 64-bit PowerPC core, so POWERPC64 is unsupported.
@@ -4603,7 +4792,8 @@ class SetArgumentEncodingTests(ModelTestCase):
 
 
 class TlsGetAddrModelTests(ModelTestCase):
-    """c99/stdlib.py TlsGetAddr: stable per-(module, offset) storage."""
+    """c99/stdlib.py TlsGetAddr: stable per-module arena storage in the model's
+    own reserved static buffer (not the malloc heap)."""
 
     TI1 = 0x4000
     TI2 = 0x4010
@@ -4620,13 +4810,15 @@ class TlsGetAddrModelTests(ModelTestCase):
         )
         self.model = self.lookup("__tls_get_addr")
 
-    def test_requires_heap(self):
+    def test_requires_static_buffer(self):
         self.emu.write_register("rdi", self.TI1)
         with self.assertRaises(exceptions.ConfigurationError):
             self.model.model(self.emu)
 
     def test_stable_and_distinct_addresses(self):
-        self.model.heap = BumpAllocator(0x60000, 0x4000)
+        # The library reserves static_space_required bytes and assigns
+        # static_buffer_address; emulate that here.
+        self.model.static_buffer_address = 0x60000
 
         first = self.call(self.model, self.TI1)
         self.assertNotEqual(first, 0)
@@ -6264,6 +6456,78 @@ class ColorizerReadWriteFirstObsGuardTests(unittest.TestCase):
         info = node.reads[0].info
         self.assertIsInstance(info, MemoryLvalInfo)
         self.assertEqual(info.addresses, [(3, 0xBEEF0)])
+
+
+class ColorizerBigEndianStoreLoadTests(unittest.TestCase):
+    """A value has the same colorizer color in a register and in memory, on
+    both byte orders.
+
+    The colorizer keys a register value by its integer value and a memory
+    value by ``int.from_bytes(bytes, target_byteorder)`` (colorizer.py
+    ``_concrete_val_to_color``). Interpreting memory in the target byte order
+    is what lets a stored register value keep its color on a big-endian
+    target; reading memory little-endian only would hash the value to
+    byteswap(V) in memory, so a plain store would be misreported as creating a
+    new value (write-def) instead of copying it (write-copy).
+
+    Program (MIPS32), the same instructions in both byte orders:
+        lui $t0, 0xABCD ; ori $t0, $t0, 0x1234 ; sw $t0, 0($sp) ; lw $t1, 0($sp)
+    The store of $t0 must be recognized as a copy under both byte orders.
+    """
+
+    # lui $t0,0xABCD ; ori $t0,$t0,0x1234 ; sw $t0,0($sp) ; lw $t1,0($sp)  (BE)
+    _CODE_BE = bytes.fromhex("3c08abcd" "35081234" "afa80000" "8fa90000")
+    _VALUE = 0xABCD1234
+    _SW_PC = 0x1008
+    _SP = 0x12000  # inside the mapped stack (not the exclusive top)
+
+    @staticmethod
+    def _swap_words(b):
+        return b"".join(b[i : i + 4][::-1] for i in range(0, len(b), 4))
+
+    def _store_write_hint(self, byteorder, code_bytes):
+        from smallworld.analyses.colorizer import Colorizer
+
+        platform = platforms.Platform(platforms.Architecture.MIPS32, byteorder)
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(state.memory.code.Executable.from_bytes(code_bytes, address=0x1000))
+        stack = state.memory.stack.Stack.for_platform(platform, 0x10000, 0x4000)
+        machine.add(stack)
+        cpu.sp.set(self._SP)
+        cpu.pc.set(0x1000)
+        machine.add(cpu)
+        machine.add_exit_point(0x1010)
+
+        hints: list = []
+        hinter = hinting.Hinter()
+        hinter.register(DynamicMemoryValueHint, lambda h: hints.append(h))
+        Colorizer(hinter, num_insns=8, exec_id=0).run(machine)
+
+        writes = [h for h in hints if h.pc == self._SW_PC and not h.use]
+        self.assertEqual(
+            len(writes), 1, f"expected exactly one store-write hint, got {writes}"
+        )
+        return writes[0]
+
+    def _assert_store_is_a_copy(self, byteorder, code_bytes):
+        h = self._store_write_hint(byteorder, code_bytes)
+        self.assertFalse(
+            h.new,
+            "store of a known register value should be a write-copy, got "
+            f"write-def with color 0x{h.color:x}",
+        )
+        self.assertEqual(h.color, self._VALUE)
+
+    def test_le_store_of_register_value_is_a_copy(self):
+        self._assert_store_is_a_copy(
+            platforms.Byteorder.LITTLE, self._swap_words(self._CODE_BE)
+        )
+
+    def test_be_store_of_register_value_is_a_copy(self):
+        # The big-endian case: the register value and its stored image must
+        # share one color, so the store is a copy rather than a new value.
+        self._assert_store_is_a_copy(platforms.Byteorder.BIG, self._CODE_BE)
 
 
 class _FakeAngrMallocEmulator(emulators.AngrEmulator):

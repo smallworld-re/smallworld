@@ -14,6 +14,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 class RiscV64(PlatformDef):
     architecture = Architecture.RISCV64
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "RISCV:LE:64:default"
 
     address_size = 8
 

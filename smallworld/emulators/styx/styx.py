@@ -13,9 +13,14 @@ Notable differences from the Unicorn / Ghidra backends:
   the builder. Once built, registration order doesn't matter — hooks and
   writes are routed straight through to the live processor.
 - **No symbolic values**: ``SymbolicValueError`` for any ``claripy`` input.
-- **Limited target set**: 32-bit ARM (armhf/armel) and 32-bit PowerPC (ppc) are
-  supported; anything else raises ``ConfigurationError``. For PowerPC an optional
-  ``cpu_model`` selects the Styx core (``"ppc405"`` default, or ``"mpc860"``).
+- **Limited target set**: 32-bit ARM (armhf/armel), 32-bit PowerPC (ppc),
+  SH-2A-FPU and SH-4 are supported; anything else raises
+  ``ConfigurationError``. For PowerPC an optional ``cpu_model`` selects the Styx
+  core (``"ppc405"`` default, or ``"mpc860"``). SH-2A-FPU is the one target with
+  a purpose-built Styx processor crate; SH-4 goes through Styx's generic
+  ``RawProcessor`` and its arch spec is a stub, so floating point and privileged
+  instructions are unreliable there — see
+  ``machdefs/superh.py`` and ``machdefs/superh4.py``.
 - **Function hooks short-circuit the body**: ``hook_function(addr, fn)``
   installs a code hook at ``addr`` whose callback runs the user function then
   jumps PC to the link register. This matches the Unicorn backend's semantics
@@ -111,7 +116,7 @@ class StyxEmulator(
     hookable.QMemoryWriteHookable,
     hookable.QInterruptHookable,
 ):
-    """Styx emulator backend for SmallWorld (32-bit ARM and PowerPC)."""
+    """Styx emulator backend for SmallWorld (32-bit ARM, PowerPC and SuperH)."""
 
     name = "styx-emulator"
     description = "emulator based on the styx-emulator firmware emulation framework"

@@ -5,7 +5,6 @@ from .machdef import GhidraMachineDef
 class i386MachineDef(GhidraMachineDef):
     arch = Architecture.X86_32
     byteorder = Byteorder.LITTLE
-    language_id = "x86:LE:32:default"
 
     _registers = {
         # *** General Purpose Registers ***

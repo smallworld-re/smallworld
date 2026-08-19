@@ -309,13 +309,52 @@ class CaseRunner:
                     raise AssertionError(f"line contains `{part}`:\n\n{output.strip()}")
 
 
-def stable_shards(cases: list[CaseSpec], shard_count: int) -> list[list[CaseSpec]]:
+def _case_costs(
+    cases: list[CaseSpec], timings: typing.Mapping[str, float] | None
+) -> dict[str, float]:
+    if not timings:
+        return {case.id: float(case.weight) for case in cases}
+    # Cost unmeasured cases at the measured median scaled by their static
+    # weight so new cases don't look free next to real durations.
+    measured = sorted(duration for duration in timings.values() if duration > 0)
+    baseline = measured[len(measured) // 2] if measured else 1.0
+    costs: dict[str, float] = {}
+    for case in cases:
+        duration = timings.get(case.id)
+        if duration is not None and duration > 0:
+            costs[case.id] = float(duration)
+        else:
+            costs[case.id] = baseline * case.weight
+    return costs
+
+
+def load_case_timings(path: pathlib.Path) -> dict[str, float]:
+    """Load a case-id -> seconds mapping recorded by `run_cases`.
+
+    Returns an empty mapping when the file does not exist so callers fall
+    back to static case weights.
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"case timings file {path} must contain a JSON object")
+    return {str(case_id): float(duration) for case_id, duration in raw.items()}
+
+
+def stable_shards(
+    cases: list[CaseSpec],
+    shard_count: int,
+    timings: typing.Mapping[str, float] | None = None,
+) -> list[list[CaseSpec]]:
+    costs = _case_costs(cases, timings)
     shards: list[list[CaseSpec]] = [[] for _ in range(shard_count)]
-    weights = [0 for _ in range(shard_count)]
-    for case in sorted(cases, key=lambda item: (-item.weight, item.id)):
-        shard_index = min(range(shard_count), key=lambda idx: (weights[idx], idx))
+    totals = [0.0 for _ in range(shard_count)]
+    for case in sorted(cases, key=lambda item: (-costs[item.id], item.id)):
+        shard_index = min(range(shard_count), key=lambda idx: (totals[idx], idx))
         shards[shard_index].append(case)
-        weights[shard_index] += case.weight
+        totals[shard_index] += costs[case.id]
     for shard in shards:
         shard.sort(key=lambda item: item.id)
     return shards
@@ -357,15 +396,22 @@ def run_cases(
     verbose: bool = False,
     log_path: pathlib.Path | None = None,
     output_logger: OutputLogger | None = None,
+    timings_path: pathlib.Path | None = None,
 ) -> int:
     if output_logger is None and log_path is not None:
         with managed_output_logger(log_path) as logger:
-            return run_cases(cases, verbose=verbose, output_logger=logger)
+            return run_cases(
+                cases,
+                verbose=verbose,
+                output_logger=logger,
+                timings_path=timings_path,
+            )
 
     runner = CaseRunner(output_logger=output_logger)
     started = time.monotonic()
     failures: list[tuple[CaseSpec, BaseException]] = []
     skipped = 0
+    timings: dict[str, float] = {}
     for case in cases:
         runner.active_case_id = case.id
         if case.skip_reason:
@@ -376,6 +422,7 @@ def run_cases(
             continue
         if verbose:
             print(f"RUN  {case.id}")
+        case_started = time.monotonic()
         try:
             case.run(runner)
             if verbose:
@@ -385,8 +432,14 @@ def run_cases(
             print(f"FAIL {case.id}")
             print(error)
         finally:
+            timings[case.id] = time.monotonic() - case_started
             runner.active_case_id = None
     elapsed = time.monotonic() - started
+    if timings_path is not None:
+        timings_path.parent.mkdir(parents=True, exist_ok=True)
+        timings_path.write_text(
+            json.dumps(timings, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
     print(f"Ran {len(cases)} cases in {elapsed:.3f}s")
     if failures:
         print(f"FAILED (failures={len(failures)}, skipped={skipped})")

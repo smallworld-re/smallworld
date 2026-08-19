@@ -94,6 +94,7 @@ class MSP430(MSP430Def):
     """Platform definition for TI msp430 16-bit CPUs"""
 
     architecture = Architecture.MSP430
+    ghidra_language_id = "TI_MSP430:LE:16:default"
     address_size = 2
 
 
@@ -101,4 +102,5 @@ class MSP430X(MSP430Def):
     """Platform definition for TI msp430x 20-bit CPUs"""
 
     architecture = Architecture.MSP430X
+    ghidra_language_id = "TI_MSP430X:LE:32:default"
     address_size = 4

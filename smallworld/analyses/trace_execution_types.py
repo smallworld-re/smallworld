@@ -13,6 +13,11 @@ class TraceRes(Enum):
     ER_BOUNDS = 1
     ER_MAX_INSNS = 2
     ER_FAIL = 3
+    # Reached a designated exit point (e.g. the harnessed function's ret) -- a
+    # clean, intended completion. Distinct from ER_BOUNDS, which is execution
+    # escaping the allowed region (e.g. an indirect jump through a garbage
+    # pointer). Both were formerly collapsed into ER_BOUNDS.
+    ER_EXITPOINT = 4
 
 
 # one element in a trace

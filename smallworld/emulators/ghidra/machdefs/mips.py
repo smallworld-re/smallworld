@@ -155,9 +155,7 @@ class MIPSMachineDef(GhidraMachineDef):
 
 class MIPSELMachineDef(MIPSMachineDef):
     byteorder = Byteorder.LITTLE
-    language_id = "MIPS:LE:32:default"
 
 
 class MIPSBEMachineDef(MIPSMachineDef):
     byteorder = Byteorder.BIG
-    language_id = "MIPS:BE:32:default"

@@ -117,6 +117,32 @@ _SPECS = {
         engines=("unicorn", "angr", "pcode"),
         load_address=0x400000,
     ),
+    # SuperH has no C compiler in this tree, so unmapped.sh{2a,4}.elf.s stand in
+    # for unmapped.elf.c the way unmapped.tricore.elf.s does.  All three SuperH
+    # variants are ET_EXEC with a single PT_LOAD at 0x400000 (measured with
+    # sh4-unknown-linux-gnu-readelf -l), so load_address stays None and the
+    # loader honours the file's own addresses; the faulting address is 0x8000,
+    # the same one the C version uses, which sits above the harness's
+    # 0x2000..0x6000 stack and below the image.  No stack padding and no
+    # entrypoint register: SuperH takes its return address from `pr`, which
+    # these functions never need because nothing returns.
+    #
+    # styx is absent deliberately - see _SKIP_REASONS.
+    "sh2a": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH2A_FPU", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode", "panda"),
+    ),
+    "sh4": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH4", "BIG"),
+        pc_register="pc",
+        engines=("angr", "pcode", "panda"),
+    ),
+    "sh4el": UnmappedSpec(
+        platform=PlatformSpec("SUPERH_SH4", "LITTLE"),
+        pc_register="pc",
+        engines=("angr", "pcode", "panda"),
+    ),
     "tricore": UnmappedSpec(
         platform=PlatformSpec("TRICORE", "LITTLE"),
         pc_register="pc",
@@ -139,6 +165,15 @@ _SKIP_REASONS = {
     "mipsel.panda": "Waiting for panda-ng",
     "ppc.panda": "Waiting for panda-ng",
     "ppc64": "Unicorn ppc64 support buggy",
+    # Measured: Styx's SuperH2A target maps a flat 4 GiB RWX space, so none of
+    # the three accesses can fault.  Single-stepping unmapped.sh2a.elf's
+    # read_unmapped shows `mov.l @r1,r0` with r1=0x8000 completing and yielding
+    # 0 (and StyxEmulator.read_memory(0x8000, 4) returning zeroes) even though
+    # get_memory_map() reports only 0x2000-0x6000 and 0x400000-0x401000; the run
+    # then falls through `rts` into address 0 and dies with an unrelated
+    # InstructionDecodeError.  sh2a is the only ARCH_REGISTERS row listing styx.
+    "sh2a.styx": "styx SuperH2A maps a flat 4 GiB space, "
+    "so an unmapped access cannot fault",
 }
 
 

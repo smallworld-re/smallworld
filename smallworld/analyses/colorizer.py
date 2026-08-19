@@ -2,7 +2,6 @@ import copy
 import hashlib
 import logging
 import random
-import struct
 import typing
 
 import capstone
@@ -347,35 +346,26 @@ class Colorizer(analysis.Analysis):
     def _concrete_val_to_color(
         self, concrete_value: typing.Union[int, bytes, bytearray], size: int
     ) -> int:
-        # this concrete value can be an int (if it came from a register)
-        # or bytes (if it came from memory read)
-        # we want these in a common format so that we can see them as colors
-        the_bytes: bytes = b""
+        # A concrete value is either an int (from a register) or bytes (from a
+        # memory read). We fold both to one integer "color" so that the same
+        # value has the same color regardless of where it lives. Memory bytes
+        # are interpreted in the *target's* byte order, so a register value and
+        # its stored image agree on big-endian targets as well as little-endian
+        # ones -- otherwise a plain store looks like it creates a new value on
+        # big-endian.
+        byteorder = self.platform.byteorder.value  # "big" or "little"
         if type(concrete_value) is int:
-            if concrete_value < self.min_color:
-                return BAD_COLOR
-            the_bytes = concrete_value.to_bytes(size, byteorder="little")
+            n = concrete_value
         elif (type(concrete_value) is bytes) or (type(concrete_value) is bytearray):
-            # assuming little-endian
-            if int.from_bytes(concrete_value, byteorder="little") < self.min_color:
-                return BAD_COLOR
-            the_bytes = bytes(concrete_value)
+            n = int.from_bytes(concrete_value, byteorder=byteorder)
         else:
             assert 1 == 0
-        # let's make color a number
+        if n < self.min_color:
+            return BAD_COLOR
+        # A 128-bit value (xmm, ...) doesn't fit a 64-bit color; fold the halves.
         if size == 16:
-            q1 = (struct.unpack("<Q", the_bytes[:8]))[0]
-            q2 = (struct.unpack("<Q", the_bytes[8:]))[0]
-            # i mean this will otherwise be big so lets just combine them
-            return q1 ^ q2
-        if size == 8:
-            return struct.unpack("<Q", the_bytes)[0]
-        if size == 4:
-            return struct.unpack("<L", the_bytes)[0]
-        if size == 2:
-            return struct.unpack("<H", the_bytes)[0]
-        assert size == 1
-        return struct.unpack("<B", the_bytes)[0]
+            return (n & ((1 << 64) - 1)) ^ (n >> 64)
+        return n & ((1 << (8 * size)) - 1)
 
     def _add_color(
         self,

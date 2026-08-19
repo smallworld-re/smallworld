@@ -47,7 +47,33 @@ let
       pkgs = pkgsFor system;
       linuxBuilderSystem = linuxBuilderSystemFor system;
       libExt = if pkgs.stdenv.isDarwin then "dylib" else "so";
-      pyPkgs = pkgs.python3Packages;
+      # `tree-sitter-grammars.tree-sitter-c` (used below to build PANDA's
+      # headers) pulls in `datamodel-code-generator`, whose test suite pins
+      # exact `ruff`-formatted golden output. A `ruff` version bump elsewhere
+      # in nixpkgs can shift that formatting (e.g. blank-line placement) and
+      # break the golden-file comparison, which has nothing to do with
+      # whether the tool itself works. Skip its checks so that drift doesn't
+      # block every package that merely depends on it as a build tool.
+      #
+      # `tree-sitter-c` itself also fails nixpkgs' newer
+      # pythonMetadataCheckPhase: the derivation's `pname` doesn't match the
+      # project name recorded in its own dist-info metadata, so the sanity
+      # check raises `PackageNotFoundError` even though the module imports
+      # fine. That mismatch is a pre-existing packaging quirk, not something
+      # this project can fix upstream, so skip the check here too.
+      pyPkgs = pkgs.python3Packages.overrideScope (
+        _final: prev: {
+          datamodel-code-generator = prev.datamodel-code-generator.overridePythonAttrs (_: {
+            doCheck = false;
+            doInstallCheck = false;
+          });
+          tree-sitter-grammars = prev.tree-sitter-grammars // {
+            tree-sitter-c = prev.tree-sitter-grammars.tree-sitter-c.overridePythonAttrs (_: {
+              dontCheckPythonMetadata = true;
+            });
+          };
+        }
+      );
       pandaQemuBaseSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.panda-qemu-src.locked;
       pandaQemuSrc = pkgs.applyPatches {
         name = "panda-qemu-src";
@@ -64,6 +90,12 @@ let
         patches = [
           ./patches/panda-qemu-tricore.patch
           ./patches/panda-qemu-remove-debug-printf.patch
+          # SuperH, in two layers: `superh` adds the PANDA glue for QEMU's
+          # existing SH-4 target, and `sh2a` then teaches that target the SH-2A
+          # ISA. `sh2a` is generated on top of `superh` - they both touch
+          # target/sh4/cpu.{h,c} - so this order matters.
+          ./patches/panda-qemu-superh.patch
+          ./patches/panda-qemu-sh2a.patch
         ];
       };
       libpandaNgSrc = fetchLockedGitHubSource pkgs pandaNgLock.nodes.libpanda-ng-src.locked;
@@ -75,6 +107,7 @@ let
         patches = [
           ./patches/panda-ng-darwin.patch
           ./patches/panda-ng-tricore.patch
+          ./patches/panda-ng-superh.patch
         ];
       };
       targetList = [
@@ -92,6 +125,15 @@ let
         "loongarch64-softmmu"
         "riscv32-softmmu"
         "riscv64-softmmu"
+        # Both SuperH endiannesses. SmallWorld only exposes SH-2A big-endian
+        # (`sh4eb`), because sleigh has no little-endian SH-2A language, but note
+        # that `panda-qemu-sh2a.patch` registers `sh7264`/`sh7269` in
+        # `target/sh4/cpu.c` with no `TARGET_BIG_ENDIAN` guard, so the
+        # little-endian `sh4-softmmu` build carries them too. There is no
+        # SmallWorld machdef, platform def or Ghidra language for that
+        # combination, so do not reach for it via `arg_overrides`.
+        "sh4-softmmu"
+        "sh4eb-softmmu"
       ];
       qemuConfigureFlags = [
         "--enable-plugins"
@@ -119,6 +161,7 @@ let
         patches = [
           libpandaPatch
           ./patches/libpanda-build-linux-builder.patch
+          ./patches/libpanda-superh.patch
         ];
       };
       qemuSubprojects = pkgs.stdenv.mkDerivation {
@@ -147,6 +190,32 @@ let
         outputHashAlgo = "sha256";
         outputHashMode = "recursive";
       };
+      # `pkgs.qemu` carries nixpkgs patches written against the exact QEMU
+      # release nixpkgs pins. We swap in PANDA's QEMU fork, whose tree has
+      # drifted from that release, so a nixpkgs bump can introduce a patch
+      # that no longer applies here and breaks the whole PANDA stack for
+      # reasons unrelated to SmallWorld.
+      #
+      # Drop such patches when they only touch upstream's test suite: we
+      # build with an explicit `--target-list` and never build or run qtest,
+      # so they cannot affect the QEMU binaries or the PANDA plugin
+      # interfaces we actually consume. Patches that touch real sources must
+      # be rebased instead of listed here.
+      droppedQemuPatches = [
+        # Relocates an `#ifdef CONFIG_TASN1` guard in
+        # `tests/qtest/migration/tls-tests.c`; PANDA's fork has moved that
+        # code, so hunks 2 and 3 fail to apply.
+        "fix-tls-tests-without-tasn1.patch"
+      ];
+      keepQemuPatch =
+        patch:
+        let
+          name = builtins.baseNameOf (toString patch);
+        in
+        !(lib.any (dropped: lib.hasSuffix dropped name) droppedQemuPatches);
+      # Store paths for fetched patches carry a hash prefix, so match on the
+      # trailing filename rather than requiring an exact basename.
+      pandaQemuPatches = old: builtins.filter keepQemuPatch (old.patches or [ ]);
       mkQemuSourceSetup =
         {
           includeLibpanda ? false,
@@ -161,6 +230,7 @@ let
       qemu = pkgs.qemu.overrideAttrs (old: {
         version = "main";
         src = pandaQemuSrc;
+        patches = pandaQemuPatches old;
         configureFlags = qemuConfigureFlags;
         postUnpack = (old.postUnpack or "") + mkQemuSourceSetup { };
         postInstall = (old.postInstall or "") + ''
@@ -177,6 +247,7 @@ let
             outputs = [ "out" ];
             separateDebugInfo = false;
             src = pandaQemuSrc;
+            patches = pandaQemuPatches old;
             dontFixup = true;
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
             configureFlags = qemuConfigureFlags;
