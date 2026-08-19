@@ -1,5 +1,3 @@
-from triton import ARCH
-
 from ....platforms import Architecture, Byteorder
 from .machdef import TritonMachineDef
 
@@ -271,7 +269,7 @@ class TritonAArch64MachineDef(TritonMachineDef):
 
     arch = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
-    triton_arch = ARCH.AARCH64
+    triton_arch_name = "AARCH64"
     pc_register = "pc"
     sp_register = "sp"
     lr_register = "x30"

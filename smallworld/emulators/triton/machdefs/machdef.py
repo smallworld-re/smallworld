@@ -33,16 +33,29 @@ class TritonMachineDef(metaclass=abc.ABCMeta):
     def byteorder(self) -> platforms.Byteorder:
         raise NotImplementedError("Abstract triton machine def has no byteorder")
 
-    @property
-    @abc.abstractmethod
-    def triton_arch(self) -> typing.Any:
-        """The Triton ``ARCH`` enum value to configure a ``TritonContext`` with.
+    triton_arch_name: str = ""
+    """Name of the Triton ``ARCH`` member this architecture maps to.
 
-        Implemented as a property (rather than a class attribute) so that a
-        Triton build lacking a given architecture only fails when that
-        architecture is actually requested, not at import time.
-        """
-        raise NotImplementedError("Abstract triton machine def has no architecture")
+    Held as a *name* rather than the enum value so that importing the machdefs
+    never touches Triton: the whole backend is optional, and a build missing one
+    architecture (Triton's RISC-V support postdates its PyPI releases) must fail
+    only when that architecture is requested.
+    """
+
+    @property
+    def triton_arch(self) -> typing.Any:
+        """The Triton ``ARCH`` enum value to configure a ``TritonContext`` with."""
+        from triton import ARCH
+
+        value = getattr(ARCH, self.triton_arch_name, None)
+        if value is None:
+            raise exceptions.ConfigurationError(
+                f"The installed Triton build has no ARCH.{self.triton_arch_name}, "
+                f"so it cannot emulate {self.arch}:{self.byteorder}. Rebuild "
+                f"Triton with that architecture enabled (RISC-V, for instance, "
+                f"needs a revision newer than 2024-07)."
+            )
+        return value
 
     _registers: typing.Dict[str, str] = {}
     """Map from SmallWorld register name (lowercase) to the Triton register name."""

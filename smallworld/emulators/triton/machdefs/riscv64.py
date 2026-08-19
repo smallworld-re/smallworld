@@ -1,4 +1,3 @@
-from .... import exceptions
 from ....platforms import Architecture, Byteorder
 from .machdef import TritonMachineDef
 
@@ -144,12 +143,13 @@ class TritonRISCV64MachineDef(TritonMachineDef):
     """Triton machine definition for RISC-V 64.
 
     Triton only gained RISC-V support after its last PyPI release, so builds
-    older than mid-2024 lack ``ARCH.RV64``; the ``triton_arch`` property
+    older than mid-2024 lack ``ARCH.RV64``; the shared ``triton_arch`` property
     feature-detects it and raises a clear ``ConfigurationError`` otherwise.
     """
 
     arch = Architecture.RISCV64
     byteorder = Byteorder.LITTLE
+    triton_arch_name = "RV64"
     pc_register = "pc"
     sp_register = "sp"
     lr_register = "ra"
@@ -159,15 +159,3 @@ class TritonRISCV64MachineDef(TritonMachineDef):
     syscall_mnemonics = {"ecall"}
     syscall_number_register = "a7"
     _registers = _RISCV64_REGISTERS
-
-    @property
-    def triton_arch(self):
-        from triton import ARCH
-
-        if not hasattr(ARCH, "RV64"):
-            raise exceptions.ConfigurationError(
-                "The installed Triton build predates RISC-V support (no "
-                "ARCH.RV64); rebuild Triton from a revision newer than 2024-07 "
-                "to emulate RISCV64."
-            )
-        return ARCH.RV64

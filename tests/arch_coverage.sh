@@ -78,6 +78,10 @@ arch_order.extend(sorted(seen_arches - set(arch_order)))
 # Same idea as arch_order: preferred first, then whatever else turned up.
 engine_order = [engine for engine in preferred_engines if engine in seen_engines]
 engine_order.extend(sorted(seen_engines - set(engine_order)))
+# Size the label column to the widest engine actually present; a hardcoded width
+# shifts every arch column right for anything longer (e.g. "triton_symbolic"),
+# and the whole point of the grid is that the columns line up.
+engine_width = max((len(engine) for engine in engine_order), default=0)
 
 for scenario in sorted(coverage):
     print(f"{scenario}:")
@@ -86,5 +90,5 @@ for scenario in sorted(coverage):
         for arch in arch_order:
             row.append(arch if arch in coverage[scenario][engine] else " " * len(arch))
         if any(item.strip() for item in row):
-            print(f"  {engine:14} {' '.join(row)}")
+            print(f"  {engine:{engine_width}} {' '.join(row)}")
 PY

@@ -75,13 +75,14 @@ class TritonSymbolicEmulator(
 
         self._user_constraints: typing.List[claripy.ast.bool.Bool] = []
         self._symbolic_inputs: typing.Dict[str, claripy.ast.bv.BV] = {}
-        self._memory_symbolized: bool = False
         self._linear: bool = True
-        # Registers the harness has explicitly written (concrete or symbolic).
-        # Used by write_register_label to decide whether a label should pin the
-        # register to its prior value: Triton reads an unwritten register as a
-        # concrete 0, so — unlike angr, whose unset registers are fresh symbols —
-        # we must not treat that default 0 as a value to bind the label to.
+        # Registers the harness has explicitly written (concrete or symbolic),
+        # keyed by *parent* register so that "pc"/"rip" and "edi"/"rdi" name the
+        # same entry. Used by write_register_label to decide whether a label
+        # should pin the register to its prior value: Triton reads an unwritten
+        # register as a concrete 0, so — unlike angr, whose unset registers are
+        # fresh symbols — we must not treat that default 0 as a value to bind
+        # the label to.
         self._written_registers: typing.Set[str] = set()
 
     # ------------------------------------------------------ symbolic register I/O
@@ -104,45 +105,71 @@ class TritonSymbolicEmulator(
             self._user_constraints.append(reg_bv == bv)
 
     def _write_symbolic_memory(self, address: int, bv: claripy.ast.bv.BV) -> None:
+        if bv.size() % 8:
+            raise exceptions.SymbolicValueError(
+                f"Cannot write a {bv.size()}-bit value to memory at "
+                f"{hex(address)}; memory values must be a whole number of bytes"
+            )
         size = bv.size() // 8
+        # A write implies a mapping, exactly as it does on the concrete path
+        # (``TritonEmulator.write_memory_content``). Record it *before* touching
+        # Triton: symbolizing a cell reads it first, which would otherwise fault
+        # against a map that does not know about the region yet.
+        self._memory_map.add_range((address, address + size))
         if not bv.symbolic:
             data = int(bv.concrete_value).to_bytes(size, self._byteorder())
             self.ctx.setConcreteMemoryAreaValue(address, data, False)
             return
-        self._memory_symbolized = True
-        if _is_access_size(size):
-            mem = MemoryAccess(address, size)
+        with self._direct_access():
+            if _is_access_size(size):
+                mem = MemoryAccess(address, size)
+                if bv.op == "BVS":
+                    varname = list(bv.variables)[0]
+                    self.ctx.symbolizeMemory(mem, z3bridge.smt_symbol(varname))
+                    self._symbolic_inputs[varname] = bv
+                else:
+                    self.ctx.symbolizeMemory(mem)
+                    mem_bv = z3bridge.triton_to_claripy(
+                        self.ctx, self.ctx.getMemoryAst(mem)
+                    )
+                    self._user_constraints.append(mem_bv == bv)
+                return
+            # Triton's MemoryAccess only takes power-of-two sizes, so a wider or
+            # odd-sized buffer is symbolized in chunks and tied back to the
+            # caller's expression with constraints, one slice per chunk.
             if bv.op == "BVS":
-                varname = list(bv.variables)[0]
-                self.ctx.symbolizeMemory(mem, z3bridge.smt_symbol(varname))
-                self._symbolic_inputs[varname] = bv
-            else:
+                self._symbolic_inputs[list(bv.variables)[0]] = bv
+            for offset, chunk in _access_chunks(address, size):
+                mem = MemoryAccess(offset, chunk)
                 self.ctx.symbolizeMemory(mem)
                 mem_bv = z3bridge.triton_to_claripy(
                     self.ctx, self.ctx.getMemoryAst(mem)
                 )
-                self._user_constraints.append(mem_bv == bv)
-            return
-        # Triton's MemoryAccess only takes power-of-two sizes, so a wider or
-        # odd-sized buffer is symbolized in chunks and tied back to the caller's
-        # expression with constraints, one slice per chunk.
-        if bv.op == "BVS":
-            self._symbolic_inputs[list(bv.variables)[0]] = bv
-        for offset, chunk in _access_chunks(address, size):
-            mem = MemoryAccess(offset, chunk)
-            self.ctx.symbolizeMemory(mem)
-            mem_bv = z3bridge.triton_to_claripy(self.ctx, self.ctx.getMemoryAst(mem))
-            self._user_constraints.append(
-                mem_bv == self._slice(bv, address, offset, chunk)
-            )
+                self._user_constraints.append(
+                    mem_bv == self._slice(bv, address, offset, chunk)
+                )
+
+    def _register_key(self, name: str) -> str:
+        """The parent register ``name`` belongs to, as a stable identity.
+
+        SmallWorld reaches one physical register through several names ("pc"
+        and "rip", "edi" and "rdi"), so anything keyed on the caller's spelling
+        would treat them as unrelated.
+        """
+        return str(self.ctx.getParentRegister(self._reg(name)).getName())
 
     def write_register_content(
         self, name: str, content: typing.Union[None, int, claripy.ast.bv.BV]
     ) -> None:
         if content is not None:
-            self._written_registers.add(name.lower())
-        if isinstance(content, claripy.ast.bv.BV):
+            self._written_registers.add(self._register_key(name))
+        if isinstance(content, claripy.ast.bv.BV) and content.symbolic:
             self._write_symbolic_register(self._reg(name), name, content)
+        elif isinstance(content, claripy.ast.bv.BV):
+            # A concrete bitvector is just an integer with a width; hand it to
+            # the base so the ARM32 Thumb-bit handling and the register-name
+            # checks apply to it exactly as they do to a plain int.
+            super().write_register_content(name, content.concrete_value)
         else:
             # None / int (and thumb handling) are dealt with by the concrete base.
             super().write_register_content(name, content)
@@ -160,17 +187,18 @@ class TritonSymbolicEmulator(
         return z3bridge.triton_to_claripy(self.ctx, node)
 
     def read_memory_symbolic(self, address: int, size: int) -> claripy.ast.bv.BV:
-        if _is_access_size(size):
-            node = self.ctx.getMemoryAst(MemoryAccess(address, size))
-            return z3bridge.triton_to_claripy(self.ctx, node)
-        # As in _write_symbolic_memory: read in power-of-two chunks and glue
-        # them back together in memory order.
-        parts = [
-            z3bridge.triton_to_claripy(
-                self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
-            )
-            for offset, chunk in _access_chunks(address, size)
-        ]
+        with self._direct_access():
+            if _is_access_size(size):
+                node = self.ctx.getMemoryAst(MemoryAccess(address, size))
+                return z3bridge.triton_to_claripy(self.ctx, node)
+            # As in _write_symbolic_memory: read in power-of-two chunks and glue
+            # them back together in memory order.
+            parts = [
+                z3bridge.triton_to_claripy(
+                    self.ctx, self.ctx.getMemoryAst(MemoryAccess(offset, chunk))
+                )
+                for offset, chunk in _access_chunks(address, size)
+            ]
         if self._byteorder() == "little":
             # Chunk 0 holds the least significant bytes, and Concat is MSB-first.
             parts.reverse()
@@ -195,12 +223,17 @@ class TritonSymbolicEmulator(
         return int(self.ctx.getConcreteRegisterValue(reg))
 
     def read_memory_content(self, address: int, size: int) -> bytes:
-        if self._memory_symbolized:
-            for offset in range(size):
-                if self.ctx.isMemorySymbolized(MemoryAccess(address + offset, 1)):
-                    raise exceptions.SymbolicValueError(
-                        f"Memory at {hex(address)} (size {size}) is symbolic"
-                    )
+        # Not gated on "did the harness write a symbolic value": memory also
+        # becomes symbolic by *execution* (a symbolized register spilled to the
+        # stack), and returning Triton's concrete shadow for that would hand the
+        # caller a silently wrong value instead of routing it through
+        # read_memory_symbolic. Checked in MemoryAccess-sized chunks rather than
+        # byte by byte -- isMemorySymbolized is true if any covered byte is.
+        for offset, chunk in _access_chunks(address, size):
+            if self.ctx.isMemorySymbolized(MemoryAccess(offset, chunk)):
+                raise exceptions.SymbolicValueError(
+                    f"Memory at {hex(address)} (size {size}) is symbolic"
+                )
         return bytes(self.ctx.getConcreteMemoryAreaValue(address, size, False))
 
     # --------------------------------------------------------------- labels
@@ -217,7 +250,7 @@ class TritonSymbolicEmulator(
         # actually wrote one (angr/Ghidra discipline); a never-written register
         # reads as Triton's default 0, which must stay a free symbol, not get
         # pinned to 0.
-        if name.lower() in self._written_registers:
+        if self._register_key(name) in self._written_registers:
             prev = self.read_register_symbolic(name)
             if not (prev.symbolic and prev.op == "BVS"):
                 self._user_constraints.append(prev == bv)
@@ -242,12 +275,19 @@ class TritonSymbolicEmulator(
         self._user_constraints.append(expr)
 
     def _path_constraints(self) -> typing.List[claripy.ast.bool.Bool]:
-        """Lift Triton's accumulated path predicate into claripy."""
+        """Lift Triton's accumulated path predicate into claripy.
+
+        Failures are *not* swallowed: dropping the path predicate would leave
+        ``satisfiable``/``eval_atmost`` answering from the user's constraints
+        alone, which is unsound rather than merely incomplete.
+        """
         try:
             node = self.ctx.getPathPredicate()
             predicate = z3bridge.triton_to_claripy_bool(self.ctx, node)
-        except Exception:
-            return []
+        except Exception as e:
+            raise exceptions.SymbolicValueError(
+                f"Could not lift Triton's path predicate into claripy: {e}"
+            ) from e
         # A trivially-true predicate (no branches yet) adds nothing useful.
         if predicate.op == "BoolV" and predicate.is_true():
             return []
@@ -305,6 +345,26 @@ class TritonSymbolicEmulator(
         return results
 
     # --------------------------------------------------------- SymbolicEmulator
+
+    def _no_symbolic_hooks(self, what: str) -> typing.NoReturn:
+        raise exceptions.ConfigurationError(
+            f"TritonSymbolicEmulator does not implement {what}: Triton's memory "
+            f"callbacks carry concrete values only, so there is no symbolic hook "
+            f"path to route them through. Use AngrEmulator or "
+            f"GhidraSymbolicEmulator for symbolic MMIO."
+        )
+
+    def hook_memory_read_symbolic(self, start, end, function) -> None:
+        self._no_symbolic_hooks("symbolic memory-read hooks")
+
+    def hook_memory_reads_symbolic(self, function) -> None:
+        self._no_symbolic_hooks("symbolic memory-read hooks")
+
+    def hook_memory_write_symbolic(self, start, end, function) -> None:
+        self._no_symbolic_hooks("symbolic memory-write hooks")
+
+    def hook_memory_writes_symbolic(self, function) -> None:
+        self._no_symbolic_hooks("symbolic memory-write hooks")
 
     def enable_branching(self) -> None:
         raise NotImplementedError(

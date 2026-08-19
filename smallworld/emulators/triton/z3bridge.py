@@ -30,8 +30,11 @@ class TritonBridgeUnavailable(Exception):
 
 # SMT-LIB2 "simple symbols": letters, digits and a fixed set of punctuation,
 # not starting with a digit. Anything else has to be written as a quoted symbol.
+# ``\A``/``\Z`` rather than ``^``/``$``: Python's ``$`` also matches just before
+# a trailing newline, which would let a label like ``"abc\n"`` through unquoted
+# and come back out of z3 as the different symbol ``abc``.
 _SIMPLE_SYMBOL = re.compile(
-    r"^[A-Za-z~!@$%^&*_\-+=<>.?/][A-Za-z0-9~!@$%^&*_\-+=<>.?/]*$"
+    r"\A[A-Za-z~!@$%^&*_\-+=<>.?/][A-Za-z0-9~!@$%^&*_\-+=<>.?/]*\Z"
 )
 
 
@@ -71,15 +74,32 @@ def _declarations(ctx) -> str:
     (SmallWorld always supplies the claripy variable name as the alias) and by
     its ``SymVar_N`` name otherwise, so we declare both spellings; the unused one
     is harmless.
+
+    Spellings are deduplicated across *all* variables, not just within one:
+    reusing a SmallWorld label ("arg", "fake return address") gives several
+    Triton variables the same alias, and declaring it twice makes z3 reject the
+    whole string. One declaration means both uses resolve to the same solver
+    variable, which is exactly what angr's ``write_register_label`` documents
+    for a repeated label.
     """
     lines = []
+    emitted: typing.Dict[str, int] = {}
     for var in ctx.getSymbolicVariables().values():
         size = var.getBitSize()
-        emitted = set()
         for name in (var.getName(), var.getAlias()):
-            if name and name not in emitted:
-                emitted.add(name)
-                lines.append(f"(declare-fun {name} () (_ BitVec {size}))")
+            if not name:
+                continue
+            previous = emitted.get(name)
+            if previous == size:
+                continue
+            if previous is not None:
+                raise ValueError(
+                    f"Symbolic variable name '{name}' is used at two different "
+                    f"widths ({previous} and {size} bits); give the two values "
+                    f"distinct labels."
+                )
+            emitted[name] = size
+            lines.append(f"(declare-fun {name} () (_ BitVec {size}))")
     return "".join(line + "\n" for line in lines)
 
 

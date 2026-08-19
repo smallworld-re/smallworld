@@ -24,6 +24,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `TritonSymbolicEmulator` handles labels whose names are not SMT-LIB symbols
   (`"fake return address"`), and symbolic memory of any size rather than only
   Triton's power-of-two access widths.
+- `TritonEmulator` runs x86 `rep`-prefixed string instructions to completion
+  instead of stopping after the first iteration.
+- `TritonEmulator` reports an undecodable instruction as
+  `EmulationExecInvalidFailure` rather than letting Triton's own `TypeError`
+  escape.
+- `TritonEmulator` honors a PC written by an instruction, syscall or interrupt
+  hook, dispatches both the global and the numbered interrupt hook, and no
+  longer spins forever on a function hook that leaves PC alone.
+- `TritonEmulator` recognises predicated ARM32 traps (`svcne`) and evaluates
+  their condition instead of reporting them as invalid instructions, and
+  rejects a memory-read hook that returns the wrong number of bytes.
+- `TritonSymbolicEmulator` survives a branch on symbolic data, detects memory
+  that execution made symbolic, records symbolic writes in the memory map,
+  keeps its internal accesses out of the user's memory hooks, and binds a
+  register label written through an alias (`edi` for `rdi`, `pc` for `rip`).
+- Reusing one label for two values no longer makes the Triton-to-claripy
+  bridge emit a duplicate SMT-LIB declaration.
+- The Triton machine definitions no longer resolve `triton.ARCH` at import
+  time, so a Triton build missing one architecture fails when that
+  architecture is requested rather than breaking `import smallworld`, and the
+  "install the [emu-triton] extra" error is reachable again.
 
 ### Added
 

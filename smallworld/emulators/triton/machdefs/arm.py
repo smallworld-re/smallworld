@@ -1,5 +1,3 @@
-from triton import ARCH
-
 from ....platforms import Architecture, Byteorder
 from .machdef import TritonMachineDef
 
@@ -53,7 +51,7 @@ class TritonARMMachineDef(TritonMachineDef):
     """Base Triton machine definition for 32-bit ARM (abstract on ``arch``)."""
 
     byteorder = Byteorder.LITTLE
-    triton_arch = ARCH.ARM32
+    triton_arch_name = "ARM32"
     pc_register = "pc"
     sp_register = "sp"
     lr_register = "lr"

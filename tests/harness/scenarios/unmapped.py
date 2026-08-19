@@ -227,8 +227,10 @@ def _build_machine(smallworld, arch: str, engine: str, spec: UnmappedSpec):
     if engine in ("unicorn", "triton"):
         # Neither backend will start without somewhere to stop: Unicorn needs an
         # exit sentinel and Triton's run loop refuses to run with no exit point
-        # or bound. Nothing here jumps to 0 -- the unmapped target is 0x8000 --
-        # so this stays out of the way of the faults under test.
+        # or bound. Address 0 is the right sentinel because no return address is
+        # pushed, so the function under test returns into the zero-filled stack
+        # and lands there; the faults this scenario is about happen earlier, at
+        # the unmapped target (0x8000).
         machine.add_exit_point(0)
 
     return machine, cpu, platform, code

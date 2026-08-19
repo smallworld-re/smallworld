@@ -1,5 +1,3 @@
-from triton import ARCH
-
 from ....platforms import Architecture, Byteorder
 from .machdef import TritonMachineDef
 
@@ -104,7 +102,7 @@ class TritonI386MachineDef(TritonMachineDef):
 
     arch = Architecture.X86_32
     byteorder = Byteorder.LITTLE
-    triton_arch = ARCH.X86
+    triton_arch_name = "X86"
     pc_register = "eip"
     sp_register = "esp"
     lr_register = None
