@@ -96,6 +96,7 @@ class SH2AFPU(PlatformDef):
 
     architecture = Architecture.SUPERH_SH2A_FPU
     byteorder = Byteorder.BIG
+    ghidra_language_id = "SuperH:BE:32:SH-2A"
 
     address_size = 4
 

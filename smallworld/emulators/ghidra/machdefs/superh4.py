@@ -36,8 +36,10 @@ SH4_GHIDRA_NAMES = {
 class SuperH4MachineDef(GhidraMachineDef):
     """Shared SH-4/SH-4A definition.
 
-    Has no ``byteorder`` or ``language_id``, so ``find_subclass`` never selects
-    it; the concrete subclasses below do.
+    Has no ``byteorder``, so ``find_subclass`` -- which selects on
+    ``arch``/``byteorder`` -- never picks it; the concrete subclasses below
+    carry the byte order and, through their platform definitions, the language
+    id.
     """
 
     arch = Architecture.SUPERH_SH4
@@ -84,12 +86,10 @@ class SuperH4MachineDef(GhidraMachineDef):
 
 class SuperH4BEMachineDef(SuperH4MachineDef):
     byteorder = Byteorder.BIG
-    language_id = "SuperH4:BE:32:default"
 
 
 class SuperH4ELMachineDef(SuperH4MachineDef):
     byteorder = Byteorder.LITTLE
-    language_id = "SuperH4:LE:32:default"
 
     # Undo sleigh's unswapped alternate-bank names; see the note on
     # `_registers` above. Measured on `SuperH4:LE:32:default`: xd0 sits at
