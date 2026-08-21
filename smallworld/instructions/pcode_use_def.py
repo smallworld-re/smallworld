@@ -63,17 +63,20 @@ def _prepare_symz3_extension():
     that first starter, a :class:`GhidraSymbolicEmulator` constructed later can
     no longer load the extension (its own loader would run too late). Preparing
     it here keeps both consumers working regardless of which boots the JVM
-    first. Silently does nothing when the symbolic extension isn't available
-    (e.g. a base install without the Ghidra symbolic emulator)."""
+    first. Does nothing when the symbolic extension isn't available (e.g. a
+    base install without the Ghidra symbolic emulator)."""
     try:
         from smallworld.emulators.ghidra import symz3_loader
 
         symz3_loader.prepare_extension()
-    except Exception:
+    except Exception as e:
         # The extension is optional; use/def must work without it. Any failure
         # here (no install dir, missing extension, unsupported Ghidra) just
         # means a later GhidraSymbolicEmulator will report the problem itself.
-        pass
+        # Logged rather than swallowed outright: this catch is broad enough to
+        # hide the extension going missing entirely -- an AttributeError from a
+        # renamed symz3_loader API looks exactly like "no extension installed".
+        logger.debug(f"not preparing the SymZ3 extension: {e!r}")
 
 
 def _ensure_pyghidra():
