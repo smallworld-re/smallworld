@@ -90,52 +90,6 @@ def _ensure_pyghidra():
         _pyghidra_started = True
 
 
-# --------------------------------------------------------------------------- #
-# Architecture / bytes-input plumbing for the standalone bytes-mode CLI
-# --------------------------------------------------------------------------- #
-
-# Friendly arch aliases -> Ghidra language IDs. Anything containing ':'
-# is passed through verbatim, so power users can name any language id
-# from Ghidra/Processors/*/data/languages/*.ldefs directly.
-ARCH_ALIASES = {
-    "x86": "x86:LE:32:default",
-    "x86-32": "x86:LE:32:default",
-    "i386": "x86:LE:32:default",
-    "x86-64": "x86:LE:64:default",
-    "amd64": "x86:LE:64:default",
-    "x64": "x86:LE:64:default",
-    "arm": "ARM:LE:32:v8",
-    "arm32": "ARM:LE:32:v8",
-    "armbe": "ARM:BE:32:v8",
-    "aarch64": "AARCH64:LE:64:v8A",
-    "arm64": "AARCH64:LE:64:v8A",
-    "mips": "MIPS:BE:32:default",
-    "mips32": "MIPS:BE:32:default",
-    "mipsle": "MIPS:LE:32:default",
-    "mips64": "MIPS:BE:64:default",
-    "ppc": "PowerPC:BE:32:default",
-    "ppc32": "PowerPC:BE:32:default",
-    "ppc64": "PowerPC:BE:64:default",
-    "sparc": "sparc:BE:32:default",
-    "riscv": "RISCV:LE:64:RV64GC",
-    "riscv32": "RISCV:LE:32:RV32GC",
-}
-
-
-def _resolve_language_id(arch):
-    """Map a friendly arch name to a Ghidra LanguageID string."""
-    if ":" in arch:
-        return arch
-    key = arch.lower()
-    if key in ARCH_ALIASES:
-        return ARCH_ALIASES[key]
-    raise SystemExit(
-        f"unknown architecture {arch!r}; pass a full Ghidra language id "
-        f"like 'x86:LE:64:default' or one of: "
-        f"{', '.join(sorted(ARCH_ALIASES))}"
-    )
-
-
 # Per-language cache of (offset, size, Register) for register-space
 # registers, used to find the smallest named register containing a
 # varnode when no register starts at the varnode's address (e.g. the
@@ -853,8 +807,7 @@ def _get_or_create_program(arch):
     """Return (flat_api, program, addr_space) for a long-lived program
     of the given architecture, creating it on the first call."""
     _ensure_pyghidra()
-    lang_id = _resolve_language_id(arch)
-    entry = _program_cache.get(lang_id)
+    entry = _program_cache.get(arch)
     if entry is not None:
         cm, flat_api, space = entry
         return flat_api, flat_api.getCurrentProgram(), space
@@ -871,7 +824,7 @@ def _get_or_create_program(arch):
         os.close(fd)
         cm = pyghidra.open_program(
             placeholder,
-            language=lang_id,
+            language=arch,
             loader="ghidra.app.util.opinion.BinaryLoader",
             analyze=False,
         )
@@ -889,25 +842,17 @@ def _get_or_create_program(arch):
     initialized = [b for b in program.getMemory().getBlocks() if b.isInitialized()]
     if not initialized:
         cm.__exit__(None, None, None)
-        raise RuntimeError(
-            f"BinaryLoader produced no initialized blocks for {lang_id!r}"
-        )
+        raise RuntimeError(f"BinaryLoader produced no initialized blocks for {arch!r}")
     space = initialized[0].getStart().getAddressSpace()
 
-    _program_cache[lang_id] = (cm, flat_api, space)
+    _program_cache[arch] = (cm, flat_api, space)
     return flat_api, program, space
 
 
 def _evict_program(arch):
     """Drop a cached program — used after an error left it in a bad
     state, or proactively before process exit."""
-    try:
-        lang_id = _resolve_language_id(arch)
-    except SystemExit:
-        # If arch is no longer resolvable (shouldn't happen normally),
-        # fall through to a no-op rather than blowing up cleanup.
-        return
-    entry = _program_cache.pop(lang_id, None)
+    entry = _program_cache.pop(arch, None)
     if entry is None:
         return
     cm, _flat_api, _space = entry
