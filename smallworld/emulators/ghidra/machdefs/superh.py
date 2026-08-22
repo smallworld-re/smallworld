@@ -27,7 +27,6 @@ SH2A_CONTROL_REGISTERS = (
 class SH2AFPUMachineDef(GhidraMachineDef):
     arch = Architecture.SUPERH_SH2A_FPU
     byteorder = Byteorder.BIG
-    language_id = "SuperH:BE:32:SH-2A"
 
     # Ghidra folds a SuperH delay slot into the translation of the branch that
     # owns it, so one "step" covers both instructions and is safe. Compare

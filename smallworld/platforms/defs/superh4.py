@@ -146,6 +146,7 @@ class SuperH4Def(PlatformDef):
 
 class SuperH4BE(SuperH4Def):
     byteorder = Byteorder.BIG
+    ghidra_language_id = "SuperH4:BE:32:default"
 
     capstone_mode = (
         capstone.CS_MODE_SH4A | capstone.CS_MODE_SHFPU | capstone.CS_MODE_BIG_ENDIAN
@@ -154,5 +155,6 @@ class SuperH4BE(SuperH4Def):
 
 class SuperH4EL(SuperH4Def):
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "SuperH4:LE:32:default"
 
     capstone_mode = capstone.CS_MODE_SH4A | capstone.CS_MODE_SHFPU

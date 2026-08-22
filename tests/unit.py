@@ -1847,6 +1847,84 @@ class GhidraMachdefTests(unittest.TestCase):
         self.run_test(platform)
 
 
+class GhidraMachdefLanguageIdTests(unittest.TestCase):
+    """The SLEIGH language id belongs to PlatformDef, not the machine defs.
+
+    ``GhidraMachineDef.language_id`` is a property that reads
+    ``PlatformDef.ghidra_language_id``, so the id has one home shared by the
+    Ghidra emulator and the p-code use/def analysis. A machine def that
+    declares its own ``language_id`` shadows that property, and the failure
+    is silent and one-sided: the emulator keeps working off the literal
+    while the platform definition reports ``None`` to everyone else. That
+    regressed once already, when the SuperH machine defs were written in
+    parallel with the refactor that centralized the ids, so assert it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # machdefs/machdef.py imports Ghidra Java classes at module scope,
+        # so the JVM must be up before the module can be imported at all.
+        _ensure_pyghidra_started()
+
+    @staticmethod
+    def _machdefs():
+        """Every GhidraMachineDef subclass, abstract bases included."""
+        import smallworld.emulators.ghidra.machdefs  # noqa: F401  (registers them)
+        from smallworld.emulators.ghidra.machdefs.machdef import GhidraMachineDef
+
+        found, stack = [], list(GhidraMachineDef.__subclasses__())
+        while stack:
+            machdef = stack.pop()
+            found.append(machdef)
+            stack.extend(machdef.__subclasses__())
+        return found
+
+    def test_no_machdef_declares_its_own_language_id(self):
+        shadowed = sorted(
+            machdef.__name__
+            for machdef in self._machdefs()
+            if "language_id" in vars(machdef)
+        )
+        self.assertEqual(
+            shadowed,
+            [],
+            msg=f"machine defs shadowing the language_id property: {shadowed}; "
+            f"set ghidra_language_id on the platform definition instead",
+        )
+
+    def test_every_machdef_resolves_its_platform_language_id(self):
+        from smallworld.emulators.ghidra.machdefs.machdef import GhidraMachineDef
+
+        checked = 0
+        for machdef in self._machdefs():
+            arch = getattr(machdef, "arch", None)
+            byteorder = getattr(machdef, "byteorder", None)
+            if not isinstance(arch, platforms.Architecture) or not isinstance(
+                byteorder, platforms.Byteorder
+            ):
+                # A shared base (e.g. SuperH4MachineDef) that leaves one of
+                # them abstract; find_subclass never selects it.
+                continue
+            checked += 1
+            with self.subTest(machdef=machdef.__name__):
+                platdef = platforms.PlatformDef.for_platform(
+                    platforms.Platform(arch, byteorder)
+                )
+                self.assertIsNotNone(
+                    platdef.ghidra_language_id,
+                    msg=f"{machdef.__name__} is selectable for {arch}:{byteorder} "
+                    f"but {type(platdef).__name__} defines no ghidra_language_id",
+                )
+                # Read the property off the class rather than constructing:
+                # GhidraMachineDef.__init__ loads the SLEIGH language, which
+                # is far more work than resolving the id it is asked for.
+                resolved = GhidraMachineDef.language_id.fget(machdef)
+                self.assertEqual(resolved, platdef.ghidra_language_id)
+
+        # Guard against the loop silently skipping everything.
+        self.assertGreater(checked, 0, msg="no concrete machine defs found")
+
+
 class CoverageHarnessTests(unittest.TestCase):
     def test_wrap_python_command_passthrough_when_coverage_disabled(self):
         argv = [sys.executable, "demo.py"]
