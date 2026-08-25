@@ -440,6 +440,148 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         self.assertTrue(insn.reads)
 
 
+class MemoryOperandIdentityTests(unittest.TestCase):
+    """Two accesses to one address at different widths are different
+    accesses. Needs no pyghidra."""
+
+    def test_size_participates_in_equality(self):
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        one = BSIDMemoryReferenceOperand(base="rsp", offset=-8, size=1)
+        eight = BSIDMemoryReferenceOperand(base="rsp", offset=-8, size=8)
+        # They still render identically -- the colorizer truth files and the
+        # trace harness's expected output depend on that spelling.
+        self.assertEqual(repr(one), repr(eight))
+        self.assertNotEqual(one, eight)
+        self.assertEqual(len({one, eight}), 2)
+
+    def test_same_size_still_compares_equal(self):
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        a = BSIDMemoryReferenceOperand(base="rsp", offset=-8, size=8)
+        b = BSIDMemoryReferenceOperand(base="rsp", offset=-8, size=8)
+        self.assertEqual(a, b)
+        self.assertEqual(len({a, b}), 1)
+
+    def test_comparison_against_a_register_operand_is_false(self):
+        from smallworld.instructions import RegisterOperand
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        self.assertNotEqual(
+            BSIDMemoryReferenceOperand(base="rsp", size=8), RegisterOperand("rsp")
+        )
+
+    def test_non_x86_memory_reference_operand_resolves(self):
+        """get_cmp_info calls _memory_reference_operand, which used to exist
+        only on x86Instruction -- so a memory-operand compare on any other
+        platform raised AttributeError. Latent only while RISC compares stay
+        register-only."""
+        import capstone as cs
+
+        from smallworld.instructions import Instruction
+
+        md = cs.Cs(cs.CS_ARCH_PPC, cs.CS_MODE_32 | cs.CS_MODE_BIG_ENDIAN)
+        md.detail = True
+        insn = next(md.disasm(bytes.fromhex("80640008"), 0x1000))  # lwz r3, 8(r4)
+        sw = Instruction.from_capstone(insn)
+        mem = [o for o in insn.operands if o.type == cs.CS_OP_MEM][0]
+        self.assertEqual(sw._memory_reference_operand(mem).base, "r4")
+
+
+class ThumbUseDefBackendTests(unittest.TestCase):
+    """Thumb must not go through p-code. Needs no pyghidra: the refusal
+    happens before the backend is reached."""
+
+    def test_thumb_falls_back_to_capstone(self):
+        from smallworld.instructions import Instruction, RegisterOperand
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        platform = Platform(Architecture.ARM_V6M_THUMB, Byteorder.LITTLE)
+        insn = Instruction.from_bytes(
+            b"\x08\x46", 0x1000, platform, use_def_backend="pcode"
+        )  # Thumb `mov r0, r1`; as ARM these bytes are andeq r0,r0,r6,lsl #16
+        self.assertFalse(insn._use_pcode())
+        self.assertEqual(insn.reads, {RegisterOperand("r1")})
+        self.assertEqual(insn.writes, {RegisterOperand("r0")})
+
+
+@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+class AddressMaskingTests(unittest.TestCase):
+    """The one approximation in the address walker, and its bound."""
+
+    def test_alignment_mask_within_the_access_is_approximated(self):
+        """MIPS lwl/lwr compute addr - (addr & 3) for a 4-byte access; the
+        mask moves the address by less than the access, so dropping it keeps
+        the operand inside the same access."""
+        from smallworld.instructions import RegisterOperand
+        from smallworld.instructions.pcode_use_def import analyze
+
+        result = analyze(bytes.fromhex("88a40000"), "MIPS:BE:32:default", 0)  # lwl
+        self.assertIsNotNone(result)
+        mems = [o for o in result.uses if not isinstance(o, RegisterOperand)]
+        self.assertTrue(mems, "lwl reported no memory operand")
+
+    def test_mask_wider_than_the_access_raises(self):
+        """Unbounded, the approximation rewrote real address arithmetic: a
+        truncating `x & 0xffff` matched the "remainder bits" form and dropped
+        the term, so base + (x & 0xffff) silently became base."""
+        from smallworld.instructions.pcode_use_def import (
+            _PCODE_OP,
+            UseDefError,
+            _flatten_sum,
+        )
+
+        class _Const:
+            """Stand-in for a constant varnode; _flatten_sum only asks these."""
+
+            def __init__(self, value, size):
+                self._value, self._size = value, size
+
+            def getSize(self):
+                return self._size
+
+            def getOffset(self):
+                return self._value
+
+            def isConstant(self):
+                return True
+
+        class _Reg(_Const):
+            def isConstant(self):
+                return False
+
+        reg = _Reg(0, 4)
+        # 0xffff spans far more than a 4-byte access: not approximable.
+        with self.assertRaises(UseDefError):
+            _flatten_sum((_PCODE_OP.INT_AND, [reg, _Const(0xFFFF, 4)]), 1, [], 4)
+        # 3 is within a 4-byte access: still approximated, as MIPS lwl needs.
+        terms = []
+        _flatten_sum((_PCODE_OP.INT_AND, [reg, _Const(3, 4)]), 1, terms, 4)
+        self.assertEqual(terms, [])
+        # x & 0 is 0, not x -- the align-down test would once have claimed
+        # the whole mask was a no-op, because (~0) & (~0 + 1) is 0 in
+        # Python's unbounded ints.
+        terms = []
+        _flatten_sum((_PCODE_OP.INT_AND, [reg, _Const(0, 4)]), 1, terms, 4)
+        self.assertEqual(terms, [])
+
+    def test_indirect_branch_target_is_reported(self):
+        """The register whose value is the destination, resolved through the
+        symbolic state: Ghidra's MIPS jr is COPY t9 -> pc then BRANCHIND pc,
+        masked by a computed ~1, so neither the raw varnode nor the address
+        walker recovers t9."""
+        from smallworld.instructions.pcode_use_def import analyze
+
+        result = analyze(bytes.fromhex("03200008"), "MIPS:BE:32:default", 0)  # jr t9
+        self.assertEqual(result.indirect_targets, ("t9",))
+
+    def test_direct_branch_reports_no_indirect_target(self):
+        from smallworld.instructions.pcode_use_def import analyze
+
+        result = analyze(bytes.fromhex("11090004"), "MIPS:BE:32:default", 0)  # beq
+        self.assertEqual(result.indirect_targets, ())
+
+
 @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""

@@ -41,6 +41,7 @@ base_address. It is used by smallworld.instructions.Instruction.reads /
 import atexit
 import functools
 import logging
+import threading
 import typing
 from enum import Enum, auto
 
@@ -396,6 +397,13 @@ class InstructionUseDef(typing.NamedTuple):
     size: int
     uses: typing.Tuple[Operand, ...]
     defs: typing.Tuple[Operand, ...]
+    #: Registers whose *value* is the destination of an indirect transfer
+    #: (BRANCHIND/CALLIND/RETURN) -- MIPS `jr $t9`, x86 `jmp rax`. Reported
+    #: separately because "this register holds a code pointer" is structure
+    #: the flat use set cannot express, and a consumer that models the
+    #: implicit dereference needs to know WHICH register is dereferenced
+    #: rather than guessing from the whole read set.
+    indirect_targets: typing.Tuple[str, ...] = ()
 
 
 class UseDefError(Exception):
@@ -504,26 +512,37 @@ def _unwrap_ext(expr):
     return expr
 
 
-def _flatten_sum(expr, sign, terms):
+def _flatten_sum(expr, sign, terms, size):
     """Flatten an address expression into a list of (sign, term) where
-    each term is a varnode or a multiplicative sub-expression."""
+    each term is a varnode or a multiplicative sub-expression.
+
+    `size` is the access width in bytes, which bounds the one
+    approximation made here -- see the INT_AND branch.
+    """
     expr = _unwrap_ext(expr)
     if isinstance(expr, tuple):
         mnem, args = expr
         if mnem == _PCODE_OP.INT_ADD:
-            _flatten_sum(args[0], sign, terms)
-            _flatten_sum(args[1], sign, terms)
+            _flatten_sum(args[0], sign, terms, size)
+            _flatten_sum(args[1], sign, terms, size)
             return
         if mnem == _PCODE_OP.INT_SUB:
-            _flatten_sum(args[0], sign, terms)
-            _flatten_sum(args[1], -sign, terms)
+            _flatten_sum(args[0], sign, terms, size)
+            _flatten_sum(args[1], -sign, terms, size)
             return
         if mnem == _PCODE_OP.INT_AND:
-            # Alignment masking, as in MIPS lwl/lwr's
-            # addr - (addr & 3). BSID form can't express masking, so
-            # approximate within the mask's span (< the access size):
+            # Alignment masking, as in MIPS lwl/lwr's addr - (addr & 3).
+            # BSID form cannot express masking, so approximate:
             #   x & ~(2^k - 1)  (align down)      ~~> x
             #   x & (2^k - 1)   (remainder bits)  ~~> 0
+            # Both move the address by less than 2^k, so this is only
+            # defensible while 2^k does not exceed the access width -- the
+            # approximated address still lands inside the same access.
+            # Unbounded, it silently rewrote real address arithmetic: a
+            # truncating `x & 0xffff` matched the second form and dropped
+            # the term outright, so `base + (x & 0xffff)` became `base`,
+            # losing the index register with no diagnostic. Every other
+            # unrepresentable shape in this module raises; so does this.
             const, other = None, None
             for cand, rest in ((args[0], args[1]), (args[1], args[0])):
                 if not isinstance(cand, tuple) and cand.isConstant():
@@ -533,11 +552,21 @@ def _flatten_sum(expr, sign, terms):
                 width = int(const.getSize()) * 8
                 mask = int(const.getOffset()) & ((1 << width) - 1)
                 inv = (~mask) & ((1 << width) - 1)
-                if inv & (inv + 1) == 0:  # x & ~(2^k-1): treat as x
-                    _flatten_sum(other, sign, terms)
+                # `x & 0` is 0, not x: check it before the align-down test,
+                # whose (~0) & (~0 + 1) is 0 in Python's unbounded ints and
+                # would otherwise claim the whole mask is a no-op.
+                if mask == 0:
                     return
-                if mask & (mask + 1) == 0:  # x & (2^k-1): treat as 0
+                if inv & (inv + 1) == 0 and inv < size:  # x & ~(2^k-1) ~~> x
+                    _flatten_sum(other, sign, terms, size)
                     return
+                if mask & (mask + 1) == 0 and mask < size:  # x & (2^k-1) ~~> 0
+                    return
+                raise UseDefError(
+                    f"address masked by {mask:#x}, which spans more than the "
+                    f"{size}-byte access: cannot express in base/index/offset "
+                    f"form without moving the address"
+                )
     terms.append((sign, expr))
 
 
@@ -557,7 +586,7 @@ def _expr_to_bsid(
     UseDefError.
     """
     terms: typing.List[typing.Any] = []
-    _flatten_sum(expr, 1, terms)
+    _flatten_sum(expr, 1, terms, size)
 
     offset = 0
     plain_regs = []
@@ -639,6 +668,27 @@ def _expr_to_bsid(
     )
 
 
+def _expr_registers(expr, program, found):
+    """Collect the names of register varnodes appearing in a resolved
+    expression, in encounter order.
+
+    Deliberately simpler than `_expr_to_bsid`: the question here is only
+    which register a value came from, not what address it forms. An
+    indirect branch destination is routinely masked by a *computed*
+    constant -- MIPS `jr $t9` resolves to `t9 & INT_2COMP(2)`, clearing the
+    ISA-mode bit -- which the address walker rejects because its INT_AND
+    case needs a literal.
+    """
+    if isinstance(expr, tuple):
+        for arg in expr[1]:
+            _expr_registers(arg, program, found)
+    elif expr.isRegister():
+        name = _reg_name(program, expr)
+        if name not in found:
+            found.append(name)
+    return found
+
+
 def _load_store_mem(op, program, sstate, size):
     """Memory operand for a LOAD/STORE op's address (input 1)."""
     inputs = op.getInputs()
@@ -679,6 +729,7 @@ def _instruction_use_def(program, instr):
     sstate = {}
     pdebug = False
 
+    indirect_targets: typing.List[str] = []
     for op in instr.getPcode():
 
         if pdebug:
@@ -733,6 +784,33 @@ def _instruction_use_def(program, instr):
             if mnemonic in (_PCODE_OP.BRANCH, _PCODE_OP.CBRANCH, _PCODE_OP.CALL)
             else None
         )
+        if mnemonic in (
+            _PCODE_OP.BRANCHIND,
+            _PCODE_OP.CALLIND,
+            _PCODE_OP.RETURN,
+        ):
+            # Input 0's value is where control goes. Resolve it through the
+            # symbolic state first: several models route the destination
+            # through a register before transferring, so the varnode here is
+            # not the architectural one. Ghidra's MIPS `jr $t9` is
+            # COPY t9 -> pc then BRANCHIND pc, and recording `pc` would name
+            # the program counter rather than the register holding the
+            # pointer.
+            # ...and it is rarely a bare register: MIPS `jr $t9` resolves to
+            # `t9 & ~1` (clearing the ISA-mode bit), ARM does the same for
+            # bx. That is an address expression, so reuse the address walker
+            # and take the register it lands on.
+            target = _resolve_input(op.getInput(0), sstate)
+            regs = [
+                name
+                for name in _expr_registers(target, program, [])
+                if name not in _GHIDRA_INTERNAL_REGS
+            ]
+            # Exactly one register, or the destination is computed from
+            # several and naming any one of them as "the pointer" would be
+            # a guess.
+            if len(regs) == 1:
+                indirect_targets.append(regs[0])
         # Dependency-breaking idiom: an op whose result is a constant
         # when both inputs are the same register does not genuinely read
         # that register. This is x86's canonical zeroing -- `xor eax,eax`
@@ -837,7 +915,7 @@ def _instruction_use_def(program, instr):
         defs.add(reg)
         written_so_far.add(reg)
 
-    return uses, defs
+    return uses, defs, tuple(indirect_targets)
 
 
 # --------------------------------------------------------------------------- #
@@ -905,15 +983,16 @@ def _get_or_create_program(arch):
 def _evict_program(arch):
     """Drop a cached program — used after an error left it in a bad
     state, or proactively before process exit."""
-    entry = _program_cache.pop(arch, None)
-    if entry is None:
-        return
-    cm, _flat_api, _space = entry
-    try:
-        cm.__exit__(None, None, None)
-    except Exception:
-        # Best-effort teardown; the JVM may already be torn down.
-        pass
+    with _analysis_lock:
+        entry = _program_cache.pop(arch, None)
+        if entry is None:
+            return
+        cm, _flat_api, _space = entry
+        try:
+            cm.__exit__(None, None, None)
+        except Exception:
+            # Best-effort teardown; the JVM may already be torn down.
+            pass
 
 
 @atexit.register
@@ -983,6 +1062,18 @@ def _populate_program(program, addr_space, byte_data, base_address):
         program.endTransaction(tx, True)
 
 
+#: Serializes the cold path. `_program_cache` holds ONE Ghidra program per
+#: architecture and `_populate_program` mutates it in place -- it removes
+#: every memory block and recreates one -- so two threads analyzing the same
+#: architecture would each disassemble against the other's bytes. lru_cache
+#: does not serialize the wrapped call, and SmallWorld does run emulation
+#: callbacks off the main thread (see emulators/panda/panda.py's
+#: PandaThread), which is where a user instruction hook reaching reads/writes
+#: would come from. The lock is re-entrant because _analyze_inner's error
+#: path calls _evict_program, which takes it too.
+_analysis_lock = threading.RLock()
+
+
 def _analyze_inner(byte_data, arch, base_address):
     """Uncached implementation; see analyze for the public API.
 
@@ -991,6 +1082,12 @@ def _analyze_inner(byte_data, arch, base_address):
     program so a subsequent call rebuilds it cleanly rather than
     inheriting a half-initialized state.
     """
+    with _analysis_lock:
+        return _analyze_locked(byte_data, arch, base_address)
+
+
+def _analyze_locked(byte_data, arch, base_address):
+    """_analyze_inner's body; runs holding _analysis_lock."""
     try:
         flat_api, program, addr_space = _get_or_create_program(arch)
         # Pad with zero bytes so instructions at the end of the buffer
@@ -1010,12 +1107,13 @@ def _analyze_inner(byte_data, arch, base_address):
         )
         if instr is None:
             return None
-        uses, defs = _instruction_use_def(program, instr)
+        uses, defs, indirect_targets = _instruction_use_def(program, instr)
         return InstructionUseDef(
             disassembly=instr.toString(),
             size=int(instr.getLength()),
             uses=tuple(uses),
             defs=tuple(defs),
+            indirect_targets=indirect_targets,
         )
     except UseDefError:
         # Raised by the pure-Python walk over already-decoded p-code, which
@@ -1083,6 +1181,21 @@ def analyze(
     `byte_data` must contain that instruction; trailing bytes are ignored
     (and are sometimes necessary -- see the delay-slot note below).
     Returns None if Ghidra decoded no instruction at `base_address`.
+
+    Two properties of the input are the caller's responsibility:
+
+      * `arch` must be the language the bytes are actually in. Ghidra
+        decodes with the language's default context, so a Thumb
+        instruction handed to an ARM-mode language id decodes as ARM --
+        a valid, entirely different instruction, with no error. Check
+        the returned `size` against what your own disassembler found.
+
+      * Trailing bytes after the instruction should be padding, not the
+        real successor, on a delay-slot ISA. Ghidra expands a delay slot
+        into the branch's own p-code, so a branch followed by its real
+        successor reports the pair's combined effects as the branch's.
+        Zero padding (which decodes as a nop) keeps a branch's use/def
+        its own.
 
     Caching is layered for speed:
 

@@ -101,11 +101,22 @@ class MemoryReferenceOperand(Operand):
     def key(self, emulator: emulators.Emulator) -> int:
         return self.address(emulator)
 
+    # Size participates in identity, but deliberately NOT in __repr__:
+    # BSIDMemoryReferenceOperand renders only base/index/scale/offset, and
+    # that spelling is baked into the colorizer's truth files and the trace
+    # harness's expected output. Comparing reprs alone made a 1-byte and an
+    # 8-byte access to the same address equal, so a set kept whichever
+    # arrived first -- and concretize() then read the wrong number of bytes.
+    # The p-code path leans on this: it suppresses a LOAD's memory use when
+    # the same address was already stored to, which without size silently
+    # dropped the read half of a read-modify-write at a different width.
     def __eq__(self, other):
-        return self.__repr__() == other.__repr__()
+        if not isinstance(other, MemoryReferenceOperand):
+            return NotImplemented
+        return (repr(self), self.size) == (repr(other), other.size)
 
     def __hash__(self):
-        return hash(self.__repr__())
+        return hash((repr(self), self.size))
 
     def concretize(self, emulator: emulators.Emulator) -> typing.Optional[bytes]:
         return emulator.read_memory(self.address(emulator), self.size)
@@ -238,16 +249,41 @@ class Instruction(metaclass=abc.ABCMeta):
         except ValueError:
             raise ValueError(f"No instruction format for {platform}")
 
+    #: Whether the Ghidra-pcode backend can analyze this instruction format.
+    #: False where the platform's SLEIGH language decodes these bytes only
+    #: under a non-default context register the analysis does not set -- see
+    #: ARMV6MThumbInstruction. Such a platform still has a
+    #: ghidra_language_id (its Ghidra emulator needs one); it is the p-code
+    #: use/def path specifically that cannot use it.
+    supports_pcode_use_def: bool = True
+
     @abc.abstractmethod
     def _memory_reference(self, operand) -> MemoryReferenceOperand:
         pass
+
+    def _memory_reference_operand(self, operand) -> MemoryReferenceOperand:
+        """Memory operand built from a single Capstone operand.
+
+        Same thing as `_memory_reference` for every architecture but x86,
+        whose `_memory_reference` takes six separate components instead and
+        which therefore overrides both. This exists so callers holding one
+        Capstone operand -- analyses/trace_execution.py's get_cmp_info -- can
+        name one method rather than the x86-only one, which raised
+        AttributeError on any other platform the moment a compare took a
+        memory operand.
+        """
+        return self._memory_reference(operand)
 
     def _pcode_use_def(self, kind: str) -> typing.Set[Operand]:
         """Registers and memory references read ('use') or written
         ('def') by this instruction, per the Ghidra-pcode analysis."""
         # Deferred imports: pcode_use_def pulls in pyghidra, and
         # pcode_naming imports this module (as bsid does).
-        from .pcode_naming import canonicalize_operand, collapse_widened_defs
+        from .pcode_naming import (
+            canonicalize_operand,
+            canonicalize_register,
+            collapse_widened_defs,
+        )
         from .pcode_use_def import UseDefError, analyze
 
         platdef = PlatformDef.for_platform(self.platform)
@@ -279,6 +315,22 @@ class Instruction(metaclass=abc.ABCMeta):
                 f"{kind} set is empty"
             )
             return set()
+        if result.size != self._instruction.size:
+            # Ghidra and Capstone decoded different lengths, so they did not
+            # decode the same instruction and these operands describe the
+            # wrong one. The reachable case is a Thumb platform: its
+            # PlatformDef deliberately shares the ARM-mode language id
+            # (Ghidra selects Thumb through the TMode context register,
+            # which the analysis does not set), so Thumb bytes decode as a
+            # valid, unrelated ARM instruction. Also catches encodings the
+            # two disassemblers simply read differently.
+            logger.warning(
+                f"pcode decoded {result.size} bytes ({result.disassembly}) "
+                f"where Capstone decoded {self._instruction.size} for "
+                f"{self.instruction.hex()} on {platdef.ghidra_language_id}; "
+                f"{kind} set is empty"
+            )
+            return set()
         operands: typing.Set[Operand] = set()
         for op in result.uses if kind == "use" else result.defs:
             canon = canonicalize_operand(op, platdef)
@@ -295,15 +347,33 @@ class Instruction(metaclass=abc.ABCMeta):
             # both. The Capstone-based path replaced the register with
             # the memory reference and lost the register read.
             #
+            # Only the registers the analysis identified as the transfer
+            # destination, not every register left in the read set: this
+            # runs after canonicalization has flattened the result, so
+            # without indirect_targets there is nothing here to tell a
+            # code pointer from an ordinary operand. `jalr` already reads
+            # more than its target, and the first mnemonic added whose
+            # p-code reads a second register (x86 `call rax` also reads
+            # rsp) would otherwise fabricate a memory read at a
+            # non-pointer -- which the colorizer and Unicorn then resolve
+            # for real.
+            #
             # Reads only, deliberately: for jalr, writes name the link
             # register, and dereferencing those would fabricate memory
             # writes at 'ra' and 'pc'.
             from .bsid import BSIDMemoryReferenceOperand
 
+            targets = {
+                name
+                for name in (
+                    canonicalize_register(t, platdef) for t in result.indirect_targets
+                )
+                if name is not None
+            }
             operands |= {
                 BSIDMemoryReferenceOperand(base=op.name, size=platdef.address_size)
                 for op in operands
-                if isinstance(op, RegisterOperand)
+                if isinstance(op, RegisterOperand) and op.name in targets
             }
         if kind == "def":
             operands = collapse_widened_defs(operands, platdef)
@@ -314,6 +384,12 @@ class Instruction(metaclass=abc.ABCMeta):
         rather than the Capstone implementation, per this instruction's
         `use_def_backend` (see the module comment)."""
         if self.use_def_backend != USE_DEF_BACKEND_PCODE:
+            return False
+        if not self.supports_pcode_use_def:
+            logger.warning(
+                f"pcode use/def requested but {type(self).__name__} cannot "
+                f"use it; using Capstone"
+            )
             return False
         platdef = PlatformDef.for_platform(self.platform)
         if platdef.ghidra_language_id is None:

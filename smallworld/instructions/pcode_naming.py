@@ -105,6 +105,16 @@ def _platform_name(ghidra_name: str, platdef: PlatformDef) -> typing.Optional[st
     return name
 
 
+def canonicalize_register(
+    ghidra_name: str, platdef: PlatformDef
+) -> typing.Optional[str]:
+    """This platform's name for a Ghidra register, or None if it models no
+    such register. Public counterpart of the mapping `canonicalize_operand`
+    applies, for callers holding a bare register name rather than an
+    Operand."""
+    return _platform_name(ghidra_name, platdef)
+
+
 def canonicalize_operand(
     operand: Operand, platdef: PlatformDef
 ) -> typing.Optional[Operand]:
