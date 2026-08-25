@@ -940,7 +940,7 @@ def _get_or_create_program(arch):
     _ensure_pyghidra()
     entry = _program_cache.get(arch)
     if entry is not None:
-        cm, flat_api, space = entry
+        _cm, flat_api, space, _owner = entry
         return flat_api, flat_api.getCurrentProgram(), space
 
     # First time we've seen this arch: open a fresh program around a
@@ -976,7 +976,7 @@ def _get_or_create_program(arch):
         raise RuntimeError(f"BinaryLoader produced no initialized blocks for {arch!r}")
     space = initialized[0].getStart().getAddressSpace()
 
-    _program_cache[arch] = (cm, flat_api, space)
+    _program_cache[arch] = (cm, flat_api, space, threading.get_ident())
     return flat_api, program, space
 
 
@@ -987,7 +987,7 @@ def _evict_program(arch):
         entry = _program_cache.pop(arch, None)
         if entry is None:
             return
-        cm, _flat_api, _space = entry
+        cm, _flat_api, _space, _owner = entry
         try:
             cm.__exit__(None, None, None)
         except Exception:
@@ -1001,7 +1001,7 @@ def _shutdown_program_cache():
         entry = _program_cache.pop(lang_id, None)
         if entry is None:
             continue
-        cm, _, _ = entry
+        cm, _, _, _owner = entry
         try:
             cm.__exit__(None, None, None)
         except Exception:
@@ -1071,6 +1071,18 @@ def _populate_program(program, addr_space, byte_data, base_address):
 #: PandaThread), which is where a user instruction hook reaching reads/writes
 #: would come from. The lock is re-entrant because _analyze_inner's error
 #: path calls _evict_program, which takes it too.
+#:
+#: KNOWN LIMITATION, not fixable here: results are correct from any thread,
+#: but if the FIRST analysis for an architecture runs on a worker thread --
+#: so `pyghidra.open_program` is called there -- the process then hangs at
+#: exit instead of terminating. Measured: opening on the main thread exits
+#: in ~9 s; opening on a worker thread produces the right answer in ~6 s and
+#: was still running when killed at 5 minutes. It is not this module's
+#: teardown (skipping the cross-thread
+#: __exit__ does not help) and not JPype threading in general (a worker
+#: thread that only calls into Java exits fine) -- it is Ghidra's own
+#: machinery behind open_program. Drive at least one analysis per
+#: architecture from the main thread to avoid it.
 _analysis_lock = threading.RLock()
 
 
