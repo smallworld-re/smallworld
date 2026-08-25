@@ -41,11 +41,12 @@ import sys
 import traceback
 import typing
 
-# Neutralize the analysis code's debug scaffolding *before* importing it:
-# pcode_use_def currently contains live breakpoint() calls, and logs every
-# pcode op at INFO when its pdebug flag is set.
-os.environ.setdefault("PYTHONBREAKPOINT", "0")
-logging.disable(logging.INFO)
+# Quieten the analysis module's own per-op logging without touching global
+# state. `logging.disable(logging.INFO)` was a process-wide, never-restored
+# kill switch, and tests/unit.py now execs this file mid-run (UseDefCorpusTests
+# loads it by path), which silently suppressed INFO/DEBUG for every test that
+# ran afterwards -- including ones asserting on log output via assertLogs.
+logging.getLogger("smallworld.instructions.pcode_use_def").setLevel(logging.WARNING)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))

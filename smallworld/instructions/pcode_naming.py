@@ -71,11 +71,16 @@ def register_alias(name: str, arch: Architecture) -> str:
         m = _AARCH64_ZREG_RE.fullmatch(name)
         if m:
             return f"q{m.group(1)}"
-    elif arch == Architecture.POWERPC32:
-        if name.startswith("xer_"):
+    elif arch in (Architecture.POWERPC32, Architecture.POWERPC64):
+        # Both share PowerPCPlatformDef's register set and both carry a
+        # ghidra_language_id, so keying on POWERPC32 alone silently dropped
+        # every one of these operands on 64-bit PowerPC.
+        if name == "xer" or name.startswith("xer_"):
             # The platform models XER (which is SPR 1) under its SPR name;
             # there is no plain "xer" RegisterDef, so aliasing to that
-            # silently dropped every carry and overflow edge.
+            # silently dropped every carry and overflow edge. Ghidra spells
+            # the bits xer_ca/xer_ov/... and the whole register bare "xer"
+            # (mfxer/mtxer), so both have to map.
             return "spr_xer"
         if name.startswith("fp_"):
             return "fpscr"
@@ -135,34 +140,36 @@ def canonicalize_operand(
         return operand
 
     if isinstance(operand, MemoryReferenceOperand):
-        # A memory operand's base and index are register names too, and they
-        # need the same mapping: they were previously passed through raw, so
-        # a Ghidra-only name (x86-64 fs_offset, MIPS64's <reg>_lo) survived
-        # into an operand whose .address() raises the moment a consumer
-        # resolves it -- inside Unicorn's fault handler, in the case that
-        # found this.
+        # base and index are register names too. Passed through raw, a
+        # Ghidra-only name (x86-64 fs_offset, MIPS64's <reg>_lo) reached an
+        # operand whose .address() raises when a consumer resolves it.
         renamed = {}
         for attr in ("base", "index"):
-            old_name = getattr(operand, attr, None)
-            if old_name is None:
+            name = getattr(operand, attr, None)
+            if name is None:
                 continue
-            new_name = _platform_name(old_name, platdef)
-            if new_name is None:
-                # Without a resolvable base or index there is no address to
-                # compute, so the whole reference goes rather than a
-                # half-formed one. Debug, like the register case above: TLS
-                # accesses would make this a warning on every other
-                # instruction.
+            mapped = _platform_name(name, platdef)
+            if mapped is None:
+                # No resolvable base or index means no address, so drop the
+                # whole reference. Debug, like the register case: TLS
+                # accesses would make a warning here constant noise.
                 logger.debug(
                     f"dropping pcode memory operand {operand!r}: {attr} "
-                    f"{old_name!r} is not a register on "
-                    f"{type(platdef).__name__}"
+                    f"{name!r} is not a register on {type(platdef).__name__}"
                 )
                 return None
-            if new_name != old_name:
-                renamed[attr] = new_name
+            if mapped != name:
+                renamed[attr] = mapped
         if renamed:
-            return BSIDMemoryReferenceOperand(
+            # type(operand), not the base class: a subclass carries both
+            # behaviour (x86's rip fixup) and identity (__repr__ embeds the
+            # class name, and equality keys on the repr).
+            cls = (
+                type(operand)
+                if isinstance(operand, BSIDMemoryReferenceOperand)
+                else BSIDMemoryReferenceOperand
+            )
+            return cls(
                 segment=getattr(operand, "segment", None),
                 base=renamed.get("base", getattr(operand, "base", None)),
                 index=renamed.get("index", getattr(operand, "index", None)),
@@ -187,6 +194,15 @@ def collapse_widened_defs(
     Applied to defs only: for a def the parent is the strictly larger
     effect and is safe to summarize by its part, whereas dropping a
     parent *read* would understate what was consumed.
+
+    KNOWN GAP: that premise holds when the parent write was CAUSED by the
+    child's (x86 zero-extension) and not when the two are independent. AVX
+    writes ymm0's upper half through its own varnodes, so `vaddps ymm0,
+    ymm1, ymm2` reports {xmm0} and a consumer concludes bytes 16..31 are
+    untouched. Legacy SSE, which really does preserve the upper half, is
+    reported correctly. Both look identical here -- a {child, parent} pair
+    -- so telling them apart needs the architectural destination, which
+    Capstone names but this layer is not given.
     """
     names = {op.name for op in operands if isinstance(op, RegisterOperand)}
     redundant = set()

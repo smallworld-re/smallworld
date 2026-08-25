@@ -60,8 +60,11 @@ class x86Instruction(Instruction):
             if not (operand.access & access):
                 continue
             if operand.type == capstone.x86.X86_OP_MEM:
-                if not (is_read and self._instruction.mnemonic == "lea"):
-                    # lea computes an address but does not access memory
+                # lea computes an address but accesses no memory, on
+                # either side -- so this is unconditional, not gated on
+                # is_read: a Capstone build marking lea's operand
+                # CS_AC_WRITE would otherwise report a memory def.
+                if self._instruction.mnemonic != "lea":
                     operands.add(self._memory_reference_operand(operand))
                 if is_read:
                     # the base/index registers are read to form the address

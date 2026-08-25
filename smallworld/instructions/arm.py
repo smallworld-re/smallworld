@@ -35,14 +35,11 @@ class ARMV6MInstruction(ARMInstruction):
 
 class ARMV6MThumbInstruction(ARMInstruction):
     cs_mode = capstone.CS_MODE_THUMB
-    # ARMv6MThumb's PlatformDef deliberately carries the ARM-mode language
-    # id ("ARM:LE:32:v6") because Ghidra reaches Thumb through the TMode
-    # context register within that same SLEIGH language. The p-code use/def
-    # analysis disassembles with the language's default context, i.e. ARM,
-    # so Thumb bytes decode as a valid but entirely unrelated ARM
-    # instruction. A 16-bit Thumb instruction is caught by the length
-    # cross-check in _pcode_use_def, but a 32-bit Thumb-2 one is four bytes
-    # either way and would pass it while being wrong, so refuse outright.
+    # This platform's language id is the ARM-mode one: Ghidra reaches Thumb
+    # through the TMode context register, which the analysis does not set,
+    # so Thumb bytes decode as a valid but unrelated ARM instruction.
+    # _pcode_use_def's length check catches 16-bit Thumb; a 32-bit Thumb-2
+    # instruction is four bytes either way, so refuse outright.
     supports_pcode_use_def = False
     platform = platforms.Platform(
         platforms.Architecture.ARM_V6M_THUMB, platforms.Byteorder.LITTLE

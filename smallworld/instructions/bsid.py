@@ -60,6 +60,11 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             "index": self.index,
             "scale": self.scale,
             "offset": self.offset,
+            # `size` participates in MemoryReferenceOperand equality and
+            # hashing, so dropping it here made a round-trip silently rewrite
+            # the operand's identity for every width but the default 4 -- and
+            # concretize() then read the wrong number of bytes.
+            "size": self.size,
         }
 
     def to_dict(self) -> dict:
@@ -70,6 +75,8 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if any(k not in dict for k in ("base", "index", "scale", "offset")):
             raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
+        # `size` is optional so payloads written before to_json emitted it
+        # still load; it falls back to MemoryReferenceOperand's default.
         return cls(**dict)
 
     def expr_string(self) -> str:

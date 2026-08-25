@@ -4,7 +4,7 @@
 [![code-style-image]][black]
 [![license-image]][mit]
 
-Easier harnessing of binary code for analysis!
+Easier harnessing of code for analysis!
 
 <div align="center">
   <img src="/docs/SmallWorld.svg" alt="SmallWorld Logo" width="75%">

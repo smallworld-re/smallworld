@@ -27,10 +27,7 @@ import importlib.util
 import os
 import sys
 import unittest
-
-# The analysis code once contained live breakpoint() calls; keep runs
-# non-interactive even if one reappears.
-os.environ.setdefault("PYTHONBREAKPOINT", "0")
+import unittest.mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -41,7 +38,13 @@ try:
     import pyghidra  # noqa: F401
 
     HAVE_PYGHIDRA = True
-except ImportError:
+except Exception:
+    # Deliberately broader than ImportError. pyghidra is an optional extra
+    # whose import touches jpype and the Ghidra install, so a JVM/ABI mismatch
+    # or an unreadable GHIDRA_INSTALL_DIR can raise RuntimeError/OSError -- and
+    # tests/unit.py imports this module at collection time, so anything that
+    # escapes here takes the entire unit suite down instead of skipping the
+    # p-code tests.
     HAVE_PYGHIDRA = False
 
 
@@ -131,25 +134,34 @@ class PcodeNamingTests(unittest.TestCase):
             {RegisterOperand("rax")},
         )
 
-    # ---------------------------------------------------------------- #
-    # Known gaps. These fail today and are marked expected so they are
-    # recorded rather than forgotten; fixing one turns it into an
-    # unexpected success, which fails the suite and forces the marker
-    # off. Do not "fix" one by deleting it.
-    # ---------------------------------------------------------------- #
+    # Known gaps, marked expected so they are recorded rather than
+    # forgotten. Fixing one turns it into an unexpected success, which fails
+    # the suite and forces the marker off. Do not "fix" one by deleting it.
+
+    @unittest.expectedFailure
+    def test_full_width_simd_write_is_reported_whole(self):
+        """collapse_widened_defs drops the parent whenever a sub-register is
+        also defined, which is right for x86 zero-extension but not for AVX:
+        ymm0's upper half is written by its own varnodes, so a 256-bit write
+        reports only xmm0. Telling the two apart needs the architectural
+        destination (Capstone names it; this layer is not given it)."""
+        from smallworld.instructions import RegisterOperand
+        from smallworld.instructions.pcode_naming import collapse_widened_defs
+
+        platdef = self._platdef("X86_64", "LITTLE")
+        defs = {RegisterOperand("xmm0"), RegisterOperand("ymm0")}
+        self.assertIn(RegisterOperand("ymm0"), collapse_widened_defs(defs, platdef))
 
     @unittest.expectedFailure
     def test_aarch64_condition_flags_reach_a_register(self):
         """ng/zr/cy/ov alias to 'nzcv', which aarch64.py does not define, so
         `cmp x0, x1` reports an empty write set and `b.eq` an empty read set.
 
-        Unlike the PowerPC case next door -- where the platform did model the
-        register, under its SPR name -- AArch64 models no condition-flag
-        register at all, and none of the five machine defs (unicorn, angr,
-        panda, ghidra, styx) name one either. The machdef tests assert that
-        platform definitions and machine defs cover exactly the same
-        registers, so adding it is an emulator-wide change rather than a
-        naming fix, and it is deliberately not made here.
+        Unlike the PowerPC case next door, where the platform did model the
+        register under its SPR name, AArch64 models no flags register and
+        neither do any of the machine defs. The machdef tests assert both
+        cover exactly the same registers, so this is an emulator-wide
+        change, not a naming fix.
         """
         self.assertIsNotNone(self._canon("AARCH64", "LITTLE", "ng"))
 
@@ -275,8 +287,23 @@ class GhidraMachdefRegisterAliasTests(unittest.TestCase):
                     f"physical register",
                 )
 
+    @staticmethod
+    def _start_jvm():
+        """Boot the JVM through the analysis module rather than calling
+        pyghidra.start() directly.
+
+        Ghidra discovers extensions only while its Application initializes,
+        during the first pyghidra.start() in the process, so whichever test
+        starts the JVM has to prepare the SymZ3 extension first or every later
+        GhidraSymbolicEmulator in the same process fails to resolve its
+        classes. _ensure_pyghidra() is exactly that sequence.
+        """
+        from smallworld.instructions.pcode_use_def import _ensure_pyghidra
+
+        _ensure_pyghidra()
+
     def test_mips64_names_resolve_to_the_right_physical_register(self):
-        pyghidra.start()  # machdefs import Ghidra's Java classes at module scope
+        self._start_jvm()  # machdefs import Ghidra's Java classes at module scope
 
         from smallworld.emulators.ghidra.machdefs.mips64 import (
             MIPS64BEMachineDef,
@@ -286,7 +313,7 @@ class GhidraMachdefRegisterAliasTests(unittest.TestCase):
         self._check(MIPS64BEMachineDef, MIPS64BE)
 
     def test_mips32_names_resolve_to_the_right_physical_register(self):
-        pyghidra.start()
+        self._start_jvm()
 
         from smallworld.emulators.ghidra.machdefs.mips import MIPSBEMachineDef
         from smallworld.platforms.defs.mips import MIPS32BE
@@ -320,7 +347,9 @@ class PcodeAnalysisRobustnessTests(unittest.TestCase):
     def test_op_table_covers_every_ghidra_mnemonic(self):
         """The op table is an allowlist keyed by Ghidra's mnemonic strings, so
         it silently rots against a new Ghidra. Compare it to the real table."""
-        pyghidra.start()  # module-level import above; machdefs need the JVM
+        from smallworld.instructions.pcode_use_def import _ensure_pyghidra
+
+        _ensure_pyghidra()  # boots the JVM, preparing the SymZ3 extension first
         from ghidra.program.model.pcode import PcodeOp  # type: ignore
 
         from smallworld.instructions.pcode_use_def import _PCODE_OP
@@ -375,7 +404,12 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
     """reads/writes are properties, called from the colorizer's callbacks and
     from Unicorn's fault handler -- which is itself already handling an
     emulation failure. The Capstone backend never raised at them; neither may
-    the pcode one. Needs no pyghidra: analyze is replaced.
+    the pcode one.
+
+    Needs no pyghidra: analyze is replaced, and pcode_use_def imports pyghidra
+    lazily (inside _ensure_pyghidra) precisely so this is true -- a top-level
+    import made this class ERROR rather than run on a base install, and
+    tests/unit.py imports it into the main suite.
     """
 
     def test_use_def_error_degrades_to_an_empty_set(self):
@@ -423,18 +457,18 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
             bytes.fromhex("8fa80004"), 0x1000, platform
         )  # lw t0, 4(sp); default backend is Capstone
 
-        real = PlatformDef.for_platform
-
-        def _explode(*args, **kwargs):
+        def _explode(cls, *args, **kwargs):
             raise AssertionError("writes resolved a PlatformDef it never reads")
 
-        PlatformDef.for_platform = classmethod(  # type: ignore[method-assign]
-            lambda cls, *a, **k: _explode()
-        )
-        try:
+        # patch.object, not a manual save/restore: `PlatformDef.for_platform`
+        # reads as an already-BOUND method, so assigning it back would replace
+        # the classmethod descriptor with an object permanently bound to
+        # PlatformDef -- a leak into every test that runs after this one, now
+        # that tests/unit.py imports this module.
+        with unittest.mock.patch.object(
+            PlatformDef, "for_platform", classmethod(_explode)
+        ):
             self.assertTrue(insn.writes)
-        finally:
-            PlatformDef.for_platform = real  # type: ignore[method-assign]
 
         # reads legitimately needs it (implicit_dereference_mnemonics).
         self.assertTrue(insn.reads)
@@ -648,12 +682,10 @@ class InstructionUseDefTests(unittest.TestCase):
     pcode backend -- Capstone is the default until the changeover PR.
     """
 
-    # (architecture, byteorder, hex encoding, description, must_read,
-    #  must_write) -- the last two name registers the instruction
-    # architecturally has to report. They are deliberately a *subset*, not the
-    # exact answer: flag and status registers are left out so that adding one
-    # to a platform definition later does not break these. Their job is to
-    # catch operands going missing, which an "is it a set?" check cannot.
+    # (arch, byteorder, hex, description, must_read, must_write). The last
+    # two are a deliberate *subset* -- flags left out, so adding one to a
+    # platform definition later does not break these -- and exist to catch
+    # operands going missing, which an "is it a set?" check cannot.
     SAMPLES = [
         ("X86_64", "LITTLE", "4801d8", "add rax, rbx", {"rax", "rbx"}, {"rax"}),
         ("X86_64", "LITTLE", "89cb", "mov ebx, ecx", {"ecx"}, {"ebx"}),
