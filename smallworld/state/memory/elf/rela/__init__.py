@@ -14,6 +14,11 @@ from .mips import MIPSELElfRelocator, MIPSElfRelocator
 from .ppc import PowerPCElfRelocator
 from .rela import ElfRelocator
 from .riscv64 import RISCV64ElfRelocator
+from .superh import (
+    SH2AFPUElfRelocator,
+    SuperH4BEElfRelocator,
+    SuperH4ELElfRelocator,
+)
 from .tricore import TriCoreElfRelocator
 from .xtensa import XtensaElfRelocator
 
@@ -32,6 +37,9 @@ __all__ = [
     "MIPSELElfRelocator",
     "PowerPCElfRelocator",
     "RISCV64ElfRelocator",
+    "SH2AFPUElfRelocator",
+    "SuperH4BEElfRelocator",
+    "SuperH4ELElfRelocator",
     "TriCoreElfRelocator",
     "XtensaElfRelocator",
     "ElfRelocator",

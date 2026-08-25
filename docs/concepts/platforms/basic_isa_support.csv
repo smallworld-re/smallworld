@@ -1,20 +1,25 @@
-,               angr,       ghidra,     panda,      unicorn
-aarch64,        **Yes**,    **Yes**,    **Yes**,    **Yes**
-amd64,          **Yes**,    **Yes**,    **Yes**,    **Yes**
-arm-v5t,        **Yes**,    **Yes**,    **Yes**,    **Yes**
-arm-v6m,        **Yes**,    **Yes**,    No,         **Yes**
-arm-v7a,        **Yes**,    **Yes**,    **Yes**,    **Yes**
-arm-v7m,        **Yes**,    **Yes**,    No,         **Yes**
-arm-v7r,        No,         No,         No,         **Yes**
-i386,           **Yes**,    **Yes**,    **Yes**,    **Yes**
-la64,           **Yes**,    **Yes**,    No Support, No Support
-m68k,           No,         **Yes**,    No Support, **Yes**
-mips32r2-be,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-mips32r2-el,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-mips64r2-be,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-mips64r2-el,    **Yes**,    **Yes**,    **Yes**,    **Yes**
-msp430          **Yes**,    **Yes**,    No Support, No Support
-powerpc32,      **Yes**,    **Yes**,    **Yes**,    **Yes**
-powerpc64,      **Yes**,    **Yes**,    No,         No Support
-riscv64,        **Yes**,    **Yes**,    No Support, **Yes**
-xtensa,         **Yes**,    **Yes**,    No Support, No Support
+,                   angr,       ghidra,     panda,      styx,       unicorn
+aarch64,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+amd64,              **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+arm-v5t,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v6m,            **Yes**,    **Yes**,    No,         **Yes**,    **Yes**
+arm-v7a,            **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+arm-v7m,            **Yes**,    **Yes**,    No,         No,         **Yes**
+arm-v7r,            No,         No,         No,         No,         **Yes**
+i386,               **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+la64,               **Yes**,    **Yes**,    No Support, No,         No Support
+m68k,               No,         **Yes**,    No Support, No,         **Yes**
+mips32r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mips32r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mips64r2-be,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+mips64r2-el,        **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+msp430,             **Yes**,    **Yes**,    No Support, No,         No Support
+msp430x,            **Yes**,    **Yes**,    No Support, No,         No Support
+powerpc32,          **Yes**,    **Yes**,    **Yes**,    **Yes**,    **Yes**
+powerpc64,          **Yes**,    **Yes**,    No,         No,         No Support
+riscv64,            **Yes**,    **Yes**,    No Support, No,         **Yes**
+superh-sh2a-fpu,    **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
+superh-sh4-be,      **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
+superh-sh4-el,      **Yes**,    **Yes**,    **Yes**,    **Yes**,    No Support
+tricore,            **Yes**,    **Yes**,    **Yes**,    No,         **Yes**
+xtensa,             **Yes**,    **Yes**,    No Support, No,         No Support

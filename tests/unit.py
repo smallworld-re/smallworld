@@ -1048,6 +1048,24 @@ class CPUTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_cpu_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_cpu_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_cpu_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1210,6 +1228,27 @@ class UnicornMachdefTests(unittest.TestCase):
             platforms.Architecture.RISCV64, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+    def test_unicorn_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_unicorn_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        # Not supported by unicorn
+        self.assertRaises(ValueError, self.run_test, platform)
 
     def test_unicorn_tricore(self):
         platform = platforms.Platform(
@@ -1389,6 +1428,24 @@ class AngrMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_angr_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_angr_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_angr_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1552,6 +1609,27 @@ class PandaMachdefTests(unittest.TestCase):
         )
         # Not supported by Panda
         self.assertRaises(ValueError, self.run_test, platform)
+
+    def test_panda_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        # Upstream QEMU has no SH-2A CPU model at all - only the SH-4 ones - so
+        # this runs on the `sh7264` model that nix/patches/panda-qemu-sh2a.patch
+        # adds along with the SH-2A instruction set.
+        self.run_test(platform)
+
+    def test_panda_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_panda_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
 
     def test_panda_tricore(self):
         platform = platforms.Platform(
@@ -1738,6 +1816,24 @@ class GhidraMachdefTests(unittest.TestCase):
         )
         self.run_test(platform)
 
+    def test_ghidra_sh2a(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh4(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.BIG
+        )
+        self.run_test(platform)
+
+    def test_ghidra_sh4el(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH4, platforms.Byteorder.LITTLE
+        )
+        self.run_test(platform)
+
     def test_ghidra_tricore(self):
         platform = platforms.Platform(
             platforms.Architecture.TRICORE, platforms.Byteorder.LITTLE
@@ -1749,6 +1845,84 @@ class GhidraMachdefTests(unittest.TestCase):
             platforms.Architecture.XTENSA, platforms.Byteorder.LITTLE
         )
         self.run_test(platform)
+
+
+class GhidraMachdefLanguageIdTests(unittest.TestCase):
+    """The SLEIGH language id belongs to PlatformDef, not the machine defs.
+
+    ``GhidraMachineDef.language_id`` is a property that reads
+    ``PlatformDef.ghidra_language_id``, so the id has one home shared by the
+    Ghidra emulator and the p-code use/def analysis. A machine def that
+    declares its own ``language_id`` shadows that property, and the failure
+    is silent and one-sided: the emulator keeps working off the literal
+    while the platform definition reports ``None`` to everyone else. That
+    regressed once already, when the SuperH machine defs were written in
+    parallel with the refactor that centralized the ids, so assert it.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        # machdefs/machdef.py imports Ghidra Java classes at module scope,
+        # so the JVM must be up before the module can be imported at all.
+        _ensure_pyghidra_started()
+
+    @staticmethod
+    def _machdefs():
+        """Every GhidraMachineDef subclass, abstract bases included."""
+        import smallworld.emulators.ghidra.machdefs  # noqa: F401  (registers them)
+        from smallworld.emulators.ghidra.machdefs.machdef import GhidraMachineDef
+
+        found, stack = [], list(GhidraMachineDef.__subclasses__())
+        while stack:
+            machdef = stack.pop()
+            found.append(machdef)
+            stack.extend(machdef.__subclasses__())
+        return found
+
+    def test_no_machdef_declares_its_own_language_id(self):
+        shadowed = sorted(
+            machdef.__name__
+            for machdef in self._machdefs()
+            if "language_id" in vars(machdef)
+        )
+        self.assertEqual(
+            shadowed,
+            [],
+            msg=f"machine defs shadowing the language_id property: {shadowed}; "
+            f"set ghidra_language_id on the platform definition instead",
+        )
+
+    def test_every_machdef_resolves_its_platform_language_id(self):
+        from smallworld.emulators.ghidra.machdefs.machdef import GhidraMachineDef
+
+        checked = 0
+        for machdef in self._machdefs():
+            arch = getattr(machdef, "arch", None)
+            byteorder = getattr(machdef, "byteorder", None)
+            if not isinstance(arch, platforms.Architecture) or not isinstance(
+                byteorder, platforms.Byteorder
+            ):
+                # A shared base (e.g. SuperH4MachineDef) that leaves one of
+                # them abstract; find_subclass never selects it.
+                continue
+            checked += 1
+            with self.subTest(machdef=machdef.__name__):
+                platdef = platforms.PlatformDef.for_platform(
+                    platforms.Platform(arch, byteorder)
+                )
+                self.assertIsNotNone(
+                    platdef.ghidra_language_id,
+                    msg=f"{machdef.__name__} is selectable for {arch}:{byteorder} "
+                    f"but {type(platdef).__name__} defines no ghidra_language_id",
+                )
+                # Read the property off the class rather than constructing:
+                # GhidraMachineDef.__init__ loads the SLEIGH language, which
+                # is far more work than resolving the id it is asked for.
+                resolved = GhidraMachineDef.language_id.fget(machdef)
+                self.assertEqual(resolved, platdef.ghidra_language_id)
+
+        # Guard against the loop silently skipping everything.
+        self.assertGreater(checked, 0, msg="no concrete machine defs found")
 
 
 class CoverageHarnessTests(unittest.TestCase):
@@ -2435,7 +2609,7 @@ class StyxMachdefTests(unittest.TestCase):
     """Sanity checks on the SmallWorld Styx machine definitions.
 
     Mirrors the shape of :class:`UnicornMachdefTests` but only covers the
-    architectures Styx supports (32-bit ARM and 32-bit PowerPC).
+    architectures Styx supports (32-bit ARM, 32-bit PowerPC and SuperH).
     """
 
     def _machdef_for(self, platform):
@@ -2488,6 +2662,51 @@ class StyxMachdefTests(unittest.TestCase):
         # file can't access them, and the map is shared with the MPC860 core.
         self.assertFalse(machdef.has_register("f0"))
         self.assertFalse(machdef.has_register("cr3"))
+
+    def test_sh2a_machdef_resolves(self):
+        platform = platforms.Platform(
+            platforms.Architecture.SUPERH_SH2A_FPU, platforms.Byteorder.BIG
+        )
+        machdef = self._machdef_for(platform)
+        for name in ("r0", "r4", "sp", "fp", "pr", "ra", "lr", "pc", "sr", "tbr"):
+            self.assertTrue(
+                machdef.has_register(name),
+                msg=f"sh2a machdef missing register '{name}'",
+            )
+        # `lr_register` is handed straight to Styx's own register lookup by
+        # StyxEmulator.hook_function, and SuperHRegister has no Ra/Lr member -
+        # so it must name the architectural register, not a SmallWorld alias.
+        self.assertEqual(machdef.lr_register, "pr")
+        # Only the double-precision pairs are reachable on this core; the fr
+        # halves are computed in Python.  See the machdef's module docstring.
+        self.assertTrue(machdef.has_register("dr0"))
+        self.assertFalse(machdef.has_register("fr0"))
+
+    def test_sh4_machdef_resolves_when_styx_is_patched(self):
+        from smallworld.emulators.styx.machdefs.superh4 import STYX_SUPPORTS_SUPERH4
+
+        for byteorder in (platforms.Byteorder.BIG, platforms.Byteorder.LITTLE):
+            platform = platforms.Platform(platforms.Architecture.SUPERH_SH4, byteorder)
+            if not STYX_SUPPORTS_SUPERH4:
+                # nix/patches/styx-superh4-target.patch is not applied, so no
+                # SH-4 machdef was registered at all.
+                with self.assertRaises(exceptions.ConfigurationError):
+                    self._machdef_for(platform)
+                continue
+            machdef = self._machdef_for(platform)
+            for name in ("r0", "r4", "sp", "pr", "ra", "lr", "pc", "sr", "dr0"):
+                self.assertTrue(
+                    machdef.has_register(name),
+                    msg=f"sh4 machdef missing register '{name}'",
+                )
+            self.assertEqual(machdef.lr_register, "pr")
+            # SH-4 has no `tbr`, and styx's enum/arch spec cannot reach the
+            # banked GPRs, ssr/spc/sgr/dbr or the alternate FP bank.
+            for name in ("tbr", "ssr", "sgr", "r0_bank", "xd0", "xf0"):
+                self.assertFalse(
+                    machdef.has_register(name),
+                    msg=f"sh4 machdef unexpectedly maps '{name}'",
+                )
 
     def test_ppc64_raises_configuration_error(self):
         # Styx has no 64-bit PowerPC core, so POWERPC64 is unsupported.
@@ -5965,6 +6184,78 @@ class ColorizerReadWriteFirstObsGuardTests(unittest.TestCase):
         info = node.reads[0].info
         self.assertIsInstance(info, MemoryLvalInfo)
         self.assertEqual(info.addresses, [(3, 0xBEEF0)])
+
+
+class ColorizerBigEndianStoreLoadTests(unittest.TestCase):
+    """A value has the same colorizer color in a register and in memory, on
+    both byte orders.
+
+    The colorizer keys a register value by its integer value and a memory
+    value by ``int.from_bytes(bytes, target_byteorder)`` (colorizer.py
+    ``_concrete_val_to_color``). Interpreting memory in the target byte order
+    is what lets a stored register value keep its color on a big-endian
+    target; reading memory little-endian only would hash the value to
+    byteswap(V) in memory, so a plain store would be misreported as creating a
+    new value (write-def) instead of copying it (write-copy).
+
+    Program (MIPS32), the same instructions in both byte orders:
+        lui $t0, 0xABCD ; ori $t0, $t0, 0x1234 ; sw $t0, 0($sp) ; lw $t1, 0($sp)
+    The store of $t0 must be recognized as a copy under both byte orders.
+    """
+
+    # lui $t0,0xABCD ; ori $t0,$t0,0x1234 ; sw $t0,0($sp) ; lw $t1,0($sp)  (BE)
+    _CODE_BE = bytes.fromhex("3c08abcd" "35081234" "afa80000" "8fa90000")
+    _VALUE = 0xABCD1234
+    _SW_PC = 0x1008
+    _SP = 0x12000  # inside the mapped stack (not the exclusive top)
+
+    @staticmethod
+    def _swap_words(b):
+        return b"".join(b[i : i + 4][::-1] for i in range(0, len(b), 4))
+
+    def _store_write_hint(self, byteorder, code_bytes):
+        from smallworld.analyses.colorizer import Colorizer
+
+        platform = platforms.Platform(platforms.Architecture.MIPS32, byteorder)
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(platform)
+        machine.add(state.memory.code.Executable.from_bytes(code_bytes, address=0x1000))
+        stack = state.memory.stack.Stack.for_platform(platform, 0x10000, 0x4000)
+        machine.add(stack)
+        cpu.sp.set(self._SP)
+        cpu.pc.set(0x1000)
+        machine.add(cpu)
+        machine.add_exit_point(0x1010)
+
+        hints: list = []
+        hinter = hinting.Hinter()
+        hinter.register(DynamicMemoryValueHint, lambda h: hints.append(h))
+        Colorizer(hinter, num_insns=8, exec_id=0).run(machine)
+
+        writes = [h for h in hints if h.pc == self._SW_PC and not h.use]
+        self.assertEqual(
+            len(writes), 1, f"expected exactly one store-write hint, got {writes}"
+        )
+        return writes[0]
+
+    def _assert_store_is_a_copy(self, byteorder, code_bytes):
+        h = self._store_write_hint(byteorder, code_bytes)
+        self.assertFalse(
+            h.new,
+            "store of a known register value should be a write-copy, got "
+            f"write-def with color 0x{h.color:x}",
+        )
+        self.assertEqual(h.color, self._VALUE)
+
+    def test_le_store_of_register_value_is_a_copy(self):
+        self._assert_store_is_a_copy(
+            platforms.Byteorder.LITTLE, self._swap_words(self._CODE_BE)
+        )
+
+    def test_be_store_of_register_value_is_a_copy(self):
+        # The big-endian case: the register value and its stored image must
+        # share one color, so the store is a copy rather than a new value.
+        self._assert_store_is_a_copy(platforms.Byteorder.BIG, self._CODE_BE)
 
 
 class _FakeAngrMallocEmulator(emulators.AngrEmulator):

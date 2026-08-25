@@ -156,7 +156,6 @@ class LoongArchMachineDef(GhidraMachineDef):
 
 class LoongArch64MachineDef(LoongArchMachineDef):
     arch = Architecture.LOONGARCH64
-    language_id = "Loongarch:LE:64:lp64d"
 
 
 __all__ = ["LoongArch64MachineDef"]

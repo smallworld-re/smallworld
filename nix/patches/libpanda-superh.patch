@@ -1,0 +1,26 @@
+# Local libpanda-ng patch teaching its type extractor that QEMU's big-endian
+# SuperH target lives in the same source directory as the little-endian one.
+#
+# libpanda-ng derives QEMU include paths from the *target* name, then generates
+# a `#include "target/<arch>/cpu-param.h"` to extract struct layouts with gdb.
+# `arch_to_generic()` already collapses the cases where a target name differs
+# from its source directory - x86_64 -> i386, mips*/mipsel -> mips, ppc64 -> ppc,
+# aarch64 -> arm - but has no entry for sh4eb, so extraction failed with
+#
+#     /tmp/simple.c:17:18: fatal error: target/sh4eb/cpu-param.h: No such file
+#
+# while plain `sh4` succeeded, because there the names happen to coincide.
+#
+# Remove once libpanda-ng knows about SuperH.
+diff --git a/build.py b/build.py
+--- a/build.py
++++ b/build.py
+@@ -155,6 +155,8 @@
+ 		return "ppc"
+ 	elif arch == "loongarch64":
+ 		return "loongarch"
++	elif "sh4" in arch:
++		return "sh4"
+ 	elif "riscv" in arch:
+ 		return "riscv"
+ 	return arch

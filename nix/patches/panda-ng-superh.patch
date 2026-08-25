@@ -1,0 +1,259 @@
+# Local PANDA Python/runtime patch adding SuperH SH-4 support for SmallWorld.
+#
+# Teaches panda-ng/pandare2 about the `sh4` (little-endian) and `sh4eb`
+# (big-endian) targets, and skips the Rust plugin build for them because
+# plugins/rust_skeleton/Cargo.toml has no `sh4` feature. The status-register
+# accessors this relies on are exported by panda-qemu-superh.patch. Remove once
+# panda-ng ships native SuperH support for both its Python and Rust layers.
+diff --git a/plugins/meson.build b/plugins/meson.build
+--- a/plugins/meson.build
++++ b/plugins/meson.build
+@@ -80,6 +80,12 @@
+                 if tgt == 'tricore'
+                     continue
+                 endif
++                #
++                # Likewise for SuperH: plugins/rust_skeleton/Cargo.toml has no
++                # `sh4` feature, so there is nothing for cargo to build against.
++                if tgt == 'sh4' or tgt == 'sh4eb'
++                    continue
++                endif
+                 rust_build_cmd = [bin_cargo, 'build', 
+                             '--no-default-features',
+                             '--features', tgt,
+diff --git a/python/core/pandare2/arch.py b/python/core/pandare2/arch.py
+--- a/python/core/pandare2/arch.py
++++ b/python/core/pandare2/arch.py
+@@ -75,6 +75,12 @@
+         elif self.panda.arch_name == "tricore":
+             bits = 32
+             endianness = "little"
++        elif self.panda.arch_name == "sh4":
++            bits = 32
++            endianness = "little"
++        elif self.panda.arch_name == "sh4eb":
++            bits = 32
++            endianness = "big"
+         elif self.panda.arch_name == "loongarch64":
+             bits = 64
+             endianness = "little"
+@@ -680,6 +686,185 @@
+             return
+         raise ValueError(f"Invalid register name {reg}")
+ 
++
++class SuperHArch(PandaArch):
++    '''
++    Register names and accessors for SuperH (sh4 and sh4eb).
++
++    CPUSH4State stores `uint32_t gregs[24]` and `float32 fregs[32]`, holding the
++    banked copies inline:
++
++      gregs[0:8]   -> R0-R7 bank 0     fregs[0:16]  -> FR bank 0
++      gregs[8:16]  -> R8-R15 (common)  fregs[16:32] -> FR bank 1
++      gregs[16:24] -> R0-R7 bank 1
++
++    Which copy is architecturally visible depends on SR.MD/SR.RB for the GPRs and
++    on FPSCR.FR for the floating-point registers, and **QEMU resets SH-4 with
++    SR.RB set** - so the raw array order is not the guest's view. We therefore
++    index exactly the way QEMU's translator does:
++
++        REG(x)    = gregs[x ^ gbank]        gbank = 0x10 if SR.MD and SR.RB
++        ALTREG(x) = gregs[x ^ gbank ^ 0x10]
++        FREG(x)   = fregs[x ^ fbank]        fbank = 0x10 if FPSCR.FR
++
++    (QEMU aliases its own gregs[24:32] onto gregs[8:16], which is what makes the
++    XOR valid for all sixteen even though only R0-R7 are really banked; we fold
++    that aliasing back down explicitly.)
++
++    So `r0`-`r15` and `fr0`-`fr15` always name the *architecturally visible*
++    registers, and `r0_bank`-`r7_bank` / `xf0`-`xf15` name the inactive copies.
++    Exposing the raw arrays instead would be wrong out of the box: a harness that
++    writes `r4` and runs would find the guest reading a different register.
++    Ghidra's SuperH4 sleigh does not model banking at all (its spec carries a
++    "TODO deal with the 2 banks of registers"), so it behaves as though RB were
++    always 0; indexing architecturally here means the two backends agree
++    register-for-register whenever RB is 0, which is the case for ordinary code.
++
++    Double-precision registers are synthesized: SH defines DRn = FRn:FRn+1 with
++    FRn as the upper half.
++    '''
++
++    def __init__(self, panda):
++        super().__init__(panda)
++        self.registers = {f"R{i}": f"R{i}" for i in range(16)}
++        self.registers |= {f"R{i}_BANK": f"R{i}_BANK" for i in range(8)}
++        self.registers |= {f"FR{i}": f"FR{i}" for i in range(16)}
++        self.registers |= {f"XF{i}": f"XF{i}" for i in range(16)}
++        self.registers |= {f"DR{i}": f"DR{i}" for i in range(0, 16, 2)}
++        self.registers |= {f"XD{i}": f"XD{i}" for i in range(0, 16, 2)}
++        self.registers["SP"] = "R15"
++        self.registers["FP"] = "R14"
++        self.registers["RA"] = "PR"
++        self.registers["LR"] = "PR"
++        # TBR is SH-2A's jump table base register and has no SH-4 equivalent; it
++        # exists only once nix/patches/panda-qemu-sh2a.patch adds it to
++        # CPUSH4State. Naming it here unconditionally is safe because
++        # _get_reg_val/_set_reg_val check the live struct, so on a build without
++        # that patch it degrades to the ordinary "invalid register" error.
++        for name in ("PC", "PR", "SR", "GBR", "VBR", "SSR", "SPC", "SGR", "DBR",
++                     "MACH", "MACL", "FPUL", "FPSCR", "TBR"):
++            self.registers[name] = name
++
++        self.reg_sp = "SP"
++        self.reg_retaddr = "RA"
++        self.call_conventions = {"superh": ["R4", "R5", "R6", "R7"]}
++        self.call_conventions["default"] = self.call_conventions["superh"]
++        self.reg_retval = {"default": "R0"}
++
++    def get_pc(self, cpu):
++        '''
++        Get the program counter
++        '''
++        return self.cpu_env(cpu).pc
++
++    def set_pc(self, cpu, val):
++        '''
++        Set the program counter
++        '''
++        self.cpu_env(cpu).pc = val
++
++    # Plain uint32_t fields of CPUSH4State that map 1:1 onto a register name.
++    # Registers that are a plain CPUSH4State field of the same name. `tbr` only
++    # exists once nix/patches/panda-qemu-sh2a.patch adds it - it is SH-2A's jump
++    # table base register and has no SH-4 equivalent - so it is filtered against
++    # the live struct below rather than assumed present. SH-4's platform
++    # definition does not expose `tbr`, so nothing asks for it there.
++    _SIMPLE_REGS = ("pc", "pr", "gbr", "vbr", "ssr", "spc", "sgr", "dbr",
++                    "mach", "macl", "fpul", "fpscr", "tbr")
++
++    # SR and FPSCR bit positions, per target/sh4/cpu.h.
++    SR_MD = 30
++    SR_RB = 29
++    FPSCR_FR = 1 << 21
++
++    def _read_sr(self, env):
++        if hasattr(self.panda.libpanda, "sh_sr_read"):
++            return self.panda.libpanda.sh_sr_read(env)
++        return env.sr
++
++    def _greg(self, env, i, alt=False):
++        """gregs[] index for architectural R<i>, or for its alternate bank."""
++        sr = self._read_sr(env)
++        gbank = 0x10 if (sr & (1 << self.SR_MD)) and (sr & (1 << self.SR_RB)) else 0
++        idx = i ^ gbank
++        if alt:
++            idx ^= 0x10
++        # QEMU aliases indices 24-31 onto 8-15; gregs[] has only 24 slots.
++        return idx - 16 if idx >= 24 else idx
++
++    def _freg(self, env, i, alt=False):
++        """fregs[] index for architectural FR<i>, or for its alternate bank."""
++        fbank = 0x10 if env.fpscr & self.FPSCR_FR else 0
++        idx = i ^ fbank
++        if alt:
++            idx ^= 0x10
++        return idx
++
++    def _get_reg_val(self, cpu, reg):
++        env = self.cpu_env(cpu)
++
++        if reg.endswith("_BANK"):
++            return env.gregs[self._greg(env, int(reg[1:-len("_BANK")]), alt=True)]
++        if reg.startswith("DR"):
++            i = int(reg[2:])
++            return ((env.fregs[self._freg(env, i)] << 32)
++                    | env.fregs[self._freg(env, i + 1)])
++        if reg.startswith("XD"):
++            i = int(reg[2:])
++            return ((env.fregs[self._freg(env, i, alt=True)] << 32)
++                    | env.fregs[self._freg(env, i + 1, alt=True)])
++        if reg.startswith("FR"):
++            return env.fregs[self._freg(env, int(reg[2:]))]
++        if reg.startswith("XF"):
++            return env.fregs[self._freg(env, int(reg[2:]), alt=True)]
++        if reg.startswith("R"):
++            return env.gregs[self._greg(env, int(reg[1:]))]
++        if reg == "SR":
++            # SR's M, Q and T bits live in separate CPUSH4State fields; only the
++            # exported accessor recombines them. See panda-qemu-superh.patch.
++            if hasattr(self.panda.libpanda, "sh_sr_read"):
++                return self.panda.libpanda.sh_sr_read(env)
++            return env.sr
++        if reg.lower() in self._SIMPLE_REGS and hasattr(env, reg.lower()):
++            return getattr(env, reg.lower())
++        raise ValueError(f"Invalid register name {reg}")
++
++    def _set_reg_val(self, cpu, reg, val):
++        env = self.cpu_env(cpu)
++
++        if reg.endswith("_BANK"):
++            env.gregs[self._greg(env, int(reg[1:-len("_BANK")]), alt=True)] = val
++            return
++        if reg.startswith("DR"):
++            i = int(reg[2:])
++            env.fregs[self._freg(env, i)] = (val >> 32) & 0xffffffff
++            env.fregs[self._freg(env, i + 1)] = val & 0xffffffff
++            return
++        if reg.startswith("XD"):
++            i = int(reg[2:])
++            env.fregs[self._freg(env, i, alt=True)] = (val >> 32) & 0xffffffff
++            env.fregs[self._freg(env, i + 1, alt=True)] = val & 0xffffffff
++            return
++        if reg.startswith("FR"):
++            env.fregs[self._freg(env, int(reg[2:]))] = val
++            return
++        if reg.startswith("XF"):
++            env.fregs[self._freg(env, int(reg[2:]), alt=True)] = val
++            return
++        if reg.startswith("R"):
++            env.gregs[self._greg(env, int(reg[1:]))] = val
++            return
++        if reg == "SR":
++            if hasattr(self.panda.libpanda, "sh_sr_write"):
++                self.panda.libpanda.sh_sr_write(env, val)
++            else:
++                env.sr = val
++            return
++        if reg.lower() in self._SIMPLE_REGS and hasattr(env, reg.lower()):
++            setattr(env, reg.lower(), val)
++            return
++        raise ValueError(f"Invalid register name {reg}")
++
+ 
+ class MipsArch(PandaArch):
+     '''
+diff --git a/python/core/pandare2/panda.py b/python/core/pandare2/panda.py
+--- a/python/core/pandare2/panda.py
++++ b/python/core/pandare2/panda.py
+@@ -40,7 +40,7 @@
+ from .asyncthread import AsyncThread
+ from .qcows_internal import Qcows
+ from .qemu_logging import QEMU_Log_Manager
+-from .arch import ArmArch, Aarch64Arch, Loongarch64, MipsArch, Mips64Arch, TriCoreArch, X86Arch, X86_64Arch, PowerPCArch, PowerPC64Arch, Riscv32Arch, Riscv64Arch
++from .arch import ArmArch, Aarch64Arch, Loongarch64, MipsArch, Mips64Arch, SuperHArch, TriCoreArch, X86Arch, X86_64Arch, PowerPCArch, PowerPC64Arch, Riscv32Arch, Riscv64Arch
+ from .cosi import Cosi
+ from dataclasses import dataclass
+ 
+@@ -177,6 +177,8 @@
+             self.arch = Riscv64Arch(self)
+         elif self.arch_name in ["tricore"]:
+             self.arch = TriCoreArch(self)
++        elif self.arch_name in ["sh4", "sh4eb"]:
++            self.arch = SuperHArch(self)
+         else:
+             raise ValueError(f"Unsupported architecture {self.arch_name}")
+         self.bits, self.endianness, self.register_size = self.arch._determine_bits()
+diff --git a/python/core/pandare2/utils.py b/python/core/pandare2/utils.py
+--- a/python/core/pandare2/utils.py
++++ b/python/core/pandare2/utils.py
+@@ -257,7 +257,8 @@
+     one we find.
+     '''
+     arches = ['i386', 'x86_64', 'arm', 'aarch64', 'ppc', 'mips', 'mipsel', 'mips64', \
+-                'mips64el', 'loongarch64', 'ppc64', 'riscv32', 'riscv64', 'tricore']
++                'mips64el', 'loongarch64', 'ppc64', 'riscv32', 'riscv64', 'tricore', \
++                'sh4', 'sh4eb']
+     if "PANDA_LIB" in environ:
+         return environ["PANDA_LIB"]
+ 

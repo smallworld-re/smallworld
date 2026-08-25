@@ -7,6 +7,7 @@ from .platformdef import PlatformDef, RegisterAliasDef, RegisterDef
 class AArch64(PlatformDef):
     architecture = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
+    ghidra_language_id = "AARCH64:LE:64:v8A"
 
     address_size = 8
     capstone_arch = capstone.CS_ARCH_ARM64

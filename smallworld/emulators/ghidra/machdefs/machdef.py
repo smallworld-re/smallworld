@@ -5,6 +5,7 @@ from ghidra.app.plugin.processors.sleigh import SleighLanguageProvider
 from ghidra.program.model.lang import Language, LanguageID, Register
 
 from .... import exceptions, platforms, utils
+from ....platforms.defs.platformdef import PlatformDef
 
 
 class GhidraMachineDef:
@@ -23,10 +24,21 @@ class GhidraMachineDef:
         raise NotImplementedError("This is an abstract method")
 
     @property
-    @abc.abstractmethod
     def language_id(self) -> str:
-        """The Pcode language ID"""
-        raise NotImplementedError("This is an abstract method")
+        """The Pcode (SLEIGH) language id for this machine.
+
+        Sourced from the platform definition -- the single, JVM-free home
+        for this datum -- rather than duplicated on each machine def.
+        """
+        platdef = PlatformDef.for_platform(
+            platforms.Platform(self.arch, self.byteorder)
+        )
+        lang = platdef.ghidra_language_id
+        assert lang is not None, (
+            f"{type(platdef).__name__} has no ghidra_language_id for "
+            f"{self.arch}:{self.byteorder}"
+        )
+        return lang
 
     # Does Pcode support single-instruction stepping for this ISA.
     #
