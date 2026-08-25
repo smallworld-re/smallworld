@@ -141,49 +141,157 @@ class PcodeNamingTests(unittest.TestCase):
     @unittest.expectedFailure
     def test_aarch64_condition_flags_reach_a_register(self):
         """ng/zr/cy/ov alias to 'nzcv', which aarch64.py does not define, so
-        `cmp x0, x1` reports an empty write set."""
+        `cmp x0, x1` reports an empty write set and `b.eq` an empty read set.
+
+        Unlike the PowerPC case next door -- where the platform did model the
+        register, under its SPR name -- AArch64 models no condition-flag
+        register at all, and none of the five machine defs (unicorn, angr,
+        panda, ghidra, styx) name one either. The machdef tests assert that
+        platform definitions and machine defs cover exactly the same
+        registers, so adding it is an emulator-wide change rather than a
+        naming fix, and it is deliberately not made here.
+        """
         self.assertIsNotNone(self._canon("AARCH64", "LITTLE", "ng"))
 
-    @unittest.expectedFailure
     def test_powerpc_xer_bits_reach_a_register(self):
-        """xer_* alias to 'xer', whose RegisterDef is commented out in
-        powerpc.py (the platform models it as spr_xer), so every carry and
-        overflow edge is dropped."""
-        self.assertIsNotNone(self._canon("POWERPC32", "BIG", "xer_so"))
+        """XER is SPR 1 and the platform models it as spr_xer; there is no
+        plain "xer" RegisterDef, so aliasing to that dropped every carry and
+        overflow edge (20 of 79 corpus_ppc32.json entries name xer_*)."""
+        self.assertEqual(self._canon("POWERPC32", "BIG", "xer_so"), "spr_xer")
+        self.assertEqual(self._canon("POWERPC32", "BIG", "xer_ca"), "spr_xer")
 
-    @unittest.expectedFailure
-    def test_mips64_32bit_register_views_are_mapped(self):
-        """register_alias has no MIPS64 branch, so Ghidra's <reg>_lo/_hi views
-        and its hi/lo accumulators are all dropped -- every 32-bit MIPS64 op
-        reports empty operands."""
-        self.assertIsNotNone(self._canon("MIPS64", "BIG", "a0_lo"))
-        self.assertIsNotNone(self._canon("MIPS64", "BIG", "hi"))
+    def test_mips64_32bit_register_views_reduce_to_the_register(self):
+        """Ghidra names the 32-bit view of a MIPS64 GPR <reg>_lo and the upper
+        half <reg>_hi; both are the architectural register for use/def, the
+        same reduction eax -> rax gets. Unmapped, every 32-bit MIPS64 op
+        (addu, sll, lw) reported empty operands."""
+        self.assertEqual(self._canon("MIPS64", "BIG", "a0_lo"), "a0")
+        self.assertEqual(self._canon("MIPS64", "BIG", "a0_hi"), "a0")
+        # ...and the accumulators, which SmallWorld numbers (there are four).
+        self.assertEqual(self._canon("MIPS64", "BIG", "hi"), "hi0")
+        self.assertEqual(self._canon("MIPS64", "BIG", "lo"), "lo0")
 
-    @unittest.expectedFailure
-    def test_mips64_o32_names_do_not_collide_with_n64(self):
-        """Ghidra names MIPS64 GPRs o32-style, SmallWorld's platdef n64-style
-        (see ghidra/machdefs/mips64.py). Ghidra's t0 is register 8, but
-        SmallWorld's t0 is register 12, so this passes the membership check
-        and silently names the wrong register."""
-        # Ghidra's t4-t7 have no n64 counterpart under that name and drop...
-        self.assertIsNotNone(self._canon("MIPS64", "BIG", "t4"))
-        # ...while Ghidra's t0 maps onto a *different* physical register.
-        self.assertNotEqual(self._canon("MIPS64", "BIG", "t0"), "t0")
+    def test_mips64_o32_names_are_translated_to_n64(self):
+        """Ghidra names MIPS64 GPRs O32-style, SmallWorld N64-style, and the
+        two disagree about what a name MEANS rather than how it is spelled:
+        Ghidra's t0 is $8, which N64 calls a4, while N64's t0 is $12, which
+        Ghidra calls t4. Passing the name through unchanged landed on a
+        different physical register and nothing detected it."""
+        # $8-$11: Ghidra t0-t3 -> N64 a4-a7
+        self.assertEqual(self._canon("MIPS64", "BIG", "t0"), "a4")
+        self.assertEqual(self._canon("MIPS64", "BIG", "t3"), "a7")
+        # $12-$15: Ghidra t4-t7 -> N64 t0-t3
+        self.assertEqual(self._canon("MIPS64", "BIG", "t4"), "t0")
+        self.assertEqual(self._canon("MIPS64", "BIG", "t7"), "t3")
+        # Applied after the _lo reduction, so the sub-register view of an
+        # O32-named register lands on the right N64 register too.
+        self.assertEqual(self._canon("MIPS64", "BIG", "t0_lo"), "a4")
+        # $24-$25 agree in both ABIs and must NOT be renamed.
+        self.assertEqual(self._canon("MIPS64", "BIG", "t8"), "t8")
+        self.assertEqual(self._canon("MIPS64", "BIG", "t9"), "t9")
 
-    @unittest.expectedFailure
-    def test_memory_operand_base_is_validated(self):
-        """canonicalize_operand only aliases and checks RegisterOperand; a
-        memory operand's base/index escape unmapped, so a Ghidra-only name
-        like x86-64's fs_offset survives into an operand whose .address()
-        raises when a consumer resolves it."""
+    def test_memory_operand_base_and_index_are_mapped_and_validated(self):
+        """A memory operand's base/index are register names too. Passed
+        through raw, a Ghidra-only name survived into an operand whose
+        .address() raises the moment a consumer resolves it."""
         from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
         from smallworld.instructions.pcode_naming import canonicalize_operand
 
-        operand = BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=8)
-        out = canonicalize_operand(operand, self._platdef("X86_64", "LITTLE"))
-        self.assertTrue(
-            out is None or out.base in self._platdef("X86_64", "LITTLE").registers
+        amd64 = self._platdef("X86_64", "LITTLE")
+        # x86-64 segment addressing reads a real FS_OFFSET register that no
+        # platform definition models: the whole reference has to go, since
+        # without a base there is no address to compute.
+        unresolvable = BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=8)
+        self.assertIsNone(canonicalize_operand(unresolvable, amd64))
+
+        # A resolvable one is preserved exactly.
+        ok = BSIDMemoryReferenceOperand(base="rdx", index="rcx", scale=4, offset=16)
+        out = canonicalize_operand(ok, amd64)
+        self.assertIsNotNone(out)
+        self.assertEqual(
+            (out.base, out.index, out.scale, out.offset), ("rdx", "rcx", 4, 16)
         )
+
+        # And a mappable-but-differently-named one is rewritten, not dropped.
+        mips64 = self._platdef("MIPS64", "BIG")
+        renamed = canonicalize_operand(
+            BSIDMemoryReferenceOperand(base="t0", offset=8, size=8), mips64
+        )
+        self.assertIsNotNone(renamed)
+        self.assertEqual(renamed.base, "a4")
+        self.assertEqual((renamed.offset, renamed.size), (8, 8))
+
+
+@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+class GhidraMachdefRegisterAliasTests(unittest.TestCase):
+    """PlatformDef.ghidra_register_aliases must agree with the Ghidra machine
+    def it mirrors.
+
+    The machine def maps SmallWorld name -> Ghidra name and needs a JVM to
+    import; the platform definition carries the inverse so the p-code naming
+    layer can read it without one. Two statements of one fact, so assert they
+    stay agreed rather than letting them drift.
+    """
+
+    @staticmethod
+    def _canonical(name, platdef):
+        """Follow RegisterAliasDef.parent to the underlying physical
+        register, so two names for one register compare equal."""
+        from smallworld.platforms import RegisterAliasDef
+
+        seen = set()
+        while name not in seen:
+            seen.add(name)
+            reg = platdef.registers.get(name)
+            if not isinstance(reg, RegisterAliasDef):
+                return name
+            name = reg.parent
+        return name
+
+    def _check(self, machdef_cls, platdef_cls):
+        """Every Ghidra register name the machine def knows must resolve,
+        through the naming layer, to the same PHYSICAL register the machine
+        def says it is."""
+        from smallworld.instructions.pcode_naming import _platform_name
+
+        platdef = platdef_cls()
+        for smallworld_name, ghidra_name in machdef_cls._registers.items():
+            if ghidra_name is None or smallworld_name.isdigit():
+                continue  # unmapped, or a numeric alias the analysis never sees
+            with self.subTest(ghidra=ghidra_name, smallworld=smallworld_name):
+                resolved = _platform_name(ghidra_name, platdef)
+                self.assertIsNotNone(
+                    resolved,
+                    msg=f"Ghidra {ghidra_name!r} is SmallWorld "
+                    f"{smallworld_name!r} per the machine def, but the naming "
+                    f"layer drops it",
+                )
+                self.assertEqual(
+                    self._canonical(resolved, platdef),
+                    self._canonical(smallworld_name, platdef),
+                    msg=f"Ghidra {ghidra_name!r} is SmallWorld "
+                    f"{smallworld_name!r} per the machine def, but the naming "
+                    f"layer resolves it to {resolved!r} -- a different "
+                    f"physical register",
+                )
+
+    def test_mips64_names_resolve_to_the_right_physical_register(self):
+        pyghidra.start()  # machdefs import Ghidra's Java classes at module scope
+
+        from smallworld.emulators.ghidra.machdefs.mips64 import (
+            MIPS64BEMachineDef,
+        )
+        from smallworld.platforms.defs.mips64 import MIPS64BE
+
+        self._check(MIPS64BEMachineDef, MIPS64BE)
+
+    def test_mips32_names_resolve_to_the_right_physical_register(self):
+        pyghidra.start()
+
+        from smallworld.emulators.ghidra.machdefs.mips import MIPSBEMachineDef
+        from smallworld.platforms.defs.mips import MIPS32BE
+
+        self._check(MIPSBEMachineDef, MIPS32BE)
 
 
 @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
@@ -440,6 +548,21 @@ class InstructionUseDefTests(unittest.TestCase):
             {"a0"},
         ),
         ("MIPS64", "LITTLE", "0800a4df", "ld a0, 8(sp) (mips64el)", {"sp"}, {"a0"}),
+        # 32-bit ops on MIPS64: Ghidra reports the <reg>_lo views, which used
+        # to be dropped wholesale -- these reported NO operands at all.
+        ("MIPS64", "BIG", "00a62021", "addu a0, a1, a2 (32-bit)", {"a1", "a2"}, {"a0"}),
+        ("MIPS64", "BIG", "00a60018", "mult a1, a2", {"a1", "a2"}, {"hi0", "lo0"}),
+        # The O32/N64 collision: Ghidra disassembles this as `addu t4,t0,t1`
+        # ($12,$8,$9), which N64 names t0,a4,a5. Passing Ghidra's names
+        # through unchanged silently named three different registers.
+        (
+            "MIPS64",
+            "BIG",
+            "01096021",
+            "addu $12, $8, $9 (O32/N64)",
+            {"a4", "a5"},
+            {"t0"},
+        ),
         # ARM-mode (little-endian bytes); routed through pcode via the
         # platform's ghidra_language_id (ARM:LE:32:v7).
         ("ARM_V7A", "LITTLE", "081092e5", "ldr r1, [r2, #8]", {"r2"}, {"r1"}),

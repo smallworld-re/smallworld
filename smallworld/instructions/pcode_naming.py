@@ -25,7 +25,8 @@ import re
 import typing
 
 from ..platforms import Architecture, PlatformDef, RegisterAliasDef
-from .instructions import Operand, RegisterOperand
+from .bsid import BSIDMemoryReferenceOperand
+from .instructions import MemoryReferenceOperand, Operand, RegisterOperand
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,12 @@ _X86_FLAG_BITS = frozenset(
 _X86_VECTOR_LANE_RE = re.compile(r"([xyz]mm\d+)_\w+")
 _AARCH64_FLAG_BITS = frozenset(("ng", "zr", "cy", "ov", "nzcv"))
 _AARCH64_ZREG_RE = re.compile(r"z(\d+)")
+# Ghidra's MIPS64 model names the 32-bit view of a 64-bit GPR <reg>_lo and
+# the upper half <reg>_hi. A 32-bit op (addu, sll, ...) reads and writes the
+# _lo view and sign-extends into the whole register, so for use/def purposes
+# both views are the architectural register -- the same reduction x86 eax ->
+# rax and AArch64 w3 -> x3 get.
+_MIPS64_SUBREG_RE = re.compile(r"(.+)_(?:lo|hi)")
 
 
 def register_alias(name: str, arch: Architecture) -> str:
@@ -66,7 +73,10 @@ def register_alias(name: str, arch: Architecture) -> str:
             return f"q{m.group(1)}"
     elif arch == Architecture.POWERPC32:
         if name.startswith("xer_"):
-            return "xer"
+            # The platform models XER (which is SPR 1) under its SPR name;
+            # there is no plain "xer" RegisterDef, so aliasing to that
+            # silently dropped every carry and overflow edge.
+            return "spr_xer"
         if name.startswith("fp_"):
             return "fpscr"
     elif arch == Architecture.MIPS32:
@@ -74,6 +84,24 @@ def register_alias(name: str, arch: Architecture) -> str:
             return "hi0"
         if name == "lo":
             return "lo0"
+    elif arch == Architecture.MIPS64:
+        m = _MIPS64_SUBREG_RE.fullmatch(name)
+        if m:
+            return m.group(1)
+    return name
+
+
+def _platform_name(ghidra_name: str, platdef: PlatformDef) -> typing.Optional[str]:
+    """This platform's name for a Ghidra register, or None if it models no
+    such register."""
+    name = register_alias(ghidra_name, platdef.architecture)
+    # A platform may also rename registers wholesale, where the two
+    # namespaces use the same word for different physical registers --
+    # MIPS64, where Ghidra's O32 t0 is N64's a4. Applied after
+    # register_alias so it sees the reduced name (t0_lo -> t0 -> a4).
+    name = platdef.ghidra_register_aliases.get(name, name)
+    if name not in platdef.registers:
+        return None
     return name
 
 
@@ -85,8 +113,8 @@ def canonicalize_operand(
     emulator. Returns None for operands naming state the platform
     definition doesn't model."""
     if isinstance(operand, RegisterOperand):
-        name = register_alias(operand.name, platdef.architecture)
-        if name not in platdef.registers:
+        name = _platform_name(operand.name, platdef)
+        if name is None:
             logger.debug(
                 f"dropping pcode operand {operand.name!r}: "
                 f"no such register on {type(platdef).__name__}"
@@ -94,6 +122,44 @@ def canonicalize_operand(
             return None
         if name != operand.name:
             return RegisterOperand(name)
+        return operand
+
+    if isinstance(operand, MemoryReferenceOperand):
+        # A memory operand's base and index are register names too, and they
+        # need the same mapping: they were previously passed through raw, so
+        # a Ghidra-only name (x86-64 fs_offset, MIPS64's <reg>_lo) survived
+        # into an operand whose .address() raises the moment a consumer
+        # resolves it -- inside Unicorn's fault handler, in the case that
+        # found this.
+        renamed = {}
+        for attr in ("base", "index"):
+            old_name = getattr(operand, attr, None)
+            if old_name is None:
+                continue
+            new_name = _platform_name(old_name, platdef)
+            if new_name is None:
+                # Without a resolvable base or index there is no address to
+                # compute, so the whole reference goes rather than a
+                # half-formed one. Debug, like the register case above: TLS
+                # accesses would make this a warning on every other
+                # instruction.
+                logger.debug(
+                    f"dropping pcode memory operand {operand!r}: {attr} "
+                    f"{old_name!r} is not a register on "
+                    f"{type(platdef).__name__}"
+                )
+                return None
+            if new_name != old_name:
+                renamed[attr] = new_name
+        if renamed:
+            return BSIDMemoryReferenceOperand(
+                segment=getattr(operand, "segment", None),
+                base=renamed.get("base", getattr(operand, "base", None)),
+                index=renamed.get("index", getattr(operand, "index", None)),
+                scale=getattr(operand, "scale", 1),
+                offset=getattr(operand, "offset", 0),
+                size=operand.size,
+            )
     return operand
 
 

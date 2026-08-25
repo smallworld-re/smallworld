@@ -24,6 +24,15 @@ class PlatformDef(metaclass=abc.ABCMeta):
     #: analysis. None if this platform has no Ghidra language.
     ghidra_language_id: typing.Optional[str] = None
 
+    #: Ghidra/SLEIGH register name -> the name THIS platform uses for the
+    #: same physical register, for the cases where the two namespaces
+    #: disagree about a name rather than merely spelling it differently.
+    #: Read by the p-code use/def naming layer
+    #: (:mod:`smallworld.instructions.pcode_naming`), which cannot consult
+    #: the Ghidra machine defs -- they import Ghidra's Java classes and so
+    #: need a running JVM. Empty for platforms where the two agree.
+    ghidra_register_aliases: typing.Dict[str, str] = {}
+
     @property
     @abc.abstractmethod
     def architecture(self) -> Architecture:
