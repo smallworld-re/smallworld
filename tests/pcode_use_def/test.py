@@ -112,6 +112,22 @@ class PcodeNamingTests(unittest.TestCase):
         self.assertEqual(self._canon("AARCH64", "LITTLE", "z3"), "q3")
         self.assertEqual(self._canon("POWERPC32", "BIG", "fp_fx"), "fpscr")
 
+    def test_arm_condition_flags_reach_the_status_register(self):
+        """Ghidra's four one-bit ARM flags map to the platform's status
+        register -- cpsr on the R/A-series, psr on the M-series -- so `cmp`
+        no longer reports writing nothing. The cost is a spurious read on
+        plain data-processing instructions; see the note in arm.py."""
+        for arch, expected in (
+            ("ARM_V7A", "cpsr"),
+            ("ARM_V7R", "cpsr"),
+            ("ARM_V5T", "psr"),
+            ("ARM_V6M", "psr"),
+            ("ARM_V7M", "psr"),
+        ):
+            with self.subTest(arch=arch):
+                for flag in ("ng", "zr", "cy", "ov"):
+                    self.assertEqual(self._canon(arch, "LITTLE", flag), expected)
+
     def test_unmodelled_register_is_dropped(self):
         self.assertIsNone(self._canon("X86_64", "LITTLE", "not_a_register"))
 
@@ -152,18 +168,12 @@ class PcodeNamingTests(unittest.TestCase):
         defs = {RegisterOperand("xmm0"), RegisterOperand("ymm0")}
         self.assertIn(RegisterOperand("ymm0"), collapse_widened_defs(defs, platdef))
 
-    @unittest.expectedFailure
     def test_aarch64_condition_flags_reach_a_register(self):
-        """ng/zr/cy/ov alias to 'nzcv', which aarch64.py does not define, so
-        `cmp x0, x1` reports an empty write set and `b.eq` an empty read set.
-
-        Unlike the PowerPC case next door, where the platform did model the
-        register under its SPR name, AArch64 models no flags register and
-        neither do any of the machine defs. The machdef tests assert both
-        cover exactly the same registers, so this is an emulator-wide
-        change, not a naming fix.
-        """
-        self.assertIsNotNone(self._canon("AARCH64", "LITTLE", "ng"))
+        """ng/zr/cy/ov alias to nzcv -- the PSTATE condition-flag field that
+        mrs/msr address as a system register. Unmodelled, `cmp x0, x1`
+        reported writing nothing at all."""
+        for flag in ("ng", "zr", "cy", "ov", "nzcv"):
+            self.assertEqual(self._canon("AARCH64", "LITTLE", flag), "nzcv")
 
     def test_powerpc_xer_bits_reach_a_register(self):
         """XER is SPR 1 and the platform models it as spr_xer; there is no
@@ -749,6 +759,14 @@ class InstructionUseDefTests(unittest.TestCase):
             {"sp"},
         ),
         ("ARM_V7A", "LITTLE", "1eff2fe1", "bx lr", {"lr"}, {"pc"}),
+        # Condition flags reach the platform's status register. The corpus
+        # checks these in Ghidra's namespace (ng/zr/cy/ov); only here does
+        # the mapping onto cpsr/nzcv get exercised.
+        ("ARM_V7A", "LITTLE", "010050e1", "cmp r0, r1", {"r0", "r1"}, {"cpsr"}),
+        ("ARM_V7A", "LITTLE", "0110a0e0", "adc r1, r0, r1", {"cpsr", "r0"}, {"r1"}),
+        ("AARCH64", "LITTLE", "1f0001eb", "cmp x0, x1", {"x0", "x1"}, {"nzcv"}),
+        ("AARCH64", "LITTLE", "2000019a", "adc x0, x1, x1", {"nzcv", "x1"}, {"x0"}),
+        ("AARCH64", "LITTLE", "20049f9a", "cset x0, eq", {"nzcv"}, {"x0"}),
     ]
 
     def test_reads_writes_are_platform_valid(self):

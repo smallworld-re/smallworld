@@ -137,11 +137,14 @@ An operand item is either `{"reg": "<name>"}` or
    `ov`) on instructions that do not actually consume a flag — e.g. a
    plain `adds`, `sub`, or immediate `lsl`/`lsr`/`asr`/`ror`. These are
    not real dependencies. They are left in `uses_optional` where the
-   corpus lists them at all, and they never reach consumers: the ARM
-   condition flags are not in the platform definition, so
-   `Instruction.reads`/`.writes` drops them (and the harness drops all
-   flags in its normalized comparison). Genuine carry consumers on ARM
-   (`adc`/`sbc`) are the exception and DO read `cy` (required). This is
+   corpus lists them at all, and the harness drops all flags in its
+   normalized comparison. They DO now reach consumers: the ARM flags map
+   to the platform's status register (`cpsr` on R/A-series, `psr` on
+   M-series), so a plain `add` reports a spurious read of it. That is a
+   deliberate trade -- unmapped, `cmp` reported writing nothing at all and
+   no conditional branch read a flag, and over-reporting a read is safer
+   than missing one. Genuine carry consumers on ARM
+   (`adc`/`sbc`) DO read `cy` (required). This is
    the analog of x86's `xor reg,reg` idiom (see the note below), but
    unlike that case it is not cleanly separable from a real carry read,
    so it is documented rather than suppressed.
