@@ -60,8 +60,16 @@ emu-styx = [
     "styx-emulator>=0.1.0",
     "styxafl>=0.1.0",
 ]
+emu-triton = [
+    # JonathanSalwan's Triton. The PyPI distribution is named "triton-library"
+    # but imports as "triton"; do NOT confuse it with OpenAI's "triton". The
+    # newest PyPI release is a pre-release (1.0.0rc4), so the floor names it
+    # explicitly, otherwise a plain ">=1.0.0" would exclude every published
+    # wheel.
+    "triton-library>=1.0.0rc4",
+]
 emu-all = [
-    "smallworld-re[emu-angr,emu-ghidra,emu-panda,emu-unicorn,emu-styx]",
+    "smallworld-re[emu-angr,emu-ghidra,emu-panda,emu-unicorn,emu-styx,emu-triton]",
 ]
 
 [tool.setuptools]
@@ -74,11 +82,12 @@ include = ["smallworld*"]
 
 [tool.mypy]
 disable_error_code = ["annotation-unchecked"]
-exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache)/'
+exclude = '^(build|ci|docs|examples|nix/unicornafl-build|nix/styx-emulator-build|nix/styxafl-build|nix/styxafl-src|nix/triton-build|smallworld_re\.egg-info|tests|use_cases|\.mypy_cache)/'
 
 [tool.uv]
 exclude-dependencies = [
     "pandare2",
     "styx-emulator",
     "styxafl",
+    "triton-library",
 ]

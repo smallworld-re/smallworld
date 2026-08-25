@@ -45,7 +45,7 @@ code_offset = (cpu.pc.get() - code.address) & 0xFFFFFFFFFFFFF000
 code[code_offset] = orig[0x0]
 
 # Replace the instruction bytes at pc with a nop
-nop = b"\xd5\x03\x20\x1f"
+nop = b"\x1f\x20\x03\xd5"
 code.write_bytes(cpu.pc.get(), nop)
 
 # Set up a puts handler

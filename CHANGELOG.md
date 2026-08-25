@@ -11,6 +11,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `Memory` state objects with large values are now stringified much faster.
 - `InputColorizerAnalysis` can now handle 32-bit cpu.
+- `TritonEmulator` no longer returns from a hooked function twice; the hook
+  itself performs the return, as it does on every other backend.
+- `TritonEmulator` reports unmapped fetches, reads and writes instead of
+  silently succeeding on Triton's flat, lazy memory.
+- `TritonEmulator` no longer raises a spurious memory-read hook for the
+  destination of an ARM32 store.
+- `TritonEmulator` treats `hlt` (and the AArch64/RISC-V wait-for-event
+  instructions) as a clean stop rather than an invalid instruction.
+- `TritonEmulator.run()` returns when execution reaches an exit point or leaves
+  its bounds, instead of letting the stop escape to the caller.
+- `TritonSymbolicEmulator` handles labels whose names are not SMT-LIB symbols
+  (`"fake return address"`), and symbolic memory of any size rather than only
+  Triton's power-of-two access widths.
+- `TritonEmulator` runs x86 `rep`-prefixed string instructions to completion
+  instead of stopping after the first iteration.
+- `TritonEmulator` reports an undecodable instruction as
+  `EmulationExecInvalidFailure` rather than letting Triton's own `TypeError`
+  escape.
+- `TritonEmulator` honors a PC written by an instruction, syscall or interrupt
+  hook, dispatches both the global and the numbered interrupt hook, and no
+  longer spins forever on a function hook that leaves PC alone.
+- `TritonEmulator` recognises predicated ARM32 traps (`svcne`) and evaluates
+  their condition instead of reporting them as invalid instructions, and
+  rejects a memory-read hook that returns the wrong number of bytes.
+- `TritonSymbolicEmulator` survives a branch on symbolic data, detects memory
+  that execution made symbolic, records symbolic writes in the memory map,
+  keeps its internal accesses out of the user's memory hooks, and binds a
+  register label written through an alias (`edi` for `rdi`, `pc` for `rip`).
+- Reusing one label for two values no longer makes the Triton-to-claripy
+  bridge emit a duplicate SMT-LIB declaration.
+- The Triton machine definitions no longer resolve `triton.ARCH` at import
+  time, so a Triton build missing one architecture fails when that
+  architecture is requested rather than breaking `import smallworld`, and the
+  "install the [emu-triton] extra" error is reachable again.
 
 ### Added
 
@@ -27,6 +61,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from a local patch adding the SH-2A ISA to QEMU's `target/sh4`; see
   `nix/patches/README.panda-qemu-sh2a.md` for what it does and does not
   implement.
+- `TritonEmulator` and `TritonSymbolicEmulator` emulator backends based on the
+  Triton dynamic binary analysis framework (`[emu-triton]` extra), covering
+  x86, x86-64, ARM32, AArch64, and RISC-V 64, with concrete emulation, linear
+  symbolic execution, and taint-analysis escape hatches.
+- `TritonEmulator` implements `SyscallHookable`, dispatching syscall hooks for
+  `syscall`/`svc`/`ecall`/`int 0x80` using each platform's Linux syscall-number
+  register.
 - `Filter` analyses that simply listen to the hint stream.
 - `Instruction` classes that provide information on instruction semantics, with
   methods for capturing concrete values.

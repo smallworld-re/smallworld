@@ -7,6 +7,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     build_specs,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -62,6 +63,9 @@ _ARCHS = (
 )
 
 _SPECS = build_specs(NullPcSpec, _ARCHS)
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 # ppc64 uses angr/pcode only: unicorn's ppc64 support is buggy (matches the
 # branch/unmapped scenarios). PANDA is a supported engine for several arches

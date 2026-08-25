@@ -17,12 +17,14 @@ means we emulate with our current best harness in order to get hints to improve
 our harness for emulation.  In other words, we emulate in order to emulate
 better.
 
-SmallWorld currently supports five emulation backends:
+SmallWorld currently supports six emulation backends:
 
 * **angr**: A user-space symbolic executor based on VEX or Pcode
 * **Ghidra**: A user-space concrete emulator based on Pcode
 * **Panda**: A full-system concrete emulator based on QEMU
 * **Styx**: A firmware-oriented concrete emulator based on Pcode or Unicorn
+* **Triton**: A user-space concrete emulator, linear symbolic executor and
+  taint engine
 * **Unicorn**: A user-space concrete emulator based on QEMU
 
 Each backend below has a page of its own except Styx, which does not have one
@@ -32,7 +34,7 @@ docstrings of ``smallworld.emulators.styx``.
 These are abstracted behind a common interface.
 While they all have different strengths and support slightly different
 sets of features, most smallworld harnesses can be applied
-to any of the five emulators,
+to any of the emulators,
 with only a single line of code changed to specify which one.
 
 Although the :ref:`state` interface is the preferred method of
@@ -46,3 +48,4 @@ of extracting and reapplying the machine state representation.
    angr
    panda
    ghidra
+   triton

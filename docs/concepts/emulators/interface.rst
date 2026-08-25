@@ -26,6 +26,7 @@ All emulators are subclasses of ``Emulator``:
     * ``AngrEmulator``: Interface for the :ref:`angr <angr>` backend.
     * ``GhidraEmulator``: Interface for the :ref:`ghidra <ghidra>` backend.
     * ``PandaEmulator``: Interface for the :ref:`panda <panda>` backend.
+    * ``TritonEmulator``: Interface for the :ref:`triton <triton>` backend.
     * ``UnicornEmulator``: Interface for the :ref:`unicorn <unicorn>` backend.
 
 These all take a single ``Platform`` object as an argument to their constructor.
