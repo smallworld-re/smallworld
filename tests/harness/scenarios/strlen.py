@@ -8,6 +8,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     build_specs,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -48,6 +49,9 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "tricore",
     "xtensa",
 )
@@ -72,8 +76,35 @@ _SPECS = build_specs(
     },
 )
 
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
+
 
 SCENARIO_PREFIXES = (("strlen", "strlen"),)
+
+# Ghidra's SuperH4 sleigh never writes pr on bsr - the ghidra and angr backends
+# read it back as 0 or unconstrained, where SH-2A's sleigh correctly yields the
+# address after the delay slot - so bsr-based call-and-return does not work on
+# SH-4 through either pcode-derived backend.  PANDA does not share that sleigh:
+# it runs on real QEMU, whose bsr does set pr.
+#
+# The defect is specific to bsr.  :bsrf and :jsr both assign PR = inst_next,
+# and sleigh counts the delay slot as part of the instruction, so that is the
+# architectural inst_start + 4 - measured on all three engines, sh2a and sh4
+# alike, with a jsr whose delay slot increments a register.  The `hooking`
+# scenario uses jsr @Rn and therefore needs no SH-4 skips at all.  This
+# scenario keeps bsr on purpose, so the defect stays pinned until it is fixed
+# upstream; the skips below can be deleted when it is.
+_SH4_SLEIGH_PR = "Ghidra SuperH4 sleigh does not write pr on bsr"
+_SH4_CALL_SKIPS = {
+    f"{arch}.{engine}": reason
+    for arch in ("sh4", "sh4el")
+    for engine, reason in (
+        ("angr", _SH4_SLEIGH_PR),
+        ("pcode", _SH4_SLEIGH_PR),
+    )
+}
+
 
 SCENARIO_INFO = ScenarioInfo(
     prefix="strlen",
@@ -81,7 +112,10 @@ SCENARIO_INFO = ScenarioInfo(
     tags=("scenario", "strlen"),
     variants_source=from_arch_table(
         _SPECS,
-        skip_reasons={"ppc64": "Unicorn ppc64 support buggy"},
+        skip_reasons={
+            "ppc64": "Unicorn ppc64 support buggy",
+            **_SH4_CALL_SKIPS,
+        },
     ),
     run_factory=assert_outputs(
         (

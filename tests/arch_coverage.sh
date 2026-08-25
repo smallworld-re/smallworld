@@ -29,12 +29,29 @@ preferred_arches = [
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "xtensa",
 ]
-engine_order = ["unicorn", "angr", "panda", "pcode", "afl"]
+# The familiar engines in a familiar order. This is a preference, not the whole
+# list: anything else the manifest emits is appended below, so a newly added
+# backend cannot be silently dropped from the report.
+preferred_engines = [
+    "unicorn",
+    "angr",
+    "panda",
+    "pcode",
+    "pcode_symbolic",
+    "styx",
+    "styx-mpc860",
+    "triton",
+    "afl",
+]
 
 coverage = defaultdict(lambda: defaultdict(set))
 seen_arches = set()
+seen_engines = set()
 
 for case in all_cases():
     if "scenario" not in case.tags:
@@ -53,9 +70,18 @@ for case in all_cases():
     if arch and arch[0].isalpha():
         coverage[scenario][engine].add(arch)
         seen_arches.add(arch)
+        seen_engines.add(engine)
 
 arch_order = [arch for arch in preferred_arches if arch in seen_arches]
 arch_order.extend(sorted(seen_arches - set(arch_order)))
+
+# Same idea as arch_order: preferred first, then whatever else turned up.
+engine_order = [engine for engine in preferred_engines if engine in seen_engines]
+engine_order.extend(sorted(seen_engines - set(engine_order)))
+# Size the label column to the widest engine actually present; a hardcoded width
+# shifts every arch column right for anything longer (e.g. "triton_symbolic"),
+# and the whole point of the grid is that the columns line up.
+engine_width = max((len(engine) for engine in engine_order), default=0)
 
 for scenario in sorted(coverage):
     print(f"{scenario}:")
@@ -64,5 +90,5 @@ for scenario in sorted(coverage):
         for arch in arch_order:
             row.append(arch if arch in coverage[scenario][engine] else " " * len(arch))
         if any(item.strip() for item in row):
-            print(f"  {engine:7} {' '.join(row)}")
+            print(f"  {engine:{engine_width}} {' '.join(row)}")
 PY

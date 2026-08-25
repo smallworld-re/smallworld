@@ -51,7 +51,7 @@ ps.buildPythonPackage {
     cmake
     pkg-config
   ];
-  postFixup = lib.optionalString (stdenv.isDarwin && unicornLibraryPath != null) ''
+  postFixup = lib.optionalString (stdenv.hostPlatform.isDarwin && unicornLibraryPath != null) ''
     while IFS= read -r extension; do
       install_name_tool -add_rpath "${unicornLibraryPath}" "$extension"
     done < <(find "$out" -type f -name 'unicornafl*.so')

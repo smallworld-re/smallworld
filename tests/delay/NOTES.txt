@@ -45,4 +45,22 @@ both the parent instruction and the delay slot.
 
 - Single-stepping is forbidden on ISAs with delay slots
 - Instruction hooks on delay slots will fire on the correct instruction
-- Memory hooks triggered by delay slots will fire on the correct instruction 
+- Memory hooks triggered by delay slots will fire on the correct instruction
+
+Pcode-backed angr is a fourth model, and SuperH is where it shows up.
+MIPS reaches angr through VEX, but SuperH has no VEX lifter, so its angr
+machdef is pcode-based - which means it inherits Ghidra's folding but not
+Ghidra's hook behavior.
+
+- Will single-step through both instructions in one step
+- Instruction hooks on delay slots *do* fire, but report the parent
+  instruction's pc rather than the delay slot's
+- Memory hooks triggered by delay slots will fire on the parent instruction
+
+So all four models are represented here: MIPS covers QEMU, Ghidra and VEX;
+SuperH covers QEMU, Ghidra and pcode-backed angr.  Concretely, for the same
+SuperH blob - a `bra` at 0x1008 whose delay slot at 0x100a stores to memory -
+the three SuperH backends report that store at 0x1008 (Ghidra), 0x1008 (angr)
+and 0x100a (Panda), and the instruction hook registered on 0x100a fires never,
+once as 0x1008, and once as 0x100a respectively.
+

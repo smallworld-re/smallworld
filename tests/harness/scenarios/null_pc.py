@@ -7,6 +7,7 @@ from typing import Sequence
 from .common import (
     PlatformSpec,
     build_specs,
+    enroll_triton,
     load_raw_code,
     make_emulator,
     make_platform,
@@ -54,11 +55,17 @@ _ARCHS = (
     "ppc",
     "ppc64",
     "riscv64",
+    "sh2a",
+    "sh4",
+    "sh4el",
     "tricore",
     "xtensa",
 )
 
 _SPECS = build_specs(NullPcSpec, _ARCHS)
+
+# Triton emulates x86, x86-64, ARM32, AArch64 and RISC-V; enroll it on those.
+_SPECS = enroll_triton(_SPECS)
 
 # ppc64 uses angr/pcode only: unicorn's ppc64 support is buggy (matches the
 # branch/unmapped scenarios). PANDA is a supported engine for several arches
@@ -76,7 +83,19 @@ _SKIP_REASONS = {
     "mips64.panda": "Waiting for panda-ng",
     "mips64el.panda": "Waiting for panda-ng",
     "ppc.panda": "Waiting for panda-ng",
+    "sh2a.panda": "measured: hangs rather than reporting the jump to NULL "
+    "(PANDA SuperH otherwise works; this scenario needs an unmapped-fetch fault)",
+    "sh4.panda": "measured: hangs rather than reporting the jump to NULL "
+    "(PANDA SuperH otherwise works; this scenario needs an unmapped-fetch fault)",
+    "sh4el.panda": "measured: hangs rather than reporting the jump to NULL "
+    "(PANDA SuperH otherwise works; this scenario needs an unmapped-fetch fault)",
     "tricore.panda": "Waiting for panda-ng",
+    # Measured: this scenario requires an unmapped-fetch fault, and Styx's
+    # SuperH2A target maps a flat 4 GiB RWX space, so a fetch at 0 cannot fault.
+    # The run hangs rather than reporting the jump to NULL. sh2a is the only
+    # ARCH_REGISTERS row listing styx, so this is the first styx variant the
+    # scenario has ever emitted.
+    "sh2a.styx": "styx SuperH2A maps a flat 4 GiB space, so a null fetch cannot fault",
 }
 
 

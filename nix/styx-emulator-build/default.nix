@@ -10,6 +10,7 @@
 # updating the two hashes below.
 {
   lib,
+  applyPatches,
   fetchFromGitHub,
   rustPlatform,
   cargo,
@@ -20,11 +21,20 @@
   stdenv,
 }:
 let
-  src = fetchFromGitHub {
+  rawSrc = fetchFromGitHub {
     owner = "styx-emulator";
     repo = "styx-emulator";
     rev = "71a7746fe192a56b257549842cc3ec55ffc8f75a";
     hash = "sha256-OfIpb/gb28LclLtHmIlSyVOu0gyU9vnnJwKrIyb+xYw=";
+  };
+  # SH-4 exists on styx's Rust side but is unreachable from Python; the patch
+  # exposes it. Keep `name = "source"` so the unpacked directory keeps the name
+  # `fetchFromGitHub` would have produced - `sourceRoot` and `postUnpack` below
+  # both spell it out.
+  src = applyPatches {
+    name = "source";
+    src = rawSrc;
+    patches = [ ../patches/styx-superh4-target.patch ];
   };
   bindingsWorkspaceToml = builtins.fromTOML (builtins.readFile "${src}/styx/bindings/Cargo.toml");
   projectVersion = bindingsWorkspaceToml.workspace.package.version;
@@ -40,10 +50,16 @@ ps.buildPythonPackage {
   pyproject = true;
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit src;
+    # Deliberately the *unpatched* source: the SH-4 patch only edits crates that
+    # are already in the dependency graph and adds no dependencies, so the
+    # vendored crate set - and therefore this fixed-output hash - is unchanged.
+    src = rawSrc;
     # Resolve relative to the sub-workspace root (since the styx-emulator repo
     # ships its bindings workspace with a transient lockfile we want to pin).
-    sourceRoot = "${src.name}/styx/bindings";
+    # Spelled off `rawSrc`, which is what `src` is here - using `${src.name}`
+    # would silently read the *patched* derivation's name and break the moment
+    # the `applyPatches` call above stops being named "source".
+    sourceRoot = "${rawSrc.name}/styx/bindings";
     # fetchCargoVendor has no `cargoLockOverride` parameter: it vendors the
     # `Cargo.lock` found at sourceRoot. Copy our pinned lock into place before
     # the vendoring buildPhase runs so the vendored crate set matches the
