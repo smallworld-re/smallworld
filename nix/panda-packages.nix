@@ -46,7 +46,11 @@ let
     let
       pkgs = pkgsFor system;
       linuxBuilderSystem = linuxBuilderSystemFor system;
-      libExt = if pkgs.stdenv.isDarwin then "dylib" else "so";
+      libExt = if pkgs.stdenv.hostPlatform.isDarwin then "dylib" else "so";
+      # The PANDA plugin interface QEMU builds for us. Named once because
+      # both the producer (`qemu.postInstall`) and the consumer
+      # (`pypandaBuilder.postInstall`) have to agree on it.
+      pandaPluginLib = "libpanda_plugin_interface.${libExt}";
       # `tree-sitter-grammars.tree-sitter-c` (used below to build PANDA's
       # headers) pulls in `datamodel-code-generator`, whose test suite pins
       # exact `ruff`-formatted golden output. A `ruff` version bump elsewhere
@@ -215,7 +219,26 @@ let
         !(lib.any (dropped: lib.hasSuffix dropped name) droppedQemuPatches);
       # Store paths for fetched patches carry a hash prefix, so match on the
       # trailing filename rather than requiring an exact basename.
-      pandaQemuPatches = old: builtins.filter keepQemuPatch (old.patches or [ ]);
+      #
+      # Say something when an entry stops matching, so the drop list does not
+      # quietly rot into a no-op. Warn rather than throw: nixpkgs marks these
+      # patches "remove when included in a release", so the common case is
+      # that the patch simply disappears - at which point there is nothing
+      # left to drop and the build is fine. Only a rename would actually hurt,
+      # and failing eval outright would turn every routine upstream cleanup
+      # into a broken flake.
+      pandaQemuPatches =
+        old:
+        let
+          patches = old.patches or [ ];
+          names = map (patch: builtins.baseNameOf (toString patch)) patches;
+          unmatched = lib.filter (
+            dropped: !(lib.any (name: lib.hasSuffix dropped name) names)
+          ) droppedQemuPatches;
+        in
+        lib.warnIf (unmatched != [ ])
+          "nix/panda-packages.nix: droppedQemuPatches entries match no nixpkgs qemu patch (stale, or renamed upstream): ${lib.concatStringsSep ", " unmatched}"
+          (builtins.filter keepQemuPatch patches);
       mkQemuSourceSetup =
         {
           includeLibpanda ? false,
@@ -232,15 +255,44 @@ let
         src = pandaQemuSrc;
         patches = pandaQemuPatches old;
         configureFlags = qemuConfigureFlags;
-        postUnpack = (old.postUnpack or "") + mkQemuSourceSetup { };
-        postInstall = (old.postInstall or "") + ''
-          cp -v ./contrib/plugins/libpanda_plugin_interface.${libExt} $out/lib/
-        '';
+        # nixpkgs now drives QEMU through `make` instead of the ninja setup
+        # hook. The ninja hook parallelised by default; the generic make
+        # `buildPhase` only passes `-j` when `enableParallelBuilding` is set,
+        # and without a `-j` QEMU's own Makefile hands ninja `-j1`. Say it
+        # explicitly so the build does not silently go serial.
+        enableParallelBuilding = true;
+        postUnpack = (old.postUnpack or "") + "\n" + mkQemuSourceSetup { };
+        # QEMU's meson build tree lives in `$sourceRoot/build`. nixpkgs used
+        # to `cd build` in `preBuild`, so install hooks ran inside that tree;
+        # since it switched to a make-driven ninja build they run from the
+        # source root instead. Accept either cwd so a nixpkgs bump in either
+        # direction doesn't break this copy, and say which places were tried
+        # when neither has the plugin - that is the "QEMU never built it" case,
+        # which is a different problem from the build tree having moved again.
+        postInstall =
+          (old.postInstall or "")
+          + "\n"
+          + ''
+            pandaPluginDir=
+            for candidate in contrib/plugins build/contrib/plugins; do
+              if [ -f "$candidate/${pandaPluginLib}" ]; then
+                pandaPluginDir=$candidate
+                break
+              fi
+            done
+            if [ -z "$pandaPluginDir" ]; then
+              echo "error: ${pandaPluginLib} is in neither contrib/plugins nor build/contrib/plugins (cwd: $PWD)." >&2
+              echo "QEMU did not build the PANDA plugin interface." >&2
+              exit 1
+            fi
+            mkdir -p "$out/lib"
+            cp -v "$pandaPluginDir/${pandaPluginLib}" "$out/lib/"
+          '';
       });
       # `libpanda-ng/run_all.sh` generates the headers consumed by the PANDA
       # bindings, so this is not a simple "copy include files" step.
       libpandaHeaders =
-        if pkgs.stdenv.isLinux then
+        if pkgs.stdenv.hostPlatform.isLinux then
           pkgs.qemu.overrideAttrs (old: {
             pname = "libpanda-ng-headers";
             version = "main";
@@ -251,21 +303,31 @@ let
             dontFixup = true;
             nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ libpandaHeaderNativeBuildInputs;
             configureFlags = qemuConfigureFlags;
+            # See the note on `qemu` above: without this the make-driven build
+            # runs ninja at `-j1`.
+            enableParallelBuilding = true;
             postUnpack =
               (old.postUnpack or "")
+              + "\n"
               + mkQemuSourceSetup {
                 includeLibpanda = true;
               };
-            postBuild = (old.postBuild or "") + ''
-              mkdir -pv $TMPDIR/libpanda-ng/build
-              pushd $TMPDIR/libpanda-ng/build
-              bash ../run_all.sh "$TMPDIR/$sourceRoot"
-              popd
-            '';
+            # `postUnpack` drops `libpanda-ng` next to the unpacked source, and
+            # `sourceRoot` is relative to the same directory, so anchor both on
+            # `$NIX_BUILD_TOP` rather than assuming `$TMPDIR` is the same path.
+            postBuild =
+              (old.postBuild or "")
+              + "\n"
+              + ''
+                mkdir -pv "$NIX_BUILD_TOP/libpanda-ng/build"
+                pushd "$NIX_BUILD_TOP/libpanda-ng/build"
+                bash ../run_all.sh "$NIX_BUILD_TOP/$sourceRoot"
+                popd
+              '';
             installPhase = ''
               runHook preInstall
               mkdir -pv $out/include
-              cp -v $TMPDIR/libpanda-ng/build/*.h $out/include/
+              cp -v "$NIX_BUILD_TOP"/libpanda-ng/build/*.h $out/include/
               runHook postInstall
             '';
             postInstall = "";
@@ -330,7 +392,7 @@ let
             mkdir -pv $out/lib/qemu/build
             cp -R ${qemu}/lib/libpanda-*.${libExt} $out/lib/qemu/build/
             mkdir -pv $out/lib/qemu/build/contrib/plugins
-            cp -R ${qemu}/lib/libpanda_plugin_interface.${libExt} $out/lib/qemu/build/contrib/plugins/
+            cp -R ${qemu}/lib/${pandaPluginLib} $out/lib/qemu/build/contrib/plugins/
             mkdir -pv $out/lib/qemu/pc-bios
             cp -R ${qemu}/share/qemu/*.rom ${qemu}/share/qemu/*.bin $out/lib/qemu/pc-bios/
           '';
