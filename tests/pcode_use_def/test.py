@@ -1,15 +1,21 @@
 """Unit tests for the pcode-based instruction use/def analysis.
 
-Two layers are covered:
+Three layers are covered:
+
+* PcodeNamingTests — the Ghidra-name -> PlatformDef-name adapter on its
+  own. Needs no pyghidra, so it runs on a base install too.
 
 * UseDefCorpusTests — regression over the validation corpus in this
   directory (see README.md): every entry must agree with hand-written
-  ground truth at least under the harness's normalized comparison.
+  ground truth at least under the harness's normalized comparison, and
+  the count matching *strictly* must not fall.
 
 * InstructionUseDefTests — the consumer-facing Instruction.reads /
   .writes API: results must be sets of Operand objects whose register
   names exist in the SmallWorld platform definition (so they can be
-  concretized against an emulator), with spot checks of exact semantics.
+  concretized against an emulator), must not be empty, must contain the
+  registers the instruction architecturally names, with spot checks of
+  exact semantics.
 
 These boot Ghidra's JVM via pyghidra on first use and take a couple of
 minutes for the full corpus; they skip cleanly when pyghidra is not
@@ -49,9 +55,145 @@ def _load_corpus_harness():
     return module
 
 
+class PcodeNamingTests(unittest.TestCase):
+    """The Ghidra-name -> PlatformDef-name adapter, on its own.
+
+    This layer had no coverage at all: the corpus checks the engine in
+    *Ghidra's* namespace and never runs `canonicalize_operand`, and the
+    Instruction-level tests only see the result after the mapping has already
+    happened. A register the mapping drops or misnames simply vanishes, logged
+    at debug.
+
+    Needs no pyghidra -- pcode_naming imports none -- so unlike everything
+    else in this file it also runs on a base install.
+    """
+
+    @staticmethod
+    def _platdef(arch, byteorder="LITTLE"):
+        from smallworld.platforms import (
+            Architecture,
+            Byteorder,
+            Platform,
+            PlatformDef,
+        )
+
+        return PlatformDef.for_platform(
+            Platform(Architecture[arch], Byteorder[byteorder])
+        )
+
+    def _canon(self, arch, byteorder, name):
+        """canonicalize_operand of one register, as a name or None."""
+        from smallworld.instructions import RegisterOperand
+        from smallworld.instructions.pcode_naming import canonicalize_operand
+
+        out = canonicalize_operand(
+            RegisterOperand(name), self._platdef(arch, byteorder)
+        )
+        return None if out is None else out.name
+
+    def test_x86_flag_bits_and_vector_lanes(self):
+        self.assertEqual(self._canon("X86_64", "LITTLE", "cf"), "rflags")
+        self.assertEqual(self._canon("X86_64", "LITTLE", "zf"), "rflags")
+        self.assertEqual(self._canon("X86_32", "LITTLE", "cf"), "eflags")
+        self.assertEqual(self._canon("X86_64", "LITTLE", "xmm0_qa"), "xmm0")
+        # A name the two namespaces already agree on passes through.
+        self.assertEqual(self._canon("X86_64", "LITTLE", "rax"), "rax")
+
+    def test_mips32_accumulators(self):
+        self.assertEqual(self._canon("MIPS32", "BIG", "hi"), "hi0")
+        self.assertEqual(self._canon("MIPS32", "BIG", "lo"), "lo0")
+
+    def test_aarch64_vector_and_powerpc_fpscr(self):
+        # zN is Ghidra's full vector register; qN is the widest lane modelled.
+        self.assertEqual(self._canon("AARCH64", "LITTLE", "z3"), "q3")
+        self.assertEqual(self._canon("POWERPC32", "BIG", "fp_fx"), "fpscr")
+
+    def test_unmodelled_register_is_dropped(self):
+        self.assertIsNone(self._canon("X86_64", "LITTLE", "not_a_register"))
+
+    def test_collapse_widened_defs_keeps_the_narrower_name(self):
+        from smallworld.instructions import RegisterOperand
+        from smallworld.instructions.pcode_naming import collapse_widened_defs
+
+        platdef = self._platdef("X86_64", "LITTLE")
+        # Ghidra models a 32-bit x86-64 write as zero-extending, so `mov
+        # ecx, eax` defs both; the architectural destination is ecx.
+        self.assertEqual(
+            collapse_widened_defs(
+                {RegisterOperand("ecx"), RegisterOperand("rcx")}, platdef
+            ),
+            {RegisterOperand("ecx")},
+        )
+        # Nothing to collapse: left alone.
+        self.assertEqual(
+            collapse_widened_defs({RegisterOperand("rax")}, platdef),
+            {RegisterOperand("rax")},
+        )
+
+    # ---------------------------------------------------------------- #
+    # Known gaps. These fail today and are marked expected so they are
+    # recorded rather than forgotten; fixing one turns it into an
+    # unexpected success, which fails the suite and forces the marker
+    # off. Do not "fix" one by deleting it.
+    # ---------------------------------------------------------------- #
+
+    @unittest.expectedFailure
+    def test_aarch64_condition_flags_reach_a_register(self):
+        """ng/zr/cy/ov alias to 'nzcv', which aarch64.py does not define, so
+        `cmp x0, x1` reports an empty write set."""
+        self.assertIsNotNone(self._canon("AARCH64", "LITTLE", "ng"))
+
+    @unittest.expectedFailure
+    def test_powerpc_xer_bits_reach_a_register(self):
+        """xer_* alias to 'xer', whose RegisterDef is commented out in
+        powerpc.py (the platform models it as spr_xer), so every carry and
+        overflow edge is dropped."""
+        self.assertIsNotNone(self._canon("POWERPC32", "BIG", "xer_so"))
+
+    @unittest.expectedFailure
+    def test_mips64_32bit_register_views_are_mapped(self):
+        """register_alias has no MIPS64 branch, so Ghidra's <reg>_lo/_hi views
+        and its hi/lo accumulators are all dropped -- every 32-bit MIPS64 op
+        reports empty operands."""
+        self.assertIsNotNone(self._canon("MIPS64", "BIG", "a0_lo"))
+        self.assertIsNotNone(self._canon("MIPS64", "BIG", "hi"))
+
+    @unittest.expectedFailure
+    def test_mips64_o32_names_do_not_collide_with_n64(self):
+        """Ghidra names MIPS64 GPRs o32-style, SmallWorld's platdef n64-style
+        (see ghidra/machdefs/mips64.py). Ghidra's t0 is register 8, but
+        SmallWorld's t0 is register 12, so this passes the membership check
+        and silently names the wrong register."""
+        # Ghidra's t4-t7 have no n64 counterpart under that name and drop...
+        self.assertIsNotNone(self._canon("MIPS64", "BIG", "t4"))
+        # ...while Ghidra's t0 maps onto a *different* physical register.
+        self.assertNotEqual(self._canon("MIPS64", "BIG", "t0"), "t0")
+
+    @unittest.expectedFailure
+    def test_memory_operand_base_is_validated(self):
+        """canonicalize_operand only aliases and checks RegisterOperand; a
+        memory operand's base/index escape unmapped, so a Ghidra-only name
+        like x86-64's fs_offset survives into an operand whose .address()
+        raises when a consumer resolves it."""
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+        from smallworld.instructions.pcode_naming import canonicalize_operand
+
+        operand = BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=8)
+        out = canonicalize_operand(operand, self._platdef("X86_64", "LITTLE"))
+        self.assertTrue(
+            out is None or out.base in self._platdef("X86_64", "LITTLE").registers
+        )
+
+
 @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""
+
+    #: Floor for entries matching ground truth *strictly* (no normalization).
+    #: 599 of 794 as of this commit. A floor rather than an equality so that
+    #: improving the analysis does not fail the suite -- raise it when it
+    #: climbs.
+    MIN_STRICT_MATCHES = 599
 
     def test_corpus(self):
         from smallworld.instructions.pcode_use_def import analyze
@@ -59,11 +201,16 @@ class UseDefCorpusTests(unittest.TestCase):
         harness = _load_corpus_harness()
         corpora = harness.load_corpora(HERE, None)
         self.assertTrue(corpora, f"no corpus files found in {HERE}")
+        strict = 0
+        total = 0
         for corpus in corpora:
             with self.subTest(isa=corpus["isa"]):
                 disagreements = []
                 for entry in corpus["entries"]:
                     result = harness.check_entry(entry, corpus, analyze)
+                    total += 1
+                    if result["status"] == "pass":
+                        strict += 1
                     if result["status"] not in ("pass", "pass-normalized"):
                         detail = result.get("error") or (
                             f"missing use={result.get('missing_use_norm')} "
@@ -81,6 +228,20 @@ class UseDefCorpusTests(unittest.TestCase):
                     f"{len(corpus['entries'])} entries disagree",
                 )
 
+        # Agreement above accepts "pass-normalized", and normalizing drops
+        # flag and pc registers from BOTH sides before comparing -- so an
+        # analysis that stopped reporting x86 flags entirely would still show
+        # 100% agreement. Hold the number of *strict* matches at or above
+        # where it stands, which is the part normalization cannot hide.
+        self.assertGreaterEqual(
+            strict,
+            self.MIN_STRICT_MATCHES,
+            msg=f"strict corpus matches fell to {strict}/{total} (floor is "
+            f"{self.MIN_STRICT_MATCHES}); entries still agree once flag and "
+            f"pc registers are normalized away, so something changed how "
+            f"operands are named or which are reported",
+        )
+
 
 @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
 class InstructionUseDefTests(unittest.TestCase):
@@ -90,34 +251,60 @@ class InstructionUseDefTests(unittest.TestCase):
     pcode backend -- Capstone is the default until the changeover PR.
     """
 
-    # (architecture, byteorder, hex encoding, description)
+    # (architecture, byteorder, hex encoding, description, must_read,
+    #  must_write) -- the last two name registers the instruction
+    # architecturally has to report. They are deliberately a *subset*, not the
+    # exact answer: flag and status registers are left out so that adding one
+    # to a platform definition later does not break these. Their job is to
+    # catch operands going missing, which an "is it a set?" check cannot.
     SAMPLES = [
-        ("X86_64", "LITTLE", "4801d8", "add rax, rbx"),
-        ("X86_64", "LITTLE", "89cb", "mov ebx, ecx"),
-        ("X86_64", "LITTLE", "50", "push rax"),
-        ("X86_64", "LITTLE", "488b448a10", "mov rax, [rdx+rcx*4+16]"),
-        ("X86_64", "LITTLE", "f20f104308", "movsd xmm0, [rbx+8]"),
-        ("X86_64", "LITTLE", "488b042500100000", "mov rax, [0x1000]"),
-        ("X86_32", "LITTLE", "50", "push eax"),
-        ("X86_32", "LITTLE", "8b4c2408", "mov ecx, [esp+8]"),
-        ("POWERPC32", "BIG", "9421ffd0", "stwu r1, -0x30(r1)"),
-        ("POWERPC32", "BIG", "7c641b79", "mr. r4, r3"),
-        ("POWERPC32", "BIG", "7ca6282e", "lwzx r5, r6, r5"),
-        ("AARCH64", "LITTLE", "200440f9", "ldr x0, [x1, #8]"),
-        ("AARCH64", "LITTLE", "20040039", "strb w0, [x1, #1]"),
-        ("MIPS32", "BIG", "8fa80004", "lw t0, 4(sp)"),
-        ("MIPS32", "BIG", "01090018", "mult t0, t1"),
-        ("MIPS32", "LITTLE", "0400a88f", "lw t0, 4(sp) (mipsel)"),
+        ("X86_64", "LITTLE", "4801d8", "add rax, rbx", {"rax", "rbx"}, {"rax"}),
+        ("X86_64", "LITTLE", "89cb", "mov ebx, ecx", {"ecx"}, {"ebx"}),
+        ("X86_64", "LITTLE", "50", "push rax", {"rax", "rsp"}, {"rsp"}),
+        (
+            "X86_64",
+            "LITTLE",
+            "488b448a10",
+            "mov rax, [rdx+rcx*4+16]",
+            {"rcx", "rdx"},
+            {"rax"},
+        ),
+        ("X86_64", "LITTLE", "f20f104308", "movsd xmm0, [rbx+8]", {"rbx"}, {"xmm0"}),
+        ("X86_64", "LITTLE", "488b042500100000", "mov rax, [0x1000]", set(), {"rax"}),
+        ("X86_32", "LITTLE", "50", "push eax", {"eax", "esp"}, {"esp"}),
+        ("X86_32", "LITTLE", "8b4c2408", "mov ecx, [esp+8]", {"esp"}, {"ecx"}),
+        ("POWERPC32", "BIG", "9421ffd0", "stwu r1, -0x30(r1)", {"r1"}, {"r1"}),
+        ("POWERPC32", "BIG", "7c641b79", "mr. r4, r3", {"r3"}, {"r4"}),
+        ("POWERPC32", "BIG", "7ca6282e", "lwzx r5, r6, r5", {"r5", "r6"}, {"r5"}),
+        ("AARCH64", "LITTLE", "200440f9", "ldr x0, [x1, #8]", {"x1"}, {"x0"}),
+        ("AARCH64", "LITTLE", "20040039", "strb w0, [x1, #1]", {"w0", "x1"}, set()),
+        ("MIPS32", "BIG", "8fa80004", "lw t0, 4(sp)", {"sp"}, {"t0"}),
+        ("MIPS32", "BIG", "01090018", "mult t0, t1", {"t0", "t1"}, {"hi0", "lo0"}),
+        ("MIPS32", "LITTLE", "0400a88f", "lw t0, 4(sp) (mipsel)", {"sp"}, {"t0"}),
         # MIPS64 both endiannesses -- little-endian is the case that used to
         # decode as big-endian and yield empty operands.
-        ("MIPS64", "BIG", "00a6202d", "daddu a0, a1, a2"),
-        ("MIPS64", "LITTLE", "2d20a600", "daddu a0, a1, a2 (mips64el)"),
-        ("MIPS64", "LITTLE", "0800a4df", "ld a0, 8(sp) (mips64el)"),
+        ("MIPS64", "BIG", "00a6202d", "daddu a0, a1, a2", {"a1", "a2"}, {"a0"}),
+        (
+            "MIPS64",
+            "LITTLE",
+            "2d20a600",
+            "daddu a0, a1, a2 (mips64el)",
+            {"a1", "a2"},
+            {"a0"},
+        ),
+        ("MIPS64", "LITTLE", "0800a4df", "ld a0, 8(sp) (mips64el)", {"sp"}, {"a0"}),
         # ARM-mode (little-endian bytes); routed through pcode via the
         # platform's ghidra_language_id (ARM:LE:32:v7).
-        ("ARM_V7A", "LITTLE", "081092e5", "ldr r1, [r2, #8]"),
-        ("ARM_V7A", "LITTLE", "70402de9", "push {r4, r5, r6, lr}"),
-        ("ARM_V7A", "LITTLE", "1eff2fe1", "bx lr"),
+        ("ARM_V7A", "LITTLE", "081092e5", "ldr r1, [r2, #8]", {"r2"}, {"r1"}),
+        (
+            "ARM_V7A",
+            "LITTLE",
+            "70402de9",
+            "push {r4, r5, r6, lr}",
+            {"lr", "r4", "r5", "r6", "sp"},
+            {"sp"},
+        ),
+        ("ARM_V7A", "LITTLE", "1eff2fe1", "bx lr", {"lr"}, {"pc"}),
     ]
 
     def test_reads_writes_are_platform_valid(self):
@@ -129,7 +316,7 @@ class InstructionUseDefTests(unittest.TestCase):
             PlatformDef,
         )
 
-        for arch, bo, hexbytes, desc in self.SAMPLES:
+        for arch, bo, hexbytes, desc, must_read, must_write in self.SAMPLES:
             with self.subTest(instruction=desc):
                 platform = Platform(Architecture[arch], Byteorder[bo])
                 platdef = PlatformDef.for_platform(platform)
@@ -139,8 +326,15 @@ class InstructionUseDefTests(unittest.TestCase):
                     platform,
                     use_def_backend="pcode",
                 )
-                for operands in (insn.reads, insn.writes):
+                for kind, operands in (("reads", insn.reads), ("writes", insn.writes)):
                     self.assertIsInstance(operands, set)
+                    # Every name check below lives inside a loop over
+                    # `operands`, so without this an empty set would satisfy
+                    # them all vacuously -- and an operand silently dropped by
+                    # the naming layer is exactly how this analysis fails.
+                    self.assertTrue(
+                        operands, msg=f"{desc}: {kind} is empty for {platform}"
+                    )
                     for op in operands:
                         if isinstance(op, RegisterOperand):
                             self.assertIn(op.name, platdef.registers)
@@ -149,6 +343,20 @@ class InstructionUseDefTests(unittest.TestCase):
                                 name = getattr(op, attr, None)
                                 if name is not None:
                                     self.assertIn(name, platdef.registers)
+
+                for kind, operands, expected in (
+                    ("reads", insn.reads, must_read),
+                    ("writes", insn.writes, must_write),
+                ):
+                    got = {
+                        op.name for op in operands if isinstance(op, RegisterOperand)
+                    }
+                    self.assertLessEqual(
+                        expected,
+                        got,
+                        msg=f"{desc}: {kind} lost {sorted(expected - got)} "
+                        f"(reported {sorted(got)})",
+                    )
 
     def test_push_semantics(self):
         from smallworld.instructions import Instruction, RegisterOperand
