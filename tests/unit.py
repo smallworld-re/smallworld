@@ -38,7 +38,9 @@ from harness.scenarios import fuzz as fuzz_scenario
 from harness.scenarios import static_buf as static_buf_scenario
 from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     InstructionUseDefTests,
+    PcodeAnalysisRobustnessTests,
     PcodeNamingTests,
+    PcodeUseDefDegradationTests,
     UseDefBackendSelectionTests,
     UseDefCorpusTests,
 )

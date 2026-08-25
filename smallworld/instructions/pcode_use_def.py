@@ -284,9 +284,11 @@ class _PCODE_OP(Enum):
     FLOAT_NEG = auto()
     FLOAT_ABS = auto()
     FLOAT_SQRT = auto()
-    FLOAT_CEIL = auto()
-    FLOAT_FLOOR = auto()
-    FLOAT_ROUND = auto()
+    # Ghidra's PcodeOp mnemonics for these are bare CEIL/FLOOR/ROUND, not
+    # FLOAT_*; the enum is looked up BY NAME, so the spelling is load-bearing.
+    CEIL = auto()
+    FLOOR = auto()
+    ROUND = auto()
     FLOAT_NAN = auto()
     INT2FLOAT = auto()
     FLOAT2FLOAT = auto()
@@ -308,7 +310,47 @@ class _PCODE_OP(Enum):
     CPOOLREF = auto()
     NEW = auto()
     INSERT = auto()
-    EXTRACT = auto()
+    # SPULL/ZPULL appear in stack-machine languages; INVALID_OP and
+    # UNIMPLEMENTED are Ghidra's markers for "no semantics available" --
+    # see the UseDefError raised for them in _instruction_use_def.
+    SPULL = auto()
+    ZPULL = auto()
+    INVALID_OP = auto()
+    UNIMPLEMENTED = auto()
+    # Not a Ghidra mnemonic: what _mnemonic_of returns for an op this
+    # module has never heard of. Deliberately matches no branch in the
+    # walk, so such an op takes the generic path.
+    UNKNOWN = auto()
+
+
+_warned_mnemonics: typing.Set[str] = set()
+
+
+def _mnemonic_of(op) -> "_PCODE_OP":
+    """The `_PCODE_OP` for a pcode op, or UNKNOWN if it names one this
+    module does not model.
+
+    `_PCODE_OP` is an allowlist keyed by Ghidra's own mnemonic strings, so
+    it is only ever as complete as the Ghidra it was written against. A
+    bare `_PCODE_OP[...]` made every gap a KeyError escaping `analyze()`
+    into the colorizer and trace analyses -- and three gaps shipped
+    (CEIL/FLOOR/ROUND, from spelling them FLOAT_*), which is what
+    `cvtsd2si`, `frndint` and MIPS `ceil.w.s` hit. Falling back to UNKNOWN
+    sends the op down the generic path -- inputs are uses, the output is a
+    def -- the conservative reading of an op whose special meaning we do
+    not know.
+    """
+    name = str(op.getMnemonic())
+    try:
+        return _PCODE_OP[name]
+    except KeyError:
+        if name not in _warned_mnemonics:
+            _warned_mnemonics.add(name)
+            logger.warning(
+                f"unmodelled pcode op {name!r}; treating its inputs as uses "
+                f"and its output as a def"
+            )
+        return _PCODE_OP.UNKNOWN
 
 
 # Binary pcode ops whose result is a constant when both inputs are the
@@ -417,7 +459,7 @@ def _update_symstate(op, sstate):
     ris = [_resolve_input(inp, sstate) for inp in op.getInputs()]
     # special case! There's no need for an s-expr. This is basically
     # just an assignment
-    mnemonic = _PCODE_OP[op.getMnemonic()]
+    mnemonic = _mnemonic_of(op)
     if mnemonic == _PCODE_OP.COPY:
         assert (len(ris)) == 1
         val = ris[0]
@@ -644,7 +686,18 @@ def _instruction_use_def(program, instr):
 
         _update_symstate(op, sstate)
 
-        mnemonic = _PCODE_OP[op.getMnemonic()]
+        mnemonic = _mnemonic_of(op)
+
+        if mnemonic in (_PCODE_OP.UNIMPLEMENTED, _PCODE_OP.INVALID_OP):
+            # Ghidra is telling us it has no semantics for this
+            # instruction (no SLEIGH definition, or its translation threw).
+            # Its inputs and outputs are empty, so the generic path would
+            # report "reads nothing, writes nothing" -- indistinguishable
+            # from a genuine nop. Say we don't know instead.
+            raise UseDefError(
+                f"Ghidra reports no p-code semantics ({mnemonic.name}) for "
+                f"{instr.getMnemonicString()} at {instr.getAddress()}"
+            )
 
         if pdebug:
             for i, inp in enumerate(op.getInputs()):
@@ -964,7 +1017,18 @@ def _analyze_inner(byte_data, arch, base_address):
             uses=tuple(uses),
             defs=tuple(defs),
         )
+    except UseDefError:
+        # Raised by the pure-Python walk over already-decoded p-code, which
+        # runs after _populate_program's transaction has closed -- the
+        # program is fine, this instruction is simply one we cannot express.
+        # Evicting here would throw away a program every other caller on
+        # this architecture is reusing and re-pay the 200 ms - 2 s rebuild,
+        # and lru_cache never memoizes exceptions, so a retry pays it again.
+        raise
     except Exception:
+        # Anything else may have left the program half-mutated (the
+        # removeBlock / createInitializedBlock window in _populate_program
+        # is the case that actually can), so rebuild it next time.
         _evict_program(arch)
         raise
 
@@ -986,11 +1050,27 @@ def _analyze_inner(byte_data, arch, base_address):
 _DEFAULT_CACHE_SIZE = 4096
 
 
+class _NoInstruction(Exception):
+    """Internal: Ghidra decoded nothing at the requested address.
+
+    Signalled as an exception purely so `lru_cache` does not memoize it --
+    it caches return values but never exceptions. A cached None was
+    permanent for the life of the process, and `_pcode_use_def` turns None
+    into an empty use/def set, so any transient miss reported the
+    instruction as a no-op with no data flow forever after. The retry costs
+    one decode against an already-open program (~1 ms), not a rebuild.
+    """
+
+
 @functools.lru_cache(maxsize=_DEFAULT_CACHE_SIZE)
 def _analyze_cached(byte_data: bytes, arch: str, base_address: int):
     """Hashable wrapper around _analyze_inner. Its result is an immutable
-    NamedTuple (or None), so callers can't mutate cached state."""
-    return _analyze_inner(byte_data, arch, base_address)
+    NamedTuple, so callers can't mutate cached state. Raises
+    _NoInstruction rather than returning None so the miss is not cached."""
+    result = _analyze_inner(byte_data, arch, base_address)
+    if result is None:
+        raise _NoInstruction()
+    return result
 
 
 def analyze(
@@ -1024,7 +1104,10 @@ def analyze(
     # Normalize byte_data so memoryview/bytearray callers also hit the cache
     if not isinstance(byte_data, bytes):
         byte_data = bytes(byte_data)
-    return _analyze_cached(byte_data, arch, int(base_address))
+    try:
+        return _analyze_cached(byte_data, arch, int(base_address))
+    except _NoInstruction:
+        return None
 
 
 # Expose the lru_cache control surface on the public function so callers

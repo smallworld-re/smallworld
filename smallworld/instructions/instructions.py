@@ -248,10 +248,25 @@ class Instruction(metaclass=abc.ABCMeta):
         # Deferred imports: pcode_use_def pulls in pyghidra, and
         # pcode_naming imports this module (as bsid does).
         from .pcode_naming import canonicalize_operand, collapse_widened_defs
-        from .pcode_use_def import analyze
+        from .pcode_use_def import UseDefError, analyze
 
         platdef = PlatformDef.for_platform(self.platform)
-        result = analyze(self.instruction, platdef.ghidra_language_id, self.address)
+        try:
+            result = analyze(self.instruction, platdef.ghidra_language_id, self.address)
+        except UseDefError as e:
+            # The analysis met something it cannot express -- an address
+            # shape with no base/scale/index form, or an instruction Ghidra
+            # has no semantics for. reads/writes is a property, and its
+            # callers include Unicorn's fault handler (which is already
+            # handling an emulation failure) and the colorizer's
+            # per-instruction callbacks; the Capstone backend never raised
+            # at them, so neither may this one. Same degradation as the
+            # no-decode case below.
+            logger.warning(
+                f"pcode analysis failed for {self.instruction.hex()} on "
+                f"{platdef.ghidra_language_id}: {e}; {kind} set is empty"
+            )
+            return set()
         if result is None:
             # Ghidra decoded no instruction from bytes Capstone accepted
             # (the two disassemblers can disagree on rare encodings).
@@ -318,7 +333,19 @@ class Instruction(metaclass=abc.ABCMeta):
         disabled. Architectures whose _memory_reference does not take a
         single Capstone operand (x86) override this.
         """
-        platdef = PlatformDef.for_platform(self.platform)
+        # Resolved lazily, and only for "use": PlatformDef.for_platform walks
+        # every PlatformDef subclass with no cache, which costs 10-100x the
+        # rest of this method. Hoisting it here made the DEFAULT (Capstone)
+        # writes path pay for something only the reads path reads -- measured
+        # at 17x on MIPS32 and ~48x on PowerPC32 per .writes access, on a
+        # property the colorizer and Unicorn hit once per instruction. It
+        # also turned "no PlatformDef for this platform" from working into
+        # a ValueError on the writes path.
+        implicit_deref: typing.Set[str] = set()
+        if kind == "use":
+            implicit_deref = PlatformDef.for_platform(
+                self.platform
+            ).implicit_dereference_mnemonics
         access = capstone.CS_AC_READ if kind == "use" else capstone.CS_AC_WRITE
         operands: typing.Set[Operand] = set()
         for operand in self._instruction.operands:
@@ -330,11 +357,7 @@ class Instruction(metaclass=abc.ABCMeta):
             elif operand.type == capstone.CS_OP_REG and (
                 not hasattr(operand, "access") or operand.access & access
             ):
-                if (
-                    kind == "use"
-                    and self._instruction.mnemonic
-                    in platdef.implicit_dereference_mnemonics
-                ):
+                if self._instruction.mnemonic in implicit_deref:
                     # A register the instruction dereferences implicitly;
                     # treat as a memory reference.
                     operands.add(self._memory_reference(operand))

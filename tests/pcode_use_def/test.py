@@ -22,6 +22,7 @@ minutes for the full corpus; they skip cleanly when pyghidra is not
 installed.
 """
 
+import importlib
 import importlib.util
 import os
 import sys
@@ -183,6 +184,152 @@ class PcodeNamingTests(unittest.TestCase):
         self.assertTrue(
             out is None or out.base in self._platdef("X86_64", "LITTLE").registers
         )
+
+
+@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+class PcodeAnalysisRobustnessTests(unittest.TestCase):
+    """Failure modes of analyze() and its caching."""
+
+    # Instructions whose p-code uses mnemonics the op table once misspelled
+    # (Ghidra emits bare CEIL/FLOOR/ROUND, not FLOAT_*), each of which raised
+    # a bare KeyError out of analyze(). cvtsd2si is an ordinary C
+    # double-to-int cast, so this was reachable from unremarkable code.
+    MNEMONIC_REGRESSIONS = [
+        ("x86:LE:64:default", "f20f2dc0", "cvtsd2si eax, xmm0"),
+        ("x86:LE:64:default", "d9fc", "frndint"),
+        ("MIPS:BE:32:default", "4600000e", "ceil.w.s"),
+        ("MIPS:BE:32:default", "4600000f", "floor.w.s"),
+    ]
+
+    def test_float_conversion_mnemonics_analyze(self):
+        from smallworld.instructions.pcode_use_def import analyze
+
+        for lang, hexbytes, desc in self.MNEMONIC_REGRESSIONS:
+            with self.subTest(instruction=desc):
+                result = analyze(bytes.fromhex(hexbytes), lang, 0)
+                self.assertIsNotNone(result, f"{desc} did not decode")
+
+    def test_op_table_covers_every_ghidra_mnemonic(self):
+        """The op table is an allowlist keyed by Ghidra's mnemonic strings, so
+        it silently rots against a new Ghidra. Compare it to the real table."""
+        pyghidra.start()  # module-level import above; machdefs need the JVM
+        from ghidra.program.model.pcode import PcodeOp  # type: ignore
+
+        from smallworld.instructions.pcode_use_def import _PCODE_OP
+
+        ghidra_names = set()
+        for opcode in range(PcodeOp.PCODE_MAX):
+            try:
+                ghidra_names.add(str(PcodeOp.getMnemonic(opcode)))
+            except Exception:
+                continue
+        self.assertTrue(ghidra_names, "could not read Ghidra's mnemonic table")
+        missing = sorted(ghidra_names - {m.name for m in _PCODE_OP})
+        self.assertEqual(
+            missing,
+            [],
+            msg=f"_PCODE_OP is missing mnemonics Ghidra emits: {missing}. "
+            f"They no longer raise KeyError (see _mnemonic_of), but each one "
+            f"takes the generic path, so any special handling is skipped.",
+        )
+
+    def test_unimplemented_semantics_raise_rather_than_report_empty(self):
+        """Ghidra's UNIMPLEMENTED means 'no semantics for this instruction'.
+        Its inputs and outputs are empty, so reporting the generic result
+        would be indistinguishable from a genuine nop."""
+        from smallworld.instructions.pcode_use_def import UseDefError, analyze
+
+        with self.assertRaises(UseDefError):
+            analyze(bytes.fromhex("4afc"), "68000:BE:32:default", 0)  # m68k illegal
+
+    def test_failed_decode_is_not_memoized(self):
+        """_pcode_use_def turns None into an empty use/def set, so a cached
+        None would report an instruction as a no-op for the whole process."""
+        from smallworld.instructions.pcode_use_def import analyze
+
+        analyze.cache_clear()
+        undecodable = b"\xff\xff\xff\xff"
+        self.assertIsNone(analyze(undecodable, "MIPS:BE:32:default", 0))
+        self.assertIsNone(analyze(undecodable, "MIPS:BE:32:default", 0))
+        self.assertEqual(analyze.cache_info().currsize, 0, "a failed decode was cached")
+
+    def test_successful_result_is_still_memoized(self):
+        from smallworld.instructions.pcode_use_def import analyze
+
+        analyze.cache_clear()
+        for _ in range(2):
+            analyze(bytes.fromhex("4801d8"), "x86:LE:64:default", 0)
+        info = analyze.cache_info()
+        self.assertEqual((info.hits, info.currsize), (1, 1))
+
+
+class PcodeUseDefDegradationTests(unittest.TestCase):
+    """reads/writes are properties, called from the colorizer's callbacks and
+    from Unicorn's fault handler -- which is itself already handling an
+    emulation failure. The Capstone backend never raised at them; neither may
+    the pcode one. Needs no pyghidra: analyze is replaced.
+    """
+
+    def test_use_def_error_degrades_to_an_empty_set(self):
+        import smallworld.instructions.instructions as instructions_mod
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        pcode_use_def = importlib.import_module("smallworld.instructions.pcode_use_def")
+        platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+        insn = Instruction.from_bytes(
+            bytes.fromhex("4801d8"), 0x1000, platform, use_def_backend="pcode"
+        )
+
+        def _raise(*args, **kwargs):
+            raise pcode_use_def.UseDefError("synthetic")
+
+        real = pcode_use_def.analyze
+        pcode_use_def.analyze = _raise
+        try:
+            with self.assertLogs(instructions_mod.logger, level="WARNING") as logs:
+                self.assertEqual(insn.reads, set())
+                self.assertEqual(insn.writes, set())
+        finally:
+            pcode_use_def.analyze = real
+        self.assertTrue(any("synthetic" in line for line in logs.output))
+
+    def test_capstone_writes_does_not_resolve_a_platform_def(self):
+        """PlatformDef.for_platform walks every subclass uncached, costing
+        10-100x the rest of _capstone_use_def. The writes path reads nothing
+        from the platdef, and this is the DEFAULT backend on a property the
+        colorizer and Unicorn hit once per instruction -- so it must not pay
+        for the lookup, nor start raising for a platform that has no
+        PlatformDef at all. Asserted behaviourally; a timing test would flake.
+        """
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import (
+            Architecture,
+            Byteorder,
+            Platform,
+            PlatformDef,
+        )
+
+        platform = Platform(Architecture.MIPS32, Byteorder.BIG)
+        insn = Instruction.from_bytes(
+            bytes.fromhex("8fa80004"), 0x1000, platform
+        )  # lw t0, 4(sp); default backend is Capstone
+
+        real = PlatformDef.for_platform
+
+        def _explode(*args, **kwargs):
+            raise AssertionError("writes resolved a PlatformDef it never reads")
+
+        PlatformDef.for_platform = classmethod(  # type: ignore[method-assign]
+            lambda cls, *a, **k: _explode()
+        )
+        try:
+            self.assertTrue(insn.writes)
+        finally:
+            PlatformDef.for_platform = real  # type: ignore[method-assign]
+
+        # reads legitimately needs it (implicit_dereference_mnemonics).
+        self.assertTrue(insn.reads)
 
 
 @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
