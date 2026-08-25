@@ -389,6 +389,42 @@ class PcodeAnalysisRobustnessTests(unittest.TestCase):
         with self.assertRaises(UseDefError):
             analyze(bytes.fromhex("4afc"), "68000:BE:32:default", 0)  # m68k illegal
 
+    def test_bare_callother_raises_rather_than_reporting_a_nop(self):
+        """Ghidra models trap instructions as a lone CALLOTHER -- an opaque
+        user-op -- so their computed use/def is empty, indistinguishable
+        from a nop. Saying we don't know beats asserting nothing happens;
+        the consumer degrades to an empty set WITH a warning."""
+        from smallworld.instructions.pcode_use_def import UseDefError, analyze
+
+        for lang, hexbytes, desc in (
+            ("x86:LE:32:default", "cd80", "int 0x80"),
+            ("AARCH64:LE:64:v8A", "010000d4", "svc #0"),
+            ("PowerPC:BE:32:default", "44000002", "sc"),
+            ("MIPS:BE:32:default", "0000000c", "syscall"),
+        ):
+            with self.subTest(instruction=desc):
+                with self.assertRaises(UseDefError):
+                    analyze(bytes.fromhex(hexbytes), lang, 0)
+
+    def test_callother_beside_real_pcode_still_reports(self):
+        """The raise is only for instructions whose ENTIRE effect is opaque.
+        Where CALLOTHER sits beside real p-code, the computed sets are
+        partial-but-true and must be reported: rdtsc defs eax/edx, x86-64
+        syscall defs its r11/rcx side effects, and a lock-prefixed RMW has
+        full semantics around the lock. pause has no CALLOTHER at all, and
+        its empty sets are the genuine answer."""
+        from smallworld.instructions import RegisterOperand
+        from smallworld.instructions.pcode_use_def import analyze
+
+        rdtsc = analyze(bytes.fromhex("0f31"), "x86:LE:64:default", 0)
+        self.assertIn(RegisterOperand("eax"), rdtsc.defs)
+        syscall = analyze(bytes.fromhex("0f05"), "x86:LE:64:default", 0)
+        self.assertIn(RegisterOperand("rcx"), syscall.defs)
+        xadd = analyze(bytes.fromhex("f0480fc10f"), "x86:LE:64:default", 0)
+        self.assertTrue(xadd.uses and xadd.defs)
+        pause = analyze(bytes.fromhex("f390"), "x86:LE:64:default", 0)
+        self.assertEqual((pause.uses, pause.defs), ((), ()))
+
     def test_failed_decode_is_not_memoized(self):
         """_pcode_use_def turns None into an empty use/def set, so a cached
         None would report an instruction as a no-op for the whole process."""

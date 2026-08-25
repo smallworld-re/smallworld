@@ -803,11 +803,15 @@ def _instruction_use_def(program, instr):
     sstate = {}
 
     indirect_targets: typing.List[str] = []
+    saw_callother = False
     for op in instr.getPcode():
 
         _update_symstate(op, sstate)
 
         mnemonic = _mnemonic_of(op)
+
+        if mnemonic is _PCODE_OP.CALLOTHER:
+            saw_callother = True
 
         if mnemonic in (_PCODE_OP.UNIMPLEMENTED, _PCODE_OP.INVALID_OP):
             # Ghidra is telling us it has no semantics for this
@@ -958,6 +962,19 @@ def _instruction_use_def(program, instr):
         defs.add(reg)
         written_so_far.add(out)
 
+    if saw_callother and not uses and not defs:
+        # The instruction's entire data effect is hidden inside a CALLOTHER
+        # -- p-code's opaque "named user-op" escape hatch, which is how
+        # Ghidra models trap instructions (svc, sc, int 0x80, MIPS syscall).
+        # Reporting the empty sets would be indistinguishable from a nop; a
+        # taint or triage consumer would carry state across a kernel entry
+        # as if nothing happened. Instructions where CALLOTHER sits beside
+        # real p-code (rdtsc, lock-prefixed RMW, x86-64 syscall's r11/rcx
+        # side effects) have non-empty sets and are reported as computed.
+        raise UseDefError(
+            f"semantics of {instr.getMnemonicString()} at {instr.getAddress()} "
+            f"are entirely inside a CALLOTHER (opaque user-op); use/def unknown"
+        )
     return uses, defs, tuple(indirect_targets)
 
 
