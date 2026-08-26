@@ -294,6 +294,67 @@ class Instruction(metaclass=abc.ABCMeta):
         """
         return self._memory_reference(operand)
 
+    def _pcode_result(self, purpose: str, platdef: PlatformDef):
+        """Run the p-code analysis for this instruction and validate the
+        answer, or None with a warning when there is no trustworthy one.
+
+        `purpose` names what the caller wanted ("use", "def", "fetch") in
+        the warnings. Every degrade returns None rather than raising:
+        callers are properties and methods reached from Unicorn's fault
+        handler and the colorizer's per-instruction callbacks, and the
+        Capstone backend never raised at them. The catch is broader than
+        UseDefError on purpose -- a missing optional pyghidra, a JPype
+        exception and an out-of-range address are none of them UseDefError,
+        and all used to escape.
+        """
+        from .pcode_use_def import analyze
+
+        language_id = platdef.ghidra_language_id
+        if language_id is None:
+            # Only reachable when a caller bypasses _pcode_platdef, which
+            # screens the None out.
+            logger.warning(
+                f"{self.platform} defines no ghidra_language_id; "
+                f"{purpose} set is empty"
+            )
+            return None
+        try:
+            # Truncated to what Capstone decoded: analyze wants trailing
+            # bytes to be padding, not the real successor. Ghidra folds a
+            # delay slot into the branch's own p-code, and the length check
+            # below cannot see it -- the reported length is still the
+            # branch's.
+            raw = self.instruction[: self._instruction.size]
+            result = analyze(raw, language_id, self.address)
+        except Exception as e:
+            logger.warning(
+                f"pcode analysis failed for {self.instruction.hex()} on "
+                f"{language_id}: {e!r}; {purpose} set is empty"
+            )
+            return None
+        if result is None:
+            # Ghidra decoded no instruction from bytes Capstone accepted
+            # (the two disassemblers can disagree on rare encodings).
+            logger.warning(
+                f"pcode analysis produced no instruction for "
+                f"{self.instruction.hex()} on {language_id}; "
+                f"{purpose} set is empty"
+            )
+            return None
+        if result.size != self._instruction.size:
+            # Different lengths means they did not decode the same
+            # instruction, so these operands describe the wrong one. Thumb
+            # is the reachable case -- its language id is the ARM-mode one,
+            # so Thumb bytes decode as a valid, unrelated ARM instruction.
+            logger.warning(
+                f"pcode decoded {result.size} bytes ({result.disassembly}) "
+                f"where Capstone decoded {self._instruction.size} for "
+                f"{self.instruction.hex()} on {language_id}; "
+                f"{purpose} set is empty"
+            )
+            return None
+        return result
+
     def _pcode_use_def(
         self, kind: str, platdef: typing.Optional[PlatformDef] = None
     ) -> typing.Set[Operand]:
@@ -309,104 +370,19 @@ class Instruction(metaclass=abc.ABCMeta):
         once per instruction. That is the cost the Capstone path goes out of
         its way to avoid; see _capstone_use_def.
         """
-        # Deferred imports: pcode_use_def reaches Ghidra, and pcode_naming
-        # imports this module (as bsid does).
-        from .pcode_naming import (
-            canonicalize_operand,
-            canonicalize_register,
-            collapse_widened_defs,
-        )
-        from .pcode_use_def import analyze
+        # Deferred import: pcode_naming imports this module (as bsid does).
+        from .pcode_naming import canonicalize_operand, collapse_widened_defs
 
         if platdef is None:
             platdef = PlatformDef.for_platform(self.platform)
-        language_id = platdef.ghidra_language_id
-        if language_id is None:
-            # Only reachable when a caller invokes this directly rather than
-            # via _pcode_platdef, which screens the None out.
-            logger.warning(
-                f"{self.platform} defines no ghidra_language_id; "
-                f"{kind} set is empty"
-            )
-            return set()
-        try:
-            # Truncated to what Capstone decoded: analyze wants trailing
-            # bytes to be padding, not the real successor. Ghidra folds a
-            # delay slot into the branch's own p-code, and the length check
-            # below cannot see it -- the reported length is still the
-            # branch's.
-            raw = self.instruction[: self._instruction.size]
-            result = analyze(raw, language_id, self.address)
-        except Exception as e:
-            # reads/writes is a property called from Unicorn's fault
-            # handler and the colorizer's callbacks, and the Capstone
-            # backend never raised at them. Broader than UseDefError on
-            # purpose: a missing optional pyghidra, a JPype exception and an
-            # out-of-range address are none of them UseDefError, and all
-            # used to escape.
-            logger.warning(
-                f"pcode analysis failed for {self.instruction.hex()} on "
-                f"{language_id}: {e!r}; {kind} set is empty"
-            )
-            return set()
+        result = self._pcode_result(kind, platdef)
         if result is None:
-            # Ghidra decoded no instruction from bytes Capstone accepted
-            # (the two disassemblers can disagree on rare encodings).
-            # Degrade to an empty set rather than raising IndexError into
-            # the colorizer/trace analyses -- with a warning, since it
-            # means this instruction's data flow is unknown, not absent.
-            logger.warning(
-                f"pcode analysis produced no instruction for "
-                f"{self.instruction.hex()} on {language_id}; "
-                f"{kind} set is empty"
-            )
-            return set()
-        if result.size != self._instruction.size:
-            # Different lengths means they did not decode the same
-            # instruction, so these operands describe the wrong one. Thumb
-            # is the reachable case -- its language id is the ARM-mode one,
-            # so Thumb bytes decode as a valid, unrelated ARM instruction.
-            logger.warning(
-                f"pcode decoded {result.size} bytes ({result.disassembly}) "
-                f"where Capstone decoded {self._instruction.size} for "
-                f"{self.instruction.hex()} on {language_id}; "
-                f"{kind} set is empty"
-            )
             return set()
         operands: typing.Set[Operand] = set()
         for op in result.uses if kind == "use" else result.defs:
             canon = canonicalize_operand(op, platdef)
             if canon is not None:
                 operands.add(canon)
-        if (
-            kind == "use"
-            and self._instruction.mnemonic in platdef.implicit_dereference_mnemonics
-        ):
-            # This ISA dereferences a register operand implicitly (MIPS
-            # jr/jalr). Both facts are true -- the register is read to
-            # form the address, and the location there is accessed -- so
-            # report both; the Capstone path substituted one for the other.
-            #
-            # Only the analysis's indirect_targets, not every register
-            # still in the read set: canonicalization has flattened the
-            # result by now, so nothing here tells a code pointer from an
-            # ordinary operand, and jalr already reads more than its
-            # target. Reads only -- dereferencing jalr's writes would
-            # fabricate memory writes at 'ra' and 'pc'.
-            from .bsid import BSIDMemoryReferenceOperand
-
-            targets = {
-                name
-                for name in (
-                    canonicalize_register(t, platdef) for t in result.indirect_targets
-                )
-                if name is not None
-            }
-            operands |= {
-                BSIDMemoryReferenceOperand(base=op.name, size=platdef.address_size)
-                for op in operands
-                if isinstance(op, RegisterOperand) and op.name in targets
-            }
         if kind == "def":
             operands = collapse_widened_defs(operands, platdef)
         return operands
@@ -459,19 +435,6 @@ class Instruction(metaclass=abc.ABCMeta):
         disabled. Architectures whose _memory_reference does not take a
         single Capstone operand (x86) override this.
         """
-        # Resolved lazily, and only for "use": PlatformDef.for_platform walks
-        # every PlatformDef subclass with no cache, which costs 10-100x the
-        # rest of this method. Hoisting it here made the DEFAULT (Capstone)
-        # writes path pay for something only the reads path reads -- measured
-        # at 17x on MIPS32 and ~48x on PowerPC32 per .writes access, on a
-        # property the colorizer and Unicorn hit once per instruction. It
-        # also turned "no PlatformDef for this platform" from working into
-        # a ValueError on the writes path.
-        implicit_deref: typing.Set[str] = set()
-        if kind == "use":
-            implicit_deref = PlatformDef.for_platform(
-                self.platform
-            ).implicit_dereference_mnemonics
         access = capstone.CS_AC_READ if kind == "use" else capstone.CS_AC_WRITE
         operands: typing.Set[Operand] = set()
         for operand in self._instruction.operands:
@@ -483,14 +446,12 @@ class Instruction(metaclass=abc.ABCMeta):
             elif operand.type == capstone.CS_OP_REG and (
                 not hasattr(operand, "access") or operand.access & access
             ):
-                if self._instruction.mnemonic in implicit_deref:
-                    # A register the instruction dereferences implicitly;
-                    # treat as a memory reference.
-                    operands.add(self._memory_reference(operand))
-                else:
-                    operands.add(
-                        RegisterOperand(self._instruction.reg_name(operand.reg))
-                    )
+                # Registers an indirect branch dereferences (MIPS jr's t9)
+                # are reported as the register they are: the location the
+                # transfer will FETCH from is fetches()'s answer, not a
+                # data read. This path used to substitute the memory
+                # reference for the register, losing the register read.
+                operands.add(RegisterOperand(self._instruction.reg_name(operand.reg)))
         return operands
 
     @property
@@ -516,6 +477,60 @@ class Instruction(metaclass=abc.ABCMeta):
         if platdef is not None:
             return self._pcode_use_def("def", platdef)
         return self._capstone_use_def("def")
+
+    def fetches(self) -> typing.Set[Operand]:
+        """Memory locations control transfer will FETCH from: the
+        dereference of an indirect branch target's value -- `jr $t9`
+        fetches at [t9], `jmp rax` at [rax].
+
+        Not reads. `jr $t9` reads t9 (that is in `reads`) but reads no
+        data memory at [t9]; the *next instruction fetch* does. Keeping
+        the two apart matters to fault attribution: a triage consumer
+        seeing an unmapped [t9] here knows execution was about to leave
+        the map, not that the instruction loaded from it. Genuine data
+        dereferences are unaffected and stay in `reads` -- `jmp qword ptr
+        [0x1234]` really does load its pointer from memory, and that load
+        stays a read; what this method would name is where the *value*
+        of that pointer sends the fetch, which is not statically
+        expressible, so such an instruction reports no fetch operand.
+        Empty for anything that is not an indirect transfer, and for
+        indirect transfers whose target is not a single register's value
+        (`ret`'s target comes off the stack -- the pop is already a read).
+
+        The p-code backend identifies indirect transfers structurally
+        (BRANCHIND/CALLIND/RETURN), so this works on every platform with
+        a Ghidra language; the Capstone fallback knows only the
+        instructions listed in the platform's
+        implicit_dereference_mnemonics.
+        """
+        from .bsid import BSIDMemoryReferenceOperand
+
+        platdef = self._pcode_platdef()
+        if platdef is not None:
+            from .pcode_naming import canonicalize_register
+
+            result = self._pcode_result("fetch", platdef)
+            if result is None:
+                return set()
+            return {
+                BSIDMemoryReferenceOperand(base=name, size=platdef.address_size)
+                for name in (
+                    canonicalize_register(t, platdef) for t in result.indirect_targets
+                )
+                if name is not None
+            }
+        platdef = PlatformDef.for_platform(self.platform)
+        if self._instruction.mnemonic not in platdef.implicit_dereference_mnemonics:
+            return set()
+        return {
+            BSIDMemoryReferenceOperand(
+                base=self._instruction.reg_name(operand.value.reg),
+                size=platdef.address_size,
+            )
+            for operand in self._instruction.operands
+            if operand.type == capstone.CS_OP_REG
+            and (not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ)
+        }
 
     # def to_json(self) -> dict:
     #     return {
