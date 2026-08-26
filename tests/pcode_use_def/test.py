@@ -436,6 +436,17 @@ class PcodeAnalysisRobustnessTests(unittest.TestCase):
         self.assertIsNone(analyze(undecodable, "MIPS:BE:32:default", 0))
         self.assertEqual(analyze.cache_info().currsize, 0, "a failed decode was cached")
 
+    def test_warm_is_idempotent_and_populates_the_cache(self):
+        """warm() exists so emulators that run callbacks on worker threads
+        (PANDA) can open each architecture's program from the main thread
+        first -- a first-open on a worker thread leaves a process that
+        fails to exit at shutdown."""
+        from smallworld.instructions import pcode_use_def
+
+        pcode_use_def.warm("x86:LE:64:default")
+        self.assertIn("x86:LE:64:default", pcode_use_def._program_cache)
+        pcode_use_def.warm("x86:LE:64:default")  # second call: no-op
+
     def test_successful_result_is_still_memoized(self):
         from smallworld.instructions.pcode_use_def import analyze
 
@@ -500,8 +511,8 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
 
         platform = Platform(Architecture.MIPS32, Byteorder.BIG)
         insn = Instruction.from_bytes(
-            bytes.fromhex("8fa80004"), 0x1000, platform
-        )  # lw t0, 4(sp); default backend is Capstone
+            bytes.fromhex("8fa80004"), 0x1000, platform, use_def_backend="capstone"
+        )  # lw t0, 4(sp); pinned to Capstone -- this tests that path
 
         def _explode(cls, *args, **kwargs):
             raise AssertionError("writes resolved a PlatformDef it never reads")
@@ -912,12 +923,18 @@ class UseDefBackendSelectionTests(unittest.TestCase):
         self.assertEqual(len(mems), 1)
         self.assertEqual(mems[0].base, "rsp")
 
-    def test_default_backend_is_capstone(self):
-        # Capstone remains the default until the changeover PR, regardless
-        # of whether pyghidra is available.
+    def test_default_backend_is_pcode(self):
         insn = self._insn()
-        self.assertEqual(insn.use_def_backend, "capstone")
-        self.assertFalse(insn._use_pcode())
+        self.assertEqual(insn.use_def_backend, "pcode")
+        # ...used when pyghidra is importable, silently degrading to
+        # Capstone on a base install (asserted by the base-install CI-less
+        # check: _use_pcode probes availability, it does not import).
+        import importlib.util
+
+        self.assertEqual(
+            insn._use_pcode(),
+            importlib.util.find_spec("pyghidra") is not None,
+        )
 
     def test_unknown_backend_rejected(self):
         with self.assertRaises(ValueError):

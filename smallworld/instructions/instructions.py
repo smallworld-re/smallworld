@@ -1,4 +1,6 @@
 import abc
+import functools
+import importlib.util
 import logging
 import typing
 
@@ -19,12 +21,36 @@ logger = logging.getLogger(__name__)
 #            'emu-ghidra' extra, so this raises downstream if pyghidra or
 #            a Ghidra install is genuinely missing.
 #
-# The pcode analysis is opt-in for now; a later change makes it the
-# default once every reads/writes consumer has been adapted.
+# The pcode analysis is the default; Capstone remains available per
+# instruction for callers that need it (and is what platforms without a
+# ghidra_language_id, or without pyghidra installed, fall back to).
 USE_DEF_BACKEND_CAPSTONE = "capstone"
 USE_DEF_BACKEND_PCODE = "pcode"
 USE_DEF_BACKENDS = (USE_DEF_BACKEND_CAPSTONE, USE_DEF_BACKEND_PCODE)
-DEFAULT_USE_DEF_BACKEND = USE_DEF_BACKEND_CAPSTONE
+DEFAULT_USE_DEF_BACKEND = USE_DEF_BACKEND_PCODE
+
+
+@functools.lru_cache(maxsize=1)
+def _pyghidra_available() -> bool:
+    """Whether the optional pyghidra extra is installed. A spec probe, not
+    an import: importing pyghidra pulls in jpype, and this runs on the
+    first reads/writes access of instructions that may never need it."""
+    return importlib.util.find_spec("pyghidra") is not None
+
+
+_logged_fallbacks: typing.Set[str] = set()
+
+
+def _log_fallback_once(reason: str) -> None:
+    """Warn about a pcode->Capstone fallback once per distinct reason.
+
+    reads/writes are properties hit once per instruction by the colorizer
+    and Unicorn; with pcode as the default, a per-access warning for a
+    permanent condition (no pyghidra, a Thumb platform) is pure noise.
+    """
+    if reason not in _logged_fallbacks:
+        _logged_fallbacks.add(reason)
+        logger.warning(reason)
 
 
 class Operand(metaclass=abc.ABCMeta):
@@ -397,18 +423,27 @@ class Instruction(metaclass=abc.ABCMeta):
         if self.use_def_backend != USE_DEF_BACKEND_PCODE:
             return None
         if not self.supports_pcode_use_def:
-            logger.warning(
-                f"pcode use/def requested but {type(self).__name__} cannot "
-                f"use it; using Capstone"
+            _log_fallback_once(
+                f"{type(self).__name__} cannot use the pcode backend "
+                f"(see supports_pcode_use_def); using Capstone"
+            )
+            return None
+        if not _pyghidra_available():
+            # pyghidra lives behind the optional 'emu-ghidra' extra. With
+            # pcode as the default backend, a base install must quietly get
+            # the Capstone implementation, not a warning and an empty set
+            # per property access.
+            _log_fallback_once(
+                "pyghidra is not installed; using the Capstone use/def "
+                "backend (install the 'emu-ghidra' extra for the pcode one)"
             )
             return None
         platdef = PlatformDef.for_platform(self.platform)
         if platdef.ghidra_language_id is None:
             # No Ghidra language for this platform, so there is no pcode
             # implementation to use; fall back rather than fail.
-            logger.warning(
-                f"pcode use/def requested but {self.platform} defines no "
-                f"ghidra_language_id; using Capstone"
+            _log_fallback_once(
+                f"{self.platform} defines no ghidra_language_id; " f"using Capstone"
             )
             return None
         return platdef

@@ -876,18 +876,15 @@ class UnicornEmulator(
             out = []
             for rw in rws:
                 if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
-                    # This operation accesses memory
+                    # This operation accesses memory. Implicit dereferences
+                    # (MIPS jr/jalr) arrive as a memory operand too: the
+                    # pcode backend reports both the register read and the
+                    # [register] access, and the Capstone fallback replaces
+                    # the register with the access -- so a register-operand
+                    # branch here would only double-report the same address,
+                    # as a RegisterOperand whose consumers expect
+                    # symbolic_address().
                     a = rw.address(self)
-                    if not (self._is_address_mapped(a)):
-                        out.append((rw, a))
-                elif (
-                    insn._instruction.mnemonic
-                    in self.platdef.implicit_dereference_mnemonics
-                    and isinstance(rw, instructions.RegisterOperand)
-                ):
-                    # This operand is a register that's implicitly derferenced
-                    # by this ISA
-                    a = rw.concretize(self)
                     if not (self._is_address_mapped(a)):
                         out.append((rw, a))
             return out
