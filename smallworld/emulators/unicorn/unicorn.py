@@ -876,13 +876,10 @@ class UnicornEmulator(
             out = []
             for rw in rws:
                 if isinstance(rw, instructions.BSIDMemoryReferenceOperand):
-                    # This operation accesses memory. Implicit dereferences
-                    # (MIPS jr/jalr) arrive as a memory operand too: the
-                    # pcode backend reports both the register read and the
-                    # [register] access, and the Capstone fallback replaces
-                    # the register with the access -- so a register-operand
-                    # branch here would only double-report the same address,
-                    # as a RegisterOperand whose consumers expect
+                    # This operation accesses memory. Indirect-branch
+                    # targets ([t9] for jr $t9) arrive as memory operands
+                    # too, via Instruction.fetches() -- never as
+                    # RegisterOperands, whose consumers expect
                     # symbolic_address().
                     a = rw.address(self)
                     if not (self._is_address_mapped(a)):
@@ -937,7 +934,10 @@ class UnicornEmulator(
 
                     prev_mnem = insn.mnemonic
                     prev_i = instructions.Instruction.from_capstone(insn)
-                    prev_operands = get_unavailable_rw(prev_i, prev_i.reads)
+                    # A fetch fault's responsible operand is where the branch
+                    # sends the next instruction fetch -- [t9] for jr $t9 --
+                    # which is a fetch, not one of the branch's data reads.
+                    prev_operands = get_unavailable_rw(prev_i, prev_i.fetches())
                 except Exception:
                     prev_mnem = None
                     prev_i = None

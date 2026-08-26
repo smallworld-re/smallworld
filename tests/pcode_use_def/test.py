@@ -526,9 +526,9 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
             PlatformDef, "for_platform", classmethod(_explode)
         ):
             self.assertTrue(insn.writes)
-
-        # reads legitimately needs it (implicit_dereference_mnemonics).
-        self.assertTrue(insn.reads)
+            # reads too, since fetches() took over the implicit-dereference
+            # handling that used to make the use path consult the platdef.
+            self.assertTrue(insn.reads)
 
 
 class MemoryOperandIdentityTests(unittest.TestCase):
@@ -671,6 +671,80 @@ class AddressMaskingTests(unittest.TestCase):
 
         result = analyze(bytes.fromhex("11090004"), "MIPS:BE:32:default", 0)  # beq
         self.assertEqual(result.indirect_targets, ())
+
+
+class InstructionFetchesTests(unittest.TestCase):
+    """Instruction.fetches(): where control transfer will FETCH from.
+
+    jr $t9 reads t9 but reads no data memory at [t9] -- the next
+    instruction fetch does -- so the dereference lives here, not in
+    `reads`. The Capstone-fallback cases run without pyghidra; the rest
+    need it and skip cleanly.
+    """
+
+    @staticmethod
+    def _insn(arch, byteorder, hexbytes, backend):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        return Instruction.from_bytes(
+            bytes.fromhex(hexbytes),
+            0x1000,
+            Platform(Architecture[arch], Byteorder[byteorder]),
+            use_def_backend=backend,
+        )
+
+    @staticmethod
+    def _bases(operands):
+        return {op.base for op in operands if hasattr(op, "base")}
+
+    @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+    def test_indirect_transfers_report_their_target(self):
+        from smallworld.instructions import RegisterOperand
+
+        for arch, bo, hexbytes, desc, target in (
+            ("MIPS32", "BIG", "03200008", "jr $t9", "t9"),
+            ("MIPS32", "BIG", "0320f809", "jalr $t9", "t9"),
+            ("X86_64", "LITTLE", "ffe0", "jmp rax", "rax"),
+            ("ARM_V7A", "LITTLE", "1eff2fe1", "bx lr", "lr"),
+        ):
+            with self.subTest(instruction=desc):
+                insn = self._insn(arch, bo, hexbytes, "pcode")
+                self.assertEqual(self._bases(insn.fetches()), {target})
+                # The register read stays a read; the dereference does NOT
+                # appear there (it is a fetch, not a data read).
+                self.assertIn(RegisterOperand(target), insn.reads)
+                self.assertNotIn(target, self._bases(insn.reads))
+
+    @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+    def test_non_transfers_and_popped_targets_fetch_nothing(self):
+        # Not a branch at all.
+        self.assertEqual(
+            self._insn("X86_64", "LITTLE", "4801d8", "pcode").fetches(), set()
+        )
+        # ret's target is popped off the stack: the pop is already a data
+        # read ([rsp] in reads); the target's VALUE names no register, so
+        # there is no fetch operand to build.
+        ret = self._insn("X86_64", "LITTLE", "c3", "pcode")
+        self.assertEqual(ret.fetches(), set())
+        self.assertIn("rsp", self._bases(ret.reads))
+        # Same for a memory-indirect jmp: the pointer load is the read.
+        self.assertEqual(
+            self._insn("X86_64", "LITTLE", "ff20", "pcode").fetches(), set()
+        )
+
+    def test_capstone_fallback_uses_the_mnemonic_lists(self):
+        insn = self._insn("MIPS32", "BIG", "03200008", "capstone")  # jr $t9
+        self.assertEqual(self._bases(insn.fetches()), {"t9"})
+        # ...and its reads no longer substitute the dereference for the
+        # register, so the two backends agree.
+        from smallworld.instructions import RegisterOperand
+
+        self.assertIn(RegisterOperand("t9"), insn.reads)
+
+    def test_capstone_fallback_unlisted_mnemonic_fetches_nothing(self):
+        insn = self._insn("MIPS32", "BIG", "8fa80004", "capstone")  # lw
+        self.assertEqual(insn.fetches(), set())
 
 
 @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
