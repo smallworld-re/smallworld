@@ -94,14 +94,18 @@ def get_cmp_info(
     is_compare_branch = cs_insn.mnemonic in pdefs.compare_branch_mnemonics
     if not (is_compare or is_compare_branch):
         return ([], [], [])
-    sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
     try:
+        # Broad on purpose: this runs per instruction inside a live trace,
+        # and one uninterpretable compare must degrade to "no cmp info",
+        # not abort the run. The failure taxonomy is open-ended -- Capstone
+        # and JPype raise types that share no useful ancestor -- and
+        # from_capstone belongs inside too: it raises ValueError for any
+        # ISA without an Instruction subclass (superh, riscv, tricore,
+        # ...), all of which define compare_mnemonics.
+        sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
         reads = sw_insn.reads
     except Exception as exc:
-        # A compare whose pcode use/def can't be interpreted must not
-        # take down the whole trace; report it as "no cmp info" and
-        # keep going, mirroring the degrade-to-unknown handling below.
-        logger.warning(f"get_cmp_info: reads() failed for {cs_insn.mnemonic}: {exc}")
+        logger.warning(f"get_cmp_info: no use/def for {cs_insn.mnemonic}: {exc}")
         return ([], [], [])
     address_regs = set()
     for op in reads:

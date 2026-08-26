@@ -531,6 +531,29 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
             self.assertTrue(insn.reads)
 
 
+class GetCmpInfoDegradationTests(unittest.TestCase):
+    """get_cmp_info runs per instruction inside a live trace, so an
+    uninterpretable compare must degrade to no-cmp-info, not abort the
+    run. Needs no pyghidra and no emulator: the degrade happens first."""
+
+    def test_compare_on_an_isa_with_no_instruction_subclass_degrades(self):
+        """SuperH (and riscv, tricore, m68k, ...) define compare_mnemonics
+        but have no Instruction subclass, so from_capstone raises
+        ValueError -- which used to escape because it sat outside the
+        function's try."""
+        import capstone as cs
+
+        from smallworld.analyses.trace_execution import get_cmp_info
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        platform = Platform(Architecture.SUPERH_SH2A_FPU, Byteorder.BIG)
+        md = cs.Cs(cs.CS_ARCH_SH, cs.CS_MODE_SH2A | cs.CS_MODE_BIG_ENDIAN)
+        md.detail = True
+        insn = next(md.disasm(bytes.fromhex("3450"), 0x1000))  # cmp/eq r5,r4
+        self.assertEqual(insn.mnemonic, "cmp/eq")
+        self.assertEqual(get_cmp_info(platform, None, insn), ([], [], []))
+
+
 class MemoryOperandIdentityTests(unittest.TestCase):
     """Two accesses to one address at different widths are different
     accesses. Needs no pyghidra."""
