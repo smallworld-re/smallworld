@@ -30,7 +30,6 @@ def randomize_uninitialized(
     machine: state.Machine,
     seed: int = 123456,
     extra_regs: typing.List[str] = [],
-    blacklist_regs: typing.List[str] = [],
     bss_start: typing.Optional[int] = None,
     bss_size: typing.Optional[int] = None,
 ) -> state.Machine:
@@ -81,8 +80,6 @@ def randomize_uninitialized(
     reg_names = list(pdefs.registers.keys())
     reg_names.sort()
     for name in reg_names:
-        if name in blacklist_regs:
-            continue
         if (name in pdefs.general_purpose_registers) or (name in extra_regs):
             reg = get_reg(machine_copy, name)
             if reg.get_content() is None:
@@ -413,7 +410,7 @@ class Colorizer(analysis.Analysis):
         # are interpreted in the *target's* byte order, so a register value and
         # its stored image agree on big-endian targets as well as little-endian
         # ones -- otherwise a plain store looks like it creates a new value on
-        # big-endian (see COLORIZER_ISSUES.md #1).
+        # big-endian.
         byteorder = self.platform.byteorder.value  # "big" or "little"
         if type(concrete_value) is int:
             n = concrete_value
