@@ -39,78 +39,52 @@ class x86Instruction(Instruction):
             operand.size,
         )
 
-    @property
-    def reads(self) -> typing.Set[Operand]:
-        """Registers and memory references read by this instruction.
+    def _capstone_use_def(self, kind: str) -> typing.Set[Operand]:
+        """Capstone use/def for x86, used when the pcode backend is
+        unavailable or disabled.
 
-        This is a list of string register names and dictionary memory reference
-        specifications (i.e., in the form `base + scale * index + offset`).
+        Overrides the base implementation because x86's
+        _memory_reference does not take a single Capstone operand, and
+        because implicit registers (flags, the stack pointer for
+        push/pop, rax:rdx for mul/div) are only visible through
+        regs_access(), not the explicit operand list.
         """
-
-        reg_reads, _ = self._instruction.regs_access()
-        the_reads: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r)) for r in reg_reads]
-        )
-
+        is_read = kind == "use"
+        access = capstone.CS_AC_READ if is_read else capstone.CS_AC_WRITE
+        reg_reads, reg_writes = self._instruction.regs_access()
+        regs = reg_reads if is_read else reg_writes
+        operands: typing.Set[Operand] = {
+            RegisterOperand(self._instruction.reg_name(r)) for r in regs
+        }
         for operand in self._instruction.operands:
-            if operand.access & capstone.CS_AC_READ:
-                if operand.type == capstone.x86.X86_OP_MEM:
-                    if not self._instruction.mnemonic == "lea":
-                        # add the actual memory read
-                        the_reads.add(self._memory_reference_operand(operand))
-                    # add reads for parts of the operand
-                    base_name = self._instruction.reg_name(operand.mem.base)
-                    index_name = self._instruction.reg_name(operand.mem.index)
-                    if base_name:
-                        the_reads.add(RegisterOperand(base_name))
-                    if index_name:
-                        the_reads.add(RegisterOperand(index_name))
-                elif operand.type == capstone.x86.X86_OP_REG:
-                    # these are already in the list bc of regs_access above
-                    pass
-                else:
-                    # Immediate (and any other non-register/non-memory) operands
-                    # can carry read access yet reference no register or memory,
-                    # so they contribute nothing to the read set. (e.g. the `5`
-                    # in `add rax, 5`.)
-                    pass
-        if self._instruction.mnemonic == "pop":
-            the_reads.add(
+            if not (operand.access & access):
+                continue
+            if operand.type == capstone.x86.X86_OP_MEM:
+                # lea computes an address but accesses no memory, on
+                # either side -- so this is unconditional, not gated on
+                # is_read: a Capstone build marking lea's operand
+                # CS_AC_WRITE would otherwise report a memory def.
+                if self._instruction.mnemonic != "lea":
+                    operands.add(self._memory_reference_operand(operand))
+                if is_read:
+                    # the base/index registers are read to form the address
+                    for name in (
+                        self._instruction.reg_name(operand.mem.base),
+                        self._instruction.reg_name(operand.mem.index),
+                    ):
+                        if name:
+                            operands.add(RegisterOperand(name))
+            # register operands already came from regs_access above;
+            # immediates reference no location.
+        if is_read and self._instruction.mnemonic == "pop":
+            operands.add(
                 self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
             )
-
-        return the_reads
-
-    @property
-    def writes(self) -> typing.Set[Operand]:
-        """Registers and memory references written by this instruction.
-
-        Same format as `reads`.
-        """
-        _, reg_writes = self._instruction.regs_access()
-        the_writes: typing.Set[Operand] = set(
-            [RegisterOperand(self._instruction.reg_name(r)) for r in reg_writes]
-        )
-        for operand in self._instruction.operands:
-            if operand.access & capstone.CS_AC_WRITE:
-                # please dont change this to CS_OP_MEM bc that doesnt work?
-                if operand.type == capstone.x86.X86_OP_MEM:
-                    assert not (self._instruction.mnemonic == "lea")
-                    the_writes.add(self._memory_reference_operand(operand))
-                elif operand.type == capstone.x86.X86_OP_REG:
-                    # operands doesn't contain implicit registers.
-                    # we get all registers from regs_write
-                    pass
-                else:
-                    # Non-register/non-memory operands (e.g. immediates) reference
-                    # no register or memory, so they contribute nothing here.
-                    pass
-        if self._instruction.mnemonic == "push":
-            the_writes.add(
+        if (not is_read) and self._instruction.mnemonic == "push":
+            operands.add(
                 self._memory_reference(None, self.sp, None, 1, 0, self.word_size)
             )
-
-        return the_writes
+        return operands
 
 
 class AMD64Instruction(x86Instruction):

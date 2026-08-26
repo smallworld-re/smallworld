@@ -1,0 +1,2792 @@
+{
+ "isa": "i386",
+ "ghidra_lang": "x86:LE:32:default",
+ "llvm_triple": "i386-unknown-linux-gnu",
+ "base_address": 4096,
+ "entries": [
+  {
+   "asm": "mov eax, ebx",
+   "bytes": "89d8",
+   "categories": [
+    "mov",
+    "reg-reg"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov al, bl",
+   "bytes": "88d8",
+   "categories": [
+    "mov",
+    "reg-reg",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "bl"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "al"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov ax, bx",
+   "bytes": "6689d8",
+   "categories": [
+    "mov",
+    "reg-reg",
+    "word"
+   ],
+   "uses": [
+    {
+     "reg": "bx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, 0x12345678",
+   "bytes": "b878563412",
+   "categories": [
+    "mov",
+    "imm"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov bl, 5",
+   "bytes": "b305",
+   "categories": [
+    "mov",
+    "imm",
+    "byte"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "bl"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, dword ptr [edx]",
+   "bytes": "8b02",
+   "categories": [
+    "load",
+    "reg-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    },
+    {
+     "mem": {
+      "base": "edx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, dword ptr [ebp + 8]",
+   "bytes": "8b4508",
+   "categories": [
+    "load",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "ebp"
+    },
+    {
+     "mem": {
+      "base": "ebp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, dword ptr [ebx + ecx]",
+   "bytes": "8b040b",
+   "categories": [
+    "load",
+    "base+index"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": "ebx",
+      "index": "ecx",
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, dword ptr [ebx + ecx*4 + 0x10]",
+   "bytes": "8b448b10",
+   "categories": [
+    "load",
+    "base+index*scale+disp"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": "ebx",
+      "index": "ecx",
+      "scale": 4,
+      "offset": 16,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, dword ptr [ecx*4 + 0x2000]",
+   "bytes": "8b048d00200000",
+   "categories": [
+    "load",
+    "index*scale+disp",
+    "no-base"
+   ],
+   "uses": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": null,
+      "index": "ecx",
+      "scale": 4,
+      "offset": 8192,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov eax, dword ptr [0x804a000]",
+   "bytes": "a100a00408",
+   "categories": [
+    "load",
+    "absolute"
+   ],
+   "uses": [
+    {
+     "mem": {
+      "base": null,
+      "index": null,
+      "scale": 1,
+      "offset": 134520832,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov ecx, dword ptr [esp + 8]",
+   "bytes": "8b4c2408",
+   "categories": [
+    "load",
+    "base+disp",
+    "esp-base"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": 8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov al, byte ptr [esi]",
+   "bytes": "8a06",
+   "categories": [
+    "load",
+    "reg-indirect",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "esi"
+    },
+    {
+     "mem": {
+      "base": "esi",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "al"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov ax, word ptr [edi + 2]",
+   "bytes": "668b4702",
+   "categories": [
+    "load",
+    "base+disp",
+    "word"
+   ],
+   "uses": [
+    {
+     "reg": "edi"
+    },
+    {
+     "mem": {
+      "base": "edi",
+      "index": null,
+      "scale": 1,
+      "offset": 2,
+      "size": 2
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov dword ptr [edx], eax",
+   "bytes": "8902",
+   "categories": [
+    "store",
+    "reg-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "edx"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "edx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov dword ptr [ebp - 4], ecx",
+   "bytes": "894dfc",
+   "categories": [
+    "store",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "reg": "ebp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "ebp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov byte ptr [ebx + esi], al",
+   "bytes": "880433",
+   "categories": [
+    "store",
+    "base+index",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "al"
+    },
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "esi"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "ebx",
+      "index": "esi",
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov word ptr [eax + ecx*2], dx",
+   "bytes": "66891448",
+   "categories": [
+    "store",
+    "base+index*scale",
+    "word"
+   ],
+   "uses": [
+    {
+     "reg": "dx"
+    },
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "eax",
+      "index": "ecx",
+      "scale": 2,
+      "offset": 0,
+      "size": 2
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov dword ptr [0x804a000], eax",
+   "bytes": "a300a00408",
+   "categories": [
+    "store",
+    "absolute"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": null,
+      "index": null,
+      "scale": 1,
+      "offset": 134520832,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "mov dword ptr [esp + 4], 7",
+   "bytes": "c744240407000000",
+   "categories": [
+    "store",
+    "base+disp",
+    "imm",
+    "esp-base"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movzx eax, byte ptr [ecx]",
+   "bytes": "0fb601",
+   "categories": [
+    "ext",
+    "load",
+    "reg-indirect",
+    "zero-extend",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": "ecx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movzx eax, cx",
+   "bytes": "0fb7c1",
+   "categories": [
+    "ext",
+    "reg-reg",
+    "zero-extend",
+    "word"
+   ],
+   "uses": [
+    {
+     "reg": "cx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movsx eax, byte ptr [ebx + 1]",
+   "bytes": "0fbe4301",
+   "categories": [
+    "ext",
+    "load",
+    "base+disp",
+    "sign-extend",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "mem": {
+      "base": "ebx",
+      "index": null,
+      "scale": 1,
+      "offset": 1,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movsx ecx, dx",
+   "bytes": "0fbfca",
+   "categories": [
+    "ext",
+    "reg-reg",
+    "sign-extend",
+    "word"
+   ],
+   "uses": [
+    {
+     "reg": "dx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cdq",
+   "bytes": "99",
+   "categories": [
+    "ext",
+    "sign-extend",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "edx"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "push eax",
+   "bytes": "50",
+   "categories": [
+    "stack",
+    "push"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "push 0x10",
+   "bytes": "6a10",
+   "categories": [
+    "stack",
+    "push",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "push dword ptr [ebx]",
+   "bytes": "ff33",
+   "categories": [
+    "stack",
+    "push",
+    "load",
+    "reg-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "mem": {
+      "base": "ebx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    },
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "pop ecx",
+   "bytes": "59",
+   "categories": [
+    "stack",
+    "pop"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "reg": "esp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "leave",
+   "bytes": "c9",
+   "categories": [
+    "stack",
+    "leave"
+   ],
+   "uses": [
+    {
+     "reg": "ebp"
+    },
+    {
+     "mem": {
+      "base": "ebp",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "reg": "ebp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "esp <- ebp, then pop ebp: reads mem[ebp]"
+  },
+  {
+   "asm": "add eax, ebx",
+   "bytes": "01d8",
+   "categories": [
+    "arith",
+    "reg-reg"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add eax, 0x100",
+   "bytes": "0500010000",
+   "categories": [
+    "arith",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add al, bl",
+   "bytes": "00d8",
+   "categories": [
+    "arith",
+    "reg-reg",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "al"
+    },
+    {
+     "reg": "bl"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "al"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sub esp, 0x10",
+   "bytes": "83ec10",
+   "categories": [
+    "arith",
+    "imm",
+    "esp"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "adc eax, ecx",
+   "bytes": "11c8",
+   "categories": [
+    "arith",
+    "carry-in"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ecx"
+    },
+    {
+     "reg": "cf"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sbb edx, ebx",
+   "bytes": "19da",
+   "categories": [
+    "arith",
+    "carry-in"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "cf"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "inc eax",
+   "bytes": "40",
+   "categories": [
+    "arith",
+    "inc-dec"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cf not modified"
+  },
+  {
+   "asm": "dec ecx",
+   "bytes": "49",
+   "categories": [
+    "arith",
+    "inc-dec"
+   ],
+   "uses": [
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "cf not modified"
+  },
+  {
+   "asm": "neg eax",
+   "bytes": "f7d8",
+   "categories": [
+    "arith",
+    "unary"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "add dword ptr [eax], ebx",
+   "bytes": "0118",
+   "categories": [
+    "arith",
+    "rmw",
+    "reg-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    },
+    {
+     "mem": {
+      "base": "eax",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "eax",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "sub dword ptr [ebp - 8], 1",
+   "bytes": "836df801",
+   "categories": [
+    "arith",
+    "rmw",
+    "base+disp",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "ebp"
+    },
+    {
+     "mem": {
+      "base": "ebp",
+      "index": null,
+      "scale": 1,
+      "offset": -8,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "mem": {
+      "base": "ebp",
+      "index": null,
+      "scale": 1,
+      "offset": -8,
+      "size": 4
+     }
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "and eax, ebx",
+   "bytes": "21d8",
+   "categories": [
+    "logic",
+    "reg-reg"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "or ecx, 0xff",
+   "bytes": "81c9ff000000",
+   "categories": [
+    "logic",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "xor eax, eax",
+   "bytes": "31c0",
+   "categories": [
+    "logic",
+    "zeroing-idiom"
+   ],
+   "uses": [],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": "zeroing idiom; the self-XOR result is 0 regardless of eax, so eax is not a genuine read (dependency-breaking idiom -- see pcode_use_def)"
+  },
+  {
+   "asm": "not eax",
+   "bytes": "f7d0",
+   "categories": [
+    "logic",
+    "unary"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "not modifies no flags"
+  },
+  {
+   "asm": "test al, al",
+   "bytes": "84c0",
+   "categories": [
+    "cmp",
+    "test",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "al"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "test eax, 0x100",
+   "bytes": "a900010000",
+   "categories": [
+    "cmp",
+    "test",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "cmp eax, ebx",
+   "bytes": "39d8",
+   "categories": [
+    "cmp",
+    "reg-reg"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cmp dword ptr [esi + 4], 0",
+   "bytes": "837e0400",
+   "categories": [
+    "cmp",
+    "load",
+    "base+disp",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "esi"
+    },
+    {
+     "mem": {
+      "base": "esi",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "shl eax, 1",
+   "bytes": "d1e0",
+   "categories": [
+    "shift",
+    "imm",
+    "count1"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": "of defined for count==1"
+  },
+  {
+   "asm": "shr eax, 4",
+   "bytes": "c1e804",
+   "categories": [
+    "shift",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "of"
+    },
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "sar edx, cl",
+   "bytes": "d3fa",
+   "categories": [
+    "shift",
+    "reg-count"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "cl"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "of"
+    },
+    {
+     "reg": "af"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "rol eax, 1",
+   "bytes": "d1c0",
+   "categories": [
+    "shift",
+    "rotate",
+    "imm",
+    "count1"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "rotates do not modify pf/zf/sf/af; of defined for count==1"
+  },
+  {
+   "asm": "ror ebx, cl",
+   "bytes": "d3cb",
+   "categories": [
+    "shift",
+    "rotate",
+    "reg-count"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "cl"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "cf"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "of"
+    }
+   ],
+   "notes": "of undefined for count != 1"
+  },
+  {
+   "asm": "imul eax, ebx",
+   "bytes": "0fafc3",
+   "categories": [
+    "muldiv",
+    "imul-2op"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "imul ecx, edx, 0x10",
+   "bytes": "6bca10",
+   "categories": [
+    "muldiv",
+    "imul-3op",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "imul ecx",
+   "bytes": "f7e9",
+   "categories": [
+    "muldiv",
+    "imul-1op",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "mul ecx",
+   "bytes": "f7e1",
+   "categories": [
+    "muldiv",
+    "mul",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    }
+   ],
+   "notes": ""
+  },
+  {
+   "asm": "div ebx",
+   "bytes": "f7f3",
+   "categories": [
+    "muldiv",
+    "div",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "edx"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "notes": "all flags undefined after div"
+  },
+  {
+   "asm": "idiv ecx",
+   "bytes": "f7f9",
+   "categories": [
+    "muldiv",
+    "idiv",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "edx"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "notes": "all flags undefined after idiv"
+  },
+  {
+   "asm": "jmp .+0x10",
+   "bytes": "eb0e",
+   "categories": [
+    "branch",
+    "direct"
+   ],
+   "uses": [],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jne .+0x10",
+   "bytes": "750e",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "zf"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jle .+0x8",
+   "bytes": "7e06",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jb .+0x6",
+   "bytes": "7204",
+   "categories": [
+    "branch",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "cf"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jmp eax",
+   "bytes": "ffe0",
+   "categories": [
+    "branch",
+    "indirect",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jmp dword ptr [ebx + 4]",
+   "bytes": "ff6304",
+   "categories": [
+    "branch",
+    "indirect",
+    "base+disp",
+    "load"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "mem": {
+      "base": "ebx",
+      "index": null,
+      "scale": 1,
+      "offset": 4,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "call .+0x20",
+   "bytes": "e81b000000",
+   "categories": [
+    "call",
+    "direct"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "call eax",
+   "bytes": "ffd0",
+   "categories": [
+    "call",
+    "indirect",
+    "reg"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "call dword ptr [ecx]",
+   "bytes": "ff11",
+   "categories": [
+    "call",
+    "indirect",
+    "reg-indirect",
+    "load"
+   ],
+   "uses": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": "ecx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    },
+    {
+     "reg": "esp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ret",
+   "bytes": "c3",
+   "categories": [
+    "ret"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "ret 8",
+   "bytes": "c20800",
+   "categories": [
+    "ret",
+    "imm"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "lea eax, [ebx + ecx*4 + 8]",
+   "bytes": "8d448b08",
+   "categories": [
+    "misc",
+    "lea",
+    "base+index*scale+disp"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "ecx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pure address computation, no memory access"
+  },
+  {
+   "asm": "lea esi, [ebp - 0x20]",
+   "bytes": "8d75e0",
+   "categories": [
+    "misc",
+    "lea",
+    "base+disp"
+   ],
+   "uses": [
+    {
+     "reg": "ebp"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esi"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "pure address computation, no memory access"
+  },
+  {
+   "asm": "xchg eax, ebx",
+   "bytes": "93",
+   "categories": [
+    "misc",
+    "xchg",
+    "reg-reg"
+   ],
+   "uses": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    },
+    {
+     "reg": "ebx"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "xchg dword ptr [edx], ecx",
+   "bytes": "870a",
+   "categories": [
+    "misc",
+    "xchg",
+    "rmw",
+    "reg-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "edx"
+    },
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": "edx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "ecx"
+    },
+    {
+     "mem": {
+      "base": "edx",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "cmove eax, ebx",
+   "bytes": "0f44c3",
+   "categories": [
+    "mov",
+    "cmov",
+    "conditional"
+   ],
+   "uses": [
+    {
+     "reg": "ebx"
+    },
+    {
+     "reg": "zf"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "eax"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "dest unchanged if cond false; old dest value in uses_optional"
+  },
+  {
+   "asm": "cmovl edx, dword ptr [esi]",
+   "bytes": "0f4c16",
+   "categories": [
+    "load",
+    "cmov",
+    "conditional",
+    "reg-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "esi"
+    },
+    {
+     "mem": {
+      "base": "esi",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 4
+     }
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "edx"
+    }
+   ],
+   "uses_optional": [
+    {
+     "reg": "edx"
+    }
+   ],
+   "defs_optional": [],
+   "notes": "load performed regardless of condition"
+  },
+  {
+   "asm": "setne al",
+   "bytes": "0f95c0",
+   "categories": [
+    "misc",
+    "setcc",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "zf"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "al"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "setg bl",
+   "bytes": "0f9fc3",
+   "categories": [
+    "misc",
+    "setcc",
+    "byte"
+   ],
+   "uses": [
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "bl"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "movsb",
+   "bytes": "a4",
+   "categories": [
+    "string",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "esi"
+    },
+    {
+     "reg": "edi"
+    },
+    {
+     "reg": "df"
+    },
+    {
+     "mem": {
+      "base": "esi",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esi"
+    },
+    {
+     "reg": "edi"
+    },
+    {
+     "mem": {
+      "base": "edi",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "stosb",
+   "bytes": "aa",
+   "categories": [
+    "string",
+    "implicit"
+   ],
+   "uses": [
+    {
+     "reg": "al"
+    },
+    {
+     "reg": "edi"
+    },
+    {
+     "reg": "df"
+    }
+   ],
+   "defs": [
+    {
+     "reg": "edi"
+    },
+    {
+     "mem": {
+      "base": "edi",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 1
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": ""
+  },
+  {
+   "asm": "jmp dword ptr [0x1234]",
+   "bytes": "ff2534120000",
+   "categories": [
+    "branch",
+    "absolute",
+    "memory-indirect"
+   ],
+   "uses": [
+    {
+     "mem": {
+      "base": null,
+      "index": null,
+      "scale": 1,
+      "offset": 4660,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "Ghidra emits a bare BRANCHIND on a ram varnode; the pointer load is a real read."
+  },
+  {
+   "asm": "call dword ptr [0x1234]",
+   "bytes": "ff1534120000",
+   "categories": [
+    "call",
+    "absolute",
+    "memory-indirect"
+   ],
+   "uses": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": null,
+      "index": null,
+      "scale": 1,
+      "offset": 4660,
+      "size": 4
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "esp"
+    },
+    {
+     "mem": {
+      "base": "esp",
+      "index": null,
+      "scale": 1,
+      "offset": -4,
+      "size": 4
+     }
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "notes": "Absolute memory-indirect NEAR call (ff /2): reads the target pointer and pushes a return address."
+  }
+ ]
+}

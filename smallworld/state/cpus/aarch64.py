@@ -162,6 +162,10 @@ class AArch64(cpu.CPU):
         # *** System Control Registers ***
         # NOTE: "_elX" indicates that only exception level X or greater can access this register.
         # NOTE: This list is far from complete; it only covers what Unicorn supports
+        # Condition flags (N, Z, C, V) -- the PSTATE field mrs/msr address
+        # as a system register.
+        self.nzcv = state.Register("nzcv", 4)
+        self.add(self.nzcv)
         # Condition Code Register
         self.fpcr = state.Register("fpcr", 8)
         self.add(self.fpcr)

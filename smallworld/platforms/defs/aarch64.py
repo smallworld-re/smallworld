@@ -240,6 +240,10 @@ class AArch64(PlatformDef):
         # *** System Control Registers ***
         # NOTE: "_elX" indicates that only exception level X or greater can access this register.
         # NOTE: This list is far from complete; it only covers what Unicorn supports
+        # Condition flags (N, Z, C, V), the PSTATE field addressed as a
+        # system register by mrs/msr. Ghidra reports the four bits
+        # individually; they alias here.
+        "nzcv": RegisterDef(name="nzcv", size=4),
         # Condition Code Register
         "fpcr": RegisterDef(name="fpcr", size=8),
         # Floating Point Status Register

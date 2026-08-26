@@ -86,6 +86,7 @@ class AArch64MachineDef(AngrMachineDef):
         # NOTE: This list is far from complete; it only covers what Unicorn supports
         # NOTE: angr's aarch64 model is aggressively userspace-only.  None of these are supported
         # Condition Code Register
+        "nzcv": "",
         "fpcr": "",
         # Floating Point Status Register
         "fpsr": "",
