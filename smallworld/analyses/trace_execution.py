@@ -8,7 +8,7 @@ import capstone
 
 import smallworld
 from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
-from smallworld.instructions import RegisterOperand
+from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
 from .. import platforms
 from ..hinting.hints import TraceExecutionHint
@@ -53,35 +53,95 @@ def get_cmp_info(
 ) -> typing.Tuple[
     typing.List[CmpInfo], typing.List[typing.Optional[int]], typing.List[int]
 ]:
+    """For a comparison instruction, report what is being compared.
+
+    Returns (cmp_info, cmp_values, immediates). cmp_info holds the
+    locations the compare reads — register and memory Operands, taken
+    from the pcode-based use/def analysis (Instruction.reads) —
+    followed by any immediate operands. Registers that only serve to
+    form an included memory operand's address (rbp in
+    'cmp [rbp-0x1c], 47') are omitted: the compared value is the memory
+    cell, not the pointer.
+
+    The location entries are deduplicated and sorted by repr; the
+    immediates follow, in decode order. Repr order (not operand order)
+    is deliberate and matches how the colorizer orders its own
+    read/write tuples: it makes traces stable run to run regardless of
+    the order the analysis happens to yield reads, and lets a compare
+    of a location against itself (test al, al) report it once.
+    cmp_values below is aligned to this final order, so consumers must
+    not assume operand (destination-first) order.
+
+    If the pcode use/def analysis cannot interpret this instruction,
+    the three lists come back empty rather than aborting the trace.
+
+    cmp_values is index-aligned with cmp_info: the concrete value of
+    each entry read from the live emulator now, while it sits exactly
+    at this compare (an immediate maps to itself; a register/memory
+    operand to its integer value, or None if it could not be read).
+
+    Immediates come from the decoded operands: use/def reports
+    locations, and a constant is not a location.
+
+    Compare-and-branch instructions (pdefs.compare_branch_mnemonics:
+    MIPS beq, AArch64 cbz/tbz, x86 jrcxz, PPC bdnz) are reported too —
+    they embed the comparison the branch decides on. For those, the
+    final immediate operand is the branch target, not a compared
+    value, so it is excluded.
+    """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    if cs_insn.mnemonic in pdefs.compare_mnemonics:
-        # it's a compare -- return list of "reads", the concrete value of each
-        # (read now, while the emulator sits exactly at this compare), and the
-        # immediates.  cmp_values is index-aligned with cmp_info.
-        sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
-        byteorder: typing.Literal["little", "big"] = (
-            "little" if pdefs.byteorder is platforms.Byteorder.LITTLE else "big"
+    is_compare = cs_insn.mnemonic in pdefs.compare_mnemonics
+    is_compare_branch = cs_insn.mnemonic in pdefs.compare_branch_mnemonics
+    if not (is_compare or is_compare_branch):
+        return ([], [], [])
+    sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
+    try:
+        reads = sw_insn.reads
+    except Exception as exc:
+        # A compare whose pcode use/def can't be interpreted must not
+        # take down the whole trace; report it as "no cmp info" and
+        # keep going, mirroring the degrade-to-unknown handling below.
+        logger.warning(f"get_cmp_info: reads() failed for {cs_insn.mnemonic}: {exc}")
+        return ([], [], [])
+    address_regs = set()
+    for op in reads:
+        if isinstance(op, BSIDMemoryReferenceOperand):
+            for name in (op.base, op.index):
+                if name is not None:
+                    address_regs.add(name)
+    cmp_info: typing.List[CmpInfo] = sorted(
+        (
+            op
+            for op in reads
+            # The isinstance narrows Operand to what CmpInfo can carry as
+            # well as filtering: reads can in principle hold other Operand
+            # kinds, which have no place in a compare report.
+            if isinstance(op, (RegisterOperand, BSIDMemoryReferenceOperand))
+            and not (isinstance(op, RegisterOperand) and op.name in address_regs)
+        ),
+        key=repr,
+    )
+    imm_ops = [op for op in cs_insn.operands if op.type == capstone.CS_OP_IMM]
+    if is_compare_branch and imm_ops:
+        imm_ops = imm_ops[:-1]  # drop the branch target
+    immediates = [int(op.value.imm) for op in imm_ops]
+    cmp_info.extend(immediates)
+
+    # Concrete value of each cmp_info entry, read while the emulator is
+    # positioned at this compare. Index-aligned with the final cmp_info
+    # order (locations first, then immediates).
+    byteorder: typing.Literal["little", "big"] = (
+        "little" if pdefs.byteorder is platforms.Byteorder.LITTLE else "big"
+    )
+    cmp_values: typing.List[typing.Optional[int]] = [
+        (
+            entry
+            if isinstance(entry, int)
+            else _concrete_cmp_value(entry, emulator, byteorder)
         )
-        cmp_info: typing.List[CmpInfo] = []
-        cmp_values: typing.List[typing.Optional[int]] = []
-        for op in cs_insn.operands:
-            if op.type == capstone.CS_OP_MEM and (op.access & capstone.CS_AC_READ):
-                mem_op = sw_insn._memory_reference_operand(op)
-                cmp_info.append(mem_op)
-                cmp_values.append(_concrete_cmp_value(mem_op, emulator, byteorder))
-            if op.type == capstone.CS_OP_REG and (op.access & capstone.CS_AC_READ):
-                reg_op = RegisterOperand(cs_insn.reg_name(op.value.reg))
-                cmp_info.append(reg_op)
-                cmp_values.append(_concrete_cmp_value(reg_op, emulator, byteorder))
-            if op.type == capstone.CS_OP_IMM:
-                cmp_info.append(op.value.imm)
-                cmp_values.append(op.value.imm)
-        immediates = []
-        for op in cs_insn.operands:
-            if op.type == capstone.x86.X86_OP_IMM:
-                immediates.append(op.value.imm)
-        return (cmp_info, cmp_values, immediates)
-    return ([], [], [])
+        for entry in cmp_info
+    ]
+    return (cmp_info, cmp_values, immediates)
 
 
 class TraceExecution(analysis.Analysis):

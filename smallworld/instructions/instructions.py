@@ -202,7 +202,7 @@ class Instruction(metaclass=abc.ABCMeta):
         cls,
         instruction: capstone.CsInsn,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
-    ):
+    ) -> "Instruction":
         """Construct from an existing Capstone instruction.
 
         Arguments:
@@ -230,7 +230,7 @@ class Instruction(metaclass=abc.ABCMeta):
         block,
         arch: str,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
-    ):
+    ) -> "Instruction":
         """Construct from an angr disassembler instruction.
 
         Arguments:
@@ -258,7 +258,7 @@ class Instruction(metaclass=abc.ABCMeta):
         address: int,
         platform: Platform,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
-    ):
+    ) -> "Instruction":
         """Construct from a byte string."""
         try:
             return utils.find_subclass(

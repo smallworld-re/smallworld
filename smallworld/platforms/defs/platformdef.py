@@ -81,6 +81,11 @@ class PlatformDef(metaclass=abc.ABCMeta):
     implicit_dereference_mnemonics: typing.Set[str] = set()
     """Set of mnemonics for instructions that implicitly dereference a register"""
 
+    compare_branch_mnemonics: typing.Set[str] = set()
+    """Conditional branch mnemonics whose comparison reads registers or
+    memory directly (MIPS beq, AArch64 cbz, x86 jrcxz) rather than
+    condition flags set by an earlier compare."""
+
     @property
     @abc.abstractmethod
     def pc_register(self) -> str:

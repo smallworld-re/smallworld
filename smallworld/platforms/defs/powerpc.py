@@ -102,6 +102,14 @@ class PowerPCPlatformDef(PlatformDef):
         _branch_to_label_all | _branch_to_lr_all | _branch_to_ctr_all
     )
 
+    # Branches that compare a register directly instead of reading a
+    # condition-register field set by an earlier compare: the
+    # decrement-ctr-and-branch family tests ctr against zero.
+    compare_branch_mnemonics = {
+        "bdnz",
+        "bdz",
+    }
+
     compare_mnemonics = {
         # Compare registers
         "cmpd",
