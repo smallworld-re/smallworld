@@ -995,6 +995,36 @@ def _instruction_use_def(program, instr):
 _program_cache: dict = {}
 
 
+_warned_offmain: typing.Set[str] = set()
+
+
+def _warn_offmain_open_once(arch: str) -> None:
+    if arch not in _warned_offmain:
+        _warned_offmain.add(arch)
+        logger.warning(
+            f"first p-code analysis for {arch!r} is running on a worker "
+            f"thread; the process may fail to exit at shutdown (a Ghidra "
+            f"limitation). Call "
+            f"smallworld.instructions.pcode_use_def.warm({arch!r}) from the "
+            f"main thread first to avoid this."
+        )
+
+
+def warm(language_id: str) -> None:
+    """Open (or reuse) the long-lived Ghidra program for `language_id`.
+
+    Call this from the MAIN thread before analyzing from worker threads:
+    results are correct from any thread, but a process whose first
+    analysis for an architecture ran on a worker thread fails to exit
+    (see _analysis_lock's note). Emulators that run user callbacks on
+    their own thread -- PANDA -- should warm each platform they will
+    analyze during setup. Idempotent; the first call per language costs
+    the one-time program setup (~200 ms - 2 s), later ones nothing.
+    """
+    with _analysis_lock:
+        _get_or_create_program(language_id)
+
+
 def _get_or_create_program(arch):
     """Return (flat_api, program, addr_space) for a long-lived program
     of the given architecture, creating it on the first call."""
@@ -1004,6 +1034,8 @@ def _get_or_create_program(arch):
         _cm, flat_api, space = entry
         return flat_api, flat_api.getCurrentProgram(), space
 
+    if threading.current_thread() is not threading.main_thread():
+        _warn_offmain_open_once(arch)
     # First time we've seen this arch: open a fresh program around a
     # one-byte placeholder file. We manually __enter__ the context and
     # stash it; teardown happens at atexit (or on eviction after error).

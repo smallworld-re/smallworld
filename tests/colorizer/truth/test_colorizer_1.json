@@ -1,0 +1,1564 @@
+{
+ "all_pcs": [
+  8537,
+  8538,
+  8541,
+  8545,
+  8548,
+  8551,
+  8558,
+  8562,
+  8713,
+  8720,
+  8722,
+  8725,
+  8728,
+  8732,
+  8735,
+  8738,
+  8743,
+  8745,
+  8747,
+  8751,
+  8754,
+  8756,
+  8759,
+  8761,
+  8763,
+  8766,
+  8768,
+  8770,
+  8772,
+  8775,
+  8778,
+  8782,
+  8785,
+  8788
+ ],
+ "summ": {
+  "8537": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8537,
+    "color": 1,
+    "size": 8,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     4885445162691904961,
+     13460321687654991269,
+     9280256056959569510,
+     9814421962479061546,
+     18306165297079870698
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rsp",
+    "index": "None",
+    "scale": 1,
+    "offset": -8,
+    "addresses": [
+     81912
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8537,
+    "color": 3,
+    "size": 8,
+    "use": false,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rsp"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-def-summary",
+    "pc": 8537,
+    "color": 1,
+    "size": 8,
+    "use": true,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     4885445162691904961,
+     13460321687654991269,
+     9280256056959569510,
+     9814421962479061546,
+     18306165297079870698
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-def-summary",
+    "pc": 8537,
+    "color": 2,
+    "size": 8,
+    "use": true,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     81920
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rsp"
+   }
+  ],
+  "8538": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8538,
+    "color": 3,
+    "size": 8,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8538,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rsp"
+   }
+  ],
+  "8541": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8541,
+    "color": 4,
+    "size": 8,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     131072
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -24,
+    "addresses": [
+     81888
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8541,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-def-summary",
+    "pc": 8541,
+    "color": 4,
+    "size": 8,
+    "use": true,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     131072
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rdi"
+   }
+  ],
+  "8545": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8545,
+    "color": 5,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     129
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -28,
+    "addresses": [
+     81884
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-def-summary",
+    "pc": 8545,
+    "color": 5,
+    "size": 4,
+    "use": true,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     129
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "esi"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8545,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8548": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8548,
+    "color": 6,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     2558659334,
+     3585948327,
+     1698482380,
+     2568261659,
+     2583265852
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -32,
+    "addresses": [
+     81880
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-def-summary",
+    "pc": 8548,
+    "color": 6,
+    "size": 4,
+    "use": true,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     2558659334,
+     3585948327,
+     1698482380,
+     2568261659,
+     2583265852
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "edx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8548,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8551": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8551,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8558": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8558,
+    "color": 5,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     129
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -28,
+    "addresses": [
+     81884
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8558,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8713": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8713,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8722": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8722,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8728": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8728,
+    "color": 4,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     131072
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -24,
+    "addresses": [
+     81888
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8728,
+    "color": 4,
+    "size": 8,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     131072
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8728,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8732": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8732,
+    "color": 4,
+    "size": 8,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     131072
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8732,
+    "color": 17,
+    "size": 8,
+    "use": false,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     131073,
+     131074,
+     131075
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8732,
+    "color": 4,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     131072
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rax"
+   }
+  ],
+  "8735": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "read-def-summary",
+    "pc": 8735,
+    "color": 7,
+    "size": 1,
+    "use": true,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     232,
+     136,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     247,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rax",
+    "index": "None",
+    "scale": 1,
+    "offset": 0,
+    "addresses": [
+     131072,
+     131073,
+     131074,
+     131075
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8735,
+    "color": 7,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     232,
+     136,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     247,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "edx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8735,
+    "color": 4,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     131072,
+     131073,
+     131074,
+     131075
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rax"
+   }
+  ],
+  "8745": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8745,
+    "color": 7,
+    "size": 1,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     232,
+     136,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     247,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "dl"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8745,
+    "color": 8,
+    "size": 2,
+    "use": false,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     15367,
+     58639,
+     1936,
+     15125,
+     1815,
+     51742,
+     12705,
+     62632,
+     55856,
+     64568,
+     51258,
+     64447,
+     51016,
+     64084,
+     726,
+     52710,
+     7018,
+     56945,
+     59123,
+     4598
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ax"
+   }
+  ],
+  "8747": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8747,
+    "color": 10,
+    "size": 2,
+    "use": false,
+    "new": false,
+    "count": 1,
+    "dynamic_values": [
+     251
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8747,
+    "color": 9,
+    "size": 2,
+    "use": false,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     229,
+     230,
+     199,
+     200,
+     218,
+     202,
+     205,
+     244,
+     250,
+     252,
+     222
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8747,
+    "color": 8,
+    "size": 2,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     15367,
+     58639,
+     1936,
+     15125,
+     1815,
+     51742,
+     12705,
+     62632,
+     55856,
+     64568,
+     51258,
+     64447,
+     51016,
+     64084,
+     726,
+     52710,
+     7018,
+     56945,
+     59123,
+     4598
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ax"
+   }
+  ],
+  "8751": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8751,
+    "color": 11,
+    "size": 1,
+    "use": false,
+    "new": false,
+    "count": 2,
+    "dynamic_values": [
+     248,
+     249,
+     255
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "al"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8751,
+    "color": 10,
+    "size": 1,
+    "use": false,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     249,
+     251,
+     252,
+     254,
+     255
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "al"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8751,
+    "color": 9,
+    "size": 1,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     229,
+     230,
+     199,
+     200,
+     218,
+     202,
+     205,
+     244,
+     250,
+     251,
+     252,
+     222
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "al"
+   }
+  ],
+  "8754": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8754,
+    "color": 7,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     232,
+     136,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     247,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8754,
+    "color": 7,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     232,
+     136,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     247,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "edx"
+   }
+  ],
+  "8756": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8756,
+    "color": 11,
+    "size": 1,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     255
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "cl"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8756,
+    "color": 11,
+    "size": 1,
+    "use": false,
+    "new": true,
+    "count": 4,
+    "dynamic_values": [
+     255
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "cl"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8756,
+    "color": 7,
+    "size": 1,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     232,
+     136,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     247,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "cl"
+   }
+  ],
+  "8759": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8759,
+    "color": 12,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 2,
+    "dynamic_values": [
+     4294967290
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8759,
+    "color": 12,
+    "size": 4,
+    "use": false,
+    "new": true,
+    "count": 4,
+    "dynamic_values": [
+     4294967289,
+     4294967290,
+     4294967292,
+     4294967293,
+     4294967295
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8759,
+    "color": 10,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     248,
+     249,
+     251,
+     252,
+     254,
+     255
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8759,
+    "color": 11,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     255
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   }
+  ],
+  "8761": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8761,
+    "color": 12,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 4,
+    "dynamic_values": [
+     4294967289,
+     4294967290,
+     4294967292,
+     4294967293,
+     4294967295
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8761,
+    "color": 12,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 4,
+    "dynamic_values": [
+     4294967289,
+     4294967290,
+     4294967292,
+     4294967293,
+     4294967295
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   }
+  ],
+  "8763": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8763,
+    "color": 13,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 1,
+    "dynamic_values": [
+     4294967200
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8763,
+    "color": 13,
+    "size": 4,
+    "use": false,
+    "new": true,
+    "count": 4,
+    "dynamic_values": [
+     4294967232,
+     4294967200,
+     4294967280,
+     4294967184,
+     4294967248
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8763,
+    "color": 12,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 4,
+    "dynamic_values": [
+     4294967289,
+     4294967290,
+     4294967292,
+     4294967293,
+     4294967295
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   }
+  ],
+  "8766": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8766,
+    "color": 14,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 1,
+    "dynamic_values": [
+     4294967194
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8766,
+    "color": 14,
+    "size": 4,
+    "use": false,
+    "new": true,
+    "count": 4,
+    "dynamic_values": [
+     4294967194,
+     4294967228,
+     4294967245
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8766,
+    "color": 12,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 4,
+    "dynamic_values": [
+     4294967290,
+     4294967292,
+     4294967293
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8766,
+    "color": 13,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 4,
+    "dynamic_values": [
+     4294967232,
+     4294967200,
+     4294967248
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   }
+  ],
+  "8768": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8768,
+    "color": 7,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8768,
+    "color": 7,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "edx"
+   }
+  ],
+  "8770": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8770,
+    "color": 10,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 3,
+    "dynamic_values": [
+     248,
+     252,
+     244
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8770,
+    "color": 15,
+    "size": 4,
+    "use": false,
+    "new": true,
+    "count": 4,
+    "dynamic_values": [
+     240,
+     244,
+     250,
+     253,
+     254
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8770,
+    "color": 7,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     199,
+     138,
+     203,
+     142,
+     176,
+     244,
+     150,
+     248,
+     185
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8770,
+    "color": 14,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 4,
+    "dynamic_values": [
+     4294967194,
+     4294967228,
+     4294967245
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "ecx"
+   }
+  ],
+  "8772": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8772,
+    "color": 15,
+    "size": 1,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     240,
+     244,
+     248,
+     250,
+     252,
+     253,
+     254
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "al"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8772,
+    "color": 12,
+    "size": 4,
+    "use": false,
+    "new": true,
+    "count": 5,
+    "dynamic_values": [
+     4294967280,
+     4294967284,
+     4294967288,
+     4294967290,
+     4294967292,
+     4294967293,
+     4294967294
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   }
+  ],
+  "8775": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "write-copy-summary",
+    "pc": 8775,
+    "color": 12,
+    "size": 4,
+    "use": false,
+    "new": false,
+    "count": 2,
+    "dynamic_values": [
+     4294967284,
+     4294967293
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -4,
+    "addresses": [
+     81908
+    ]
+   },
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "write-def-summary",
+    "pc": 8775,
+    "color": 18,
+    "size": 4,
+    "use": false,
+    "new": true,
+    "count": 3,
+    "dynamic_values": [
+     4294967288,
+     4294967260,
+     4294967276,
+     4294967291
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -4,
+    "addresses": [
+     81908
+    ]
+   },
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8775,
+    "color": 12,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 3,
+    "dynamic_values": [
+     4294967276,
+     4294967291,
+     4294967284,
+     4294967293
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -4,
+    "addresses": [
+     81908
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8775,
+    "color": 12,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     4294967280,
+     4294967284,
+     4294967288,
+     4294967290,
+     4294967292,
+     4294967293,
+     4294967294
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "eax"
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8775,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8778": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8778,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8782": [
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8782,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ],
+  "8785": [
+   {
+    "__type__": "DynamicMemoryValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8785,
+    "color": 5,
+    "size": 4,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     129
+    ],
+    "num_micro_executions": 5,
+    "segment": "None",
+    "base": "rbp",
+    "index": "None",
+    "scale": 1,
+    "offset": -28,
+    "addresses": [
+     81884
+    ]
+   },
+   {
+    "__type__": "DynamicRegisterValueSummaryHint",
+    "message": "read-flow-summary",
+    "pc": 8785,
+    "color": 3,
+    "size": 8,
+    "use": true,
+    "new": false,
+    "count": 5,
+    "dynamic_values": [
+     81912
+    ],
+    "num_micro_executions": 5,
+    "reg_name": "rbp"
+   }
+  ]
+ },
+ "derivations": [
+  {
+   "pc": 8735,
+   "operand": "rax",
+   "sources": [
+    {
+     "__type__": "SrcDst",
+     "pc": 8541,
+     "wr": {
+      "__type__": "ReadInfo",
+      "info": {
+       "__type__": "RegisterInfo",
+       "color": 3,
+       "is_new": true,
+       "register": {
+        "__type__": "RegisterDef",
+        "name": "rdi",
+        "size": 8
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "pc": 8604,
+   "operand": "rax",
+   "sources": []
+  },
+  {
+   "pc": 8688,
+   "operand": "al",
+   "sources": []
+  },
+  {
+   "pc": 8579,
+   "operand": "[rbp-0x18]",
+   "sources": []
+  },
+  {
+   "pc": 8558,
+   "operand": "[rbp-0x1c]",
+   "sources": [
+    {
+     "__type__": "SrcDst",
+     "pc": 8545,
+     "wr": {
+      "__type__": "ReadInfo",
+      "info": {
+       "__type__": "RegisterInfo",
+       "color": 4,
+       "is_new": true,
+       "register": {
+        "__type__": "RegisterDef",
+        "name": "esi",
+        "size": 4
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "pc": 8568,
+   "operand": "[rbp-0x20]",
+   "sources": []
+  }
+ ]
+}
