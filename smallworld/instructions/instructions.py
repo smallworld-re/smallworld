@@ -311,9 +311,10 @@ class Instruction(metaclass=abc.ABCMeta):
         * ValueError -- how pyghidra reports configuration problems: no
           GHIDRA_INSTALL_DIR, an invalid language id. Actionable by the
           user and identical for every instruction, so warned once.
-        * anything else -- a bug here or new Ghidra behavior; warned WITH
-          a traceback so it is loud in logs and CI, but still degraded
-          rather than raised into a fault handler already mid-failure.
+        Anything else propagates: with the expected cases typed, a
+        different exception is a bug here or new Ghidra behavior, and
+        should fail loudly rather than be reclassified as "the
+        instruction could not be analyzed" -- which would be false.
         """
         from .pcode_use_def import UseDefError, analyze
 
@@ -344,14 +345,6 @@ class Instruction(metaclass=abc.ABCMeta):
             _log_fallback_once(
                 f"pcode analysis unavailable on {language_id} ({e}); "
                 f"use/def sets are empty"
-            )
-            return None
-        except Exception as e:
-            logger.warning(
-                f"unexpected pcode analysis failure for "
-                f"{self.instruction.hex()} on {language_id}: {e!r}; "
-                f"{purpose} set is empty",
-                exc_info=True,
             )
             return None
         if result is None:

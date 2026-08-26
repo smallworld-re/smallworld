@@ -496,11 +496,11 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         self.assertTrue(any("synthetic" in line for line in logs.output))
         self.assertFalse(any(line.startswith("WARNING") for line in logs.output))
 
-    def test_unexpected_analysis_failure_warns_with_traceback(self):
-        """Anything that is not UseDefError/ValueError is a bug or new
-        Ghidra behavior: still degraded (the callers include a fault
-        handler mid-failure) but warned loudly, with the traceback."""
-        import smallworld.instructions.instructions as instructions_mod
+    def test_unexpected_analysis_failure_propagates(self):
+        """Anything that is not UseDefError/ValueError is a bug here or new
+        Ghidra behavior, and propagates (tleek's call): reclassifying it as
+        "the instruction could not be analyzed" would be false, and a bug
+        that only warns is a bug that hides."""
         from smallworld.instructions import Instruction
         from smallworld.platforms import Architecture, Byteorder, Platform
 
@@ -516,13 +516,10 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         real = pcode_use_def.analyze
         pcode_use_def.analyze = _raise
         try:
-            with self.assertLogs(instructions_mod.logger, level="WARNING") as logs:
-                self.assertEqual(insn.reads, set())
+            with self.assertRaises(KeyError):
+                insn.reads
         finally:
             pcode_use_def.analyze = real
-        joined = "\n".join(logs.output)
-        self.assertIn("unexpected", joined)
-        self.assertIn("Traceback", joined)
 
     def test_capstone_writes_does_not_resolve_a_platform_def(self):
         """PlatformDef.for_platform walks every subclass uncached, costing

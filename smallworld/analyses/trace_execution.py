@@ -101,17 +101,11 @@ def get_cmp_info(
         # so the expected raiser here is from_capstone's ValueError for an
         # ISA with no Instruction subclass (superh, riscv, tricore, ...),
         # all of which define compare_mnemonics. Anything else is a bug or
-        # new behavior: warned with a traceback, but still degraded.
+        # new behavior and propagates.
         sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
         reads = sw_insn.reads
     except ValueError as exc:
         logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
-        return ([], [], [])
-    except Exception as exc:
-        logger.warning(
-            f"get_cmp_info: unexpected failure on {cs_insn.mnemonic}: {exc!r}",
-            exc_info=True,
-        )
         return ([], [], [])
     address_regs = set()
     for op in reads:
