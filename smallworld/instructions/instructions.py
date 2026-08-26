@@ -299,15 +299,23 @@ class Instruction(metaclass=abc.ABCMeta):
         answer, or None with a warning when there is no trustworthy one.
 
         `purpose` names what the caller wanted ("use", "def", "fetch") in
-        the warnings. Every degrade returns None rather than raising:
+        the log messages. Every degrade returns None rather than raising:
         callers are properties and methods reached from Unicorn's fault
         handler and the colorizer's per-instruction callbacks, and the
-        Capstone backend never raised at them. The catch is broader than
-        UseDefError on purpose -- a missing optional pyghidra, a JPype
-        exception and an out-of-range address are none of them UseDefError,
-        and all used to escape.
+        Capstone backend never raised at them.
+
+        Failures are told apart by type:
+
+        * UseDefError -- the analysis met semantics it cannot express (a
+          masked address, a bare CALLOTHER trap). Routine; logged at info.
+        * ValueError -- how pyghidra reports configuration problems: no
+          GHIDRA_INSTALL_DIR, an invalid language id. Actionable by the
+          user and identical for every instruction, so warned once.
+        * anything else -- a bug here or new Ghidra behavior; warned WITH
+          a traceback so it is loud in logs and CI, but still degraded
+          rather than raised into a fault handler already mid-failure.
         """
-        from .pcode_use_def import analyze
+        from .pcode_use_def import UseDefError, analyze
 
         language_id = platdef.ghidra_language_id
         if language_id is None:
@@ -326,10 +334,24 @@ class Instruction(metaclass=abc.ABCMeta):
             # branch's.
             raw = self.instruction[: self._instruction.size]
             result = analyze(raw, language_id, self.address)
+        except UseDefError as e:
+            logger.info(
+                f"pcode analysis cannot express {self.instruction.hex()} on "
+                f"{language_id}: {e}; {purpose} set is empty"
+            )
+            return None
+        except ValueError as e:
+            _log_fallback_once(
+                f"pcode analysis unavailable on {language_id} ({e}); "
+                f"use/def sets are empty"
+            )
+            return None
         except Exception as e:
             logger.warning(
-                f"pcode analysis failed for {self.instruction.hex()} on "
-                f"{language_id}: {e!r}; {purpose} set is empty"
+                f"unexpected pcode analysis failure for "
+                f"{self.instruction.hex()} on {language_id}: {e!r}; "
+                f"{purpose} set is empty",
+                exc_info=True,
             )
             return None
         if result is None:

@@ -95,17 +95,23 @@ def get_cmp_info(
     if not (is_compare or is_compare_branch):
         return ([], [], [])
     try:
-        # Broad on purpose: this runs per instruction inside a live trace,
-        # and one uninterpretable compare must degrade to "no cmp info",
-        # not abort the run. The failure taxonomy is open-ended -- Capstone
-        # and JPype raise types that share no useful ancestor -- and
-        # from_capstone belongs inside too: it raises ValueError for any
-        # ISA without an Instruction subclass (superh, riscv, tricore,
-        # ...), all of which define compare_mnemonics.
+        # This runs per instruction inside a live trace: an uninterpretable
+        # compare degrades to "no cmp info" rather than aborting the run.
+        # reads itself degrades internally (see Instruction._pcode_result),
+        # so the expected raiser here is from_capstone's ValueError for an
+        # ISA with no Instruction subclass (superh, riscv, tricore, ...),
+        # all of which define compare_mnemonics. Anything else is a bug or
+        # new behavior: warned with a traceback, but still degraded.
         sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
         reads = sw_insn.reads
+    except ValueError as exc:
+        logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
+        return ([], [], [])
     except Exception as exc:
-        logger.warning(f"get_cmp_info: no use/def for {cs_insn.mnemonic}: {exc}")
+        logger.warning(
+            f"get_cmp_info: unexpected failure on {cs_insn.mnemonic}: {exc!r}",
+            exc_info=True,
+        )
         return ([], [], [])
     address_regs = set()
     for op in reads:

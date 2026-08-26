@@ -486,12 +486,43 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         real = pcode_use_def.analyze
         pcode_use_def.analyze = _raise
         try:
-            with self.assertLogs(instructions_mod.logger, level="WARNING") as logs:
+            # UseDefError is the ROUTINE limitation case, logged at info;
+            # warnings are reserved for configuration problems and bugs.
+            with self.assertLogs(instructions_mod.logger, level="INFO") as logs:
                 self.assertEqual(insn.reads, set())
                 self.assertEqual(insn.writes, set())
         finally:
             pcode_use_def.analyze = real
         self.assertTrue(any("synthetic" in line for line in logs.output))
+        self.assertFalse(any(line.startswith("WARNING") for line in logs.output))
+
+    def test_unexpected_analysis_failure_warns_with_traceback(self):
+        """Anything that is not UseDefError/ValueError is a bug or new
+        Ghidra behavior: still degraded (the callers include a fault
+        handler mid-failure) but warned loudly, with the traceback."""
+        import smallworld.instructions.instructions as instructions_mod
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        pcode_use_def = importlib.import_module("smallworld.instructions.pcode_use_def")
+        platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+        insn = Instruction.from_bytes(
+            bytes.fromhex("89cb"), 0x1000, platform, use_def_backend="pcode"
+        )
+
+        def _raise(*args, **kwargs):
+            raise KeyError("synthetic-bug")
+
+        real = pcode_use_def.analyze
+        pcode_use_def.analyze = _raise
+        try:
+            with self.assertLogs(instructions_mod.logger, level="WARNING") as logs:
+                self.assertEqual(insn.reads, set())
+        finally:
+            pcode_use_def.analyze = real
+        joined = "\n".join(logs.output)
+        self.assertIn("unexpected", joined)
+        self.assertIn("Traceback", joined)
 
     def test_capstone_writes_does_not_resolve_a_platform_def(self):
         """PlatformDef.for_platform walks every subclass uncached, costing
