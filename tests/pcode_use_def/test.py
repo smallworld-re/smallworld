@@ -486,12 +486,40 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
         real = pcode_use_def.analyze
         pcode_use_def.analyze = _raise
         try:
-            with self.assertLogs(instructions_mod.logger, level="WARNING") as logs:
+            # UseDefError is the ROUTINE limitation case, logged at info;
+            # warnings are reserved for configuration problems and bugs.
+            with self.assertLogs(instructions_mod.logger, level="INFO") as logs:
                 self.assertEqual(insn.reads, set())
                 self.assertEqual(insn.writes, set())
         finally:
             pcode_use_def.analyze = real
         self.assertTrue(any("synthetic" in line for line in logs.output))
+        self.assertFalse(any(line.startswith("WARNING") for line in logs.output))
+
+    def test_unexpected_analysis_failure_propagates(self):
+        """Anything that is not UseDefError/ValueError is a bug here or new
+        Ghidra behavior, and propagates (tleek's call): reclassifying it as
+        "the instruction could not be analyzed" would be false, and a bug
+        that only warns is a bug that hides."""
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        pcode_use_def = importlib.import_module("smallworld.instructions.pcode_use_def")
+        platform = Platform(Architecture.X86_64, Byteorder.LITTLE)
+        insn = Instruction.from_bytes(
+            bytes.fromhex("89cb"), 0x1000, platform, use_def_backend="pcode"
+        )
+
+        def _raise(*args, **kwargs):
+            raise KeyError("synthetic-bug")
+
+        real = pcode_use_def.analyze
+        pcode_use_def.analyze = _raise
+        try:
+            with self.assertRaises(KeyError):
+                insn.reads
+        finally:
+            pcode_use_def.analyze = real
 
     def test_capstone_writes_does_not_resolve_a_platform_def(self):
         """PlatformDef.for_platform walks every subclass uncached, costing
@@ -529,6 +557,29 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
             # reads too, since fetches() took over the implicit-dereference
             # handling that used to make the use path consult the platdef.
             self.assertTrue(insn.reads)
+
+
+class GetCmpInfoDegradationTests(unittest.TestCase):
+    """get_cmp_info runs per instruction inside a live trace, so an
+    uninterpretable compare must degrade to no-cmp-info, not abort the
+    run. Needs no pyghidra and no emulator: the degrade happens first."""
+
+    def test_compare_on_an_isa_with_no_instruction_subclass_degrades(self):
+        """SuperH (and riscv, tricore, m68k, ...) define compare_mnemonics
+        but have no Instruction subclass, so from_capstone raises
+        ValueError -- which used to escape because it sat outside the
+        function's try."""
+        import capstone as cs
+
+        from smallworld.analyses.trace_execution import get_cmp_info
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        platform = Platform(Architecture.SUPERH_SH2A_FPU, Byteorder.BIG)
+        md = cs.Cs(cs.CS_ARCH_SH, cs.CS_MODE_SH2A | cs.CS_MODE_BIG_ENDIAN)
+        md.detail = True
+        insn = next(md.disasm(bytes.fromhex("3450"), 0x1000))  # cmp/eq r5,r4
+        self.assertEqual(insn.mnemonic, "cmp/eq")
+        self.assertEqual(get_cmp_info(platform, None, insn), [])
 
 
 class MemoryOperandIdentityTests(unittest.TestCase):

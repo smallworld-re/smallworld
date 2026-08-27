@@ -8,6 +8,7 @@ class AArch64(PlatformDef):
     architecture = Architecture.AARCH64
     byteorder = Byteorder.LITTLE
     ghidra_language_id = "AARCH64:LE:64:v8A"
+    status_register = "nzcv"
 
     address_size = 8
     capstone_arch = capstone.CS_ARCH_ARM64
@@ -114,6 +115,15 @@ class AArch64(PlatformDef):
         "cbhlo",
         "cbhls",
         "cbhlt",
+    }
+
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
+        "cbz",
+        "cbnz",
+        "tbz",
+        "tbnz",
     }
 
     # TODO: Should arithmetic operations that impact flags be compares?

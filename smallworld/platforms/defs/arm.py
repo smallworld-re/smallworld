@@ -178,6 +178,7 @@ class ARMPlatformMixinM:
     """
 
     ghidra_register_aliases = _flag_aliases("psr")
+    status_register: typing.Optional[str] = "psr"
 
     def __init__(self):
         super().__init__()
@@ -226,6 +227,7 @@ class ARMPlatformMixinRA:
     """
 
     ghidra_register_aliases = _flag_aliases("cpsr")
+    status_register: typing.Optional[str] = "cpsr"
 
     def __init__(self):
         super().__init__()

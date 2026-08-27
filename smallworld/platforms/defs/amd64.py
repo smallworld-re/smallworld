@@ -56,6 +56,14 @@ class AMD64BasePlatformDef(PlatformDef):
         "jecxz",
         "jcxz",
     }
+
+    # Branches that compare a register directly instead of reading
+    # flags set by an earlier compare.
+    compare_branch_mnemonics = {
+        "jrcxz",
+        "jecxz",
+        "jcxz",
+    }
     # TODO: Should arithmetic operations that impact flags be compares?
     compare_mnemonics = {
         # Basic integer comparisons.
@@ -325,6 +333,7 @@ class AMD64BasePlatformDef(PlatformDef):
 class AMD64(AMD64BasePlatformDef):
     architecture = Architecture.X86_64
     ghidra_language_id = "x86:LE:64:default"
+    status_register = "rflags"
 
     registers = AMD64BasePlatformDef.registers | {
         # *** SSE/AVX/AVX2 registers ***

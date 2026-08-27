@@ -81,6 +81,17 @@ class PlatformDef(metaclass=abc.ABCMeta):
     implicit_dereference_mnemonics: typing.Set[str] = set()
     """Set of mnemonics for instructions that implicitly dereference a register"""
 
+    compare_branch_mnemonics: typing.Set[str] = set()
+    """Conditional branch mnemonics whose comparison reads registers or
+    memory directly (MIPS beq, AArch64 cbz, x86 jrcxz) rather than
+    condition flags set by an earlier compare."""
+
+    status_register: typing.Optional[str] = None
+    """The register holding the condition flags (rflags, cpsr, nzcv), or
+    None where the platform models none. Named so analyses can tell it
+    apart from data registers: a compare's read of it (ARM data-processing
+    reads the carry through the barrel shifter) is not a compared value."""
+
     @property
     @abc.abstractmethod
     def pc_register(self) -> str:

@@ -202,7 +202,7 @@ class Instruction(metaclass=abc.ABCMeta):
         cls,
         instruction: capstone.CsInsn,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
-    ):
+    ) -> "Instruction":
         """Construct from an existing Capstone instruction.
 
         Arguments:
@@ -230,7 +230,7 @@ class Instruction(metaclass=abc.ABCMeta):
         block,
         arch: str,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
-    ):
+    ) -> "Instruction":
         """Construct from an angr disassembler instruction.
 
         Arguments:
@@ -258,7 +258,7 @@ class Instruction(metaclass=abc.ABCMeta):
         address: int,
         platform: Platform,
         use_def_backend: str = DEFAULT_USE_DEF_BACKEND,
-    ):
+    ) -> "Instruction":
         """Construct from a byte string."""
         try:
             return utils.find_subclass(
@@ -299,15 +299,24 @@ class Instruction(metaclass=abc.ABCMeta):
         answer, or None with a warning when there is no trustworthy one.
 
         `purpose` names what the caller wanted ("use", "def", "fetch") in
-        the warnings. Every degrade returns None rather than raising:
+        the log messages. Every degrade returns None rather than raising:
         callers are properties and methods reached from Unicorn's fault
         handler and the colorizer's per-instruction callbacks, and the
-        Capstone backend never raised at them. The catch is broader than
-        UseDefError on purpose -- a missing optional pyghidra, a JPype
-        exception and an out-of-range address are none of them UseDefError,
-        and all used to escape.
+        Capstone backend never raised at them.
+
+        Failures are told apart by type:
+
+        * UseDefError -- the analysis met semantics it cannot express (a
+          masked address, a bare CALLOTHER trap). Routine; logged at info.
+        * ValueError -- how pyghidra reports configuration problems: no
+          GHIDRA_INSTALL_DIR, an invalid language id. Actionable by the
+          user and identical for every instruction, so warned once.
+        Anything else propagates: with the expected cases typed, a
+        different exception is a bug here or new Ghidra behavior, and
+        should fail loudly rather than be reclassified as "the
+        instruction could not be analyzed" -- which would be false.
         """
-        from .pcode_use_def import analyze
+        from .pcode_use_def import UseDefError, analyze
 
         language_id = platdef.ghidra_language_id
         if language_id is None:
@@ -326,10 +335,16 @@ class Instruction(metaclass=abc.ABCMeta):
             # branch's.
             raw = self.instruction[: self._instruction.size]
             result = analyze(raw, language_id, self.address)
-        except Exception as e:
-            logger.warning(
-                f"pcode analysis failed for {self.instruction.hex()} on "
-                f"{language_id}: {e!r}; {purpose} set is empty"
+        except UseDefError as e:
+            logger.info(
+                f"pcode analysis cannot express {self.instruction.hex()} on "
+                f"{language_id}: {e}; {purpose} set is empty"
+            )
+            return None
+        except ValueError as e:
+            _log_fallback_once(
+                f"pcode analysis unavailable on {language_id} ({e}); "
+                f"use/def sets are empty"
             )
             return None
         if result is None:

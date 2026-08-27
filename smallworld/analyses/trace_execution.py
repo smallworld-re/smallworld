@@ -7,8 +7,8 @@ from enum import Enum
 import capstone
 
 import smallworld
-from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
-from smallworld.instructions import RegisterOperand
+from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, TraceRes
+from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
 from .. import platforms
 from ..hinting.hints import TraceExecutionHint
@@ -50,38 +50,68 @@ def get_cmp_info(
     platform: smallworld.platforms.Platform,
     emulator: smallworld.emulators.Emulator,
     cs_insn: capstone.CsInsn,
-) -> typing.Tuple[
-    typing.List[CmpInfo], typing.List[typing.Optional[int]], typing.List[int]
-]:
+) -> typing.List[CmpEntry]:
+    """What a comparison instruction compares: one CmpEntry per compared
+    thing, each carrying the value observed at this point in the trace.
+
+    Locations come from Instruction.reads, deduplicated and repr-sorted
+    (test al, al reports al once; no lhs/rhs order is promised);
+    immediates follow in decode order. Compare-and-branch instructions
+    (compare_branch_mnemonics) are included, minus their final immediate
+    -- the branch target. Empty means not a compare, or one whose use/def
+    could not be interpreted (degrade, never abort the trace).
+    """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
-    if cs_insn.mnemonic in pdefs.compare_mnemonics:
-        # it's a compare -- return list of "reads", the concrete value of each
-        # (read now, while the emulator sits exactly at this compare), and the
-        # immediates.  cmp_values is index-aligned with cmp_info.
-        sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
-        byteorder: typing.Literal["little", "big"] = (
-            "little" if pdefs.byteorder is platforms.Byteorder.LITTLE else "big"
+    is_compare = cs_insn.mnemonic in pdefs.compare_mnemonics
+    is_compare_branch = cs_insn.mnemonic in pdefs.compare_branch_mnemonics
+    if not (is_compare or is_compare_branch):
+        return []
+    try:
+        # from_bytes with the caller's platform -- from_capstone selects by
+        # capstone arch/mode, which is ambiguous across the ARM variants.
+        # The expected ValueError is an ISA with no Instruction subclass;
+        # anything else is a bug and propagates.
+        sw_insn = smallworld.instructions.Instruction.from_bytes(
+            bytes(cs_insn.bytes), cs_insn.address, platform
         )
-        cmp_info: typing.List[CmpInfo] = []
-        cmp_values: typing.List[typing.Optional[int]] = []
-        for op in cs_insn.operands:
-            if op.type == capstone.CS_OP_MEM and (op.access & capstone.CS_AC_READ):
-                mem_op = sw_insn._memory_reference_operand(op)
-                cmp_info.append(mem_op)
-                cmp_values.append(_concrete_cmp_value(mem_op, emulator, byteorder))
-            if op.type == capstone.CS_OP_REG and (op.access & capstone.CS_AC_READ):
-                reg_op = RegisterOperand(cs_insn.reg_name(op.value.reg))
-                cmp_info.append(reg_op)
-                cmp_values.append(_concrete_cmp_value(reg_op, emulator, byteorder))
-            if op.type == capstone.CS_OP_IMM:
-                cmp_info.append(op.value.imm)
-                cmp_values.append(op.value.imm)
-        immediates = []
-        for op in cs_insn.operands:
-            if op.type == capstone.x86.X86_OP_IMM:
-                immediates.append(op.value.imm)
-        return (cmp_info, cmp_values, immediates)
-    return ([], [], [])
+        reads = sw_insn.reads
+    except ValueError as exc:
+        logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
+        return []
+    address_regs = set()
+    for op in reads:
+        if isinstance(op, BSIDMemoryReferenceOperand):
+            for name in (op.base, op.index):
+                if name is not None:
+                    address_regs.add(name)
+    # Compared locations: reads, minus non-value roles -- address-forming
+    # registers (rbp in `cmp [rbp-0x1c], 47`) and the status register (a
+    # plain ARM cmp reads the carry via the barrel shifter). KNOWN
+    # IMPRECISION: `cmp rax, [rax]` reports only [rax] -- rax is both
+    # pointer and compared value, and a read SET cannot say which.
+    locations = sorted(
+        (
+            op
+            for op in reads
+            if isinstance(op, (RegisterOperand, BSIDMemoryReferenceOperand))
+            and not (
+                isinstance(op, RegisterOperand)
+                and (op.name in address_regs or op.name == pdefs.status_register)
+            )
+        ),
+        key=repr,
+    )
+    imm_ops = [op for op in cs_insn.operands if op.type == capstone.CS_OP_IMM]
+    if is_compare_branch and imm_ops:
+        imm_ops = imm_ops[:-1]  # drop the branch target
+
+    byteorder: typing.Literal["little", "big"] = (
+        "little" if pdefs.byteorder is platforms.Byteorder.LITTLE else "big"
+    )
+    return [
+        CmpEntry(source=op, value=_concrete_cmp_value(op, emulator, byteorder))
+        for op in locations
+    ] + [CmpEntry(source=int(op.value.imm), value=int(op.value.imm)) for op in imm_ops]
 
 
 class TraceExecution(analysis.Analysis):
@@ -171,19 +201,21 @@ class TraceExecution(analysis.Analysis):
                     f"no decodable instruction at pc {pc:#x}"
                 )
                 break
-            cmp_info, cmp_values, imm_info = get_cmp_info(
-                self.platform, self.emulator, cs_insn
-            )
+            cmp_entries = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
+            # TraceElement keeps its historical parallel-list shape (cmp /
+            # immediates / index-aligned cmp_values): its pickled form and
+            # its consumers (magrathea) depend on it. Derived here from the
+            # self-contained entries; immediates are the int-sourced ones.
             te = TraceElement(
                 pc,
                 i,
                 cs_insn.mnemonic,
                 cs_insn.op_str,
-                cmp_info,
+                [e.source for e in cmp_entries],
                 branch_info,
-                imm_info,
-                cmp_values,
+                [e.source for e in cmp_entries if isinstance(e.source, int)],
+                [e.value for e in cmp_entries],
             )
             trace.append(te)
             # run any callbacks
