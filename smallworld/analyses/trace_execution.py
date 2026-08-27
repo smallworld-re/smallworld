@@ -84,11 +84,19 @@ def get_cmp_info(
         # This runs per instruction inside a live trace: an uninterpretable
         # compare degrades to "no cmp info" rather than aborting the run.
         # reads itself degrades internally (see Instruction._pcode_result),
-        # so the expected raiser here is from_capstone's ValueError for an
+        # so the expected raiser here is from_bytes's ValueError for an
         # ISA with no Instruction subclass (superh, riscv, tricore, ...),
         # all of which define compare_mnemonics. Anything else is a bug or
         # new behavior and propagates.
-        sw_insn = smallworld.instructions.Instruction.from_capstone(cs_insn)
+        #
+        # from_bytes with the caller's platform, NOT from_capstone: the
+        # capstone arch/mode pair is ambiguous where platforms share it
+        # (every ARM-mode variant), and from_capstone picked an arbitrary
+        # one -- ARMV7R, whose platform has no Ghidra language, silently
+        # downgrading every ARM compare to the Capstone fallback.
+        sw_insn = smallworld.instructions.Instruction.from_bytes(
+            bytes(cs_insn.bytes), cs_insn.address, platform
+        )
         reads = sw_insn.reads
     except ValueError as exc:
         logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
@@ -99,6 +107,18 @@ def get_cmp_info(
             for name in (op.base, op.index):
                 if name is not None:
                     address_regs.add(name)
+    # The compared locations: the read set, minus operands whose role is
+    # not "a compared value" --
+    #  * registers that only form an included memory operand's address
+    #    (rbp in `cmp [rbp-0x1c], 47` is a pointer, not a quantity).
+    #    KNOWN IMPRECISION: this assumes the address-forming and compared
+    #    roles are disjoint. `cmp rax, [rax]` violates that -- rax is both
+    #    -- and gets reported as [rax] alone; telling the roles apart needs
+    #    per-operand provenance a read SET does not carry.
+    #  * the platform's status register: ARM data-processing reads the
+    #    carry through the barrel shifter, so under the flags mapping a
+    #    plain `cmp r0, r1` reads cpsr -- a dependency, but not a compared
+    #    value.
     locations = sorted(
         (
             op
@@ -107,7 +127,10 @@ def get_cmp_info(
             # well as filtering: reads can in principle hold other Operand
             # kinds, which have no place in a compare report.
             if isinstance(op, (RegisterOperand, BSIDMemoryReferenceOperand))
-            and not (isinstance(op, RegisterOperand) and op.name in address_regs)
+            and not (
+                isinstance(op, RegisterOperand)
+                and (op.name in address_regs or op.name == pdefs.status_register)
+            )
         ),
         key=repr,
     )

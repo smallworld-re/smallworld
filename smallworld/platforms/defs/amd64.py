@@ -333,6 +333,7 @@ class AMD64BasePlatformDef(PlatformDef):
 class AMD64(AMD64BasePlatformDef):
     architecture = Architecture.X86_64
     ghidra_language_id = "x86:LE:64:default"
+    status_register = "rflags"
 
     registers = AMD64BasePlatformDef.registers | {
         # *** SSE/AVX/AVX2 registers ***

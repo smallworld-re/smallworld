@@ -8,6 +8,7 @@ class I386(PlatformDef):
     architecture = Architecture.X86_32
     byteorder = Byteorder.LITTLE
     ghidra_language_id = "x86:LE:32:default"
+    status_register = "eflags"
 
     address_size = 4
 
