@@ -579,7 +579,7 @@ class GetCmpInfoDegradationTests(unittest.TestCase):
         md.detail = True
         insn = next(md.disasm(bytes.fromhex("3450"), 0x1000))  # cmp/eq r5,r4
         self.assertEqual(insn.mnemonic, "cmp/eq")
-        self.assertEqual(get_cmp_info(platform, None, insn), [])
+        self.assertEqual(get_cmp_info(platform, None, insn), ([], []))
 
 
 class MemoryOperandIdentityTests(unittest.TestCase):

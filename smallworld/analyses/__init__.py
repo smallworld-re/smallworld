@@ -39,7 +39,7 @@ except ImportError:
 
 from .loop_detection import LoopDetection
 from .trace_execution import TraceExecution
-from .trace_execution_types import CmpInfo, TraceElement, TraceRes
+from .trace_execution_types import CmpEntry, CmpInfo, TraceElement, TraceRes
 
 __all__ += [
     "Colorizer",
@@ -48,6 +48,7 @@ __all__ += [
     "TraceExecution",
     "TraceElement",
     "TraceRes",
+    "CmpEntry",
     "CmpInfo",
     "LoopDetection",
     "CoverageFrontier",

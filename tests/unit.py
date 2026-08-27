@@ -66,7 +66,7 @@ from smallworld.analyses.crash_triage.printer import CrashTriagePrinter
 from smallworld.analyses.field_detection import field_analysis
 from smallworld.analyses.field_detection.hints import UnknownFieldHint
 from smallworld.analyses.field_detection.malloc import MallocModel
-from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, TraceRes
+from smallworld.analyses.trace_execution_types import CmpEntry, TraceRes
 from smallworld.analyses.unstable.pointer_finder import PointerFinder
 from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
@@ -6741,13 +6741,13 @@ class GetCmpInfoTests(unittest.TestCase):
         self.assertEqual(cs_insn.mnemonic, "cmp")
         self.emu.write_register("rax", 0x1234)
 
-        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
-        self.assertEqual(len(entries), 2)
+        entries, imms = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        self.assertEqual(len(entries), 1)
         self.assertIsInstance(entries[0].source, RegisterOperand)
         self.assertEqual(entries[0].source.name, "rax")
         self.assertEqual(entries[0].value, 0x1234)
-        # An immediate is its own source AND value.
-        self.assertEqual(entries[1], CmpEntry(source=5, value=5))
+        # Immediates are not locations; they come back separately.
+        self.assertEqual(imms, [5])
 
     def test_memory_operand_compare_reads_mapped_value(self):
         # cmp qword ptr [0x2000], rax
@@ -6759,12 +6759,13 @@ class GetCmpInfoTests(unittest.TestCase):
         )
         self.emu.write_register("rax", 99)
 
-        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        entries, imms = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
         self.assertEqual(len(entries), 2)
         self.assertIsInstance(entries[0].source, BSIDMemoryReferenceOperand)
         self.assertEqual(entries[0].value, 0x1122334455667788)
         self.assertIsInstance(entries[1].source, RegisterOperand)
         self.assertEqual(entries[1].value, 99)
+        self.assertEqual(imms, [])
 
     def test_memory_operand_compare_unmapped_yields_none(self):
         # cmp qword ptr [0x6000], rax -- 0x6000 is not mapped
@@ -6772,7 +6773,7 @@ class GetCmpInfoTests(unittest.TestCase):
         self.assertEqual(cs_insn.mnemonic, "cmp")
         self.emu.write_register("rax", 7)
 
-        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        entries, imms = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
         self.assertEqual(len(entries), 2)
         self.assertIsNone(entries[0].value)
         self.assertEqual(entries[1].value, 7)
@@ -6797,7 +6798,7 @@ class GetCmpInfoTests(unittest.TestCase):
             capstone.CS_ARCH_ARM,
             capstone.CS_MODE_ARM,
         )  # cmp r0, r1
-        entries = trace_execution.get_cmp_info(arm, emu, cs_insn)
+        entries, _ = trace_execution.get_cmp_info(arm, emu, cs_insn)
         self.assertEqual(
             sorted((e.source.name, e.value) for e in entries),
             [("r0", 11), ("r1", 22)],
@@ -6814,7 +6815,7 @@ class GetCmpInfoTests(unittest.TestCase):
         cs_insn = self._decode(b"\x48\x3b\x00")  # cmp rax, [rax]
         self.emu.write_register("rax", 0x2000)
         self.emu.map_memory(0x2000, 0x1000)
-        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        entries, _ = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
         self.assertEqual(len(entries), 1)
         self.assertIsInstance(entries[0].source, BSIDMemoryReferenceOperand)
 
@@ -6823,29 +6824,26 @@ class GetCmpInfoTests(unittest.TestCase):
         cs_insn = self._decode(b"\x48\xc7\xc0\x05\x00\x00\x00")
         self.assertEqual(cs_insn.mnemonic, "mov")
         self.assertEqual(
-            trace_execution.get_cmp_info(self.platform, self.emu, cs_insn), []
+            trace_execution.get_cmp_info(self.platform, self.emu, cs_insn), ([], [])
         )
 
 
-class TraceElementCmpValuesTests(unittest.TestCase):
-    """TraceElement.cmp_values: optional, excluded from __eq__ and repr."""
+class CmpEntryIdentityTests(unittest.TestCase):
+    """CmpEntry.value is excluded from __eq__ and repr: trace identity and
+    golden logging must not depend on seeded runtime values -- the rule
+    TraceElement.cmp_values carried before CmpEntry subsumed it."""
 
-    @staticmethod
-    def _element(**kwargs):
-        return TraceElement(0x1000, 0, "cmp", "rax, 5", [], False, [5], **kwargs)
+    def test_equality_ignores_value(self):
+        rax = RegisterOperand("rax")
+        self.assertEqual(CmpEntry(source=rax, value=0x1234), CmpEntry(source=rax))
+        self.assertNotEqual(
+            CmpEntry(source=rax), CmpEntry(source=RegisterOperand("rbx"))
+        )
 
-    def test_construct_without_cmp_values_defaults_empty(self):
-        te = self._element()
-        self.assertEqual(te.cmp_values, [])
-
-    def test_equality_ignores_cmp_values(self):
-        te_a = self._element(cmp_values=[0x1234, 5])
-        te_b = self._element(cmp_values=[0x9999, None])
-        self.assertEqual(te_a, te_b)
-
-    def test_repr_excludes_cmp_values(self):
-        te = self._element(cmp_values=[0x1234, 5])
-        self.assertNotIn("cmp_values", repr(te))
+    def test_repr_excludes_value(self):
+        self.assertNotIn(
+            "value", repr(CmpEntry(source=RegisterOperand("rax"), value=0x1234))
+        )
 
 
 class TraceExecutionUndecodableInsnTests(unittest.TestCase):

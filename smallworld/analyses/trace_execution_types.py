@@ -5,28 +5,26 @@ from enum import Enum
 
 from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
-CmpInfo = typing.Union[RegisterOperand, BSIDMemoryReferenceOperand, int]
+#: Kept as an alias for CmpEntry.source's type; magrathea imports it.
+CmpInfo = typing.Union[RegisterOperand, BSIDMemoryReferenceOperand]
 
 
 @dataclass(frozen=True)
 class CmpEntry:
-    """One thing a comparison compares, with its observed value.
+    """One LOCATION a comparison compares -- a register or memory operand
+    -- with the value observed there at that point in the trace.
 
-    `source` is a register or memory Operand for a location, or the int
-    itself for an immediate. `value` is the concrete value read from the
-    live emulator at the moment the compare was about to execute -- an
-    immediate maps to itself; None means the location could not be read.
+    Immediates are not entries: they live in the separate immediates list
+    (a constant is not a location, and needs no observation).
 
-    Self-contained on purpose: the previous contract returned parallel
-    lists ("cmp_values is index-aligned with cmp_info"), pushing the
-    bookkeeping onto every consumer. The entries carry no lhs/rhs order
-    -- they come from the use/def read SET, deduplicated (test al, al
-    reports al once) and repr-sorted for run-to-run stability -- so no
-    order is promised.
+    `value` is excluded from equality and repr on purpose: trace identity
+    and golden logging must not depend on the seeded runtime values, the
+    same rule TraceElement.cmp_values carried before this type subsumed
+    it. None means the location could not be read.
     """
 
     source: CmpInfo
-    value: typing.Optional[int]
+    value: typing.Optional[int] = field(default=None, compare=False, repr=False)
 
 
 class TraceRes(Enum):
@@ -48,18 +46,13 @@ class TraceElement:
     ic: int  # instruction count
     mnemonic: str
     op_str: str
-    cmp: typing.List[CmpInfo]
+    # The locations this instruction compares (CmpEntry: operand + observed
+    # value) and, separately, the immediates it compares against. NOTE: this
+    # shape is a deliberate break from the older mixed cmp list plus
+    # index-aligned cmp_values; old pickled traces do not load.
+    cmp: typing.List[CmpEntry]
     branch: bool
     immediates: typing.List[int]
-    # Concrete value of each entry in `cmp`, read from the live emulator at the
-    # moment this compare is about to execute (see get_cmp_info).  Index-aligned
-    # with `cmp`: an immediate maps to itself, a register/memory operand to its
-    # concrete integer value, or None if it could not be read.  Excluded from
-    # eq/repr so it does not affect trace identity, comparison, or logging/golden
-    # output, and so older pickled traces (which lack it) stay compatible.
-    cmp_values: typing.List[typing.Optional[int]] = field(
-        default_factory=list, compare=False, repr=False
-    )
 
     def __str__(self):
         return f"{self.ic} 0x{self.pc:x} [{self.mnemonic} {self.op_str}] {self.cmp} {self.branch} {self.immediates}"

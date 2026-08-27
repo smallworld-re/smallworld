@@ -1,5 +1,6 @@
 from trace_test import test
 
+from smallworld.analyses.trace_execution_types import CmpEntry
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 from smallworld.instructions.instructions import RegisterOperand
 
@@ -51,37 +52,21 @@ if __name__ == "__main__":
         f"num branches is {branches} but is supposed to be 9",
     )
 
-    # cmp_info lists the locations the compare reads (deduplicated,
-    # sorted by repr, without address-forming registers like rbp),
-    # followed by immediate operands.
+    # .cmp holds the LOCATIONS the compare reads (CmpEntry, deduplicated,
+    # sorted by repr, without address-forming registers like rbp); the
+    # immediates compared against live separately in .immediates.
+    _mem1c = CmpEntry(source=BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C))
+    _cmp_8706 = [_mem1c, CmpEntry(source=RegisterOperand("eax"))]
     truth_cmps = [
-        (8558, [BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C), 47]),
-        (8568, [BSIDMemoryReferenceOperand(base="rbp", offset=-0x20), 0]),
-        (
-            8706,
-            [
-                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
-                RegisterOperand("eax"),
-            ],
-        ),
-        (8637, [RegisterOperand("al")]),
-        (8688, [RegisterOperand("al"), 42]),
-        (
-            8706,
-            [
-                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
-                RegisterOperand("eax"),
-            ],
-        ),
-        (8637, [RegisterOperand("al")]),
-        (8688, [RegisterOperand("al"), 42]),
-        (
-            8706,
-            [
-                BSIDMemoryReferenceOperand(base="rbp", offset=-0x1C),
-                RegisterOperand("eax"),
-            ],
-        ),
+        (8558, [_mem1c]),
+        (8568, [CmpEntry(source=BSIDMemoryReferenceOperand(base="rbp", offset=-0x20))]),
+        (8706, _cmp_8706),
+        (8637, [CmpEntry(source=RegisterOperand("al"))]),
+        (8688, [CmpEntry(source=RegisterOperand("al"))]),
+        (8706, _cmp_8706),
+        (8637, [CmpEntry(source=RegisterOperand("al"))]),
+        (8688, [CmpEntry(source=RegisterOperand("al"))]),
+        (8706, _cmp_8706),
     ]
 
     truth_imms = [(8558, [47]), (8568, [0]), (8688, [42]), (8688, [42])]
