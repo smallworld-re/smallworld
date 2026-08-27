@@ -66,7 +66,7 @@ from smallworld.analyses.crash_triage.printer import CrashTriagePrinter
 from smallworld.analyses.field_detection import field_analysis
 from smallworld.analyses.field_detection.hints import UnknownFieldHint
 from smallworld.analyses.field_detection.malloc import MallocModel
-from smallworld.analyses.trace_execution_types import TraceElement, TraceRes
+from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, TraceRes
 from smallworld.analyses.unstable.pointer_finder import PointerFinder
 from smallworld.arch import amd64_arch
 from smallworld.emulators.angr.exceptions import PathTerminationSignal
@@ -6725,8 +6725,8 @@ class FieldDetectionMemReadHintTests(unittest.TestCase):
 
 
 class GetCmpInfoTests(unittest.TestCase):
-    """get_cmp_info returns (cmp_info, cmp_values, immediates) with concrete
-    operand values read from the live emulator, index-aligned with cmp_info."""
+    """get_cmp_info returns a list of self-contained CmpEntry: each compared
+    thing with the concrete value read from the live emulator."""
 
     def setUp(self):
         self.platform = _analyses_amd64_platform()
@@ -6741,15 +6741,13 @@ class GetCmpInfoTests(unittest.TestCase):
         self.assertEqual(cs_insn.mnemonic, "cmp")
         self.emu.write_register("rax", 0x1234)
 
-        cmp_info, cmp_values, immediates = trace_execution.get_cmp_info(
-            self.platform, self.emu, cs_insn
-        )
-        self.assertEqual(len(cmp_info), 2)
-        self.assertIsInstance(cmp_info[0], RegisterOperand)
-        self.assertEqual(cmp_info[0].name, "rax")
-        self.assertEqual(cmp_info[1], 5)
-        self.assertEqual(cmp_values, [0x1234, 5])
-        self.assertEqual(immediates, [5])
+        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        self.assertEqual(len(entries), 2)
+        self.assertIsInstance(entries[0].source, RegisterOperand)
+        self.assertEqual(entries[0].source.name, "rax")
+        self.assertEqual(entries[0].value, 0x1234)
+        # An immediate is its own source AND value.
+        self.assertEqual(entries[1], CmpEntry(source=5, value=5))
 
     def test_memory_operand_compare_reads_mapped_value(self):
         # cmp qword ptr [0x2000], rax
@@ -6761,14 +6759,12 @@ class GetCmpInfoTests(unittest.TestCase):
         )
         self.emu.write_register("rax", 99)
 
-        cmp_info, cmp_values, immediates = trace_execution.get_cmp_info(
-            self.platform, self.emu, cs_insn
-        )
-        self.assertEqual(len(cmp_info), 2)
-        self.assertIsInstance(cmp_info[0], BSIDMemoryReferenceOperand)
-        self.assertIsInstance(cmp_info[1], RegisterOperand)
-        self.assertEqual(cmp_values, [0x1122334455667788, 99])
-        self.assertEqual(immediates, [])
+        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        self.assertEqual(len(entries), 2)
+        self.assertIsInstance(entries[0].source, BSIDMemoryReferenceOperand)
+        self.assertEqual(entries[0].value, 0x1122334455667788)
+        self.assertIsInstance(entries[1].source, RegisterOperand)
+        self.assertEqual(entries[1].value, 99)
 
     def test_memory_operand_compare_unmapped_yields_none(self):
         # cmp qword ptr [0x6000], rax -- 0x6000 is not mapped
@@ -6776,19 +6772,18 @@ class GetCmpInfoTests(unittest.TestCase):
         self.assertEqual(cs_insn.mnemonic, "cmp")
         self.emu.write_register("rax", 7)
 
-        cmp_info, cmp_values, immediates = trace_execution.get_cmp_info(
-            self.platform, self.emu, cs_insn
-        )
-        self.assertEqual(len(cmp_info), 2)
-        self.assertIsNone(cmp_values[0])
-        self.assertEqual(cmp_values[1], 7)
+        entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
+        self.assertEqual(len(entries), 2)
+        self.assertIsNone(entries[0].value)
+        self.assertEqual(entries[1].value, 7)
 
-    def test_non_compare_returns_three_empty_lists(self):
+    def test_non_compare_returns_empty(self):
         # mov rax, 5
         cs_insn = self._decode(b"\x48\xc7\xc0\x05\x00\x00\x00")
         self.assertEqual(cs_insn.mnemonic, "mov")
-        result = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
-        self.assertEqual(result, ([], [], []))
+        self.assertEqual(
+            trace_execution.get_cmp_info(self.platform, self.emu, cs_insn), []
+        )
 
 
 class TraceElementCmpValuesTests(unittest.TestCase):

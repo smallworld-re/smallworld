@@ -7,7 +7,7 @@ from enum import Enum
 import capstone
 
 import smallworld
-from smallworld.analyses.trace_execution_types import CmpInfo, TraceElement, TraceRes
+from smallworld.analyses.trace_execution_types import CmpEntry, TraceElement, TraceRes
 from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
 from .. import platforms
@@ -50,50 +50,36 @@ def get_cmp_info(
     platform: smallworld.platforms.Platform,
     emulator: smallworld.emulators.Emulator,
     cs_insn: capstone.CsInsn,
-) -> typing.Tuple[
-    typing.List[CmpInfo], typing.List[typing.Optional[int]], typing.List[int]
-]:
+) -> typing.List[CmpEntry]:
     """For a comparison instruction, report what is being compared.
 
-    Returns (cmp_info, cmp_values, immediates). cmp_info holds the
-    locations the compare reads — register and memory Operands, taken
-    from the pcode-based use/def analysis (Instruction.reads) —
-    followed by any immediate operands. Registers that only serve to
-    form an included memory operand's address (rbp in
-    'cmp [rbp-0x1c], 47') are omitted: the compared value is the memory
-    cell, not the pointer.
+    One CmpEntry per compared thing: the locations the compare reads —
+    register and memory Operands, from the pcode-based use/def analysis
+    (Instruction.reads) — and its immediate operands, each carrying the
+    concrete value observed while the emulator sits exactly at this
+    compare. Empty for anything that is not a compare, and for a compare
+    whose use/def cannot be interpreted (degrading rather than aborting
+    the trace).
 
-    The location entries are deduplicated and sorted by repr; the
-    immediates follow, in decode order. Repr order (not operand order)
-    is deliberate and matches how the colorizer orders its own
-    read/write tuples: it makes traces stable run to run regardless of
-    the order the analysis happens to yield reads, and lets a compare
-    of a location against itself (test al, al) report it once.
-    cmp_values below is aligned to this final order, so consumers must
-    not assume operand (destination-first) order.
-
-    If the pcode use/def analysis cannot interpret this instruction,
-    the three lists come back empty rather than aborting the trace.
-
-    cmp_values is index-aligned with cmp_info: the concrete value of
-    each entry read from the live emulator now, while it sits exactly
-    at this compare (an immediate maps to itself; a register/memory
-    operand to its integer value, or None if it could not be read).
+    Registers that only serve to form an included memory operand's
+    address (rbp in 'cmp [rbp-0x1c], 47') are omitted: the compared
+    value is the memory cell, not the pointer. Location entries are
+    deduplicated and sorted by repr — stable run to run, and a compare
+    of a location against itself (test al, al) reports it once — with
+    immediates after them in decode order. No lhs/rhs order is promised.
 
     Immediates come from the decoded operands: use/def reports
-    locations, and a constant is not a location.
-
-    Compare-and-branch instructions (pdefs.compare_branch_mnemonics:
-    MIPS beq, AArch64 cbz/tbz, x86 jrcxz, PPC bdnz) are reported too —
-    they embed the comparison the branch decides on. For those, the
-    final immediate operand is the branch target, not a compared
-    value, so it is excluded.
+    locations, and a constant is not a location. Compare-and-branch
+    instructions (pdefs.compare_branch_mnemonics: MIPS beq, AArch64
+    cbz/tbz, x86 jrcxz, PPC bdnz) are included — they embed the
+    comparison the branch decides on — but their final immediate is the
+    branch target, not a compared value, and is excluded.
     """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
     is_compare = cs_insn.mnemonic in pdefs.compare_mnemonics
     is_compare_branch = cs_insn.mnemonic in pdefs.compare_branch_mnemonics
     if not (is_compare or is_compare_branch):
-        return ([], [], [])
+        return []
     try:
         # This runs per instruction inside a live trace: an uninterpretable
         # compare degrades to "no cmp info" rather than aborting the run.
@@ -106,18 +92,18 @@ def get_cmp_info(
         reads = sw_insn.reads
     except ValueError as exc:
         logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
-        return ([], [], [])
+        return []
     address_regs = set()
     for op in reads:
         if isinstance(op, BSIDMemoryReferenceOperand):
             for name in (op.base, op.index):
                 if name is not None:
                     address_regs.add(name)
-    cmp_info: typing.List[CmpInfo] = sorted(
+    locations = sorted(
         (
             op
             for op in reads
-            # The isinstance narrows Operand to what CmpInfo can carry as
+            # The isinstance narrows Operand to what a CmpEntry can carry as
             # well as filtering: reads can in principle hold other Operand
             # kinds, which have no place in a compare report.
             if isinstance(op, (RegisterOperand, BSIDMemoryReferenceOperand))
@@ -128,24 +114,14 @@ def get_cmp_info(
     imm_ops = [op for op in cs_insn.operands if op.type == capstone.CS_OP_IMM]
     if is_compare_branch and imm_ops:
         imm_ops = imm_ops[:-1]  # drop the branch target
-    immediates = [int(op.value.imm) for op in imm_ops]
-    cmp_info.extend(immediates)
 
-    # Concrete value of each cmp_info entry, read while the emulator is
-    # positioned at this compare. Index-aligned with the final cmp_info
-    # order (locations first, then immediates).
     byteorder: typing.Literal["little", "big"] = (
         "little" if pdefs.byteorder is platforms.Byteorder.LITTLE else "big"
     )
-    cmp_values: typing.List[typing.Optional[int]] = [
-        (
-            entry
-            if isinstance(entry, int)
-            else _concrete_cmp_value(entry, emulator, byteorder)
-        )
-        for entry in cmp_info
-    ]
-    return (cmp_info, cmp_values, immediates)
+    return [
+        CmpEntry(source=op, value=_concrete_cmp_value(op, emulator, byteorder))
+        for op in locations
+    ] + [CmpEntry(source=int(op.value.imm), value=int(op.value.imm)) for op in imm_ops]
 
 
 class TraceExecution(analysis.Analysis):
@@ -235,19 +211,21 @@ class TraceExecution(analysis.Analysis):
                     f"no decodable instruction at pc {pc:#x}"
                 )
                 break
-            cmp_info, cmp_values, imm_info = get_cmp_info(
-                self.platform, self.emulator, cs_insn
-            )
+            cmp_entries = get_cmp_info(self.platform, self.emulator, cs_insn)
             branch_info = cs_insn.mnemonic in pdefs.conditional_branch_mnemonics
+            # TraceElement keeps its historical parallel-list shape (cmp /
+            # immediates / index-aligned cmp_values): its pickled form and
+            # its consumers (magrathea) depend on it. Derived here from the
+            # self-contained entries; immediates are the int-sourced ones.
             te = TraceElement(
                 pc,
                 i,
                 cs_insn.mnemonic,
                 cs_insn.op_str,
-                cmp_info,
+                [e.source for e in cmp_entries],
                 branch_info,
-                imm_info,
-                cmp_values,
+                [e.source for e in cmp_entries if isinstance(e.source, int)],
+                [e.value for e in cmp_entries],
             )
             trace.append(te)
             # run any callbacks
