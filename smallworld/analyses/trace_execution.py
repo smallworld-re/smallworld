@@ -51,29 +51,15 @@ def get_cmp_info(
     emulator: smallworld.emulators.Emulator,
     cs_insn: capstone.CsInsn,
 ) -> typing.List[CmpEntry]:
-    """For a comparison instruction, report what is being compared.
+    """What a comparison instruction compares: one CmpEntry per compared
+    thing, each carrying the value observed at this point in the trace.
 
-    One CmpEntry per compared thing: the locations the compare reads —
-    register and memory Operands, from the pcode-based use/def analysis
-    (Instruction.reads) — and its immediate operands, each carrying the
-    concrete value observed while the emulator sits exactly at this
-    compare. Empty for anything that is not a compare, and for a compare
-    whose use/def cannot be interpreted (degrading rather than aborting
-    the trace).
-
-    Registers that only serve to form an included memory operand's
-    address (rbp in 'cmp [rbp-0x1c], 47') are omitted: the compared
-    value is the memory cell, not the pointer. Location entries are
-    deduplicated and sorted by repr — stable run to run, and a compare
-    of a location against itself (test al, al) reports it once — with
-    immediates after them in decode order. No lhs/rhs order is promised.
-
-    Immediates come from the decoded operands: use/def reports
-    locations, and a constant is not a location. Compare-and-branch
-    instructions (pdefs.compare_branch_mnemonics: MIPS beq, AArch64
-    cbz/tbz, x86 jrcxz, PPC bdnz) are included — they embed the
-    comparison the branch decides on — but their final immediate is the
-    branch target, not a compared value, and is excluded.
+    Locations come from Instruction.reads, deduplicated and repr-sorted
+    (test al, al reports al once; no lhs/rhs order is promised);
+    immediates follow in decode order. Compare-and-branch instructions
+    (compare_branch_mnemonics) are included, minus their final immediate
+    -- the branch target. Empty means not a compare, or one whose use/def
+    could not be interpreted (degrade, never abort the trace).
     """
     pdefs = platforms.defs.PlatformDef.for_platform(platform)
     is_compare = cs_insn.mnemonic in pdefs.compare_mnemonics
@@ -81,19 +67,10 @@ def get_cmp_info(
     if not (is_compare or is_compare_branch):
         return []
     try:
-        # This runs per instruction inside a live trace: an uninterpretable
-        # compare degrades to "no cmp info" rather than aborting the run.
-        # reads itself degrades internally (see Instruction._pcode_result),
-        # so the expected raiser here is from_bytes's ValueError for an
-        # ISA with no Instruction subclass (superh, riscv, tricore, ...),
-        # all of which define compare_mnemonics. Anything else is a bug or
-        # new behavior and propagates.
-        #
-        # from_bytes with the caller's platform, NOT from_capstone: the
-        # capstone arch/mode pair is ambiguous where platforms share it
-        # (every ARM-mode variant), and from_capstone picked an arbitrary
-        # one -- ARMV7R, whose platform has no Ghidra language, silently
-        # downgrading every ARM compare to the Capstone fallback.
+        # from_bytes with the caller's platform -- from_capstone selects by
+        # capstone arch/mode, which is ambiguous across the ARM variants.
+        # The expected ValueError is an ISA with no Instruction subclass;
+        # anything else is a bug and propagates.
         sw_insn = smallworld.instructions.Instruction.from_bytes(
             bytes(cs_insn.bytes), cs_insn.address, platform
         )
@@ -107,25 +84,15 @@ def get_cmp_info(
             for name in (op.base, op.index):
                 if name is not None:
                     address_regs.add(name)
-    # The compared locations: the read set, minus operands whose role is
-    # not "a compared value" --
-    #  * registers that only form an included memory operand's address
-    #    (rbp in `cmp [rbp-0x1c], 47` is a pointer, not a quantity).
-    #    KNOWN IMPRECISION: this assumes the address-forming and compared
-    #    roles are disjoint. `cmp rax, [rax]` violates that -- rax is both
-    #    -- and gets reported as [rax] alone; telling the roles apart needs
-    #    per-operand provenance a read SET does not carry.
-    #  * the platform's status register: ARM data-processing reads the
-    #    carry through the barrel shifter, so under the flags mapping a
-    #    plain `cmp r0, r1` reads cpsr -- a dependency, but not a compared
-    #    value.
+    # Compared locations: reads, minus non-value roles -- address-forming
+    # registers (rbp in `cmp [rbp-0x1c], 47`) and the status register (a
+    # plain ARM cmp reads the carry via the barrel shifter). KNOWN
+    # IMPRECISION: `cmp rax, [rax]` reports only [rax] -- rax is both
+    # pointer and compared value, and a read SET cannot say which.
     locations = sorted(
         (
             op
             for op in reads
-            # The isinstance narrows Operand to what a CmpEntry can carry as
-            # well as filtering: reads can in principle hold other Operand
-            # kinds, which have no place in a compare report.
             if isinstance(op, (RegisterOperand, BSIDMemoryReferenceOperand))
             and not (
                 isinstance(op, RegisterOperand)
