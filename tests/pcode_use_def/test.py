@@ -231,7 +231,9 @@ class PcodeNamingTests(unittest.TestCase):
 
         # A base the platform genuinely does not model still goes, since
         # without a base there is no address to compute.
-        unresolvable = BSIDMemoryReferenceOperand(base="not_a_register", offset=0, size=8)
+        unresolvable = BSIDMemoryReferenceOperand(
+            base="not_a_register", offset=0, size=8
+        )
         self.assertIsNone(canonicalize_operand(unresolvable, amd64))
 
         # A resolvable one is preserved exactly.
