@@ -840,6 +840,65 @@ class InstructionFetchesTests(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
+class AddressRoleTests(unittest.TestCase):
+    """InstructionUseDef.address_only_uses: registers whose every read
+    served address formation. Roles come from resolved expressions -- a
+    register's read can look like data (rbp feeding INT_ADD) until the
+    LOAD consumes the result -- and _expr_registers' stop-at-LOAD rule
+    keeps memory-sourced values from data-flagging their address."""
+
+    CASES = [
+        ("x86:LE:64:default", "483b00", "cmp rax, [rax]", ()),  # dual role
+        ("x86:LE:64:default", "48833805", "cmp [rax], 5", ("rax",)),
+        ("x86:LE:64:default", "837de42f", "cmp [rbp-0x1c], 47", ("rbp",)),
+        ("x86:LE:64:default", "488b448a10", "mov rax, [rdx+rcx*4+16]", ("rcx", "rdx")),
+        # push writes [rsp-8] AND consumes rsp's value for the decrement.
+        ("x86:LE:64:default", "50", "push rax", ()),
+        ("MIPS:BE:32:default", "8fa80004", "lw t0, 4(sp)", ("sp",)),
+        # jr's t9 is the transfer target's VALUE, not an address read.
+        ("MIPS:BE:32:default", "03200008", "jr $t9", ()),
+    ]
+
+    def test_address_only_uses(self):
+        from smallworld.instructions.pcode_use_def import analyze
+
+        for lang, hexbytes, desc, expected in self.CASES:
+            with self.subTest(instruction=desc):
+                result = analyze(bytes.fromhex(hexbytes), lang, 0)
+                self.assertEqual(result.address_only_uses, expected)
+
+    def test_instruction_address_only_reads_canonicalizes(self):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        insn = Instruction.from_bytes(
+            bytes.fromhex("837de42f"),  # cmp [rbp-0x1c], 47
+            0x1000,
+            Platform(Architecture.X86_64, Byteorder.LITTLE),
+            use_def_backend="pcode",
+        )
+        self.assertEqual(insn.address_only_reads(), {"rbp"})
+
+
+class AddressOnlyReadsCapstoneFallbackTests(unittest.TestCase):
+    """Without pcode the role facts don't exist; the fallback keeps the old
+    approximation -- every base/index of a memory read -- which mislabels
+    the dual-role case, documented on the method."""
+
+    def test_fallback_presumes_bases_address_only(self):
+        from smallworld.instructions import Instruction
+        from smallworld.platforms import Architecture, Byteorder, Platform
+
+        insn = Instruction.from_bytes(
+            bytes.fromhex("8fa80004"),  # lw t0, 4(sp)
+            0x1000,
+            Platform(Architecture.MIPS32, Byteorder.BIG),
+            use_def_backend="capstone",
+        )
+        self.assertEqual(insn.address_only_reads(), {"sp"})
+
+
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""
 

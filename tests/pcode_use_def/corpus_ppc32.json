@@ -1057,6 +1057,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["r4"],
    "notes": ""
   },
   {
@@ -1211,6 +1212,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["r4", "r5"],
    "notes": ""
   },
   {
@@ -1523,6 +1525,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": [],
    "notes": "frame push: stores r1 at r1-48 then r1 -= 48; offset relative to pre-instruction r1"
   },
   {

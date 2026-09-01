@@ -469,6 +469,11 @@ class InstructionUseDef(typing.NamedTuple):
     size: int
     uses: typing.Tuple[Operand, ...]
     defs: typing.Tuple[Operand, ...]
+    #: Registers in `uses` whose every read served address formation (rbp
+    #: in `cmp [rbp-0x1c], 47`) -- a subset claim about `uses`, never new
+    #: operands. A register read both ways (`cmp rax, [rax]`) is absent.
+    address_only_uses: typing.Tuple[str, ...] = ()
+
     #: Registers whose *value* is the destination of an indirect transfer
     #: (BRANCHIND/CALLIND/RETURN) -- MIPS `jr $t9`, x86 `jmp rax`. Reported
     #: separately because "this register holds a code pointer" is structure
@@ -534,9 +539,10 @@ def _resolve_input(inp, sstate):
 
 
 def _update_symstate(op, sstate):
-    # resolve all inputs (args) to this op in terms of
-    # inputs-to-the-instruction, and then record
-    # mapping from out to that resolution
+    """Record op's output in sstate as an expression over instruction
+    inputs; returns the resolved inputs so the walk can reuse them.
+    (Inputs are resolved BEFORE the output is recorded, so an op that
+    overwrites its own input register resolves against the old value.)"""
     ris = [_resolve_input(inp, sstate) for inp in op.inputs]
     # special case! There's no need for an s-expr. This is basically
     # just an assignment
@@ -549,13 +555,14 @@ def _update_symstate(op, sstate):
     outp = op.output
     if outp is None:
         # no output to track (e.g. STORE, branches)
-        return
+        return ris
     if _is_unique(outp):
         sstate[_unique_key(outp)] = val
     elif _is_register(outp):
         sstate[_reg_slot(outp)] = val
     # else: output is a ram address (absolute store via COPY); nothing
     # downstream reads it back through sstate, so don't track it
+    return ris
 
 
 def _const_value(vn):
@@ -842,14 +849,30 @@ def _instruction_use_def(ctx, ops, disassembly, address):
 
     indirect_targets: typing.List[str] = []
     saw_callother = False
+    # Role tracking for address_only_uses: which registers were read to
+    # FORM an address, and which fed a value an architectural sink
+    # consumes. Derived from resolved expressions, not raw op inputs -- at
+    # read time the role is sometimes unknowable (rbp feeding the INT_ADD
+    # of `cmp [rbp-0x1c], 47` looks like data until the LOAD consumes it).
+    addr_role: typing.Set[str] = set()
+    data_role: typing.Set[str] = set()
+
+    def _flag_data(resolved) -> None:
+        # _expr_registers stops at LOAD nodes, so a value that came OUT of
+        # memory does not data-flag the registers that addressed it.
+        for name in _expr_registers(resolved, ctx, []):
+            data_role.add(name)
+
     for op in ops:
 
-        _update_symstate(op, sstate)
+        ris = _update_symstate(op, sstate)
 
         mnemonic = _mnemonic_of(op)
 
         if mnemonic is _PCODE_OP.CALLOTHER:
             saw_callother = True
+            for resolved in ris:
+                _flag_data(resolved)
 
         if mnemonic in (_PCODE_OP.UNIMPLEMENTED, _PCODE_OP.INVALID_OP):
             # Ghidra is telling us it has no semantics for this
@@ -889,6 +912,8 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             if mnemonic in (_PCODE_OP.BRANCH, _PCODE_OP.CBRANCH, _PCODE_OP.CALL)
             else None
         )
+        if mnemonic is _PCODE_OP.CBRANCH and len(ris) > 1:
+            _flag_data(ris[1])  # the condition; input 0 is the target
         if mnemonic in (
             _PCODE_OP.BRANCHIND,
             _PCODE_OP.CALLIND,
@@ -901,7 +926,8 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             # resolving through the symbolic state, then collecting
             # registers -- the mask is computed, not a literal, so the
             # address walker rejects it.
-            target = _resolve_input(op.inputs[0], sstate)
+            target = ris[0]
+            _flag_data(target)
             regs = [
                 name
                 for name in _expr_registers(target, ctx, [])
@@ -956,6 +982,8 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             assert len(inputs) == 3
             mem = _load_store_mem(op, ctx, sstate, int(inputs[2].size))
             defs.add(mem)
+            addr_role.update(_expr_registers(ris[1], ctx, []))
+            _flag_data(ris[2])
             continue  # STORE has no output varnode
 
         # ---- LOAD: emit a symbolic memory use, propagate value ------- #
@@ -965,6 +993,7 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             out = op.output
             assert not (out is None)
             mem = _load_store_mem(op, ctx, sstate, int(out.size))
+            addr_role.update(_expr_registers(ris[1], ctx, []))
 
             # skip the use if this instruction already stored to the
             # same location (the load reads its own store)
@@ -991,6 +1020,8 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             # (no STORE op is emitted for these).
             mem = _varnode_operand(ctx, out)
             defs.add(mem)
+            for resolved in ris:
+                _flag_data(resolved)
             continue
         if not _is_register(out):
             raise UseDefError(f"unsupported output varnode {out} for op {op}")
@@ -999,6 +1030,8 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             continue
         defs.add(reg)
         written_so_far.add(out)
+        for resolved in ris:
+            _flag_data(resolved)
 
     if saw_callother and not uses and not defs:
         # The instruction's entire data effect is hidden inside a CALLOTHER
@@ -1013,7 +1046,9 @@ def _instruction_use_def(ctx, ops, disassembly, address):
             f"semantics of {disassembly or '<unknown>'} at {address:#x} "
             f"are entirely inside a CALLOTHER (opaque user-op); use/def unknown"
         )
-    return uses, defs, tuple(indirect_targets)
+    use_names = {o.name for o in uses if isinstance(o, RegisterOperand)}
+    address_only = tuple(sorted((addr_role - data_role) & use_names))
+    return uses, defs, tuple(indirect_targets), address_only
 
 
 # --------------------------------------------------------------------------- #
@@ -1094,13 +1129,16 @@ def _analyze_locked(byte_data, arch, base_address):
     except Exception:
         text = ""  # presentation only; never fail an analysis over it
 
-    uses, defs, indirect_targets = _instruction_use_def(ctx, ops, text, base)
+    uses, defs, indirect_targets, address_only = _instruction_use_def(
+        ctx, ops, text, base
+    )
     return InstructionUseDef(
         disassembly=text,
         size=size,
         uses=tuple(uses),
         defs=tuple(defs),
         indirect_targets=indirect_targets,
+        address_only_uses=address_only,
     )
 
 

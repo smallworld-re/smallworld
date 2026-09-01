@@ -52,6 +52,7 @@ truth.
       "defs": [{"reg": "rax"}],
       "uses_optional": [],
       "defs_optional": [],
+      "address_only_uses": ["rdx"],
       "notes": ""
     }
   ]
@@ -60,6 +61,15 @@ truth.
 
 Every entry is a single machine instruction, assembled at `base_address`
 (each entry is analyzed independently — entries are NOT concatenated).
+
+`address_only_uses` is OPTIONAL and asserts, exactly, which registers in
+`uses` were read only to form a memory address (the base of a plain
+load), checked strictly when present and ignored when absent. State it
+from the architecture, not from the analysis's output; the interesting
+cases are the negatives — a writeback base (PPC `stwu`, AArch64
+pre/post-index, ARM `push`) and an indirect branch target (`jr $t9`)
+consume the register's value and must NOT be listed, and a dual-role
+read (`cmp rax, [rax]`) must not be either.
 `bytes` is the hex encoding as produced by `llvm-mc --show-encoding` for
 `llvm_triple` and verified by round-tripping through Capstone.
 

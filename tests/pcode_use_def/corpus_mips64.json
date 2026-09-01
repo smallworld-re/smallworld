@@ -2080,6 +2080,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["sp"],
    "notes": ""
   },
   {
@@ -2111,6 +2112,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["sp"],
    "notes": ""
   },
   {

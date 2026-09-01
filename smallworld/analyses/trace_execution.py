@@ -75,20 +75,15 @@ def get_cmp_info(
             bytes(cs_insn.bytes), cs_insn.address, platform
         )
         reads = sw_insn.reads
+        address_regs = sw_insn.address_only_reads()
     except ValueError as exc:
         logger.info(f"get_cmp_info: no Instruction for {cs_insn.mnemonic}: {exc}")
         return []
-    address_regs = set()
-    for op in reads:
-        if isinstance(op, BSIDMemoryReferenceOperand):
-            for name in (op.base, op.index):
-                if name is not None:
-                    address_regs.add(name)
-    # Compared locations: reads, minus non-value roles -- address-forming
-    # registers (rbp in `cmp [rbp-0x1c], 47`) and the status register (a
-    # plain ARM cmp reads the carry via the barrel shifter). KNOWN
-    # IMPRECISION: `cmp rax, [rax]` reports only [rax] -- rax is both
-    # pointer and compared value, and a read SET cannot say which.
+    # Compared locations: reads, minus non-value roles -- registers the
+    # analysis says were read ONLY to form an address (rbp in
+    # `cmp [rbp-0x1c], 47`; dual-role rax in `cmp rax, [rax]` is kept)
+    # and the status register (a plain ARM cmp reads the carry via the
+    # barrel shifter).
     locations = sorted(
         (
             op

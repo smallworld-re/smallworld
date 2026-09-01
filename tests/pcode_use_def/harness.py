@@ -471,6 +471,25 @@ def check_entry(
     result["actual_use"] = sorted(fmt_item(i) for i in act["use"])
     result["actual_def"] = sorted(fmt_item(i) for i in act["def"])
 
+    # Optional role check: entries carrying "address_only_uses" assert
+    # exactly which registers were read only to form an address (Ghidra
+    # namespace, like everything else here). Exact-set, strict-only --
+    # register names, nothing to normalize -- and only checked where the
+    # entry states it, so unannotated entries are unaffected.
+    if "address_only_uses" in entry:
+        exp_roles = {str(n).lower() for n in entry["address_only_uses"]}
+        act_roles = {n.lower() for n in analyzed.address_only_uses}
+        if exp_roles != act_roles:
+            strict_ok = False
+            norm_ok = False
+            result["address_only_expected"] = sorted(exp_roles)
+            result["address_only_actual"] = sorted(act_roles)
+            result.setdefault("error", "")
+            result["error"] = (
+                result["error"] + f" address_only_uses: expected {sorted(exp_roles)}, "
+                f"got {sorted(act_roles)}"
+            ).strip()
+
     if strict_ok:
         result["status"] = "pass"
     elif norm_ok:

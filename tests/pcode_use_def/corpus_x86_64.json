@@ -275,6 +275,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["rbx", "rcx"],
    "notes": ""
   },
   {
@@ -365,6 +366,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": [],
    "notes": "absolute (SIB, no base/index) addressing"
   },
   {
@@ -821,6 +823,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": [],
    "notes": ""
   },
   {
@@ -3123,6 +3126,103 @@
    "uses_optional": [],
    "defs_optional": [],
    "notes": "Absolute memory-indirect NEAR call (ff /2): reads the target pointer and pushes a return address."
+  },
+  {
+   "asm": "cmp rax, qword ptr [rax]",
+   "bytes": "483b00",
+   "categories": [
+    "cmp",
+    "reg-mem",
+    "dual-role",
+    "qword"
+   ],
+   "uses": [
+    {
+     "reg": "rax"
+    },
+    {
+     "mem": {
+      "base": "rax",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "address_only_uses": [],
+   "notes": "Dual-role: rax is the address AND one compared value, so it is deliberately absent from address_only_uses. The discriminating sibling of the next entry -- identical use/def sets, different roles."
+  },
+  {
+   "asm": "cmp qword ptr [rax], 5",
+   "bytes": "48833805",
+   "categories": [
+    "cmp",
+    "mem-imm",
+    "qword"
+   ],
+   "uses": [
+    {
+     "reg": "rax"
+    },
+    {
+     "mem": {
+      "base": "rax",
+      "index": null,
+      "scale": 1,
+      "offset": 0,
+      "size": 8
+     }
+    }
+   ],
+   "defs": [
+    {
+     "reg": "cf"
+    },
+    {
+     "reg": "pf"
+    },
+    {
+     "reg": "af"
+    },
+    {
+     "reg": "zf"
+    },
+    {
+     "reg": "sf"
+    },
+    {
+     "reg": "of"
+    }
+   ],
+   "uses_optional": [],
+   "defs_optional": [],
+   "address_only_uses": [
+    "rax"
+   ],
+   "notes": "rax is read only to form the address; the compared values are the memory cell and the immediate."
   }
  ]
 }
