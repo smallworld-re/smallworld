@@ -221,6 +221,11 @@ class AngrEmulator(
                 angr.options.KEEP_IP_SYMBOLIC,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_REGISTERS,
                 angr.options.SYMBOL_FILL_UNCONSTRAINED_MEMORY,
+                # Bind labeled values via solver replacements rather than a
+                # giant conjunction of `symbol == value` constraints.  See
+                # _write_memory_label_bulk; this keeps the first solve from
+                # ingesting every initialized byte at once.
+                angr.options.REPLACEMENT_SOLVER,
             },
             remove_options={
                 angr.options.SIMPLIFY_CONSTRAINTS,
@@ -646,6 +651,16 @@ class AngrEmulator(
         # This addresses a performance bottleneck during initialization;
         # it's not really intended for public use,
         # as it lacks some of the safety checks.
+        #
+        # When the replacement solver is enabled, we bind each label to its
+        # concrete value as a solver replacement (a substitution) rather than a
+        # `symbol == value` constraint.  The label symbol still lives in the
+        # stored AST, so provenance is preserved for data-flow analyses, but the
+        # binding never reaches z3.  Otherwise the first solve has to ingest one
+        # giant conjunction covering every initialized byte, which exhausts time
+        # and memory.  If someone has disabled REPLACEMENT_SOLVER, fall back to
+        # the constraint-based binding.
+        use_replacement = angr.options.REPLACEMENT_SOLVER in self.state.options
         cs = list()
         for addr, size, label in labels:
             if label is None:
@@ -653,9 +668,12 @@ class AngrEmulator(
             s = claripy.BVS(label, size * 8, explicit_name=True)
             v = self.state.memory.load(addr, size)
             self.state.memory.store(addr, s)
-            cs.append(s == v)
-        c = claripy.And(*cs)
-        self.state.solver.add(c)
+            if use_replacement:
+                self.state.solver._solver.add_replacement(s, v)
+            else:
+                cs.append(s == v)
+        if cs:
+            self.state.solver.add(claripy.And(*cs))
 
     def write_code(self, address: int, content: bytes):
         if self._initialized:
