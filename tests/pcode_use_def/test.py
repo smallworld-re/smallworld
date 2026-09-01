@@ -220,10 +220,18 @@ class PcodeNamingTests(unittest.TestCase):
         from smallworld.instructions.pcode_naming import canonicalize_operand
 
         amd64 = self._platdef("X86_64", "LITTLE")
-        # x86-64 segment addressing reads a real FS_OFFSET register that no
-        # platform definition models: the whole reference has to go, since
+        # x86-64 segment addressing reads Ghidra's FS_OFFSET, which AMD64
+        # aliases to the fsbase register it models. The reference must survive
+        # with its base rewritten: dropping it reported the stack-protector
+        # read at the top of most functions as reading nothing.
+        segment = BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=8)
+        mapped = canonicalize_operand(segment, amd64)
+        self.assertIsNotNone(mapped)
+        self.assertEqual((mapped.base, mapped.offset, mapped.size), ("fsbase", 0x28, 8))
+
+        # A base the platform genuinely does not model still goes, since
         # without a base there is no address to compute.
-        unresolvable = BSIDMemoryReferenceOperand(base="fs_offset", offset=0x28, size=8)
+        unresolvable = BSIDMemoryReferenceOperand(base="not_a_register", offset=0, size=8)
         self.assertIsNone(canonicalize_operand(unresolvable, amd64))
 
         # A resolvable one is preserved exactly.

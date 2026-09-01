@@ -11,6 +11,18 @@ class AMD64BasePlatformDef(PlatformDef):
     # The new bases are incompatible, so we need two separate classes.
     byteorder = Byteorder.LITTLE
 
+    # Ghidra names the segment bases fs_offset/gs_offset in p-code; the same
+    # state is modeled here as the fsbase/gsbase registers below. Without this
+    # mapping the p-code naming layer cannot resolve the base of
+    # `mov rax, qword ptr fs:[0x28]` -- the stack-protector read at the top of
+    # most compiled functions -- so it drops the whole memory reference and the
+    # instruction reports reading nothing at all.
+    #
+    # i386 has no equivalent: it models only the 2-byte fs/gs selectors, with
+    # no register holding the segment base, so 32-bit segment-relative accesses
+    # stay unresolvable until it grows one.
+    ghidra_register_aliases = {"fs_offset": "fsbase", "gs_offset": "gsbase"}
+
     address_size = 8
 
     capstone_arch = capstone.CS_ARCH_X86
