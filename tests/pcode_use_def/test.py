@@ -776,6 +776,24 @@ class SegmentAddressTests(unittest.TestCase):
         fs = BSIDMemoryReferenceOperand(segment="fs", offset=8, size=8)
         self.assertEqual(fs.address(Bare()), 8)
 
+    def test_emulator_that_cannot_read_the_segment_base_degrades(self):
+        """Triton omits fsbase/gsbase so reading one raises, and the Ghidra
+        machine def maps them to None. Raising here would turn an address that
+        used to compute into a crash, so fall back to the old answer."""
+        from smallworld.exceptions import UnsupportedRegisterError
+        from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
+
+        amd64 = self._platdef("X86_64")
+
+        class NoMSR(self._Emu):
+            def read_register(self, name):
+                if name in ("fsbase", "gsbase"):
+                    raise UnsupportedRegisterError(name)
+                return super().read_register(name)
+
+        fs = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
+        self.assertEqual(fs.address(NoMSR(amd64)), 0x28)
+
     def test_segment_survives_a_json_round_trip(self):
         """Now that `segment` moves the address, dropping it on serialization
         would silently relocate the access -- the same bug `size` had."""

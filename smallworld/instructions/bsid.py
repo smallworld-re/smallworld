@@ -1,9 +1,13 @@
+import logging
 import typing
 
 import claripy
 
 from .. import emulators
+from ..exceptions import UnsupportedRegisterError
 from .instructions import MemoryReferenceOperand
+
+logger = logging.getLogger(__name__)
 
 
 class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
@@ -47,14 +51,37 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
             return None
         return platdef.segment_base_registers.get(self.segment)
 
+    def _segment_base(self, emulator: emulators.Emulator, symbolic: bool = False):
+        """This operand's segment base value, or None to contribute nothing.
+
+        Triton deliberately omits fsbase/gsbase from its register map so that
+        reading one raises, and the Ghidra machine def maps them to None. On
+        those, resolving the base is impossible -- but raising here would turn
+        an address that used to compute (wrongly, without the segment base)
+        into a crash, so degrade to the old answer and say so.
+        """
+        name = self._segment_base_register(emulator)
+        if name is None:
+            return None
+        try:
+            if symbolic:
+                return emulator.read_register_symbolic(name)
+            return emulator.read_register(name)
+        except UnsupportedRegisterError:
+            logger.debug(
+                f"{type(emulator).__name__} cannot read {name!r}; resolving "
+                f"{self!r} without its segment base"
+            )
+            return None
+
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
         if self.base is not None:
             base = emulator.read_register(self.base)
 
-        segment_reg = self._segment_base_register(emulator)
-        if segment_reg is not None:
-            base += emulator.read_register(segment_reg)
+        segment_base = self._segment_base(emulator)
+        if segment_base is not None:
+            base += segment_base
 
         index = 0
         if self.index is not None:
@@ -70,9 +97,9 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if self.base is not None:
             base = emulator.read_register_symbolic(self.base)
 
-        segment_reg = self._segment_base_register(emulator)
-        if segment_reg is not None:
-            base = base + emulator.read_register_symbolic(segment_reg)
+        segment_base = self._segment_base(emulator, symbolic=True)
+        if segment_base is not None:
+            base = base + segment_base
 
         index = zero
         if self.index is not None:

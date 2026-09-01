@@ -143,7 +143,8 @@ def canonicalize_operand(
         # base and index are register names too. Passed through raw, a
         # Ghidra-only name (x86-64 fs_offset, MIPS64's <reg>_lo) reached an
         # operand whose .address() raises when a consumer resolves it.
-        renamed = {}
+        # Optional: the segment fold below clears `base` by setting it None.
+        renamed: typing.Dict[str, typing.Optional[str]] = {}
         for attr in ("base", "index"):
             name = getattr(operand, attr, None)
             if name is None:
