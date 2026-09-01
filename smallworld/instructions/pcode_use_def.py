@@ -1,8 +1,15 @@
 """
 Compute use/def sets for machine instructions using Ghidra's raw pcode,
-via pyghidra.
+via pypcode.
 
-For each machine instruction we ask Ghidra for its pcode translation and
+pypcode wraps SLEIGH, the C++ half of Ghidra: it turns bytes into pcode ops
+and knows the language's register namespace, which is all this analysis
+needs. Not pyghidra, which drives Ghidra's Java half and so puts a JVM in the
+caller's process -- a forked child inherits the JVM's mutexes without its
+threads and deadlocks forever, and the first call costs seconds. Same engine
+underneath, so the same p-code, delay-slot expansion included.
+
+For each machine instruction we ask SLEIGH for its pcode translation and
 then walk the pcode ops:
 
     * Each pcode op has 0..N input varnodes (reads) and 0..1 output
@@ -38,172 +45,196 @@ base_address. It is used by smallworld.instructions.Instruction.reads /
 .writes.
 """
 
-import atexit
+import dataclasses
 import functools
 import logging
 import threading
 import typing
 from enum import Enum, auto
 
+import pypcode
+
 from smallworld.instructions import Operand, RegisterOperand
 from smallworld.instructions.bsid import BSIDMemoryReferenceOperand
 
 logger = logging.getLogger(__name__)
 
-_pyghidra_started = False
+# --------------------------------------------------------------------------- #
+# SLEIGH contexts                                                             #
+# --------------------------------------------------------------------------- #
+#
+# One Context per language, kept for the life of the process: building one
+# costs tens of milliseconds, translating against it is sub-millisecond.
+# Translation is stateless, so unlike the pyghidra implementation there is no
+# program to repopulate, nothing to evict on error and nothing to tear down.
+_contexts: dict = {}
 
 
-def _prepare_symz3_extension():
-    """Best-effort: extract Ghidra's SymbolicSummaryZ3 extension (and add its
-    native libraries to the loader path) *before* we boot the JVM.
+def _get_context(language_id: str) -> "pypcode.Context":
+    """The cached Context for `language_id`, building it on first use.
 
-    Ghidra only discovers extensions while its Application initializes, during
-    the first ``pyghidra.start()`` in the process. When our use/def analysis is
-    that first starter, a :class:`GhidraSymbolicEmulator` constructed later can
-    no longer load the extension (its own loader would run too late). Preparing
-    it here keeps both consumers working regardless of which boots the JVM
-    first. Does nothing when the symbolic extension isn't available (e.g. a
-    base install without the Ghidra symbolic emulator)."""
-    try:
-        from smallworld.emulators.ghidra import symz3_loader
-
-        symz3_loader.prepare_extension()
-    except Exception as e:
-        # The extension is optional; use/def must work without it. Any failure
-        # here (no install dir, missing extension, unsupported Ghidra) just
-        # means a later GhidraSymbolicEmulator will report the problem itself.
-        # Logged rather than swallowed outright: this catch is broad enough to
-        # hide the extension going missing entirely -- an AttributeError from a
-        # renamed symz3_loader API looks exactly like "no extension installed".
-        logger.debug(f"not preparing the SymZ3 extension: {e!r}")
-
-
-def _ensure_pyghidra():
-    """Boot the embedded JVM on first use rather than at import time, so
-    that importing smallworld doesn't pay Ghidra's multi-second startup
-    (pyghidra.start() is idempotent; the flag just skips the call).
-
-    pyghidra is imported here rather than at module scope: it lives behind
-    the optional 'emu-ghidra' extra, and a module that cannot even be
-    imported on a base install forces every caller -- and every test that
-    only wants the pure-Python parts of this module -- to guard the import
-    itself. Returns the module so callers need not re-import it.
+    Raises ValueError for a language SLEIGH does not know:
+    `Instruction._pcode_result` classifies that as a configuration problem.
     """
-    global _pyghidra_started
-    import pyghidra
-
-    # atexit is LIFO, so our teardown must be registered AFTER jpype's (which
-    # `import pyghidra` installs) to run BEFORE it -- otherwise the JVM is
-    # already down when we close the cached programs and the process never
-    # exits. Registering here makes that order explicit; at module scope it
-    # held only by accident of the import sitting above it.
-    _register_shutdown_hook()
-
-    if not _pyghidra_started:
-        _prepare_symz3_extension()
-        pyghidra.start()
-        _pyghidra_started = True
-    return pyghidra
+    ctx = _contexts.get(language_id)
+    if ctx is None:
+        try:
+            ctx = pypcode.Context(language_id)
+        except Exception as e:
+            raise ValueError(f"unknown SLEIGH language {language_id!r}: {e}") from e
+        _contexts[language_id] = ctx
+    return ctx
 
 
-# Per-language cache of (offset, size, Register) for register-space
-# registers, used to find the smallest named register containing a
-# varnode when no register starts at the varnode's address (e.g. the
-# upper-lane zeroing writes AArch64 emits at z0+8, or x0+4).
+# Space names SLEIGH uses. `ram` is the only address-type space this
+# analysis models; a language with several (Harvard/DSP CODE/DATA/SFR) is
+# rejected per-varnode below rather than silently treated as ram.
+_CONST_SPACE = "const"
+_UNIQUE_SPACE = "unique"
+_REGISTER_SPACE = "register"
+_RAM_SPACE = "ram"
+
+
+def _is_const(vn) -> bool:
+    return vn.space.name == _CONST_SPACE
+
+
+def _is_unique(vn) -> bool:
+    return vn.space.name == _UNIQUE_SPACE
+
+
+def _is_register(vn) -> bool:
+    return vn.space.name == _REGISTER_SPACE
+
+
+def _is_addr(vn) -> bool:
+    """True for a varnode naming a concrete memory address.
+
+    Like Ghidra's `Varnode.isAddress()`, true for every address-type space
+    rather than only the one named "ram"; `_varnode_operand` narrows it.
+    """
+    return vn.space.name not in (_CONST_SPACE, _UNIQUE_SPACE, _REGISTER_SPACE)
+
+
+@dataclasses.dataclass(frozen=True)
+class _RegSlot:
+    """Value-identity key for a register varnode, for the symbolic state.
+
+    pypcode's Varnode hashes by OBJECT IDENTITY where Ghidra's compared by
+    value. The symbolic state relies on value equality to follow a register
+    an instruction assigns to itself part-way through (ARM `ldm`'s
+    `mult_addr`); keyed by varnode, the second and later cells of a
+    load/store-multiple went unreported.
+
+    Deliberately not a tuple: unique varnodes are keyed in the same dict by a
+    plain (offset, size) tuple, which a 2-field NamedTuple would compare and
+    hash equal to, silently merging a register with a same-numbered unique.
+    """
+
+    offset: int
+    size: int
+
+
+def _reg_slot(vn) -> _RegSlot:
+    return _RegSlot(int(vn.offset), int(vn.size))
+
+
+def _vn_str(vn) -> str:
+    """Varnode rendering for error messages: space, offset and size."""
+    return f"({vn.space.name}, {vn.offset:#x}, {vn.size})"
+
+
+# Per-language (offset, size, name) intervals, for finding the smallest
+# register containing a varnode that no register names exactly (AArch64's
+# upper-lane writes at z0+8). Keyed by id(): `_contexts` keeps Contexts alive.
 _register_intervals: dict = {}
 
 
-def _containing_register(program, vn):
-    key = str(program.getLanguageID())
-    intervals = _register_intervals.get(key)
+def _register_intervals_for(ctx):
+    intervals = _register_intervals.get(id(ctx))
     if intervals is None:
-        intervals = []
-        for reg in program.getLanguage().getRegisters():
-            addr = reg.getAddress()
-            if not addr.getAddressSpace().isRegisterSpace():
-                continue
-            # getNumBytes(), not bitLength // 8, which truncates for any
-            # register that is not a whole number of bytes (MIPS ext_off16_s
-            # is 16 bits across 3). Too short an interval makes containment
-            # reject a varnode genuinely inside the register.
-            size = max(1, int(reg.getNumBytes()))
-            intervals.append((int(addr.getOffset()), size, reg))
-        _register_intervals[key] = intervals
-    off = int(vn.getAddress().getOffset())
-    size = int(vn.getSize())
+        intervals = [
+            (int(vn.offset), max(1, int(vn.size)), name)
+            for name, vn in ctx.registers.items()
+            if vn.space.name == _REGISTER_SPACE
+        ]
+        _register_intervals[id(ctx)] = intervals
+    return intervals
+
+
+def _containing_register(ctx, vn):
+    """Name of the smallest named register wholly containing `vn`, or None."""
+    off = int(vn.offset)
+    size = int(vn.size)
     best = None
-    for koff, ksize, reg in intervals:
+    for koff, ksize, name in _register_intervals_for(ctx):
         if koff <= off and off + size <= koff + ksize:
-            if best is None or ksize < best[1]:
-                best = (koff, ksize, reg)
-    return best[2] if best else None
+            if best is None or ksize < best[0]:
+                best = (ksize, name)
+    return best[1] if best else None
 
 
-def _reg_name(program, vn):
+def _reg_name(ctx, vn):
     """Name (lowercase) of the register a register-space varnode denotes.
 
-    Prefers the exactly-sized register at the varnode's address ("eax"
-    vs "rax"), then any register starting there, then the smallest
-    named register containing the varnode's byte range.
+    SLEIGH names the register at exactly this address and size ("eax" vs
+    "rax") when there is one; otherwise fall back to the smallest named
+    register containing the varnode's byte range.
     """
-    reg = program.getRegister(vn.getAddress(), vn.getSize())
-    if reg is None:
-        reg = program.getRegister(vn.getAddress())
-    if reg is None:
-        reg = _containing_register(program, vn)
-    if reg is None:
-        raise UseDefError(f"no register found for varnode {vn}")
-    return reg.getName().lower()
+    name = vn.getRegisterName()
+    if not name:
+        name = _containing_register(ctx, vn)
+    if not name:
+        raise UseDefError(f"no register found for varnode {_vn_str(vn)}")
+    return name.lower()
 
 
-def _varnode_operand(program, vn):
+def _varnode_operand(ctx, vn):
 
     # returning None seems to signal that this is neither a Reg nor memory.
     if vn is None:
         return None
-    if vn.isConstant():
+    if _is_const(vn):
         return None
-    if vn.isUnique():
+    if _is_unique(vn):
         return None
 
-    if vn.isRegister():
-        return RegisterOperand(_reg_name(program, vn))
+    if _is_register(vn):
+        return RegisterOperand(_reg_name(ctx, vn))
 
     # Anything left has to be a concrete address. UseDefError rather than
     # assert: `python -O` strips asserts, which would silently report some
     # other memory space as ram.
-    if not vn.isAddress():
-        raise UseDefError(f"varnode {vn} is in no space this analysis models")
-    addr = vn.getAddress()
-    space = addr.getAddressSpace().getName()
-    if space != "ram":
-        # isAddress() is true for every ram-TYPE space, not only the one named
-        # "ram"; Harvard/DSP languages define several (CODE/DATA/SFR/...).
+    if not _is_addr(vn):
+        raise UseDefError(f"varnode {_vn_str(vn)} is in no space this analysis models")
+    space = vn.space.name
+    if space != _RAM_SPACE:
+        # Harvard/DSP languages define several address-type spaces
+        # (CODE/DATA/SFR/...); only ram is modeled here.
         raise UseDefError(f"memory varnode in address space {space!r}")
     return BSIDMemoryReferenceOperand(
         segment=None,
         base=None,
         index=None,
         scale=1,
-        # Java's getOffset() is a signed long; addresses are unsigned
-        offset=int(addr.getOffset()) & ((1 << 64) - 1),
-        size=int(vn.getSize()),
+        offset=int(vn.offset) & ((1 << 64) - 1),
+        size=int(vn.size),
     )
 
 
 def _unique_key(vn):
     """Hashable key for a unique-space varnode."""
-    return (int(vn.getAddress().getOffset()), int(vn.getSize()))
+    return (int(vn.offset), int(vn.size))
 
 
 def _same_register(a, b):
     """True if two varnodes denote the exact same register (same
     register-space offset and size)."""
     return (
-        a.isRegister()
-        and b.isRegister()
-        and a.getAddress().getOffset() == b.getAddress().getOffset()
-        and a.getSize() == b.getSize()
+        _is_register(a)
+        and _is_register(b)
+        and a.offset == b.offset
+        and a.size == b.size
     )
 
 
@@ -320,15 +351,16 @@ class _PCODE_OP(Enum):
     FLOAT_NEG = auto()
     FLOAT_ABS = auto()
     FLOAT_SQRT = auto()
-    # Ghidra's PcodeOp mnemonics for these are bare CEIL/FLOOR/ROUND, not
-    # FLOAT_*; the enum is looked up BY NAME, so the spelling is load-bearing.
-    CEIL = auto()
-    FLOOR = auto()
-    ROUND = auto()
+    # SLEIGH prefixes these FLOAT_ where Ghidra's Java PcodeOp spelled them
+    # bare. Lookup is BY NAME, so the spelling is load-bearing: the bare
+    # names matched nothing and every float conversion took the UNKNOWN path.
+    FLOAT_CEIL = auto()
+    FLOAT_FLOOR = auto()
+    FLOAT_ROUND = auto()
     FLOAT_NAN = auto()
-    INT2FLOAT = auto()
-    FLOAT2FLOAT = auto()
-    TRUNC = auto()
+    FLOAT_INT2FLOAT = auto()
+    FLOAT_FLOAT2FLOAT = auto()
+    FLOAT_TRUNC = auto()
     # ops below occur in raw pcode but need no special handling in the
     # use/def walk; they are listed so mnemonic lookup doesn't KeyError.
     # POPCOUNT appears in x86 parity-flag computation, LZCOUNT in
@@ -346,9 +378,11 @@ class _PCODE_OP(Enum):
     CPOOLREF = auto()
     NEW = auto()
     INSERT = auto()
-    # SPULL/ZPULL appear in stack-machine languages; INVALID_OP and
-    # UNIMPLEMENTED are Ghidra's markers for "no semantics available" --
-    # see the UseDefError raised for them in _instruction_use_def.
+    EXTRACT = auto()
+    # SPULL/ZPULL appear in stack-machine languages. INVALID_OP and
+    # UNIMPLEMENTED were Ghidra's "no semantics" markers; SLEIGH raises
+    # UnimplError instead, which _analyze_locked turns into the same
+    # UseDefError. Kept so either shape is handled.
     SPULL = auto()
     ZPULL = auto()
     INVALID_OP = auto()
@@ -376,7 +410,7 @@ def _mnemonic_of(op) -> "_PCODE_OP":
     def -- the conservative reading of an op whose special meaning we do
     not know.
     """
-    name = str(op.getMnemonic())
+    name = op.opcode.name
     try:
         return _PCODE_OP[name]
     except KeyError:
@@ -412,12 +446,15 @@ _CONST_ON_IDENTICAL_INPUTS = frozenset(
 )
 
 
-def _space_name(program, space_id_vn):
-    """STORE/LOAD encode the destination address space in input[0],
-    which is a 'constant' varnode whose value is the space id."""
-    space_id = int(space_id_vn.getOffset())
-    space = program.getAddressFactory().getAddressSpace(space_id)
-    return space.getName() if space is not None else f"space{space_id}"
+def _space_name(ctx, space_id_vn):
+    """STORE/LOAD encode the destination address space in input[0], a
+    'constant' varnode.
+
+    Its offset is SLEIGH's own handle for the space, not a portable id, so
+    ask the varnode to resolve it rather than decoding the constant.
+    """
+    space = space_id_vn.getSpaceFromConst()
+    return space.name if space is not None else f"space{int(space_id_vn.offset):#x}"
 
 
 class InstructionUseDef(typing.NamedTuple):
@@ -456,7 +493,7 @@ class UseDefError(Exception):
 #   were resolved when they were stored, so they can be returned as-is;
 #   they never need re-resolution.
 def _resolve_input(inp, sstate):
-    if inp.isUnique():
+    if _is_unique(inp):
         ik = _unique_key(inp)
         if ik in sstate:
             return sstate[ik]
@@ -467,27 +504,28 @@ def _resolve_input(inp, sstate):
         # locations are used, so resolve to the containing expression.
         off, size = ik
         for k, val in sstate.items():
-            if not isinstance(k, tuple):
+            if isinstance(k, _RegSlot):
                 continue
             koff, ksize = k
             if koff <= off and off + size <= koff + ksize:
                 return val
         raise UseDefError(f"unique read before write: {inp}")
-    if inp.isRegister():
-        if inp in sstate:
+    if _is_register(inp):
+        slot = _reg_slot(inp)
+        if slot in sstate:
             # Register assigned earlier in this instruction: a read now
             # sees the value this instruction computed, not the
             # instruction input.
-            return sstate[inp]
+            return sstate[slot]
         # same sub-range logic as uniques, for partial register reads
         # of a register this instruction already wrote
-        off = int(inp.getAddress().getOffset())
-        size = int(inp.getSize())
+        off = int(inp.offset)
+        size = int(inp.size)
         for k, val in sstate.items():
-            if isinstance(k, tuple) or not k.isRegister():
+            if not isinstance(k, _RegSlot):
                 continue
-            koff = int(k.getAddress().getOffset())
-            ksize = int(k.getSize())
+            koff = int(k.offset)
+            ksize = int(k.size)
             if koff <= off and off + size <= koff + ksize:
                 return val
         return inp
@@ -499,7 +537,7 @@ def _update_symstate(op, sstate):
     # resolve all inputs (args) to this op in terms of
     # inputs-to-the-instruction, and then record
     # mapping from out to that resolution
-    ris = [_resolve_input(inp, sstate) for inp in op.getInputs()]
+    ris = [_resolve_input(inp, sstate) for inp in op.inputs]
     # special case! There's no need for an s-expr. This is basically
     # just an assignment
     mnemonic = _mnemonic_of(op)
@@ -508,14 +546,14 @@ def _update_symstate(op, sstate):
         val = ris[0]
     else:
         val = (mnemonic, ris)
-    outp = op.getOutput()
+    outp = op.output
     if outp is None:
         # no output to track (e.g. STORE, branches)
         return
-    if outp.isUnique():
+    if _is_unique(outp):
         sstate[_unique_key(outp)] = val
-    elif outp.isRegister():
-        sstate[outp] = val
+    elif _is_register(outp):
+        sstate[_reg_slot(outp)] = val
     # else: output is a ram address (absolute store via COPY); nothing
     # downstream reads it back through sstate, so don't track it
 
@@ -523,14 +561,14 @@ def _update_symstate(op, sstate):
 def _const_value(vn):
     """Value of a constant varnode, interpreted as signed at its size.
 
-    Java's getOffset() returns a signed 64-bit long, so mask to the
-    varnode's width first, then sign-interpret at that width.
+    A varnode's offset is an unsigned value at its own width, so mask to
+    that width first, then sign-interpret it.
     """
-    size = int(vn.getSize())
+    size = int(vn.size)
     if size < 1 or size > 8:
-        return int(vn.getOffset())
+        return int(vn.offset)
     width = size * 8
-    val = int(vn.getOffset()) & ((1 << width) - 1)
+    val = int(vn.offset) & ((1 << width) - 1)
     if val & (1 << (width - 1)):
         val -= 1 << width
     return val
@@ -576,12 +614,12 @@ def _flatten_sum(expr, sign, terms, size):
             # form, so `base + (x & 0xffff)` silently became `base`.
             const, other = None, None
             for cand, rest in ((args[0], args[1]), (args[1], args[0])):
-                if not isinstance(cand, tuple) and cand.isConstant():
+                if not isinstance(cand, tuple) and _is_const(cand):
                     const, other = cand, rest
                     break
             if const is not None:
-                width = int(const.getSize()) * 8
-                mask = int(const.getOffset()) & ((1 << width) - 1)
+                width = int(const.size) * 8
+                mask = int(const.offset) & ((1 << width) - 1)
                 inv = (~mask) & ((1 << width) - 1)
                 # `x & 0` is 0, not x: check it before the align-down test,
                 # whose (~0) & (~0 + 1) is 0 in Python's unbounded ints and
@@ -603,7 +641,7 @@ def _flatten_sum(expr, sign, terms, size):
 
 def _expr_to_bsid(
     expr: typing.Any,
-    program: typing.Any,
+    ctx: typing.Any,
     size: int,
     addr_size: int,
 ) -> BSIDMemoryReferenceOperand:
@@ -632,29 +670,29 @@ def _expr_to_bsid(
             b = _unwrap_ext(args[1])
             if isinstance(a, tuple) or isinstance(b, tuple):
                 raise UseDefError(f"unsupported address term: {term}")
-            if a.isConstant() and b.isConstant():
+            if _is_const(a) and _is_const(b):
                 ca, cb = _const_value(a), _const_value(b)
                 prod = (ca << cb) if mnem == _PCODE_OP.INT_LEFT else ca * cb
                 offset += sign * prod
                 continue
             # canonicalize to (register, constant)
-            if a.isConstant() and mnem == _PCODE_OP.INT_MULT:
+            if _is_const(a) and mnem == _PCODE_OP.INT_MULT:
                 a, b = b, a
-            if not (a.isRegister() and b.isConstant()):
+            if not (_is_register(a) and _is_const(b)):
                 raise UseDefError(f"unsupported address term: {term}")
             if sign < 0:
                 raise UseDefError(f"negated index register in address: {term}")
             c = _const_value(b)
             scale = (1 << c) if mnem == _PCODE_OP.INT_LEFT else c
-            scaled.append((_reg_name(program, a), scale))
+            scaled.append((_reg_name(ctx, a), scale))
             continue
         # leaf varnode
-        if term.isConstant():
+        if _is_const(term):
             offset += sign * _const_value(term)
-        elif term.isRegister():
+        elif _is_register(term):
             if sign < 0:
                 raise UseDefError(f"negated base register in address: {term}")
-            plain_regs.append(_reg_name(program, term))
+            plain_regs.append(_reg_name(ctx, term))
         else:
             raise UseDefError(f"unsupported address leaf: {term}")
 
@@ -699,7 +737,7 @@ def _expr_to_bsid(
     )
 
 
-def _expr_registers(expr, program, found):
+def _expr_registers(expr, ctx, found):
     """Collect the names of register varnodes appearing in a resolved
     expression, in encounter order.
 
@@ -718,9 +756,9 @@ def _expr_registers(expr, program, found):
             # what `jmp rax` reports.
             return found
         for arg in expr[1]:
-            _expr_registers(arg, program, found)
-    elif expr.isRegister():
-        name = _reg_name(program, expr)
+            _expr_registers(arg, ctx, found)
+    elif _is_register(expr):
+        name = _reg_name(ctx, expr)
         if name not in found:
             found.append(name)
     return found
@@ -755,22 +793,22 @@ class _WrittenSoFar:
         self._bytes: typing.Set[int] = set()
 
     def add(self, vn) -> None:
-        off = int(vn.getAddress().getOffset())
-        self._bytes.update(range(off, off + int(vn.getSize())))
+        off = int(vn.offset)
+        self._bytes.update(range(off, off + int(vn.size)))
 
     def covers(self, vn) -> bool:
-        off = int(vn.getAddress().getOffset())
-        return self._bytes.issuperset(range(off, off + int(vn.getSize())))
+        off = int(vn.offset)
+        return self._bytes.issuperset(range(off, off + int(vn.size)))
 
 
-def _load_store_mem(op, program, sstate, size):
+def _load_store_mem(op, ctx, sstate, size):
     """Memory operand for a LOAD/STORE op's address (input 1)."""
-    inputs = op.getInputs()
-    space = _space_name(program, inputs[0])
+    inputs = op.inputs
+    space = _space_name(ctx, inputs[0])
     if space != "ram":
-        raise UseDefError(f"{op.getMnemonic()} to address space {space!r}")
+        raise UseDefError(f"{op.opcode.name} to address space {space!r}")
     addr_expr = _resolve_input(inputs[1], sstate)
-    return _expr_to_bsid(addr_expr, program, size, int(inputs[1].getSize()))
+    return _expr_to_bsid(addr_expr, ctx, size, int(inputs[1].size))
 
 
 # --------------------------------------------------------------------------- #
@@ -778,7 +816,7 @@ def _load_store_mem(op, program, sstate, size):
 # --------------------------------------------------------------------------- #
 
 
-def _instruction_use_def(program, instr):
+def _instruction_use_def(ctx, ops, disassembly, address):
     """Return (use_set, def_set) for a single machine instruction.
 
     The sets contain Operand objects:
@@ -804,7 +842,7 @@ def _instruction_use_def(program, instr):
 
     indirect_targets: typing.List[str] = []
     saw_callother = False
-    for op in instr.getPcode():
+    for op in ops:
 
         _update_symstate(op, sstate)
 
@@ -821,7 +859,7 @@ def _instruction_use_def(program, instr):
             # from a genuine nop. Say we don't know instead.
             raise UseDefError(
                 f"Ghidra reports no p-code semantics ({mnemonic.name}) for "
-                f"{instr.getMnemonicString()} at {instr.getAddress()}"
+                f"{disassembly or '<unknown>'} at {address:#x}"
             )
 
         # A COPY that only shuffles a save/restore bookkeeping register
@@ -831,8 +869,8 @@ def _instruction_use_def(program, instr):
         # mult_addr / PPC tea are deliberately NOT erased here -- their
         # COPY relays a real base register, filtered per-operand below.
         if mnemonic == _PCODE_OP.COPY:
-            input0 = _varnode_operand(program, op.getInput(0))
-            output = _varnode_operand(program, op.getOutput())
+            input0 = _varnode_operand(ctx, op.inputs[0])
+            output = _varnode_operand(ctx, op.output)
             names = {o.name for o in (input0, output) if isinstance(o, RegisterOperand)}
             if names & _GHIDRA_COPY_ERASE_REGS:
                 continue
@@ -863,10 +901,10 @@ def _instruction_use_def(program, instr):
             # resolving through the symbolic state, then collecting
             # registers -- the mask is computed, not a literal, so the
             # address walker rejects it.
-            target = _resolve_input(op.getInput(0), sstate)
+            target = _resolve_input(op.inputs[0], sstate)
             regs = [
                 name
-                for name in _expr_registers(target, program, [])
+                for name in _expr_registers(target, ctx, [])
                 if not _is_ghidra_internal(name)
             ]
             # Exactly one register, or the destination is computed from
@@ -888,75 +926,75 @@ def _instruction_use_def(program, instr):
         # carry (which depend on it) are deliberately excluded.
         self_zeroing = (
             mnemonic in _CONST_ON_IDENTICAL_INPUTS
-            and len(op.getInputs()) == 2
-            and _same_register(op.getInput(0), op.getInput(1))
+            and len(op.inputs) == 2
+            and _same_register(op.inputs[0], op.inputs[1])
         )
-        for i, inp in enumerate(op.getInputs()):
+        for i, inp in enumerate(op.inputs):
             if i == skip_input:
                 continue
-            if inp.isRegister():
+            if _is_register(inp):
                 if self_zeroing:
                     # spurious self-read; result does not depend on it
                     continue
-                reg = _varnode_operand(program, inp)
+                reg = _varnode_operand(ctx, inp)
                 if _is_ghidra_internal(reg.name):
                     continue
                 if written_so_far.covers(inp):
                     continue
                 uses.add(reg)
-            elif inp.isAddress():
+            elif _is_addr(inp):
                 # Direct read of a ram-space varnode: absolute or
                 # pc-relative addressing that Ghidra resolved at
                 # disassembly (no LOAD op is emitted for these).
-                mem = _varnode_operand(program, inp)
+                mem = _varnode_operand(ctx, inp)
                 if mem is not None and mem not in defs:
                     uses.add(mem)
 
         # ---- STORE: emit a symbolic memory def ----------------------- #
         if mnemonic == _PCODE_OP.STORE:
-            inputs = op.getInputs()
+            inputs = op.inputs
             assert len(inputs) == 3
-            mem = _load_store_mem(op, program, sstate, int(inputs[2].getSize()))
+            mem = _load_store_mem(op, ctx, sstate, int(inputs[2].size))
             defs.add(mem)
             continue  # STORE has no output varnode
 
         # ---- LOAD: emit a symbolic memory use, propagate value ------- #
         if mnemonic == _PCODE_OP.LOAD:
-            inputs = op.getInputs()
+            inputs = op.inputs
             assert len(inputs) == 2
-            out = op.getOutput()
+            out = op.output
             assert not (out is None)
-            mem = _load_store_mem(op, program, sstate, int(out.getSize()))
+            mem = _load_store_mem(op, ctx, sstate, int(out.size))
 
             # skip the use if this instruction already stored to the
             # same location (the load reads its own store)
             if not (mem in defs):
                 uses.add(mem)
-            if not out.isUnique():
+            if not _is_unique(out):
                 # loads into a unique need no def; the loaded value is
                 # tracked through sstate by _update_symstate
-                reg = _varnode_operand(program, out)
+                reg = _varnode_operand(ctx, out)
                 if not _is_ghidra_internal(reg.name):
                     defs.add(reg)
                     written_so_far.add(out)
             continue
 
         # ---- non-STORE/LOAD output handling -------------------------- #
-        out = op.getOutput()
+        out = op.output
         if out is None:
             continue
-        if out.isUnique():
+        if _is_unique(out):
             continue
-        if out.isAddress():
+        if _is_addr(out):
             # Direct write to a ram-space varnode: an absolute or
             # pc-relative store that Ghidra resolved at disassembly
             # (no STORE op is emitted for these).
-            mem = _varnode_operand(program, out)
+            mem = _varnode_operand(ctx, out)
             defs.add(mem)
             continue
-        if not out.isRegister():
+        if not _is_register(out):
             raise UseDefError(f"unsupported output varnode {out} for op {op}")
-        reg = _varnode_operand(program, out)
+        reg = _varnode_operand(ctx, out)
         if _is_ghidra_internal(reg.name):
             continue
         defs.add(reg)
@@ -972,316 +1010,98 @@ def _instruction_use_def(program, instr):
         # real p-code (rdtsc, lock-prefixed RMW, x86-64 syscall's r11/rcx
         # side effects) have non-empty sets and are reported as computed.
         raise UseDefError(
-            f"semantics of {instr.getMnemonicString()} at {instr.getAddress()} "
+            f"semantics of {disassembly or '<unknown>'} at {address:#x} "
             f"are entirely inside a CALLOTHER (opaque user-op); use/def unknown"
         )
     return uses, defs, tuple(indirect_targets)
 
 
 # --------------------------------------------------------------------------- #
-# Long-lived program cache (one open Ghidra program per architecture)
+# Translation                                                                 #
 # --------------------------------------------------------------------------- #
-#
-# Spinning up a fresh Ghidra project + BinaryLoader pipeline costs ~150-350 ms
-# per call; the actual disassembly + use/def of a 4-byte instruction is sub-ms.
-# To amortize the setup cost across many cold-path calls (cache misses on the
-# result lru_cache above), we keep one `pyghidra.open_program` context alive
-# per architecture and repopulate its single memory block on each call. We
-# bypass the context manager's __exit__ for the lifetime of the process and
-# rely on an atexit hook for graceful teardown.
 
-# language_id (str) -> (open_program-cm, flat_api, addr_space)
-# Guarded by _analysis_lock; see its comment below.
-_program_cache: dict = {}
-
-
-_warned_offmain: typing.Set[str] = set()
-
-
-def _warn_offmain_open_once(arch: str) -> None:
-    if arch not in _warned_offmain:
-        _warned_offmain.add(arch)
-        logger.warning(
-            f"first p-code analysis for {arch!r} is running on a worker "
-            f"thread; the process may fail to exit at shutdown (a Ghidra "
-            f"limitation). Call "
-            f"smallworld.instructions.pcode_use_def.warm({arch!r}) from the "
-            f"main thread first to avoid this."
-        )
-
-
-def warm(language_id: str) -> None:
-    """Open (or reuse) the long-lived Ghidra program for `language_id`.
-
-    Call this from the MAIN thread before analyzing from worker threads:
-    results are correct from any thread, but a process whose first
-    analysis for an architecture ran on a worker thread fails to exit
-    (see _analysis_lock's note). Emulators that run user callbacks on
-    their own thread -- PANDA -- should warm each platform they will
-    analyze during setup. Idempotent; the first call per language costs
-    the one-time program setup (~200 ms - 2 s), later ones nothing.
-    """
-    with _analysis_lock:
-        _get_or_create_program(language_id)
-
-
-def _get_or_create_program(arch):
-    """Return (flat_api, program, addr_space) for a long-lived program
-    of the given architecture, creating it on the first call."""
-    pyghidra = _ensure_pyghidra()
-    entry = _program_cache.get(arch)
-    if entry is not None:
-        _cm, flat_api, space = entry
-        return flat_api, flat_api.getCurrentProgram(), space
-
-    if threading.current_thread() is not threading.main_thread():
-        _warn_offmain_open_once(arch)
-    # First time we've seen this arch: open a fresh program around a
-    # one-byte placeholder file. We manually __enter__ the context and
-    # stash it; teardown happens at atexit (or on eviction after error).
-    import os
-    import tempfile
-
-    fd, placeholder = tempfile.mkstemp(suffix=".bin", prefix="usedef-init-")
-    try:
-        os.write(fd, b"\x00")
-        os.close(fd)
-        cm = pyghidra.open_program(
-            placeholder,
-            language=arch,
-            loader="ghidra.app.util.opinion.BinaryLoader",
-            analyze=False,
-        )
-        flat_api = cm.__enter__()
-    finally:
-        try:
-            os.unlink(placeholder)
-        except OSError:
-            pass
-
-    # Everything from here to the cache insert has to close the program on
-    # failure: the entry is not in _program_cache yet, so the caller's
-    # _evict_program finds nothing and the Ghidra project stays open -- holding
-    # its directory lock -- for the life of the process, once per retry.
-    try:
-        program = flat_api.getCurrentProgram()
-        # Capture the address space BinaryLoader used so per-call blocks
-        # land in the same space (rather than guessing at default-space
-        # semantics, which can differ between languages).
-        initialized = [b for b in program.getMemory().getBlocks() if b.isInitialized()]
-        if not initialized:
-            raise RuntimeError(
-                f"BinaryLoader produced no initialized blocks for {arch!r}"
-            )
-        space = initialized[0].getStart().getAddressSpace()
-    except BaseException:
-        try:
-            cm.__exit__(None, None, None)
-        except Exception:
-            pass
-        raise
-
-    _program_cache[arch] = (cm, flat_api, space)
-    return flat_api, program, space
-
-
-def _evict_program(arch):
-    """Drop a cached program — used after an error left it in a bad
-    state, or proactively before process exit."""
-    with _analysis_lock:
-        entry = _program_cache.pop(arch, None)
-        if entry is None:
-            return
-        cm, _flat_api, _space = entry
-        # The interval table holds Java Register handles belonging to THIS
-        # program; keeping them past teardown both leaks them and matches
-        # future varnodes against objects from a closed program.
-        _register_intervals.pop(arch, None)
-        try:
-            cm.__exit__(None, None, None)
-        except Exception:
-            # Best-effort teardown; the JVM may already be torn down.
-            pass
-
-
-_shutdown_hook_registered = False
-
-
-def _register_shutdown_hook():
-    """Install `_shutdown_program_cache` at atexit, once. See the ordering
-    note in `_ensure_pyghidra`."""
-    global _shutdown_hook_registered
-    if not _shutdown_hook_registered:
-        atexit.register(_shutdown_program_cache)
-        _shutdown_hook_registered = True
-
-
-def _shutdown_program_cache():
-    # Via _evict_program so teardown happens under _analysis_lock, and so
-    # there is one implementation of "close a cached program". SmallWorld runs
-    # emulation callbacks on daemon threads (emulators/panda/panda.py), which
-    # the interpreter does NOT join before running atexit handlers, so without
-    # the lock this could close a program a worker was mid-way through
-    # repopulating.
-    for lang_id in list(_program_cache):
-        _evict_program(lang_id)
-
-
-def _java_offset(value: int) -> int:
-    """`value` as Java sees it: Address offsets cross the boundary as a signed
-    64-bit long, so anything at or above 2**63 -- every x86-64 kernel address
-    (0xffffffff81000000), every AArch64 kernel address (0xffff800000000000) --
-    raises `OverflowError: int too big to convert` from JPype. That is not a
-    UseDefError, so it escaped the reads/writes property AND tripped
-    _analyze_locked's generic handler, evicting the shared per-architecture
-    program (a 200 ms - 2 s rebuild) once per such instruction."""
-    value &= (1 << 64) - 1
-    if value >= 1 << 63:
-        value -= 1 << 64
-    return value
-
-
-def _populate_program(program, addr_space, byte_data, base_address):
-    """Swap whatever bytes are currently loaded for `byte_data` at
-    `base_address`, then disassemble the new range."""
-    import jpype
-    from ghidra.app.cmd.disassemble import DisassembleCommand
-    from ghidra.program.model.address import AddressSet
-    from ghidra.util.task import TaskMonitor
-    from java.io import ByteArrayInputStream
-
-    memory = program.getMemory()
-    listing = program.getListing()
-
-    tx = program.startTransaction("usedef-repopulate")
-    try:
-        # 1. Wipe everything. Clear code units first so removeBlock has
-        #    nothing to complain about, then drop the block.
-        for block in list(memory.getBlocks()):
-            try:
-                listing.clearCodeUnits(block.getStart(), block.getEnd(), False)
-            except Exception:
-                # Non-fatal: removeBlock will still handle it for typical
-                # raw-binary blocks.
-                pass
-            memory.removeBlock(block, TaskMonitor.DUMMY)
-
-        # 2. Create a fresh initialized block holding the new bytes at
-        #    the requested base, in the same address space BinaryLoader
-        #    originally chose.
-        addr = addr_space.getAddress(_java_offset(int(base_address)))
-        # Java bytes are signed (-128..127); convert 0..255 explicitly so
-        # jpype doesn't choke on values above 0x7f.
-        signed = [(b - 256 if b >= 128 else b) for b in byte_data]
-        jbytes = jpype.JArray(jpype.JByte)(signed)
-        stream = ByteArrayInputStream(jbytes)
-        memory.createInitializedBlock(
-            "code",
-            addr,
-            stream,
-            len(byte_data),
-            TaskMonitor.DUMMY,
-            False,
-        )
-
-        # 3. Disassemble the full range of the new block.
-        block = memory.getBlock(addr)
-        addr_set = AddressSet(block.getStart(), block.getEnd())
-        DisassembleCommand(addr_set, addr_set, True).applyTo(
-            program,
-            TaskMonitor.DUMMY,
-        )
-    finally:
-        program.endTransaction(tx, True)
-
-
-#: Serializes the cold path: `_populate_program` mutates the one cached
-#: program per architecture in place, and lru_cache does not serialize the
-#: call it wraps. Re-entrant because the error path calls _evict_program,
-#: which takes it too.
-#:
-#: Results are correct from any thread, but if the FIRST analysis for an
-#: architecture runs on a worker thread the process then fails to exit
-#: (right answer in ~6 s, still running at 5 min; ~9 s and clean from the
-#: main thread). Not our teardown and not JPype -- it is Ghidra's own
-#: machinery behind open_program -- so warm each architecture from the main
-#: thread.
+# SLEIGH is not documented as thread-safe and a Context holds decoding state,
+# so serialize on one lock. RLock because `warm` takes it too.
 _analysis_lock = threading.RLock()
 
 
-def _pad_room(addr_space, base_address, length, want=8):
-    """How many padding bytes fit after `length` bytes at `base_address`
-    without running past the end of `addr_space`."""
-    try:
-        mask = (1 << 64) - 1
-        space_max = int(addr_space.getMaxAddress().getOffset()) & mask
-        end = (int(base_address) & mask) + length
-        return max(0, min(want, space_max + 1 - end))
-    except Exception:
-        # If Ghidra will not tell us the extent, keep the old behaviour.
-        return want
+def warm(language_id: str) -> None:
+    """Build (or reuse) the SLEIGH context for `language_id`.
+
+    Optional -- `analyze` builds it on first use anyway. Call it during setup
+    to keep the one-time build out of a latency-sensitive path.
+    """
+    with _analysis_lock:
+        _get_context(language_id)
+
+
+def _instruction_ops(translation):
+    """Split a translation into (imark, body ops) for its first instruction.
+
+    An IMARK introduces each machine instruction and carries its address and
+    length; on a delay-slot ISA the branch's IMARK covers the delay slot too
+    and its ops are folded in, which is why callers must pad rather than
+    supply the real successor. A later IMARK could only mark padding.
+    """
+    ops = list(translation.ops)
+    if not ops or ops[0].opcode != pypcode.OpCode.IMARK:
+        return None, []
+    body = [op for op in ops[1:] if op.opcode != pypcode.OpCode.IMARK]
+    return ops[0], body
 
 
 def _analyze_inner(byte_data, arch, base_address):
-    """Uncached implementation; see analyze for the public API.
-
-    Reuses a long-lived Ghidra program per architecture rather than
-    tearing it down between calls. On any error we evict the cached
-    program so a subsequent call rebuilds it cleanly rather than
-    inheriting a half-initialized state.
-    """
+    """Uncached implementation; see analyze for the public API."""
     with _analysis_lock:
         return _analyze_locked(byte_data, arch, base_address)
 
 
 def _analyze_locked(byte_data, arch, base_address):
     """_analyze_inner's body; runs holding _analysis_lock."""
-    try:
-        flat_api, program, addr_space = _get_or_create_program(arch)
-        # Pad with zero bytes so instructions at the end of the buffer
-        # that need a successor to disassemble still decode — Ghidra
-        # refuses to form a delay-slot branch (MIPS, SPARC) unless the
-        # delay-slot instruction is present in memory. Instructions
-        # decoded inside the padding are filtered out of the results.
-        #
-        # Clamped to what is left of the space: a fixed 8 bytes overran the
-        # top of a 32-bit space for an instruction near the end (a reset
-        # vector, a high trampoline), and Ghidra raised a Java
-        # AddressOverflowException.
-        pad = b"\x00" * _pad_room(addr_space, base_address, len(byte_data))
-        _populate_program(program, addr_space, byte_data + pad, base_address)
+    ctx = _get_context(arch)
+    base = int(base_address)
 
-        # Look the instruction up *at* the requested address rather than
-        # taking whatever decoded first, so the result is always the
-        # instruction the caller asked about. Anything Ghidra decoded in
-        # the padding (or after this instruction) is ignored.
-        instr = program.getListing().getInstructionAt(
-            addr_space.getAddress(_java_offset(int(base_address)))
-        )
-        if instr is None:
-            return None
-        uses, defs, indirect_targets = _instruction_use_def(program, instr)
-        return InstructionUseDef(
-            disassembly=instr.toString(),
-            size=int(instr.getLength()),
-            uses=tuple(uses),
-            defs=tuple(defs),
-            indirect_targets=indirect_targets,
-        )
-    except UseDefError:
-        # Raised by the pure-Python walk over already-decoded p-code, which
-        # runs after _populate_program's transaction has closed -- the
-        # program is fine, this instruction is simply one we cannot express.
-        # Evicting here would throw away a program every other caller on
-        # this architecture is reusing and re-pay the 200 ms - 2 s rebuild,
-        # and lru_cache never memoizes exceptions, so a retry pays it again.
-        raise
+    # SLEIGH will not form a delay-slot branch (MIPS, SPARC) unless the
+    # delay-slot instruction is present, and zeroes decode as a nop there, so
+    # the branch's use/def stays its own. Needs no clamping to the address
+    # space the way the Ghidra implementation did: nothing is mapped here.
+    data = bytes(byte_data) + b"\x00" * 8
+
+    try:
+        translation = ctx.translate(data, base, max_instructions=1)
+    except pypcode.BadDataError:
+        # Nothing decodable here. None rather than an exception: the caller's
+        # disassembler may disagree about whether these bytes are an
+        # instruction, which is not an error.
+        return None
+    except pypcode.UnimplError as e:
+        # Decoded, but no semantics. Empty sets would read as a nop, so say
+        # we do not know -- as the UNIMPLEMENTED op path did before.
+        raise UseDefError(f"no p-code semantics for the instruction at {base:#x}: {e}")
+
+    imark, ops = _instruction_ops(translation)
+    if imark is None:
+        return None
+
+    # First IMARK input is the instruction itself, any others its delay slots.
+    # Report its own length; that is what callers check their disassembler on.
+    size = int(imark.inputs[0].size)
+
+    try:
+        disassembly = ctx.disassemble(data, base, max_instructions=1)
+        insn = disassembly.instructions[0]
+        text = f"{insn.mnem} {insn.body}".strip()
     except Exception:
-        # Anything else may have left the program half-mutated (the
-        # removeBlock / createInitializedBlock window in _populate_program
-        # is the case that actually can), so rebuild it next time.
-        _evict_program(arch)
-        raise
+        text = ""  # presentation only; never fail an analysis over it
+
+    uses, defs, indirect_targets = _instruction_use_def(ctx, ops, text, base)
+    return InstructionUseDef(
+        disassembly=text,
+        size=size,
+        uses=tuple(uses),
+        defs=tuple(defs),
+        indirect_targets=indirect_targets,
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -1306,8 +1126,7 @@ class _NoInstruction(Exception):
     An exception purely because `lru_cache` memoizes return values but not
     exceptions. A cached None was permanent, and `_pcode_use_def` turns None
     into an empty use/def set -- so a transient miss reported the
-    instruction as a no-op forever after. Retrying costs one decode against
-    an open program (~1 ms).
+    instruction as a no-op forever after. Retrying costs one decode.
     """
 
 
@@ -1331,7 +1150,7 @@ def analyze(
 
     `byte_data` must contain that instruction; trailing bytes are ignored
     (and are sometimes necessary -- see the delay-slot note below).
-    Returns None if Ghidra decoded no instruction at `base_address`.
+    Returns None if SLEIGH decoded no instruction at `base_address`.
 
     Two properties of the input are the caller's responsibility:
 
@@ -1355,15 +1174,10 @@ def analyze(
         `analyze.cache_clear()` to drop the cache and
         `analyze.cache_info()` to inspect it.
 
-      * Program reuse: per architecture, we hold one Ghidra program
-        open for the lifetime of the process and reload its memory
-        block on each cold-path call instead of spinning up a fresh
-        project. The first call per architecture pays the one-time
-        SLEIGH / BinaryLoader cost (~200 ms to ~2 s depending on the
-        ISA); subsequent calls swap bytes through `Memory.removeBlock`
-        / `createInitializedBlock` in ~1 ms. Cached programs are torn
-        down by an atexit hook; if an analysis errors out, the
-        affected program is evicted so the next call rebuilds it.
+      * Context reuse: one SLEIGH context per architecture, built on
+        first use and kept. That build (tens of milliseconds) is the
+        only per-architecture cost; translation itself is stateless and
+        sub-millisecond. `warm()` moves it off the first analysis.
     """
     # Normalize byte_data so memoryview/bytearray callers also hit the cache
     if not isinstance(byte_data, bytes):

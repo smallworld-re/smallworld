@@ -17,15 +17,21 @@ Three layers are covered:
   registers the instruction architecturally names, with spot checks of
   exact semantics.
 
-These boot Ghidra's JVM via pyghidra on first use and take a couple of
-minutes for the full corpus; they skip cleanly when pyghidra is not
-installed.
+These run on pypcode -- SLEIGH's C++ translator, a core dependency -- so
+they need no JVM and no Ghidra install; they skip cleanly if pypcode is
+somehow absent. The one class that DOES boot a JVM is
+GhidraMachdefRegisterAliasTests, which compares the naming layer against
+the Ghidra EMULATOR's machine definitions; those import Ghidra's Java
+classes at module scope, so they need pyghidra and skip without it.
 """
 
 import importlib
 import importlib.util
+import multiprocessing
 import os
+import subprocess
 import sys
+import textwrap
 import unittest
 import unittest.mock
 
@@ -46,6 +52,16 @@ except Exception:
     # escapes here takes the entire unit suite down instead of skipping the
     # p-code tests.
     HAVE_PYGHIDRA = False
+
+try:
+    import pypcode  # noqa: F401
+
+    HAVE_PYPCODE = True
+except Exception:
+    # pypcode is a core dependency, so this is a broken install rather than a
+    # missing extra -- but skipping beats taking tests/unit.py down at
+    # collection time, which importing this module would otherwise do.
+    HAVE_PYPCODE = False
 
 
 def _load_corpus_harness():
@@ -299,18 +315,26 @@ class GhidraMachdefRegisterAliasTests(unittest.TestCase):
 
     @staticmethod
     def _start_jvm():
-        """Boot the JVM through the analysis module rather than calling
-        pyghidra.start() directly.
+        """Boot the JVM for the tests that need Ghidra's Java machdefs.
 
+        The use/def analysis no longer starts one -- it runs on pypcode, which
+        wraps SLEIGH's C++ directly -- so these tests, which compare that
+        analysis against the Ghidra EMULATOR's machine definitions, have to
+        boot the JVM themselves. The SymZ3 extension is prepared first because
         Ghidra discovers extensions only while its Application initializes,
-        during the first pyghidra.start() in the process, so whichever test
-        starts the JVM has to prepare the SymZ3 extension first or every later
-        GhidraSymbolicEmulator in the same process fails to resolve its
-        classes. _ensure_pyghidra() is exactly that sequence.
+        during the first pyghidra.start() in the process; without that, a
+        GhidraSymbolicEmulator constructed later in the same process cannot
+        resolve its classes.
         """
-        from smallworld.instructions.pcode_use_def import _ensure_pyghidra
+        from smallworld.emulators.ghidra import symz3_loader
 
-        _ensure_pyghidra()
+        try:
+            symz3_loader.prepare_extension()
+        except Exception:
+            pass  # optional; a later GhidraSymbolicEmulator reports it itself
+
+        # pyghidra is bound at module scope; this class is skipped without it.
+        pyghidra.start()
 
     def test_mips64_names_resolve_to_the_right_physical_register(self):
         self._start_jvm()  # machdefs import Ghidra's Java classes at module scope
@@ -331,7 +355,7 @@ class GhidraMachdefRegisterAliasTests(unittest.TestCase):
         self._check(MIPSBEMachineDef, MIPS32BE)
 
 
-@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class PcodeAnalysisRobustnessTests(unittest.TestCase):
     """Failure modes of analyze() and its caching."""
 
@@ -354,28 +378,30 @@ class PcodeAnalysisRobustnessTests(unittest.TestCase):
                 result = analyze(bytes.fromhex(hexbytes), lang, 0)
                 self.assertIsNotNone(result, f"{desc} did not decode")
 
-    def test_op_table_covers_every_ghidra_mnemonic(self):
-        """The op table is an allowlist keyed by Ghidra's mnemonic strings, so
-        it silently rots against a new Ghidra. Compare it to the real table."""
-        from smallworld.instructions.pcode_use_def import _ensure_pyghidra
+    def test_op_table_covers_every_sleigh_opcode(self):
+        """The op table is an allowlist keyed by SLEIGH's OpCode names, so it
+        silently rots against a new pypcode. Compare it to the real table.
 
-        _ensure_pyghidra()  # boots the JVM, preparing the SymZ3 extension first
-        from ghidra.program.model.pcode import PcodeOp  # type: ignore
-
+        Enumerating pypcode rather than Ghidra's Java PcodeOp is the point:
+        the analysis reads SLEIGH's names now, and the two vocabularies do
+        not agree -- Ghidra spells the rounding ops CEIL/FLOOR/ROUND where
+        SLEIGH spells them FLOAT_CEIL/FLOAT_FLOOR/FLOAT_ROUND. Checking
+        against the wrong one would pass while every float conversion took
+        the generic path.
+        """
+        # pypcode is bound at module scope; this class is skipped without it.
         from smallworld.instructions.pcode_use_def import _PCODE_OP
 
-        ghidra_names = set()
-        for opcode in range(PcodeOp.PCODE_MAX):
-            try:
-                ghidra_names.add(str(PcodeOp.getMnemonic(opcode)))
-            except Exception:
-                continue
-        self.assertTrue(ghidra_names, "could not read Ghidra's mnemonic table")
-        missing = sorted(ghidra_names - {m.name for m in _PCODE_OP})
+        sleigh_names = {op.name for op in pypcode.OpCode}
+        self.assertTrue(sleigh_names, "could not read SLEIGH's opcode table")
+        # IMARK marks instruction boundaries in a translation and is filtered
+        # out before the use/def walk ever sees an op, so it is deliberately
+        # absent from the table.
+        missing = sorted(sleigh_names - {m.name for m in _PCODE_OP} - {"IMARK"})
         self.assertEqual(
             missing,
             [],
-            msg=f"_PCODE_OP is missing mnemonics Ghidra emits: {missing}. "
+            msg=f"_PCODE_OP is missing opcodes SLEIGH emits: {missing}. "
             f"They no longer raise KeyError (see _mnemonic_of), but each one "
             f"takes the generic path, so any special handling is skipped.",
         )
@@ -414,12 +440,19 @@ class PcodeAnalysisRobustnessTests(unittest.TestCase):
         full semantics around the lock. pause has no CALLOTHER at all, and
         its empty sets are the genuine answer."""
         from smallworld.instructions import RegisterOperand
-        from smallworld.instructions.pcode_use_def import analyze
+        from smallworld.instructions.pcode_use_def import UseDefError, analyze
 
         rdtsc = analyze(bytes.fromhex("0f31"), "x86:LE:64:default", 0)
         self.assertIn(RegisterOperand("eax"), rdtsc.defs)
-        syscall = analyze(bytes.fromhex("0f05"), "x86:LE:64:default", 0)
-        self.assertIn(RegisterOperand("rcx"), syscall.defs)
+        # x86-64 syscall used to belong in this list: Ghidra's x86 spec 4.7
+        # models its r11/rcx side effects beside the CALLOTHER, so the sets
+        # were partial-but-true. The spec pypcode bundles (4.6) models the
+        # instruction as a bare CALLOTHER with no side effects at all, which
+        # lands it in the opaque case below instead. Nothing about the
+        # analysis changed -- only which SLEIGH spec describes the
+        # instruction -- so assert what this spec actually says.
+        with self.assertRaises(UseDefError):
+            analyze(bytes.fromhex("0f05"), "x86:LE:64:default", 0)
         xadd = analyze(bytes.fromhex("f0480fc10f"), "x86:LE:64:default", 0)
         self.assertTrue(xadd.uses and xadd.defs)
         pause = analyze(bytes.fromhex("f390"), "x86:LE:64:default", 0)
@@ -437,15 +470,16 @@ class PcodeAnalysisRobustnessTests(unittest.TestCase):
         self.assertEqual(analyze.cache_info().currsize, 0, "a failed decode was cached")
 
     def test_warm_is_idempotent_and_populates_the_cache(self):
-        """warm() exists so emulators that run callbacks on worker threads
-        (PANDA) can open each architecture's program from the main thread
-        first -- a first-open on a worker thread leaves a process that
-        fails to exit at shutdown."""
+        """warm() moves the one-time SLEIGH context build off the first
+        analysis, for callers where that latency lands somewhere it matters
+        (an emulator's per-instruction callback)."""
         from smallworld.instructions import pcode_use_def
 
         pcode_use_def.warm("x86:LE:64:default")
-        self.assertIn("x86:LE:64:default", pcode_use_def._program_cache)
+        self.assertIn("x86:LE:64:default", pcode_use_def._contexts)
+        first = pcode_use_def._contexts["x86:LE:64:default"]
         pcode_use_def.warm("x86:LE:64:default")  # second call: no-op
+        self.assertIs(first, pcode_use_def._contexts["x86:LE:64:default"])
 
     def test_successful_result_is_still_memoized(self):
         from smallworld.instructions.pcode_use_def import analyze
@@ -463,10 +497,10 @@ class PcodeUseDefDegradationTests(unittest.TestCase):
     emulation failure. The Capstone backend never raised at them; neither may
     the pcode one.
 
-    Needs no pyghidra: analyze is replaced, and pcode_use_def imports pyghidra
-    lazily (inside _ensure_pyghidra) precisely so this is true -- a top-level
-    import made this class ERROR rather than run on a base install, and
-    tests/unit.py imports it into the main suite.
+    Needs no pyghidra: analyze is replaced, and since the analysis moved to
+    pypcode nothing in pcode_use_def imports pyghidra at all. tests/unit.py
+    imports this module into the main suite, so an import that could fail
+    would ERROR the whole suite rather than skip.
     """
 
     def test_use_def_error_degrades_to_an_empty_set(self):
@@ -647,7 +681,7 @@ class ThumbUseDefBackendTests(unittest.TestCase):
         self.assertEqual(insn.writes, {RegisterOperand("r0")})
 
 
-@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class AddressMaskingTests(unittest.TestCase):
     """The one approximation in the address walker, and its bound."""
 
@@ -673,24 +707,21 @@ class AddressMaskingTests(unittest.TestCase):
             _flatten_sum,
         )
 
+        class _Space:
+            def __init__(self, name):
+                self.name = name
+
         class _Const:
             """Stand-in for a constant varnode; _flatten_sum only asks these."""
 
             def __init__(self, value, size):
-                self._value, self._size = value, size
-
-            def getSize(self):
-                return self._size
-
-            def getOffset(self):
-                return self._value
-
-            def isConstant(self):
-                return True
+                self.offset, self.size = value, size
+                self.space = _Space("const")
 
         class _Reg(_Const):
-            def isConstant(self):
-                return False
+            def __init__(self, value, size):
+                super().__init__(value, size)
+                self.space = _Space("register")
 
         reg = _Reg(0, 4)
         # 0xffff spans far more than a 4-byte access: not approximable.
@@ -749,7 +780,7 @@ class InstructionFetchesTests(unittest.TestCase):
     def _bases(operands):
         return {op.base for op in operands if hasattr(op, "base")}
 
-    @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+    @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
     def test_indirect_transfers_report_their_target(self):
         from smallworld.instructions import RegisterOperand
 
@@ -767,7 +798,7 @@ class InstructionFetchesTests(unittest.TestCase):
                 self.assertIn(RegisterOperand(target), insn.reads)
                 self.assertNotIn(target, self._bases(insn.reads))
 
-    @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+    @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
     def test_non_transfers_and_popped_targets_fetch_nothing(self):
         # Not a branch at all.
         self.assertEqual(
@@ -798,7 +829,7 @@ class InstructionFetchesTests(unittest.TestCase):
         self.assertEqual(insn.fetches(), set())
 
 
-@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class UseDefCorpusTests(unittest.TestCase):
     """Every corpus entry must agree with ground truth (normalized)."""
 
@@ -856,7 +887,7 @@ class UseDefCorpusTests(unittest.TestCase):
         )
 
 
-@unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
 class InstructionUseDefTests(unittest.TestCase):
     """Instruction.reads/.writes: sets of platform-valid Operands.
 
@@ -1038,7 +1069,7 @@ class UseDefBackendSelectionTests(unittest.TestCase):
             b"\x50", 0x1000, Platform(Architecture.X86_64, Byteorder.LITTLE), **kwargs
         )
 
-    def test_capstone_backend_needs_no_pyghidra(self):
+    def test_capstone_backend_needs_no_sleigh(self):
         from smallworld.instructions import BSIDMemoryReferenceOperand, RegisterOperand
 
         insn = self._insn(use_def_backend="capstone")
@@ -1051,21 +1082,24 @@ class UseDefBackendSelectionTests(unittest.TestCase):
     def test_default_backend_is_pcode(self):
         insn = self._insn()
         self.assertEqual(insn.use_def_backend, "pcode")
-        # ...used when pyghidra is importable, silently degrading to
-        # Capstone on a base install (asserted by the base-install CI-less
-        # check: _use_pcode probes availability, it does not import).
+        # ...and actually used, because its engine is a core dependency.
+        # This gate was written against pyghidra, which was an optional
+        # extra; asserting that here would now pass only where pyghidra
+        # happens to be installed anyway and fail on the base install this
+        # backend is meant to work on. _use_pcode probes availability, it
+        # does not import.
         import importlib.util
 
         self.assertEqual(
             insn._use_pcode(),
-            importlib.util.find_spec("pyghidra") is not None,
+            importlib.util.find_spec("pypcode") is not None,
         )
 
     def test_unknown_backend_rejected(self):
         with self.assertRaises(ValueError):
             self._insn(use_def_backend="nope")
 
-    @unittest.skipUnless(HAVE_PYGHIDRA, "pyghidra is not installed")
+    @unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
     def test_pcode_and_capstone_agree_on_push_address(self):
         # Both backends must resolve push rax's write to the same stack
         # slot, even though they spell the operand differently.
@@ -1092,6 +1126,85 @@ class UseDefBackendSelectionTests(unittest.TestCase):
         # differ by the push width -- documenting, not asserting equal.
         self.assertEqual(pcode_mem.address(emu), 0x7FFF_0000 - 8)
         self.assertEqual(cap_mem.address(emu), 0x7FFF_0000)
+
+
+@unittest.skipUnless(HAVE_PYPCODE, "pypcode is not installed")
+class ForkSafetyTests(unittest.TestCase):
+    """Analysis must survive the caller forking.
+
+    multiprocessing's default start method on Linux is `fork` through CPython
+    3.13, so `ProcessPoolExecutor().map(...)` around an analysis forks a
+    process that has already analyzed. On pyghidra that deadlocked the child:
+    a fork inherits the JVM's mutexes but not the threads holding them, so
+    the first JNI call blocked forever, immune even to SIGTERM. The order
+    below is the one that reproduced it.
+
+    Children are joined with a timeout and killed, so a regression fails the
+    test rather than wedging CI.
+    """
+
+    LANG = "x86:LE:64:default"
+    TIMEOUT = 120
+
+    @staticmethod
+    def _child(q):
+        # Deliberately bytes the parent has NOT analyzed, so the child cannot
+        # be served from the result cache it inherited and must translate.
+        from smallworld.instructions.pcode_use_def import analyze
+
+        try:
+            result = analyze(bytes.fromhex("4831d8"), ForkSafetyTests.LANG, 0x3000)
+            q.put(len(result.uses))
+        except BaseException as e:  # noqa: BLE001 - reported through the queue
+            q.put(f"{type(e).__name__}: {e}")
+
+    def _fork_and_analyze(self, label):
+        ctx = multiprocessing.get_context("fork")
+        q = ctx.Queue()
+        proc = ctx.Process(target=self._child, args=(q,))
+        proc.start()
+        proc.join(self.TIMEOUT)
+        if proc.is_alive():
+            proc.kill()
+            proc.join()
+            self.fail(f"{label}: forked child hung for {self.TIMEOUT}s")
+        self.assertFalse(q.empty(), f"{label}: child produced no result")
+        self.assertEqual(q.get(), 2, f"{label}: child analyzed incorrectly")
+
+    def test_analysis_works_in_a_child_forked_after_the_parent_analyzed(self):
+        from smallworld.instructions.pcode_use_def import analyze
+
+        self._fork_and_analyze("before the parent analyzed anything")
+        self.assertIsNotNone(analyze(bytes.fromhex("4801d8"), self.LANG, 0x2000))
+        self._fork_and_analyze("after the parent analyzed")
+
+    def test_analysis_loads_no_jvm(self):
+        """The deadlock above is a symptom; this asserts the cause.
+
+        In a FRESH interpreter, because sibling tests here boot a JVM
+        deliberately -- asserting on this process would measure test ordering.
+        """
+        if not sys.platform.startswith("linux"):
+            self.skipTest("needs /proc/self/maps")
+        program = textwrap.dedent("""
+            from smallworld.instructions.pcode_use_def import analyze
+            assert analyze(bytes.fromhex("4801d8"), "x86:LE:64:default", 0) is not None
+            with open("/proc/self/maps") as fh:
+                hits = [ln for ln in fh if "libjvm" in ln or "jpype" in ln]
+            print(len(hits))
+            """)
+        proc = subprocess.run(
+            [sys.executable, "-c", program],
+            capture_output=True,
+            text=True,
+            timeout=self.TIMEOUT,
+        )
+        self.assertEqual(proc.returncode, 0, f"probe failed: {proc.stderr[-500:]}")
+        self.assertEqual(
+            proc.stdout.strip(),
+            "0",
+            "a p-code analysis pulled a JVM into a fresh process",
+        )
 
 
 if __name__ == "__main__":
