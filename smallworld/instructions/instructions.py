@@ -17,13 +17,13 @@ logger = logging.getLogger(__name__)
 #
 #   capstone (default) the Capstone-based implementation.
 #   pcode    the Ghidra-pcode analysis, on platforms that define a
-#            ghidra_language_id. pyghidra lives under the optional
-#            'emu-ghidra' extra, so this raises downstream if pyghidra or
-#            a Ghidra install is genuinely missing.
+#            ghidra_language_id. It runs on pypcode -- Ghidra's SLEIGH
+#            translator, a core dependency -- so it needs neither a Ghidra
+#            install nor a JVM.
 #
 # The pcode analysis is the default; Capstone remains available per
-# instruction for callers that need it (and is what platforms without a
-# ghidra_language_id, or without pyghidra installed, fall back to).
+# instruction for callers that need it, and is what platforms without a
+# ghidra_language_id (Thumb, say) fall back to.
 USE_DEF_BACKEND_CAPSTONE = "capstone"
 USE_DEF_BACKEND_PCODE = "pcode"
 USE_DEF_BACKENDS = (USE_DEF_BACKEND_CAPSTONE, USE_DEF_BACKEND_PCODE)
@@ -31,11 +31,14 @@ DEFAULT_USE_DEF_BACKEND = USE_DEF_BACKEND_PCODE
 
 
 @functools.lru_cache(maxsize=1)
-def _pyghidra_available() -> bool:
-    """Whether the optional pyghidra extra is installed. A spec probe, not
-    an import: importing pyghidra pulls in jpype, and this runs on the
-    first reads/writes access of instructions that may never need it."""
-    return importlib.util.find_spec("pyghidra") is not None
+def _pypcode_available() -> bool:
+    """Whether pypcode -- the SLEIGH translator behind the p-code backend --
+    is importable.
+
+    A core dependency, so normally always true; the probe stays so a partial
+    environment degrades to Capstone rather than raising from a property. A
+    spec probe, not an import: this runs on the first reads/writes access."""
+    return importlib.util.find_spec("pypcode") is not None
 
 
 _logged_fallbacks: typing.Set[str] = set()
@@ -46,7 +49,7 @@ def _log_fallback_once(reason: str) -> None:
 
     reads/writes are properties hit once per instruction by the colorizer
     and Unicorn; with pcode as the default, a per-access warning for a
-    permanent condition (no pyghidra, a Thumb platform) is pure noise.
+    permanent condition (a Thumb platform, say) is pure noise.
     """
     if reason not in _logged_fallbacks:
         _logged_fallbacks.add(reason)
@@ -308,11 +311,11 @@ class Instruction(metaclass=abc.ABCMeta):
 
         * UseDefError -- the analysis met semantics it cannot express (a
           masked address, a bare CALLOTHER trap). Routine; logged at info.
-        * ValueError -- how pyghidra reports configuration problems: no
-          GHIDRA_INSTALL_DIR, an invalid language id. Actionable by the
-          user and identical for every instruction, so warned once.
+        * ValueError -- a configuration problem, notably a language id
+          SLEIGH does not know. Actionable by the user and identical for
+          every instruction, so warned once.
         Anything else propagates: with the expected cases typed, a
-        different exception is a bug here or new Ghidra behavior, and
+        different exception is a bug here or new SLEIGH behavior, and
         should fail loudly rather than be reclassified as "the
         instruction could not be analyzed" -- which would be false.
         """
@@ -419,14 +422,12 @@ class Instruction(metaclass=abc.ABCMeta):
                 f"(see supports_pcode_use_def); using Capstone"
             )
             return None
-        if not _pyghidra_available():
-            # pyghidra lives behind the optional 'emu-ghidra' extra. With
-            # pcode as the default backend, a base install must quietly get
-            # the Capstone implementation, not a warning and an empty set
-            # per property access.
+        if not _pypcode_available():
+            # pypcode is a core dependency, so this is a broken install
+            # rather than a missing extra -- but a property access is the
+            # wrong place to raise, so degrade to Capstone and say so once.
             _log_fallback_once(
-                "pyghidra is not installed; using the Capstone use/def "
-                "backend (install the 'emu-ghidra' extra for the pcode one)"
+                "pypcode is not installed; using the Capstone use/def backend"
             )
             return None
         platdef = PlatformDef.for_platform(self.platform)
