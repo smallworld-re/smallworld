@@ -160,7 +160,26 @@ def canonicalize_operand(
                 return None
             if mapped != name:
                 renamed[attr] = mapped
-        if renamed:
+
+        # p-code has no segment concept: SLEIGH flattens `fs:[0x28]` into an
+        # add against Ghidra's FS_OFFSET, which arrives here as the base
+        # register fsbase. Capstone reports the same access as segment="fs"
+        # with no base. Both are resolvable, but consumers classify a
+        # segment-relative access by the `segment` field, so a backend that
+        # never sets it makes the access unrecognizable -- and the two
+        # backends stop being interchangeable, which is the contract this
+        # module exists to keep. Fold the segment base back into `segment` so
+        # p-code reports what Capstone reports; address() adds it back.
+        segment = getattr(operand, "segment", None)
+        if segment is None:
+            base_now = renamed.get("base", getattr(operand, "base", None))
+            for seg, base_reg in platdef.segment_base_registers.items():
+                if base_now == base_reg:
+                    segment = seg
+                    renamed["base"] = None
+                    break
+
+        if renamed or segment != getattr(operand, "segment", None):
             # type(operand), not the base class: a subclass carries both
             # behaviour (x86's rip fixup) and identity (__repr__ embeds the
             # class name, and equality keys on the repr).
@@ -170,7 +189,7 @@ def canonicalize_operand(
                 else BSIDMemoryReferenceOperand
             )
             return cls(
-                segment=getattr(operand, "segment", None),
+                segment=segment,
                 base=renamed.get("base", getattr(operand, "base", None)),
                 index=renamed.get("index", getattr(operand, "index", None)),
                 scale=getattr(operand, "scale", 1),

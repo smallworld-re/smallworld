@@ -23,6 +23,13 @@ class AMD64BasePlatformDef(PlatformDef):
     # stay unresolvable until it grows one.
     ghidra_register_aliases = {"fs_offset": "fsbase", "gs_offset": "gsbase"}
 
+    # The other half of that mapping: which register holds each segment's base.
+    # Capstone reports `fs:[0x28]` as segment="fs" with no base, so this is what
+    # lets the operand resolve to fsbase+0x28 instead of to 0x28, and it is what
+    # the p-code naming layer folds the flattened fsbase base back into so both
+    # use/def backends describe the access the same way.
+    segment_base_registers = {"fs": "fsbase", "gs": "gsbase"}
+
     address_size = 8
 
     capstone_arch = capstone.CS_ARCH_X86
