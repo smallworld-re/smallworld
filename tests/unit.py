@@ -38,6 +38,8 @@ from harness.scenarios import fuzz as fuzz_scenario
 from harness.scenarios import static_buf as static_buf_scenario
 from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     AddressMaskingTests,
+    AddressOnlyReadsCapstoneFallbackTests,
+    AddressRoleTests,
     GetCmpInfoDegradationTests,
     GhidraMachdefRegisterAliasTests,
     InstructionFetchesTests,
@@ -6803,20 +6805,21 @@ class GetCmpInfoTests(unittest.TestCase):
             [("r0", 11), ("r1", 22)],
         )
 
-    def test_address_register_that_is_also_compared_is_dropped(self):
-        """KNOWN IMPRECISION, documented not fixed: the address-forming
-        filter assumes the pointer and compared roles are disjoint.
-        `cmp rax, [rax]` violates that -- rax is both -- and is reported
-        as the memory cell alone. Telling the roles apart needs
-        per-operand provenance a read set does not carry. If this test
-        fails because rax appears, the imprecision was fixed: update the
-        docs in get_cmp_info, not just this test."""
+    def test_dual_role_register_is_reported_as_compared(self):
+        """`cmp rax, [rax]`: rax is both the address and one compared
+        value. The analysis's role tracking (address_only_uses) tells the
+        two apart, so rax is reported alongside the memory cell -- the
+        imprecision the old read-set filter had to accept."""
         cs_insn = self._decode(b"\x48\x3b\x00")  # cmp rax, [rax]
         self.emu.write_register("rax", 0x2000)
         self.emu.map_memory(0x2000, 0x1000)
         entries = trace_execution.get_cmp_info(self.platform, self.emu, cs_insn)
-        self.assertEqual(len(entries), 1)
-        self.assertIsInstance(entries[0].source, BSIDMemoryReferenceOperand)
+        self.assertEqual(len(entries), 2)
+        kinds = {type(e.source) for e in entries}
+        self.assertEqual(kinds, {RegisterOperand, BSIDMemoryReferenceOperand})
+        reg = next(e for e in entries if isinstance(e.source, RegisterOperand))
+        self.assertEqual(reg.source.name, "rax")
+        self.assertEqual(reg.value, 0x2000)
 
     def test_non_compare_returns_empty(self):
         # mov rax, 5

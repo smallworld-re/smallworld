@@ -548,6 +548,40 @@ class Instruction(metaclass=abc.ABCMeta):
             and (not hasattr(operand, "access") or operand.access & capstone.CS_AC_READ)
         }
 
+    def address_only_reads(self) -> typing.Set[str]:
+        """Names of registers in `reads` whose every read served address
+        formation (rbp in `cmp [rbp-0x1c], 47`) -- a subset claim about
+        `reads`, never new operands. A register read both as an address
+        and as a value (`cmp rax, [rax]`) is not listed.
+
+        The p-code backend reports this from the analysis's role tracking.
+        The Capstone fallback cannot know, so it approximates the way
+        get_cmp_info always did: every base/index of a memory read is
+        presumed address-only -- which mislabels the dual-role case.
+        """
+        platdef = self._pcode_platdef()
+        if platdef is not None:
+            from .pcode_naming import canonicalize_register
+
+            result = self._pcode_result("address-only", platdef)
+            if result is None:
+                return set()
+            return {
+                name
+                for name in (
+                    canonicalize_register(r, platdef) for r in result.address_only_uses
+                )
+                if name is not None
+            }
+        names: typing.Set[str] = set()
+        for op in self.reads:
+            if isinstance(op, MemoryReferenceOperand):
+                for attr in ("base", "index"):
+                    reg = getattr(op, attr, None)
+                    if reg is not None:
+                        names.add(reg)
+        return names
+
     # def to_json(self) -> dict:
     #     return {
     #         "instruction": base64.b64encode(self.instruction).decode(),

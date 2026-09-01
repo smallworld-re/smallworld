@@ -1157,6 +1157,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["r1"],
    "notes": ""
   },
   {
@@ -1628,6 +1629,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": [],
    "notes": "stmdb sp!; lowest reg at lowest address"
   },
   {

@@ -6,7 +6,7 @@ Operand notation: registers by name; memory as `[base+scale*index±0xoffset]:siz
 
 ## Contents
 
-- [x86-64](#x86-64) - 94 instructions, `x86:LE:64:default`
+- [x86-64](#x86-64) - 96 instructions, `x86:LE:64:default`
 - [i386 (x86-32)](#i386-x86-32) - 83 instructions, `x86:LE:32:default`
 - [AArch64](#aarch64) - 112 instructions, `AARCH64:LE:64:v8A`
 - [ARM (ARMv7-A, ARM mode)](#arm-armv7-a-arm-mode) - 74 instructions, `ARM:LE:32:v7`
@@ -18,9 +18,9 @@ Operand notation: registers by name; memory as `[base+scale*index±0xoffset]:siz
 
 ## x86-64
 
-94 instructions - Ghidra language `x86:LE:64:default` - base address `0x1000`
+96 instructions - Ghidra language `x86:LE:64:default` - base address `0x1000`
 
-Category breakdown: arith 13, mov 9, load 9, branch 8, ext 7, store 6, shift 6, muldiv 6, logic 5, misc 5, fp 5, stack 4, call 4, cmp 3, string 3, ret 1
+Category breakdown: arith 13, mov 9, load 9, branch 8, ext 7, store 6, shift 6, muldiv 6, logic 5, cmp 5, misc 5, fp 5, stack 4, call 4, string 3, ret 1
 
 | # | asm | bytes | uses | defs | notes |
 |--:|-----|-------|------|------|-------|
@@ -118,6 +118,8 @@ Category breakdown: arith 13, mov 9, load 9, branch 8, ext 7, store 6, shift 6, 
 | 92 | `movaps xmm3, xmmword ptr [rax]` | `0f2818` | rax, [rax]:16 | xmm3 |  |
 | 93 | `jmp qword ptr [0x1234]` | `ff242534120000` | [0x1234]:8 | — | Ghidra emits a bare BRANCHIND on a ram varnode; the pointer load is a real read. |
 | 94 | `call qword ptr [0x1234]` | `ff142534120000` | rsp, [0x1234]:8 | rsp, [rsp-0x8]:8 | Absolute memory-indirect NEAR call (ff /2): reads the target pointer and pushes a return address. |
+| 95 | `cmp rax, qword ptr [rax]` | `483b00` | rax, [rax]:8 | cf, pf, af, zf, sf, of | Dual-role: rax is the address AND one compared value, so it is deliberately absent from address_only_uses. The discriminating sibling of the next entry -- identical use/def sets, different roles. |
+| 96 | `cmp qword ptr [rax], 5` | `48833805` | rax, [rax]:8 | cf, pf, af, zf, sf, of | rax is read only to form the address; the compared values are the memory cell and the immediate. |
 
 ## i386 (x86-32)
 

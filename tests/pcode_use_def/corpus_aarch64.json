@@ -1368,6 +1368,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["x1"],
    "notes": ""
   },
   {
@@ -1616,6 +1617,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["x1", "x2"],
    "notes": ""
   },
   {
@@ -1683,6 +1685,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": [],
    "notes": "pre-index writeback defs base"
   },
   {
@@ -1716,6 +1719,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": [],
    "notes": "post-index writeback defs base; access at old base"
   },
   {

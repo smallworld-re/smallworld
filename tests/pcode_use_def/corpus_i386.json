@@ -317,6 +317,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["esp"],
    "notes": ""
   },
   {
@@ -805,6 +806,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["ebx"],
    "notes": ""
   },
   {
@@ -1652,6 +1654,7 @@
    ],
    "uses_optional": [],
    "defs_optional": [],
+   "address_only_uses": ["esi"],
    "notes": ""
   },
   {
