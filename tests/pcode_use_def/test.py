@@ -784,7 +784,9 @@ class SegmentAddressTests(unittest.TestCase):
         op = BSIDMemoryReferenceOperand(segment="fs", offset=0x28, size=8)
         back = BSIDMemoryReferenceOperand.from_json(op.to_json())
         self.assertEqual(back.segment, "fs")
-        self.assertEqual(back.address(self._Emu(self._platdef("X86_64"), fsbase=0x2000)), 0x2028)
+        self.assertEqual(
+            back.address(self._Emu(self._platdef("X86_64"), fsbase=0x2000)), 0x2028
+        )
 
         # A payload written before to_json emitted `segment` still loads.
         legacy = {"base": "rsp", "index": None, "scale": 1, "offset": -8, "size": 8}
