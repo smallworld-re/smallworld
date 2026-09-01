@@ -27,10 +27,34 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         self.scale = scale
         self.offset = offset
 
+    def _segment_base_register(
+        self, emulator: emulators.Emulator
+    ) -> typing.Optional[str]:
+        """The register holding this operand's segment base, or None when the
+        operand names no segment or the platform models no base for it.
+
+        `segment` used to be carried but never read, so `fs:[0x28]` resolved to
+        0x28 -- the segment base silently missing from every address computed
+        from a Capstone-produced operand. i386 legitimately has no such
+        register (it models only the 2-byte selectors), and not every Emulator
+        exposes `platdef`, so both cases fall back to omitting the base rather
+        than raising.
+        """
+        if not self.segment:
+            return None
+        platdef = getattr(emulator, "platdef", None)
+        if platdef is None:
+            return None
+        return platdef.segment_base_registers.get(self.segment)
+
     def address(self, emulator: emulators.Emulator) -> int:
         base = 0
         if self.base is not None:
             base = emulator.read_register(self.base)
+
+        segment_reg = self._segment_base_register(emulator)
+        if segment_reg is not None:
+            base += emulator.read_register(segment_reg)
 
         index = 0
         if self.index is not None:
@@ -46,6 +70,10 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if self.base is not None:
             base = emulator.read_register_symbolic(self.base)
 
+        segment_reg = self._segment_base_register(emulator)
+        if segment_reg is not None:
+            base = base + emulator.read_register_symbolic(segment_reg)
+
         index = zero
         if self.index is not None:
             index = emulator.read_register_symbolic(self.index)
@@ -56,6 +84,11 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
 
     def to_json(self) -> dict:
         return {
+            # Dropped here until `segment` started contributing the segment
+            # base to address(): a round-trip through JSON would now silently
+            # move `fs:[0x28]` from fsbase+0x28 back to 0x28 -- the same class
+            # of bug as the `size` note below.
+            "segment": self.segment,
             "base": self.base,
             "index": self.index,
             "scale": self.scale,
@@ -75,8 +108,8 @@ class BSIDMemoryReferenceOperand(MemoryReferenceOperand):
         if any(k not in dict for k in ("base", "index", "scale", "offset")):
             raise ValueError(f"malformed {cls.__name__}: {dict!r}")
 
-        # `size` is optional so payloads written before to_json emitted it
-        # still load; it falls back to MemoryReferenceOperand's default.
+        # `size` and `segment` are optional so payloads written before to_json
+        # emitted them still load; they fall back to the __init__ defaults.
         return cls(**dict)
 
     def expr_string(self) -> str:

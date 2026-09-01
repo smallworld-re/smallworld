@@ -33,6 +33,17 @@ class PlatformDef(metaclass=abc.ABCMeta):
     #: need a running JVM. Empty for platforms where the two agree.
     ghidra_register_aliases: typing.Dict[str, str] = {}
 
+    #: Segment name -> the register holding that segment's base address, for
+    #: platforms that model segmented addressing with a base register rather
+    #: than only a selector. Read by
+    #: :meth:`.BSIDMemoryReferenceOperand.address`, which needs it to resolve
+    #: `fs:[0x28]` to fsbase+0x28 rather than to 0x28, and by the p-code
+    #: use/def naming layer, which uses it to recognize a flattened
+    #: segment-relative reference. Empty where the platform models no segment
+    #: base -- i386 keeps only the 2-byte fs/gs selectors, so a 32-bit
+    #: segment-relative access stays unresolvable until it grows one.
+    segment_base_registers: typing.Dict[str, str] = {}
+
     @property
     @abc.abstractmethod
     def architecture(self) -> Architecture:

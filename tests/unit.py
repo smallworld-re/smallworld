@@ -46,6 +46,7 @@ from pcode_use_def.test import (  # noqa: F401 - registers the TestCases
     PcodeAnalysisRobustnessTests,
     PcodeNamingTests,
     PcodeUseDefDegradationTests,
+    SegmentAddressTests,
     ThumbUseDefBackendTests,
     UseDefBackendSelectionTests,
     UseDefCorpusTests,
