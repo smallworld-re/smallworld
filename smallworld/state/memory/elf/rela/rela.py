@@ -36,6 +36,18 @@ class ElfRelocator:
         val = self._compute_value(rela, elf)
         elf.write_bytes(rela.offset, val)
 
+    def is_tls_descriptor(self, rela: ElfRela) -> bool:
+        """Whether this rela fills in a TLS descriptor { resolver, argument }.
+
+        Relocation types are per-architecture, so only a relocator can answer
+        this; the loader needs it to spot descriptors whose thread-local no
+        loaded module defines. Those are left unrelocated like any other
+        external reference, but unlike a data or function reference an
+        unrelocated descriptor is CALLED -- its null resolver word sends
+        control to address zero. Architectures with no descriptor ABI say no.
+        """
+        return False
+
     @classmethod
     def for_platform(cls, platform: platforms.Platform):
         try:

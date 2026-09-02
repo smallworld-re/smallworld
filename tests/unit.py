@@ -5119,6 +5119,155 @@ class TlsDescFixtureTests(unittest.TestCase):
             )
 
 
+class TlsUndefinedThreadLocalTests(unittest.TestCase):
+    """A thread-local no loaded module defines must not become a call to zero.
+
+    The loader deliberately leaves relocations against undefined symbols for
+    `link_elf`, which is right for data and function references: an
+    unrelocated one reads or calls null and the caller notices. A TLS
+    descriptor is different -- its first word is a resolver that gnu2 code
+    calls INDIRECTLY, so leaving it null transfers control to address zero.
+    Worse, nothing recorded the descriptor, so binding a resolver later could
+    not reach it and no warning mentioned TLS at all: the image loaded clean
+    and jumped to zero.
+    """
+
+    HERE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc")
+    BASE, LIBC, TCB, RET = 0x100000, 0x900000, 0x600000, 0x7FFF0000
+
+    def setUp(self):
+        path = os.path.join(self.HERE, "tlsref.gnu2.amd64.so")
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built (run `make amd64` in tests/)")
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+        self.plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+        self.path = path
+
+    def tearDown(self):
+        FileDescriptorManager._singletons.clear()
+        ProcInfoManager._singleton = None
+
+    def _load(self):
+        # tlsref imports `shared` from tlsdef; loading it ALONE is the case
+        # under test -- the definer is deliberately absent.
+        with open(self.path, "rb") as f:
+            return ElfExecutable(f, platform=self.plat, user_base=self.BASE)
+
+    def _descriptor(self, elf, address):
+        raw = elf.read_bytes(address, 16)
+        return int.from_bytes(raw[:8], "little"), int.from_bytes(raw[8:], "little")
+
+    def test_descriptor_is_recorded_without_a_definer(self):
+        elf = self._load()
+        self.assertTrue(
+            elf.tlsdesc_descriptors,
+            "descriptor for an undefined thread-local was never recorded",
+        )
+
+    def test_resolver_is_bound_so_the_call_is_not_to_zero(self):
+        elf = self._load()
+        libc = POSIXLibc(self.LIBC, self.plat, platforms.ABI.SYSTEMV)
+        libc.link(elf)
+        model = libc.models["__tlsdesc_resolve"]
+        for d in elf.tlsdesc_descriptors:
+            resolver, _ = self._descriptor(elf, d)
+            self.assertEqual(resolver, model._address)
+            self.assertNotEqual(resolver, 0, "descriptor still calls address zero")
+
+    def test_warns_naming_the_unresolved_thread_local(self):
+        # Silence would be the worst outcome: the access is bounded but wrong,
+        # and nothing else in the run says the word TLS.
+        with self.assertLogs("smallworld.state.memory.elf.elf", "WARNING") as caught:
+            self._load()
+        self.assertTrue(
+            any("shared" in line for line in caught.output),
+            f"warning does not name the unresolved thread-local: {caught.output}",
+        )
+
+    def test_reaches_the_resolver_instead_of_faulting(self):
+        # The point of all of the above: execute the descriptor call. Before,
+        # this jumped to address 0.
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(self.plat)
+        elf = self._load()
+        libc = POSIXLibc(self.LIBC, self.plat, platforms.ABI.SYSTEMV)
+        libc.link(elf)
+        machine.add(elf)
+        machine.add(libc)
+        machine.add(cpu)
+        stack = state.memory.stack.Stack.for_platform(self.plat, 0x7FF00000, 0x10000)
+        stack.push_integer(self.RET, 8, "return address")
+        machine.add(stack)
+        machine.add(state.memory.Memory(self.TCB, 0x1000))
+        fn = elf._syms_by_name["readshared"][0]
+        cpu.rip.set(fn.value + fn.baseaddr)
+        cpu.rsp.set(stack.get_pointer())
+        cpu.fsbase.set(self.TCB)
+        machine.add_exit_point(self.RET)
+        emu = emulators.UnicornEmulator(self.plat)
+        machine.emulate(emu)
+        # The block offset is unknown, so the value is whatever the shared
+        # slot holds (zero) -- but it RAN, which is the whole point.
+        self.assertEqual(emu.read_register("eax"), 0)
+
+
+class MachineApplyOrderTests(unittest.TestCase):
+    """A Machine applies its CPUs before anything else.
+
+    Machine is a StatefulSet, so iteration order follows a set -- arbitrary,
+    and different between processes. Anything whose apply() READS a register
+    therefore used to see it or not depending on where the CPU happened to
+    land, which is how a TLS execution test passed on its own and failed in
+    the full suite: the resolver installs the TCB self-pointer from the
+    thread-pointer register at apply time.
+
+    Insertion order cannot force the bad case (set order comes from hashes),
+    so this uses many probes: without the guarantee, some land before the CPU.
+    """
+
+    PROBES = 50
+    SENTINEL = 0x1234
+
+    class _RegisterProbe(state.Stateful):
+        """Records what a register held when this member was applied."""
+
+        def __init__(self):
+            self.seen = None
+
+        def apply(self, emulator):
+            self.seen = emulator.read_register("rax")
+
+        def extract(self, emulator):
+            pass
+
+    def test_cpu_applies_before_other_members(self):
+        plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+        machine = state.Machine()
+        probes = [self._RegisterProbe() for _ in range(self.PROBES)]
+        for probe in probes:
+            machine.add(probe)
+        cpu = state.cpus.CPU.for_platform(plat)
+        cpu.rax.set(self.SENTINEL)
+        machine.add(cpu)
+
+        machine.apply(emulators.UnicornEmulator(plat))
+
+        late = sum(1 for p in probes if p.seen != self.SENTINEL)
+        self.assertEqual(
+            late,
+            0,
+            f"{late}/{self.PROBES} members were applied before the CPU, so a "
+            f"member that reads a register sees a stale value",
+        )
+
+
 class TlsCrossModuleTests(unittest.TestCase):
     """A thread-local resolved from another module keeps its block offset.
 

@@ -1,3 +1,4 @@
+import itertools
 import logging
 import typing
 
@@ -1026,6 +1027,50 @@ class ElfExecutable(Executable):
             for sym in self._dynamic_symbols[1:]:
                 if SHN_UNDEF < sym.shndx < SHN_LORESERVE:
                     self.update_symbol_value(sym, sym.value, rebase=False)
+
+        self._relocate_undefined_tls_descriptors()
+
+    def _relocate_undefined_tls_descriptors(self) -> None:
+        """Relocate and record TLS descriptors whose thread-local is external.
+
+        The loops above deliberately skip undefined symbols: a real loader
+        resolves those against another module, which is `link_elf`'s job. That
+        is right for a data or function reference -- an unrelocated one just
+        reads or calls null, and the caller notices.
+
+        A TLS descriptor is different. Its first word is a resolver that gnu2
+        code CALLS indirectly, so leaving it null does not produce a bad value
+        somewhere; it transfers control to address zero. And because nothing
+        ever recorded the descriptor, `bind_tlsdesc_resolver` did not know to
+        fill it in even once a model library was linked, and no warning
+        mentioned TLS at all. An image referencing an `extern __thread`
+        variable no module defines therefore loaded clean and jumped to zero.
+
+        Relocating them here writes the addend-derived argument and enrolls
+        them for binding, so the call reaches the resolver model instead. The
+        thread-local's true block offset is still unknown -- every such access
+        aliases onto the same storage -- so this warns rather than pretending
+        to have resolved it. If a definer IS linked later, `link_elf` calls
+        `update_symbol_value`, which re-relocates and writes the real offset.
+        """
+        if self._relocator is None:
+            return
+        unresolved: typing.Dict[str, int] = dict()
+        for rela in itertools.chain(self._dynamic_relas, self._static_relas):
+            if rela.symbol.defined or not self._relocator.is_tls_descriptor(rela):
+                continue
+            self._relocator.relocate(self, rela)
+            name = rela.symbol.name or f"<symbol {rela.symbol.idx}>"
+            unresolved[name] = unresolved.get(name, 0) + 1
+        if unresolved:
+            listed = ", ".join(sorted(unresolved))
+            log.warning(
+                f"{sum(unresolved.values())} TLS descriptor(s) reference "
+                f"thread-locals no loaded module defines ({listed}). They are "
+                f"bound to the resolver so they no longer call address zero, "
+                f"but their block offsets are unknown and all such accesses "
+                f"share one slot. Load the defining module to resolve them."
+            )
 
     def _get_symbols(
         self, name: typing.Union[str, int], dynamic: bool

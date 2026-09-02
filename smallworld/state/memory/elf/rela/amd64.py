@@ -102,6 +102,9 @@ class AMD64ElfRelocator(ElfRelocator):
             f"{detail}, which is not available to AMD64ElfRelocator._compute_value()"
         )
 
+    def is_tls_descriptor(self, rela: ElfRela) -> bool:
+        return rela.type == R_X86_64_TLSDESC
+
     def _compute_value(self, rela: ElfRela, elf):
         symval = self._symbol_value(rela)
 

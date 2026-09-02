@@ -585,6 +585,27 @@ class TlsDescResolve(CStdModel):
     #: Register holding the thread pointer the returned offset is relative to.
     thread_pointer_register: str = ""
 
+    def apply(self, emulator: emulators.Emulator) -> None:
+        super().apply(emulator)
+        # Install the TCB self-pointer BEFORE any code runs. gcc hoists the
+        # `mov %fs:0x0,%rdx` that reads it above the descriptor call -- often
+        # to the top of the function -- so a resolver that only writes it
+        # during the call writes it after the value has already been read.
+        # That read then yields zero and the access lands at
+        # `arena - thread_pointer` instead of on the arena.
+        try:
+            thread_pointer = emulator.read_register(self.thread_pointer_register)
+        except Exception:
+            return
+        if thread_pointer:
+            # A harness that maps its own TCB may not have been applied yet --
+            # apply order is the caller's, not ours -- so make sure the word
+            # exists before writing it. map_memory only fills gaps, so this
+            # neither disturbs an already-mapped TCB nor stops one being added
+            # later.
+            emulator.map_memory(thread_pointer, self.platdef.address_size)
+        self._ensure_tcb_self_pointer(emulator, thread_pointer)
+
     def model(self, emulator: emulators.Emulator) -> None:
         super().model(emulator)
         if self.tls_arena_address is None or self.tls_arena_size <= 0:
