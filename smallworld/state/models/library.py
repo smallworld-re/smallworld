@@ -139,6 +139,12 @@ class ElfModelLibrary(Memory):
         # relocation above can reach them; they are relocated at load with a
         # null resolver and bound here, which is the first point at which the
         # model has an address.
+        # Seed thread-local storage from the image's PT_TLS initialization
+        # data. The models hand out storage but have no way to reach the ELF;
+        # this is the one place that holds both, and without it every
+        # thread-local reads zero instead of the value it was declared with.
+        self._seed_tls_image(elf)
+
         tlsdesc = self.models.get("__tlsdesc_resolve")
         if tlsdesc is not None:
             elf.bind_tlsdesc_resolver(tlsdesc._address)
@@ -150,6 +156,28 @@ class ElfModelLibrary(Memory):
                 f"but this library provides no __tlsdesc_resolve model; "
                 f"thread-local accesses will call address zero"
             )
+
+    def _seed_tls_image(self, elf: ElfExecutable) -> None:
+        """Copy the image's PT_TLS initialization data into each TLS model's
+        storage, at the offset that model says the image belongs."""
+        image = elf.tls_image
+        if not image:
+            return
+        for model in self.models.values():
+            offset = getattr(model, "tls_image_offset", None)
+            if offset is None or model.static_buffer_address is None:
+                continue
+            room = model.static_space_required - offset
+            if room <= 0:
+                continue
+            if len(image) > room:
+                log.warning(
+                    f"{model.name}: TLS image is {len(image):#x} bytes but only "
+                    f"{room:#x} fit; thread-locals past the end read zero"
+                )
+            chunk = image[:room]
+            base = model.static_buffer_address - self.address + offset
+            self[base] = BytesValue(chunk, None)
 
     def apply(self, emulator: Emulator) -> None:
         super().apply(emulator)

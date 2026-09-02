@@ -184,6 +184,12 @@ class ElfExecutable(Executable):
         # resolver yet -- and filled in by bind_tlsdesc_resolver once a model
         # library is linked. See AMD64ElfRelocator's R_X86_64_TLSDESC case.
         self._tlsdesc_descriptors: typing.List[int] = list()
+        # PT_TLS: the module's thread-local initialization image, its full
+        # size including .tbss, and its required alignment. Empty when the
+        # image declares no thread-locals.
+        self._tls_image: bytes = b""
+        self._tls_size: int = 0
+        self._tls_align: int = 1
         # Resolver address the descriptors above should carry. Null until a
         # model library is linked; remembered so that a descriptor relocated
         # later -- or re-relocated, which happens whenever a symbol's value is
@@ -553,9 +559,19 @@ class ElfExecutable(Executable):
                 # Useful for the dynamic linker, but not for us
                 pass
             elif phdr_type == PT_TLS:
-                # TLS Segment
-                # Your analysis is about to get nasty :(
-                log.debug("Program includes thread-local storage")
+                # The initialization image for this module's thread-locals:
+                # `filesz` bytes of initialized data followed by `memsz -
+                # filesz` zero bytes (.tbss). A TLS symbol's st_value is an
+                # offset into this block, so whoever hands out thread-local
+                # storage can seed it from here -- without which every
+                # thread-local reads zero instead of its initializer.
+                self._tls_image = bytes(phdr.content)[: phdr.physical_size]
+                self._tls_size = int(phdr.virtual_size)
+                self._tls_align = max(1, int(phdr.alignment))
+                log.debug(
+                    f"Program includes thread-local storage: "
+                    f"{len(self._tls_image):#x} init bytes of {self._tls_size:#x}"
+                )
             elif phdr_type == PT_GNU_EH_FRAME:
                 # Exception handler frame.
                 # GCC puts one of these in everything.  Do we care?
@@ -1133,6 +1149,14 @@ class ElfExecutable(Executable):
     def tlsdesc_descriptors(self) -> typing.List[int]:
         """Addresses of the TLS descriptors this image carries."""
         return list(self._tlsdesc_descriptors)
+
+    @property
+    def tls_image(self) -> bytes:
+        """The module's thread-local initialization image, zero-extended to
+        its full size (`memsz`), or empty if it declares no thread-locals."""
+        if not self._tls_size:
+            return b""
+        return self._tls_image.ljust(self._tls_size, b"\x00")
 
     def note_tlsdesc_descriptor(self, address: int) -> int:
         """Record a TLS descriptor and hand back the resolver it should carry.

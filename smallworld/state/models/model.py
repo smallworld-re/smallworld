@@ -153,6 +153,9 @@ class Model(Hook):
         pass
 
     static_space_required: int = 0
+    #: Offset into this model's static buffer where a module's PT_TLS
+    #: initialization image belongs, or None if the model wants no image.
+    tls_image_offset: typing.Optional[int] = None
 
     @classmethod
     def lookup(

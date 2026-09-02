@@ -87,6 +87,15 @@ class AMD64ElfRelocator(ElfRelocator):
         mask = (1 << (size * 8)) - 1
         return (value & mask).to_bytes(size, self.byteorder.value)
 
+    def _tls_block_offset(self, rela: ElfRela, elf, size: int) -> int:
+        """A TLS symbol's offset within its module's TLS block.
+
+        Deliberately not `_symbol_value`: a TLS symbol's st_value is already an
+        offset into the block, so adding the load base would turn it into an
+        address and collapse the distinction between adjacent thread-locals.
+        """
+        return rela.symbol.value + self._get_addend(rela, elf, size)
+
     def _missing_context(self, rela: ElfRela, detail: str) -> None:
         raise ConfigurationError(
             f"Relocation {hex(rela.type)} for {self._symbol_name(rela)} requires "
@@ -144,8 +153,7 @@ class AMD64ElfRelocator(ElfRelocator):
             # otherwise-ordinary TLS-using shared objects.)
             return self._pack(1, 8)
         elif rela.type == R_X86_64_DTPOFF64:
-            # Dynamic TLS offsets depend on the module's TLS block layout.
-            self._missing_context(rela, "the symbol's offset within its TLS block")
+            return self._pack(self._tls_block_offset(rela, elf, 8), 8)
         elif rela.type == R_X86_64_TPOFF64:
             # Initial-exec/local-exec TLS offsets are relative to the thread pointer.
             self._missing_context(
@@ -158,8 +166,7 @@ class AMD64ElfRelocator(ElfRelocator):
             # Local-dynamic TLS uses a two-entry GOT descriptor for the module.
             self._missing_context(rela, "the TLS LD descriptor's GOT entry addresses")
         elif rela.type == R_X86_64_DTPOFF32:
-            # Dynamic TLS offsets depend on the module's TLS block layout.
-            self._missing_context(rela, "the symbol's offset within its TLS block")
+            return self._pack(self._tls_block_offset(rela, elf, 4), 4)
         elif rela.type == R_X86_64_GOTTPOFF:
             # Initial-exec TLS references a GOT slot holding the thread offset.
             self._missing_context(

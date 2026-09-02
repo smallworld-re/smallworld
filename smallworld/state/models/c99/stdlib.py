@@ -485,6 +485,11 @@ class TlsGetAddr(CStdModel):
 
     TLS_ARENA_SIZE = 0x1000  # bytes of scratch per module arena
     TLS_MAX_MODULES = 8  # distinct module arenas (extra modules alias in via %)
+    #: Where a module's PT_TLS initialization image belongs in the pool. The
+    #: relocator reports every module as id 1 (see R_X86_64_DTPMOD64), so the
+    #: image seeds that module's arena; without it every thread-local reads
+    #: zero rather than its initializer.
+    tls_image_offset = TLS_ARENA_SIZE * (1 % 8)
     _TLS_HEADROOM = 0x40  # keep a wide access from a near-arena-end offset in-bounds
     # Reserved once by the library, which sets self.static_buffer_address and maps
     # the (zeroed) region; sized to hold the whole arena pool.
@@ -559,6 +564,9 @@ class TlsDescResolve(CStdModel):
     TLS_POOL_SIZE = 0x8000  # bytes of scratch shared by all thread-locals
     _TLS_HEADROOM = 0x40  # keep a wide access from a near-pool-end offset in-bounds
     static_space_required = TLS_POOL_SIZE
+    #: The pool is indexed directly by a thread-local's block offset, so a
+    #: module's PT_TLS initialization image seeds it from the start.
+    tls_image_offset = 0
 
     #: Register holding the descriptor address on entry and the offset on exit.
     descriptor_register: str = ""
@@ -592,11 +600,48 @@ class TlsDescResolve(CStdModel):
             # arena address itself, which is what happens on every backend when
             # nothing has set one.
             thread_pointer = 0
+        self._ensure_tcb_self_pointer(emulator, thread_pointer)
         # Wraps for a thread pointer above the arena, which is the normal
         # variant-II layout: the caller's add wraps back to the same address.
         emulator.write_register(
             self.descriptor_register, (addr - thread_pointer) & self._long_inv_mask
         )
+
+    def _ensure_tcb_self_pointer(
+        self, emulator: emulators.Emulator, thread_pointer: int
+    ) -> None:
+        """Make the word at the thread pointer point at the thread pointer.
+
+        gcc finishes a descriptor call in one of two ways, and emits both --
+        sometimes within one function:
+
+            add %fs_base, %rax          # thread-pointer REGISTER
+            mov %fs:0x0,%rdx; add %rdx  # the word AT the thread pointer
+
+        Real glibc keeps a TCB whose first word points at itself, which is
+        what makes the two agree. Nothing else in the harness sets one up, so
+        the second form would otherwise add zero (or whatever happens to be
+        there) and send the access somewhere unrelated -- silently, since a
+        wrong address is still a valid one. Writing the self-pointer here
+        costs one word and makes both forms land on the same storage.
+
+        Best effort: a thread pointer of zero, or one whose page is not
+        mapped, leaves it alone rather than failing the access.
+        """
+        if not thread_pointer:
+            return
+        size = self.platdef.address_size
+        try:
+            if self.read_integer(thread_pointer, ArgumentType.POINTER, emulator) == (
+                thread_pointer
+            ):
+                return
+            emulator.write_memory(
+                thread_pointer,
+                thread_pointer.to_bytes(size, self.platdef.byteorder.value),
+            )
+        except Exception as e:
+            logger.debug(f"could not install a TCB self-pointer: {e!r}")
 
 
 class Mblen(CStdModel):

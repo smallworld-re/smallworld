@@ -263,7 +263,7 @@ C_OBJ_SRCS := $(wildcard */*.o.c) $(wildcard */*/*.o.c)
 C_ELF_SRCS := $(wildcard */*.elf.c) $(wildcard */*/*.elf.c)
 # Excludes the gnu2 sources below: they build through their own rule, with an
 # extra flag, and would otherwise match this pattern too.
-C_SO_SRCS := $(filter-out %.gnu2.so.c,$(wildcard */*.so.c) $(wildcard */*/*.so.c))
+C_SO_SRCS := $(filter-out %.gnu2.so.c %.gnu.so.c,$(wildcard */*.so.c) $(wildcard */*/*.so.c))
 
 # TLS-descriptor shared objects. Built only for the architectures whose
 # relocator and models understand TLS descriptors -- amd64 today; i386 emits
@@ -273,6 +273,11 @@ C_SO_SRCS := $(filter-out %.gnu2.so.c,$(wildcard */*.so.c) $(wildcard */*/*.so.c
 # default, which differs by toolchain version: a fixture that quietly stopped
 # emitting R_X86_64_TLSDESC would keep passing while testing nothing.
 C_GNU2_SO_SRCS := $(wildcard */*.gnu2.so.c) $(wildcard */*/*.gnu2.so.c)
+# The classic (general-dynamic) dialect, which reaches a thread-local through
+# __tls_get_addr. Recent gcc defaults to gnu2, so this too must be asked for
+# explicitly to be sure what the fixture contains.
+C_GNU_SO_SRCS := $(wildcard */*.gnu.so.c) $(wildcard */*/*.gnu.so.c)
+AMD64_GNU_CFLAGS := -mtls-dialect=gnu
 AMD64_GNU2_CFLAGS := -mtls-dialect=gnu2
 
 define C_ELF_TEMPLATE
@@ -296,6 +301,16 @@ $(1)_C_GNU2_SOS := $$(if $$($(1)_GNU2_CFLAGS),$$(patsubst %.gnu2.so.c,%.gnu2.$$(
 %.gnu2.$$($(1)_EXT).so : %.gnu2.so.c
 	$$(if $$($(1)_GNU2_CFLAGS),,$$(error no TLS-descriptor dialect flag for $(1); refusing to build $$@))
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU2_CFLAGS) -fPIC -shared -o $$@ $$<
+
+$(1)_C_GNU_SOS := $$(if $$($(1)_GNU_CFLAGS),$$(patsubst %.gnu.so.c,%.gnu.$$($(1)_EXT).so,$$(C_GNU_SO_SRCS)))
+
+# Refuse rather than silently drop the dialect flag: this rule also wins (by
+# shortest stem) over the generic %.so rule for an explicitly named target on
+# an architecture with no flag, and a fixture built without it would keep
+# passing while testing nothing.
+%.gnu.$$($(1)_EXT).so : %.gnu.so.c
+	$$(if $$($(1)_GNU_CFLAGS),,$$(error no general-dynamic dialect flag for $(1); refusing to build $$@))
+	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_GNU_CFLAGS) -fPIC -shared -o $$@ $$<
 
 %.$$($(1)_EXT).elf : %.elf.c
 	$$($(1)_CC) $$(GENERAL_CFLAGS) $$($(1)_CFLAGS) $$($(1)_ELF_CFLAGS) -o $$@ $$<
@@ -331,7 +346,7 @@ define GENERAL_TEMPLATE
 $(1)_TARGET := $$(call lc,$(1))
 
 .PHONY : $$($(1)_TARGET)
-$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
+$$($(1)_TARGET) : $$($(1)_ASM_BINS) $$($(1)_ASM_ELFS) $$($(1)_C_ELFS) $$($(1)_C_OBJS) $$($(1)_C_SOS) $$($(1)_C_GNU2_SOS) $$($(1)_C_GNU_SOS) $$($(1)_C_DLLS) $$($(1)_C_PES) 
 
 .PHONY : $$($(1)_TARGET)-clean
 $$($(1)_TARGET)-clean :

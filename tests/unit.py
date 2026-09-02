@@ -5045,6 +5045,67 @@ class TlsDescFixtureTests(unittest.TestCase):
             )
 
 
+class TlsEndToEndTests(unittest.TestCase):
+    """Emulate a real thread-local access and check the VALUE.
+
+    Everything else in these TLS tests checks a relocation, an address or a
+    binding. This one runs the code: `bump(n)` does `first += n; return first
+    + second` over `__thread int first = 7; __thread long second = 11`, so a
+    correct answer requires the whole chain -- the image loads, the resolver
+    hands out storage, the thread pointer resolves, AND the storage was seeded
+    from PT_TLS. Zeroed storage silently returns n instead of n + 18, which is
+    exactly what this used to do.
+
+    Both dialects, because they reach thread-locals by completely different
+    routes: gnu2 through a TLS descriptor and a thread pointer, gnu through
+    __tls_get_addr, which returns an address and needs no thread pointer.
+    """
+
+    BASE, LIBC, TCB, RET = 0x100000, 0x900000, 0x600000, 0x7FFF0000
+
+    def _run(self, name):
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tlsdesc", name)
+        if not os.path.exists(path):
+            self.skipTest(f"{path} not built (run `make amd64` in tests/)")
+        plat = platforms.Platform(
+            architecture=platforms.Architecture.X86_64,
+            byteorder=platforms.Byteorder.LITTLE,
+        )
+        machine = state.Machine()
+        cpu = state.cpus.CPU.for_platform(plat)
+        with open(path, "rb") as f:
+            elf = ElfExecutable(f, platform=plat, user_base=self.BASE)
+        libc = POSIXLibc(self.LIBC, plat, platforms.ABI.SYSTEMV)
+        libc.link(elf)
+        machine.add(elf)
+        machine.add(libc)
+        machine.add(cpu)
+
+        stack = state.memory.stack.Stack.for_platform(plat, 0x7FF00000, 0x10000)
+        stack.push_integer(self.RET, 8, "return address")
+        machine.add(stack)
+        # Standing in for the TCB glibc would allocate. Left zeroed on purpose:
+        # the model is responsible for making the self-pointer consistent.
+        machine.add(state.memory.Memory(self.TCB, 0x1000))
+
+        bump = elf._syms_by_name["bump"][0]
+        cpu.rip.set(bump.value + bump.baseaddr)
+        cpu.rsp.set(stack.get_pointer())
+        cpu.edi.set(5)
+        cpu.fsbase.set(self.TCB)
+        machine.add_exit_point(self.RET)
+
+        emu = emulators.UnicornEmulator(plat)
+        machine.emulate(emu)
+        return emu.read_register("eax")
+
+    def test_gnu2_dialect_reads_its_initializers(self):
+        self.assertEqual(self._run("tlsdesc.gnu2.amd64.so"), 23)
+
+    def test_gnu_dialect_reads_its_initializers(self):
+        self.assertEqual(self._run("tlsdesc.gnu.amd64.so"), 23)
+
+
 class TlsDescResolveModelTests(ModelTestCase):
     """c99/stdlib.py TlsDescResolve: the gnu2 TLS-descriptor resolver.
 
